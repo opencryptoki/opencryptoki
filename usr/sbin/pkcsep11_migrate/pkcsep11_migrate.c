@@ -13,6 +13,7 @@
  * keys.
  */
 
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,11 +25,11 @@
 #include <ep11adm.h>
 #include <p11util.h>
 #include <ctype.h>
+#include <termios.h>
+#include <errno.h>
 
 #define EP11SHAREDLIB "libep11.so"
 #define PKCS11_MAX_PIN_LEN	128
-#define PKCS11_SO_PIN_ENV_VAR   "PKCS11_SO_PIN"
-#define PKCS11_USER_PIN_ENV_VAR "PKCS11_USER_PIN"
 
 CK_FUNCTION_LIST  *funcs;
 CK_SLOT_ID  SLOT_ID = -1;
@@ -206,26 +207,86 @@ check_card_status()
 }
 
 
+int get_pin(char **pin, size_t *pinlen)
+{
+    struct termios old, new;
+    int nread;
+    char *buff = NULL;
+    size_t buflen;
+    int rc = 0;
+
+    /* turn echoing off */
+    if (tcgetattr(fileno(stdin), &old) != 0)
+    return -1;
+
+    new = old;
+    new.c_lflag &= ~ECHO;
+    if (tcsetattr (fileno(stdin), TCSAFLUSH, &new) != 0)
+        return -1;
+
+    /* read the pin
+    * Note: getline will allocate memory for buff. free it when done.
+    */
+    nread = getline(&buff, &buflen, stdin);
+    if (nread == -1) {
+        rc = -1;
+        goto done;
+    }
+
+    /* Restore terminal */
+    tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+
+    /* start a newline */
+    printf("\n");
+    fflush(stdout);
+
+    /* Allocate  PIN.
+     * Note: nread includes carriage return.
+     * Replace with terminating NULL.
+     */
+    *pin = (unsigned char *)malloc(nread);
+    if (*pin == NULL) {
+        rc = -ENOMEM;
+        goto done;
+    }
+
+    /* strip the carriage return since not part of pin. */
+    buff[nread - 1] = '\0';
+    memcpy(*pin, buff, nread);
+    /* don't include the terminating null in the pinlen */
+    *pinlen = nread - 1;
+
+done:
+    if (buff)
+        free(buff);
+
+    return rc;
+}
+
 static int get_user_pin(CK_BYTE *dest)
 {
-  char *val;
+    int ret;
+    char *userpin = NULL;
+    size_t userpinlen;
 
-  val = getenv(PKCS11_USER_PIN_ENV_VAR);
-  if (val == NULL) {
-    fprintf(stderr, "The environment variable %s must be set.\n"
-            , PKCS11_USER_PIN_ENV_VAR);
-    return -1;
-  }
+    printf("Enter the USER PIN: ");
+    fflush(stdout);
+    ret = get_pin(&userpin, &userpinlen);
+    if (ret != 0) {
+        fprintf(stderr, "Could not get USER PIN.\n");
+        return -1;
+    }
 
-  if ((strlen(val) + 1) > PKCS11_MAX_PIN_LEN) {
-    fprintf(stderr, "The environment variable %s must hold a "
-            "value less than %d chars in length.\n",
-            PKCS11_USER_PIN_ENV_VAR, (int)PKCS11_MAX_PIN_LEN);
-    return -1;
-  }
+    if (userpinlen > PKCS11_MAX_PIN_LEN) {
+        fprintf(stderr, "The USER PIN must be less than %d chars in length.\n",
+                (int)PKCS11_MAX_PIN_LEN);
+        free(userpin);
+        return -1;
+    }
 
-  memcpy(dest, val, strlen(val) + 1);
-  return 0;
+    memcpy(dest, userpin, userpinlen+1);
+    free(userpin);
+    return 0;
 }
 
 static int
@@ -335,7 +396,7 @@ int main  (int argc, char **argv){
   int obj;
   void *lib_ep11;
   CK_C_INITIALIZE_ARGS cinit_args;
-  CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+  CK_BYTE user_pin[PKCS11_MAX_PIN_LEN+1];
   CK_FLAGS flags;
   CK_SESSION_HANDLE session;
   CK_ULONG     user_pin_len;

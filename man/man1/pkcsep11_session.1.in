@@ -19,9 +19,6 @@ logging out or closing the PKCS#11 session, then the corresponding EP11-session
 is also not destroyed. The pkcep11_session tool can be used to display
 and logout left-over EP11-sessions. 
 .br
-Before using this tool make sure you've set the environment variable  
-PKCS11_USER_PIN with the correct User PIN.  
-
 .SH "COMMAND SUMMARY"
 .IP "\fBshow\fP" 10
 displays all left-over EP11-sessions. Use -session-ID, -pid or -date
@@ -31,7 +28,6 @@ logs out all left-over EP11-sessions. Use -session-ID, -pid or -date
 options to filter the to be logged out sessions.
 .IP "\fBvhsmpin\fP" 10
 Sets the VHSM pin used for the VHSM_MODE (virtual HSM). The VHSM pin
-must be supplied using environment variable EP11_VHSM_PIN. The VHSM pin
 must be between 8 and 16 characters in length.
 .br
 \fBNote:\fP When changing the VHSM pin, all existing keys stored as

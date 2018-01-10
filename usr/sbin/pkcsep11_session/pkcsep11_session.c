@@ -11,6 +11,7 @@
 /* Management tool for EP11 sessions.
  */
 
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,12 +29,11 @@
 #include <regex.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <termios.h>
+#include <errno.h>
 
 #define EP11SHAREDLIB "libep11.so"
 #define PKCS11_MAX_PIN_LEN	128
-#define PKCS11_SO_PIN_ENV_VAR   "PKCS11_SO_PIN"
-#define PKCS11_USER_PIN_ENV_VAR "PKCS11_USER_PIN"
-#define EP11_VHSM_PIN_ENV_VAR   "EP11_VHSM_PIN"
 
 #define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
 #define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
@@ -92,53 +92,117 @@ CK_RV error = CKR_OK;
 #define ACTION_LOGOUT   2
 #define ACTION_VHSMPIN  3
 
+int get_pin(char **pin, size_t *pinlen)
+{
+    struct termios old, new;
+    int nread;
+    char *buff = NULL;
+    size_t buflen;
+    int rc = 0;
+
+    /* turn echoing off */
+    if (tcgetattr(fileno(stdin), &old) != 0)
+    return -1;
+
+    new = old;
+    new.c_lflag &= ~ECHO;
+    if (tcsetattr (fileno(stdin), TCSAFLUSH, &new) != 0)
+        return -1;
+
+    /* read the pin
+    * Note: getline will allocate memory for buff. free it when done.
+    */
+    nread = getline(&buff, &buflen, stdin);
+    if (nread == -1) {
+        rc = -1;
+        goto done;
+    }
+
+    /* Restore terminal */
+    tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+
+    /* start a newline */
+    printf("\n");
+    fflush(stdout);
+
+    /* Allocate  PIN.
+     * Note: nread includes carriage return.
+     * Replace with terminating NULL.
+     */
+    *pin = (unsigned char *)malloc(nread);
+    if (*pin == NULL) {
+        rc = -ENOMEM;
+        goto done;
+    }
+
+    /* strip the carriage return since not part of pin. */
+    buff[nread - 1] = '\0';
+    memcpy(*pin, buff, nread);
+    /* don't include the terminating null in the pinlen */
+    *pinlen = nread - 1;
+
+done:
+    if (buff)
+        free(buff);
+
+    return rc;
+}
+
 static int get_user_pin(CK_BYTE *dest)
 {
-    char *val;
+    int ret;
+    char *userpin = NULL;
+    size_t userpinlen;
 
-    val = getenv(PKCS11_USER_PIN_ENV_VAR);
-    if (val == NULL) {
-        fprintf(stderr, "The environment variable %s must be set.\n",
-                PKCS11_USER_PIN_ENV_VAR);
+    printf("Enter the USER PIN: ");
+    fflush(stdout);
+    ret = get_pin(&userpin, &userpinlen);
+    if (ret != 0) {
+        fprintf(stderr, "Could not get USER PIN.\n");
         return -1;
     }
 
-    if ((strlen(val) + 1) > PKCS11_MAX_PIN_LEN) {
-        fprintf(stderr, "The environment variable %s must hold a "
-                "value less than %d chars in length.\n",
-                PKCS11_USER_PIN_ENV_VAR, (int)PKCS11_MAX_PIN_LEN);
+    if (userpinlen > PKCS11_MAX_PIN_LEN) {
+        fprintf(stderr, "The USER PIN must be less than %d chars in length.\n",
+                (int)PKCS11_MAX_PIN_LEN);
+        free(userpin);
         return -1;
     }
 
-    memcpy(dest, val, strlen(val) + 1);
+    memcpy(dest, userpin, userpinlen+1);
+    free(userpin);
     return 0;
 }
 
 static int get_vhsm_pin(CK_BYTE *dest)
 {
-    char *val;
+    int ret;
+    char *vhsmpin = NULL;
+    size_t vhsmpinlen;
 
-    val = getenv(EP11_VHSM_PIN_ENV_VAR);
-    if (val == NULL) {
-        fprintf(stderr, "The environment variable %s must be set.\n",
-                EP11_VHSM_PIN_ENV_VAR);
+    printf("Enter the new VHSM PIN: ");
+    fflush(stdout);
+    ret = get_pin(&vhsmpin, &vhsmpinlen);
+    if (ret != 0) {
+        fprintf(stderr, "Could not get VHSM PIN.\n");
         return -1;
     }
 
-    if ((strlen(val) + 1) < XCP_MIN_PINBYTES) {
-        fprintf(stderr, "The environment variable %s must hold a "
-                "value of minimum %d chars in length.\n",
-                EP11_VHSM_PIN_ENV_VAR, (int)XCP_MIN_PINBYTES);
+    if (vhsmpinlen < XCP_MIN_PINBYTES) {
+        fprintf(stderr, "The VHSM PIN must be at least %d chars in length.\n",
+                (int)XCP_MIN_PINBYTES);
+        free(vhsmpin);
         return -1;
     }
-    if ((strlen(val) + 1) > XCP_MAX_PINBYTES) {
-        fprintf(stderr, "The environment variable %s must hold a "
-                "value of maximum %d chars in length.\n",
-                EP11_VHSM_PIN_ENV_VAR, (int)XCP_MAX_PINBYTES);
+    if (vhsmpinlen > XCP_MAX_PINBYTES) {
+        fprintf(stderr, "The VHSM PIN must be less than %d chars in length.\n",
+                (int)XCP_MAX_PINBYTES);
+        free(vhsmpin);
         return -1;
     }
 
-    memcpy(dest, val, strlen(val) + 1);
+    memcpy(dest, vhsmpin, vhsmpinlen+1);
+    free(vhsmpin);
     return 0;
 }
 
@@ -786,7 +850,7 @@ out:
 static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
 {
     CK_RV rc;
-    CK_BYTE     vhsm_pin[XCP_MAX_PINBYTES];
+    CK_BYTE     vhsm_pin[XCP_MAX_PINBYTES+1];
     CK_OBJECT_HANDLE obj = CK_INVALID_HANDLE;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
@@ -840,7 +904,7 @@ int main(int argc, char **argv)
     int rc;
     void *lib_ep11;
     CK_C_INITIALIZE_ARGS cinit_args;
-    CK_BYTE     user_pin[PKCS11_MAX_PIN_LEN];
+    CK_BYTE     user_pin[PKCS11_MAX_PIN_LEN+1];
     CK_FLAGS    flags;
     CK_SESSION_HANDLE session;
     CK_ULONG    user_pin_len;
