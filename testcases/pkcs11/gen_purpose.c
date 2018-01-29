@@ -141,7 +141,7 @@ CK_RV do_GetSlotInfo(void)
 	/* Test for invalid slot */
 	testcase_new_assertion();
 
-	rc = funcs->C_GetSlotInfo(999, &info);
+	rc = funcs->C_GetSlotInfo(9999, &info);
 
 	if (rc != CKR_SLOT_ID_INVALID) {
 		testcase_fail("C_GetSlotInfo returned %s instead of"
@@ -188,7 +188,7 @@ CK_RV do_GetTokenInfo(void)
 	/* Test with an invalid slot id */
 	testcase_new_assertion();
 
-	rc = funcs->C_GetTokenInfo(999, &info);
+	rc = funcs->C_GetTokenInfo(9999, &info);
 	if (rc != CKR_SLOT_ID_INVALID) {
 		testcase_fail("C_GetTokenInfo() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -258,7 +258,7 @@ CK_RV do_GetMechanismList(void)
 	/* Test for invalid slot */
 	testcase_new_assertion();
 
-	rc = funcs->C_GetMechanismList(999, NULL, &count);
+	rc = funcs->C_GetMechanismList(9999, NULL, &count);
 
 	if (rc != CKR_SLOT_ID_INVALID) {
 		testcase_fail("C_GetMechanismList() returned %s instead of"
@@ -370,7 +370,7 @@ CK_RV do_InitToken(void)
 
 	/* test with invalid slot id */
 	testcase_new_assertion();
-	rc = funcs->C_InitToken(99, so_pin, strlen((char *)so_pin), label);
+	rc = funcs->C_InitToken(9999, so_pin, strlen((char *)so_pin), label);
 	if (rc != CKR_SLOT_ID_INVALID) {
 		testcase_fail("C_InitToken returned %s instead of "
 			      "CKR_SLOT_ID_INVALID.", p11_get_ckr(rc));
