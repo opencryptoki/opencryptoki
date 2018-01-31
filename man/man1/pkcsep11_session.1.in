@@ -1,6 +1,6 @@
-.TH PKCSEP11_SESSION 1 "Nov 2017" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSEP11_SESSION 1 "Jan 2018" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcsep11_session \- utility to manage EP11 sessions.
+pkcsep11_session \- manage EP11 sessions.
 
 .SH SYNOPSIS
 \fBpkcep11_session\fP
@@ -9,42 +9,43 @@ pkcsep11_session \- utility to manage EP11 sessions.
 [\fB-pid\fP \fIprocess-ID\fP] [\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
 
 .SH DESCRIPTION
-When STRICT_MODE and/or VHSM_MODE is enabled in the EP11 configuration file, all 
-session-keys will strictly belong to the PKCS#11 session and/or token that created it.
-When the PKCS#11 session ends, all session keys created for this session
-can no longer be used. The EP11 token creates EP11-sessions when a PKCS#11
-session is logged on, and destroys the EP11-session when the PKCS#11 session
-is logged out or closed. When an application terminates abnormally, without
-logging out or closing the PKCS#11 session, then the corresponding EP11-session
-is also not destroyed. The pkcep11_session tool can be used to display
-and logout left-over EP11-sessions. 
+Use pkcep11_session to list and logout leftover EP11 sessions.
+
+EP11 sessions are created and destroyed as a PKCS#11 session is logged
+on and off, respectively. When an application terminates abnormally, without
+logging out or closing the PKCS#11 session, the corresponding EP11 session
+is not destroyed. 
+
+When STRICT_MODE or VHSM_MODE is enabled in the EP11 configuration file, all 
+session-keys belong strictly to the PKCS#11 session or token that created it.
+These PKCS#11 session keys expire when the session ends.
 .br
 .SH "COMMAND SUMMARY"
 .IP "\fBshow\fP" 10
-displays all left-over EP11-sessions. Use -session-ID, -pid or -date
-options to filter the to be displayed sessions.
+displays all leftover EP11 sessions. Use the -session-ID, -pid or -date
+options to filter the list of sessions.
 .IP "\fBlogout\fP" 10
-logs out all left-over EP11-sessions. Use -session-ID, -pid or -date
-options to filter the to be logged out sessions.
+logs out all leftover EP11 sessions. Use the -session-ID, -pid or -date
+options to filter the list of sessions.
 .IP "\fBvhsmpin\fP" 10
-Sets the VHSM pin used for the VHSM_MODE (virtual HSM). The VHSM pin
-must be between 8 and 16 characters in length.
+sets the VHSM PIN used for the VHSM_MODE (virtual HSM). The VHSM PIN must
+contain between 8 and 16 alphanumeric characters.
 .br
-\fBNote:\fP When changing the VHSM pin, all existing keys stored as
-token objects will become unusable!
+\fBNote:\fP When changing the VHSM PIN, all existing keys stored as
+token objects become unusable!
 
 .SH "OPTIONS"
 .IP "\fB-slot\fP \fIslot-number\fP" 10
-specifies the token slot of the EP11 token
+specifies the slot of the EP11 token
 .IP "\fB-force\fP" 10
-delete a session even when logout is not working on all adapters.
+deletes a session even if logout fails on some adapters.
 .IP "\fB-id\fP \fIsession-ID\fP" 10
-specifies the EP11-session ID to display or logout.
+specifies the EP11 session ID.
 .IP "\fB-pid\fP \fIprocess-ID\fP" 10
-specifies the process-ID (pid) to display or logout EP11-sessions for.
+specifies the process-ID (pid) for which to display or logout EP11 sessions.
 .IP "\fB-date\fP \fIyyyy/mm/dd\fP" 10
-specifies a date to filter the EP11-Sessions to display or logout. 
-Any EP11-session that is equal or older than the specified date are
+filters the EP11 sessions by the specified date.
+Any EP11 session with a matching or earlier date are
 displayed or logged out. 
 .IP "\fB-h\fP" 10
 show usage information
