@@ -491,7 +491,7 @@ build the tpm stdll. If it doesn't, then please run:
 
 ``` ./configure --enable-tpmtok ```
 
-For more information check [README.tpm_stdll](doc/README.tpm_stdll)
+For more information check [README.tpm_stdll](README.tpm_stdll)
 
 ##### 7.3.2. IBM Cryptographic Architecture (ICA)
 
@@ -511,8 +511,8 @@ package click
 [here](https://www-03.ibm.com/security/cryptocards/pciecc2/lonzsoftware.shtml)
 and be sure to choose the package corresponding to your crypto card version.
 
-For more information about CCA, read [README.cca_stdll](doc/README.cca_stdll)
-and [README.pkcscca_migrate](doc/README.pkcscca_migrate).
+For more information about CCA, read [README.cca_stdll](README.cca_stdll)
+and [README.pkcscca_migrate](README.pkcscca_migrate).
 
 ##### 7.3.4. Software Token
 
@@ -529,7 +529,7 @@ build openCryptoki with EP11 stdll download the necessary library from
 Be sure to choose the driver corresponding to your crypto card version.
 
 For more information about EP11, please refer to
-[README.ep11_stdll](doc/README.ep11_stdll).
+[README.ep11_stdll](README.ep11_stdll).
 
 ##### 7.3.6. IBM Integrated Cryptographic Service Facility (ICSF)
 
@@ -541,7 +541,7 @@ So, to build openCryptoki with LDAP, you need to install on the client side:
 `openldap, openldap-clients and openldap-devel`.
 
 For more information about ICSF, head over to
-[README.icsf_stdll](doc/README.icsf_stdll).
+[README.icsf_stdll](README.icsf_stdll).
 
 ### 8. Application and openCryptoki
 
