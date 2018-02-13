@@ -906,7 +906,7 @@ CK_RV check_user_and_group()
 	euid = geteuid();
 
 	/* Root or effective Root is ok */
-	if (uid == 0 && euid == 0)
+	if (uid == 0 || euid == 0)
 		return CKR_OK;
 
 	/*
