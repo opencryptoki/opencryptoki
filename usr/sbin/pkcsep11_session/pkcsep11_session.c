@@ -916,12 +916,12 @@ int main(int argc, char **argv)
     /* dynamically load in the ep11 shared library */
     lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
     if (!lib_ep11) {
-        fprintf(stderr, "ERROR loading shared lib '%s' [%s]", EP11SHAREDLIB, dlerror());
+        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n", EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
     }
     dll_m_Logout = (m_Logout_t)dlsym(lib_ep11, "m_Logout");
     if (dll_m_Logout == NULL ) {
-        fprintf(stderr, "ERROR loading shared lib '%s' [%s]", EP11SHAREDLIB, dlerror());
+        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n", EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
     }
 
