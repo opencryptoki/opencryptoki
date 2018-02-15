@@ -206,16 +206,20 @@ typedef struct {
 
 #define MAX_RETRY_COUNT 100
 
-#define RETRY_START             for(int retry_count = 0;                 \
-                                    retry_count < MAX_RETRY_COUNT;       \
-                                    retry_count ++) {
+#define RETRY_START             do {                                     \
+                                    int retry_count;                     \
+                                    for(retry_count = 0;                 \
+                                        retry_count < MAX_RETRY_COUNT;   \
+                                        retry_count ++) {
 
 #define RETRY_END(rc, tokdata, session)  if ((rc) != CKR_SESSION_CLOSED) \
-                                    break;                               \
-                                (rc) = ep11tok_relogin_session(tokdata, session); \
-                                if ((rc) != CKR_OK)                      \
-                                    break;                               \
-                                }
+                                             break;                      \
+                                         (rc) = ep11tok_relogin_session( \
+                                                      tokdata, session); \
+                                         if ((rc) != CKR_OK)             \
+                                             break;                      \
+                                    }                                    \
+                                } while (0);
 
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
