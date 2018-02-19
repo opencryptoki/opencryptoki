@@ -9,8 +9,8 @@
  */
 
 /***************************************************************************
-			  Change Log
-			  ==========
+     Change Log
+     ==========
 ****************************************************************************/
 
 #include <pthread.h>
@@ -53,66 +53,66 @@
 
 #define EP11SHAREDLIB "libep11.so"
 
-CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
-				 CK_MECHANISM_TYPE_PTR mlist,
-				 CK_ULONG_PTR count);
-CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
-				 CK_MECHANISM_TYPE type,
-				 CK_MECHANISM_INFO_PTR pInfo);
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
+                                 CK_MECHANISM_TYPE_PTR mlist,
+                                 CK_ULONG_PTR count);
+CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
+                                 CK_MECHANISM_TYPE type,
+                                 CK_MECHANISM_INFO_PTR pInfo);
 
-static m_GenerateRandom_t	dll_m_GenerateRandom;
-static m_SeedRandom_t		dll_m_SeedRandom;
+static m_GenerateRandom_t dll_m_GenerateRandom;
+static m_SeedRandom_t dll_m_SeedRandom;
 
-static m_Digest_t		dll_m_Digest;
-static m_DigestInit_t		dll_m_DigestInit;
-static m_DigestUpdate_t		dll_m_DigestUpdate;
-static m_DigestKey_t		dll_m_DigestKey;
-static m_DigestFinal_t		dll_m_DigestFinal;
-static m_DigestSingle_t		dll_m_DigestSingle;
+static m_Digest_t dll_m_Digest;
+static m_DigestInit_t dll_m_DigestInit;
+static m_DigestUpdate_t dll_m_DigestUpdate;
+static m_DigestKey_t dll_m_DigestKey;
+static m_DigestFinal_t dll_m_DigestFinal;
+static m_DigestSingle_t dll_m_DigestSingle;
 
-static m_Encrypt_t		dll_m_Encrypt;
-static m_EncryptInit_t		dll_m_EncryptInit;
-static m_EncryptUpdate_t	dll_m_EncryptUpdate;
-static m_EncryptFinal_t		dll_m_EncryptFinal;
-static m_EncryptSingle_t	dll_m_EncryptSingle;
+static m_Encrypt_t dll_m_Encrypt;
+static m_EncryptInit_t dll_m_EncryptInit;
+static m_EncryptUpdate_t dll_m_EncryptUpdate;
+static m_EncryptFinal_t dll_m_EncryptFinal;
+static m_EncryptSingle_t dll_m_EncryptSingle;
 
-static m_Decrypt_t		dll_m_Decrypt;
-static m_DecryptInit_t		dll_m_DecryptInit;
-static m_DecryptUpdate_t	dll_m_DecryptUpdate;
-static m_DecryptFinal_t		dll_m_DecryptFinal;
-static m_DecryptSingle_t	dll_m_DecryptSingle;
+static m_Decrypt_t dll_m_Decrypt;
+static m_DecryptInit_t dll_m_DecryptInit;
+static m_DecryptUpdate_t dll_m_DecryptUpdate;
+static m_DecryptFinal_t dll_m_DecryptFinal;
+static m_DecryptSingle_t dll_m_DecryptSingle;
 
-static m_ReencryptSingle_t	dll_m_ReencryptSingle;
-static m_GenerateKey_t		dll_m_GenerateKey;
-static m_GenerateKeyPair_t	dll_m_GenerateKeyPair;
+static m_ReencryptSingle_t dll_m_ReencryptSingle;
+static m_GenerateKey_t dll_m_GenerateKey;
+static m_GenerateKeyPair_t dll_m_GenerateKeyPair;
 
-static m_Sign_t			dll_m_Sign;
-static m_SignInit_t		dll_m_SignInit;
-static m_SignUpdate_t		dll_m_SignUpdate;
-static m_SignFinal_t		dll_m_SignFinal;
-static m_SignSingle_t		dll_m_SignSingle;
+static m_Sign_t dll_m_Sign;
+static m_SignInit_t dll_m_SignInit;
+static m_SignUpdate_t dll_m_SignUpdate;
+static m_SignFinal_t dll_m_SignFinal;
+static m_SignSingle_t dll_m_SignSingle;
 
-static m_Verify_t		dll_m_Verify;
-static m_VerifyInit_t		dll_m_VerifyInit;
-static m_VerifyUpdate_t		dll_m_VerifyUpdate;
-static m_VerifyFinal_t		dll_m_VerifyFinal;
-static m_VerifySingle_t		dll_m_VerifySingle;
+static m_Verify_t dll_m_Verify;
+static m_VerifyInit_t dll_m_VerifyInit;
+static m_VerifyUpdate_t dll_m_VerifyUpdate;
+static m_VerifyFinal_t dll_m_VerifyFinal;
+static m_VerifySingle_t dll_m_VerifySingle;
 
-static m_WrapKey_t		dll_m_WrapKey;
-static m_UnwrapKey_t		dll_m_UnwrapKey;
-static m_DeriveKey_t		dll_m_DeriveKey;
+static m_WrapKey_t dll_m_WrapKey;
+static m_UnwrapKey_t dll_m_UnwrapKey;
+static m_DeriveKey_t dll_m_DeriveKey;
 
-static m_GetMechanismList_t	dll_m_GetMechanismList;
-static m_GetMechanismInfo_t	dll_m_GetMechanismInfo;
-static m_GetAttributeValue_t	dll_m_GetAttributeValue;
-static m_SetAttributeValue_t	dll_m_SetAttributeValue;
+static m_GetMechanismList_t dll_m_GetMechanismList;
+static m_GetMechanismInfo_t dll_m_GetMechanismInfo;
+static m_GetAttributeValue_t dll_m_GetAttributeValue;
+static m_SetAttributeValue_t dll_m_SetAttributeValue;
 
-static m_Login_t		dll_m_Login;
-static m_Logout_t		dll_m_Logout;
-static m_admin_t		dll_m_admin;
-static m_add_backend_t		dll_m_add_backend;
-static m_init_t			dll_m_init;
-static m_shutdown_t		dll_m_shutdown;
+static m_Login_t dll_m_Login;
+static m_Logout_t dll_m_Logout;
+static m_admin_t dll_m_admin;
+static m_add_backend_t dll_m_add_backend;
+static m_init_t dll_m_init;
+static m_shutdown_t dll_m_shutdown;
 
 static xcpa_queryblock_t dll_xcpa_queryblock;
 static xcpa_internal_rv_t dll_xcpa_internal_rv;
@@ -122,33 +122,33 @@ static xcpa_internal_rv_t dll_xcpa_internal_rv;
 /* a simple function for dumping out a memory area */
 static inline void hexdump(void *buf, size_t buflen)
 {
-	/*           1         2         3         4         5         6
-		     0123456789012345678901234567890123456789012345678901234567890123456789
-		     xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
-	*/
+    /*           1         2         3         4         5         6
+       0123456789012345678901234567890123456789012345678901234567890123456789
+       xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
+     */
 
-	int i, j;
-	char line[68];
-	for (i=0; i < buflen; i += 16) {
-		for (j=0; j < 16; j++) {
-			if (i+j < buflen) {
-				unsigned char b = ((unsigned char*)buf)[i+j];
-				sprintf(line + j*3, "%02hhx ", b);
-				line[51+j] = (isalnum(b) ? b : '.');
-			} else {
-				sprintf(line + j*3, "   ");
-				line[51+j] = ' ';
-			}
-		}
-		line[47] = line[48] = line[49] = line[50] = ' ';
-		line[67] = '\0';
-		TRACE_DEBUG("%s\n", line);
-	}
+    int i, j;
+    char line[68];
+    for (i = 0; i < buflen; i += 16) {
+        for (j = 0; j < 16; j++) {
+            if (i + j < buflen) {
+                unsigned char b = ((unsigned char *) buf)[i + j];
+                sprintf(line + j * 3, "%02hhx ", b);
+                line[51 + j] = (isalnum(b) ? b : '.');
+            } else {
+                sprintf(line + j * 3, "   ");
+                line[51 + j] = ' ';
+            }
+        }
+        line[47] = line[48] = line[49] = line[50] = ' ';
+        line[67] = '\0';
+        TRACE_DEBUG("%s\n", line);
+    }
 }
 
 #define TRACE_DEBUG_DUMP(_buf, _buflen) hexdump(_buf, _buflen)
 
-#endif /* DEBUG */
+#endif                          /* DEBUG */
 
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM EP11Tok ";
@@ -164,31 +164,29 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 #define MAX_APQN 256
 
 /* wrap_key is used for importing keys */
-char     wrap_key_name[] = "EP11_wrapkey";
+char wrap_key_name[] = "EP11_wrapkey";
 
-typedef struct cp_mech_config
-{
-    CK_MECHANISM_TYPE       mech;   // the mechanism ID
-    struct cp_mech_config   *next;  // next mechanism, or NULL
+typedef struct cp_mech_config {
+    CK_MECHANISM_TYPE mech;     // the mechanism ID
+    struct cp_mech_config *next;        // next mechanism, or NULL
 } cp_mech_config_t;
 
 
-typedef struct cp_config
-{
-    unsigned long int       cp;     // control point number
-    cp_mech_config_t        *mech;  // list of mechanisms affected by this CP
-    struct cp_config        *next;  // next control point, or NULL
+typedef struct cp_config {
+    unsigned long int cp;       // control point number
+    cp_mech_config_t *mech;     // list of mechanisms affected by this CP
+    struct cp_config *next;     // next control point, or NULL
 } cp_config_t;
 
 typedef struct {
-    SESSION           *session;
-    CK_BYTE            session_id[SHA256_HASH_SIZE];
-    CK_BYTE            vhsm_pin[XCP_MAX_PINBYTES];
-    CK_BYTE            flags;
-    CK_BYTE            session_pin_blob[XCP_PINBLOB_BYTES];
-    CK_OBJECT_HANDLE   session_object;
-    CK_BYTE            vhsm_pin_blob[XCP_PINBLOB_BYTES];
-    CK_OBJECT_HANDLE   vhsm_object;
+    SESSION *session;
+    CK_BYTE session_id[SHA256_HASH_SIZE];
+    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES];
+    CK_BYTE flags;
+    CK_BYTE session_pin_blob[XCP_PINBLOB_BYTES];
+    CK_OBJECT_HANDLE session_object;
+    CK_BYTE vhsm_pin_blob[XCP_PINBLOB_BYTES];
+    CK_OBJECT_HANDLE vhsm_object;
 } ep11_session_t;
 
 #define EP11_SESS_PINBLOB_VALID  0x01
@@ -224,47 +222,47 @@ typedef struct {
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
 CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
-CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session);
-void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
-                       CK_BYTE **pin_blob, CK_ULONG *pin_blob_len);
-CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
+CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session);
+void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
+                       CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len);
+CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
                                CK_SESSION_HANDLE_PTR phSession);
-CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
-                                ST_SESSION_HANDLE *sSession);
+CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
+                                ST_SESSION_HANDLE * sSession);
 
-static void free_cp_config(cp_config_t *cp);
+static void free_cp_config(cp_config_t * cp);
 #ifdef DEBUG
 static const char *ep11_get_cp(unsigned int cp);
 #endif
 static CK_ULONG ep11_get_cp_by_name(const char *name);
-static CK_RV check_cps_for_mechanism(cp_config_t *cp_config,
+static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
                                      unsigned char *cp, size_t cp_len);
-static CK_RV get_control_points(STDLL_TokData_t *tokdata,
-                                unsigned char* cp, size_t* cp_len);
+static CK_RV get_control_points(STDLL_TokData_t * tokdata,
+                                unsigned char *cp, size_t * cp_len);
 
 /* EP11 token private data */
 typedef struct {
-    uint64_t      *target_list; // pointer to adapter target list
-    CK_BYTE       raw2key_wrap_blob[MAX_BLOBSIZE];
-    size_t        raw2key_wrap_blob_l;
-    int           cka_sensitive_default_true;
-    char          cp_filter_config_filename[PATH_MAX];
-    cp_config_t   *cp_config;
+    uint64_t *target_list;      // pointer to adapter target list
+    CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
+    size_t raw2key_wrap_blob_l;
+    int cka_sensitive_default_true;
+    char cp_filter_config_filename[PATH_MAX];
+    cp_config_t *cp_config;
     unsigned char control_points[XCP_CP_BYTES];
-    size_t        control_points_len;
-    int           strict_mode;
-    int           vhsm_mode;
+    size_t control_points_len;
+    int strict_mode;
+    int vhsm_mode;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
    tells the device driver which adapter/domain pairs should be used,
    they must have the same master key */
 typedef struct {
-	short format;
-	short length;
-	short apqns[2*MAX_APQN];
-} __attribute__((packed)) ep11_target_t;
+    short format;
+    short length;
+    short apqns[2 * MAX_APQN];
+} __attribute__ ((packed)) ep11_target_t;
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
@@ -273,23 +271,24 @@ typedef struct {
 /* mechanisms provided by this token will be generated from the underlaying
  * crypto adapter. Anyway to be conform to the generic mech_list handling
  * we need to define these dummies */
-MECH_LIST_ELEMENT mech_list[] = {};
+MECH_LIST_ELEMENT mech_list[] = { };
+
 CK_ULONG mech_list_len = 0;
 
 typedef struct const_info {
-  unsigned const int       code;
-  const char              *name;
+    unsigned const int code;
+    const char *name;
 } const_info_t;
 
 #define CONSTINFO(_X) { (_X), (#_X) }
 
 /* mechanisms defined by EP11 with an invalid (outdated) ID */
-#define CKM_EP11_SHA512_224                 0x000002B0   // 0x00000048 in PKCS#11
-#define CKM_EP11_SHA512_224_HMAC            0x000002B1   // 0x00000049 in PKCS#11
-#define CKM_EP11_SHA512_224_HMAC_GENERAL    0x000002B2   // 0x0000004A in PKCS#11
-#define CKM_EP11_SHA512_256                 0x000002C0   // 0x0000004C in PKCS#11
-#define CKM_EP11_SHA512_256_HMAC            0x000002C1   // 0x0000004D in PKCS#11
-#define CKM_EP11_SHA512_256_HMAC_GENERAL    0x000002C2   // 0x0000004E in PKCS#11
+#define CKM_EP11_SHA512_224                 0x000002B0  // 0x00000048 in PKCS#11
+#define CKM_EP11_SHA512_224_HMAC            0x000002B1  // 0x00000049 in PKCS#11
+#define CKM_EP11_SHA512_224_HMAC_GENERAL    0x000002B2  // 0x0000004A in PKCS#11
+#define CKM_EP11_SHA512_256                 0x000002C0  // 0x0000004C in PKCS#11
+#define CKM_EP11_SHA512_256_HMAC            0x000002C1  // 0x0000004D in PKCS#11
+#define CKM_EP11_SHA512_256_HMAC_GENERAL    0x000002C2  // 0x0000004E in PKCS#11
 
 /* Vendor specific mechanisms unknown by ock, but known by EP11 */
 #define CKM_IBM_CMAC                       CKM_VENDOR_DEFINED + 0x00010007
@@ -319,289 +318,290 @@ typedef struct const_info {
 #define CKM_IBM_RETAINKEY                  CKM_VENDOR_DEFINED + 0x00040001
 
 
-static CK_RV
-check_key_attributes(STDLL_TokData_t *tokdata,
-             CK_KEY_TYPE kt, CK_OBJECT_CLASS kc, CK_ATTRIBUTE_PTR attrs,
-		     CK_ULONG attrs_len, CK_ATTRIBUTE_PTR *p_attrs,
-		     CK_ULONG *p_attrs_len) {
+static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
+                                  CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
+                                  CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+                                  CK_ATTRIBUTE_PTR * p_attrs,
+                                  CK_ULONG * p_attrs_len)
+{
 
-	CK_RV rc;
-	CK_ULONG i;
-	CK_BBOOL true = TRUE;
-	CK_ULONG check_types_pub[] = {CKA_VERIFY, CKA_ENCRYPT, CKA_WRAP };
-	CK_ULONG check_types_priv[] = {CKA_SIGN, CKA_DECRYPT, CKA_UNWRAP };
-	CK_ULONG check_types_sec[] =
-		{CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP};
+    CK_RV rc;
+    CK_ULONG i;
+    CK_BBOOL true = TRUE;
+    CK_ULONG check_types_pub[] = { CKA_VERIFY, CKA_ENCRYPT, CKA_WRAP };
+    CK_ULONG check_types_priv[] = { CKA_SIGN, CKA_DECRYPT, CKA_UNWRAP };
+    CK_ULONG check_types_sec[] =
+        { CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP };
     CK_ULONG check_types_sec_sensitive[] =
-        {CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP, CKA_SENSITIVE};
-	CK_ULONG check_types_gen_sec[] =
-		{CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT};
+        { CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP, CKA_SENSITIVE };
+    CK_ULONG check_types_gen_sec[] =
+        { CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT };
     CK_ULONG check_types_gen_sec_sensitive[] =
-        {CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT, CKA_SENSITIVE};
-	CK_ULONG check_types_derive[] = {CKA_DERIVE};
-	CK_ULONG *check_types = NULL;
-	CK_BBOOL *check_values[] = { &true, &true, &true, &true , &true};
-	CK_ULONG attr_cnt = 0;
+        { CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT, CKA_SENSITIVE };
+    CK_ULONG check_types_derive[] = { CKA_DERIVE };
+    CK_ULONG *check_types = NULL;
+    CK_BBOOL *check_values[] = { &true, &true, &true, &true, &true };
+    CK_ULONG attr_cnt = 0;
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
-	/* check/add attributes for public key template */
-	if ((rc = dup_attribute_array(attrs, attrs_len,
-				      p_attrs, p_attrs_len)))
-		return rc;
+    /* check/add attributes for public key template */
+    if ((rc = dup_attribute_array(attrs, attrs_len, p_attrs, p_attrs_len)))
+        return rc;
 
-	switch (kc) {
-	case CKO_SECRET_KEY:
-		if (kt == CKK_GENERIC_SECRET) {
+    switch (kc) {
+    case CKO_SECRET_KEY:
+        if (kt == CKK_GENERIC_SECRET) {
             if (ep11_data->cka_sensitive_default_true) {
                 check_types = &check_types_gen_sec_sensitive[0];
-                attr_cnt = sizeof(check_types_gen_sec_sensitive)/sizeof(CK_ULONG);
+                attr_cnt =
+                    sizeof(check_types_gen_sec_sensitive) / sizeof(CK_ULONG);
 
             } else {
                 check_types = &check_types_gen_sec[0];
-                attr_cnt = sizeof(check_types_gen_sec)/sizeof(CK_ULONG);
+                attr_cnt = sizeof(check_types_gen_sec) / sizeof(CK_ULONG);
             }
         } else {
             if (ep11_data->cka_sensitive_default_true) {
                 check_types = &check_types_sec_sensitive[0];
-                attr_cnt = sizeof(check_types_sec_sensitive)/sizeof(CK_ULONG);
+                attr_cnt = sizeof(check_types_sec_sensitive) / sizeof(CK_ULONG);
             } else {
                 check_types = &check_types_sec[0];
-                attr_cnt = sizeof(check_types_sec)/sizeof(CK_ULONG);
+                attr_cnt = sizeof(check_types_sec) / sizeof(CK_ULONG);
             }
         }
-		break;
-	case CKO_PUBLIC_KEY:
-		if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
-		    (kt == CKK_DSA)) {
-			check_types = &check_types_pub[0];
-			attr_cnt = 1; /* only CKA_VERIFY */
-		} else if (kt == CKK_RSA) {
-			check_types = &check_types_pub[0];
-			attr_cnt = sizeof(check_types_pub)/sizeof(CK_ULONG);
-		}
-		/* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
-		   and CKM_DH_PKCS_PARAMETER_GEN */
-		break;
-	case CKO_PRIVATE_KEY:
-		if ((kt == CKK_EC) || (kt == CKK_ECDSA) ||
-		    (kt == CKK_DSA)) {
-			check_types = &check_types_priv[0];
-			attr_cnt = 1; /* only CKA_SIGN */
-		} else if (kt == CKK_RSA) {
-			check_types = &check_types_priv[0];
-			attr_cnt = sizeof(check_types_priv)/sizeof(CK_ULONG);
-		} else if (kt == CKK_DH) {
-			check_types = &check_types_derive[0];
-			attr_cnt = sizeof(check_types_derive)/sizeof(CK_ULONG);
-		}
-		break;
-	default:
-		return CKR_OK;
-	}
+        break;
+    case CKO_PUBLIC_KEY:
+        if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
+            check_types = &check_types_pub[0];
+            attr_cnt = 1;       /* only CKA_VERIFY */
+        } else if (kt == CKK_RSA) {
+            check_types = &check_types_pub[0];
+            attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
+        }
+        /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
+           and CKM_DH_PKCS_PARAMETER_GEN */
+        break;
+    case CKO_PRIVATE_KEY:
+        if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
+            check_types = &check_types_priv[0];
+            attr_cnt = 1;       /* only CKA_SIGN */
+        } else if (kt == CKK_RSA) {
+            check_types = &check_types_priv[0];
+            attr_cnt = sizeof(check_types_priv) / sizeof(CK_ULONG);
+        } else if (kt == CKK_DH) {
+            check_types = &check_types_derive[0];
+            attr_cnt = sizeof(check_types_derive) / sizeof(CK_ULONG);
+        }
+        break;
+    default:
+        return CKR_OK;
+    }
 
-	for (i = 0; i < attr_cnt; i++, check_types++) {
-		CK_ATTRIBUTE_PTR attr = get_attribute_by_type(*p_attrs,
-							      *p_attrs_len, *check_types);
-		if (!attr) {
-			rc = add_to_attribute_array(p_attrs, p_attrs_len,
-						    *check_types,
-						    (CK_BYTE *) check_values[i],
-						    sizeof(*check_values[i]));
-			if (rc)
-				goto cleanup;
-		}
-	}
-	return CKR_OK;
+    for (i = 0; i < attr_cnt; i++, check_types++) {
+        CK_ATTRIBUTE_PTR attr = get_attribute_by_type(*p_attrs,
+                                                      *p_attrs_len,
+                                                      *check_types);
+        if (!attr) {
+            rc = add_to_attribute_array(p_attrs, p_attrs_len,
+                                        *check_types,
+                                        (CK_BYTE *) check_values[i],
+                                        sizeof(*check_values[i]));
+            if (rc)
+                goto cleanup;
+        }
+    }
+    return CKR_OK;
 cleanup:
-	if (rc) {
-		free_attribute_array(*p_attrs, *p_attrs_len);
-		*p_attrs = NULL;
-		*p_attrs_len = 0;
-	}
-	return rc;
+    if (rc) {
+        free_attribute_array(*p_attrs, *p_attrs_len);
+        *p_attrs = NULL;
+        *p_attrs_len = 0;
+    }
+    return rc;
 }
 
-CK_RV
-ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
-			CK_ATTRIBUTE *modulus, CK_ATTRIBUTE *publ_exp)
+CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                              CK_ULONG * data_len, CK_ATTRIBUTE * modulus,
+                              CK_ATTRIBUTE * publ_exp)
 {
-	CK_ULONG len, offset, total, total_len;
-	CK_RV rc;
-	CK_BYTE *buf = NULL;
-	CK_BYTE *buf2 = NULL;
-	CK_BYTE *buf3 = NULL;
-	BerValue *val;
-	BerElement *ber;
+    CK_ULONG len, offset, total, total_len;
+    CK_RV rc;
+    CK_BYTE *buf = NULL;
+    CK_BYTE *buf2 = NULL;
+    CK_BYTE *buf3 = NULL;
+    BerValue *val;
+    BerElement *ber;
 
-	offset = 0;
-	rc = 0;
-	total_len = ber_AlgIdRSAEncryptionLen;
-	total = 0;
+    offset = 0;
+    rc = 0;
+    total_len = ber_AlgIdRSAEncryptionLen;
+    total = 0;
 
-	rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, modulus->ulValueLen);
-	offset += len;
-	rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
-	offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, modulus->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
+    offset += len;
 
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	buf = (CK_BYTE *)malloc(offset);
-	if (!buf) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	offset = 0;
-	rc = 0;
+    buf = (CK_BYTE *) malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    offset = 0;
+    rc = 0;
 
-	rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-				(CK_BYTE *)modulus + sizeof(CK_ATTRIBUTE),
-				modulus->ulValueLen);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
-	memcpy(buf+offset, buf2, len);
-	offset += len;
-	free(buf2);
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) modulus + sizeof(CK_ATTRIBUTE),
+                            modulus->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
 
-	rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-				(CK_BYTE *)publ_exp + sizeof(CK_ATTRIBUTE),
-				publ_exp->ulValueLen);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
-	memcpy(buf+offset, buf2, len);
-	offset += len;
-	free(buf2);
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) publ_exp + sizeof(CK_ATTRIBUTE),
+                            publ_exp->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
 
-	rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	/* length of outer sequence */
-	rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	} else
-		total_len += total + 1;
+    /* length of outer sequence */
+    rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__,
+                    rc);
+        return rc;
+    } else {
+        total_len += total + 1;
+    }
 
-	/* mem for outer sequence */
-	buf3 = (CK_BYTE *)malloc(total_len);
-	if (!buf3) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	total_len = 0;
+    /* mem for outer sequence */
+    buf3 = (CK_BYTE *) malloc(total_len);
+    if (!buf3) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    total_len = 0;
 
-	/* copy alg id */
-	memcpy(buf3+total_len, ber_AlgIdRSAEncryption, ber_AlgIdRSAEncryptionLen);
-	total_len += ber_AlgIdRSAEncryptionLen;
+    /* copy alg id */
+    memcpy(buf3 + total_len, ber_AlgIdRSAEncryption, ber_AlgIdRSAEncryptionLen);
+    total_len += ber_AlgIdRSAEncryptionLen;
 
-	/* need a bitstring */
-	ber = ber_alloc_t(LBER_USE_DER);
-	rc  = ber_put_bitstring(ber, buf2, len*8, 0x03);
-	rc  = ber_flatten(ber, &val);
-	memcpy(buf3+total_len, val->bv_val, val->bv_len);
-	total_len += val->bv_len;
+    /* need a bitstring */
+    ber = ber_alloc_t(LBER_USE_DER);
+    rc = ber_put_bitstring(ber, buf2, len * 8, 0x03);
+    rc = ber_flatten(ber, &val);
+    memcpy(buf3 + total_len, val->bv_val, val->bv_len);
+    total_len += val->bv_len;
 
-	rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
-	if (rc != CKR_OK)
-		TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV
-ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
-			CK_ATTRIBUTE *params, CK_ATTRIBUTE *point)
+CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                             CK_ULONG * data_len, CK_ATTRIBUTE * params,
+                             CK_ATTRIBUTE * point)
 {
-	CK_ULONG len, total;
-	CK_ULONG algid_len = der_AlgIdECBaseLen + params->ulValueLen;
-	CK_RV rc = 0;
-	CK_BYTE *buf = NULL;
-	BerValue *val;
-	BerElement *ber;
+    CK_ULONG len, total;
+    CK_ULONG algid_len = der_AlgIdECBaseLen + params->ulValueLen;
+    CK_RV rc = 0;
+    CK_BYTE *buf = NULL;
+    BerValue *val;
+    BerElement *ber;
 
-	/* Calculate the BER container length
-	 *
-	 * SPKI := SEQUENCE {
-	 *	SEQUENCE {
-	 *		OID
-	 *		Parameters
-	 *	}
-	 *	BITSTRING public key
-	 * }
-	 */
-	rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, algid_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    /* Calculate the BER container length
+     *
+     * SPKI := SEQUENCE {
+     *      SEQUENCE {
+     *              OID
+     *              Parameters
+     *      }
+     *      BITSTRING public key
+     * }
+     */
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, algid_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
-	/* public key */
-	ber = ber_alloc_t(LBER_USE_DER);
-	rc  = ber_put_bitstring(ber, point->pValue, point->ulValueLen * 8,
-				0x03);
-	rc  = ber_flatten(ber, &val);
+    /* public key */
+    ber = ber_alloc_t(LBER_USE_DER);
+    rc = ber_put_bitstring(ber, point->pValue, point->ulValueLen * 8, 0x03);
+    rc = ber_flatten(ber, &val);
 
-	rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
-	ber_free(ber, 1);
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+    ber_free(ber, 1);
 
-	if (length_only == TRUE) {
-		*data_len = total;
-		return rc;
-	}
+    if (length_only == TRUE) {
+        *data_len = total;
+        return rc;
+    }
 
-	/* Now compute with real data */
-	buf = (CK_BYTE *)malloc(total);
-	if (!buf) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
+    /* Now compute with real data */
+    buf = (CK_BYTE *) malloc(total);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
 
-	memcpy(buf, der_AlgIdECBase, der_AlgIdECBaseLen);
-	memcpy(buf + der_AlgIdECBaseLen, params->pValue, params->ulValueLen);
-	buf[1] += params->ulValueLen;
+    memcpy(buf, der_AlgIdECBase, der_AlgIdECBaseLen);
+    memcpy(buf + der_AlgIdECBaseLen, params->pValue, params->ulValueLen);
+    buf[1] += params->ulValueLen;
 
-	/* generate bitstring */
-	ber = ber_alloc_t(LBER_USE_DER);
-	rc  = ber_put_bitstring(ber, point->pValue, point->ulValueLen*8, 0x03);
-	rc  = ber_flatten(ber, &val);
+    /* generate bitstring */
+    ber = ber_alloc_t(LBER_USE_DER);
+    rc = ber_put_bitstring(ber, point->pValue, point->ulValueLen * 8, 0x03);
+    rc = ber_flatten(ber, &val);
 
-	memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
-	       val->bv_len);
-	ber_free(ber, 1);
+    memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
+           val->bv_len);
+    ber_free(ber, 1);
 
-	rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf,
-				 der_AlgIdECBaseLen +
-				 params->ulValueLen + val->bv_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
-	free(buf);
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf,
+                             der_AlgIdECBaseLen +
+                             params->ulValueLen + val->bv_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+    free(buf);
 
-	return rc;
+    return rc;
 }
 
-CK_RV
-ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
-            CK_ATTRIBUTE *prime, CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base, CK_ATTRIBUTE *value)
+CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                              CK_ULONG * data_len, CK_ATTRIBUTE * prime,
+                              CK_ATTRIBUTE * subprime, CK_ATTRIBUTE * base,
+                              CK_ATTRIBUTE * value)
 {
     CK_ULONG len, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
@@ -636,13 +636,15 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
     offset += len;
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &parm_len, NULL, offset);
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDSALen + parm_len);
+    rc |=
+        ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDSALen + parm_len);
 
     /* public key */
-    rc |= ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    rc |=
+        ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
-    rc  = ber_flatten(ber, &val);
+    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_flatten(ber, &val);
     pub_len = val->bv_len;
     ber_free(ber, 1);
     free(buf);
@@ -650,7 +652,8 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__, rc);
+        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__,
+                    rc);
         return rc;
     }
 
@@ -659,7 +662,7 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
         return rc;
     }
 
-    buf = (CK_BYTE *)malloc(id_len + pub_len);
+    buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -667,21 +670,23 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
 
     /* Parameters */
     offset = 0;
-    rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue, prime->ulValueLen);
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue,
+                            prime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    memcpy(buf+offset, buf2, len);
+    memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
 
-    rc = ber_encode_INTEGER(FALSE, &buf2, &len, subprime->pValue, subprime->ulValueLen);
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, subprime->pValue,
+                            subprime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    memcpy(buf+offset, buf2, len);
+    memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
 
@@ -690,7 +695,7 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    memcpy(buf+offset, buf2, len);
+    memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
 
@@ -705,7 +710,8 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
     memcpy(buf + ber_idDSALen, buf2, parm_len);
     free(buf2);
 
-    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf, ber_idDSALen + parm_len);
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf,
+                             ber_idDSALen + parm_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
         return rc;
@@ -713,18 +719,19 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
     free(buf);
 
     /* public key */
-    rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue,
+                            value->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
-    rc  = ber_flatten(ber, &val);
+    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_flatten(ber, &val);
     free(buf);
 
-    buf = (CK_BYTE *)malloc(id_len + val->bv_len);
+    buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -745,9 +752,9 @@ ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len
     return rc;
 }
 
-CK_RV
-ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
-            CK_ATTRIBUTE *prime, CK_ATTRIBUTE *base, CK_ATTRIBUTE *value)
+CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                             CK_ULONG * data_len, CK_ATTRIBUTE * prime,
+                             CK_ATTRIBUTE * base, CK_ATTRIBUTE * value)
 {
     CK_ULONG len, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
@@ -780,13 +787,15 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, base->ulValueLen);
     offset += len;
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &parm_len, NULL, offset);
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDHLen + parm_len);
+    rc |=
+        ber_encode_SEQUENCE(TRUE, NULL, &id_len, NULL, ber_idDHLen + parm_len);
 
     /* public key */
-    rc |= ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    rc |=
+        ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
-    rc  = ber_flatten(ber, &val);
+    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_flatten(ber, &val);
     pub_len = val->bv_len;
     ber_free(ber, 1);
     free(buf);
@@ -794,7 +803,8 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__, rc);
+        TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__,
+                    rc);
         return rc;
     }
 
@@ -803,7 +813,7 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
         return rc;
     }
 
-    buf = (CK_BYTE *)malloc(id_len + pub_len);
+    buf = (CK_BYTE *) malloc(id_len + pub_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -811,12 +821,13 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
 
     /* Parameters */
     offset = 0;
-    rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue, prime->ulValueLen);
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, prime->pValue,
+                            prime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    memcpy(buf+offset, buf2, len);
+    memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
 
@@ -825,7 +836,7 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    memcpy(buf+offset, buf2, len);
+    memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
 
@@ -840,7 +851,8 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
     memcpy(buf + ber_idDHLen, buf2, parm_len);
     free(buf2);
 
-    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf, ber_idDHLen + parm_len);
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &id_len, buf,
+                             ber_idDHLen + parm_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
         return rc;
@@ -848,18 +860,19 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
     free(buf);
 
     /* public key */
-    rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
+    rc = ber_encode_INTEGER(FALSE, &buf, &len, value->pValue,
+                            value->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc  = ber_put_bitstring(ber, buf, len*8, 0x03);
-    rc  = ber_flatten(ber, &val);
+    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_flatten(ber, &val);
     free(buf);
 
-    buf = (CK_BYTE *)malloc(id_len + val->bv_len);
+    buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -891,146 +904,136 @@ ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data, CK_ULONG *data_len,
  *     parameters  ANY DEFINED BY algorithm OPTIONAL
  *   }
  */
-CK_RV
-ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
+CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_len)
 {
-	CK_BYTE *out_seq, *id_seq, *bit_str;
-	CK_BYTE *data;
-	CK_ULONG data_len;
-	CK_ULONG field_len;
-	CK_ULONG key_len_bytes;
-	CK_RV rc;
-	CK_ULONG length_octets = 0;
-	CK_ULONG len = 0;
+    CK_BYTE *out_seq, *id_seq, *bit_str;
+    CK_BYTE *data;
+    CK_ULONG data_len;
+    CK_ULONG field_len;
+    CK_ULONG key_len_bytes;
+    CK_RV rc;
+    CK_ULONG length_octets = 0;
+    CK_ULONG len = 0;
 
-	*bit_str_len = 0;
-	out_seq = spki;
-	rc = ber_decode_SEQUENCE(out_seq, &data, &data_len, &field_len);
+    *bit_str_len = 0;
+    out_seq = spki;
+    rc = ber_decode_SEQUENCE(out_seq, &data, &data_len, &field_len);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
-	id_seq = out_seq + field_len - data_len;
-	/* get id seq length */
-	rc = ber_decode_SEQUENCE(id_seq, &data, &data_len, &field_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    id_seq = out_seq + field_len - data_len;
+    /* get id seq length */
+    rc = ber_decode_SEQUENCE(id_seq, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
-	bit_str = id_seq + field_len;
-	/* we should be at a bistring */
-	if (bit_str[0] != 0x03) {
-		TRACE_ERROR("%s ber_decode no BITSTRING\n", __func__);
-		return CKR_FUNCTION_FAILED;
-	}
+    bit_str = id_seq + field_len;
+    /* we should be at a bistring */
+    if (bit_str[0] != 0x03) {
+        TRACE_ERROR("%s ber_decode no BITSTRING\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if ((bit_str[1] & 0x80) == 0) {
-		key_len_bytes = 1;
-		*bit_str_len = bit_str[1] & 0x7F;
-	} else {
-		key_len_bytes = 1 + (bit_str[1] & 0x7F);
-	}
+    if ((bit_str[1] & 0x80) == 0) {
+        key_len_bytes = 1;
+        *bit_str_len = bit_str[1] & 0x7F;
+    } else {
+        key_len_bytes = 1 + (bit_str[1] & 0x7F);
+    }
 
-	*key = bit_str + key_len_bytes + 2; /* one 'unused bits' byte */
+    *key = bit_str + key_len_bytes + 2; /* one 'unused bits' byte */
 
-	if (*bit_str_len == 0) {
-		length_octets = bit_str[1] & 0x7F;
+    if (*bit_str_len == 0) {
+        length_octets = bit_str[1] & 0x7F;
 
-		if (length_octets == 1) {
-			len = bit_str[2];
-		}
+        if (length_octets == 1) {
+            len = bit_str[2];
+        }
 
-		if (length_octets == 2) {
-			len = bit_str[2];
-			len = len << 8;
-			len |= bit_str[3];
-		}
+        if (length_octets == 2) {
+            len = bit_str[2];
+            len = len << 8;
+            len |= bit_str[3];
+        }
 
-		if (length_octets == 3) {
-			len = bit_str[2];
-			len = len << 8;
-			len |= bit_str[3];
-			len = len << 8;
-			len |= bit_str[4];
-		}
-		*bit_str_len = len;
-	}
+        if (length_octets == 3) {
+            len = bit_str[2];
+            len = len << 8;
+            len |= bit_str[3];
+            len = len << 8;
+            len |= bit_str[4];
+        }
+        *bit_str_len = len;
+    }
 
     (*bit_str_len)--; /* remove 'unused bits' byte from length */
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 
-CK_RV
-ep11_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
-		 CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
+CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
+                       CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
 {
-	int i;
-	CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
+    int i;
+    CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
 
-	*type  = 0;
-	*class = 0;
+    *type = 0;
+    *class = 0;
 
-	for (i = 0; i < attrs_len; i++) {
-		if (attrs[i].type == CKA_CLASS)
-			*class = *(CK_ULONG *)attrs[i].pValue;
-	}
+    for (i = 0; i < attrs_len; i++) {
+        if (attrs[i].type == CKA_CLASS)
+            *class = *(CK_ULONG *) attrs[i].pValue;
+    }
 
-	for (i = 0; i < attrs_len; i++) {
-		if (attrs[i].type == CKA_KEY_TYPE) {
-			*type = *(CK_ULONG *)attrs[i].pValue;
-			return CKR_OK;
-		}
-	}
+    for (i = 0; i < attrs_len; i++) {
+        if (attrs[i].type == CKA_KEY_TYPE) {
+            *type = *(CK_ULONG *) attrs[i].pValue;
+            return CKR_OK;
+        }
+    }
 
-	/* no CKA_KEY_TYPE found, derive from mech */
+    /* no CKA_KEY_TYPE found, derive from mech */
 
-	switch (mech->mechanism) {
-	case CKM_DES_KEY_GEN:
-		*type = CKK_DES;
-		break;
+    switch (mech->mechanism) {
+    case CKM_DES_KEY_GEN:
+        *type = CKK_DES;
+        break;
+    case CKM_DES3_KEY_GEN:
+        *type = CKK_DES3;
+        break;
+    case CKM_CDMF_KEY_GEN:
+        *type = CKK_CDMF;
+        break;
+    case CKM_AES_KEY_GEN:
+        *type = CKK_AES;
+        break;
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+        *type = CKK_RSA;
+        break;
+    case CKM_EC_KEY_PAIR_GEN:
+        *type = CKK_EC;
+        break;
+    case CKM_DSA_KEY_PAIR_GEN:
+        *type = CKK_DSA;
+        break;
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        *type = CKK_DH;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
 
-	case CKM_DES3_KEY_GEN:
-		*type = CKK_DES3;
-		break;
+    rc = CKR_OK;
 
-	case CKM_CDMF_KEY_GEN:
-		*type = CKK_CDMF;
-		break;
-
-	case CKM_AES_KEY_GEN:
-		*type = CKK_AES;
-		break;
-
-	case CKM_RSA_PKCS_KEY_PAIR_GEN:
-		*type = CKK_RSA;
-		break;
-
-	case CKM_EC_KEY_PAIR_GEN:
-		*type = CKK_EC;
-		break;
-
-	case CKM_DSA_KEY_PAIR_GEN:
-		*type = CKK_DSA;
-		break;
-
-	case CKM_DH_PKCS_KEY_PAIR_GEN:
-		*type = CKK_DH;
-		break;
-
-	default:
-		return CKR_MECHANISM_INVALID;
-	}
-
-	rc = CKR_OK;
-
-	return rc;
+    return rc;
 }
 
 static const_info_t ep11_mechanisms[] = {
@@ -1230,7 +1233,7 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_DH_PKCS_PARAMETER_GEN),
     CONSTINFO(CKM_X9_42_DH_PARAMETER_GEN),
     CONSTINFO(CKM_VENDOR_DEFINED),
-    CONSTINFO(CKM_SHA256_RSA_PKCS_PSS ),
+    CONSTINFO(CKM_SHA256_RSA_PKCS_PSS),
     CONSTINFO(CKM_SHA224_RSA_PKCS),
     CONSTINFO(CKM_SHA224_RSA_PKCS_PSS),
     CONSTINFO(CKM_SHA384_RSA_PKCS_PSS),
@@ -1244,14 +1247,12 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_SHA512_256),
     CONSTINFO(CKM_SHA512_256_HMAC),
     CONSTINFO(CKM_SHA512_256_HMAC_GENERAL),
-
     CONSTINFO(CKM_EP11_SHA512_224),
     CONSTINFO(CKM_EP11_SHA512_224_HMAC),
     CONSTINFO(CKM_EP11_SHA512_224_HMAC_GENERAL),
     CONSTINFO(CKM_EP11_SHA512_256),
     CONSTINFO(CKM_EP11_SHA512_256_HMAC),
     CONSTINFO(CKM_EP11_SHA512_256_HMAC_GENERAL),
-
     CONSTINFO(CKM_IBM_CMAC),
     CONSTINFO(CKM_IBM_ECDSA_SHA224),
     CONSTINFO(CKM_IBM_ECDSA_SHA256),
@@ -1282,11 +1283,13 @@ static const_info_t ep11_mechanisms[] = {
 #define UNKNOWN_MECHANISM   0xFFFFFFFF
 
 /* for logging, debugging */
-static const char* ep11_get_ckm(CK_ULONG mechanism)
+static const char *ep11_get_ckm(CK_ULONG mechanism)
 {
     unsigned int i;
 
-    for(i=0; i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0])); i++) {
+    for (i = 0;
+         i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0]));
+         i++) {
         if (ep11_mechanisms[i].code == mechanism)
             return ep11_mechanisms[i].name;
     }
@@ -1299,7 +1302,9 @@ static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
 {
     unsigned int i;
 
-    for(i=0; i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0])); i++) {
+    for (i = 0;
+         i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0]));
+         i++) {
         if (strcmp(ep11_mechanisms[i].name, name) == 0)
             return ep11_mechanisms[i].code;
     }
@@ -1308,8 +1313,9 @@ static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
     return UNKNOWN_MECHANISM;
 }
 
-static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
-			     CK_BYTE **blob, size_t *blob_len, OBJECT **kobj);
+static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
+                             CK_BYTE ** blob, size_t * blob_len,
+                             OBJECT ** kobj);
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
@@ -1333,127 +1339,131 @@ static const int APQN_FILE_SYNTAX_ERROR_7 = 17;
 static const int APQN_FILE_SYNTAX_ERROR_8 = 18;
 static const int APQN_OUT_OF_MEMORY = 19;
 
-static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_name);
-static int read_cp_filter_config_file(const char* conf_name,
-                                      cp_config_t   **cp_config);
+static int read_adapter_config_file(STDLL_TokData_t * tokdata,
+                                    const char *conf_name);
+static int read_cp_filter_config_file(const char *conf_name,
+                                      cp_config_t ** cp_config);
 
 /* import a DES/AES key, that is, make a blob for a DES/AES key
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
  * unwrap it by the wrap key
  */
-static CK_RV rawkey_2_blob(STDLL_TokData_t  * tokdata, SESSION *sess,
-               unsigned char *key,
-			   CK_ULONG ksize, CK_KEY_TYPE ktype,
-			   unsigned char *blob, size_t *blen, OBJECT *key_obj)
+static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
+                           unsigned char *key,
+                           CK_ULONG ksize, CK_KEY_TYPE ktype,
+                           unsigned char *blob, size_t * blen, OBJECT * key_obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	char   cipher[MAX_BLOBSIZE];
-	CK_ULONG clen = sizeof(cipher);
-	CK_BYTE csum[MAX_CSUMSIZE];
-	size_t cslen = sizeof(csum);
-	CK_BYTE iv[AES_BLOCK_SIZE];
-	CK_MECHANISM mech = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
-	DL_NODE *node = key_obj->template->attribute_list;
-	CK_RV rc;
-	CK_ATTRIBUTE_PTR p_attrs = NULL;
-	CK_ULONG attrs_len = 0;
-	CK_ATTRIBUTE_PTR new_p_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
+    char cipher[MAX_BLOBSIZE];
+    CK_ULONG clen = sizeof(cipher);
+    CK_BYTE csum[MAX_CSUMSIZE];
+    size_t cslen = sizeof(csum);
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_MECHANISM mech = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
+    DL_NODE *node = key_obj->template->attribute_list;
+    CK_RV rc;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
-	/* tell ep11 the attributes the user specified */
-	node = key_obj->template->attribute_list;
-	while (node != NULL) {
-		CK_ATTRIBUTE_PTR a = node->data;
+    /* tell ep11 the attributes the user specified */
+    node = key_obj->template->attribute_list;
+    while (node != NULL) {
+        CK_ATTRIBUTE_PTR a = node->data;
 
-		/* ep11 handles this as 'read only' and reports
-		 * an error if specified
-		 */
-		if (CKA_NEVER_EXTRACTABLE == a->type || CKA_MODIFIABLE == a->type
-		    || CKA_LOCAL == a->type)
-			;
-		else {
-			rc = add_to_attribute_array(&p_attrs, &attrs_len,
-						    a->type, a->pValue,
-						    a->ulValueLen);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-					    __func__, a->type, rc);
-				goto rawkey_2_blob_end;
-			}
-		}
+        /* ep11 handles this as 'read only' and reports
+         * an error if specified
+         */
+        if (CKA_NEVER_EXTRACTABLE == a->type || CKA_MODIFIABLE == a->type
+            || CKA_LOCAL == a->type) {
+            ;
+        } else {
+            rc = add_to_attribute_array(&p_attrs, &attrs_len,
+                                        a->type, a->pValue, a->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, a->type, rc);
+                goto rawkey_2_blob_end;
+            }
+        }
 
-		node = node->next;
-	}
+        node = node->next;
+    }
 
-	memset(cipher, 0, sizeof(cipher));
-	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+    memset(cipher, 0, sizeof(cipher));
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
-	/*
-	 * calls the ep11 lib (which in turns sends the request to the card),
-	 * all m_ function are ep11 functions
-	 */
+    /*
+     * calls the ep11 lib (which in turns sends the request to the card),
+     * all m_ function are ep11 functions
+     */
     RETRY_START
-	rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech,
-			     key, ksize, cipher, &clen, (uint64_t)ep11_data->target_list);
+        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, &mech, key,
+                                 ksize, cipher, &clen,
+                                 (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
-			    __func__, ksize, clen, rc);
-		goto rawkey_2_blob_end;
-	}
-	TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
-		   __func__, ksize, clen, rc);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
+                    __func__, ksize, clen, rc);
+        goto rawkey_2_blob_end;
+    }
+    TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
+               __func__, ksize, clen, rc);
 
-	rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, p_attrs, attrs_len,
-				  &new_p_attrs, &new_attrs_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, p_attrs,
+                              attrs_len, &new_p_attrs, &new_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
     ep11_get_pin_blob(ep11_session, object_is_session_object(key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-	/* the encrypted key is decrypted and a blob is build,
-	 * card accepts only blobs as keys
-	 */
+    /* the encrypted key is decrypted and a blob is build,
+     * card accepts only blobs as keys
+     */
     RETRY_START
-	rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
-			 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech,
-			 new_p_attrs, new_attrs_len, blob, blen, csum, &cslen,
-			 (uint64_t)ep11_data->target_list);
+        rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
+                             ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                             ep11_pin_blob, ep11_pin_blob_len, &mech,
+                             new_p_attrs, new_attrs_len, blob, blen, csum,
+                             &cslen, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
-	} else {
-		TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
+    } else {
+        TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
+    }
 
 rawkey_2_blob_end:
-	if (p_attrs != NULL)
-		free_attribute_array(p_attrs, attrs_len);
-	if (new_p_attrs)
-		free_attribute_array(new_p_attrs, new_attrs_len);
-	return rc;
+    if (p_attrs != NULL)
+        free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        free_attribute_array(new_p_attrs, new_attrs_len);
+    return rc;
 }
 
 /* random number generator */
-CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
+CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
+                         CK_ULONG bytes)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
-	CK_RV rc = dll_m_GenerateRandom(output, bytes,
-					(uint64_t)ep11_data->target_list);
-	if (rc != CKR_OK)
-		TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
-			    __func__, output, bytes, rc);
-	return rc;
+    CK_RV rc = dll_m_GenerateRandom(output, bytes,
+                                    (uint64_t) ep11_data->target_list);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
+                    __func__, output, bytes, rc);
+    return rc;
 }
 
 /*
@@ -1461,127 +1471,144 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG byt
  * m_UnwrapKey, use one wrap key for this purpose, can be any key,
  * we use an AES key
  */
-static CK_RV make_wrapblob(STDLL_TokData_t *tokdata, CK_ATTRIBUTE *tmpl_in,
-			   CK_ULONG tmpl_len)
+static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
+                           CK_ULONG tmpl_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_MECHANISM mech = {CKM_AES_KEY_GEN, NULL_PTR, 0};
-	unsigned char csum[MAX_CSUMSIZE];
-	size_t csum_l = sizeof(csum);
-	CK_RV rc;
+    CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL_PTR, 0 };
+    unsigned char csum[MAX_CSUMSIZE];
+    size_t csum_l = sizeof(csum);
+    CK_RV rc;
 
-	if (ep11_data->raw2key_wrap_blob_l != 0) {
-		TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
-			   __func__, ep11_data->raw2key_wrap_blob_l);
-		return CKR_OK;
-	}
+    if (ep11_data->raw2key_wrap_blob_l != 0) {
+        TRACE_INFO("%s blob already exists raw2key_wrap_blob_l=0x%zx\n",
+                   __func__, ep11_data->raw2key_wrap_blob_l);
+        return CKR_OK;
+    }
 
-	ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
-	rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0, ep11_data->raw2key_wrap_blob,
-			       &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
-			       (uint64_t)ep11_data->target_list);
+    ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
+    rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
+                           ep11_data->raw2key_wrap_blob,
+                           &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
+                           (uint64_t) ep11_data->target_list);
 
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
-			    __func__, ep11_data->raw2key_wrap_blob_l, rc);
-	} else {
-		TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
-			   __func__, ep11_data->raw2key_wrap_blob_l, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
+                    __func__, ep11_data->raw2key_wrap_blob_l, rc);
+    } else {
+        TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
+                   __func__, ep11_data->raw2key_wrap_blob_l, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
-CK_RV ep11_resolve_lib_sym(void *hdl) {
-	char *error = NULL;
+CK_RV ep11_resolve_lib_sym(void *hdl)
+{
+    char *error = NULL;
 
-	dlerror(); /* Clear existing error */
+    dlerror();                  /* Clear existing error */
 
-	dll_m_GenerateRandom	= (m_GenerateRandom_t)dlsym(hdl, "m_GenerateRandom");
-	dll_m_SeedRandom	= (m_SeedRandom_t)dlsym(hdl, "m_SeedRandom");
+    dll_m_GenerateRandom = (m_GenerateRandom_t) dlsym(hdl, "m_GenerateRandom");
+    dll_m_SeedRandom = (m_SeedRandom_t) dlsym(hdl, "m_SeedRandom");
 
-	dll_m_Digest		= (m_Digest_t)dlsym(hdl, "m_Digest");
-	dll_m_DigestInit	= (m_DigestInit_t)dlsym(hdl, "m_DigestInit");
-	dll_m_DigestUpdate	= (m_DigestUpdate_t)dlsym(hdl, "m_DigestUpdate");
-	dll_m_DigestFinal	= (m_DigestFinal_t)dlsym(hdl, "m_DigestFinal");
-	dll_m_DigestKey		= (m_DigestKey_t)dlsym(hdl, "m_DigestKey");
-	dll_m_DigestSingle	= (m_DigestSingle_t)dlsym(hdl, "m_DigestSingle");
+    dll_m_Digest = (m_Digest_t) dlsym(hdl, "m_Digest");
+    dll_m_DigestInit = (m_DigestInit_t) dlsym(hdl, "m_DigestInit");
+    dll_m_DigestUpdate = (m_DigestUpdate_t) dlsym(hdl, "m_DigestUpdate");
+    dll_m_DigestFinal = (m_DigestFinal_t) dlsym(hdl, "m_DigestFinal");
+    dll_m_DigestKey = (m_DigestKey_t) dlsym(hdl, "m_DigestKey");
+    dll_m_DigestSingle = (m_DigestSingle_t) dlsym(hdl, "m_DigestSingle");
 
-	dll_m_Encrypt		= (m_Encrypt_t)dlsym(hdl, "m_Encrypt");
-	dll_m_EncryptInit	= (m_EncryptInit_t)dlsym(hdl, "m_EncryptInit");
-	dll_m_EncryptUpdate	= (m_EncryptUpdate_t)dlsym(hdl, "m_EncryptUpdate");
-	dll_m_EncryptFinal	= (m_EncryptFinal_t)dlsym(hdl, "m_EncryptFinal");
-	dll_m_EncryptSingle	= (m_EncryptSingle_t)dlsym(hdl, "m_EncryptSingle");
+    dll_m_Encrypt = (m_Encrypt_t) dlsym(hdl, "m_Encrypt");
+    dll_m_EncryptInit = (m_EncryptInit_t) dlsym(hdl, "m_EncryptInit");
+    dll_m_EncryptUpdate = (m_EncryptUpdate_t) dlsym(hdl, "m_EncryptUpdate");
+    dll_m_EncryptFinal = (m_EncryptFinal_t) dlsym(hdl, "m_EncryptFinal");
+    dll_m_EncryptSingle = (m_EncryptSingle_t) dlsym(hdl, "m_EncryptSingle");
 
-	dll_m_Decrypt		= (m_Decrypt_t)dlsym(hdl, "m_Decrypt");
-	dll_m_DecryptInit	= (m_DecryptInit_t)dlsym(hdl, "m_DecryptInit");
-	dll_m_DecryptUpdate	= (m_DecryptUpdate_t)dlsym(hdl, "m_DecryptUpdate");
-	dll_m_DecryptFinal	= (m_DecryptFinal_t)dlsym(hdl, "m_DecryptFinal");
-	dll_m_DecryptSingle	= (m_DecryptSingle_t)dlsym(hdl, "m_DecryptSingle");
+    dll_m_Decrypt = (m_Decrypt_t) dlsym(hdl, "m_Decrypt");
+    dll_m_DecryptInit = (m_DecryptInit_t) dlsym(hdl, "m_DecryptInit");
+    dll_m_DecryptUpdate = (m_DecryptUpdate_t) dlsym(hdl, "m_DecryptUpdate");
+    dll_m_DecryptFinal = (m_DecryptFinal_t) dlsym(hdl, "m_DecryptFinal");
+    dll_m_DecryptSingle = (m_DecryptSingle_t) dlsym(hdl, "m_DecryptSingle");
 
-	dll_m_ReencryptSingle	= (m_ReencryptSingle_t)dlsym(hdl, "m_ReencryptSingle");
-	dll_m_GenerateKey	= (m_GenerateKey_t)dlsym(hdl, "m_GenerateKey");
-	dll_m_GenerateKeyPair	= (m_GenerateKeyPair_t)dlsym(hdl, "m_GenerateKeyPair");
+    dll_m_ReencryptSingle =
+        (m_ReencryptSingle_t) dlsym(hdl, "m_ReencryptSingle");
+    dll_m_GenerateKey = (m_GenerateKey_t) dlsym(hdl, "m_GenerateKey");
+    dll_m_GenerateKeyPair =
+        (m_GenerateKeyPair_t) dlsym(hdl, "m_GenerateKeyPair");
 
-	dll_m_Sign		= (m_Sign_t)dlsym(hdl, "m_Sign");
-	dll_m_SignInit		= (m_SignInit_t)dlsym(hdl, "m_SignInit");
-	dll_m_SignUpdate	= (m_SignUpdate_t)dlsym(hdl, "m_SignUpdate");
-	dll_m_SignFinal		= (m_SignFinal_t)dlsym(hdl, "m_SignFinal");
-	dll_m_SignSingle	= (m_SignSingle_t)dlsym(hdl, "m_SignSingle");
+    dll_m_Sign = (m_Sign_t) dlsym(hdl, "m_Sign");
+    dll_m_SignInit = (m_SignInit_t) dlsym(hdl, "m_SignInit");
+    dll_m_SignUpdate = (m_SignUpdate_t) dlsym(hdl, "m_SignUpdate");
+    dll_m_SignFinal = (m_SignFinal_t) dlsym(hdl, "m_SignFinal");
+    dll_m_SignSingle = (m_SignSingle_t) dlsym(hdl, "m_SignSingle");
 
-	dll_m_Verify		= (m_Verify_t)dlsym(hdl, "m_Verify");
-	dll_m_VerifyInit	= (m_VerifyInit_t)dlsym(hdl, "m_VerifyInit");
-	dll_m_VerifyUpdate	= (m_VerifyUpdate_t)dlsym(hdl, "m_VerifyUpdate");
-	dll_m_VerifyFinal	= (m_VerifyFinal_t)dlsym(hdl, "m_VerifyFinal");
-	dll_m_VerifySingle	= (m_VerifySingle_t)dlsym(hdl, "m_VerifySingle");
+    dll_m_Verify = (m_Verify_t) dlsym(hdl, "m_Verify");
+    dll_m_VerifyInit = (m_VerifyInit_t) dlsym(hdl, "m_VerifyInit");
+    dll_m_VerifyUpdate = (m_VerifyUpdate_t) dlsym(hdl, "m_VerifyUpdate");
+    dll_m_VerifyFinal = (m_VerifyFinal_t) dlsym(hdl, "m_VerifyFinal");
+    dll_m_VerifySingle = (m_VerifySingle_t) dlsym(hdl, "m_VerifySingle");
 
-	dll_m_WrapKey		= (m_WrapKey_t)dlsym(hdl, "m_WrapKey");
-	dll_m_UnwrapKey		= (m_UnwrapKey_t)dlsym(hdl, "m_UnwrapKey");
-	dll_m_DeriveKey		= (m_DeriveKey_t)dlsym(hdl, "m_DeriveKey");
+    dll_m_WrapKey = (m_WrapKey_t) dlsym(hdl, "m_WrapKey");
+    dll_m_UnwrapKey = (m_UnwrapKey_t) dlsym(hdl, "m_UnwrapKey");
+    dll_m_DeriveKey = (m_DeriveKey_t) dlsym(hdl, "m_DeriveKey");
 
-	dll_m_GetMechanismList	= (m_GetMechanismList_t)dlsym(hdl, "m_GetMechanismList");
-	dll_m_GetMechanismInfo	= (m_GetMechanismInfo_t)dlsym(hdl, "m_GetMechanismInfo");
-	dll_m_GetAttributeValue	= (m_GetAttributeValue_t)dlsym(hdl, "m_GetAttributeValue");
-	dll_m_SetAttributeValue	= (m_SetAttributeValue_t)dlsym(hdl, "m_SetAttributeValue");
+    dll_m_GetMechanismList =
+        (m_GetMechanismList_t) dlsym(hdl, "m_GetMechanismList");
+    dll_m_GetMechanismInfo =
+        (m_GetMechanismInfo_t) dlsym(hdl, "m_GetMechanismInfo");
+    dll_m_GetAttributeValue =
+        (m_GetAttributeValue_t) dlsym(hdl, "m_GetAttributeValue");
+    dll_m_SetAttributeValue =
+        (m_SetAttributeValue_t) dlsym(hdl, "m_SetAttributeValue");
 
-	dll_m_Login		= (m_Login_t)dlsym(hdl, "m_Login");
-	dll_m_Logout		= (m_Logout_t)dlsym(hdl, "m_Logout");
-	dll_m_admin		= (m_admin_t)dlsym(hdl, "m_admin");
+    dll_m_Login = (m_Login_t) dlsym(hdl, "m_Login");
+    dll_m_Logout = (m_Logout_t) dlsym(hdl, "m_Logout");
+    dll_m_admin = (m_admin_t) dlsym(hdl, "m_admin");
 
-	dll_m_init		= (m_init_t)dlsym(hdl, "m_init");
-	dll_m_add_backend	= (m_add_backend_t)dlsym(hdl, "m_add_backend");
-	dll_m_shutdown		= (m_shutdown_t)dlsym(hdl, "m_shutdown");
+    dll_m_init = (m_init_t) dlsym(hdl, "m_init");
+    dll_m_add_backend = (m_add_backend_t) dlsym(hdl, "m_add_backend");
+    dll_m_shutdown = (m_shutdown_t) dlsym(hdl, "m_shutdown");
 
-    dll_xcpa_queryblock = (xcpa_queryblock_t)dlsym(hdl, "xcpa_queryblock");
-    dll_xcpa_internal_rv = (xcpa_internal_rv_t)dlsym(hdl, "xcpa_internal_rv");
+    dll_xcpa_queryblock = (xcpa_queryblock_t) dlsym(hdl, "xcpa_queryblock");
+    dll_xcpa_internal_rv = (xcpa_internal_rv_t) dlsym(hdl, "xcpa_internal_rv");
 
-	if ((error = dlerror()) != NULL)  {
+    if ((error = dlerror()) != NULL) {
         TRACE_ERROR("%s Error: %s\n", __func__, error);
         OCK_SYSLOG(LOG_ERR, "%s: Error: %s\n", __func__, error);
         return CKR_FUNCTION_FAILED;
-	}
-	else
-		return CKR_OK;
+    }
+
+    return CKR_OK;
 }
 
-CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_name)
+CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
+                   char *conf_name)
 {
-	CK_RV rc;
-	void *lib_ep11;
-	CK_ULONG len = 16;
-	CK_BBOOL cktrue = 1;
-	CK_ATTRIBUTE wrap_tmpl[] = {{CKA_VALUE_LEN, &len, sizeof(CK_ULONG)},
-				    {CKA_WRAP, (void*)&cktrue, sizeof(cktrue)},
-				    {CKA_UNWRAP, (void*)&cktrue, sizeof(cktrue)},
-				    {CKA_ENCRYPT, (void*)&cktrue, sizeof(cktrue)},
-				    {CKA_DECRYPT, (void*)&cktrue, sizeof(cktrue)},
-				    {CKA_EXTRACTABLE, (void*)&cktrue, sizeof(cktrue)},
-				    {CKA_LABEL, (void*)wrap_key_name, sizeof(wrap_key_name)},
-				    {CKA_TOKEN, (void*)&cktrue, sizeof(cktrue)}};
-	ep11_private_data_t *ep11_data;
+    CK_RV rc;
+    void *lib_ep11;
+    CK_ULONG len = 16;
+    CK_BBOOL cktrue = 1;
+    CK_ATTRIBUTE wrap_tmpl[] = { {CKA_VALUE_LEN, &len, sizeof(CK_ULONG)}
+    ,
+    {CKA_WRAP, (void *) &cktrue, sizeof(cktrue)}
+    ,
+    {CKA_UNWRAP, (void *) &cktrue, sizeof(cktrue)}
+    ,
+    {CKA_ENCRYPT, (void *) &cktrue, sizeof(cktrue)}
+    ,
+    {CKA_DECRYPT, (void *) &cktrue, sizeof(cktrue)}
+    ,
+    {CKA_EXTRACTABLE, (void *) &cktrue, sizeof(cktrue)}
+    ,
+    {CKA_LABEL, (void *) wrap_key_name, sizeof(wrap_key_name)}
+    ,
+    {CKA_TOKEN, (void *) &cktrue, sizeof(cktrue)}
+    };
+    ep11_private_data_t *ep11_data;
 
-	TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
+    TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
 
     ep11_data = calloc(1, sizeof(ep11_private_data_t));
     if (ep11_data == NULL)
@@ -1592,85 +1619,87 @@ CK_RV ep11tok_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber, char *conf_n
 
     tokdata->private_data = ep11_data;
 
-	/* read ep11 specific config file with user specified adapter/domain pairs, ... */
-	rc = read_adapter_config_file(tokdata, conf_name);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
-		return CKR_GENERAL_ERROR;
-	}
+    /* read ep11 specific config file with user specified
+     * adapter/domain pairs */
+    rc = read_adapter_config_file(tokdata, conf_name);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
+        return CKR_GENERAL_ERROR;
+    }
 
-	/* dynamically load in the ep11 shared library */
-	lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
-	if (!lib_ep11) {
-		OCK_SYSLOG(LOG_ERR,
-			   "%s: Error loading shared library '%s' [%s]\n",
-			   __func__, EP11SHAREDLIB, dlerror());
-		TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
-			    __func__, EP11SHAREDLIB, dlerror());
-		return CKR_FUNCTION_FAILED;
-	}
+    /* dynamically load in the ep11 shared library */
+    lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
+    if (!lib_ep11) {
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error loading shared library '%s' [%s]\n",
+                   __func__, EP11SHAREDLIB, dlerror());
+        TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
+                    __func__, EP11SHAREDLIB, dlerror());
+        return CKR_FUNCTION_FAILED;
+    }
 
-	rc = ep11_resolve_lib_sym(lib_ep11);
+    rc = ep11_resolve_lib_sym(lib_ep11);
     if (rc != CKR_OK)
         return rc;
 
 #ifndef XCP_STANDALONE
-	/* call ep11 shared lib init */
-	if (dll_m_init() < 0) {
-		TRACE_ERROR("%s ep11 lib init failed\n", __func__);
+    /* call ep11 shared lib init */
+    if (dll_m_init() < 0) {
+        TRACE_ERROR("%s ep11 lib init failed\n", __func__);
         OCK_SYSLOG(LOG_ERR,
                    "%s: Error: EP 11 library initialization failed\n",
                    __func__);
-		return CKR_DEVICE_ERROR;
-	}
+        return CKR_DEVICE_ERROR;
+    }
 #endif
 
     ep11_data->control_points_len = sizeof(ep11_data->control_points);
     rc = get_control_points(tokdata, ep11_data->control_points,
                             &ep11_data->control_points_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s Failed to get the control points (get_control_points rc=0x%lx)\n",
-                   __func__, rc);
+        TRACE_ERROR("%s Failed to get the control points (get_control_points "
+                    "rc=0x%lx)\n", __func__, rc);
         OCK_SYSLOG(LOG_ERR, "%s: Failed to get the control points rc=0x%lx\n",
                    __func__, rc);
         return rc;
     }
 
-	/* create an AES key needed for importing keys
-	 * (encrypt by wrap_key and m_UnwrapKey by wrap key)
-	 */
-	rc = make_wrapblob(tokdata, wrap_tmpl, 8);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
-		if (rc == 0x80010009) {
-			TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
-				    "no master key set ?\n", __func__);
-			OCK_SYSLOG(LOG_ERR,
-				   "%s: Error: CKR_IBM_WK_NOT_INITIALIZED occurred, no "
-				   "master key set ?\n", __func__);
-		}
+    /* create an AES key needed for importing keys
+     * (encrypt by wrap_key and m_UnwrapKey by wrap key)
+     */
+    rc = make_wrapblob(tokdata, wrap_tmpl, 8);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
+        if (rc == 0x80010009) {
+            TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
+                        "no master key set ?\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error: CKR_IBM_WK_NOT_INITIALIZED occurred, no "
+                       "master key set ?\n", __func__);
+        }
         if (rc == CKR_FUNCTION_CANCELED) {
             TRACE_ERROR("%s rc is CKR_FUNCTION_CANCELED, "
-                    "control point 13 (generate or derive symmetric "
-                    "keys including DSA parameters) disabled ?\n", __func__);
+                        "control point 13 (generate or derive symmetric "
+                        "keys including DSA parameters) disabled ?\n",
+                        __func__);
             OCK_SYSLOG(LOG_ERR,
-                   "%s: Error: CKR_FUNCTION_CANCELED occurred, "
-                   "control point 13 (generate or derive symmetric "
-                   "keys including DSA parameters) disabled ?\n", __func__);
+                       "%s: Error: CKR_FUNCTION_CANCELED occurred, "
+                       "control point 13 (generate or derive symmetric "
+                       "keys including DSA parameters) disabled ?\n", __func__);
         }
-		return CKR_GENERAL_ERROR;
-	}
+        return CKR_GENERAL_ERROR;
+    }
 
-	TRACE_INFO("%s init done successfully\n", __func__);
+    TRACE_INFO("%s init done successfully\n", __func__);
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
-CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
+CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
-	TRACE_INFO("ep11 %s running\n", __func__);
+    TRACE_INFO("ep11 %s running\n", __func__);
 
     if (ep11_data != NULL) {
         if (ep11_data->target_list)
@@ -1680,7 +1709,7 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
         tokdata->private_data = NULL;
     }
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 
@@ -1689,376 +1718,15 @@ CK_RV ep11tok_final(STDLL_TokData_t *tokdata)
  * SPKIs for public imported RSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
-                OBJECT *rsa_key_obj,
-			    CK_BYTE *blob, size_t *blob_size)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE iv[AES_BLOCK_SIZE];
-	CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
-	CK_BYTE cipher[MAX_BLOBSIZE];
-	CK_ULONG cipher_l = sizeof(cipher);
-	DL_NODE *node;
-	CK_ATTRIBUTE_PTR p_attrs = NULL;
-	CK_ULONG attrs_len = 0;
-	CK_ATTRIBUTE_PTR new_p_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
-	char csum[MAX_BLOBSIZE];
-	CK_ULONG cslen = sizeof(csum);
-	CK_OBJECT_CLASS class;
-	CK_BYTE *data = NULL;
-	CK_ULONG data_len;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
-
-	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
-
-	/* need class for private/public key info */
-	if (!template_attribute_find(rsa_key_obj->template, CKA_CLASS, &attr)) {
-		TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-		return CKR_TEMPLATE_INCOMPLETE;
-	}
-
-	/* m_Unwrap builds key blob in the card,
-	 * tell ep11 the attributes the user specified for that key.
-	 */
-	node = rsa_key_obj->template->attribute_list;
-	while (node != NULL) {
-		CK_ATTRIBUTE_PTR a = node->data;
-
-		/* ep11 handles this as 'read only' */
-		if (CKA_NEVER_EXTRACTABLE == a->type ||
-		    CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type)
-			;
-		else {
-			rc = add_to_attribute_array(&p_attrs, &attrs_len,
-						    a->type, a->pValue,
-						    a->ulValueLen);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-					    __func__, a->type, rc);
-				goto import_RSA_key_end;
-			}
-		}
-
-		node = node->next;
-	}
-
-	class = *(CK_OBJECT_CLASS *)attr->pValue;
-
-	if (class != CKO_PRIVATE_KEY) {
-
-		/* an imported public RSA key, we need a SPKI for it. */
-
-		CK_ATTRIBUTE *modulus;
-		CK_ATTRIBUTE *publ_exp;
-
-		if (!template_attribute_find(rsa_key_obj->template,
-					     CKA_MODULUS, &modulus)) {
-			rc = CKR_TEMPLATE_INCOMPLETE;
-			goto import_RSA_key_end;
-		}
-		if (!template_attribute_find(rsa_key_obj->template,
-					     CKA_PUBLIC_EXPONENT, &publ_exp)) {
-			rc = CKR_TEMPLATE_INCOMPLETE;
-			goto import_RSA_key_end;
-		}
-
-		/* our contribution to asn1.c,
-		 * builds the BER encoding that is a SPKI.
-		 */
-		rc = ber_encode_RSAPublicKey(0, &data, &data_len,
-					     modulus, publ_exp);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
-				    "data_len=0x%lx\n", __func__, class, rc,
-				    data_len);
-			goto import_RSA_key_end;
-		} else {
-			TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
-				   "data_len=0x%lx\n", __func__, class, rc,
-				   data_len);
-		}
-
-		/* save the SPKI as blob although it is not a blob.
-		 * The card expects SPKIs as public keys.
-		 */
-		memcpy(blob, data, data_len);
-		*blob_size = data_len;
-
-	} else {
-
-		/* imported private RSA key goes here */
-
-		/* extract the secret data to be wrapped
-		 * since this is AES_CBC_PAD, padding is done in mechanism.
-		 */
-		rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
-					    &data, &data_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("%s RSA wrap get data failed\n", __func__);
-			goto import_RSA_key_end;
-		}
-
-		/* encrypt */
-        RETRY_START
-		rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l, &mech_w,
-					 data, data_len, cipher, &cipher_l,
-					 (uint64_t)ep11_data->target_list);
-        RETRY_END(rc, tokdata, sess)
-
-		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-			   __func__, rc, cipher_l);
-
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-				    __func__, rc, cipher_l);
-			goto import_RSA_key_end;
-		}
-
-		rc = check_key_attributes(tokdata, CKK_RSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-					  &new_p_attrs, &new_attrs_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
-				    __func__, rc);
-			return rc;
-		}
-
-        ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
-                          &ep11_pin_blob, &ep11_pin_blob_len);
-
-		/* calls the card, it decrypts the private RSA key,
-		 * reads its BER format and builds a blob.
-		 */
-        RETRY_START
-		rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob, ep11_data->raw2key_wrap_blob_l,
-				 NULL, ~0, ep11_pin_blob, ep11_pin_blob_len, &mech_w,
-				 new_p_attrs, new_attrs_len, blob, blob_size, csum, &cslen,
-				 (uint64_t)ep11_data->target_list);
-        RETRY_END(rc, tokdata, sess)
-
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-				    __func__, rc, *blob_size);
-		} else {
-			TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-				   __func__, rc, *blob_size);
-		}
-	}
-
-import_RSA_key_end:
-	if (data)
-		free(data);
-	if (p_attrs != NULL)
-		free_attribute_array(p_attrs, attrs_len);
-	if (new_p_attrs)
-		free_attribute_array(new_p_attrs, new_attrs_len);
-	return rc;
-}
-
-/*
- * makes blobs for private imported EC keys and
- * SPKIs for public imported EC keys.
- * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
- */
-static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
-               OBJECT *ec_key_obj,
-			   CK_BYTE *blob, size_t *blob_size)
-{
-	ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE iv[AES_BLOCK_SIZE];
-	CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
-	CK_BYTE cipher[MAX_BLOBSIZE];
-	CK_ULONG cipher_l = sizeof(cipher);
-	DL_NODE *node;
-	CK_ATTRIBUTE_PTR p_attrs = NULL;
-	CK_ULONG attrs_len = 0;
-	CK_ATTRIBUTE_PTR new_p_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
-	char csum[MAX_BLOBSIZE];
-	CK_ULONG cslen = sizeof(csum);
-	CK_OBJECT_CLASS class;
-	CK_BYTE *data = NULL;
-	CK_ULONG data_len;
-    unsigned char *ep11_pin_blob = NULL;
-    CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
-
-	memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
-
-	/* need class for private/public key info */
-	if (!template_attribute_find(ec_key_obj->template, CKA_CLASS, &attr)) {
-		TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-		return CKR_TEMPLATE_INCOMPLETE;
-	}
-
-	/* m_Unwrap builds key blob in the card,
-	 * tell ep11 the attributes the user specified for that key.
-	 */
-	node = ec_key_obj->template->attribute_list;
-	while (node != NULL) {
-		CK_ATTRIBUTE_PTR a = node->data;
-
-		/* ep11 handles this as 'read only' */
-		if (CKA_NEVER_EXTRACTABLE == a->type ||
-		    CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-			;
-		} else {
-			rc = add_to_attribute_array(&p_attrs, &attrs_len,
-						    a->type, a->pValue,
-						    a->ulValueLen);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-					    __func__, a->type, rc);
-				goto import_EC_key_end;
-			}
-		}
-
-		node = node->next;
-	}
-
-	class = *(CK_OBJECT_CLASS *)attr->pValue;
-
-	if (class != CKO_PRIVATE_KEY) {
-
-		/* an imported public EC key, we need a SPKI for it. */
-
-		CK_ATTRIBUTE *ec_params;
-		CK_ATTRIBUTE *ec_point;
-
-		if (!template_attribute_find(ec_key_obj->template,
-					     CKA_EC_PARAMS, &ec_params)) {
-			rc = CKR_TEMPLATE_INCOMPLETE;
-			goto import_EC_key_end;
-		}
-		if (!template_attribute_find(ec_key_obj->template,
-					     CKA_EC_POINT, &ec_point)) {
-			rc = CKR_TEMPLATE_INCOMPLETE;
-			goto import_EC_key_end;
-		}
-
-		/*
-		 * Builds the DER encoding (ansi_x962) SPKI.
-		 * (get the length first)
-		 */
-		rc = ber_encode_ECPublicKey(TRUE, &data, &data_len,
-					     ec_params, ec_point);
-		data = malloc(data_len);
-
-		rc = ber_encode_ECPublicKey(FALSE, &data, &data_len,
-					     ec_params, ec_point);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
-				    "data_len=0x%lx\n", __func__, class, rc,
-				    data_len);
-			goto import_EC_key_end;
-		} else {
-			TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
-				   "data_len=0x%lx\n", __func__, class, rc,
-				   data_len);
-		}
-
-		/* save the SPKI as blob although it is not a blob.
-		 * The card expects SPKIs as public keys.
-		 */
-		memcpy(blob, data, data_len);
-		*blob_size = data_len;
-
-	} else {
-
-		/* imported private EC key goes here */
-
-		/* extract the secret data to be wrapped
-		 * since this is AES_CBC_PAD, padding is done in mechanism.
-		 */
-		rc = ecdsa_priv_wrap_get_data(ec_key_obj->template, FALSE,
-					      &data, &data_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("%s EC wrap get data failed\n", __func__);
-			goto import_EC_key_end;
-		}
-
-		/* encrypt */
-        RETRY_START
-		rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-					 ep11_data->raw2key_wrap_blob_l,
-					 &mech_w, data, data_len,
-					 cipher, &cipher_l,
-					 (uint64_t)ep11_data->target_list);
-        RETRY_END(rc, tokdata, sess)
-
-		TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-			   __func__, rc, cipher_l);
-
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-				    __func__, rc, cipher_l);
-			goto import_EC_key_end;
-		}
-
-		rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-					  &new_p_attrs, &new_attrs_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s EC check private key attributes failed with rc=0x%lx\n",
-				    __func__, rc);
-			return rc;
-		}
-
-        ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
-                          &ep11_pin_blob, &ep11_pin_blob_len);
-
-		/* calls the card, it decrypts the private EC key,
-		 * reads its BER format and builds a blob.
-		 */
-        RETRY_START
-		rc = dll_m_UnwrapKey(cipher, cipher_l,
-				     ep11_data->raw2key_wrap_blob,
-				     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-				     ep11_pin_blob,
-				     ep11_pin_blob_len, &mech_w,
-				     new_p_attrs, new_attrs_len, blob,
-				     blob_size, csum, &cslen,
-				     (uint64_t)ep11_data->target_list);
-        RETRY_END(rc, tokdata, sess)
-
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-				    __func__, rc, *blob_size);
-		} else {
-			TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-				   __func__, rc, *blob_size);
-		}
-	}
-
-import_EC_key_end:
-	if (data)
-		free(data);
-	if (p_attrs != NULL)
-		free_attribute_array(p_attrs, attrs_len);
-	if (new_p_attrs)
-		free_attribute_array(new_p_attrs, new_attrs_len);
-	return rc;
-}
-
-/*
- * makes blobs for private imported DSA keys and
- * SPKIs for public imported DSA keys.
- * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
- */
-static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
-                            OBJECT *dsa_key_obj,
-                            CK_BYTE *blob, size_t *blob_size)
+static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
+                            OBJECT * rsa_key_obj,
+                            CK_BYTE * blob, size_t * blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
-    CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
+    CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
     DL_NODE *node;
@@ -2073,7 +1741,364 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG data_len;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+
+    /* need class for private/public key info */
+    if (!template_attribute_find(rsa_key_obj->template, CKA_CLASS, &attr)) {
+        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* m_Unwrap builds key blob in the card,
+     * tell ep11 the attributes the user specified for that key.
+     */
+    node = rsa_key_obj->template->attribute_list;
+    while (node != NULL) {
+        CK_ATTRIBUTE_PTR a = node->data;
+
+        /* ep11 handles this as 'read only' */
+        if (CKA_NEVER_EXTRACTABLE == a->type ||
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
+            ;
+        } else {
+            rc = add_to_attribute_array(&p_attrs, &attrs_len,
+                                        a->type, a->pValue, a->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, a->type, rc);
+                goto import_RSA_key_end;
+            }
+        }
+
+        node = node->next;
+    }
+
+    class = *(CK_OBJECT_CLASS *) attr->pValue;
+
+    if (class != CKO_PRIVATE_KEY) {
+
+        /* an imported public RSA key, we need a SPKI for it. */
+
+        CK_ATTRIBUTE *modulus;
+        CK_ATTRIBUTE *publ_exp;
+
+        if (!template_attribute_find(rsa_key_obj->template,
+                                     CKA_MODULUS, &modulus)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_RSA_key_end;
+        }
+        if (!template_attribute_find(rsa_key_obj->template,
+                                     CKA_PUBLIC_EXPONENT, &publ_exp)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_RSA_key_end;
+        }
+
+        /* our contribution to asn1.c,
+         * builds the BER encoding that is a SPKI.
+         */
+        rc = ber_encode_RSAPublicKey(0, &data, &data_len, modulus, publ_exp);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+                        "data_len=0x%lx\n", __func__, class, rc, data_len);
+            goto import_RSA_key_end;
+        } else {
+            TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+                       "data_len=0x%lx\n", __func__, class, rc, data_len);
+        }
+
+        /* save the SPKI as blob although it is not a blob.
+         * The card expects SPKIs as public keys.
+         */
+        memcpy(blob, data, data_len);
+        *blob_size = data_len;
+
+    } else {
+
+        /* imported private RSA key goes here */
+
+        /* extract the secret data to be wrapped
+         * since this is AES_CBC_PAD, padding is done in mechanism.
+         */
+        rc = rsa_priv_wrap_get_data(rsa_key_obj->template, FALSE,
+                                    &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s RSA wrap get data failed\n", __func__);
+            goto import_RSA_key_end;
+        }
+
+        /* encrypt */
+        RETRY_START
+            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l, &mech_w,
+                                     data, data_len, cipher, &cipher_l,
+                                     (uint64_t) ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
+
+        TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                   __func__, rc, cipher_l);
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                        __func__, rc, cipher_l);
+            goto import_RSA_key_end;
+        }
+
+        rc = check_key_attributes(tokdata, CKK_RSA, CKO_PRIVATE_KEY, p_attrs,
+                                  attrs_len, &new_p_attrs, &new_attrs_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s RSA/EC check private key attributes failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
+
+        /* calls the card, it decrypts the private RSA key,
+         * reads its BER format and builds a blob.
+         */
+        RETRY_START
+            rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                                 ep11_pin_blob, ep11_pin_blob_len, &mech_w,
+                                 new_p_attrs, new_attrs_len, blob, blob_size,
+                                 csum, &cslen,
+                                 (uint64_t) ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                        __func__, rc, *blob_size);
+        } else {
+            TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                       __func__, rc, *blob_size);
+        }
+    }
+
+import_RSA_key_end:
+    if (data)
+        free(data);
+    if (p_attrs != NULL)
+        free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        free_attribute_array(new_p_attrs, new_attrs_len);
+    return rc;
+}
+
+/*
+ * makes blobs for private imported EC keys and
+ * SPKIs for public imported EC keys.
+ * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
+ */
+static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
+                           OBJECT * ec_key_obj,
+                           CK_BYTE * blob, size_t * blob_size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
+    CK_BYTE cipher[MAX_BLOBSIZE];
+    CK_ULONG cipher_l = sizeof(cipher);
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    char csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_OBJECT_CLASS class;
+    CK_BYTE *data = NULL;
+    CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+
+    /* need class for private/public key info */
+    if (!template_attribute_find(ec_key_obj->template, CKA_CLASS, &attr)) {
+        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* m_Unwrap builds key blob in the card,
+     * tell ep11 the attributes the user specified for that key.
+     */
+    node = ec_key_obj->template->attribute_list;
+    while (node != NULL) {
+        CK_ATTRIBUTE_PTR a = node->data;
+
+        /* ep11 handles this as 'read only' */
+        if (CKA_NEVER_EXTRACTABLE == a->type ||
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
+            ;
+        } else {
+            rc = add_to_attribute_array(&p_attrs, &attrs_len,
+                                        a->type, a->pValue, a->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, a->type, rc);
+                goto import_EC_key_end;
+            }
+        }
+
+        node = node->next;
+    }
+
+    class = *(CK_OBJECT_CLASS *) attr->pValue;
+
+    if (class != CKO_PRIVATE_KEY) {
+
+        /* an imported public EC key, we need a SPKI for it. */
+
+        CK_ATTRIBUTE *ec_params;
+        CK_ATTRIBUTE *ec_point;
+
+        if (!template_attribute_find(ec_key_obj->template,
+                                     CKA_EC_PARAMS, &ec_params)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_EC_key_end;
+        }
+        if (!template_attribute_find(ec_key_obj->template,
+                                     CKA_EC_POINT, &ec_point)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_EC_key_end;
+        }
+
+        /*
+         * Builds the DER encoding (ansi_x962) SPKI.
+         * (get the length first)
+         */
+        rc = ber_encode_ECPublicKey(TRUE, &data, &data_len,
+                                    ec_params, ec_point);
+        data = malloc(data_len);
+
+        rc = ber_encode_ECPublicKey(FALSE, &data, &data_len,
+                                    ec_params, ec_point);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+                        "data_len=0x%lx\n", __func__, class, rc, data_len);
+            goto import_EC_key_end;
+        } else {
+            TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+                       "data_len=0x%lx\n", __func__, class, rc, data_len);
+        }
+
+        /* save the SPKI as blob although it is not a blob.
+         * The card expects SPKIs as public keys.
+         */
+        memcpy(blob, data, data_len);
+        *blob_size = data_len;
+
+    } else {
+
+        /* imported private EC key goes here */
+
+        /* extract the secret data to be wrapped
+         * since this is AES_CBC_PAD, padding is done in mechanism.
+         */
+        rc = ecdsa_priv_wrap_get_data(ec_key_obj->template, FALSE,
+                                      &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s EC wrap get data failed\n", __func__);
+            goto import_EC_key_end;
+        }
+
+        /* encrypt */
+        RETRY_START
+            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     &mech_w, data, data_len,
+                                     cipher, &cipher_l,
+                                     (uint64_t) ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
+
+        TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                   __func__, rc, cipher_l);
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                        __func__, rc, cipher_l);
+            goto import_EC_key_end;
+        }
+
+        rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs,
+                                  attrs_len, &new_p_attrs, &new_attrs_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s EC check private key attributes failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
+
+        /* calls the card, it decrypts the private EC key,
+         * reads its BER format and builds a blob.
+         */
+        RETRY_START
+            rc = dll_m_UnwrapKey(cipher, cipher_l,
+                                 ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                                 ep11_pin_blob,
+                                 ep11_pin_blob_len, &mech_w,
+                                 new_p_attrs, new_attrs_len, blob,
+                                 blob_size, csum, &cslen,
+                                 (uint64_t) ep11_data->target_list);
+        RETRY_END(rc, tokdata, sess)
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                        __func__, rc, *blob_size);
+        } else {
+            TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                       __func__, rc, *blob_size);
+        }
+    }
+
+import_EC_key_end:
+    if (data)
+        free(data);
+    if (p_attrs != NULL)
+        free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        free_attribute_array(new_p_attrs, new_attrs_len);
+    return rc;
+}
+
+/*
+ * makes blobs for private imported DSA keys and
+ * SPKIs for public imported DSA keys.
+ * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
+ */
+static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
+                            OBJECT * dsa_key_obj,
+                            CK_BYTE * blob, size_t * blob_size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
+    CK_BYTE cipher[MAX_BLOBSIZE];
+    CK_ULONG cipher_l = sizeof(cipher);
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    char csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_OBJECT_CLASS class;
+    CK_BYTE *data = NULL;
+    CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -2092,15 +2117,14 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* ep11 handles this as 'read only' */
         if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type)
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
             ;
-        else {
+        } else {
             rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                            a->type, a->pValue,
-                            a->ulValueLen);
+                                        a->type, a->pValue, a->ulValueLen);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                        __func__, a->type, rc);
+                            __func__, a->type, rc);
                 goto import_DSA_key_end;
             }
         }
@@ -2108,7 +2132,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         node = node->next;
     }
 
-    class = *(CK_OBJECT_CLASS *)attr->pValue;
+    class = *(CK_OBJECT_CLASS *) attr->pValue;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -2120,22 +2144,21 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         CK_ATTRIBUTE *value;
 
         if (!template_attribute_find(dsa_key_obj->template,
-                CKA_PRIME, &prime)) {
+                                     CKA_PRIME, &prime)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DSA_key_end;
         }
         if (!template_attribute_find(dsa_key_obj->template,
-                CKA_SUBPRIME, &subprime)) {
+                                     CKA_SUBPRIME, &subprime)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_DSA_key_end;
+        }
+        if (!template_attribute_find(dsa_key_obj->template, CKA_BASE, &base)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DSA_key_end;
         }
         if (!template_attribute_find(dsa_key_obj->template,
-                CKA_BASE, &base)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
-            goto import_DSA_key_end;
-        }
-        if (!template_attribute_find(dsa_key_obj->template,
-                CKA_VALUE, &value)) {
+                                     CKA_VALUE, &value)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DSA_key_end;
         }
@@ -2152,13 +2175,11 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                      prime, subprime, base, value);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
-                    "data_len=0x%lx\n", __func__, class, rc,
-                    data_len);
+                        "data_len=0x%lx\n", __func__, class, rc, data_len);
             goto import_DSA_key_end;
         } else {
             TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
-                   "data_len=0x%lx\n", __func__, class, rc,
-                   data_len);
+                       "data_len=0x%lx\n", __func__, class, rc, data_len);
         }
 
         /* save the SPKI as blob although it is not a blob.
@@ -2175,7 +2196,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * since this is AES_CBC_PAD, padding is done in mechanism.
          */
         rc = dsa_priv_wrap_get_data(dsa_key_obj->template, FALSE,
-                          &data, &data_len);
+                                    &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("%s DSA wrap get data failed\n", __func__);
             goto import_DSA_key_end;
@@ -2183,28 +2204,28 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_START
-        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                     ep11_data->raw2key_wrap_blob_l,
-                     &mech_w, data, data_len,
-                     cipher, &cipher_l,
-                     (uint64_t)ep11_data->target_list);
+            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     &mech_w, data, data_len,
+                                     cipher, &cipher_l,
+                                     (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, sess)
 
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-               __func__, rc, cipher_l);
+                   __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-                    __func__, rc, cipher_l);
+                        __func__, rc, cipher_l);
             goto import_DSA_key_end;
         }
 
-        rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-                      &new_p_attrs, &new_attrs_len);
+        rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY, p_attrs,
+                                  attrs_len, &new_p_attrs, &new_attrs_len);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s DSA check private key attributes failed with rc=0x%lx\n",
-                    __func__, rc);
+            TRACE_ERROR("%s DSA check private key attributes failed with "
+                        "rc=0x%lx\n", __func__, rc);
             return rc;
         }
 
@@ -2215,22 +2236,22 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_START
-        rc = dll_m_UnwrapKey(cipher, cipher_l,
-                     ep11_data->raw2key_wrap_blob,
-                     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-                     ep11_pin_blob,
-                     ep11_pin_blob_len, &mech_w,
-                     new_p_attrs, new_attrs_len, blob,
-                     blob_size, csum, &cslen,
-                     (uint64_t)ep11_data->target_list);
+            rc = dll_m_UnwrapKey(cipher, cipher_l,
+                                 ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                                 ep11_pin_blob,
+                                 ep11_pin_blob_len, &mech_w,
+                                 new_p_attrs, new_attrs_len, blob,
+                                 blob_size, csum, &cslen,
+                                 (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-                    __func__, rc, *blob_size);
+                        __func__, rc, *blob_size);
         } else {
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-                   __func__, rc, *blob_size);
+                       __func__, rc, *blob_size);
         }
     }
 
@@ -2249,15 +2270,15 @@ import_DSA_key_end:
  * SPKIs for public imported DH keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
-                           OBJECT *dh_key_obj,
-                           CK_BYTE *blob, size_t *blob_size)
+static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
+                           OBJECT * dh_key_obj,
+                           CK_BYTE * blob, size_t * blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
-    CK_MECHANISM mech_w = {CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE};
+    CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
     DL_NODE *node;
@@ -2272,7 +2293,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG data_len;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -2291,15 +2312,14 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* ep11 handles this as 'read only' */
         if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type)
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
             ;
-        else {
+        } else {
             rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                            a->type, a->pValue,
-                            a->ulValueLen);
+                                        a->type, a->pValue, a->ulValueLen);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                        __func__, a->type, rc);
+                            __func__, a->type, rc);
                 goto import_DH_key_end;
             }
         }
@@ -2307,7 +2327,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         node = node->next;
     }
 
-    class = *(CK_OBJECT_CLASS *)attr->pValue;
+    class = *(CK_OBJECT_CLASS *) attr->pValue;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -2317,18 +2337,15 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         CK_ATTRIBUTE *base;
         CK_ATTRIBUTE *value;
 
-        if (!template_attribute_find(dh_key_obj->template,
-                CKA_PRIME, &prime)) {
+        if (!template_attribute_find(dh_key_obj->template, CKA_PRIME, &prime)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DH_key_end;
         }
-        if (!template_attribute_find(dh_key_obj->template,
-                CKA_BASE, &base)) {
+        if (!template_attribute_find(dh_key_obj->template, CKA_BASE, &base)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DH_key_end;
         }
-        if (!template_attribute_find(dh_key_obj->template,
-                CKA_VALUE, &value)) {
+        if (!template_attribute_find(dh_key_obj->template, CKA_VALUE, &value)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
             goto import_DH_key_end;
         }
@@ -2337,21 +2354,18 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * Builds the DER encoding (ansi_x962) SPKI.
          * (get the length first)
          */
-        rc = ber_encode_DHPublicKey(TRUE, &data, &data_len,
-                                    prime, base, value);
+        rc = ber_encode_DHPublicKey(TRUE, &data, &data_len, prime, base, value);
         data = malloc(data_len);
 
         rc = ber_encode_DHPublicKey(FALSE, &data, &data_len,
                                     prime, base, value);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
-                    "data_len=0x%lx\n", __func__, class, rc,
-                    data_len);
+                        "data_len=0x%lx\n", __func__, class, rc, data_len);
             goto import_DH_key_end;
         } else {
             TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
-                   "data_len=0x%lx\n", __func__, class, rc,
-                   data_len);
+                       "data_len=0x%lx\n", __func__, class, rc, data_len);
         }
 
         /* save the SPKI as blob although it is not a blob.
@@ -2368,7 +2382,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * since this is AES_CBC_PAD, padding is done in mechanism.
          */
         rc = dh_priv_wrap_get_data(dh_key_obj->template, FALSE,
-                          &data, &data_len);
+                                   &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("%s DH wrap get data failed\n", __func__);
             goto import_DH_key_end;
@@ -2376,27 +2390,27 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_START
-        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                     ep11_data->raw2key_wrap_blob_l,
-                     &mech_w, data, data_len,
-                     cipher, &cipher_l,
-                     (uint64_t)ep11_data->target_list);
+            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     &mech_w, data, data_len,
+                                     cipher, &cipher_l,
+                                     (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-               __func__, rc, cipher_l);
+                   __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
-                    __func__, rc, cipher_l);
+                        __func__, rc, cipher_l);
             goto import_DH_key_end;
         }
 
-        rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY, p_attrs, attrs_len,
-                      &new_p_attrs, &new_attrs_len);
+        rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY, p_attrs,
+                                  attrs_len, &new_p_attrs, &new_attrs_len);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s DH check private key attributes failed with rc=0x%lx\n",
-                    __func__, rc);
+            TRACE_ERROR("%s DH check private key attributes failed with "
+                        "rc=0x%lx\n", __func__, rc);
             return rc;
         }
 
@@ -2407,22 +2421,22 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_START
-        rc = dll_m_UnwrapKey(cipher, cipher_l,
-                     ep11_data->raw2key_wrap_blob,
-                     ep11_data->raw2key_wrap_blob_l, NULL, ~0,
-                     ep11_pin_blob,
-                     ep11_pin_blob_len, &mech_w,
-                     new_p_attrs, new_attrs_len, blob,
-                     blob_size, csum, &cslen,
-                     (uint64_t)ep11_data->target_list);
+            rc = dll_m_UnwrapKey(cipher, cipher_l,
+                                 ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                                 ep11_pin_blob,
+                                 ep11_pin_blob_len, &mech_w,
+                                 new_p_attrs, new_attrs_len, blob,
+                                 blob_size, csum, &cslen,
+                                 (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-                    __func__, rc, *blob_size);
+                        __func__, rc, *blob_size);
         } else {
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
-                   __func__, rc, *blob_size);
+                       __func__, rc, *blob_size);
         }
     }
 
@@ -2435,47 +2449,48 @@ import_DH_key_end:
         free_attribute_array(new_p_attrs, new_attrs_len);
     return rc;
 }
-CK_RV
-token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
+
+CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
+                                OBJECT * obj)
 {
-	CK_KEY_TYPE keytype;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE blob[MAX_BLOBSIZE];
-	size_t blobsize = sizeof(blob);
-	CK_RV rc;
+    CK_KEY_TYPE keytype;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE blob[MAX_BLOBSIZE];
+    size_t blobsize = sizeof(blob);
+    CK_RV rc;
 
-	/* get key type */
-	if (template_attribute_find(obj->template, CKA_KEY_TYPE, &attr) == FALSE) {
-		/* not a key, so nothing to do. Just return. */
-		return CKR_OK;
-	}
+    /* get key type */
+    if (template_attribute_find(obj->template, CKA_KEY_TYPE, &attr) == FALSE) {
+        /* not a key, so nothing to do. Just return. */
+        return CKR_OK;
+    }
 
-	keytype = *(CK_KEY_TYPE *)attr->pValue;
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
 
-	memset(blob, 0, sizeof(blob));
+    memset(blob, 0, sizeof(blob));
 
-	/* only these keys can be imported */
-	switch(keytype) {
-	case CKK_RSA:
-		rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
-				    __func__, rc, blobsize);
-			return rc;
-		}
-		TRACE_INFO("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
-			   __func__, rc, blobsize);
-		break;
-	case CKK_EC:
-		rc = import_EC_key(tokdata, sess, obj, blob, &blobsize);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
-				    __func__, rc, blobsize);
-			return rc;
-		}
-		TRACE_INFO("%s import EC key rc=0x%lx blobsize=0x%zx\n",
-			   __func__, rc, blobsize);
-		break;
+    /* only these keys can be imported */
+    switch (keytype) {
+    case CKK_RSA:
+        rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
+                        __func__, rc, blobsize);
+            return rc;
+        }
+        TRACE_INFO("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
+                   __func__, rc, blobsize);
+        break;
+    case CKK_EC:
+        rc = import_EC_key(tokdata, sess, obj, blob, &blobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
+                        __func__, rc, blobsize);
+            return rc;
+        }
+        TRACE_INFO("%s import EC key rc=0x%lx blobsize=0x%zx\n",
+                   __func__, rc, blobsize);
+        break;
     case CKK_DSA:
         rc = import_DSA_key(tokdata, sess, obj, blob, &blobsize);
         if (rc != CKR_OK) {
@@ -2496,2187 +2511,2217 @@ token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *obj)
         TRACE_INFO("%s import DH key rc=0x%lx blobsize=0x%zx\n",
                    __func__, rc, blobsize);
         break;
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_GENERIC_SECRET:
+        /* get key value */
+        if (template_attribute_find(obj->template, CKA_VALUE, &attr) == FALSE) {
+            TRACE_ERROR("%s token_specific_object_add incomplete template\n",
+                        __func__);
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+        /* attr holds key value specified by user,
+         * import that key (make a blob)
+         */
+        rc = rawkey_2_blob(tokdata, sess, attr->pValue, attr->ulValueLen,
+                           keytype, blob, &blobsize, obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
+                        "blobsize=0x%zx\n", __func__, rc, blobsize);
+            return rc;
+        }
 
-	case CKK_DES2:
-	case CKK_DES3:
-	case CKK_AES:
-	case CKK_GENERIC_SECRET:
-		/* get key value */
-		if (template_attribute_find(obj->template, CKA_VALUE, &attr) == FALSE) {
-			TRACE_ERROR("%s token_specific_object_add incomplete template\n",
-				    __func__);
-			return CKR_TEMPLATE_INCOMPLETE;
-		}
-		/* attr holds key value specified by user,
-		 * import that key (make a blob)
-		 */
-		rc = rawkey_2_blob(tokdata, sess, attr->pValue, attr->ulValueLen, keytype,
-				   blob, &blobsize, obj);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
-				    "blobsize=0x%zx\n", __func__, rc, blobsize);
-			return rc;
-		}
+        /* clear value attribute */
+        memset(attr->pValue, 0, attr->ulValueLen);
 
-		/* clear value attribute */
-		memset(attr->pValue, 0, attr->ulValueLen);
+        TRACE_INFO("%s rawkey_2_blob rc=0x%lx blobsize=0x%zx\n",
+                   __func__, rc, blobsize);
 
-		TRACE_INFO("%s rawkey_2_blob rc=0x%lx blobsize=0x%zx\n",
-			   __func__, rc, blobsize);
+        break;
+    default:
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
 
-		break;
-	default:
-		return CKR_KEY_FUNCTION_NOT_PERMITTED;
-	}
+    /* store the blob in the key obj */
+    rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	/* store the blob in the key obj */
-	rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = template_update_attribute(obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
-	rc = template_update_attribute(obj->template, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
-
-	return CKR_OK;
+    return CKR_OK;
 }
 
 
-CK_RV ep11tok_generate_key(STDLL_TokData_t *tokdata, SESSION *session,
-			   CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
-			   CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
+CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
+                           CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
+                           CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_BYTE blob[MAX_BLOBSIZE];
-	size_t blobsize = sizeof(blob);
-	CK_BYTE csum[MAX_CSUMSIZE];
-	size_t csum_len = sizeof(csum);
-	CK_ATTRIBUTE *attr = NULL;
-	OBJECT *key_obj = NULL;
-	CK_ULONG ktype;
-	CK_ULONG class;
-	CK_ATTRIBUTE_PTR new_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
-	CK_RV rc;
+    CK_BYTE blob[MAX_BLOBSIZE];
+    size_t blobsize = sizeof(blob);
+    CK_BYTE csum[MAX_CSUMSIZE];
+    size_t csum_len = sizeof(csum);
+    CK_ATTRIBUTE *attr = NULL;
+    OBJECT *key_obj = NULL;
+    CK_ULONG ktype;
+    CK_ULONG class;
+    CK_ATTRIBUTE_PTR new_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    CK_RV rc;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
 
-	memset(blob, 0, sizeof(blob));
-	memset(csum, 0, sizeof(csum));
+    memset(blob, 0, sizeof(blob));
+    memset(csum, 0, sizeof(csum));
 
-	/* Get the keytype to use when creating the key object */
-	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    /* Get the keytype to use when creating the key object */
+    rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, attrs, attrs_len,
-				  &new_attrs, &new_attrs_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, attrs, attrs_len,
+                              &new_attrs, &new_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-	rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
-			   ep11_pin_blob_len, blob, &blobsize,
-			   csum, &csum_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
+                               ep11_pin_blob_len, blob, &blobsize,
+                               csum, &csum_len,
+                               (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
-			    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+                    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
+        return rc;
+    }
 
-	TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
-		   __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
+    TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+               __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
 
-	/* Start creating the key object */
-	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-				    MODE_KEYGEN, CKO_SECRET_KEY, ktype,
-				    &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    /* Start creating the key object */
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = template_update_attribute(key_obj->template, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = template_update_attribute(key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	/* key should be fully constructed.
-	 * Assign an object handle and store key
-	 */
-	rc = object_mgr_create_final(tokdata, session, key_obj, handle);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    /* key should be fully constructed.
+     * Assign an object handle and store key
+     */
+    rc = object_mgr_create_final(tokdata, session, key_obj, handle);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	goto done;
+    goto done;
 error:
-	if (key_obj)
-		object_free(key_obj);
-	*handle = 0;
+    if (key_obj)
+        object_free(key_obj);
+    *handle = 0;
 done:
-	if (new_attrs)
-		free_attribute_array(new_attrs, new_attrs_len);
-	return rc;
+    if (new_attrs)
+        free_attribute_array(new_attrs, new_attrs_len);
+    return rc;
 }
 
-CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
-			      CK_MECHANISM *mech)
+CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
+                              CK_MECHANISM * mech)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	size_t state_len = MAX_DIGEST_STATE_BYTES;
-	CK_BYTE *state;
+    CK_RV rc;
+    size_t state_len = MAX_DIGEST_STATE_BYTES;
+    CK_BYTE *state;
 
-	state = malloc(state_len); /* freed by dig_mgr.c */
-	if (!state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
+    state = malloc(state_len);  /* freed by dig_mgr.c */
+    if (!state) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
 
-	rc = dll_m_DigestInit (state, &state_len, mech,
-			       (uint64_t)ep11_data->target_list);
+    rc = dll_m_DigestInit(state, &state_len, mech,
+                          (uint64_t) ep11_data->target_list);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-		free(state);
-	} else {
-		/* DIGEST_CONTEXT will show up with following
-		 *  requests (sha_update), 'state' is build by the card
-		 * and holds all to continue, even by another adapter
-		 */
-		c->mech.ulParameterLen = mech->ulParameterLen;
-		c->mech.mechanism = mech->mechanism;
-		c->mech.pParameter = NULL;
-		c->context = state;
-		c->context_len = state_len;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+        free(state);
+    } else {
+        /* DIGEST_CONTEXT will show up with following
+         *  requests (sha_update), 'state' is build by the card
+         * and holds all to continue, even by another adapter
+         */
+        c->mech.ulParameterLen = mech->ulParameterLen;
+        c->mech.mechanism = mech->mechanism;
+        c->mech.pParameter = NULL;
+        c->context = state;
+        c->context_len = state_len;
 
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
-}
-
-
-CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
-			 CK_BYTE *in_data,
-			 CK_ULONG in_data_len, CK_BYTE *out_data,
-			 CK_ULONG *out_data_len)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-
-	rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
-		      out_data, out_data_len, (uint64_t)ep11_data->target_list);
-
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-	return rc;
+    return rc;
 }
 
 
-CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
-				CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
+                         CK_BYTE * in_data,
+                         CK_ULONG in_data_len, CK_BYTE * out_data,
+                         CK_ULONG * out_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
+    CK_RV rc;
 
-	rc = dll_m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
-				(uint64_t)ep11_data->target_list) ;
+    rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
+                      out_data, out_data_len,
+                      (uint64_t) ep11_data->target_list);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-	return rc;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+    return rc;
 }
 
 
-CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *c,
-			       CK_BYTE *out_data, CK_ULONG *out_data_len)
+CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
+                                CK_BYTE * in_data, CK_ULONG in_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
+    CK_RV rc;
 
-	rc = dll_m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
-			       (uint64_t)ep11_data->target_list) ;
+    rc = dll_m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
+                            (uint64_t) ep11_data->target_list);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
-
-	return rc;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+    return rc;
 }
 
-CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANISM_PTR mech,
-			 CK_OBJECT_HANDLE hBaseKey, CK_OBJECT_HANDLE_PTR handle,
-			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+
+CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
+                               CK_BYTE * out_data, CK_ULONG * out_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_BYTE *keyblob;
-	size_t keyblobsize;
-	CK_BYTE newblob[MAX_BLOBSIZE];
-	size_t newblobsize = sizeof(newblob);
-	char csum[MAX_BLOBSIZE];
-	CK_ULONG cslen = sizeof(csum);
-	CK_ATTRIBUTE *opaque_attr = NULL;
-	OBJECT *key_obj = NULL;
-	CK_ULONG ktype;
-	CK_ULONG class;
-	CK_ATTRIBUTE_PTR new_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
+    CK_RV rc;
+
+    rc = dll_m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
+                           (uint64_t) ep11_data->target_list);
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
+
+CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
+                         CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
+                         CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
+                         CK_ULONG attrs_len)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_BYTE *keyblob;
+    size_t keyblobsize;
+    CK_BYTE newblob[MAX_BLOBSIZE];
+    size_t newblobsize = sizeof(newblob);
+    char csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    OBJECT *key_obj = NULL;
+    CK_ULONG ktype;
+    CK_ULONG class;
+    CK_ATTRIBUTE_PTR new_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
 
-	memset(newblob, 0, sizeof(newblob));
+    memset(newblob, 0, sizeof(newblob));
 
-	rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
-		return rc;
-	}
+    rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
+        return rc;
+    }
 
-	/* Get the keytype to use when creating the key object */
-	rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* Get the keytype to use when creating the key object */
+    rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = check_key_attributes(tokdata, ktype, class, attrs, attrs_len,
-				  &new_attrs, &new_attrs_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s Check key attributes for derived key failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, ktype, class, attrs, attrs_len,
+                              &new_attrs, &new_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Check key attributes for derived key failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-	rc = dll_m_DeriveKey (mech, new_attrs, new_attrs_len, keyblob, keyblobsize, NULL,
-			  0, ep11_pin_blob, ep11_pin_blob_len, newblob, &newblobsize,
-			  csum, &cslen, (uint64_t)ep11_data->target_list);
+        rc =
+        dll_m_DeriveKey(mech, new_attrs, new_attrs_len, keyblob, keyblobsize,
+                        NULL, 0, ep11_pin_blob, ep11_pin_blob_len, newblob,
+                        &newblobsize, csum, &cslen,
+                        (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
-			    __func__, hBaseKey, rc, *handle, newblobsize);
-		return rc;
-	}
-	TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
-		   __func__, hBaseKey, rc, *handle, newblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
+                    __func__, hBaseKey, rc, *handle, newblobsize);
+        return rc;
+    }
+    TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
+               __func__, hBaseKey, rc, *handle, newblobsize);
 
-	/* Start creating the key object */
-	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-				    MODE_DERIVE, class, ktype, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    /* Start creating the key object */
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_DERIVE, class, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = template_update_attribute(key_obj->template, opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = template_update_attribute(key_obj->template, opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	/* key should be fully constructed.
-	 * Assign an object handle and store key
-	 */
-	rc = object_mgr_create_final(tokdata, session, key_obj, handle);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* key should be fully constructed.
+     * Assign an object handle and store key
+     */
+    rc = object_mgr_create_final(tokdata, session, key_obj, handle);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	return rc;
+    return rc;
 
 error:
-	if (key_obj)
-		object_free(key_obj);
-	*handle = 0;
-	if (new_attrs)
-		free_attribute_array(new_attrs, new_attrs_len);
-	return rc;
+    if (key_obj)
+        object_free(key_obj);
+    *handle = 0;
+    if (new_attrs)
+        free_attribute_array(new_attrs, new_attrs_len);
+    return rc;
 }
 
 
 
-static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
-                 SESSION *sess,
-				 CK_MECHANISM_PTR pMechanism,
-				 TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
-				 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-				 CK_ULONG ulPublicKeyAttributeCount,
-				 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-				 CK_ULONG ulPrivateKeyAttributeCount,
-				 CK_SESSION_HANDLE h)
+static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
+                                 SESSION * sess,
+                                 CK_MECHANISM_PTR pMechanism,
+                                 TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
+                                 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                 CK_ULONG ulPublicKeyAttributeCount,
+                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                 CK_ULONG ulPrivateKeyAttributeCount,
+                                 CK_SESSION_HANDLE h)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV  rc;
-	CK_BYTE publblob[MAX_BLOBSIZE];
-	size_t publblobsize = sizeof(publblob);
-	CK_BYTE privblob[MAX_BLOBSIZE];
-	size_t privblobsize = sizeof(privblob);
-	CK_ATTRIBUTE *prime_attr = NULL;
-	CK_ATTRIBUTE *base_attr = NULL;
-	CK_ATTRIBUTE *opaque_attr = NULL;
-	CK_ATTRIBUTE *value_attr = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ATTRIBUTE  *pPublicKeyTemplate_new = NULL;
-	size_t p_len=0, g_len=0;
-	int i, new_public_attr;
-	CK_ULONG data_len;
-	CK_ULONG field_len;
-	CK_BYTE  *data;
-	CK_BYTE  *y_start;
-	CK_ULONG bit_str_len;
+    CK_RV rc;
+    CK_BYTE publblob[MAX_BLOBSIZE];
+    size_t publblobsize = sizeof(publblob);
+    CK_BYTE privblob[MAX_BLOBSIZE];
+    size_t privblobsize = sizeof(privblob);
+    CK_ATTRIBUTE *prime_attr = NULL;
+    CK_ATTRIBUTE *base_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
+    size_t p_len = 0, g_len = 0;
+    int i, new_public_attr;
+    CK_ULONG data_len;
+    CK_ULONG field_len;
+    CK_BYTE *data;
+    CK_BYTE *y_start;
+    CK_ULONG bit_str_len;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
-	/* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
-	 * only in this format
-	 */
-	struct {
-		size_t pg_bytes; /* total size: 2*bytecount(P) */
-		unsigned char *pg;
-	} dh_pgs;
-	memset(&dh_pgs, 0, sizeof(dh_pgs));
-	memset(publblob, 0, sizeof(publblob));
-	memset(privblob, 0, sizeof(privblob));
+    /* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
+     * only in this format
+     */
+    struct {
+        size_t pg_bytes;        /* total size: 2*bytecount(P) */
+        unsigned char *pg;
+    } dh_pgs;
+    memset(&dh_pgs, 0, sizeof(dh_pgs));
+    memset(publblob, 0, sizeof(publblob));
+    memset(privblob, 0, sizeof(privblob));
 
-	/* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
-	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
-	if (!pPublicKeyTemplate_new) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	memset(pPublicKeyTemplate_new, 0, sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
+    /* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
+    pPublicKeyTemplate_new =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) *
+                                ulPublicKeyAttributeCount);
+    if (!pPublicKeyTemplate_new) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memset(pPublicKeyTemplate_new, 0,
+           sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 
-	for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
-		/* filter out CKA_PRIME/CKA_BASE,
-		 * but remember where they can  be found
-		 */
-		switch(pPublicKeyTemplate[i].type) {
-		case CKA_PRIME:
-			prime_attr = &(pPublicKeyTemplate[i]);
-			p_len = pPublicKeyTemplate[i].ulValueLen;
-			break;
-		case CKA_BASE:
-			base_attr = &(pPublicKeyTemplate[i]);
-			g_len = pPublicKeyTemplate[i].ulValueLen;
-			break;
-		default:
-			/* copy all other attributes */
-			memcpy(&pPublicKeyTemplate_new[new_public_attr],
-			       &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
-			new_public_attr++;
-		}
-	}
+    for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
+        /* filter out CKA_PRIME/CKA_BASE,
+         * but remember where they can  be found
+         */
+        switch (pPublicKeyTemplate[i].type) {
+        case CKA_PRIME:
+            prime_attr = &(pPublicKeyTemplate[i]);
+            p_len = pPublicKeyTemplate[i].ulValueLen;
+            break;
+        case CKA_BASE:
+            base_attr = &(pPublicKeyTemplate[i]);
+            g_len = pPublicKeyTemplate[i].ulValueLen;
+            break;
+        default:
+            /* copy all other attributes */
+            memcpy(&pPublicKeyTemplate_new[new_public_attr],
+                   &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
+            new_public_attr++;
+        }
+    }
 
-	if (prime_attr == NULL || base_attr == NULL) {
-		TRACE_ERROR("%s Incomplete template prime_attr=%p base_attr=%p\n",
-			    __func__, prime_attr, base_attr);
-		rc = CKR_TEMPLATE_INCOMPLETE;
-		goto dh_generate_keypair_end;
-	}
+    if (prime_attr == NULL || base_attr == NULL) {
+        TRACE_ERROR("%s Incomplete template prime_attr=%p base_attr=%p\n",
+                    __func__, prime_attr, base_attr);
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto dh_generate_keypair_end;
+    }
 
-	/* copy CKA_PRIME/CKA_BASE to private template */
-	rc = build_attribute(CKA_PRIME, prime_attr->pValue,
-			     prime_attr->ulValueLen, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
-	rc = template_update_attribute(priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dh_generate_keypair_end;
-	}
-	rc = build_attribute(CKA_BASE, base_attr->pValue,
-			     base_attr->ulValueLen, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
-	rc = template_update_attribute(priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    /* copy CKA_PRIME/CKA_BASE to private template */
+    rc = build_attribute(CKA_PRIME, prime_attr->pValue,
+                         prime_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+    rc = build_attribute(CKA_BASE, base_attr->pValue,
+                         base_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	/* copy CKA_PRIME/CKA_BASE values */
-	dh_pgs.pg = malloc(p_len*2);
-	if (!dh_pgs.pg) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	memset(dh_pgs.pg, 0, p_len*2);
-	memcpy(dh_pgs.pg, prime_attr->pValue, p_len); /* copy CKA_PRIME value */
-	/* copy CKA_BASE value, it must have leading zeros
-	 * if it is shorter than CKA_PRIME
-	 */
-	memcpy(dh_pgs.pg + p_len + (p_len - g_len), base_attr->pValue, g_len);
-	dh_pgs.pg_bytes = p_len * 2;
+    /* copy CKA_PRIME/CKA_BASE values */
+    dh_pgs.pg = malloc(p_len * 2);
+    if (!dh_pgs.pg) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memset(dh_pgs.pg, 0, p_len * 2);
+    memcpy(dh_pgs.pg, prime_attr->pValue, p_len);     /* copy CKA_PRIME value */
+    /* copy CKA_BASE value, it must have leading zeros
+     * if it is shorter than CKA_PRIME
+     */
+    memcpy(dh_pgs.pg + p_len + (p_len - g_len), base_attr->pValue, g_len);
+    dh_pgs.pg_bytes = p_len * 2;
 
 #ifdef DEBUG
-	TRACE_DEBUG("%s P:\n", __func__);
-	TRACE_DEBUG_DUMP(&dh_pgs.pg[0], p_len);
-	TRACE_DEBUG("%s G:\n", __func__);
-	TRACE_DEBUG_DUMP(&dh_pgs.pg[p_len], p_len);
+    TRACE_DEBUG("%s P:\n", __func__);
+    TRACE_DEBUG_DUMP(&dh_pgs.pg[0], p_len);
+    TRACE_DEBUG("%s G:\n", __func__);
+    TRACE_DEBUG_DUMP(&dh_pgs.pg[p_len], p_len);
 #endif
 
-	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
-	CK_ATTRIBUTE pgs[] = {{CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
-			       dh_pgs.pg_bytes}};
-	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-	       &(pgs[0]), sizeof(CK_ATTRIBUTE));
+    /* add special attribute, do not add it to ock's pPublicKeyTemplate */
+    CK_ATTRIBUTE pgs[] = { {CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
+                            dh_pgs.pg_bytes}
+    };
+    memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
+           &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
-    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+    ep11_get_pin_blob(ep11_session,
+                      (ep11_is_session_object
+                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
+                       || ep11_is_session_object(pPrivateKeyTemplate,
+                                                 ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-	rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
-			       new_public_attr+1, pPrivateKeyTemplate,
-			       ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privblob, &privblobsize,
-			       publblob, &publblobsize,
-			       (uint64_t)ep11_data->target_list);
+        rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
+                                   new_public_attr + 1, pPrivateKeyTemplate,
+                                   ulPrivateKeyAttributeCount, ep11_pin_blob,
+                                   ep11_pin_blob_len, privblob, &privblobsize,
+                                   publblob, &publblobsize,
+                                   (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
-		   __func__, rc, p_len, publblobsize, privblobsize);
+    TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
+               __func__, rc, p_len, publblobsize, privblobsize);
 
-	/* store the blobs */
-	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    /* store the blobs */
+    rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(publ_tmpl, opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    rc = template_update_attribute(publ_tmpl, opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(priv_tmpl, opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dh_generate_keypair_end;
-	}
-
+    rc = template_update_attribute(priv_tmpl, opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 #ifdef DEBUG
-	TRACE_DEBUG("%s DH SPKI\n", __func__ );
-	TRACE_DEBUG_DUMP(publblob, publblobsize);
+    TRACE_DEBUG("%s DH SPKI\n", __func__);
+    TRACE_DEBUG_DUMP(publblob, publblobsize);
 #endif
 
-	/* CKA_VALUE of the public key must hold 'y' */
-	rc = ep11_spki_key(publblob, &y_start, &bit_str_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    /* CKA_VALUE of the public key must hold 'y' */
+    rc = ep11_spki_key(publblob, &y_start, &bit_str_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	/* DHPublicKey ::= INTEGER -- public key, y = g^x mod p */
-	rc = ber_decode_INTEGER(y_start, &data, &data_len, &field_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s ber_decode_INTEGER failed rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    /* DHPublicKey ::= INTEGER -- public key, y = g^x mod p */
+    rc = ber_decode_INTEGER(y_start, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_INTEGER failed rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	TRACE_INFO("%s DH SPKI decode INTEGER rc=0x%lx y_start=0x%x"
-		   " field_len=%lu data_len=%lu data=0x%hhx\n",
-		   __func__, rc, y_start[1], field_len, data_len, data[0]);
+    TRACE_INFO("%s DH SPKI decode INTEGER rc=0x%lx y_start=0x%x"
+               " field_len=%lu data_len=%lu data=0x%hhx\n",
+               __func__, rc, y_start[1], field_len, data_len, data[0]);
 
-	/* remove leading zero, a leading zero is needed
-	 * (according to standard) if left most bit of first byte is 1,
-	 * in order to indicate a positive number.
-	 * ock, like many others, interpret 'y' always as positive number,
-	 * a leading zero is not expected by ock.
-	 */
-	if (data[0] == 0) {
-		data_len = data_len - 1;
-		data = data + 1;
-		TRACE_INFO("%s DH SPKI removed leading zero rc=0x%lx"
-			   " y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx\n",
-			   __func__, rc, y_start[1], field_len, data_len, data[0]);
-	}
+    /* remove leading zero, a leading zero is needed
+     * (according to standard) if left most bit of first byte is 1,
+     * in order to indicate a positive number.
+     * ock, like many others, interpret 'y' always as positive number,
+     * a leading zero is not expected by ock.
+     */
+    if (data[0] == 0) {
+        data_len = data_len - 1;
+        data = data + 1;
+        TRACE_INFO("%s DH SPKI removed leading zero rc=0x%lx"
+                   " y_start=0x%x field_len=%lu data_len=%lu data=0x%hhx\n",
+                   __func__, rc, y_start[1], field_len, data_len, data[0]);
+    }
 
-	rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dh_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(publ_tmpl, value_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-	}
+    rc = template_update_attribute(publ_tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+    }
 
 dh_generate_keypair_end:
-	free(pPublicKeyTemplate_new);
-	if (dh_pgs.pg != NULL)
-		free(dh_pgs.pg);
-	return rc;
+    free(pPublicKeyTemplate_new);
+    if (dh_pgs.pg != NULL)
+        free(dh_pgs.pg);
+    return rc;
 }
 
-static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
-                  SESSION *sess,
-				  CK_MECHANISM_PTR pMechanism,
-				  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
-				  CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-				  CK_ULONG ulPublicKeyAttributeCount,
-				  CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-				  CK_ULONG ulPrivateKeyAttributeCount,
-				  CK_SESSION_HANDLE h)
+static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
+                                  SESSION * sess,
+                                  CK_MECHANISM_PTR pMechanism,
+                                  TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
+                                  CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                  CK_ULONG ulPublicKeyAttributeCount,
+                                  CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                  CK_ULONG ulPrivateKeyAttributeCount,
+                                  CK_SESSION_HANDLE h)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV  rc;
-	CK_BYTE publblob[MAX_BLOBSIZE];
-	size_t publblobsize = sizeof(publblob);
-	CK_BYTE privblob[MAX_BLOBSIZE];
-	size_t privblobsize = sizeof(privblob);
-	CK_ATTRIBUTE *prime_attr = NULL;
-	CK_ATTRIBUTE *sub_prime_attr = NULL;
-	CK_ATTRIBUTE *base_attr = NULL;
-	CK_ATTRIBUTE *opaque_attr = NULL;
-	CK_ATTRIBUTE *value_attr = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	size_t p_len=0, q_len=0, g_len=0;
-	int i, new_public_attr;
-	CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
-	CK_BYTE *key;
-	CK_BYTE *data;
-	CK_ULONG data_len, field_len, bit_str_len;
-	CK_ATTRIBUTE_PTR dsa_pPublicKeyTemplate = NULL;
-	CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
-	CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
-	CK_ULONG dsa_ulPrivateKeyAttributeCount = 0;
+    CK_RV rc;
+    CK_BYTE publblob[MAX_BLOBSIZE];
+    size_t publblobsize = sizeof(publblob);
+    CK_BYTE privblob[MAX_BLOBSIZE];
+    size_t privblobsize = sizeof(privblob);
+    CK_ATTRIBUTE *prime_attr = NULL;
+    CK_ATTRIBUTE *sub_prime_attr = NULL;
+    CK_ATTRIBUTE *base_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    size_t p_len = 0, q_len = 0, g_len = 0;
+    int i, new_public_attr;
+    CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
+    CK_BYTE *key;
+    CK_BYTE *data;
+    CK_ULONG data_len, field_len, bit_str_len;
+    CK_ATTRIBUTE_PTR dsa_pPublicKeyTemplate = NULL;
+    CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
+    CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
+    CK_ULONG dsa_ulPrivateKeyAttributeCount = 0;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
-	/* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
-	struct {
-		size_t pqg_bytes;   /* total size: 3*bytecount(P) */
-		unsigned char *pqg;
-	} dsa_pqgs;
-	memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
-	memset(publblob, 0, sizeof(publblob));
-	memset(privblob, 0, sizeof(privblob));
+    /* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
+    struct {
+        size_t pqg_bytes;       /* total size: 3*bytecount(P) */
+        unsigned char *pqg;
+    } dsa_pqgs;
+    memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
+    memset(publblob, 0, sizeof(publblob));
+    memset(privblob, 0, sizeof(privblob));
 
-	/* card does not want CKA_PRIME/CKA_BASE/CKA_SUBPRIME
-	 * in template but in dsa_pqgs
-	 */
-	pPublicKeyTemplate_new = (CK_ATTRIBUTE *)malloc(sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
-	if (!pPublicKeyTemplate_new) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	memset(pPublicKeyTemplate_new, 0,
-	       sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
+    /* card does not want CKA_PRIME/CKA_BASE/CKA_SUBPRIME
+     * in template but in dsa_pqgs
+     */
+    pPublicKeyTemplate_new =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) *
+                                ulPublicKeyAttributeCount);
+    if (!pPublicKeyTemplate_new) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memset(pPublicKeyTemplate_new, 0,
+           sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
 
-	for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
-		switch(pPublicKeyTemplate[i].type) {
-		case CKA_PRIME:
-			prime_attr = &(pPublicKeyTemplate[i]);
-			p_len = pPublicKeyTemplate[i].ulValueLen;
-			break;
-		case CKA_SUBPRIME:
-			sub_prime_attr = &(pPublicKeyTemplate[i]);
-			q_len = pPublicKeyTemplate[i].ulValueLen;
-			break;
-		case CKA_BASE:
-			base_attr = &(pPublicKeyTemplate[i]);
-			g_len = pPublicKeyTemplate[i].ulValueLen;
-			break;
-		default:
-			/* copy all other attributes */
-			memcpy(&pPublicKeyTemplate_new[new_public_attr],
-			       &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
-			new_public_attr++;
-		}
-	}
+    for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
+        switch (pPublicKeyTemplate[i].type) {
+        case CKA_PRIME:
+            prime_attr = &(pPublicKeyTemplate[i]);
+            p_len = pPublicKeyTemplate[i].ulValueLen;
+            break;
+        case CKA_SUBPRIME:
+            sub_prime_attr = &(pPublicKeyTemplate[i]);
+            q_len = pPublicKeyTemplate[i].ulValueLen;
+            break;
+        case CKA_BASE:
+            base_attr = &(pPublicKeyTemplate[i]);
+            g_len = pPublicKeyTemplate[i].ulValueLen;
+            break;
+        default:
+            /* copy all other attributes */
+            memcpy(&pPublicKeyTemplate_new[new_public_attr],
+                   &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
+            new_public_attr++;
+        }
+    }
 
-	if (prime_attr == NULL || sub_prime_attr == NULL || base_attr == NULL)
-		return CKR_TEMPLATE_INCOMPLETE;
+    if (prime_attr == NULL || sub_prime_attr == NULL || base_attr == NULL)
+        return CKR_TEMPLATE_INCOMPLETE;
 
-	/* copy CKA_PRIME/CKA_BASE/CKA_SUBPRIME to private template */
-	rc = build_attribute(CKA_PRIME, prime_attr->pValue,
-			     prime_attr->ulValueLen, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    /* copy CKA_PRIME/CKA_BASE/CKA_SUBPRIME to private template */
+    rc = build_attribute(CKA_PRIME, prime_attr->pValue,
+                         prime_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute( priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = build_attribute(CKA_BASE, base_attr->pValue,
-			     base_attr->ulValueLen, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_BASE, base_attr->pValue,
+                         base_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = build_attribute(CKA_PRIME, sub_prime_attr->pValue,
-			     sub_prime_attr->ulValueLen, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_PRIME, sub_prime_attr->pValue,
+                         sub_prime_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	/* if CKA_SUBPRIME,CKA_BASE are smaller than CKA_PRIME
-	 * then they are extented by leading zeros till they have
-	 * the size of CKA_PRIME
-	 */
-	dsa_pqgs.pqg = malloc(p_len*3);
-	if (!dsa_pqgs.pqg) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
-	memset(dsa_pqgs.pqg, 0, p_len*3);
-	memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
-	memcpy(dsa_pqgs.pqg + p_len + (p_len - q_len),
-	       sub_prime_attr->pValue, q_len);
-	memcpy(dsa_pqgs.pqg + 2*p_len + (p_len - g_len),
-	       base_attr->pValue, g_len);
-	dsa_pqgs.pqg_bytes = p_len * 3;
+    /* if CKA_SUBPRIME,CKA_BASE are smaller than CKA_PRIME
+     * then they are extented by leading zeros till they have
+     * the size of CKA_PRIME
+     */
+    dsa_pqgs.pqg = malloc(p_len * 3);
+    if (!dsa_pqgs.pqg) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+    memset(dsa_pqgs.pqg, 0, p_len * 3);
+    memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
+    memcpy(dsa_pqgs.pqg + p_len + (p_len - q_len),
+           sub_prime_attr->pValue, q_len);
+    memcpy(dsa_pqgs.pqg + 2 * p_len + (p_len - g_len),
+           base_attr->pValue, g_len);
+    dsa_pqgs.pqg_bytes = p_len * 3;
 
 #ifdef DEBUG
-	TRACE_DEBUG("%s P:\n", __func__);
-	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[0], p_len);
-	TRACE_DEBUG("%s Q:\n", __func__);
-	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[p_len], p_len);
-	TRACE_DEBUG("%s G:\n", __func__);
-	TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[2*p_len], p_len);
+    TRACE_DEBUG("%s P:\n", __func__);
+    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[0], p_len);
+    TRACE_DEBUG("%s Q:\n", __func__);
+    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[p_len], p_len);
+    TRACE_DEBUG("%s G:\n", __func__);
+    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[2 * p_len], p_len);
 #endif
 
-	CK_ATTRIBUTE pqgs[] = {{CKA_IBM_STRUCT_PARAMS,
-				(CK_VOID_PTR)dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}};
+    CK_ATTRIBUTE pqgs[] = { {CKA_IBM_STRUCT_PARAMS,
+                             (CK_VOID_PTR) dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}
+    };
 
-	/* add special attribute, do not add it to ock's pPublicKeyTemplate */
-	memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-	       &(pqgs[0]), sizeof(CK_ATTRIBUTE));
+    /* add special attribute, do not add it to ock's pPublicKeyTemplate */
+    memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
+           &(pqgs[0]), sizeof(CK_ATTRIBUTE));
 
-	rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
-				  pPublicKeyTemplate_new, new_public_attr+1,
-				  &dsa_pPublicKeyTemplate,
-				  &dsa_ulPublicKeyAttributeCount);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check public key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
+                              pPublicKeyTemplate_new, new_public_attr + 1,
+                              &dsa_pPublicKeyTemplate,
+                              &dsa_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
-				  pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-				  &dsa_pPrivateKeyTemplate,
-				  &dsa_ulPrivateKeyAttributeCount);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
+                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                              &dsa_pPrivateKeyTemplate,
+                              &dsa_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+    ep11_get_pin_blob(ep11_session,
+                      (ep11_is_session_object
+                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
+                       || ep11_is_session_object(pPrivateKeyTemplate,
+                                                 ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-	rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
-			       dsa_ulPublicKeyAttributeCount,
-			       dsa_pPrivateKeyTemplate,
-			       dsa_ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privblob, &privblobsize,
-			       publblob, &publblobsize,
-			       (uint64_t)ep11_data->target_list);
+        rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
+                                   dsa_ulPublicKeyAttributeCount,
+                                   dsa_pPrivateKeyTemplate,
+                                   dsa_ulPrivateKeyAttributeCount,
+                                   ep11_pin_blob, ep11_pin_blob_len, privblob,
+                                   &privblobsize, publblob, &publblobsize,
+                                   (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__,
+                    rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	TRACE_INFO("%s rc=0x%lx p_len=%zd publblobsize=0x%zx privblobsize=0x%zx npattr=0x%x\n",
-		   __func__, rc, p_len, publblobsize, privblobsize, new_public_attr+1);
+    TRACE_INFO("%s rc=0x%lx p_len=%zd publblobsize=0x%zx privblobsize=0x%zx "
+               "npattr=0x%x\n",
+               __func__, rc, p_len, publblobsize, privblobsize,
+               new_public_attr + 1);
 
-	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(publ_tmpl, opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = template_update_attribute(publ_tmpl, opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(priv_tmpl, opaque_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = template_update_attribute(priv_tmpl, opaque_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	/* set CKA_VALUE of the public key, first get key from SPKI */
-	rc = ep11_spki_key(publblob, &key, &bit_str_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s reading DSA SPKI failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    /* set CKA_VALUE of the public key, first get key from SPKI */
+    rc = ep11_spki_key(publblob, &key, &bit_str_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s reading DSA SPKI failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	/* key must be an integer */
-	rc = ber_decode_INTEGER(key, &data, &data_len, &field_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s reading DSA public key failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
-
+    /* key must be an integer */
+    rc = ber_decode_INTEGER(key, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s reading DSA public key failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 #ifdef DEBUG
-	TRACE_DEBUG("%s dsa_generate_keypair public key:\n", __func__);
-	TRACE_DEBUG_DUMP(data, data_len);
+    TRACE_DEBUG("%s dsa_generate_keypair public key:\n", __func__);
+    TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
-	rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto dsa_generate_keypair_end;
-	}
+    rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
 
-	rc = template_update_attribute(publ_tmpl, value_attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-	}
+    rc = template_update_attribute(publ_tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+    }
 
 dsa_generate_keypair_end:
-	free(pPublicKeyTemplate_new);
-	if(dsa_pqgs.pqg != NULL)
-		free(dsa_pqgs.pqg);
-	if (dsa_pPublicKeyTemplate)
-		free_attribute_array(dsa_pPublicKeyTemplate,
-				     dsa_ulPublicKeyAttributeCount);
-	if (dsa_pPrivateKeyTemplate)
-		free_attribute_array(dsa_pPrivateKeyTemplate,
-				     dsa_ulPrivateKeyAttributeCount);
-	return rc;
+    free(pPublicKeyTemplate_new);
+    if (dsa_pqgs.pqg != NULL)
+        free(dsa_pqgs.pqg);
+    if (dsa_pPublicKeyTemplate)
+        free_attribute_array(dsa_pPublicKeyTemplate,
+                             dsa_ulPublicKeyAttributeCount);
+    if (dsa_pPrivateKeyTemplate)
+        free_attribute_array(dsa_pPrivateKeyTemplate,
+                             dsa_ulPrivateKeyAttributeCount);
+    return rc;
 }
 
-static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
-                     SESSION *sess,
-				     CK_MECHANISM_PTR pMechanism,
-				     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl,
-				     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-				     CK_ULONG ulPublicKeyAttributeCount,
-				     CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-				     CK_ULONG ulPrivateKeyAttributeCount,
-				     CK_SESSION_HANDLE h)
+static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
+                                     SESSION * sess,
+                                     CK_MECHANISM_PTR pMechanism,
+                                     TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
+                                     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                     CK_ULONG ulPublicKeyAttributeCount,
+                                     CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                     CK_ULONG ulPrivateKeyAttributeCount,
+                                     CK_SESSION_HANDLE h)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ATTRIBUTE *n_attr = NULL;
-	CK_BYTE privkey_blob[MAX_BLOBSIZE];
-	size_t privkey_blob_len = sizeof(privkey_blob);
-	unsigned char spki[MAX_BLOBSIZE];
-	size_t spki_len = sizeof(spki);
-	CK_BYTE publblob[MAX_BLOBSIZE];
-	size_t publblobsize = sizeof(publblob);
-	CK_BYTE privblob[MAX_BLOBSIZE];
-	size_t privblobsize = sizeof(privblob);
-	int i;
-	CK_ULONG bit_str_len;
-	CK_BYTE *key;
-	CK_BYTE *data;
-	CK_ULONG data_len;
-	CK_ULONG field_len;
-	CK_ATTRIBUTE_PTR new_pPublicKeyTemplate = NULL;
-	CK_ULONG new_ulPublicKeyAttributeCount = 0;
-	CK_ATTRIBUTE_PTR new_pPrivateKeyTemplate = NULL;
-	CK_ULONG new_ulPrivateKeyAttributeCount = 0;
-	CK_ULONG ktype;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *n_attr = NULL;
+    CK_BYTE privkey_blob[MAX_BLOBSIZE];
+    size_t privkey_blob_len = sizeof(privkey_blob);
+    unsigned char spki[MAX_BLOBSIZE];
+    size_t spki_len = sizeof(spki);
+    CK_BYTE publblob[MAX_BLOBSIZE];
+    size_t publblobsize = sizeof(publblob);
+    CK_BYTE privblob[MAX_BLOBSIZE];
+    size_t privblobsize = sizeof(privblob);
+    int i;
+    CK_ULONG bit_str_len;
+    CK_BYTE *key;
+    CK_BYTE *data;
+    CK_ULONG data_len;
+    CK_ULONG field_len;
+    CK_ATTRIBUTE_PTR new_pPublicKeyTemplate = NULL;
+    CK_ULONG new_ulPublicKeyAttributeCount = 0;
+    CK_ATTRIBUTE_PTR new_pPrivateKeyTemplate = NULL;
+    CK_ULONG new_ulPrivateKeyAttributeCount = 0;
+    CK_ULONG ktype;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)sess->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
-	if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN)
-		ktype = CKK_EC;
-	else if ((pMechanism->mechanism == CKM_RSA_PKCS_KEY_PAIR_GEN) ||
-		 (pMechanism->mechanism == CKM_RSA_X9_31_KEY_PAIR_GEN))
-		ktype = CKK_RSA;
-	else {
-		TRACE_ERROR("%s Neither RSA nor EC mech type provided for RSA/EC_key_pair_gen\n",
-			    __func__);
-		return CKR_MECHANISM_INVALID;
-	}
+    if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
+        ktype = CKK_EC;
+    } else if ((pMechanism->mechanism == CKM_RSA_PKCS_KEY_PAIR_GEN) ||
+               (pMechanism->mechanism == CKM_RSA_X9_31_KEY_PAIR_GEN)) {
+        ktype = CKK_RSA;
+    } else {
+        TRACE_ERROR("%s Neither RSA nor EC mech type provided for "
+                    "RSA/EC_key_pair_gen\n", __func__);
+        return CKR_MECHANISM_INVALID;
+    }
 
-	rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
-				  pPublicKeyTemplate, ulPublicKeyAttributeCount,
-				  &new_pPublicKeyTemplate,
-				  &new_ulPublicKeyAttributeCount);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check public key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		return rc;
-	}
+    rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
+                              pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                              &new_pPublicKeyTemplate,
+                              &new_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY, pPrivateKeyTemplate,
-				  ulPrivateKeyAttributeCount,
-				  &new_pPrivateKeyTemplate,
-				  &new_ulPrivateKeyAttributeCount);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s RSA/EC check private key attributes failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
+                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                              &new_pPrivateKeyTemplate,
+                              &new_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	/* debug */
-	for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
-		TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
-			   __func__, new_pPrivateKeyTemplate[i].type,
-			   new_pPrivateKeyTemplate[i].ulValueLen,
-			   new_ulPrivateKeyAttributeCount);
-	}
+    /* debug */
+    for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
+        TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
+                   __func__, new_pPrivateKeyTemplate[i].type,
+                   new_pPrivateKeyTemplate[i].ulValueLen,
+                   new_ulPrivateKeyAttributeCount);
+    }
 
-    ep11_get_pin_blob(ep11_session, (ep11_is_session_object(pPublicKeyTemplate, ulPublicKeyAttributeCount) ||
-                                     ep11_is_session_object(pPrivateKeyTemplate, ulPrivateKeyAttributeCount)),
+    ep11_get_pin_blob(ep11_session,
+                      (ep11_is_session_object
+                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
+                       || ep11_is_session_object(pPrivateKeyTemplate,
+                                                 ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-	rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
-			       new_ulPublicKeyAttributeCount, new_pPrivateKeyTemplate,
-			       new_ulPrivateKeyAttributeCount, ep11_pin_blob,
-			       ep11_pin_blob_len, privkey_blob,
-			       &privkey_blob_len, spki, &spki_len,
-			       (uint64_t)ep11_data->target_list);
+        rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
+                                   new_ulPublicKeyAttributeCount,
+                                   new_pPrivateKeyTemplate,
+                                   new_ulPrivateKeyAttributeCount,
+                                   ep11_pin_blob, ep11_pin_blob_len,
+                                   privkey_blob, &privkey_blob_len, spki,
+                                   &spki_len,
+                                   (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
-			    "privkey_blob_len=0x%zx mech='%s'\n",
-			    __func__, rc, spki_len, privkey_blob_len,
-			    ep11_get_ckm(pMechanism->mechanism));
-		goto error;
-	}
-	TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
-		   "privkey_blob_len=0x%zx mech='%s'\n",
-		   __func__, rc, spki_len, privkey_blob_len,
-		   ep11_get_ckm(pMechanism->mechanism));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+                    "privkey_blob_len=0x%zx mech='%s'\n",
+                    __func__, rc, spki_len, privkey_blob_len,
+                    ep11_get_ckm(pMechanism->mechanism));
+        goto error;
+    }
+    TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+               "privkey_blob_len=0x%zx mech='%s'\n",
+               __func__, rc, spki_len, privkey_blob_len,
+               ep11_get_ckm(pMechanism->mechanism));
 
-	if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
-		TRACE_ERROR("%s blobsize error\n", __func__);
-		rc = CKR_KEY_INDIGESTIBLE;
-		goto error;
-	}
+    if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
+        TRACE_ERROR("%s blobsize error\n", __func__);
+        rc = CKR_KEY_INDIGESTIBLE;
+        goto error;
+    }
 
-	memset(publblob, 0, sizeof(publblob));
-	memset(privblob, 0, sizeof(privblob));
+    memset(publblob, 0, sizeof(publblob));
+    memset(privblob, 0, sizeof(privblob));
 
-	memcpy(publblob, spki, spki_len);
-	publblobsize = spki_len;
+    memcpy(publblob, spki, spki_len);
+    publblobsize = spki_len;
 
-	memcpy(privblob, privkey_blob, privkey_blob_len);
-	privblobsize = privkey_blob_len;
+    memcpy(privblob, privkey_blob, privkey_blob_len);
+    privblobsize = privkey_blob_len;
 
-	rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
-	rc = template_update_attribute(publ_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
-	rc = template_update_attribute(priv_tmpl, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-			    __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
-		/* scan the SPKI for CKA_EC_POINT */
-
-#ifdef DEBUG
-		TRACE_DEBUG("%s ec_generate_keypair spki:\n", __func__);
-		TRACE_DEBUG_DUMP(spki, spki_len);
-#endif
-		rc = ep11_spki_key(spki, &key, &bit_str_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		/* 'key' is already EC point,
-		 * SEC 1: Elliptic Curve Cryptography:
-		 * The elliptic curve public key (a value of type ECPoint
-		 * that is an OCTET STRING) is mapped to a subjectPublicKey
-		 * (a value encoded as type BIT STRING) as follows: The most
-		 * significant bit of the value of the OCTET STRING becomes
-		 * the most significant bit of the value of the BIT STRING
-		 * and so on with consecutive bits until the least significant
-		 * bit of the OCTET STRING becomes the least significant bit
-		 * of the BIT STRING.
-		 */
-		TRACE_INFO("%s ecpoint length 0x%lx\n", __func__, bit_str_len);
-		data_len = bit_str_len;
-		data = key;
+    if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
+        /* scan the SPKI for CKA_EC_POINT */
 
 #ifdef DEBUG
-		TRACE_DEBUG("%s ec_generate_keypair ecpoint:\n", __func__);
-		TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG("%s ec_generate_keypair spki:\n", __func__);
+        TRACE_DEBUG_DUMP(spki, spki_len);
 #endif
+        rc = ep11_spki_key(spki, &key, &bit_str_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
 
-		/* build and add CKA_EC_POINT */
-		rc = build_attribute(CKA_EC_POINT, data, data_len, &attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-		rc = template_update_attribute(publ_tmpl, attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		/* copy CKA_EC_PARAMS/CKA_ECDSA_PARAMS to private template  */
-		if (template_attribute_find(publ_tmpl, CKA_EC_PARAMS, &attr)) {
-			rc = build_attribute(attr->type, attr->pValue,
-					     attr->ulValueLen, &n_attr);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-					    __func__, rc);
-				goto error;
-			}
-
-			rc = template_update_attribute(priv_tmpl, n_attr);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-					    __func__, rc);
-				goto error;
-			}
-		}
-
-		if (template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
-			rc = build_attribute(attr->type, attr->pValue,
-					     attr->ulValueLen, &n_attr);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-					    __func__, rc);
-				goto error;
-			}
-
-			rc = template_update_attribute(priv_tmpl, n_attr);
-			if (rc != CKR_OK) {
-				TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-					    __func__, rc);
-				goto error;
-			}
-		}
-	} else {
-		/* scan the SPKI for modulus and public exponent and
-		 * set the public key attributes, a user would use the
-		 * already built SPKI (in CKA_IBM_OPAQUE of the public key).
-		 */
-		CK_BYTE *modulus, *publ_exp;
-
-		rc = ep11_spki_key(spki, &key, &bit_str_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		/* key must be a sequence holding two integers,
-		 * modulus and public exponent
-		 */
-		rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s read sequence failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-
-		modulus = key + field_len - data_len;
-		rc = ber_decode_INTEGER(modulus, &data, &data_len, &field_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s read modulus failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
+        /* 'key' is already EC point,
+         * SEC 1: Elliptic Curve Cryptography:
+         * The elliptic curve public key (a value of type ECPoint
+         * that is an OCTET STRING) is mapped to a subjectPublicKey
+         * (a value encoded as type BIT STRING) as follows: The most
+         * significant bit of the value of the OCTET STRING becomes
+         * the most significant bit of the value of the BIT STRING
+         * and so on with consecutive bits until the least significant
+         * bit of the OCTET STRING becomes the least significant bit
+         * of the BIT STRING.
+         */
+        TRACE_INFO("%s ecpoint length 0x%lx\n", __func__, bit_str_len);
+        data_len = bit_str_len;
+        data = key;
 
 #ifdef DEBUG
-		TRACE_DEBUG("%s rsa_generate_keypair modulus:\n", __func__);
-		TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG("%s ec_generate_keypair ecpoint:\n", __func__);
+        TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
-		/* build and add CKA_MODULUS */
-		rc = build_attribute(CKA_MODULUS, data, data_len, &attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-		rc = template_update_attribute(publ_tmpl, attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
+        /* build and add CKA_EC_POINT */
+        rc = build_attribute(CKA_EC_POINT, data, data_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        rc = template_update_attribute(publ_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
 
-		/* read public exponent */
-		publ_exp = modulus + field_len;
-		rc = ber_decode_INTEGER(publ_exp, &data, &data_len, &field_len);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s read public exponent failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
+        /* copy CKA_EC_PARAMS/CKA_ECDSA_PARAMS to private template  */
+        if (template_attribute_find(publ_tmpl, CKA_EC_PARAMS, &attr)) {
+            rc = build_attribute(attr->type, attr->pValue,
+                                 attr->ulValueLen, &n_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                            __func__, rc);
+                goto error;
+            }
 
+            rc = template_update_attribute(priv_tmpl, n_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed with "
+                            "rc=0x%lx\n", __func__, rc);
+                goto error;
+            }
+        }
+
+        if (template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+            rc = build_attribute(attr->type, attr->pValue,
+                                 attr->ulValueLen, &n_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                            __func__, rc);
+                goto error;
+            }
+
+            rc = template_update_attribute(priv_tmpl, n_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed with "
+                            "rc=0x%lx\n", __func__, rc);
+                goto error;
+            }
+        }
+    } else {
+        /* scan the SPKI for modulus and public exponent and
+         * set the public key attributes, a user would use the
+         * already built SPKI (in CKA_IBM_OPAQUE of the public key).
+         */
+        CK_BYTE *modulus, *publ_exp;
+
+        rc = ep11_spki_key(spki, &key, &bit_str_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        /* key must be a sequence holding two integers,
+         * modulus and public exponent
+         */
+        rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s read sequence failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        modulus = key + field_len - data_len;
+        rc = ber_decode_INTEGER(modulus, &data, &data_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s read modulus failed with rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
 #ifdef DEBUG
-		TRACE_DEBUG("%s rsa_generate_keypair public exponent:\n", __func__);
-		TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG("%s rsa_generate_keypair modulus:\n", __func__);
+        TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
-		/* build and add CKA_PUBLIC_EXPONENT */
-		rc = build_attribute(CKA_PUBLIC_EXPONENT, data, data_len, &attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-		rc = template_update_attribute(publ_tmpl, attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
-	}
+        /* build and add CKA_MODULUS */
+        rc = build_attribute(CKA_MODULUS, data, data_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        rc = template_update_attribute(publ_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        /* read public exponent */
+        publ_exp = modulus + field_len;
+        rc = ber_decode_INTEGER(publ_exp, &data, &data_len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s read public exponent failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+#ifdef DEBUG
+        TRACE_DEBUG("%s rsa_generate_keypair public exponent:\n", __func__);
+        TRACE_DEBUG_DUMP(data, data_len);
+#endif
+
+        /* build and add CKA_PUBLIC_EXPONENT */
+        rc = build_attribute(CKA_PUBLIC_EXPONENT, data, data_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        rc = template_update_attribute(publ_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+    }
 
 error:
-	if (new_pPrivateKeyTemplate)
-		free_attribute_array(new_pPrivateKeyTemplate,
-				     new_ulPrivateKeyAttributeCount);
-	if (new_pPublicKeyTemplate)
-		free_attribute_array(new_pPublicKeyTemplate,
-				     new_ulPublicKeyAttributeCount);
-	return rc;
+    if (new_pPrivateKeyTemplate)
+        free_attribute_array(new_pPrivateKeyTemplate,
+                             new_ulPrivateKeyAttributeCount);
+    if (new_pPublicKeyTemplate)
+        free_attribute_array(new_pPublicKeyTemplate,
+                             new_ulPublicKeyAttributeCount);
+    return rc;
 }
 
 
 /* generic function to generate RSA,DH,EC and DSA key pairs */
-CK_RV ep11tok_generate_key_pair(STDLL_TokData_t *tokdata, SESSION * sess,
-				CK_MECHANISM_PTR pMechanism,
-				CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-				CK_ULONG ulPublicKeyAttributeCount,
-				CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-				CK_ULONG ulPrivateKeyAttributeCount,
-				CK_OBJECT_HANDLE_PTR phPublicKey,
-				CK_OBJECT_HANDLE_PTR phPrivateKey)
+CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
+                                CK_MECHANISM_PTR pMechanism,
+                                CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                CK_ULONG ulPublicKeyAttributeCount,
+                                CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                CK_ULONG ulPrivateKeyAttributeCount,
+                                CK_OBJECT_HANDLE_PTR phPublicKey,
+                                CK_OBJECT_HANDLE_PTR phPrivateKey)
 {
-	CK_RV rc;
-	OBJECT *public_key_obj = NULL;
-	OBJECT *private_key_obj = NULL;
-	CK_ULONG priv_ktype, publ_ktype;
-	CK_ULONG class;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_ATTRIBUTE *n_attr = NULL;
+    CK_RV rc;
+    OBJECT *public_key_obj = NULL;
+    OBJECT *private_key_obj = NULL;
+    CK_ULONG priv_ktype, publ_ktype;
+    CK_ULONG class;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *n_attr = NULL;
 
-	/* Get the keytype to use when creating the key object */
-	rc = ep11_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-			      pMechanism, &priv_ktype, &class);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* Get the keytype to use when creating the key object */
+    rc = ep11_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                          pMechanism, &priv_ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = ep11_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
-			      pMechanism, &publ_ktype, &class);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = ep11_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                          pMechanism, &publ_ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	/* Now build the skeleton key. */
-	rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
-				    ulPublicKeyAttributeCount, MODE_KEYGEN,
-				    CKO_PUBLIC_KEY, publ_ktype,
-				    &public_key_obj);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
-		goto error;
-	}
+    /* Now build the skeleton key. */
+    rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
+                                ulPublicKeyAttributeCount, MODE_KEYGEN,
+                                CKO_PUBLIC_KEY, publ_ktype, &public_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
+        goto error;
+    }
 
-	rc = object_mgr_create_skel(tokdata, sess, pPrivateKeyTemplate,
-				    ulPrivateKeyAttributeCount, MODE_KEYGEN,
-				    CKO_PRIVATE_KEY, priv_ktype,
-				    &private_key_obj);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
-		goto error;
-	}
+    rc = object_mgr_create_skel(tokdata, sess, pPrivateKeyTemplate,
+                                ulPrivateKeyAttributeCount, MODE_KEYGEN,
+                                CKO_PRIVATE_KEY, priv_ktype, &private_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Object mgr create skeleton failed\n", __func__);
+        goto error;
+    }
 
-	switch(pMechanism->mechanism) {
-	case CKM_DH_PKCS_KEY_PAIR_GEN:
-		rc = dh_generate_keypair(tokdata, sess, pMechanism,
-					 public_key_obj->template,
-					 private_key_obj->template,
-					 pPublicKeyTemplate,
-					 ulPublicKeyAttributeCount,
-					 pPrivateKeyTemplate,
-					 ulPrivateKeyAttributeCount,
-					 sess->handle);
-		break;
+    switch (pMechanism->mechanism) {
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        rc = dh_generate_keypair(tokdata, sess, pMechanism,
+                                 public_key_obj->template,
+                                 private_key_obj->template,
+                                 pPublicKeyTemplate,
+                                 ulPublicKeyAttributeCount,
+                                 pPrivateKeyTemplate,
+                                 ulPrivateKeyAttributeCount, sess->handle);
+        break;
+    case CKM_EC_KEY_PAIR_GEN:  /* takes same parameters as RSA */
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+    case CKM_RSA_X9_31_KEY_PAIR_GEN:
+        rc = rsa_ec_generate_keypair(tokdata, sess, pMechanism,
+                                     public_key_obj->template,
+                                     private_key_obj->template,
+                                     pPublicKeyTemplate,
+                                     ulPublicKeyAttributeCount,
+                                     pPrivateKeyTemplate,
+                                     ulPrivateKeyAttributeCount, sess->handle);
+        break;
+    case CKM_DSA_PARAMETER_GEN:
+    case CKM_DSA_KEY_PAIR_GEN:
+        rc = dsa_generate_keypair(tokdata, sess, pMechanism,
+                                  public_key_obj->template,
+                                  private_key_obj->template,
+                                  pPublicKeyTemplate,
+                                  ulPublicKeyAttributeCount,
+                                  pPrivateKeyTemplate,
+                                  ulPrivateKeyAttributeCount, sess->handle);
+        break;
+    default:
+        TRACE_ERROR("%s invalid mech %s\n", __func__,
+                    ep11_get_ckm(pMechanism->mechanism));
+        rc = CKR_MECHANISM_INVALID;
+        goto error;
+    }
 
-	case CKM_EC_KEY_PAIR_GEN:      /* takes same parameters as RSA */
-	case CKM_RSA_PKCS_KEY_PAIR_GEN:
-	case CKM_RSA_X9_31_KEY_PAIR_GEN:
-		rc = rsa_ec_generate_keypair(tokdata, sess, pMechanism,
-					     public_key_obj->template,
-					     private_key_obj->template,
-					     pPublicKeyTemplate,
-					     ulPublicKeyAttributeCount,
-					     pPrivateKeyTemplate,
-					     ulPrivateKeyAttributeCount,
-					     sess->handle);
-		break;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
+                    " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
+                    __func__, rc, *phPublicKey, *phPrivateKey,
+                    public_key_obj->name, private_key_obj->name, public_key_obj,
+                    private_key_obj);
+        goto error;
+    } else {
+        TRACE_INFO("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
+                   " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
+                   __func__, rc, *phPublicKey, *phPrivateKey,
+                   public_key_obj->name, private_key_obj->name, public_key_obj,
+                   private_key_obj);
+    }
 
-	case CKM_DSA_PARAMETER_GEN:
-	case CKM_DSA_KEY_PAIR_GEN:
-		rc = dsa_generate_keypair(tokdata, sess, pMechanism,
-					  public_key_obj->template,
-					  private_key_obj->template,
-					  pPublicKeyTemplate,
-					  ulPublicKeyAttributeCount,
-					  pPrivateKeyTemplate,
-					  ulPrivateKeyAttributeCount,
-					  sess->handle);
-		break;
-	default:
-		TRACE_ERROR("%s invalid mech %s\n", __func__,
-			    ep11_get_ckm(pMechanism->mechanism));
-		rc = CKR_MECHANISM_INVALID;
-		goto error;
-	}
+    /* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
+     * public key object to private key object to fulfill PKCS#11
+     * private key template requirements
+     */
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
-			    " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
-			    __func__, rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
-			    private_key_obj->name, public_key_obj, private_key_obj);
-		goto error;
-	} else {
-		TRACE_INFO("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
-			   " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
-			   __func__, rc, *phPublicKey, *phPrivateKey, public_key_obj->name,
-			   private_key_obj->name, public_key_obj, private_key_obj);
-	}
+    if (template_attribute_find(public_key_obj->template, CKA_MODULUS, &attr)) {
+        rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
+                             &n_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
 
-	/* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
-	 * public key object to private key object to fulfill PKCS#11
-	 * private key template requirements
-	 */
+        rc = template_update_attribute(private_key_obj->template, n_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+    }
 
-	if (template_attribute_find(public_key_obj->template, CKA_MODULUS,
-				    &attr)) {
-		rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
-				     &n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
+    if (template_attribute_find(public_key_obj->template,
+                                CKA_PUBLIC_EXPONENT, &attr)) {
+        rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
+                             &n_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
 
-		rc = template_update_attribute(private_key_obj->template,
-					       n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with "
-				    "rc=0x%lx\n", __func__, rc);
-			goto error;
-		}
-	}
+        rc = template_update_attribute(private_key_obj->template, n_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+    }
 
-	if (template_attribute_find(public_key_obj->template,
-				    CKA_PUBLIC_EXPONENT, &attr)) {
-		rc = build_attribute(attr->type, attr->pValue, attr->ulValueLen,
-				     &n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-				    __func__, rc);
-			goto error;
-		}
+    /* Keys should be fully constructed,
+     * assign object handles and store keys.
+     */
+    rc = object_mgr_create_final(tokdata, sess, public_key_obj, phPublicKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
+        goto error;
+    }
 
-		rc = template_update_attribute(private_key_obj->template,
-					       n_attr);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s template_update_attribute failed with "
-				     "rc=0x%lx\n", __func__, rc);
-			goto error;
-		}
-	}
-
-	/* Keys should be fully constructed,
-	 * assign object handles and store keys.
-	 */
-	rc = object_mgr_create_final(tokdata, sess, public_key_obj, phPublicKey);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
-		goto error;
-	}
-
-	rc = object_mgr_create_final(tokdata, sess, private_key_obj, phPrivateKey);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
-		object_mgr_destroy_object(tokdata, sess, *phPublicKey);
-		public_key_obj = NULL;
-		goto error;
-	}
-	return rc;
+    rc = object_mgr_create_final(tokdata, sess, private_key_obj, phPrivateKey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
+        object_mgr_destroy_object(tokdata, sess, *phPublicKey);
+        public_key_obj = NULL;
+        goto error;
+    }
+    return rc;
 
 error:
-	if (public_key_obj) object_free(public_key_obj);
-	if (private_key_obj) object_free(private_key_obj);
+    if (public_key_obj)
+        object_free(public_key_obj);
+    if (private_key_obj)
+        object_free(private_key_obj);
 
-	*phPublicKey = 0;
-	*phPrivateKey = 0;
+    *phPublicKey = 0;
+    *phPrivateKey = 0;
 
-	return rc;
+    return rc;
 }
 
 
 /* Returns a blob for a key (handle or key obj).
  * The blob is created if none was build yet.
  */
-static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
-			     CK_BYTE **blob, size_t *blobsize, OBJECT **kobj)
+static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
+                             CK_BYTE ** blob, size_t * blobsize, OBJECT ** kobj)
 {
-	OBJECT *key_obj;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_RV rc;
+    OBJECT *key_obj;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
 
-	/* find the key obj by the key handle */
-	rc = object_mgr_find_in_map1(tokdata, handle, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
-		return rc;
-	}
+    /* find the key obj by the key handle */
+    rc = object_mgr_find_in_map1(tokdata, handle, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
+        return rc;
+    }
 
-	/* blob already exists */
-	if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
-	    (attr->ulValueLen > 0)) {
-		*blob = attr->pValue;
-		*blobsize = (size_t) attr->ulValueLen;
-		*kobj = key_obj;
-		TRACE_INFO("%s blob found blobsize=0x%zx\n",
-			   __func__, *blobsize);
-		return CKR_OK;
-	} else {
+    /* blob already exists */
+    if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
+        (attr->ulValueLen > 0)) {
+        *blob = attr->pValue;
+        *blobsize = (size_t) attr->ulValueLen;
+        *kobj = key_obj;
+        TRACE_INFO("%s blob found blobsize=0x%zx\n", __func__, *blobsize);
+        return CKR_OK;
+    } else {
 
-		/* should not happen, imported key types not supported
-		 * should cause a failing token_specific_object_add
-		 */
-		TRACE_ERROR("%s no blob\n", __func__);
-		return CKR_ATTRIBUTE_VALUE_INVALID;
-	}
+        /* should not happen, imported key types not supported
+         * should cause a failing token_specific_object_add
+         */
+        TRACE_ERROR("%s no blob\n", __func__);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
 }
 
-CK_RV ep11tok_sign_init(STDLL_TokData_t *tokdata, SESSION *session,
-			CK_MECHANISM *mech, CK_BBOOL recover_mode,
-			CK_OBJECT_HANDLE key)
+CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
+                        CK_MECHANISM * mech, CK_BBOOL recover_mode,
+                        CK_OBJECT_HANDLE key)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	size_t keyblobsize = 0;
-	CK_BYTE *keyblob;
-	OBJECT *key_obj = NULL;
-	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
-	size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
-	CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
+    CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
-	if (!ep11_sign_state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
+    if (!ep11_sign_state) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
 
-	rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
     RETRY_START
-	rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-			    mech, keyblob, keyblobsize,
-			    (uint64_t)ep11_data->target_list);
+        rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+                            mech, keyblob, keyblobsize,
+                            (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
-			    __func__, rc, keyblobsize, key, mech->mechanism);
-		free(ep11_sign_state);
-	} else {
-		/* SIGN_VERIFY_CONTEX holds all needed for continuing,
-		 * also by another adapter (stateless requests)
-		 */
-		ctx->key = key;
-		ctx->multi = FALSE;
-		ctx->active = TRUE;
-		ctx->context = ep11_sign_state;
-		ctx->context_len = ep11_sign_state_l;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
+                    __func__, rc, keyblobsize, key, mech->mechanism);
+        free(ep11_sign_state);
+    } else {
+        /* SIGN_VERIFY_CONTEX holds all needed for continuing,
+         * also by another adapter (stateless requests)
+         */
+        ctx->key = key;
+        ctx->multi = FALSE;
+        ctx->active = TRUE;
+        ctx->context = ep11_sign_state;
+        ctx->context_len = ep11_sign_state_l;
 
-		TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
-			   __func__, rc, keyblobsize, key, mech->mechanism);
-	}
+        TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
+                   __func__, rc, keyblobsize, key, mech->mechanism);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_sign(STDLL_TokData_t *tokdata, SESSION *session,
-		   CK_BBOOL length_only, CK_BYTE *in_data,
-		   CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG *sig_len)
+CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
+                   CK_BBOOL length_only, CK_BYTE * in_data,
+                   CK_ULONG in_data_len, CK_BYTE * signature,
+                   CK_ULONG * sig_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
     RETRY_START
-	rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
-		    signature, sig_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
+                        signature, sig_len, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_sign_update(STDLL_TokData_t *tokdata, SESSION *session,
-			  CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
+                          CK_BYTE * in_data, CK_ULONG in_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
-	if (!in_data || !in_data_len)
-		return CKR_OK;
+    if (!in_data || !in_data_len)
+        return CKR_OK;
 
     RETRY_START
-	rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
-			  in_data_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
+                              in_data_len, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_sign_final(STDLL_TokData_t *tokdata, SESSION *session,
-			 CK_BBOOL length_only, CK_BYTE *signature,
-			 CK_ULONG *sig_len)
+CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
+                         CK_BBOOL length_only, CK_BYTE * signature,
+                         CK_ULONG * sig_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
     RETRY_START
-	rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
-			     (uint64_t)ep11_data->target_list);
+        rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
+                             (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_verify_init(STDLL_TokData_t *tokdata, SESSION *session,
-			  CK_MECHANISM *mech, CK_BBOOL recover_mode,
-			  CK_OBJECT_HANDLE key)
+CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
+                          CK_MECHANISM * mech, CK_BBOOL recover_mode,
+                          CK_OBJECT_HANDLE key)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_BYTE *spki;
-	size_t spki_len = 0;
-	OBJECT *key_obj = NULL;
-	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
-	size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
-	CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    CK_RV rc;
+    CK_BYTE *spki;
+    size_t spki_len = 0;
+    OBJECT *key_obj = NULL;
+    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
+    CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
-	if (!ep11_sign_state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
+    if (!ep11_sign_state) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
 
-	rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
     RETRY_START
-	rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-			  spki, spki_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+                              spki, spki_len,
+                              (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
-			    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
-			    rc, spki_len, key, ep11_sign_state_l,
-			    mech->mechanism);
-	} else {
-		ctx->key = key;
-		ctx->multi = FALSE;
-		ctx->active = TRUE;
-		ctx->context = ep11_sign_state;
-		ctx->context_len = ep11_sign_state_l;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
+                    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
+                    rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+    } else {
+        ctx->key = key;
+        ctx->multi = FALSE;
+        ctx->active = TRUE;
+        ctx->context = ep11_sign_state;
+        ctx->context_len = ep11_sign_state_l;
 
-		TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
-			   "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
-			   rc, spki_len, key, ep11_sign_state_l,
-			   mech->mechanism);
-	}
+        TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
+                   "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
+                   rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_verify(STDLL_TokData_t *tokdata, SESSION *session, CK_BYTE *in_data,
-		     CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
+                     CK_BYTE * in_data, CK_ULONG in_data_len,
+                     CK_BYTE * signature, CK_ULONG sig_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
     RETRY_START
-	rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
-		      signature, sig_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
+                          signature, sig_len,
+                          (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_verify_update(STDLL_TokData_t *tokdata, SESSION *session,
-			    CK_BYTE *in_data, CK_ULONG in_data_len)
+CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
+                            CK_BYTE * in_data, CK_ULONG in_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
-	if (!in_data || !in_data_len)
-		return CKR_OK;
+    if (!in_data || !in_data_len)
+        return CKR_OK;
 
     RETRY_START
-	rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
-			    in_data_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
+                                in_data_len, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_verify_final(STDLL_TokData_t *tokdata, SESSION *session,
-			   CK_BYTE *signature, CK_ULONG sig_len)
+CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
+                           CK_BYTE * signature, CK_ULONG sig_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    CK_RV rc;
+    SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
 
     RETRY_START
-	rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
-			   sig_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
+                               sig_len, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_decrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
-			    CK_BYTE_PTR output_part,
-			    CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
+                            CK_BYTE_PTR output_part,
+                            CK_ULONG_PTR p_output_part_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
     RETRY_START
-	rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
-				output_part, p_output_part_len,
-				(uint64_t)ep11_data->target_list);
+        rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
+                                output_part, p_output_part_len,
+                                (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_decrypt(STDLL_TokData_t *tokdata, SESSION *session,
-		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
-		      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
+CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
+                      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
+                      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
     RETRY_START
-	rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
-			   input_data_len, output_data, p_output_data_len,
-			   (uint64_t)ep11_data->target_list);
+        rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
+                           input_data_len, output_data, p_output_data_len,
+                           (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_decrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
-			     CK_BYTE_PTR input_part, CK_ULONG input_part_len,
-			     CK_BYTE_PTR output_part,
-			     CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
+                             CK_BYTE_PTR input_part, CK_ULONG input_part_len,
+                             CK_BYTE_PTR output_part,
+                             CK_ULONG_PTR p_output_part_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
 
-	if (!input_part || !input_part_len) {
-		*p_output_part_len = 0;
-		return CKR_OK; /* nothing to update, keep context */
-	}
+    if (!input_part || !input_part_len) {
+        *p_output_part_len = 0;
+        return CKR_OK;          /* nothing to update, keep context */
+    }
 
     RETRY_START
-	rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
-			     input_part, input_part_len, output_part,
-			     p_output_part_len, (uint64_t)ep11_data->target_list);
+        rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
+                                 input_part, input_part_len, output_part,
+                                 p_output_part_len,
+                                 (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_encrypt_final(STDLL_TokData_t *tokdata, SESSION *session,
-			    CK_BYTE_PTR output_part,
-			    CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
+                            CK_BYTE_PTR output_part,
+                            CK_ULONG_PTR p_output_part_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
     RETRY_START
-	rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
-				output_part, p_output_part_len,
-				(uint64_t)ep11_data->target_list);
+        rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
+                                output_part, p_output_part_len,
+                                (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_encrypt(STDLL_TokData_t *tokdata, SESSION *session,
-		      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
-		      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
+CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
+                      CK_BYTE_PTR input_data, CK_ULONG input_data_len,
+                      CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
     RETRY_START
-	rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
-			   input_data_len, output_data, p_output_data_len,
-			   (uint64_t)ep11_data->target_list);
+        rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
+                           input_data_len, output_data, p_output_data_len,
+                           (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_encrypt_update(STDLL_TokData_t *tokdata, SESSION *session,
-			     CK_BYTE_PTR input_part, CK_ULONG input_part_len,
-			     CK_BYTE_PTR output_part,
-			     CK_ULONG_PTR p_output_part_len)
+CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
+                             CK_BYTE_PTR input_part, CK_ULONG input_part_len,
+                             CK_BYTE_PTR output_part,
+                             CK_ULONG_PTR p_output_part_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_RV rc = CKR_OK;
+    ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
 
-	if (!input_part || !input_part_len) {
-		*p_output_part_len = 0;
-		return CKR_OK; /* nothing to update, keep context */
-	}
+    if (!input_part || !input_part_len) {
+        *p_output_part_len = 0;
+        return CKR_OK;          /* nothing to update, keep context */
+    }
 
     RETRY_START
-	rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
-				 input_part, input_part_len, output_part,
-				 p_output_part_len,
-				 (uint64_t)ep11_data->target_list);
+        rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
+                                 input_part, input_part_len, output_part,
+                                 p_output_part_len,
+                                 (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-static CK_RV ep11_ende_crypt_init(STDLL_TokData_t *tokdata, SESSION *session,
-				  CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key, int op)
+static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
+                                  CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,
+                                  int op)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = CKR_OK;
-	CK_BYTE *blob;
-	size_t blob_len = 0;
-	OBJECT *key_obj = NULL;
-	size_t ep11_state_l = MAX_CRYPT_STATE_BYTES;
-	CK_BYTE *ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
+    CK_RV rc = CKR_OK;
+    CK_BYTE *blob;
+    size_t blob_len = 0;
+    OBJECT *key_obj = NULL;
+    size_t ep11_state_l = MAX_CRYPT_STATE_BYTES;
+    CK_BYTE *ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
 
-	if (!ep11_state) {
-		TRACE_ERROR("%s Memory allocation failed\n", __func__);
-		return CKR_HOST_MEMORY;
-	}
+    if (!ep11_state) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
 
-	rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
 
-	if (op == DECRYPT) {
-		ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    if (op == DECRYPT) {
+        ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
         RETRY_START
-		rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
-				   blob_len, (uint64_t)ep11_data->target_list);
+            rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
+                                   blob_len, (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, session)
-		ctx->key = key;
-		ctx->active = TRUE;
-		ctx->context = ep11_state;
-		ctx->context_len = ep11_state_l;
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
-				    "mech=0x%lx\n", __func__, rc, blob_len,
-				    mech->mechanism);
-		} else {
-			TRACE_INFO("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
-				   "mech=0x%lx\n", __func__, rc, blob_len,
-				   mech->mechanism);
-		}
-	} else {
-		ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+        ctx->key = key;
+        ctx->active = TRUE;
+        ctx->context = ep11_state;
+        ctx->context_len = ep11_state_l;
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
+                        "mech=0x%lx\n", __func__, rc, blob_len,
+                        mech->mechanism);
+        } else {
+            TRACE_INFO("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
+                       "mech=0x%lx\n", __func__, rc, blob_len, mech->mechanism);
+        }
+    } else {
+        ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
         RETRY_START
-		rc = dll_m_EncryptInit (ep11_state, &ep11_state_l, mech, blob,
-				    blob_len, (uint64_t)ep11_data->target_list);
+            rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, blob,
+                                   blob_len, (uint64_t) ep11_data->target_list);
         RETRY_END(rc, tokdata, session)
-		ctx->key = key;
-		ctx->active = TRUE;
-		ctx->context = ep11_state;
-		ctx->context_len = ep11_state_l;
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
-				    "mech=0x%lx\n", __func__, rc, blob_len,
-				    mech->mechanism);
-		} else {
-			TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
-				   "mech=0x%lx\n", __func__, rc, blob_len,
-				   mech->mechanism);
-		}
-	}
+        ctx->key = key;
+        ctx->active = TRUE;
+        ctx->context = ep11_state;
+        ctx->context_len = ep11_state_l;
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
+                        "mech=0x%lx\n", __func__, rc, blob_len,
+                        mech->mechanism);
+        } else {
+            TRACE_INFO("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
+                       "mech=0x%lx\n", __func__, rc, blob_len, mech->mechanism);
+        }
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_encrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
-			   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
+CK_RV ep11tok_encrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
+                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
 {
-	CK_RV rc;
+    CK_RV rc;
 
-	TRACE_INFO("%s key=0x%lx\n", __func__, key);
+    TRACE_INFO("%s key=0x%lx\n", __func__, key);
 
-	rc = ep11_ende_crypt_init(tokdata, session, mech, key, ENCRYPT);
+    rc = ep11_ende_crypt_init(tokdata, session, mech, key, ENCRYPT);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_decrypt_init(STDLL_TokData_t *tokdata, SESSION *session,
-			   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
+CK_RV ep11tok_decrypt_init(STDLL_TokData_t * tokdata, SESSION * session,
+                           CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key)
 {
-	CK_RV rc;
+    CK_RV rc;
 
-	TRACE_INFO("%s key=0x%lx mech=0x%lx\n", __func__, key, mech->mechanism);
+    TRACE_INFO("%s key=0x%lx mech=0x%lx\n", __func__, key, mech->mechanism);
 
-	rc = ep11_ende_crypt_init(tokdata, session, mech, key, DECRYPT);
+    rc = ep11_ende_crypt_init(tokdata, session, mech, key, DECRYPT);
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
 
-	return rc;
+    return rc;
 }
 
 
-CK_RV ep11tok_wrap_key(STDLL_TokData_t *tokdata, SESSION *session,
-		       CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
-		       CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
-		       CK_ULONG_PTR p_wrapped_key_len)
+CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
+                       CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE wrapping_key,
+                       CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
+                       CK_ULONG_PTR p_wrapped_key_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_BYTE *wrapping_blob;
-	size_t wrapping_blob_len;
+    CK_RV rc;
+    CK_BYTE *wrapping_blob;
+    size_t wrapping_blob_len;
 
-	CK_BYTE *wrap_target_blob;
-	size_t wrap_target_blob_len;
-	int size_querry = 0;
-	OBJECT *key_obj = NULL;
-	CK_ATTRIBUTE *attr;
+    CK_BYTE *wrap_target_blob;
+    size_t wrap_target_blob_len;
+    int size_querry = 0;
+    OBJECT *key_obj = NULL;
+    CK_ATTRIBUTE *attr;
 
-	/* ep11 weakness:
-	 * it does not set *p_wrapped_key_len if wrapped_key == NULL
-	 * (that is with a size query)
-	 */
-	if (wrapped_key == NULL) {
-		size_querry = 1;
-		*p_wrapped_key_len = MAX_BLOBSIZE;
-		wrapped_key = malloc(MAX_BLOBSIZE);
-		if (!wrapped_key) {
-			TRACE_ERROR("%s Memory allocation failed\n", __func__);
-			return CKR_HOST_MEMORY;
-		}
-	}
+    /* ep11 weakness:
+     * it does not set *p_wrapped_key_len if wrapped_key == NULL
+     * (that is with a size query)
+     */
+    if (wrapped_key == NULL) {
+        size_querry = 1;
+        *p_wrapped_key_len = MAX_BLOBSIZE;
+        wrapped_key = malloc(MAX_BLOBSIZE);
+        if (!wrapped_key) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            return CKR_HOST_MEMORY;
+        }
+    }
 
-	/* the key that encrypts */
-	rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
-			     &wrapping_blob_len, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
-			    __func__, rc);
-		if (size_querry) free(wrapped_key);
-		return rc;
-	}
+    /* the key that encrypts */
+    rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
+                         &wrapping_blob_len, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
+                    __func__, rc);
+        if (size_querry)
+            free(wrapped_key);
+        return rc;
+    }
 
-	/* the key to be wrapped */
-	rc = h_opaque_2_blob(tokdata, key, &wrap_target_blob,
-			     &wrap_target_blob_len, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__, rc);
-		if (size_querry) free(wrapped_key);
-		return rc;
-	}
+    /* the key to be wrapped */
+    rc = h_opaque_2_blob(tokdata, key, &wrap_target_blob,
+                         &wrap_target_blob_len, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__,
+                    rc);
+        if (size_querry)
+            free(wrapped_key);
+        return rc;
+    }
 
-	/* check if wrap mechanism is allowed for the key to be wrapped.
-	 * AES_ECB and AES_CBC is only allowed to wrap secret keys.
-	 */
-	if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
-		TRACE_ERROR("%s No CKA_CLASS attribute found in key template\n", __func__);
-		return CKR_TEMPLATE_INCOMPLETE;
-	}
+    /* check if wrap mechanism is allowed for the key to be wrapped.
+     * AES_ECB and AES_CBC is only allowed to wrap secret keys.
+     */
+    if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
+        TRACE_ERROR("%s No CKA_CLASS attribute found in key template\n",
+                    __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
 
-	if ((*(CK_OBJECT_CLASS *)attr->pValue != CKO_SECRET_KEY) &&
-	    ((mech->mechanism == CKM_AES_ECB) ||
-	     (mech->mechanism == CKM_AES_CBC))) {
-		TRACE_ERROR("%s Wrap mechanism does not match to target key type\n", __func__);
-		return CKR_KEY_NOT_WRAPPABLE;
-	}
+    if ((*(CK_OBJECT_CLASS *) attr->pValue != CKO_SECRET_KEY) &&
+        ((mech->mechanism == CKM_AES_ECB) ||
+         (mech->mechanism == CKM_AES_CBC))) {
+        TRACE_ERROR("%s Wrap mechanism does not match to target key type\n",
+                    __func__);
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
 
-	/* debug */
-	TRACE_INFO("%s start wrapKey: mech=0x%lx wr_key=0x%lx\n",
-		   __func__, mech->mechanism, wrapping_key);
+    /* debug */
+    TRACE_INFO("%s start wrapKey: mech=0x%lx wr_key=0x%lx\n",
+               __func__, mech->mechanism, wrapping_key);
 
-	/* the key to be wrapped is extracted from its blob by the card
-	 * and a standard BER encoding is build which is encryted by
-	 * the wrapping key (wrapping_blob).
-	 * The wrapped key can be processed by any PKCS11 implementation.
-	 */
+    /* the key to be wrapped is extracted from its blob by the card
+     * and a standard BER encoding is build which is encryted by
+     * the wrapping key (wrapping_blob).
+     * The wrapped key can be processed by any PKCS11 implementation.
+     */
     RETRY_START
-	rc = dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
-		       wrapping_blob_len, NULL, ~0, mech, wrapped_key,
-		       p_wrapped_key_len, (uint64_t)ep11_data->target_list);
+        rc =
+        dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
+                      wrapping_blob_len, NULL, ~0, mech, wrapped_key,
+                      p_wrapped_key_len, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
-	} else {
-		TRACE_INFO("%s rc=0x%lx wr_key=%p wr_key_len=0x%lx\n",
-			   __func__, rc, wrapped_key, *p_wrapped_key_len);
-	}
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx wr_key=%p wr_key_len=0x%lx\n",
+                   __func__, rc, wrapped_key, *p_wrapped_key_len);
+    }
 
-	if (size_querry) free(wrapped_key);
-	return rc;
+    if (size_querry)
+        free(wrapped_key);
+    return rc;
 }
 
 
-CK_RV ep11tok_unwrap_key(STDLL_TokData_t *tokdata, SESSION *session, CK_MECHANISM_PTR mech,
-			 CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-			 CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
-			 CK_OBJECT_HANDLE wrapping_key,
-			 CK_OBJECT_HANDLE_PTR p_key)
+CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
+                         CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
+                         CK_ULONG attrs_len, CK_BYTE_PTR wrapped_key,
+                         CK_ULONG wrapped_key_len,
+                         CK_OBJECT_HANDLE wrapping_key,
+                         CK_OBJECT_HANDLE_PTR p_key)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	CK_BYTE *wrapping_blob;
-	size_t wrapping_blob_len;
-	char csum[MAX_BLOBSIZE];
-	CK_ULONG cslen = sizeof(csum);
-	OBJECT *key_obj = NULL;
-	CK_BYTE keyblob[MAX_BLOBSIZE];
-	size_t keyblobsize = sizeof(keyblob);
-	CK_ATTRIBUTE *attr = NULL;
-	int i = 0;
-	CK_ULONG ktype;
-	CK_ULONG class;
-	CK_ULONG len;
-	CK_ATTRIBUTE_PTR new_attrs = NULL;
-	CK_ULONG new_attrs_len = 0;
-	OBJECT *kobj = NULL;
+    CK_RV rc;
+    CK_BYTE *wrapping_blob;
+    size_t wrapping_blob_len;
+    char csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    OBJECT *key_obj = NULL;
+    CK_BYTE keyblob[MAX_BLOBSIZE];
+    size_t keyblobsize = sizeof(keyblob);
+    CK_ATTRIBUTE *attr = NULL;
+    int i = 0;
+    CK_ULONG ktype;
+    CK_ULONG class;
+    CK_ULONG len;
+    CK_ATTRIBUTE_PTR new_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    OBJECT *kobj = NULL;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
-    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
 
-	/* get wrapping key blob */
-	rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob, &wrapping_blob_len, &kobj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n", __func__, rc);
-		return rc;
-	}
+    /* get wrapping key blob */
+    rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
+                         &wrapping_blob_len, &kobj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
 
-	TRACE_DEVEL("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx wr_key=0x%lx\n",
-		    __func__, mech->mechanism, attrs_len, wrapping_key);
-	for (i = 0; i < attrs_len; i++) {
-		TRACE_DEVEL(" attribute attrs.type=0x%lx\n", attrs[i].type);
-	}
+    TRACE_DEVEL("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx "
+                "wr_key=0x%lx\n", __func__, mech->mechanism, attrs_len,
+                wrapping_key);
+    for (i = 0; i < attrs_len; i++) {
+        TRACE_DEVEL(" attribute attrs.type=0x%lx\n", attrs[i].type);
+    }
 
-	memset(keyblob, 0, sizeof(keyblob));
+    memset(keyblob, 0, sizeof(keyblob));
 
-	/*get key type of unwrapped key*/
-	CK_ATTRIBUTE_PTR cla_attr = get_attribute_by_type(attrs, attrs_len, CKA_CLASS);
-	CK_ATTRIBUTE_PTR keytype_attr = get_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE);
-	if (!cla_attr || !keytype_attr) {
-		TRACE_ERROR("%s CKA_CLASS or CKA_KEY_CLASS attributes not found\n", __func__);
-		return CKR_TEMPLATE_INCONSISTENT;
-	}
-	switch (*(CK_KEY_TYPE *)cla_attr->pValue) {
-	case CKO_SECRET_KEY:
-		rc = check_key_attributes(tokdata,
-                      *(CK_KEY_TYPE *)keytype_attr->pValue,
-					  CKO_SECRET_KEY, attrs,
-					  attrs_len, &new_attrs,
-					  &new_attrs_len);
-		break;
-	case CKO_PUBLIC_KEY:
-		rc = check_key_attributes(tokdata,
-                      *(CK_KEY_TYPE *)keytype_attr->pValue,
-					  CKO_PUBLIC_KEY, attrs, attrs_len,
-					  &new_attrs, &new_attrs_len);
-		break;
-	case CKO_PRIVATE_KEY:
-		rc = check_key_attributes(tokdata,
-                      *(CK_KEY_TYPE *)keytype_attr->pValue,
-					  CKO_PRIVATE_KEY, attrs, attrs_len,
-					  &new_attrs, &new_attrs_len);
-		break;
-	default:
-		TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
-		return CKR_TEMPLATE_INCOMPLETE;
-	}
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /*get key type of unwrapped key */
+    CK_ATTRIBUTE_PTR cla_attr =
+        get_attribute_by_type(attrs, attrs_len, CKA_CLASS);
+    CK_ATTRIBUTE_PTR keytype_attr =
+        get_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE);
+    if (!cla_attr || !keytype_attr) {
+        TRACE_ERROR("%s CKA_CLASS or CKA_KEY_CLASS attributes not found\n",
+                    __func__);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+    switch (*(CK_KEY_TYPE *) cla_attr->pValue) {
+    case CKO_SECRET_KEY:
+        rc = check_key_attributes(tokdata,
+                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                  CKO_SECRET_KEY, attrs,
+                                  attrs_len, &new_attrs, &new_attrs_len);
+        break;
+    case CKO_PUBLIC_KEY:
+        rc = check_key_attributes(tokdata,
+                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                  CKO_PUBLIC_KEY, attrs, attrs_len,
+                                  &new_attrs, &new_attrs_len);
+        break;
+    case CKO_PRIVATE_KEY:
+        rc = check_key_attributes(tokdata,
+                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                  CKO_PRIVATE_KEY, attrs, attrs_len,
+                                  &new_attrs, &new_attrs_len);
+        break;
+    default:
+        TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	/* check if unwrap mechanism is allowed for the key to be unwrapped.
-	 * AES_ECB and AES_CBC only allowed to unwrap secret keys.
-	 */
-	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue != CKO_SECRET_KEY) &&
-	     ((mech->mechanism == CKM_AES_ECB) ||
-	      (mech->mechanism == CKM_AES_CBC)))
-		return CKR_ARGUMENTS_BAD;
+    /* check if unwrap mechanism is allowed for the key to be unwrapped.
+     * AES_ECB and AES_CBC only allowed to unwrap secret keys.
+     */
+    if ((*(CK_OBJECT_CLASS *) cla_attr->pValue != CKO_SECRET_KEY) &&
+        ((mech->mechanism == CKM_AES_ECB) || (mech->mechanism == CKM_AES_CBC)))
+        return CKR_ARGUMENTS_BAD;
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-	/* we need a blob for the new key created by unwrapping,
-	 * the wrapped key comes in BER
-	 */
+    /* we need a blob for the new key created by unwrapping,
+     * the wrapped key comes in BER
+     */
     RETRY_START
-	rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
-			 wrapping_blob_len, NULL, ~0, ep11_pin_blob,
-			 ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
-			 keyblob, &keyblobsize, csum, &cslen,
-			 (uint64_t)ep11_data->target_list);
+        rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
+                             wrapping_blob_len, NULL, ~0, ep11_pin_blob,
+                             ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
+                             keyblob, &keyblobsize, csum, &cslen,
+                             (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
 
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
-			    __func__, rc, keyblobsize, mech->mechanism);
-		goto error;
-	}
-	TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
-		   __func__, rc, keyblobsize, mech->mechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
+                    __func__, rc, keyblobsize, mech->mechanism);
+        goto error;
+    }
+    TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
+               __func__, rc, keyblobsize, mech->mechanism);
 
-	/* card provides length in csum bytes 4 - 7, big endian */
-	len = csum[6] + 256*csum[5] + 256*256*csum[4] + 256*256*256*csum[3];
-	len = len/8;  /* comes in bits */
-	TRACE_INFO("%s m_UnwrapKey length 0x%hhx 0x%hhx 0x%hhx 0x%hhx 0x%lx\n",
-		   __func__, csum[3], csum[4], csum[5], csum[6], len);
+    /* card provides length in csum bytes 4 - 7, big endian */
+    len =
+        csum[6] + 256 * csum[5] + 256 * 256 * csum[4] +
+        256 * 256 * 256 * csum[3];
+    len = len / 8;              /* comes in bits */
+    TRACE_INFO("%s m_UnwrapKey length 0x%hhx 0x%hhx 0x%hhx 0x%hhx 0x%lx\n",
+               __func__, csum[3], csum[4], csum[5], csum[6], len);
 
-	/* Get the keytype to use when creating the key object */
-	rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* Get the keytype to use when creating the key object */
+    rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	/* Start creating the key object */
-	rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-				    MODE_UNWRAP, class, ktype, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* Start creating the key object */
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_UNWRAP, class, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = template_update_attribute(key_obj->template, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = template_update_attribute(key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) &len, sizeof(CK_ULONG), &attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) & len, sizeof(CK_ULONG),
+                         &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	rc = template_update_attribute(key_obj->template, attr);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    rc = template_update_attribute(key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
-	/*
-	 * In case of unwrapping an EC private key
-	 * (CKA_CLASS == CKO_PRIVATE_KEY, CKA_KEY_TYPE == CKK_EC),
-	 * the following attributes needs to be added to the new template.
-	 * CKA_EC_PARAMS (curve's algorithm id)
-	 * CKA_EC_POINT (public key information)
-	 */
-	if ( (*(CK_OBJECT_CLASS *)cla_attr->pValue == CKO_PRIVATE_KEY) &&
-	     (*(CK_KEY_TYPE *)keytype_attr->pValue == CKK_EC) ) {
-		ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
-	}
+    /*
+     * In case of unwrapping an EC private key
+     * (CKA_CLASS == CKO_PRIVATE_KEY, CKA_KEY_TYPE == CKK_EC),
+     * the following attributes needs to be added to the new template.
+     * CKA_EC_PARAMS (curve's algorithm id)
+     * CKA_EC_POINT (public key information)
+     */
+    if ((*(CK_OBJECT_CLASS *) cla_attr->pValue == CKO_PRIVATE_KEY) &&
+        (*(CK_KEY_TYPE *) keytype_attr->pValue == CKK_EC)) {
+        ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+    }
 
-	/* key should be fully constructed.
-	 * Assign an object handle and store key.
-	 */
-	rc = object_mgr_create_final(tokdata, session, key_obj, p_key);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
-		goto error;
-	}
+    /* key should be fully constructed.
+     * Assign an object handle and store key.
+     */
+    rc = object_mgr_create_final(tokdata, session, key_obj, p_key);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
 
-	goto done;
+    goto done;
 
 error:
-	if (key_obj) object_free(key_obj);
-	*p_key = 0;
+    if (key_obj)
+        object_free(key_obj);
+    *p_key = 0;
 done:
-	if (new_attrs)
-		free_attribute_array(new_attrs, new_attrs_len);
+    if (new_attrs)
+        free_attribute_array(new_attrs, new_attrs_len);
 
-	return rc;
+    return rc;
 }
 
 
 /* mechanisms ep11 reports but should be hidden because e.g.
    the EP11 card operates in a FIPS mode that forbides the mechanism,
    add here other mechanisms if required */
-const CK_MECHANISM_TYPE ep11_banned_mech_list[] =
-{
+const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
 #ifdef DEFENSIVE_MECHLIST
-	CKM_DES_KEY_GEN,
-	CKM_DES_ECB,
-	CKM_DES_CBC,
-	CKM_DES_CBC_PAD,
-	CKM_GENERIC_SECRET_KEY_GEN,
+    CKM_DES_KEY_GEN,
+    CKM_DES_ECB,
+    CKM_DES_CBC,
+    CKM_DES_CBC_PAD,
+    CKM_GENERIC_SECRET_KEY_GEN,
 
-	/* Wrong/outdated */
+    /* Wrong/outdated */
     CKM_EP11_SHA512_224,
     CKM_EP11_SHA512_224_HMAC,
     CKM_EP11_SHA512_224_HMAC_GENERAL,
@@ -4684,7 +4729,7 @@ const CK_MECHANISM_TYPE ep11_banned_mech_list[] =
     CKM_EP11_SHA512_256_HMAC,
     CKM_EP11_SHA512_256_HMAC_GENERAL,
 
-	/* Vendor specific */
+    /* Vendor specific */
     CKM_IBM_CMAC,
     CKM_IBM_ECDSA_SHA224,
     CKM_IBM_ECDSA_SHA256,
@@ -4713,584 +4758,617 @@ const CK_MECHANISM_TYPE ep11_banned_mech_list[] =
 
 #endif
 };
-const CK_ULONG banned_mech_list_len = (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
+
+const CK_ULONG banned_mech_list_len =
+    (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
 
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
-CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t *tokdata,
-				 CK_MECHANISM_TYPE_PTR pMechanismList,
-				 CK_ULONG_PTR pulCount)
+CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
+                                 CK_MECHANISM_TYPE_PTR pMechanismList,
+                                 CK_ULONG_PTR pulCount)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc = 0;
-	CK_ULONG counter = 0;
-	CK_MECHANISM_TYPE_PTR mlist = NULL;
-	int i, j, banned;
+    CK_RV rc = 0;
+    CK_ULONG counter = 0;
+    CK_MECHANISM_TYPE_PTR mlist = NULL;
+    int i, j, banned;
 
-	/* size querry */
-	if (pMechanismList == NULL) {
-		rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-					    (uint64_t)ep11_data->target_list);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n", __func__, rc);
-			return rc;
-		}
+    /* size querry */
+    if (pMechanismList == NULL) {
+        rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
+                                    (uint64_t) ep11_data->target_list);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n",
+                        __func__, rc);
+            return rc;
+        }
 
-		/* adjust the size according to the ban list,
-		 * for this we need to know what the card provides
-		 */
-		counter = *pulCount;
-		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-		if (!mlist) {
-			TRACE_ERROR("%s Memory allocation failed\n", __func__);
-			return CKR_HOST_MEMORY;
-		}
-		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)ep11_data->target_list);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n", __func__, rc);
-			free(mlist);
-			return rc;
-		}
+        /* adjust the size according to the ban list,
+         * for this we need to know what the card provides
+         */
+        counter = *pulCount;
+        mlist =
+            (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+        if (!mlist) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            return CKR_HOST_MEMORY;
+        }
+        rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                    (uint64_t) ep11_data->target_list);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
+                        __func__, rc);
+            free(mlist);
+            return rc;
+        }
 
-		for (i = 0; i < counter; i++) {
-			banned = 0;
-			for (j = 0; j < banned_mech_list_len; j++) {
-				if (mlist[i] == ep11_banned_mech_list[j]) {
-					banned = 1;
-					TRACE_INFO("%s banned mech '%s'\n",
-						   __func__, ep11_get_ckm(ep11_banned_mech_list[j]));
-				}
-			}
-
-            if (!banned &&
-                check_cps_for_mechanism(ep11_data->cp_config,
-                                        mlist[i], ep11_data->control_points,
-                                        ep11_data->control_points_len) != CKR_OK) {
-                banned = 1;
-                TRACE_INFO("%s banned mech '%s' due to control point\n",
-                                           __func__, ep11_get_ckm(mlist[i]));
+        for (i = 0; i < counter; i++) {
+            banned = 0;
+            for (j = 0; j < banned_mech_list_len; j++) {
+                if (mlist[i] == ep11_banned_mech_list[j]) {
+                    banned = 1;
+                    TRACE_INFO("%s banned mech '%s'\n",
+                               __func__,
+                               ep11_get_ckm(ep11_banned_mech_list[j]));
+                }
             }
 
-			if (banned == 1) {
-				/* banned mech found,
-				 * decrement reported list size
-				 */
-				*pulCount = *pulCount - 1;
-			}
-		}
-	} else {
-		/* 2. call, content request */
-
-		/* find out size ep11 will report, cannot use the size
-		 * that comes as parameter, this is a 'reduced size',
-		 * ep11 would complain about insufficient list size
-		 */
-		rc = dll_m_GetMechanismList(0, mlist, &counter,
-					    (uint64_t)ep11_data->target_list);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n", __func__, rc);
-			return rc;
-		}
-
-		mlist = (CK_MECHANISM_TYPE *)malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-		if (!mlist) {
-			TRACE_ERROR("%s Memory allocation failed\n", __func__);
-			return CKR_HOST_MEMORY;
-		}
-		/* all the card has */
-		rc = dll_m_GetMechanismList(0, mlist, &counter, (uint64_t)ep11_data->target_list);
-		if (rc != CKR_OK) {
-			TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n", __func__, rc);
-			free(mlist);
-			return rc;
-		}
-
-		for (i = 0; i < counter; i++)
-			TRACE_INFO("%s raw mech list entry '%s'\n",
-				   __func__, ep11_get_ckm(mlist[i]));
-
-		/* copy only mechanisms not banned */
-		*pulCount = 0;
-		for (i = 0; i < counter; i++) {
-			banned = 0;
-			for (j = 0; j < banned_mech_list_len; j++) {
-				if (mlist[i] == ep11_banned_mech_list[j]) {
-					banned = 1;
-				}
-			}
             if (!banned &&
                 check_cps_for_mechanism(ep11_data->cp_config,
                                         mlist[i], ep11_data->control_points,
-                                        ep11_data->control_points_len) != CKR_OK)
+                                        ep11_data->control_points_len) !=
+                CKR_OK) {
                 banned = 1;
-			if (banned == 0) {
-				pMechanismList[*pulCount] = mlist[i];
-				*pulCount = *pulCount + 1;
-			} else {
-				;
-			} /* do not copy banned mech */
-		}
-	}
+                TRACE_INFO("%s banned mech '%s' due to control point\n",
+                           __func__, ep11_get_ckm(mlist[i]));
+            }
 
-	if (mlist) free(mlist);
-	return rc;
+            if (banned == 1) {
+                /* banned mech found,
+                 * decrement reported list size
+                 */
+                *pulCount = *pulCount - 1;
+            }
+        }
+    } else {
+        /* 2. call, content request */
+
+        /* find out size ep11 will report, cannot use the size
+         * that comes as parameter, this is a 'reduced size',
+         * ep11 would complain about insufficient list size
+         */
+        rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                    (uint64_t) ep11_data->target_list);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n",
+                        __func__, rc);
+            return rc;
+        }
+
+        mlist =
+            (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
+        if (!mlist) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            return CKR_HOST_MEMORY;
+        }
+        /* all the card has */
+        rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                    (uint64_t) ep11_data->target_list);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
+                        __func__, rc);
+            free(mlist);
+            return rc;
+        }
+
+        for (i = 0; i < counter; i++)
+            TRACE_INFO("%s raw mech list entry '%s'\n",
+                       __func__, ep11_get_ckm(mlist[i]));
+
+        /* copy only mechanisms not banned */
+        *pulCount = 0;
+        for (i = 0; i < counter; i++) {
+            banned = 0;
+            for (j = 0; j < banned_mech_list_len; j++) {
+                if (mlist[i] == ep11_banned_mech_list[j]) {
+                    banned = 1;
+                }
+            }
+            if (!banned &&
+                check_cps_for_mechanism(ep11_data->cp_config,
+                                        mlist[i], ep11_data->control_points,
+                                        ep11_data->control_points_len) !=
+                CKR_OK)
+                banned = 1;
+            if (banned == 0) {
+                pMechanismList[*pulCount] = mlist[i];
+                *pulCount = *pulCount + 1;
+            } else {
+                ;
+            }                   /* do not copy banned mech */
+        }
+    }
+
+    if (mlist)
+        free(mlist);
+    return rc;
 }
 
 
-CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t *tokdata,
-				 CK_MECHANISM_TYPE type,
-				 CK_MECHANISM_INFO_PTR pInfo)
+CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
+                                 CK_MECHANISM_TYPE type,
+                                 CK_MECHANISM_INFO_PTR pInfo)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	CK_RV rc;
-	int i;
+    CK_RV rc;
+    int i;
 
-	rc = dll_m_GetMechanismInfo(0, type, pInfo, (uint64_t)ep11_data->target_list);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
-			    __func__, type, rc);
-		return rc;
-	}
+    rc = dll_m_GetMechanismInfo(0, type, pInfo,
+                                (uint64_t) ep11_data->target_list);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
+                    __func__, type, rc);
+        return rc;
+    }
 
-	/* The card operates always in a FISP mode that requires stronger
-	 * key sizes, but, in theory, can also operate with weaker key sizes.
-	 * Customers are not interested in theory but in what mechanism
-	 * they can use (mechanisms that are not rejected by the card).
-	 */
-	for (i = 0; i < banned_mech_list_len; i++) {
-		if (type == ep11_banned_mech_list[i])
-			return CKR_MECHANISM_INVALID;
-	}
+    /* The card operates always in a FISP mode that requires stronger
+     * key sizes, but, in theory, can also operate with weaker key sizes.
+     * Customers are not interested in theory but in what mechanism
+     * they can use (mechanisms that are not rejected by the card).
+     */
+    for (i = 0; i < banned_mech_list_len; i++) {
+        if (type == ep11_banned_mech_list[i])
+            return CKR_MECHANISM_INVALID;
+    }
 
     if (check_cps_for_mechanism(ep11_data->cp_config,
                                 type, ep11_data->control_points,
                                 ep11_data->control_points_len) != CKR_OK) {
         TRACE_INFO("%s Mech '%s' banned due to control point\n",
-                                   __func__, ep11_get_ckm(type));
+                   __func__, ep11_get_ckm(type));
         return CKR_MECHANISM_INVALID;
     }
-
 #ifdef DEFENSIVE_MECHLIST
-	if (rc == CKR_OK) {
-		switch (type) {
-		case CKM_RSA_PKCS:
-		case CKM_RSA_PKCS_KEY_PAIR_GEN:
-		case CKM_RSA_X9_31_KEY_PAIR_GEN:
-		case CKM_RSA_PKCS_PSS:
-		case CKM_SHA1_RSA_X9_31:
-		case CKM_SHA1_RSA_PKCS:
-		case CKM_SHA1_RSA_PKCS_PSS:
-		case CKM_SHA256_RSA_PKCS:
-		case CKM_SHA256_RSA_PKCS_PSS:
-		case CKM_SHA224_RSA_PKCS:
-		case CKM_SHA224_RSA_PKCS_PSS:
-		case CKM_SHA384_RSA_PKCS:
-		case CKM_SHA384_RSA_PKCS_PSS:
-		case CKM_SHA512_RSA_PKCS:
-		case CKM_SHA512_RSA_PKCS_PSS:
-		case CKM_RSA_X_509:
-		case CKM_RSA_X9_31:
-			/* EP11 card always in a FIPS mode rejecting
-			 * lower key sizes
-			 */
-			pInfo->ulMinKeySize = 1024;
-			break;
-
+    if (rc == CKR_OK) {
+        switch (type) {
+        case CKM_RSA_PKCS:
+        case CKM_RSA_PKCS_KEY_PAIR_GEN:
+        case CKM_RSA_X9_31_KEY_PAIR_GEN:
+        case CKM_RSA_PKCS_PSS:
+        case CKM_SHA1_RSA_X9_31:
+        case CKM_SHA1_RSA_PKCS:
+        case CKM_SHA1_RSA_PKCS_PSS:
+        case CKM_SHA256_RSA_PKCS:
+        case CKM_SHA256_RSA_PKCS_PSS:
+        case CKM_SHA224_RSA_PKCS:
+        case CKM_SHA224_RSA_PKCS_PSS:
+        case CKM_SHA384_RSA_PKCS:
+        case CKM_SHA384_RSA_PKCS_PSS:
+        case CKM_SHA512_RSA_PKCS:
+        case CKM_SHA512_RSA_PKCS_PSS:
+        case CKM_RSA_X_509:
+        case CKM_RSA_X9_31:
+            /* EP11 card always in a FIPS mode rejecting
+             * lower key sizes
+             */
+            pInfo->ulMinKeySize = 1024;
+            break;
         case CKM_SHA224_HMAC:
-		case CKM_SHA256_HMAC:
-		case CKM_SHA384_HMAC:
-		case CKM_SHA512_HMAC:
-		case CKM_DES3_ECB:
-		case CKM_DES3_CBC:
-		case CKM_DES3_CBC_PAD:
-		case CKM_SHA_1_HMAC:
-			/* EP11 card always in a FIPS mode rejecting
-			 * lower key sizes < 80 bits.
-			 */
-			if (pInfo->ulMinKeySize == 8)
-				pInfo->ulMinKeySize = 16;
-			break;
+        case CKM_SHA256_HMAC:
+        case CKM_SHA384_HMAC:
+        case CKM_SHA512_HMAC:
+        case CKM_DES3_ECB:
+        case CKM_DES3_CBC:
+        case CKM_DES3_CBC_PAD:
+        case CKM_SHA_1_HMAC:
+            /* EP11 card always in a FIPS mode rejecting
+             * lower key sizes < 80 bits.
+             */
+            if (pInfo->ulMinKeySize == 8)
+                pInfo->ulMinKeySize = 16;
+            break;
+        default:
+            ;                   /* do not touch */
+        }
+    }
+#endif                          /* DEFENSIVE_MECHLIST */
 
-		default:
-			; /* do not touch */
-		}
-	}
-#endif /* DEFENSIVE_MECHLIST */
-
-	if (rc != CKR_OK)
-		TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n",
-			    __func__, rc, ep11_get_ckm(type));
-	return rc;
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n",
+                    __func__, rc, ep11_get_ckm(type));
+    return rc;
 }
 
 
 /* used for reading in the adapter config file,
  * converts a 'token' to a number, returns 0 with success
  */
-static inline short check_n(ep11_target_t *target, char *nptr, int *apqn_i)
+static inline short check_n(ep11_target_t * target, char *nptr, int *apqn_i)
 {
-	int num;
+    int num;
 
-	if (sscanf(nptr, "%i", &num) != 1) {
-		TRACE_ERROR("%s invalid number '%s'\n", __func__, nptr);
-		return -1;
-	}
+    if (sscanf(nptr, "%i", &num) != 1) {
+        TRACE_ERROR("%s invalid number '%s'\n", __func__, nptr);
+        return -1;
+    }
 
-	if (num < 0 || num > 255) {
-		TRACE_ERROR("%s invalid number '%s' %d\n", __func__, nptr, num);
-		return -1;
-	} else if (*apqn_i < 0 || *apqn_i >= MAX_APQN*2) {
-		TRACE_ERROR("%s invalid amount of numbers %d\n", __func__, num);
-		return -1;
-	} else {
-		/* insert number into target variable */
-		target->apqns[*apqn_i] = (short)num;
-		/* how many APQNs numbers so far */
-		*apqn_i = *apqn_i + 1;
-		return 0;
-	}
+    if (num < 0 || num > 255) {
+        TRACE_ERROR("%s invalid number '%s' %d\n", __func__, nptr, num);
+        return -1;
+    } else if (*apqn_i < 0 || *apqn_i >= MAX_APQN * 2) {
+        TRACE_ERROR("%s invalid amount of numbers %d\n", __func__, num);
+        return -1;
+    } else {
+        /* insert number into target variable */
+        target->apqns[*apqn_i] = (short) num;
+        /* how many APQNs numbers so far */
+        *apqn_i = *apqn_i + 1;
+        return 0;
+    }
 }
 
 
-static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_name)
+static int read_adapter_config_file(STDLL_TokData_t * tokdata,
+                                    const char *conf_name)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-	FILE *ap_fp = NULL;       /* file pointer adapter config file */
-	int i, ap_file_size = 0;     /* size adapter config file */
-	char *token, *str;
-	char filebuf[EP11_CFG_FILE_SIZE];
-	char line[1024];
-	int whitemode = 0;
-	int anymode   = 0;
-	int apqn_i = 0;     /* how many APQN numbers */
-	char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
-	char fname[PATH_MAX];
-	ep11_target_t *ep11_targets = (ep11_target_t *)ep11_data->target_list;
-	int rc = 0;
+    FILE *ap_fp = NULL;         /* file pointer adapter config file */
+    int i, ap_file_size = 0;    /* size adapter config file */
+    char *token, *str;
+    char filebuf[EP11_CFG_FILE_SIZE];
+    char line[1024];
+    int whitemode = 0;
+    int anymode = 0;
+    int apqn_i = 0;             /* how many APQN numbers */
+    char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
+    char fname[PATH_MAX];
+    ep11_target_t *ep11_targets = (ep11_target_t *) ep11_data->target_list;
+    int rc = 0;
     char *cfg_dir;
     char cfgname[2*PATH_MAX + 1];
 
-	if (tokdata->initialized)
-		return 0;
+    if (tokdata->initialized)
+        return 0;
 
-	memset(fname, 0, PATH_MAX);
+    memset(fname, 0, PATH_MAX);
 
-	/* via envrionment variable it is possible to overwrite the
-	 * directory where the ep11 token config file is searched.
-	 */
-	if (conf_dir) {
-		if (conf_name && strlen(conf_name) > 0) {
-			/* extract filename part from conf_name */
-			for (i=strlen(conf_name)-1; i >= 0 && conf_name[i] != '/'; i--);
+    /* via envrionment variable it is possible to overwrite the
+     * directory where the ep11 token config file is searched.
+     */
+    if (conf_dir) {
+        if (conf_name && strlen(conf_name) > 0) {
+            /* extract filename part from conf_name */
+            for (i = strlen(conf_name) - 1; i >= 0 && conf_name[i] != '/'; i--);
 
-			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, conf_name+i+1);
-			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname, "r");
+            snprintf(fname, sizeof(fname), "%s/%s", conf_dir,
+                     conf_name + i + 1);
+            fname[sizeof(fname) - 1] = '\0';
+            ap_fp = fopen(fname, "r");
 
-			if (!ap_fp)
-				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-					    __func__, fname, errno);
-		}
-		if (!ap_fp) {
-			snprintf(fname, sizeof(fname), "%s/%s", conf_dir, EP11_DEFAULT_CFG_FILE);
-			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname, "r");
-			if (!ap_fp)
-				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-					    __func__, fname, errno);
-		}
-	} else {
-		if (conf_name && strlen(conf_name) > 0) {
-			strncpy(fname, conf_name, sizeof(fname));
-			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname, "r");
-			if (!ap_fp) {
-				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-					    __func__, fname, errno);
-				snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
-				fname[sizeof(fname)-1] = '\0';
-				ap_fp = fopen(fname, "r");
-				if (!ap_fp)
-					TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-						    __func__, fname, errno);
-			}
-		} else {
-			snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, EP11_DEFAULT_CFG_FILE);
-			fname[sizeof(fname)-1] = '\0';
-			ap_fp = fopen(fname, "r");
-			if (!ap_fp)
-				TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-					    __func__, fname, errno);
-		}
-	}
+            if (!ap_fp)
+                TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
+                            __func__, fname, errno);
+        }
+        if (!ap_fp) {
+            snprintf(fname, sizeof(fname), "%s/%s", conf_dir,
+                     EP11_DEFAULT_CFG_FILE);
+            fname[sizeof(fname) - 1] = '\0';
+            ap_fp = fopen(fname, "r");
+            if (!ap_fp)
+                TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
+                            __func__, fname, errno);
+        }
+    } else {
+        if (conf_name && strlen(conf_name) > 0) {
+            strncpy(fname, conf_name, sizeof(fname));
+            fname[sizeof(fname) - 1] = '\0';
+            ap_fp = fopen(fname, "r");
+            if (!ap_fp) {
+                TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
+                            __func__, fname, errno);
+                snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
+                fname[sizeof(fname) - 1] = '\0';
+                ap_fp = fopen(fname, "r");
+                if (!ap_fp)
+                    TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
+                                __func__, fname, errno);
+            }
+        } else {
+            snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR,
+                     EP11_DEFAULT_CFG_FILE);
+            fname[sizeof(fname) - 1] = '\0';
+            ap_fp = fopen(fname, "r");
+            if (!ap_fp)
+                TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
+                            __func__, fname, errno);
+        }
+    }
 
-	/* now we should really have an open ep11 token config file */
-	if (!ap_fp) {
-		TRACE_ERROR("%s no valid EP 11 config file found\n", __func__);
-        OCK_SYSLOG(LOG_ERR,"%s: Error: EP 11 config file '%s' not found\n",
+    /* now we should really have an open ep11 token config file */
+    if (!ap_fp) {
+        TRACE_ERROR("%s no valid EP 11 config file found\n", __func__);
+        OCK_SYSLOG(LOG_ERR, "%s: Error: EP 11 config file '%s' not found\n",
                    __func__, fname);
         return APQN_FILE_INV;
-	}
+    }
 
-	TRACE_INFO("%s EP 11 token config file is '%s'\n", __func__, fname);
+    TRACE_INFO("%s EP 11 token config file is '%s'\n", __func__, fname);
 
-	/* read config file line by line,
-	 * ignore empty and # and copy rest into file buf
-	 */
-	memset(filebuf, 0, EP11_CFG_FILE_SIZE);
-	while (fgets((char *)line, sizeof(line), ap_fp)) {
-		char *p;
-		int len;
-		/* skip over leading spaces */
-		for (p=line; *p == ' ' || *p == '\t'; p++) ;
-		/* if line is empty or starts with # skip line */
-		len = strlen(p);
-		if (*p != '#' && *p != '\n' && len > 0) {
-			/* store line in buffer */
-			if (ap_file_size + len < EP11_CFG_FILE_SIZE) {
-				memcpy(filebuf+ap_file_size, p, len);
-				ap_file_size += len;
-			} else {
-				TRACE_ERROR("%s EP 11 config file '%s' is too large\n",
-					    __func__, fname);
+    /* read config file line by line,
+     * ignore empty and # and copy rest into file buf
+     */
+    memset(filebuf, 0, EP11_CFG_FILE_SIZE);
+    while (fgets((char *) line, sizeof(line), ap_fp)) {
+        char *p;
+        int len;
+        /* skip over leading spaces */
+        for (p = line; *p == ' ' || *p == '\t'; p++);
+        /* if line is empty or starts with # skip line */
+        len = strlen(p);
+        if (*p != '#' && *p != '\n' && len > 0) {
+            /* store line in buffer */
+            if (ap_file_size + len < EP11_CFG_FILE_SIZE) {
+                memcpy(filebuf + ap_file_size, p, len);
+                ap_file_size += len;
+            } else {
+                TRACE_ERROR("%s EP 11 config file '%s' is too large\n",
+                            __func__, fname);
                 fclose(ap_fp);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: EP 11 config file '%s' is too large\n",
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: EP 11 config file '%s' is too large\n",
                            __func__, fname);
-				return  APQN_FILE_INV_FILE_SIZE;
-			}
-		}
-	}
+                return APQN_FILE_INV_FILE_SIZE;
+            }
+        }
+    }
     fclose(ap_fp);
 
-	ep11_targets->length = 0;
+    ep11_targets->length = 0;
 
-	/* parse the file buf
-	 * please note, we still accept the LOGLEVEL entry
-	 * for compatibility reasons but just ignore it.
-	 */
-	for (i=0, str=filebuf; rc == 0; str=NULL) {
-		/* strtok tokenizes the string,
-		 * delimiters are newline and whitespace.
-		 */
-		token = strtok(str, "\n\t ");
+    /* parse the file buf
+     * please note, we still accept the LOGLEVEL entry
+     * for compatibility reasons but just ignore it.
+     */
+    for (i = 0, str = filebuf; rc == 0; str = NULL) {
+        /* strtok tokenizes the string,
+         * delimiters are newline and whitespace.
+         */
+        token = strtok(str, "\n\t ");
 
-		if (i == 0) {
-			/* expecting APQN_WHITELIST or APQN_ANY or LOGLEVEL or eof */
-			if (token == NULL)
-				break;
-			if (strncmp(token, "APQN_WHITELIST", 14) == 0) {
-				whitemode = 1;
-				i = 1;
-			} else if (strncmp(token, "APQN_ANY", 8) == 0) {
-				anymode = 1;
-				i = 0;
-			} else if (strncmp(token, "LOGLEVEL", 8) == 0) {
-				i = 3;
+        if (i == 0) {
+            /* expecting APQN_WHITELIST or APQN_ANY or LOGLEVEL or eof */
+            if (token == NULL)
+                break;
+            if (strncmp(token, "APQN_WHITELIST", 14) == 0) {
+                whitemode = 1;
+                i = 1;
+            } else if (strncmp(token, "APQN_ANY", 8) == 0) {
+                anymode = 1;
+                i = 0;
+            } else if (strncmp(token, "LOGLEVEL", 8) == 0) {
+                i = 3;
             } else if (strncmp(token, "FORCE_SENSITIVE", 15) == 0) {
-               i = 0;
-               ep11_data->cka_sensitive_default_true = 1;
+                i = 0;
+                ep11_data->cka_sensitive_default_true = 1;
             } else if (strncmp(token, "CPFILTER", 8) == 0) {
                 i = 4;
             } else if (strncmp(token, "STRICT_MODE", 11) == 0) {
-               i = 0;
-               ep11_data->strict_mode = 1;
+                i = 0;
+                ep11_data->strict_mode = 1;
             } else if (strncmp(token, "VHSM_MODE", 11) == 0) {
-               i = 0;
-               ep11_data->vhsm_mode = 1;
+                i = 0;
+                ep11_data->vhsm_mode = 1;
             } else {
-				/* syntax error */
-				TRACE_ERROR("%s Expected APQN_WHITELIST,"
-					    " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-				        " STRICT_MODE, or VHSM_MODE keyword,"
-					    " found '%s' in config file '%s'\n",
-					    __func__, token, fname);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected APQN_WHITELIST,"
+                /* syntax error */
+                TRACE_ERROR("%s Expected APQN_WHITELIST,"
+                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
+                            " STRICT_MODE, or VHSM_MODE keyword,"
+                            " found '%s' in config file '%s'\n",
+                            __func__, token, fname);
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                            " STRICT_MODE, or VHSM_MODE keyword,"
                            " found '%s' in config file '%s'\n",
-                                   __func__, token, fname);
-				rc = APQN_FILE_SYNTAX_ERROR_0;
-				break;
-			}
-		} else if (i == 1) {
-			/* expecting END or first number of a number
-			 * pair (number range 0...255)
-			 */
+                           __func__, token, fname);
+                rc = APQN_FILE_SYNTAX_ERROR_0;
+                break;
+            }
+        } else if (i == 1) {
+            /* expecting END or first number of a number
+             * pair (number range 0...255)
+             */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected 'END' or adapter number\n",
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected 'END' or adapter"
+                           " number\n",
                            __func__, fname);
                 break;
             }
-			if (strncmp(token, "END", 3) == 0)
-				i = 0;
-			else {
-				if (check_n(ep11_targets, token, &apqn_i) < 0) {
-					rc = APQN_FILE_SYNTAX_ERROR_1;
-                    OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid adapter"
+            if (strncmp(token, "END", 3) == 0) {
+                i = 0;
+            } else {
+                if (check_n(ep11_targets, token, &apqn_i) < 0) {
+                    rc = APQN_FILE_SYNTAX_ERROR_1;
+                    OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid adapter"
                                " number, found '%s' in config file '%s'\n",
                                __func__, token, fname);
-					break;
-				}
-				i = 2;
-			}
-		} else if (i == 2) {
-			/* expecting second number of a number pair
-			 * (number range 0...255)
-			 */
+                    break;
+                }
+                i = 2;
+            }
+        } else if (i == 2) {
+            /* expecting second number of a number pair
+             * (number range 0...255)
+             */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected domain number (2nd number)\n",
-                           __func__, fname);
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected domain number"
+                           " (2nd number)\n", __func__, fname);
                 break;
             }
-			if (strncmp(token, "END", 3) == 0) {
-				TRACE_ERROR("%s Expected 2nd number, found '%s' in config file\n",
-					    __func__, token);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid domain"
-                           " number (2nd number), found '%s' in config file '%s'\n",
-                           __func__, token, fname);
-				rc = APQN_FILE_SYNTAX_ERROR_2;
-				break;
-			}
-			if (check_n(ep11_targets, token, &apqn_i) < 0) {
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid domain"
-                           " number (2nd number), found '%s' in config file '%s'\n",
-                           __func__, token, fname);
-				rc = APQN_FILE_SYNTAX_ERROR_3;
-				break;
-			}
-			ep11_targets->length++;
-			if (ep11_targets->length > MAX_APQN) {
-				TRACE_ERROR("%s Too many APQNs in config file (max %d)\n",
-					    __func__, (int) MAX_APQN);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Too many APQNs in config file '%s'\n",
+            if (strncmp(token, "END", 3) == 0) {
+                TRACE_ERROR("%s Expected 2nd number, found '%s' in config "
+                            "file\n", __func__, token);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: Expected valid domain"
+                           " number (2nd number), found '%s' in config file"
+                           " '%s'\n", __func__, token, fname);
+                rc = APQN_FILE_SYNTAX_ERROR_2;
+                break;
+            }
+            if (check_n(ep11_targets, token, &apqn_i) < 0) {
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid domain"
+                           " number (2nd number), found '%s' in config file"
+                           " '%s'\n", __func__, token, fname);
+                rc = APQN_FILE_SYNTAX_ERROR_3;
+                break;
+            }
+            ep11_targets->length++;
+            if (ep11_targets->length > MAX_APQN) {
+                TRACE_ERROR("%s Too many APQNs in config file (max %d)\n",
+                            __func__, (int) MAX_APQN);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: Too many APQNs in config file '%s'\n",
                            __func__, fname);
-				rc = APQN_FILE_SYNTAX_ERROR_4;
-				break;
-			}
-			i = 1;
-		} else if (i == 3) {
-			/* expecting log level value
-			 * (a number in the range 0...9)
-			 */
+                rc = APQN_FILE_SYNTAX_ERROR_4;
+                break;
+            }
+            i = 1;
+        } else if (i == 3) {
+            /* expecting log level value
+             * (a number in the range 0...9)
+             */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
                            " in config file '%s', expected LOGLEVEL value\n",
                            __func__, fname);
                 break;
             }
-			char *endptr;
-			int loglevel  = strtol(token, &endptr, 10);
-			if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
-				TRACE_ERROR("%s Invalid loglevel value '%s' in config file\n",
-					    __func__, token);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Invalid LOGLEVEL value '%s' in config file '%s'\n",
+            char *endptr;
+            int loglevel = strtol(token, &endptr, 10);
+            if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
+                TRACE_ERROR("%s Invalid loglevel value '%s' in config file\n",
+                            __func__, token);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: Invalid LOGLEVEL value '%s' in config "
+                           "file '%s'\n",
                            __func__, token, fname);
-				rc = APQN_FILE_SYNTAX_ERROR_5;
-				break;
-			}
-			TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n", __func__);
-			TRACE_WARNING("%s Use opencryptoki logging/tracing facilities instead.\n", __func__);
-            OCK_SYSLOG(LOG_WARNING,"%s: Warning: LOGLEVEL setting is not supported any more."
-                       " Use opencryptoki logging/tracing facilities instead.\n",
-                       __func__);
-			i = 0;
+                rc = APQN_FILE_SYNTAX_ERROR_5;
+                break;
+            }
+            TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n",
+                          __func__);
+            TRACE_WARNING
+                ("%s Use opencryptoki logging/tracing facilities instead.\n",
+                 __func__);
+            OCK_SYSLOG(LOG_WARNING,
+                       "%s: Warning: LOGLEVEL setting is not supported any "
+                       "more. Use opencryptoki logging/tracing facilities "
+                       "instead.\n", __func__);
+            i = 0;
         } else if (i == 4) {
             /* expecting CP-filter config file name */
             if (token == NULL) {
                 rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected CP-Filter file name\n",
-                           __func__, fname);
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected CP-Filter file "
+                           "name\n", __func__, fname);
                 break;
             }
-            if (strlen(token) > sizeof(ep11_data->cp_filter_config_filename)-1) {
+            if (strlen(token) >
+                sizeof(ep11_data->cp_filter_config_filename) - 1) {
                 TRACE_ERROR("%s CP-Filter config file name is too long: '%s'\n",
-                                        __func__, token);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: CP-Filter config file name '%s' is too long"
-                           " in config file '%s'\n",
+                            __func__, token);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: CP-Filter config file name '%s' is too "
+                           "long in config file '%s'\n",
                            __func__, token, fname);
                 rc = APQN_FILE_SYNTAX_ERROR_6;
                 break;
             }
             strncpy(ep11_data->cp_filter_config_filename, token,
-                    sizeof(ep11_data->cp_filter_config_filename)-1);
-            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+                    sizeof(ep11_data->cp_filter_config_filename) - 1);
+            ep11_data->cp_filter_config_filename[
+                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
             i = 0;
         }
-	}
+    }
 
-	/* do some checks: */
-	if (rc == 0) {
-		if ( !(whitemode || anymode)) {
-			TRACE_ERROR("%s At least one APQN mode needs to be present in config file:"
-				    " APQN_WHITEMODE or APQN_ANY\n", __func__);
-            OCK_SYSLOG(LOG_ERR,"%s: Error: At least one APQN mode needs to be present in"
-                       " config file '%s': APQN_WHITEMODE or APQN_ANY\n",
+    /* do some checks: */
+    if (rc == 0) {
+        if (!(whitemode || anymode)) {
+            TRACE_ERROR("%s At least one APQN mode needs to be present in "
+                        "config file: APQN_WHITEMODE or APQN_ANY\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error: At least one APQN mode needs to be present "
+                       " in config file '%s': APQN_WHITEMODE or APQN_ANY\n",
                        __func__, fname);
-			rc = APQN_FILE_NO_APQN_MODE;
+            rc = APQN_FILE_NO_APQN_MODE;
         } else if (whitemode && anymode) {
             TRACE_ERROR("%s Only one APQN mode can be present in config file:"
-                    " APQN_WHITEMODE or APQN_ANY\n", __func__);
-            OCK_SYSLOG(LOG_ERR,"%s: Error: Only one APQN mode can be present in"
+                        " APQN_WHITEMODE or APQN_ANY\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error: Only one APQN mode can be present in"
                        " config file '%s': APQN_WHITEMODE or APQN_ANY\n",
                        __func__, fname);
             rc = APQN_FILE_NO_APQN_MODE;
-		} else if (whitemode) {
-			/* at least one APQN needs to be defined */
-			if (ep11_targets->length < 1) {
-				TRACE_ERROR("%s At least one APQN needs to be defined in the config file\n",
-					    __func__);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: At least one APQN needs to be defined in"
-                           " config file '%s'\n",
-                           __func__, fname);
-				rc = APQN_FILE_NO_APQN_GIVEN;
-			}
-		}
-	}
+        } else if (whitemode) {
+            /* at least one APQN needs to be defined */
+            if (ep11_targets->length < 1) {
+                TRACE_ERROR("%s At least one APQN needs to be defined in the "
+                            "config file\n", __func__);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: At least one APQN needs to be defined in"
+                           " config file '%s'\n", __func__, fname);
+                rc = APQN_FILE_NO_APQN_GIVEN;
+            }
+        }
+    }
 
-	/* log the whitelist of APQNs */
-	if (rc == 0 && whitemode) {
-		TRACE_INFO("%s whitelist with %d APQNs defined:\n",
-			   __func__, ep11_targets->length);
-		for (i=0; i < ep11_targets->length; i++) {
-			TRACE_INFO(" APQN entry %d: adapter=%d domain=%d\n", i,
-				   ep11_targets->apqns[2*i],
-				   ep11_targets->apqns[2*i+1]);
-		}
-	}
+    /* log the whitelist of APQNs */
+    if (rc == 0 && whitemode) {
+        TRACE_INFO("%s whitelist with %d APQNs defined:\n",
+                   __func__, ep11_targets->length);
+        for (i = 0; i < ep11_targets->length; i++) {
+            TRACE_INFO(" APQN entry %d: adapter=%d domain=%d\n", i,
+                       ep11_targets->apqns[2 * i],
+                       ep11_targets->apqns[2 * i + 1]);
+        }
+    }
 
     /* read CP-filter config file */
     if (rc == 0) {
         cfg_dir = dirname(fname);
         if (strlen(ep11_data->cp_filter_config_filename) == 0) {
             snprintf(ep11_data->cp_filter_config_filename,
-                     sizeof(ep11_data->cp_filter_config_filename)-1,
-                    "%s/%s", cfg_dir, EP11_DEFAULT_CPFILTER_FILE);
-            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+                     sizeof(ep11_data->cp_filter_config_filename) - 1,
+                     "%s/%s", cfg_dir, EP11_DEFAULT_CPFILTER_FILE);
+            ep11_data->cp_filter_config_filename[
+                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
         }
 
         if (strchr(ep11_data->cp_filter_config_filename, '/') == NULL) {
-            snprintf(cfgname, sizeof(cfgname)-1,
-                    "%s/%s", cfg_dir, ep11_data->cp_filter_config_filename);
-            cfgname[sizeof(cfgname)-1] = '\0';
+            snprintf(cfgname, sizeof(cfgname) - 1,
+                     "%s/%s", cfg_dir, ep11_data->cp_filter_config_filename);
+            cfgname[sizeof(cfgname) - 1] = '\0';
             strncpy(ep11_data->cp_filter_config_filename, cfgname,
                     sizeof(ep11_data->cp_filter_config_filename));
-            ep11_data->cp_filter_config_filename[sizeof(ep11_data->cp_filter_config_filename)-1] = '\0';
+            ep11_data->cp_filter_config_filename[
+                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
         }
 
         rc = read_cp_filter_config_file(ep11_data->cp_filter_config_filename,
                                         &ep11_data->cp_config);
     }
 
-	tokdata->initialized = TRUE;
-	return rc;
+    tokdata->initialized = TRUE;
+    return rc;
 }
 
 #define UNKNOWN_CP          0xFFFFFFFF
@@ -5299,7 +5377,8 @@ static int read_adapter_config_file(STDLL_TokData_t *tokdata, const char* conf_n
 #define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
 #define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
 
-static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_config)
+static int read_cp_filter_config_file(const char *conf_name,
+                                      cp_config_t ** cp_config)
 {
     int rc = 0;
     FILE *fp = NULL;
@@ -5316,16 +5395,18 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
 
     fp = fopen(conf_name, "r");
     if (fp == NULL) {
-        TRACE_ERROR("%s no valid EP 11 CP-filter config file found\n", __func__);
-        OCK_SYSLOG(LOG_WARNING,"%s: Warning: EP 11 CP-filter config file '%s'"
-                   " does not exist, no filtering will be used\n",
-                   __func__, conf_name);
+        TRACE_ERROR("%s no valid EP 11 CP-filter config file found\n",
+                    __func__);
+        OCK_SYSLOG(LOG_WARNING,
+                   "%s: Warning: EP 11 CP-filter config file '%s'"
+                   " does not exist, no filtering will be used\n", __func__,
+                   conf_name);
         /* this is not an error condition. When no CP-filter file is available,
          * then the mechanisms are not filtered. */
         return 0;
     }
 
-    while (fgets((char *)line, sizeof(line), fp)) {
+    while (fgets((char *) line, sizeof(line), fp)) {
         tok = strtok(line, ": \t\n");
 
         if (tok == NULL)
@@ -5337,16 +5418,18 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
         if (*endp != '\0') {
             val = ep11_get_cp_by_name(tok);
             if (val == UNKNOWN_CP) {
-                TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid control point name or number,"
-                           " found '%s' in CP-filter config file '%s'\n",
+                TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file "
+                            "found. \n", __func__);
+                OCK_SYSLOG(LOG_ERR,
+                           "%s: Error: Expected valid control point name or "
+                           "number, found '%s' in CP-filter config file '%s'\n",
                            __func__, tok, conf_name);
                 rc = APQN_FILE_SYNTAX_ERROR_7;
                 goto out_fclose;
             }
         }
 
-        cp = (cp_config_t *)malloc(sizeof(cp_config_t));
+        cp = (cp_config_t *) malloc(sizeof(cp_config_t));
         if (cp == NULL) {
             TRACE_ERROR("%s Out of memory.\n", __func__);
             rc = APQN_OUT_OF_MEMORY;
@@ -5357,7 +5440,7 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
         cp->next = NULL;
 
         last_mech = NULL;
-        while((tok = strtok(NULL, ", \t\n")) != NULL) {
+        while ((tok = strtok(NULL, ", \t\n")) != NULL) {
             if (*tok == '#')
                 break;
 
@@ -5365,20 +5448,22 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
             if (*endp != '\0') {
                 val = ep11_get_mechanisms_by_name(tok);
                 if (val == UNKNOWN_MECHANISM) {
-                    TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file found. \n", __func__);
-                    OCK_SYSLOG(LOG_ERR,"%s: Error: Expected valid mechanism name or number,"
-                               " found '%s' in CP-filter config file '%s'\n",
-                               __func__, tok, conf_name);
+                    TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file"
+                                " found. \n", __func__);
+                    OCK_SYSLOG(LOG_ERR,
+                               "%s: Error: Expected valid mechanism name or "
+                               "number, found '%s' in CP-filter config file "
+                               "'%s'\n", __func__, tok, conf_name);
                     rc = APQN_FILE_SYNTAX_ERROR_8;
                     free_cp_config(cp);
                     goto out_fclose;
                 }
             }
 
-            mech = (cp_mech_config_t *)malloc(sizeof(cp_mech_config_t));
+            mech = (cp_mech_config_t *) malloc(sizeof(cp_mech_config_t));
             if (mech == NULL) {
                 TRACE_ERROR("%s Out of memory.\n", __func__);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Out of memory while parsing the"
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Out of memory while parsing the"
                            " CP-filter config file '%s'\n",
                            __func__, conf_name);
                 rc = APQN_OUT_OF_MEMORY;
@@ -5412,11 +5497,12 @@ static int read_cp_filter_config_file(const char* conf_name, cp_config_t   **cp_
     /* print CP filter config */
     TRACE_INFO("%s CP-Filter defined:\n", __func__);
     cp = *cp_config;
-    while(cp != NULL) {
+    while (cp != NULL) {
         TRACE_INFO("  CP %lu (%s):\n", cp->cp, ep11_get_cp(cp->cp));
         mech = cp->mech;
-        while(mech != NULL) {
-            TRACE_INFO("    Mechanism 0x%08lx (%s)\n", mech->mech, ep11_get_ckm(mech->mech));
+        while (mech != NULL) {
+            TRACE_INFO("    Mechanism 0x%08lx (%s)\n", mech->mech,
+                       ep11_get_ckm(mech->mech));
             mech = mech->next;
         }
         cp = cp->next;
@@ -5428,7 +5514,7 @@ out_fclose:
     return rc;
 }
 
-static void free_cp_config(cp_config_t *cp)
+static void free_cp_config(cp_config_t * cp)
 {
     cp_config_t *next_cp = cp;
     cp_mech_config_t *mech;
@@ -5436,9 +5522,9 @@ static void free_cp_config(cp_config_t *cp)
 
     TRACE_INFO("%s running\n", __func__);
 
-    while(cp != NULL) {
+    while (cp != NULL) {
         mech = cp->mech;
-        while(mech != NULL) {
+        while (mech != NULL) {
             next_mech = mech->next;
             free(mech);
             mech = next_mech;
@@ -5506,7 +5592,7 @@ static const char *ep11_get_cp(unsigned int cp)
 {
     unsigned int i;
 
-    for(i=0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
+    for (i = 0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
         if (ep11_cps[i].code == cp)
             return ep11_cps[i].name;
     }
@@ -5520,7 +5606,7 @@ static CK_ULONG ep11_get_cp_by_name(const char *name)
 {
     unsigned int i;
 
-    for(i=0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
+    for (i = 0; i < (sizeof(ep11_cps) / sizeof(ep11_cps[0])); i++) {
         if (strcmp(ep11_cps[i].name, name) == 0)
             return ep11_cps[i].code;
     }
@@ -5529,23 +5615,26 @@ static CK_ULONG ep11_get_cp_by_name(const char *name)
     return UNKNOWN_CP;
 }
 
-static CK_RV check_cps_for_mechanism(cp_config_t *cp_config,
+static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
                                      unsigned char *cp, size_t cp_len)
 {
     cp_config_t *cp_cfg = cp_config;
     cp_mech_config_t *mech_cfg;
 
-    TRACE_DEBUG("%s Check mechanism 0x%08lx ('%s')\n", __func__, mech, ep11_get_ckm(mech));
+    TRACE_DEBUG("%s Check mechanism 0x%08lx ('%s')\n", __func__, mech,
+                ep11_get_ckm(mech));
 
-    while(cp_cfg != NULL) {
+    while (cp_cfg != NULL) {
         if (CP_BYTE_NO(cp_cfg->cp) >= cp_len ||
             (cp[CP_BYTE_NO(cp_cfg->cp)] & CP_BIT_MASK(cp_cfg->cp)) == 0) {
-            /* CP is off, check if the current mechanism is associated with it */
+            /* CP is off, check if the current mechanism is
+             * associated with it */
             mech_cfg = cp_cfg->mech;
-            while(mech_cfg != NULL) {
+            while (mech_cfg != NULL) {
                 if (mech_cfg->mech == mech) {
-                    TRACE_DEBUG("%s mechanism 0x%08lx ('%s') not enabled\n", __func__, mech, ep11_get_ckm(mech));
+                    TRACE_DEBUG("%s mechanism 0x%08lx ('%s') not enabled\n",
+                                __func__, mech, ep11_get_ckm(mech));
                     return CKR_MECHANISM_INVALID;
                 }
                 mech_cfg = mech_cfg->next;
@@ -5562,12 +5651,12 @@ static CK_RV check_cps_for_mechanism(cp_config_t *cp_config,
 #define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
 #define MASK_EP11               0x04000000
 
-typedef CK_RV (*adapter_handler_t)(uint_32 adapter, uint_32 domain,
-                                   void* handler_data);
+typedef CK_RV(*adapter_handler_t) (uint_32 adapter, uint_32 domain,
+                                   void *handler_data);
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
 {
-    FILE* fp;
+    FILE *fp;
     char *end;
     CK_RV rc = CKR_OK;
 
@@ -5609,7 +5698,7 @@ static CK_RV is_card_ep11_and_online(const char *name)
 
     sprintf(fname, "%s%s/online", SYSFS_DEVICES_AP, name);
     rc = file_fgets(fname, buf, sizeof(buf));
-    if (rc !=  CKR_OK)
+    if (rc != CKR_OK)
         return rc;
     if (strcmp(buf, "1") != 0)
         return CKR_FUNCTION_FAILED;
@@ -5627,7 +5716,7 @@ static CK_RV is_card_ep11_and_online(const char *name)
 }
 
 static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
-                                   void* handler_data)
+                                   void *handler_data)
 {
     char fname[290];
     regex_t reg_buf;
@@ -5638,7 +5727,8 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
     uint_32 adapter, domain;
 
     if (regcomp(&reg_buf, REGEX_SUB_CARD_PATTERN, REG_EXTENDED) != 0) {
-        TRACE_ERROR("Failed to compile regular expression '%s'\n", REGEX_SUB_CARD_PATTERN);
+        TRACE_ERROR("Failed to compile regular expression '%s'\n",
+                    REGEX_SUB_CARD_PATTERN);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -5651,7 +5741,7 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
         return CKR_OK;
     }
 
-    while((de = readdir(d)) != NULL) {
+    while ((de = readdir(d)) != NULL) {
         if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
             tok = strtok(de->d_name, ".");
             if (tok == NULL)
@@ -5680,8 +5770,7 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
  * and check if the card is online. Calls the handler function for all
  * online EP11 cards.
  */
-static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
-                                 void* handler_data)
+static CK_RV scan_for_ep11_cards(adapter_handler_t handler, void *handler_data)
 {
     DIR *d;
     struct dirent *de;
@@ -5692,7 +5781,8 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
         return CKR_ARGUMENTS_BAD;
 
     if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
-        TRACE_ERROR("Failed to compile regular expression '%s'\n", REGEX_CARD_PATTERN);
+        TRACE_ERROR("Failed to compile regular expression '%s'\n",
+                    REGEX_CARD_PATTERN);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -5703,12 +5793,13 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
         return CKR_FUNCTION_FAILED;
     }
 
-    while((de = readdir(d)) != NULL) {
+    while ((de = readdir(d)) != NULL) {
         if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
             if (is_card_ep11_and_online(de->d_name) != CKR_OK)
                 continue;
 
-            if (scan_for_card_domains(de->d_name, handler, handler_data) != CKR_OK)
+            if (scan_for_card_domains(de->d_name, handler, handler_data) !=
+                CKR_OK)
                 break;
         }
     }
@@ -5718,18 +5809,18 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
     return CKR_OK;
 }
 
-static CK_RV handle_all_ep11_cards(ep11_target_t *ep11_targets,
+static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
                                    adapter_handler_t handler,
-                                   void* handler_data)
+                                   void *handler_data)
 {
     int i;
     CK_RV rc;
 
     if (ep11_targets->length > 0) {
         /* APQN_WHITELIST is specified */
-        for(i = 0; i < ep11_targets->length; i++)  {
-            rc = handler(ep11_targets->apqns[2*i], ep11_targets->apqns[2*i+1],
-                         handler_data);
+        for (i = 0; i < ep11_targets->length; i++) {
+            rc = handler(ep11_targets->apqns[2 * i],
+                         ep11_targets->apqns[2 * i + 1], handler_data);
             if (rc != CKR_OK)
                 return rc;
         }
@@ -5742,7 +5833,7 @@ static CK_RV handle_all_ep11_cards(ep11_target_t *ep11_targets,
 }
 
 static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
-                                            unsigned char *cp, size_t *cp_len)
+                                            unsigned char *cp, size_t * cp_len)
 {
     unsigned char rsp[200];
     unsigned char cmd[100];
@@ -5758,35 +5849,33 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
 
     memset(cmd, 0, sizeof(cmd));
     rc = dll_xcpa_queryblock(cmd, sizeof(cmd), XCP_ADMQ_DOM_CTRLPOINTS,
-                             (uint64_t)adapter << 32 | domain,
-                             NULL, 0);
+                             (uint64_t) adapter << 32 | domain, NULL, 0);
     if (rc < 0) {
-        TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n",
-                        __func__, rc);
+        TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n", __func__, rc);
         return CKR_DEVICE_ERROR;
     }
     clen = rc;
 
     memset(rsp, 0, sizeof(rsp));
     rlen = sizeof(rsp);
-    rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0, (uint64_t)&target);
+    rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0,
+                     (uint64_t) & target);
     if (rc < 0) {
-        TRACE_ERROR("%s m_admin rc=%ld\n",
-                        __func__, rc);
+        TRACE_ERROR("%s m_admin rc=%ld\n", __func__, rc);
         return CKR_DEVICE_ERROR;
     }
 
     memset(&rb, 0, sizeof(rb));
-    rc =  dll_xcpa_internal_rv(rsp, rlen, &rb, &rv);
+    rc = dll_xcpa_internal_rv(rsp, rlen, &rb, &rv);
     if (rc < 0 || rv != 0) {
         TRACE_ERROR("%s xcpa_internal_rv failed: rc=%ld rv=%ld\n",
-                        __func__, rc, rv);
+                    __func__, rc, rv);
         return CKR_DEVICE_ERROR;
     }
 
     if (*cp_len < rb.pllen) {
         TRACE_ERROR("%s Cp_len is too small. cp_len=%lu required=%lu\n",
-                                __func__, *cp_len, rb.pllen);
+                    __func__, *cp_len, rb.pllen);
         *cp_len = rb.pllen;
         return CKR_ARGUMENTS_BAD;
     }
@@ -5797,35 +5886,34 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     return CKR_OK;
 }
 
-typedef struct cp_handler_data
-{
-    unsigned char   combined_cp[XCP_CP_BYTES];
-    unsigned char   first_cp[XCP_CP_BYTES];
-    uint32_t        first_adapter;
-    uint32_t        first_domain;
-    int             first;
+typedef struct cp_handler_data {
+    unsigned char combined_cp[XCP_CP_BYTES];
+    unsigned char first_cp[XCP_CP_BYTES];
+    uint32_t first_adapter;
+    uint32_t first_domain;
+    int first;
 } cp_handler_data_t;
 
 static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
-                                   void* handler_data)
+                                   void *handler_data)
 {
     CK_RV rc;
-    cp_handler_data_t *data = (cp_handler_data_t*)handler_data;
+    cp_handler_data_t *data = (cp_handler_data_t *) handler_data;
     unsigned char cp[XCP_CP_BYTES];
     size_t cp_len = sizeof(cp);
     int i;
 
-    TRACE_INFO("Getting control points for adapter %02X.%04X\n", adapter, domain);
+    TRACE_INFO("Getting control points for adapter %02X.%04X\n", adapter,
+               domain);
 
     memset(cp, 0, sizeof(cp));
     rc = get_control_points_for_adapter(adapter, domain, cp, &cp_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get CPS from adapter %02X.%04X\n",
-                __func__, adapter, domain);
+                    __func__, adapter, domain);
         // card may no longer be online, so ignore this error situation
         return CKR_OK;
     }
-
 #ifdef DEBUG
     TRACE_DEBUG("Control points from adapter %02X.%04X\n", adapter, domain);
     TRACE_DEBUG_DUMP(cp, cp_len);
@@ -5840,14 +5928,18 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
     } else {
         // check if subsequent adapters have the same CPs
         if (memcmp(cp, data->first_cp, sizeof(cp)) != 0) {
-            TRACE_WARNING("%s Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum.\n",
-                                            __func__, adapter, domain,
-                                            data->first_adapter, data->first_domain);
-            OCK_SYSLOG(LOG_WARNING, "Warning: Adapter %02X.%04X has different control points than adapter %02X.%04X, using minimum\n",
-                       adapter, domain, data->first_adapter, data->first_domain);
+            TRACE_WARNING("%s Adapter %02X.%04X has different control points "
+                          "than adapter %02X.%04X, using minimum.\n",
+                          __func__, adapter, domain, data->first_adapter,
+                          data->first_domain);
+            OCK_SYSLOG(LOG_WARNING,
+                       "Warning: Adapter %02X.%04X has different control points"
+                       " than adapter %02X.%04X, using minimum\n",
+                       adapter, domain, data->first_adapter,
+                       data->first_domain);
         }
 
-        for(i = 0; i < cp_len; i++) {
+        for (i = 0; i < cp_len; i++) {
             data->combined_cp[i] &= cp[i];
         }
     }
@@ -5860,7 +5952,7 @@ static void print_control_points(unsigned char *cp, size_t cp_len)
 {
     unsigned int i;
 
-    for(i=0; i <= XCP_CPBITS_MAX && CP_BYTE_NO(i) < cp_len; i++) {
+    for (i = 0; i <= XCP_CPBITS_MAX && CP_BYTE_NO(i) < cp_len; i++) {
         if ((cp[CP_BYTE_NO(i)] & CP_BIT_MASK(i)) == 0)
             TRACE_INFO("CP %u (%s)is off\n", i, ep11_get_cp(i));
         else
@@ -5869,8 +5961,8 @@ static void print_control_points(unsigned char *cp, size_t cp_len)
 }
 #endif
 
-static CK_RV get_control_points(STDLL_TokData_t *tokdata,
-                                unsigned char* cp, size_t* cp_len)
+static CK_RV get_control_points(STDLL_TokData_t * tokdata,
+                                unsigned char *cp, size_t * cp_len)
 {
     CK_RV rc;
     cp_handler_data_t data;
@@ -5878,7 +5970,7 @@ static CK_RV get_control_points(STDLL_TokData_t *tokdata,
 
     memset(&data, 0, sizeof(data));
     data.first = 1;
-    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *) ep11_data->target_list,
                                control_point_handler, &data);
     if (rc != CKR_OK)
         return rc;
@@ -5889,45 +5981,47 @@ static CK_RV get_control_points(STDLL_TokData_t *tokdata,
 #ifdef DEBUG
     TRACE_DEBUG("Combined control points from all cards:\n");
     TRACE_DEBUG_DUMP(cp, *cp_len);
-    print_control_points(cp,*cp_len);
+    print_control_points(cp, *cp_len);
 #endif
 
     return CKR_OK;
 }
 
 
-CK_RV SC_CreateObject(STDLL_TokData_t *tokdata,
-                      ST_SESSION_HANDLE *sSession, CK_ATTRIBUTE_PTR pTemplate,
+CK_RV SC_CreateObject(STDLL_TokData_t * tokdata,
+                      ST_SESSION_HANDLE * sSession, CK_ATTRIBUTE_PTR pTemplate,
                       CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject);
-CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata,
-                       ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE hObject);
-CK_RV SC_FindObjectsInit(STDLL_TokData_t *tokdata,
-                         ST_SESSION_HANDLE *sSession,
+CK_RV SC_DestroyObject(STDLL_TokData_t * tokdata,
+                       ST_SESSION_HANDLE * sSession, CK_OBJECT_HANDLE hObject);
+CK_RV SC_FindObjectsInit(STDLL_TokData_t * tokdata,
+                         ST_SESSION_HANDLE * sSession,
                          CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount);
-CK_RV SC_FindObjects(STDLL_TokData_t *tokdata,
-                     ST_SESSION_HANDLE *sSession, CK_OBJECT_HANDLE_PTR phObject,
-                     CK_ULONG ulMaxObjectCount, CK_ULONG_PTR pulObjectCount);
-CK_RV SC_FindObjectsFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession);
-CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata,
-                           ST_SESSION_HANDLE *sSession,
+CK_RV SC_FindObjects(STDLL_TokData_t * tokdata,
+                     ST_SESSION_HANDLE * sSession,
+                     CK_OBJECT_HANDLE_PTR phObject, CK_ULONG ulMaxObjectCount,
+                     CK_ULONG_PTR pulObjectCount);
+CK_RV SC_FindObjectsFinal(STDLL_TokData_t * tokdata,
+                          ST_SESSION_HANDLE * sSession);
+CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
+                           ST_SESSION_HANDLE * sSession,
                            CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                            CK_ULONG ulCount);
-CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
+CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
                      CK_SESSION_HANDLE_PTR phSession);
-CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession);
+CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession);
 
-static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
-                                      SESSION *session, ep11_session_t *ep11_session)
+static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
+                                      SESSION * session,
+                                      ep11_session_t * ep11_session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     struct {
-        CK_SESSION_HANDLE    handle;
-        struct timeval       timeofday;
-        clock_t              clock;
-        pid_t                pid;
-    }
-    session_id_data;
+        CK_SESSION_HANDLE handle;
+        struct timeval timeofday;
+        clock_t clock;
+        pid_t pid;
+    } session_id_data;
     CK_MECHANISM mech;
     CK_ULONG len;
 
@@ -5941,8 +6035,9 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
     mech.ulParameterLen = 0;
 
     len = sizeof(ep11_session->session_id);
-    rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data, sizeof(session_id_data),
-                            ep11_session->session_id, &len, (uint64_t)ep11_data->target_list);
+    rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR) & session_id_data,
+                            sizeof(session_id_data), ep11_session->session_id,
+                            &len, (uint64_t) ep11_data->target_list);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s m_DigestSingle failed: 0x%lu\n", __func__, rc);
         return rc;
@@ -5951,10 +6046,11 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
-                                ST_SESSION_HANDLE *handle, ep11_session_t *ep11_session,
-                                CK_BYTE* pin_blob, CK_ULONG pin_blob_len,
-                                CK_OBJECT_HANDLE *obj)
+static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
+                                ST_SESSION_HANDLE * handle,
+                                ep11_session_t * ep11_session,
+                                CK_BYTE * pin_blob, CK_ULONG pin_blob_len,
+                                CK_OBJECT_HANDLE * obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -5963,37 +6059,46 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     CK_BYTE subject[] = "EP11 Session Object";
     pid_t pid;
     CK_DATE date;
-    CK_BYTE true  = TRUE;
+    CK_BYTE true = TRUE;
     time_t t;
-    struct tm  *tm;
-    CK_CHAR tmp[4+2+2+1];
+    struct tm *tm;
+    CK_CHAR tmp[4 + 2 + 2 + 1];
 
-    CK_ATTRIBUTE attrs[] =
-    {
-        {CKA_CLASS,            &class,             sizeof(class)   },
-        {CKA_TOKEN,            &true,              sizeof(true)    },
-        {CKA_PRIVATE,          &true,              sizeof(true)    },
-        {CKA_HIDDEN,           &true,              sizeof(true)    },
-        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
-        {CKA_SUBJECT,          &subject,           sizeof(subject) },
-        {CKA_VALUE,            pin_blob,           pin_blob_len    },
-        {CKA_ID,               ep11_session->session_id, PUBLIC_SESSION_ID_LENGTH },
-        {CKA_APPLICATION,      (ep11_target_t *)ep11_data->target_list, sizeof(ep11_target_t) },
-        {CKA_OWNER,            &pid,               sizeof(pid)     },
-        {CKA_START_DATE,       &date,              sizeof(date)    }
+    CK_ATTRIBUTE attrs[] = {
+        {CKA_CLASS, &class, sizeof(class)}
+        ,
+        {CKA_TOKEN, &true, sizeof(true)}
+        ,
+        {CKA_PRIVATE, &true, sizeof(true)}
+        ,
+        {CKA_HIDDEN, &true, sizeof(true)}
+        ,
+        {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
+        ,
+        {CKA_SUBJECT, &subject, sizeof(subject)}
+        ,
+        {CKA_VALUE, pin_blob, pin_blob_len}
+        ,
+        {CKA_ID, ep11_session->session_id, PUBLIC_SESSION_ID_LENGTH}
+        ,
+        {CKA_APPLICATION, (ep11_target_t *) ep11_data->target_list,
+         sizeof(ep11_target_t)}
+        ,
+        {CKA_OWNER, &pid, sizeof(pid)}
+        ,
+        {CKA_START_DATE, &date, sizeof(date)}
     };
 
     pid = getpid();
     time(&t);
     tm = localtime(&t);
-    sprintf(tmp,"%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+    sprintf(tmp, "%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
     memcpy(date.year, tmp, 4);
-    memcpy(date.month, tmp+4, 2);
-    memcpy(date.day, tmp+4+2, 2);
+    memcpy(date.month, tmp + 4, 2);
+    memcpy(date.day, tmp + 4 + 2, 2);
 
     rc = SC_CreateObject(tokdata, handle,
-                         attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
-                         obj);
+                         attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE), obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s SC_CreateObject failed: 0x%lu\n", __func__, rc);
         return rc;
@@ -6002,31 +6107,38 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata,
-                         SESSION *session, ep11_session_t *ep11_session)
+static CK_RV get_vhsmpin(STDLL_TokData_t * tokdata,
+                         SESSION * session, ep11_session_t * ep11_session)
 {
     CK_RV rc;
-    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    ST_SESSION_HANDLE handle = {.slotID =
+            session->session_info.slotID,.sessionh = session->handle
+    };
     CK_OBJECT_HANDLE obj_store[16];
-    CK_ULONG    objs_found = 0;
+    CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE true  = TRUE;
-    CK_ATTRIBUTE vhsmpin_template[] =
-    {
-        {CKA_CLASS,            &class,             sizeof(class)   },
-        {CKA_TOKEN,            &true,              sizeof(true)    },
-        {CKA_PRIVATE,          &true,              sizeof(true)    },
-        {CKA_HIDDEN,           &true,              sizeof(true)    },
-        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+    CK_BYTE true = TRUE;
+    CK_ATTRIBUTE vhsmpin_template[] = {
+        {CKA_CLASS, &class, sizeof(class)}
+        ,
+        {CKA_TOKEN, &true, sizeof(true)}
+        ,
+        {CKA_PRIVATE, &true, sizeof(true)}
+        ,
+        {CKA_HIDDEN, &true, sizeof(true)}
+        ,
+        {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
+        ,
     };
-    CK_ATTRIBUTE attrs[] =
-    {
-        {CKA_VALUE,            ep11_session->vhsm_pin, sizeof(ep11_session->vhsm_pin) },
+    CK_ATTRIBUTE attrs[] = {
+        {CKA_VALUE, ep11_session->vhsm_pin, sizeof(ep11_session->vhsm_pin)}
+        ,
     };
 
     rc = SC_FindObjectsInit(tokdata, &handle,
-                            vhsmpin_template, sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
+                            vhsmpin_template,
+                            sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
         TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lu\n", __func__, rc);
         goto out;
@@ -6047,8 +6159,8 @@ static CK_RV get_vhsmpin(STDLL_TokData_t *tokdata,
     rc = SC_GetAttributeValue(tokdata, &handle, obj_store[0],
                               attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-       TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lu\n", __func__, rc);
-       goto out;
+        TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lu\n", __func__, rc);
+        goto out;
     }
 
     ep11_session->flags |= EP11_VHSMPIN_VALID;
@@ -6059,9 +6171,9 @@ out:
 }
 
 static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
-                                void* handler_data)
+                                void *handler_data)
 {
-    ep11_session_t *ep11_session = (ep11_session_t *)handler_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
     ep11_target_t target;
     CK_RV rc;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
@@ -6084,32 +6196,33 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
 
         rc = dll_m_Login(pin, pin_len,
                          nonce, nonce_len,
-                         pin_blob, &pin_blob_len,
-                         (uint64_t)&target);
+                         pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
-            /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
+            /* ignore the error here, the adapter may not be able to perform
+             * m_Login at this moment */
             goto strict_mode;
         }
-
-    #ifdef DEBUG
+#ifdef DEBUG
         TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
         TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
-    #endif
+#endif
 
         if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
             /* First part of pin-blob (keypart and session) must be equal */
-            if (memcmp(ep11_session->vhsm_pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
-                TRACE_ERROR("%s VHSM-Pin blob not equal to previous one\n", __func__);
+            if (memcmp(ep11_session->vhsm_pin_blob, pin_blob, XCP_WK_BYTES) !=
+                0) {
+                TRACE_ERROR("%s VHSM-Pin blob not equal to previous one\n",
+                            __func__);
                 OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: VHSM-Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
+                           "%s: Error: VHSM-Pin blob of adapter %02X.%04X is "
+                           "not equal to other adapters for same session\n",
                            __func__, adapter, domain);
                 return CKR_DEVICE_ERROR;
             }
-        }
-        else {
-           memcpy(ep11_session->vhsm_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
-           ep11_session->flags |= EP11_VHSM_PINBLOB_VALID;
+        } else {
+            memcpy(ep11_session->vhsm_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
+            ep11_session->flags |= EP11_VHSM_PINBLOB_VALID;
         }
     }
 
@@ -6121,32 +6234,33 @@ strict_mode:
 
         rc = dll_m_Login(pin, pin_len,
                          nonce, nonce_len,
-                         pin_blob, &pin_blob_len,
-                         (uint64_t)&target);
+                         pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
-            /* ignore the error here, the adapter may not be able to perform m_Login at this moment */
+            /* ignore the error here, the adapter may not be able to perform
+             * m_Login at this moment */
             return CKR_OK;
         }
-
-    #ifdef DEBUG
+#ifdef DEBUG
         TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
         TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
-    #endif
+#endif
 
         if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
             /* First part of pin-blob (keypart and session) must be equal */
-            if (memcmp(ep11_session->session_pin_blob, pin_blob, XCP_WK_BYTES) != 0) {
-                TRACE_ERROR("%s Pin blob not equal to previous one\n", __func__);
+            if (memcmp(ep11_session->session_pin_blob, pin_blob, XCP_WK_BYTES)
+                != 0) {
+                TRACE_ERROR("%s Pin blob not equal to previous one\n",
+                            __func__);
                 OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: Pin blob of adapter %02X.%04X is not equal to other adapters for same session\n",
+                           "%s: Error: Pin blob of adapter %02X.%04X is not "
+                           "equal to other adapters for same session\n",
                            __func__, adapter, domain);
                 return CKR_DEVICE_ERROR;
             }
-        }
-        else {
-           memcpy(ep11_session->session_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
-           ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
+        } else {
+            memcpy(ep11_session->session_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
+            ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
         }
     }
 
@@ -6154,9 +6268,9 @@ strict_mode:
 }
 
 static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
-                                 void* handler_data)
+                                 void *handler_data)
 {
-    ep11_session_t *ep11_session = (ep11_session_t *)handler_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
     ep11_target_t target;
     CK_RV rc;
 
@@ -6174,7 +6288,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 #endif
 
         rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
-                (uint64_t)&target);
+                          (uint64_t) & target);
         if (rc != CKR_OK)
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
         /* ignore any errors during m_logout */
@@ -6187,7 +6301,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 #endif
 
         rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
-                (uint64_t)&target);
+                          (uint64_t) & target);
         if (rc != CKR_OK)
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
         /* ignore any errors during m_logout */
@@ -6196,13 +6310,15 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     return CKR_OK;
 }
 
-CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
+CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_session_t *ep11_session;
     CK_RV rc;
     CK_RV rc2;
-    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    ST_SESSION_HANDLE handle = {.slotID =
+            session->session_info.slotID,.sessionh = session->handle
+    };
     CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
@@ -6234,7 +6350,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         return CKR_USER_ALREADY_LOGGED_IN;
     }
 
-    ep11_session = (ep11_session_t * )calloc(1, sizeof(ep11_session_t));
+    ep11_session = (ep11_session_t *) calloc(1, sizeof(ep11_session_t));
     if (ep11_session == NULL) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -6250,25 +6366,28 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
 
     rc = generate_ep11_session_id(tokdata, session, ep11_session);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lu\n", __func__,
+                    rc);
         goto done;
     }
-
 #ifdef DEBUG
     TRACE_DEBUG("EP11 Session-ID for PKCS#11 session %lu:\n", session->handle);
-    TRACE_DEBUG_DUMP(ep11_session->session_id, sizeof(ep11_session->session_id));
+    TRACE_DEBUG_DUMP(ep11_session->session_id,
+                     sizeof(ep11_session->session_id));
 #endif
 
     if (ep11_data->vhsm_mode) {
         rc = get_vhsmpin(tokdata, session, ep11_session);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s get_vhsmpin failed: 0x%lu\n", __func__, rc);
-            OCK_SYSLOG(LOG_ERR, "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n", __func__);
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n",
+                       __func__);
             goto done;
         }
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
@@ -6283,7 +6402,8 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         }
 
         rc = create_ep11_object(tokdata, &handle, ep11_session,
-                                ep11_session->session_pin_blob, sizeof(ep11_session->session_pin_blob),
+                                ep11_session->session_pin_blob,
+                                sizeof(ep11_session->session_pin_blob),
                                 &ep11_session->session_object);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
@@ -6299,7 +6419,8 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
         }
 
         rc = create_ep11_object(tokdata, &handle, ep11_session,
-                                ep11_session->vhsm_pin_blob, sizeof(ep11_session->vhsm_pin_blob),
+                                ep11_session->vhsm_pin_blob,
+                                sizeof(ep11_session->vhsm_pin_blob),
                                 &ep11_session->vhsm_object);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
@@ -6309,23 +6430,31 @@ CK_RV ep11tok_login_session(STDLL_TokData_t *tokdata, SESSION *session)
 
 done:
     if (rc != CKR_OK) {
-        if (ep11_session->flags & (EP11_SESS_PINBLOB_VALID | EP11_VHSM_PINBLOB_VALID)) {
-            rc2 = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
-                                        ep11_logout_handler, ep11_session);
+        if (ep11_session->flags &
+            (EP11_SESS_PINBLOB_VALID | EP11_VHSM_PINBLOB_VALID)) {
+            rc2 =
+                handle_all_ep11_cards((ep11_target_t *) &
+                                      ep11_data->target_list,
+                                      ep11_logout_handler, ep11_session);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc2);
+                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n",
+                            __func__, rc2);
         }
 
         if (ep11_session->session_object != CK_INVALID_HANDLE) {
-            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
+            rc2 =
+                SC_DestroyObject(tokdata, &handle,
+                                 ep11_session->session_object);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc2);
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__,
+                            rc2);
         }
 
         if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
             rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc2);
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__,
+                            rc2);
         }
 
         free(ep11_session);
@@ -6337,16 +6466,17 @@ done:
     if (helper_session != CK_INVALID_HANDLE) {
         rc2 = ep11_close_helper_session(tokdata, &handle);
         if (rc2 != CKR_OK)
-            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n", __func__, rc2);
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n",
+                        __func__, rc2);
     }
 
     return rc;
 }
 
-CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
+CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_RV rc;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
@@ -6356,7 +6486,7 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
@@ -6364,12 +6494,14 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t *tokdata, SESSION *session)
     return CKR_OK;
 }
 
-CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
+CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_session_t *ep11_session = (ep11_session_t *)session->private_data;
+    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_RV rc, rc2;
-    ST_SESSION_HANDLE handle = { .slotID = session->session_info.slotID, .sessionh = session->handle };
+    ST_SESSION_HANDLE handle = {.slotID =
+            session->session_info.slotID,.sessionh = session->handle
+    };
     CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
@@ -6401,7 +6533,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *)&ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_logout_handler, ep11_session);
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
@@ -6421,10 +6553,11 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t *tokdata, SESSION *session)
     session->private_data = NULL;
 
     if (helper_session != CK_INVALID_HANDLE) {
-       rc2 = ep11_close_helper_session(tokdata, &handle);
-       if (rc2 != CKR_OK)
-           TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n", __func__, rc2);
-   }
+        rc2 = ep11_close_helper_session(tokdata, &handle);
+        if (rc2 != CKR_OK)
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n",
+                        __func__, rc2);
+    }
 
     return rc;
 }
@@ -6441,35 +6574,33 @@ CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
     if (attr->pValue == NULL)
         return TRUE;
 
-    if (*((CK_BBOOL *)attr->pValue) == FALSE)
+    if (*((CK_BBOOL *) attr->pValue) == FALSE)
         return TRUE;
 
     return FALSE;
 }
 
-void ep11_get_pin_blob(ep11_session_t *ep11_session, CK_BOOL is_session_obj,
-                       CK_BYTE **pin_blob, CK_ULONG *pin_blob_len)
+void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
+                       CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len)
 {
     if (ep11_session != NULL &&
-        (ep11_session->flags & EP11_STRICT_MODE) &&
-        is_session_obj) {
+        (ep11_session->flags & EP11_STRICT_MODE) && is_session_obj) {
         *pin_blob = ep11_session->session_pin_blob;
         *pin_blob_len = sizeof(ep11_session->session_pin_blob);
-        TRACE_DEVEL("%s Strict mode and CKA_TOKEN=FALSE -> pass session pin_blob\n", __func__);
-    }
-    else if (ep11_session != NULL &&
-            (ep11_session->flags & EP11_VHSM_MODE)) {
+        TRACE_DEVEL
+            ("%s Strict mode and CKA_TOKEN=FALSE -> pass session pin_blob\n",
+             __func__);
+    } else if (ep11_session != NULL && (ep11_session->flags & EP11_VHSM_MODE)) {
         *pin_blob = ep11_session->vhsm_pin_blob;
         *pin_blob_len = sizeof(ep11_session->vhsm_pin_blob);
         TRACE_DEVEL("%s vHSM mode -> pass VHSM pin_blob\n", __func__);
-    }
-    else {
+    } else {
         *pin_blob = NULL;
         *pin_blob_len = 0;
     }
 }
 
-CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
+CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
                                CK_SESSION_HANDLE_PTR phSession)
 {
     CK_RV rc;
@@ -6477,16 +6608,16 @@ CK_RV ep11_open_helper_session(STDLL_TokData_t *tokdata, SESSION *sess,
     TRACE_INFO("%s\n", __func__);
 
     rc = SC_OpenSession(tokdata, sess->session_info.slotID,
-                        CKF_RW_SESSION | CKF_SERIAL_SESSION | CKF_EP11_HELPER_SESSION,
-                        phSession);
+                        CKF_RW_SESSION | CKF_SERIAL_SESSION |
+                        CKF_EP11_HELPER_SESSION, phSession);
     if (rc != CKR_OK)
         TRACE_ERROR("%s SC_OpenSession failed: 0x%lu\n", __func__, rc);
 
     return rc;
 }
 
-CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
-                                ST_SESSION_HANDLE *sSession)
+CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
+                                ST_SESSION_HANDLE * sSession)
 {
     CK_RV rc;
 
@@ -6498,4 +6629,3 @@ CK_RV ep11_close_helper_session(STDLL_TokData_t *tokdata,
 
     return rc;
 }
-
