@@ -595,19 +595,9 @@ CK_RV reset_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id,
 
 	/* Reset token data and keep token name */
 	slot_data[slot_id]->initialized = 0;
-	init_token_data(tokdata, slot_id);
+    load_token_data(tokdata, slot_id);
 	init_slotInfo(&tokdata->slot_info);
 	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
-
-	/* Reset SO pin to default and user pin to invalid */
-	pin_len = strlen((pin = "87654321"));
-	if (compute_sha1(tokdata, pin, pin_len,
-			 tokdata->nv_token_data->so_pin_sha)) {
-		TRACE_ERROR("Failed to reset so pin.\n");
-		return CKR_FUNCTION_FAILED;
-	}
-	memset(tokdata->nv_token_data->user_pin_sha, 0,
-	       sizeof(tokdata->nv_token_data->user_pin_sha));
 
 	if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
 		/* Save master key */
