@@ -44,109 +44,108 @@
 
 #define MAPFILENAME "@CONFIG_PATH@/.apimap"
 
-extern  API_Proc_Struct_t  *Anchor;
+extern API_Proc_Struct_t *Anchor;
 //
 // Will attach to the shared memory that has been created
 // by the slot manager daemon.
 // A NULL pointer will return if the memory region is invalid
 // for any reason
-void *
-attach_shared_memory() {
-
-   int    shmid;
-   char   *shmp;
-   struct stat statbuf;
-   struct group *grp;
-   struct passwd *pw, *epw;
-   uid_t uid, euid;
+void *attach_shared_memory()
+{
+    int shmid;
+    char *shmp;
+    struct stat statbuf;
+    struct group *grp;
+    struct passwd *pw, *epw;
+    uid_t uid, euid;
 
 #if !(MMAP)
-   // Really should fstat the tok_path, since it will be the actual
-   // executable of the slotmgr, however at this time we won't bother
-   // for the prototype.  /tmp/slotmgr will have to be an existing file.
+    // Really should fstat the tok_path, since it will be the actual
+    // executable of the slotmgr, however at this time we won't bother
+    // for the prototype.  /tmp/slotmgr will have to be an existing file.
 
-   if (stat(TOK_PATH,&statbuf) < 0 ){
-      // The Stat token origin file does not work... Kick it out
-      return NULL;
-   }
-
-   uid = getuid();
-   euid = geteuid();
-   // only check group membership if not root user
-   if (uid != 0 && euid != 0) {
-	   int i, member=0;
-	   grp = getgrnam("pkcs11");
-	   if (!grp) {
-		   // group pkcs11 not known to the system
-		   return NULL;
-	   }
-	   pw = getpwuid(uid);
-	   epw = getpwuid(euid);
-	   for (i=0; grp->gr_mem[i]; i++) {
-		   if (pw) {
-			   if (!strncmp(pw->pw_name, grp->gr_mem[i],strlen(pw->pw_name))) {
-				   member = 1;
-				   break;
-			   }
-		   }
-		   if (epw) {
-			   if (!strncmp(epw->pw_name, grp->gr_mem[i],strlen(epw->pw_name))) {
-				   member = 1;
-				   break;
-			   }
-		   }
-	   }
-	   if (!member) {
-		   return NULL;
-	   }
-   }
-
-   Anchor->shm_tok = ftok(TOK_PATH,'b');
-
-   // Get the shared memory id.
-   shmid = shmget(Anchor->shm_tok,sizeof(Slot_Mgr_Shr_t),
-               S_IWUSR|S_IWGRP|S_IRGRP|S_IRUSR);
-   if ( shmid < 0 ) {
-      return NULL;
-   }
-
-
-   shmp = (void *)shmat(shmid,NULL,0);
-   if ( !shmp ) {
-      return NULL;
-   }
-
-   return shmp;
-#else
-   int fd;
-#warning "EXPERIMENTAL"
-   fd = open(MAPFILENAME,O_RDWR);
-
-    if (fd < 0 ){
-		  return NULL;  //Failed  the file should exist and be valid
+    if (stat(TOK_PATH, &statbuf) < 0) {
+        // The Stat token origin file does not work... Kick it out
+        return NULL;
     }
-   shmp = (char *)mmap(NULL,sizeof(Slot_Mgr_Shr_t),PROT_READ|PROT_WRITE,
-				    MAP_SHARED,fd,0);
-   close(fd);
-   if ( ! shmp ) {
-		 return NULL;
-   }
-   return shmp;
-#endif
 
+    uid = getuid();
+    euid = geteuid();
+    // only check group membership if not root user
+    if (uid != 0 && euid != 0) {
+        int i, member = 0;
+        grp = getgrnam("pkcs11");
+        if (!grp) {
+            // group pkcs11 not known to the system
+            return NULL;
+        }
+        pw = getpwuid(uid);
+        epw = getpwuid(euid);
+        for (i = 0; grp->gr_mem[i]; i++) {
+            if (pw) {
+                if (!strncmp(pw->pw_name,
+                             grp->gr_mem[i],
+                             strlen(pw->pw_name))) {
+                    member = 1;
+                    break;
+                }
+            }
+            if (epw) {
+                if (!strncmp(epw->pw_name,
+                             grp->gr_mem[i], strlen(epw->pw_name))) {
+                    member = 1;
+                    break;
+                }
+            }
+        }
+        if (!member) {
+            return NULL;
+        }
+    }
+
+    Anchor->shm_tok = ftok(TOK_PATH, 'b');
+
+    // Get the shared memory id.
+    shmid = shmget(Anchor->shm_tok, sizeof(Slot_Mgr_Shr_t),
+                   S_IWUSR | S_IWGRP | S_IRGRP | S_IRUSR);
+    if (shmid < 0) {
+        return NULL;
+    }
+
+
+    shmp = (void *) shmat(shmid, NULL, 0);
+    if (!shmp) {
+        return NULL;
+    }
+
+    return shmp;
+#else
+    int fd;
+#warning "EXPERIMENTAL"
+    fd = open(MAPFILENAME, O_RDWR);
+
+    if (fd < 0) {
+        return NULL;            //Failed  the file should exist and be valid
+    }
+    shmp = (char *) mmap(NULL, sizeof(Slot_Mgr_Shr_t), PROT_READ | PROT_WRITE,
+                         MAP_SHARED, fd, 0);
+    close(fd);
+    if (!shmp) {
+        return NULL;
+    }
+    return shmp;
+#endif
 }
 
 //
 //Detach the shared memory from the api when finished.
 //
 
-void
-detach_shared_memory( shmp )
-   char *shmp;
+void detach_shared_memory(char *shmp)
 {
 #if !(MMAP)
-   shmdt(shmp);
+    shmdt(shmp);
 #else
-   munmap(shmp,sizeof(Slot_Mgr_Shr_t));
+    munmap(shmp, sizeof(Slot_Mgr_Shr_t));
 #endif
 }
