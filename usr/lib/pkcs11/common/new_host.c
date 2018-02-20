@@ -459,7 +459,7 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 	object_mgr_destroy_token_objects(tokdata);
 	delete_token_data(tokdata);
 
-	init_token_data(tokdata, sid);
+    load_token_data(tokdata, sid);
 	init_slotInfo(&(tokdata->slot_info));
 	memcpy(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
 	tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
