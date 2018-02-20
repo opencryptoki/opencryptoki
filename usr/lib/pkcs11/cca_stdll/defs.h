@@ -31,13 +31,13 @@
 #define CCA_HASH_PART_ONLY         3
 
 struct cca_sha_ctx {
-	unsigned char chain_vector[CCA_CHAIN_VECTOR_LEN];
-	long chain_vector_len;
-	unsigned char tail[MAX_SHA_BLOCK_SIZE];
-	long tail_len;
-	unsigned char hash[MAX_SHA_HASH_SIZE];
-	long hash_len;
-	int part;
+    unsigned char chain_vector[CCA_CHAIN_VECTOR_LEN];
+    long chain_vector_len;
+    unsigned char tail[MAX_SHA_BLOCK_SIZE];
+    long tail_len;
+    unsigned char hash[MAX_SHA_HASH_SIZE];
+    long hash_len;
+    int part;
 };
 
 #endif
