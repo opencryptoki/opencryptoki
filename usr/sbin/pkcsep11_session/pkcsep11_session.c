@@ -33,25 +33,25 @@
 #include <errno.h>
 
 #define EP11SHAREDLIB "libep11.so"
-#define PKCS11_MAX_PIN_LEN	128
+#define PKCS11_MAX_PIN_LEN 128
 
 #define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
 #define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
 #define CKA_HIDDEN               CKA_VENDOR_DEFINED + 0x01000000
 
 #ifndef XCP_PINBLOB_BYTES
-    #define  XCP_HMAC_BYTES ((size_t) (256 /8)) /* SHA-256 */
-    #define  XCP_WK_BYTES   ((size_t) (256 /8)) /* keypart and session sizes   */
-    #define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
-    #define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
-    #define  XCP_PINBLOB_BYTES  \
+#define  XCP_HMAC_BYTES ((size_t) (256 /8))     /* SHA-256 */
+#define  XCP_WK_BYTES   ((size_t) (256 /8))     /* keypart and session sizes  */
+#define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
+#define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
+#define  XCP_PINBLOB_BYTES  \
             (XCP_WK_BYTES +XCP_PIN_SALT_BYTES +XCP_HMAC_BYTES)
-    #define  XCP_MIN_PINBYTES          8
-    #define  XCP_MAX_PINBYTES         16
+#define  XCP_MIN_PINBYTES          8
+#define  XCP_MAX_PINBYTES         16
 #endif
 
-typedef unsigned int (*m_Logout_t)(const unsigned char *pin, size_t len,
-                                   uint64_t target);
+typedef unsigned int (*m_Logout_t) (const unsigned char *pin, size_t len,
+                                    uint64_t target);
 
 #define SHA256_HASH_SIZE        32
 #define EP11_SESSION_ID_SIZE    16
@@ -60,25 +60,23 @@ typedef unsigned int (*m_Logout_t)(const unsigned char *pin, size_t len,
 #define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
 #define MASK_EP11               0x04000000
 
-typedef struct
-{
+typedef struct {
     short format;
     short length;
     short apqns[512];
-} __attribute__((packed)) ep11_target_t;
+} __attribute__ ((packed)) ep11_target_t;
 
-typedef CK_RV (*handler_t)(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
-                           CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
-                           CK_BYTE *session_id, CK_ULONG session_id_len,
-                           ep11_target_t *ep11_targets,
-                           pid_t pid,
-                           CK_DATE *date);
-typedef CK_RV (*adapter_handler_t)(uint_32 adapter, uint_32 domain,
-                                   void* handler_data);
+typedef CK_RV (*handler_t) (CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
+                            CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
+                            CK_BYTE *session_id, CK_ULONG session_id_len,
+                            ep11_target_t *ep11_targets,
+                            pid_t pid, CK_DATE *date);
+typedef CK_RV (*adapter_handler_t) (uint_32 adapter, uint_32 domain,
+                                    void *handler_data);
 
-CK_FUNCTION_LIST  *funcs;
+CK_FUNCTION_LIST *funcs;
 m_Logout_t dll_m_Logout;
-CK_SLOT_ID  SLOT_ID = -1;
+CK_SLOT_ID SLOT_ID = -1;
 int action = 0;
 int force = 0;
 time_t filter_date = -1;
@@ -102,16 +100,16 @@ int get_pin(char **pin, size_t *pinlen)
 
     /* turn echoing off */
     if (tcgetattr(fileno(stdin), &old) != 0)
-    return -1;
+        return -1;
 
     new = old;
     new.c_lflag &= ~ECHO;
-    if (tcsetattr (fileno(stdin), TCSAFLUSH, &new) != 0)
+    if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
         return -1;
 
     /* read the pin
-    * Note: getline will allocate memory for buff. free it when done.
-    */
+     * Note: getline will allocate memory for buff. free it when done.
+     */
     nread = getline(&buff, &buflen, stdin);
     if (nread == -1) {
         rc = -1;
@@ -129,7 +127,7 @@ int get_pin(char **pin, size_t *pinlen)
      * Note: nread includes carriage return.
      * Replace with terminating NULL.
      */
-    *pin = (unsigned char *)malloc(nread);
+    *pin = (unsigned char *) malloc(nread);
     if (*pin == NULL) {
         rc = -ENOMEM;
         goto done;
@@ -164,13 +162,14 @@ static int get_user_pin(CK_BYTE *dest)
 
     if (userpinlen > PKCS11_MAX_PIN_LEN) {
         fprintf(stderr, "The USER PIN must be less than %d chars in length.\n",
-                (int)PKCS11_MAX_PIN_LEN);
+                (int) PKCS11_MAX_PIN_LEN);
         free(userpin);
         return -1;
     }
 
-    memcpy(dest, userpin, userpinlen+1);
+    memcpy(dest, userpin, userpinlen + 1);
     free(userpin);
+
     return 0;
 }
 
@@ -190,40 +189,41 @@ static int get_vhsm_pin(CK_BYTE *dest)
 
     if (vhsmpinlen < XCP_MIN_PINBYTES) {
         fprintf(stderr, "The VHSM PIN must be at least %d chars in length.\n",
-                (int)XCP_MIN_PINBYTES);
+                (int) XCP_MIN_PINBYTES);
         free(vhsmpin);
         return -1;
     }
     if (vhsmpinlen > XCP_MAX_PINBYTES) {
         fprintf(stderr, "The VHSM PIN must be less than %d chars in length.\n",
-                (int)XCP_MAX_PINBYTES);
+                (int) XCP_MAX_PINBYTES);
         free(vhsmpin);
         return -1;
     }
 
-    memcpy(dest, vhsmpin, vhsmpinlen+1);
+    memcpy(dest, vhsmpin, vhsmpinlen + 1);
     free(vhsmpin);
+
     return 0;
 }
 
 static int do_GetFunctionList(void)
 {
-    CK_RV    rc;
-    CK_RV  (*func_list)() = NULL;
-    void    *d;
-    char    *evar;
-    char    *evar_default = "libopencryptoki.so";
+    CK_RV rc;
+    CK_RV (*func_list)() = NULL;
+    void *d;
+    char *evar;
+    char *evar_default = "libopencryptoki.so";
 
     evar = getenv("PKCSLIB");
-    if ( evar == NULL)
+    if (evar == NULL)
         evar = evar_default;
 
-    d = dlopen(evar,RTLD_NOW);
-    if ( d == NULL )
+    d = dlopen(evar, RTLD_NOW);
+    if (d == NULL)
         return 0;
 
-    func_list = (CK_RV (*)())dlsym(d,"C_GetFunctionList");
-    if (func_list == NULL )
+    func_list = (CK_RV(*)())dlsym(d, "C_GetFunctionList");
+    if (func_list == NULL)
         return 0;
 
     rc = func_list(&funcs);
@@ -236,19 +236,20 @@ static int do_GetFunctionList(void)
 
 int is_ep11_token(CK_SLOT_ID slot_id)
 {
-    CK_RV   rc;
-    CK_TOKEN_INFO   tokinfo;
+    CK_RV rc;
+    CK_TOKEN_INFO tokinfo;
 
     rc = funcs->C_GetTokenInfo(slot_id, &tokinfo);
     if (rc != CKR_OK)
         return FALSE;
 
-    return strstr((const char *)tokinfo.model, "EP11") != NULL;
+    return strstr((const char *) tokinfo.model, "EP11") != NULL;
 }
 
 static void usage(char *fct)
 {
-    printf("usage:  %s show|logout|vhsmpin [-date <yyyy/mm/dd>] [-pid <pid>] [-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct );
+    printf("usage:  %s show|logout|vhsmpin [-date <yyyy/mm/dd>] [-pid <pid>] "
+           "[-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct);
     return;
 }
 
@@ -260,52 +261,47 @@ static int do_ParseArgs(int argc, char **argv)
     unsigned int v;
 
     if (argc <= 1) {
-        printf ("No Arguments given. For help use the '--help' or '-h' option.\n");
+        printf("No Arguments given. For help use the '--help' or '-h' "
+               "option.\n");
         return -1;
     }
 
-    if (strcmp (argv[1], "-h") == 0 || strcmp (argv[1], "--help") == 0) {
-        usage(argv [0]);
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+        usage(argv[0]);
         return 0;
-    }
-    else if (strcmp (argv[1], "show") == 0) {
+    } else if (strcmp(argv[1], "show") == 0) {
         action = ACTION_SHOW;
-    }
-    else if (strcmp (argv[1], "logout") == 0) {
+    } else if (strcmp(argv[1], "logout") == 0) {
         action = ACTION_LOGOUT;
-    }
-    else if (strcmp (argv[1], "vhsmpin") == 0) {
+    } else if (strcmp(argv[1], "vhsmpin") == 0) {
         action = ACTION_VHSMPIN;
-    }
-    else {
-        printf ("Unknown Action given. For help use the '--help' or '-h' option.\n");
+    } else {
+        printf("Unknown Action given. For help use the '--help' or '-h' "
+               "option.\n");
         return -1;
     }
 
     for (i = 2; i < argc; i++) {
-        if (strcmp (argv[i], "-h") == 0 || strcmp (argv[i], "--help") == 0) {
-            usage(argv [0]);
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            usage(argv[0]);
             return 0;
-        }
-        else if (strcmp (argv[i], "-slot") == 0) {
-            if (argc <= i+1 || !isdigit(*argv[i+1])) {
+        } else if (strcmp(argv[i], "-slot") == 0) {
+            if (argc <= i + 1 || !isdigit(*argv[i + 1])) {
                 printf("Slot parameter is not numeric!\n");
                 return -1;
             }
-            SLOT_ID = (int)strtol(argv[i+1], NULL, 0);
+            SLOT_ID = (int) strtol(argv[i + 1], NULL, 0);
             i++;
-        }
-        else if (strcmp (argv[i], "-force") == 0) {
+        } else if (strcmp(argv[i], "-force") == 0) {
             force = 1;
-        }
-        else if (strcmp (argv[i], "-date") == 0) {
-            if (argc <= i+1 || strlen(argv[i+1]) == 0) {
+        } else if (strcmp(argv[i], "-date") == 0) {
+            if (argc <= i + 1 || strlen(argv[i + 1]) == 0) {
                 printf("Date parameter is not valid!\n");
                 return -1;
             }
             memset(&tm, 0, sizeof(tm));
-            p = strptime(argv[i+1], "%Y/%m/%d", &tm);
-            if (p==NULL || *p != '\0') {
+            p = strptime(argv[i + 1], "%Y/%m/%d", &tm);
+            if (p == NULL || *p != '\0') {
                 printf("Date parameter is not valid!\n");
                 return -1;
             }
@@ -315,22 +311,21 @@ static int do_ParseArgs(int argc, char **argv)
                 return -1;
             }
             i++;
-        }
-        else if (strcmp (argv[i], "-pid") == 0) {
-            if (argc <= i+1  || !isdigit(*argv[i+1])) {
+        } else if (strcmp(argv[i], "-pid") == 0) {
+            if (argc <= i + 1 || !isdigit(*argv[i + 1])) {
                 printf("Pid parameter is not numeric!\n");
                 return -1;
             }
-            filter_pid = (pid_t)strtol(argv[i+1], NULL, 0);
+            filter_pid = (pid_t) strtol(argv[i + 1], NULL, 0);
             i++;
-        }
-        else if (strcmp (argv[i], "-id") == 0) {
-            if (argc <= i+1  || strlen(argv[i+1]) != EP11_SESSION_ID_SIZE*2) {
+        } else if (strcmp(argv[i], "-id") == 0) {
+            if (argc <= i + 1
+                || strlen(argv[i + 1]) != EP11_SESSION_ID_SIZE * 2) {
                 printf("Id parameter is not valid!\n");
                 return -1;
             }
-            p = argv[i+1];
-            for(k = 0; k < EP11_SESSION_ID_SIZE; k++, p += 2) {
+            p = argv[i + 1];
+            for (k = 0; k < EP11_SESSION_ID_SIZE; k++, p += 2) {
                 if (sscanf(p, "%02X", &v) != 1) {
                     printf("Id parameter is not valid!\n");
                     return -1;
@@ -339,16 +334,15 @@ static int do_ParseArgs(int argc, char **argv)
             }
             filter_sess_id_set = 1;
             i++;
-        }
-        else {
-              printf ("Invalid argument passed as option: %s\n", argv [i]);
-              usage(argv [0]);
-              return -1;
+        } else {
+            printf("Invalid argument passed as option: %s\n", argv[i]);
+            usage(argv[0]);
+            return -1;
         }
     }
     if (SLOT_ID == -1) {
-      printf("Slot-ID not set!\n");
-      return -1;
+        printf("Slot-ID not set!\n");
+        return -1;
     }
 
     return 1;
@@ -356,21 +350,20 @@ static int do_ParseArgs(int argc, char **argv)
 
 static int is_process_running(pid_t pid)
 {
-
     char fbuf[800];
     int fd;
 
     sprintf(fbuf, "/proc/%d/stat", pid);
-    if( (fd = open(fbuf, O_RDONLY, 0)) == -1)
+    if ((fd = open(fbuf, O_RDONLY, 0)) == -1)
         return FALSE;
 
     close(fd);
+
     return TRUE;
 }
 
 
-static CK_RV logout_handler(uint_32 adapter, uint_32 domain,
-                            void* handler_data)
+static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 {
     ep11_target_t target;
     CK_RV rc;
@@ -380,12 +373,12 @@ static CK_RV logout_handler(uint_32 adapter, uint_32 domain,
     target.apqns[0] = adapter;
     target.apqns[1] = domain;
 
-    rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES,
-                      (uint64_t)&target);
+    rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES, (uint64_t) &target);
     if (rc != CKR_OK) {
-        fprintf(stderr, "WARNING: Logout failed for adapter %02X.%04X: 0x%lx [%s]\n",
+        fprintf(stderr,
+                "WARNING: Logout failed for adapter %02X.%04X: 0x%lx [%s]\n",
                 adapter, domain, rc, p11_get_ckr(rc));
-        error =  rc;
+        error = rc;
     }
 
     return CKR_OK;
@@ -393,7 +386,7 @@ static CK_RV logout_handler(uint_32 adapter, uint_32 domain,
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
 {
-    FILE* fp;
+    FILE *fp;
     char *end;
     CK_RV rc = CKR_OK;
 
@@ -423,6 +416,7 @@ static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
 
 out_fclose:
     fclose(fp);
+
     return rc;
 }
 
@@ -435,7 +429,7 @@ static CK_RV is_card_ep11_and_online(const char *name)
 
     sprintf(fname, "%s%s/online", SYSFS_DEVICES_AP, name);
     rc = file_fgets(fname, buf, sizeof(buf));
-    if (rc !=  CKR_OK)
+    if (rc != CKR_OK)
         return rc;
     if (strcmp(buf, "1") != 0)
         return CKR_FUNCTION_FAILED;
@@ -453,7 +447,7 @@ static CK_RV is_card_ep11_and_online(const char *name)
 }
 
 static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
-                                   void* handler_data)
+                                   void *handler_data)
 {
     char fname[290];
     regex_t reg_buf;
@@ -464,7 +458,8 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
     uint_32 adapter, domain;
 
     if (regcomp(&reg_buf, REGEX_SUB_CARD_PATTERN, REG_EXTENDED) != 0) {
-        fprintf(stderr, "Failed to compile regular expression '%s'\n", REGEX_SUB_CARD_PATTERN);
+        fprintf(stderr, "Failed to compile regular expression '%s'\n",
+                REGEX_SUB_CARD_PATTERN);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -477,7 +472,7 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
         return CKR_OK;
     }
 
-    while((de = readdir(d)) != NULL) {
+    while ((de = readdir(d)) != NULL) {
         if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
             tok = strtok(de->d_name, ".");
             if (tok == NULL)
@@ -498,6 +493,7 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
 
     closedir(d);
     regfree(&reg_buf);
+
     return CKR_OK;
 }
 
@@ -506,8 +502,7 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
  * and check if the card is online. Calls the handler function for all
  * online EP11 cards.
  */
-static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
-                                 void* handler_data)
+static CK_RV scan_for_ep11_cards(adapter_handler_t handler, void *handler_data)
 {
     DIR *d;
     struct dirent *de;
@@ -518,7 +513,8 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
         return CKR_ARGUMENTS_BAD;
 
     if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
-        fprintf(stderr, "Failed to compile regular expression '%s'\n", REGEX_CARD_PATTERN);
+        fprintf(stderr, "Failed to compile regular expression '%s'\n",
+                REGEX_CARD_PATTERN);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -529,33 +525,35 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler,
         return CKR_FUNCTION_FAILED;
     }
 
-    while((de = readdir(d)) != NULL) {
+    while ((de = readdir(d)) != NULL) {
         if (regexec(&reg_buf, de->d_name, (size_t) 1, pmatch, 0) == 0) {
             if (is_card_ep11_and_online(de->d_name) != CKR_OK)
                 continue;
 
-            if (scan_for_card_domains(de->d_name, handler, handler_data) != CKR_OK)
+            if (scan_for_card_domains(de->d_name, handler, handler_data) !=
+                CKR_OK)
                 break;
         }
     }
 
     closedir(d);
     regfree(&reg_buf);
+
     return CKR_OK;
 }
 
 static CK_RV handle_all_ep11_cards(ep11_target_t *ep11_targets,
                                    adapter_handler_t handler,
-                                   void* handler_data)
+                                   void *handler_data)
 {
     int i;
     CK_RV rc;
 
     if (ep11_targets->length > 0) {
         /* APQN_WHITELIST is specified */
-        for(i = 0; i < ep11_targets->length; i++)  {
-            rc = handler(ep11_targets->apqns[2*i], ep11_targets->apqns[2*i+1],
-                         handler_data);
+        for (i = 0; i < ep11_targets->length; i++) {
+            rc = handler(ep11_targets->apqns[2 * i],
+                         ep11_targets->apqns[2 * i + 1], handler_data);
             if (rc != CKR_OK)
                 return rc;
         }
@@ -571,13 +569,12 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                                 CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
                                 CK_BYTE *session_id, CK_ULONG session_id_len,
                                 ep11_target_t *ep11_targets,
-                                pid_t pid,
-                                CK_DATE *date)
+                                pid_t pid, CK_DATE *date)
 {
     CK_RV rc;
     int i;
 
-    for(i = 0; i < session_id_len; i++)
+    for (i = 0; i < session_id_len; i++)
         printf("%02X", session_id[i]);
     printf(":\n");
     if (is_process_running(pid))
@@ -587,27 +584,33 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
     printf("\tDate:\t%.4s/%.2s/%.2s\n", date->year, date->month, date->day);
 
     if (is_process_running(pid)) {
-        printf("\tSession is not logged out, process %u is still running\n", pid);
+        printf("\tSession is not logged out, process %u is still running\n",
+               pid);
         return CKR_OK;
     }
 
     error = CKR_OK;
     rc = handle_all_ep11_cards(ep11_targets, logout_handler, pin_blob);
     if (rc != CKR_OK) {
-       fprintf(stderr, "handle_all_ep11_cards() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
-       return rc;
+        fprintf(stderr, "handle_all_ep11_cards() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
     if (error != CKR_OK) {
-        fprintf(stderr, "WARNING: Not all APQNs were successfully logged out.\n");
-       if (!force) {
-           fprintf(stderr, "         Session is not deleted. Specify -force to delete it anyway.\n");
-           return rc;
-       }
+        fprintf(stderr,
+                "WARNING: Not all APQNs were successfully logged out.\n");
+        if (!force) {
+            fprintf(stderr,
+                    "         Session is not deleted. Specify -force to delete"
+                    "it anyway.\n");
+            return rc;
+        }
     }
 
     rc = funcs->C_DestroyObject(session, obj);
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
         return rc;
     }
 
@@ -617,6 +620,7 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
         printf("\tSession deleted due to -force option\n");
 
     count++;
+
     return CKR_OK;
 }
 
@@ -626,12 +630,11 @@ static CK_RV show_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                               CK_BYTE *pin_blob, CK_ULONG pin_blob_size,
                               CK_BYTE *session_id, CK_ULONG session_id_len,
                               ep11_target_t *ep11_targets,
-                              pid_t pid,
-                              CK_DATE *date)
+                              pid_t pid, CK_DATE *date)
 {
     int i;
 
-    for(i = 0; i < session_id_len; i++)
+    for (i = 0; i < session_id_len; i++)
         printf("%02X", session_id[i]);
     printf(":\n");
     if (is_process_running(pid))
@@ -641,6 +644,7 @@ static CK_RV show_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
     printf("\tDate:\t%.4s/%.2s/%.2s\n", date->year, date->month, date->day);
 
     count++;
+
     return CKR_OK;
 }
 
@@ -654,7 +658,7 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
 
     if (filter_sess_id_set) {
         if (session_id_len == sizeof(filter_sess_id) &&
-           memcmp(session_id, filter_sess_id, session_id_len) == 0)
+            memcmp(session_id, filter_sess_id, session_id_len) == 0)
             return TRUE;
         return FALSE;
     }
@@ -663,13 +667,13 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
         memset(&tm, 0, sizeof(tm));
         memcpy(temp, date->year, 4);
         temp[4] = '/';
-        memcpy(temp+5, date->month, 2);
+        memcpy(temp + 5, date->month, 2);
         temp[7] = '/';
-        memcpy(temp+8, date->day, 2);
+        memcpy(temp + 8, date->day, 2);
         temp[10] = '\0';
 
         p = strptime(temp, "%Y/%m/%d", &tm);
-        if (p==NULL || *p != '\0')
+        if (p == NULL || *p != '\0')
             return FALSE;
         t = mktime(&tm);
         if (t == -1)
@@ -688,28 +692,29 @@ static CK_BBOOL filter_session(CK_BYTE *session_id, CK_ULONG session_id_len,
     return TRUE;
 }
 
-static CK_RV process_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
-                                 handler_t handler)
+static CK_RV process_session_obj(CK_SESSION_HANDLE session,
+                                 CK_OBJECT_HANDLE obj, handler_t handler)
 {
     CK_RV rc;
     CK_BBOOL match;
-    CK_BYTE            pin_blob[XCP_PINBLOB_BYTES];
-    CK_BYTE            session_id[EP11_SESSION_ID_SIZE];
-    ep11_target_t      ep11_targets;
-    pid_t              pid;
-    CK_DATE            date;
-    CK_ATTRIBUTE attrs[] =
-    {
-            {CKA_VALUE,            pin_blob,           sizeof(pin_blob)   },
-            {CKA_ID,               session_id,         sizeof(session_id) },
-            {CKA_APPLICATION,      &ep11_targets,      sizeof(ep11_targets) },
-            {CKA_OWNER,            &pid,               sizeof(pid)     },
-            {CKA_START_DATE,       &date,              sizeof(date)    },
+    CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
+    CK_BYTE session_id[EP11_SESSION_ID_SIZE];
+    ep11_target_t ep11_targets;
+    pid_t pid;
+    CK_DATE date;
+    CK_ATTRIBUTE attrs[] = {
+        { CKA_VALUE, pin_blob, sizeof(pin_blob) },
+        { CKA_ID, session_id, sizeof(session_id) },
+        { CKA_APPLICATION, &ep11_targets, sizeof(ep11_targets) },
+        { CKA_OWNER, &pid, sizeof(pid) },
+        { CKA_START_DATE, &date, sizeof(date) },
     };
 
-    rc = funcs->C_GetAttributeValue(session, obj, attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE));
+    rc = funcs->C_GetAttributeValue(session, obj, attrs,
+                                    sizeof(attrs) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_GetAttributeValue() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_GetAttributeValue() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
 
         /* Invalid CKH_IBM_EP11_SESSION object */
         rc = funcs->C_DestroyObject(session, obj);
@@ -724,8 +729,7 @@ static CK_RV process_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj
 
     if (match) {
         rc = handler(session, obj, pin_blob, sizeof(pin_blob),
-                     session_id, sizeof(session_id),
-                     &ep11_targets, pid, &date);
+                     session_id, sizeof(session_id), &ep11_targets, pid, &date);
         if (rc != CKR_OK)
             return rc;
     }
@@ -737,42 +741,43 @@ static CK_RV find_sessions(CK_SESSION_HANDLE session, handler_t handler)
 {
     CK_RV rc;
     CK_OBJECT_HANDLE obj_store[4096];
-    CK_ULONG    objs_found = 0;
-    CK_ULONG    obj;
+    CK_ULONG objs_found = 0;
+    CK_ULONG obj;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_SESSION;
-    CK_BYTE true  = TRUE;
-    CK_ATTRIBUTE session_template[] =
-    {
-        {CKA_CLASS,            &class,             sizeof(class)   },
-        {CKA_TOKEN,            &true,              sizeof(true)    },
-        {CKA_PRIVATE,          &true,              sizeof(true)    },
-        {CKA_HIDDEN,           &true,              sizeof(true)    },
-        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+    CK_BYTE true = TRUE;
+    CK_ATTRIBUTE session_template[] = {
+        { CKA_CLASS, &class, sizeof(class) },
+        { CKA_TOKEN, &true, sizeof(true) },
+        { CKA_PRIVATE, &true, sizeof(true) },
+        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
     };
 
     /* find all objects */
-    rc = funcs->C_FindObjectsInit(session, session_template, sizeof(session_template) / sizeof(CK_ATTRIBUTE));
+    rc = funcs->C_FindObjectsInit(session, session_template,
+                                  sizeof(session_template) /
+                                  sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
         goto out;
     }
 
     do {
         rc = funcs->C_FindObjects(session, obj_store, 4096, &objs_found);
         if (rc != CKR_OK) {
-            fprintf(stderr, "C_FindObjects() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+            fprintf(stderr, "C_FindObjects() rc = 0x%02lx [%s]\n", rc,
+                    p11_get_ckr(rc));
             goto out;
         }
 
-        for (obj = 0; obj < objs_found; obj++)
-        {
+        for (obj = 0; obj < objs_found; obj++) {
             rc = process_session_obj(session, obj_store[obj], handler);
             if (rc != CKR_OK)
                 goto out;
         }
-    }
-    while(objs_found != 0);
+    } while (objs_found != 0);
 
 out:
     funcs->C_FindObjectsFinal(session);
@@ -806,33 +811,37 @@ static CK_RV logout_sessions(CK_SESSION_HANDLE session)
     return rc;
 }
 
-static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE *obj)
+static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session,
+                                 CK_OBJECT_HANDLE *obj)
 {
     CK_RV rc;
     CK_OBJECT_HANDLE obj_store[16];
-    CK_ULONG    objs_found = 0;
+    CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE true  = TRUE;
-    CK_ATTRIBUTE vhsmpin_template[] =
-    {
-        {CKA_CLASS,            &class,             sizeof(class)   },
-        {CKA_TOKEN,            &true,              sizeof(true)    },
-        {CKA_PRIVATE,          &true,              sizeof(true)    },
-        {CKA_HIDDEN,           &true,              sizeof(true)    },
-        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
+    CK_BYTE true = TRUE;
+    CK_ATTRIBUTE vhsmpin_template[] = {
+        { CKA_CLASS, &class, sizeof(class) },
+        { CKA_TOKEN, &true, sizeof(true) },
+        { CKA_PRIVATE, &true, sizeof(true) },
+        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
     };
 
     /* find all objects */
-    rc = funcs->C_FindObjectsInit(session, vhsmpin_template, sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
+    rc = funcs->C_FindObjectsInit(session, vhsmpin_template,
+                                  sizeof(vhsmpin_template) /
+                                  sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_FindObjectsInit() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
         goto out;
     }
 
     rc = funcs->C_FindObjects(session, obj_store, 16, &objs_found);
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_FindObjects() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_FindObjects() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
         goto out;
     }
 
@@ -843,6 +852,7 @@ static CK_RV find_vhsmpin_object(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE *ob
 
 out:
     funcs->C_FindObjectsFinal(session);
+
     return rc;
 }
 
@@ -850,27 +860,26 @@ out:
 static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
 {
     CK_RV rc;
-    CK_BYTE     vhsm_pin[XCP_MAX_PINBYTES+1];
+    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES + 1];
     CK_OBJECT_HANDLE obj = CK_INVALID_HANDLE;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
     CK_BYTE subject[] = "EP11 VHSM-Pin Object";
-    CK_BYTE true  = TRUE;
+    CK_BYTE true = TRUE;
 
     if (get_vhsm_pin(vhsm_pin)) {
         fprintf(stderr, "get_vhsm_pin() failed\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    CK_ATTRIBUTE attrs[] =
-    {
-        {CKA_CLASS,            &class,             sizeof(class)   },
-        {CKA_TOKEN,            &true,              sizeof(true)    },
-        {CKA_PRIVATE,          &true,              sizeof(true)    },
-        {CKA_HIDDEN,           &true,              sizeof(true)    },
-        {CKA_HW_FEATURE_TYPE,  &type,              sizeof(type)    },
-        {CKA_SUBJECT,          &subject,           sizeof(subject) },
-        {CKA_VALUE,            vhsm_pin,           strlen(vhsm_pin)},
+    CK_ATTRIBUTE attrs[] = {
+        { CKA_CLASS, &class, sizeof(class) },
+        { CKA_TOKEN, &true, sizeof(true) },
+        { CKA_PRIVATE, &true, sizeof(true) },
+        { CKA_HIDDEN, &true, sizeof(true) },
+        { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
+        { CKA_SUBJECT, &subject, sizeof(subject) },
+        { CKA_VALUE, vhsm_pin, strlen(vhsm_pin) },
     };
 
     rc = find_vhsmpin_object(session, &obj);
@@ -882,7 +891,8 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
     if (obj != CK_INVALID_HANDLE) {
         rc = funcs->C_DestroyObject(session, obj);
         if (rc != CKR_OK) {
-            fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+            fprintf(stderr, "C_DestroyObject() rc = 0x%02lx [%s]\n", rc,
+                    p11_get_ckr(rc));
             return rc;
         }
     }
@@ -891,7 +901,8 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
                                attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE),
                                &obj);
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_CreateObject() rc = 0x%02lx [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_CreateObject() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
         return rc;
     }
     printf("VHSM-pin successfully set.\n");
@@ -904,31 +915,33 @@ int main(int argc, char **argv)
     int rc;
     void *lib_ep11;
     CK_C_INITIALIZE_ARGS cinit_args;
-    CK_BYTE     user_pin[PKCS11_MAX_PIN_LEN+1];
-    CK_FLAGS    flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN + 1];
+    CK_FLAGS flags;
     CK_SESSION_HANDLE session;
-    CK_ULONG    user_pin_len;
+    CK_ULONG user_pin_len;
 
     rc = do_ParseArgs(argc, argv);
-    if(rc != 1)
+    if (rc != 1)
         return rc;
 
     /* dynamically load in the ep11 shared library */
     lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
     if (!lib_ep11) {
-        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n", EP11SHAREDLIB, dlerror());
+        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
+                EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
     }
-    dll_m_Logout = (m_Logout_t)dlsym(lib_ep11, "m_Logout");
-    if (dll_m_Logout == NULL ) {
-        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n", EP11SHAREDLIB, dlerror());
+    dll_m_Logout = (m_Logout_t) dlsym(lib_ep11, "m_Logout");
+    if (dll_m_Logout == NULL) {
+        fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
+                EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
     }
 
     printf("Using slot #%lu...\n\n", SLOT_ID);
 
     rc = do_GetFunctionList();
-    if(! rc) {
+    if (!rc) {
         fprintf(stderr, "ERROR do_GetFunctionList() Failed, rx = 0x%0x\n", rc);
         return rc;
     }
@@ -954,39 +967,40 @@ int main(int argc, char **argv)
     }
 
     flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
-    rc = funcs->C_OpenSession(SLOT_ID, flags, NULL, NULL, &session );
+    rc = funcs->C_OpenSession(SLOT_ID, flags, NULL, NULL, &session);
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_OpenSession() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_OpenSession() rc = 0x%02x [%s]\n", rc,
+                p11_get_ckr(rc));
         session = CK_INVALID_HANDLE;
         return rc;
     }
 
-    if (get_user_pin(user_pin))
-    {
+    if (get_user_pin(user_pin)) {
         fprintf(stderr, "get_user_pin() failed\n");
         rc = funcs->C_CloseAllSessions(SLOT_ID);
         if (rc != CKR_OK)
-            fprintf(stderr, "C_CloseAllSessions() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));
+            fprintf(stderr, "C_CloseAllSessions() rc = 0x%02x [%s]\n", rc,
+                    p11_get_ckr(rc));
         return rc;
     }
 
-    user_pin_len = (CK_ULONG) strlen((char *)user_pin);
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
     rc = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
-        fprintf(stderr, "C_Login() rc = 0x%02x [%s]\n",rc, p11_get_ckr(rc));
+        fprintf(stderr, "C_Login() rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
         return rc;
     }
 
-    switch(action) {
-        case ACTION_SHOW:
-            rc = show_sessions(session);
-            break;
-        case ACTION_LOGOUT:
-            rc = logout_sessions(session);
-            break;
-        case ACTION_VHSMPIN:
-            rc = set_vhsmpin(session);
-            break;
+    switch (action) {
+    case ACTION_SHOW:
+        rc = show_sessions(session);
+        break;
+    case ACTION_LOGOUT:
+        rc = logout_sessions(session);
+        break;
+    case ACTION_VHSMPIN:
+        rc = set_vhsmpin(session);
+        break;
     }
     if (rc != CKR_OK)
         return rc;
