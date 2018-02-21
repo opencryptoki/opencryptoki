@@ -1,3 +1,13 @@
+* opencryptoki 3.9.0
+- Fix token reinitialization
+- Fix conditional man pages
+- EP11 enhancements
+- EP11 EC Key import
+- Increase RSA max key length
+- Fix broken links on documentation
+- Define CK_FALSE and CK_TRUE macros
+- Improve build flags
+
 * opencryptoki 3.8.2
 - Update man pages.
 - Improve ock_tests for parallel execution.
