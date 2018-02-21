@@ -11,27 +11,23 @@
 #ifndef __ICA_SPECIFIC_H
 #define __ICA_SPECIFIC_H
 
-CK_BBOOL	mech_list_ica_init = FALSE;
+CK_BBOOL mech_list_ica_init = FALSE;
 
-typedef struct _REF_MECH_LIST_ELEMENT
-{
-	CK_ULONG             lica_idx;
-	CK_MECHANISM_TYPE    mech_type;
-	CK_MECHANISM_INFO    mech_info;
+typedef struct _REF_MECH_LIST_ELEMENT {
+    CK_ULONG lica_idx;
+    CK_MECHANISM_TYPE mech_type;
+    CK_MECHANISM_INFO mech_info;
 } REF_MECH_LIST_ELEMENT;
 
-extern REF_MECH_LIST_ELEMENT	ref_mech_list[];
-extern CK_ULONG		ref_mech_list_len;
+extern REF_MECH_LIST_ELEMENT ref_mech_list[];
+extern CK_ULONG ref_mech_list_len;
 
-CK_RV
-ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-				CK_ULONG_PTR pulCount);
+CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                      CK_ULONG_PTR pulCount);
 
-CK_RV
-ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-				CK_MECHANISM_INFO_PTR pInfo);
+CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                      CK_MECHANISM_INFO_PTR pInfo);
 
-CK_RV
-mech_list_ica_initialize(void);
+CK_RV mech_list_ica_initialize(void);
 
 #endif
