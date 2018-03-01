@@ -1,0 +1,17 @@
+-nbad -bap -nsob // blank lines
+-nbc // comma separated declarations
+-bbo -hnl // breaking long lines before boolean operators
+-br -ce -sai // if statements
+-brs // struct declarations
+-c33 -cd33 -ncdb -d0 -nfc1 -nsc -nfca // comments
+-nut -ci4 -i4 -ip0 -lp // indentation
+-cli0 // switch statements
+-di1 //declarations
+-l80 // line length
+-npcs // no space after function call names
+-nprs // no space after every '(' and before every ')'
+-npsl // put the type of a procedure on the same line as its name
+-saf -saw -nss -cdw // loop statements
+-cs // cast operators
+-cp33 // #else #endif
+-il0 // labels
