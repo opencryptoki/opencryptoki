@@ -715,6 +715,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 		     CK_SESSION_HANDLE_PTR phSession)
 {
 	CK_RV rc = CKR_OK;
+    SESSION *sess;
 
 	if (tokdata->initialized == FALSE) {
 		TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -742,7 +743,15 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 		return rc;
 	}
 
-	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
+    sess = session_mgr_find(*phSession);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    sess->handle = *phSession;
+
+	TRACE_INFO("C_OpenSession: rc = 0x%08lx sess = %lu\n", rc, sess->handle);
 	return rc;
 }
 

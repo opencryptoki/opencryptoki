@@ -702,7 +702,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
         rc = ep11tok_login_session(tokdata, sess);
     }
 
-	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
+	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n sess = %lu\n", rc, sess->handle);
 	return rc;
 }
 

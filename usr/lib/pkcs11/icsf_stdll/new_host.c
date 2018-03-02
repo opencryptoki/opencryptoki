@@ -551,7 +551,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 	sess->handle = *phSession;
 	rc = icsftok_open_session(tokdata, sess);
 
-	TRACE_INFO("C_OpenSession: rc = 0x%08lx\n", rc);
+	TRACE_INFO("C_OpenSession: rc = 0x%08lx sess = %lu\n", rc, sess->handle);
 	return rc;
 }
 

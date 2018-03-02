@@ -148,8 +148,10 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
 	}
 	if (!Valid_Session(hSession, &rSession)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
 		return CKR_SESSION_HANDLE_INVALID;
 	}
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -214,8 +216,10 @@ C_CopyObject(CK_SESSION_HANDLE hSession,
 
 	if (!Valid_Session(hSession, &rSession)) {
 		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
 		return CKR_SESSION_HANDLE_INVALID;
 	}
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	if (!phNewObject) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -277,10 +281,13 @@ C_CreateObject(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// Null template is invalid...    An object needs a minimal
 	// template for creation.
 	if (!pTemplate) {
@@ -347,10 +354,13 @@ C_Decrypt(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// Null encrypted data is invalid, null pData buffer is invalid
 	// as is null location to put the response into.
 	if (!pEncryptedData || !pulDataLen) {
@@ -403,10 +413,12 @@ C_DecryptDigestUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	// This may have to go to the STDLL for validation
 	if (!pEncryptedPart || !pulPartLen) {
@@ -462,10 +474,13 @@ C_DecryptFinal(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// This may have to go to the STDLL for validation
 	// It is acceptable to have a Null pointer for the data since
 	// it is trying to get the length of the last part....
@@ -521,10 +536,13 @@ C_DecryptInit(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// Null mechanism pointer is not good
 	if (!pMechanism) {
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -578,10 +596,13 @@ C_DecryptUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// May have to let these go through and let the STDLL handle them
 	if (!pulPartLen) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -632,10 +653,13 @@ C_DecryptVerifyUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// May have to let these go through and let the STDLL handle them
 	if (!pEncryptedPart || !pulPartLen) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -686,10 +710,12 @@ C_DeriveKey(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	// Null phKey is invalid
 	// Null mechanism pointer  is invalid
@@ -754,10 +780,12 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -800,10 +828,12 @@ C_Digest(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	// Null data for digest is bad
 	if (!pData || !pulDigestLen)
@@ -859,10 +889,12 @@ C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_ARGUMENTS_BAD;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -912,10 +944,12 @@ C_DigestFinal(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -962,10 +996,12 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1005,10 +1041,12 @@ CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1050,10 +1088,12 @@ C_DigestUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1103,10 +1143,12 @@ C_Encrypt(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1155,10 +1197,12 @@ C_EncryptFinal(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1207,10 +1251,12 @@ C_EncryptInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1261,10 +1307,12 @@ C_EncryptUpdate(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1393,10 +1441,12 @@ C_FindObjects(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1443,10 +1493,12 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1496,10 +1548,12 @@ C_FindObjectsInit(CK_SESSION_HANDLE hSession,
 	}
 	// What does a NULL template really mean
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1553,10 +1607,12 @@ C_GenerateKey(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1618,10 +1674,13 @@ C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
 	// template pointers is a Null template pointer valid in generate
 	// key...  Are there defaults.
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1673,10 +1732,12 @@ C_GenerateRandom(CK_SESSION_HANDLE hSession,
 	if (!RandomData)
 		return CKR_ARGUMENTS_BAD;
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -1734,10 +1795,12 @@ C_GetAttributeValue(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
 		return CKR_TEMPLATE_INCOMPLETE;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -2044,10 +2107,12 @@ C_GetObjectSize(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -2097,10 +2162,12 @@ C_GetOperationState(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -2152,10 +2219,12 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 		return CKR_ARGUMENTS_BAD;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -2747,10 +2816,13 @@ CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 		return CKR_ARGUMENTS_BAD;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
 	// XXX Remove me, this test should be completely unnecessary
 	// Move this to after the session validation...
 	if (rSession.slotID >= NUMBER_SLOTS_MANAGED) {
@@ -2879,10 +2951,12 @@ C_Login(CK_SESSION_HANDLE hSession,
 	}
 #endif
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -2929,10 +3003,12 @@ CK_RV C_Logout(CK_SESSION_HANDLE hSession)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3083,10 +3159,12 @@ C_SeedRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3136,10 +3214,12 @@ C_SetAttributeValue(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	if (!pTemplate) {
 		TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -3194,10 +3274,12 @@ C_SetOperationState(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	if (!pOperationState || ulOperationStateLen == 0) {
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -3260,10 +3342,12 @@ C_SetPIN(CK_SESSION_HANDLE hSession,
 	if (!pOldPin || !pNewPin)
 		return CKR_PIN_INVALID;
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3316,10 +3400,12 @@ C_Sign(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3369,10 +3455,12 @@ C_SignEncryptUpdate(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3427,10 +3515,12 @@ C_SignFinal(CK_SESSION_HANDLE hSession,
 		return CKR_ARGUMENTS_BAD;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3483,10 +3573,12 @@ C_SignInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3536,10 +3628,12 @@ C_SignRecover(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3590,10 +3684,12 @@ C_SignRecoverInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3641,10 +3737,12 @@ C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3706,10 +3804,12 @@ C_UnwrapKey(CK_SESSION_HANDLE hSession,
 	//  what about the other pointers... probably need
 	// to be set correctly
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3763,10 +3863,12 @@ C_Verify(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3813,10 +3915,12 @@ C_VerifyFinal(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3865,10 +3969,12 @@ C_VerifyInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3918,10 +4024,12 @@ C_VerifyRecover(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
 		return CKR_ARGUMENTS_BAD;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -3968,10 +4076,12 @@ C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
 		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
 		return CKR_MECHANISM_INVALID;
 	}
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -4014,10 +4124,12 @@ C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 	}
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
@@ -4206,10 +4318,12 @@ C_WrapKey(CK_SESSION_HANDLE hSession,
 	}
 	//   other pointers???
 
-	if (!Valid_Session(hSession, &rSession)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-		return CKR_SESSION_HANDLE_INVALID;
-	}
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
 	sltp = &(Anchor->SltList[rSession.slotID]);
 	if (sltp->DLLoaded == FALSE) {
