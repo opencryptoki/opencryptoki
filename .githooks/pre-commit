@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# Check that the code follows the coding style
+#
+# If the code does not follow the coding style a warning will be printed.
+#
+
+version=`gnuindent --version 2> /dev/null`
+if [ "x$version" = "x" ]; then
+    version=`indent --version 2> /dev/null`
+    if [ "x$version" = "x" ] || [[ "$version" != *GNU* ]]; then
+        echo "Git pre-commit hook:"
+        echo "Did not find GNU indent, please install it before continuing."
+        exit 1
+    fi
+    INDENT=indent
+else
+    INDENT=gnuindent
+fi
+
+echo "*******************"
+
+for file in `git diff-index --cached --name-only HEAD --diff-filter=ACMR`; do
+    ext=$(expr "$file" : ".*\(\..*\)")
+    case $ext in
+        .c|.h)
+            echo "Checking code style"
+            # ckfile is the temporary checkout and we indent it
+            ckfile=`git checkout-index --temp ${file} | cut -f 1`
+            newfile=`mktemp /tmp/${ckfile}.XXXXXX` || exit 1
+            $INDENT $ckfile -o $newfile 2>> /dev/null
+            $INDENT $newfile 2>> /dev/null
+            diff -u -p "${ckfile}" "${newfile}"
+            r=$?
+            rm "${ckfile}"
+            rm "${newfile}"
+            rm "${newfile}~"
+            if [ $r != 0 ]; then
+                echo "Warning: Code style error in $file"
+                read -n1 -p "Do you want to CONTINUE committing? [Y/n]" opt < /dev/tty
+                case $opt in
+                    n|N)
+                        echo
+                        exit 1
+                        ;;
+                    *)
+                        ;;
+                esac
+                echo "*******************"
+            fi
+            exit 0
+            ;;
+        *)
+            echo "Not checking code style for this type of file"
+            echo "*******************"
+            ;;
+    esac
+done

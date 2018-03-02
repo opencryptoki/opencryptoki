@@ -10,6 +10,20 @@ The inspiration and formatting of this document came from the Linux Kernel
 coding style document, but make no assumption as the coding style differ from
 each other on some aspects.
 
+## 0. Setting up automatic code style check
+
+To help developers on checking if their code changes are following the coding
+style format, we created a pre-commit git hook which is shared under .githooks/
+directory. This hook will use GNU indent to check your code changes.
+
+You might wonder "why we ask for user confirmation?". Well, we don't want to
+create a overhead for developers that are working on feature branches and their
+code changes are not yet ready for a pull request.
+
+To set up the pre-commit hook, each developer after cloning the project needs
+to run:
+$ ln -s ../../.githooks/pre-commit .git/hooks/pre-commit
+
 ## 1. Indentation
 
 Tabs are 4 space characters, differently from many projects that define it as 8
