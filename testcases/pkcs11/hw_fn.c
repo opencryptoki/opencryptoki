@@ -40,227 +40,238 @@ CK_SESSION_HANDLE	sess;
 /*
  * do_HW_Feature_Seatch Test:
  *
- * 1. Create 5 objects, 3 of which are HW_FEATURE objects.
+ * 1. Create 5 objects, 3 of which are HW_FEATURE objects (2 of them are
+ *    monotonic counters).
  * 2. Search for objects using a template that does not have its
  *    HW_FEATURE attribute set.
  * 3. Result should be that the other 2 objects are returned, and
  *    not the HW_FEATURE objects.
  * 4. Search for objects using a template that does have its
  *    HW_FEATURE attribute set.
- * 5. Result should be that the 3 hardware feature objects are returned.
+ * 5. Result should be that the only hardware feature objects that are not
+ *    monotonic counters should be returned.
  *
  */
-
 int do_HW_Feature_Search(void)
 {
-	unsigned int            i;
-	CK_RV 			rc;
-	CK_ULONG		find_count;
+    unsigned int    i;
+    CK_RV 			rc;
+    CK_ULONG		find_count;
 
-	CK_BBOOL		false = FALSE;
-        CK_BBOOL                true = TRUE;
+    CK_BBOOL        false = FALSE;
+    CK_BBOOL        true = TRUE;
 
-	// A counter object
-        CK_OBJECT_CLASS         counter1_class = CKO_HW_FEATURE;
-        CK_HW_FEATURE_TYPE      feature1_type = CKH_MONOTONIC_COUNTER;
-        CK_UTF8CHAR             counter1_label[] = "Monotonic counter";
-	CK_CHAR			counter1_value[16];
-        CK_ATTRIBUTE            counter1_template[] = {
-                {CKA_CLASS,		&counter1_class, sizeof(counter1_class)},
-                {CKA_HW_FEATURE_TYPE,	&feature1_type,  sizeof(feature1_type)},
-                {CKA_LABEL,		counter1_label,  sizeof(counter1_label)-1},
-		{CKA_VALUE,		counter1_value,	sizeof(counter1_value)},
-		{CKA_RESET_ON_INIT,	&true,		sizeof(true)},
-		{CKA_HAS_RESET,		&false,		sizeof(false)}
-        };
-	// Another counter object
-        CK_OBJECT_CLASS         counter2_class = CKO_HW_FEATURE;
-        CK_HW_FEATURE_TYPE      feature2_type = CKH_MONOTONIC_COUNTER;
-        CK_UTF8CHAR             counter2_label[] = "Monotonic counter";
-	CK_CHAR			counter2_value[16];
-        CK_ATTRIBUTE            counter2_template[] = {
-                {CKA_CLASS,		&counter2_class, sizeof(counter2_class)},
-                {CKA_HW_FEATURE_TYPE,	&feature2_type,  sizeof(feature2_type)},
-                {CKA_LABEL,		counter2_label,  sizeof(counter2_label)-1},
-		{CKA_VALUE,		counter2_value,	sizeof(counter2_value)},
-		{CKA_RESET_ON_INIT,	&true,		sizeof(true)},
-		{CKA_HAS_RESET,		&false,		sizeof(false)}
-        };
-	// A clock object
-        CK_OBJECT_CLASS         clock_class = CKO_HW_FEATURE;
-        CK_HW_FEATURE_TYPE      clock_type = CKH_CLOCK;
-        CK_UTF8CHAR             clock_label[] = "Clock";
-	CK_CHAR			clock_value[16];
-        CK_ATTRIBUTE            clock_template[] = {
-                {CKA_CLASS,		&clock_class, sizeof(clock_class)},
-                {CKA_HW_FEATURE_TYPE,	&clock_type,  sizeof(clock_type)},
-                {CKA_LABEL,		clock_label,  sizeof(clock_label)-1},
-		{CKA_VALUE,		clock_value,	sizeof(clock_value)}
-        };
-	// A data object
-	CK_OBJECT_CLASS		obj1_class = CKO_DATA;
-        CK_UTF8CHAR             obj1_label[] = "Object 1";
-	CK_BYTE			obj1_data[] = "Object 1's data";
-        CK_ATTRIBUTE            obj1_template[] = {
-                {CKA_CLASS,		&obj1_class,    sizeof(obj1_class)},
-                {CKA_TOKEN,		&true,          sizeof(true)},
-                {CKA_LABEL,		obj1_label,     sizeof(obj1_label)-1},
-		{CKA_VALUE,		obj1_data,	sizeof(obj1_data)}
-        };
+    // A counter object
+    CK_OBJECT_CLASS         counter1_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE      feature1_type = CKH_MONOTONIC_COUNTER;
+    CK_UTF8CHAR             counter1_label[] = "Monotonic counter";
+    CK_CHAR                 counter1_value[16];
+    CK_ATTRIBUTE            counter1_template[] = {
+        {CKA_CLASS,             &counter1_class,    sizeof(counter1_class)},
+        {CKA_HW_FEATURE_TYPE,   &feature1_type,     sizeof(feature1_type)},
+        {CKA_LABEL,             counter1_label,     sizeof(counter1_label)-1},
+        {CKA_VALUE,             counter1_value,     sizeof(counter1_value)},
+        {CKA_RESET_ON_INIT,     &true,              sizeof(true)},
+        {CKA_HAS_RESET,         &false,             sizeof(false)}
+    };
+
+    // Another counter object
+    CK_OBJECT_CLASS         counter2_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE      feature2_type = CKH_MONOTONIC_COUNTER;
+    CK_UTF8CHAR             counter2_label[] = "Monotonic counter";
+    CK_CHAR                 counter2_value[16];
+    CK_ATTRIBUTE            counter2_template[] = {
+        {CKA_CLASS,             &counter2_class,    sizeof(counter2_class)},
+        {CKA_HW_FEATURE_TYPE,   &feature2_type,     sizeof(feature2_type)},
+        {CKA_LABEL,             counter2_label,     sizeof(counter2_label)-1},
+        {CKA_VALUE,             counter2_value,     sizeof(counter2_value)},
+        {CKA_RESET_ON_INIT,     &true,              sizeof(true)},
+        {CKA_HAS_RESET,         &false,             sizeof(false)}
+    };
+
+    // A clock object
+    CK_OBJECT_CLASS         clock_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE      clock_type = CKH_CLOCK;
+    CK_UTF8CHAR             clock_label[] = "Clock";
+    CK_CHAR                 clock_value[16];
+    CK_ATTRIBUTE            clock_template[] = {
+        {CKA_CLASS,             &clock_class,   sizeof(clock_class)},
+        {CKA_HW_FEATURE_TYPE,   &clock_type,    sizeof(clock_type)},
+        {CKA_LABEL,             clock_label,    sizeof(clock_label)-1},
+        {CKA_VALUE,             clock_value,    sizeof(clock_value)}
+    };
+
+    // A data object
+    CK_OBJECT_CLASS     obj1_class = CKO_DATA;
+    CK_UTF8CHAR         obj1_label[] = "Object 1";
+    CK_BYTE             obj1_data[] = "Object 1's data";
+    CK_ATTRIBUTE        obj1_template[] = {
+        {CKA_CLASS,     &obj1_class,    sizeof(obj1_class)},
+        {CKA_TOKEN,     &true,          sizeof(true)},
+        {CKA_LABEL,     obj1_label,     sizeof(obj1_label)-1},
+        {CKA_VALUE,     obj1_data,      sizeof(obj1_data)}
+    };
+
 	// A secret key object
-	CK_OBJECT_CLASS		obj2_class = CKO_SECRET_KEY;
-	CK_KEY_TYPE		obj2_type = CKK_AES;
-        CK_UTF8CHAR             obj2_label[] = "Object 2";
-	CK_BYTE			obj2_data[AES_KEY_SIZE_128];
-        CK_ATTRIBUTE            obj2_template[] = {
-                {CKA_CLASS,		&obj2_class,    sizeof(obj2_class)},
-                {CKA_TOKEN,		&true,          sizeof(true)},
-		{CKA_KEY_TYPE,		&obj2_type,	sizeof(obj2_type)},
-                {CKA_LABEL,		obj2_label,     sizeof(obj2_label)-1},
-		{CKA_VALUE,		obj2_data,	sizeof(obj2_data)}
-        };
+    CK_OBJECT_CLASS     obj2_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE         obj2_type = CKK_AES;
+    CK_UTF8CHAR         obj2_label[] = "Object 2";
+    CK_BYTE             obj2_data[AES_KEY_SIZE_128];
+    CK_ATTRIBUTE        obj2_template[] = {
+        {CKA_CLASS,     &obj2_class,    sizeof(obj2_class)},
+        {CKA_TOKEN,     &true,          sizeof(true)},
+        {CKA_KEY_TYPE,  &obj2_type,     sizeof(obj2_type)},
+        {CKA_LABEL,     obj2_label,     sizeof(obj2_label)-1},
+        {CKA_VALUE,     obj2_data,      sizeof(obj2_data)}
+    };
 
-        CK_OBJECT_HANDLE        h_counter1,
-				h_counter2,
-				h_clock,
-				h_obj1,
-				h_obj2,
-				obj_list[10];
-	CK_ATTRIBUTE		find_tmpl[] = {
-		{CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
-	};
+    CK_OBJECT_HANDLE h_counter1,
+                     h_counter2,
+                     h_clock,
+                     h_obj1,
+                     h_obj2,
+                     obj_list[10];
 
+    CK_ATTRIBUTE find_tmpl[] = {
+        {CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
+    };
 
-	/* Create the 3 test objects */
-	if( (rc = funcs->C_CreateObject(sess, obj1_template, 4, &h_obj1)) != CKR_OK) {
-		show_error("C_CreateObject #1", rc);
-		return rc;
-	}
+    /* Create the 5 test objects */
+    rc = funcs->C_CreateObject(sess, obj1_template, 4, &h_obj1);
+    if (rc != CKR_OK) {
+        show_error("C_CreateObject #1", rc);
+        return rc;
+    }
 
-	if( (rc = funcs->C_CreateObject(sess, obj2_template, 5, &h_obj2)) != CKR_OK) {
-		show_error("C_CreateObject #2", rc);
-		goto destroy_1;
-	}
+    rc = funcs->C_CreateObject(sess, obj2_template, 5, &h_obj2);
+    if (rc != CKR_OK) {
+        show_error("C_CreateObject #2", rc);
+        goto destroy_1;
+    }
 
-	if( (rc = funcs->C_CreateObject(sess, counter1_template, 6, &h_counter1)) != CKR_OK) {
-		show_error("C_CreateObject #3", rc);
-		goto destroy_2;
-	}
+    rc = funcs->C_CreateObject(sess, counter1_template, 6, &h_counter1);
+    if (rc != CKR_ATTRIBUTE_READ_ONLY) {
+        show_error("C_CreateObject #3", rc);
+        goto destroy_2;
+    }
 
-	if( (rc = funcs->C_CreateObject(sess, counter2_template, 6, &h_counter2)) != CKR_OK) {
-		show_error("C_CreateObject #4", rc);
-		goto destroy_3;
-	}
+    rc = funcs->C_CreateObject(sess, counter2_template, 6, &h_counter2);
+    if (rc != CKR_ATTRIBUTE_READ_ONLY) {
+        show_error("C_CreateObject #4", rc);
+        goto destroy_3;
+    }
 
-	if( (rc = funcs->C_CreateObject(sess, clock_template, 4, &h_clock)) != CKR_OK) {
-		show_error("C_CreateObject #5", rc);
-		goto destroy_4;
-	}
-
-
-	// Search for the 2 objects w/o HW_FEATURE set
-	//
-
-	// A NULL template here should return all objects in v2.01, but
-	// in v2.11, it should return all objects *except* HW_FEATURE
-	// objects. - KEY
-	rc = funcs->C_FindObjectsInit( sess, NULL, 0 );
-	if (rc != CKR_OK) {
-		show_error("   C_FindObjectsInit #1", rc );
-		goto done;
-	}
-
-	rc = funcs->C_FindObjects( sess, obj_list, 10, &find_count );
-	if (rc != CKR_OK) {
-		show_error("   C_FindObjects #1", rc );
-		goto done;
-	}
-
-	/* So, we created 3 objects before here, and then searched with a NULL
-	 * template, so that should return all objects except our hardware
-	 * feature object. -KEY */
-	if (find_count != 2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
-				"           It found %ld objects\n", __FILE__, __LINE__,
-				find_count);
-		rc = -1;
-		goto done;
-	}
-
-	if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
-				__FILE__, __LINE__);
-		rc = -1;
-		goto done;
-	}
-
-	if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
-		printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
-				__FILE__, __LINE__);
-		rc = -1;
-		goto done;
-	}
-
-	rc = funcs->C_FindObjectsFinal( sess );
-	if (rc != CKR_OK) {
-		show_error("   C_FindObjectsFinal #1", rc );
-		goto done;
-	}
+    rc = funcs->C_CreateObject(sess, clock_template, 4, &h_clock);
+    if (rc != CKR_OK) {
+        show_error("C_CreateObject #5", rc);
+        goto destroy_4;
+    }
 
 
-	// Now find the hardware feature objects
-        rc = funcs->C_FindObjectsInit( sess, find_tmpl, 1 );
-        if (rc != CKR_OK) {
-                show_error("   C_FindObjectsInit #2", rc );
-                goto done;
+    /* Search for the 2 objects w/o HW_FEATURE set
+     * A NULL template here should return all objects in v2.01, but
+     * in v2.11, it should return all objects *except* HW_FEATURE
+     * objects.
+     */
+    rc = funcs->C_FindObjectsInit(sess, NULL, 0);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjectsInit #1", rc);
+        goto done;
+    }
+
+    rc = funcs->C_FindObjects(sess, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjects #1", rc);
+        goto done;
+    }
+
+    /* So, we created 5 objects before here, and then searched with a NULL
+     * template, so that should return all objects except our hardware
+     * feature object.
+     */
+    if (find_count != 2) {
+        printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
+               "           It found %ld objects\n", __FILE__, __LINE__,
+               find_count);
+        rc = -1;
+        goto done;
+    }
+
+    if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
+        printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
+                __FILE__, __LINE__);
+        rc = -1;
+        goto done;
+    }
+
+    if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
+        printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
+                __FILE__, __LINE__);
+        rc = -1;
+        goto done;
+    }
+
+    rc = funcs->C_FindObjectsFinal(sess);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjectsFinal #1", rc);
+        goto done;
+    }
+
+
+    /* Now find the hardware feature objects (should find only 1 since monotonic
+     * counters are read-only
+     */
+    rc = funcs->C_FindObjectsInit(sess, find_tmpl, 1);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjectsInit #2", rc);
+        goto done;
+    }
+
+    rc = funcs->C_FindObjects(sess, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjects #2", rc);
+        goto done;
+    }
+
+    if (find_count != 1) {
+        printf("%s:%d ERROR:  C_FindObjects #2 should have found 1 object!\n"
+               "           It found %ld objects\n", __FILE__, __LINE__,
+               find_count);
+        funcs->C_FindObjectsFinal(sess);
+        rc = -1;
+        goto done;
+    }
+
+    /* Make sure we got the right ones */
+    for( i=0; i < find_count; i++) {
+        if (obj_list[i] != h_counter1 &&
+            obj_list[i] != h_counter2 &&
+			obj_list[i] != h_clock) {
+
+            printf("%s:%d ERROR:  C_FindObjects #2 found the wrong\n"
+                   " objects!", __FILE__, __LINE__);
+            rc = -1;
         }
+    }
 
-        rc = funcs->C_FindObjects( sess, obj_list, 10, &find_count );
-        if (rc != CKR_OK) {
-                show_error("   C_FindObjects #2", rc );
-                goto done;
-        }
-
-        if (find_count != 3) {
-                printf("%s:%d ERROR:  C_FindObjects #2 should have found 3 objects!\n"
-                       "           It found %ld objects\n", __FILE__, __LINE__,
-		       find_count);
-                funcs->C_FindObjectsFinal( sess );
-		rc = -1;
-                goto done;
-        }
-
-	/* Make sure we got the right ones */
-	for( i=0; i < find_count; i++) {
-		if(	obj_list[i] != h_counter1 &&
-			obj_list[i] != h_counter2 &&
-			obj_list[i] != h_clock)
-		{
-
-			printf("%s:%d ERROR:  C_FindObjects #2 found the wrong\n"
-					" objects!", __FILE__, __LINE__);
-			rc = -1;
-		}
-        }
-
-        rc = funcs->C_FindObjectsFinal( sess );
-        if (rc != CKR_OK) {
-                show_error("   C_FindObjectsFinal #2", rc );
-        }
+    rc = funcs->C_FindObjectsFinal(sess);
+    if (rc != CKR_OK) {
+        show_error("   C_FindObjectsFinal #2", rc);
+    }
 
 done:
-	/* Destroy the created objects, don't clobber the rc */
-	funcs->C_DestroyObject(sess, h_clock);
+    /* Destroy the created objects, don't clobber the rc */
+    funcs->C_DestroyObject(sess, h_clock);
 destroy_4:
-	funcs->C_DestroyObject(sess, h_counter2);
+    funcs->C_DestroyObject(sess, h_counter2);
 destroy_3:
-	funcs->C_DestroyObject(sess, h_counter1);
+    funcs->C_DestroyObject(sess, h_counter1);
 destroy_2:
-	funcs->C_DestroyObject(sess, h_obj2);
+    funcs->C_DestroyObject(sess, h_obj2);
 destroy_1:
-	funcs->C_DestroyObject(sess, h_obj1);
+    funcs->C_DestroyObject(sess, h_obj1);
 
-	return rc;
+    return rc;
 }
 
 

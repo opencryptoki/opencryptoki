@@ -169,8 +169,8 @@ counter_validate_attribute( TEMPLATE *tmpl, CK_ATTRIBUTE *attr, CK_ULONG mode)
       case CKA_HAS_RESET:
 	 /* Fall Through */
       case CKA_RESET_ON_INIT:
-            return CKR_OK;
-
+          TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+          return CKR_ATTRIBUTE_READ_ONLY;
       default:
 	 return hwf_validate_attribute( tmpl, attr, mode );
    }

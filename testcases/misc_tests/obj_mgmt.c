@@ -1162,251 +1162,260 @@ CK_RV do_CreateTokenObjects(void)
 }
 
 /*
- * do_HW_Feature_Search Test:
+ * do_HWFeatureSearch Test:
  *
- * 1. Create 5 objects, 3 of which are HW_FEATURE objects.
+ * 1. Create 4 objects, 2 of which are HW_FEATURE objects (1 of them is a
+ *    monotonic counter).
  * 2. Search for objects using a template that does not have its
  *    HW_FEATURE attribute set.
  * 3. Result should be that the other 2 objects are returned, and
  *    not the HW_FEATURE objects.
  * 4. Search for objects using a template that does have its
  *    HW_FEATURE attribute set.
- * 5. Result should be that the 3 hardware feature objects are returned.
+ * 5. Result should be that the only hardware feature objects that is not a
+ *    monotonic counter should be returned.
  *
  */
-
 CK_RV do_HWFeatureSearch(void)
 {
-	unsigned int            i;
-	CK_RV 			rc, loc_rc;
-	CK_ULONG		find_count;
-	CK_SLOT_ID		slot_id;
-	CK_BBOOL		false = FALSE;
-	CK_BBOOL                true = TRUE;
+    unsigned int    i;
+    CK_RV           rc, loc_rc;
+    CK_ULONG        find_count;
+    CK_SLOT_ID      slot_id;
+    CK_BBOOL        false = FALSE;
+    CK_BBOOL        true = TRUE;
 
-	CK_SESSION_HANDLE 	h_session;
-	CK_BYTE           	user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG          	user_pin_len;
+    CK_SESSION_HANDLE   h_session;
+    CK_BYTE             user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG            user_pin_len;
 
-	/* A counter object */
-	CK_OBJECT_CLASS         counter1_class = CKO_HW_FEATURE;
-	CK_HW_FEATURE_TYPE      feature1_type = CKH_MONOTONIC_COUNTER;
-	CK_UTF8CHAR             counter1_label[] = "Monotonic counter";
-	CK_CHAR			counter1_value[16];
-	CK_ATTRIBUTE            counter1_template[] = {
-		{CKA_CLASS,		&counter1_class, sizeof(counter1_class)},
-		{CKA_HW_FEATURE_TYPE,	&feature1_type,  sizeof(feature1_type)},
-		{CKA_LABEL,		counter1_label,  sizeof(counter1_label)-1},
-		{CKA_VALUE,		counter1_value,	sizeof(counter1_value)},
-		{CKA_RESET_ON_INIT,	&true,		sizeof(true)},
-		{CKA_HAS_RESET,		&false,		sizeof(false)}
-	};
-	/* A clock object */
-	CK_OBJECT_CLASS         clock_class = CKO_HW_FEATURE;
-	CK_HW_FEATURE_TYPE      clock_type = CKH_CLOCK;
-	CK_UTF8CHAR             clock_label[] = "Clock";
-	CK_CHAR			clock_value[16];
-	CK_ATTRIBUTE            clock_template[] = {
-		{CKA_CLASS,		&clock_class, sizeof(clock_class)},
-		{CKA_HW_FEATURE_TYPE,	&clock_type,  sizeof(clock_type)},
-		{CKA_LABEL,		clock_label,  sizeof(clock_label)-1},
-		{CKA_VALUE,		clock_value,	sizeof(clock_value)}
-	};
-	/* A data object */
-	CK_OBJECT_CLASS		obj1_class = CKO_DATA;
-	CK_UTF8CHAR             obj1_label[] = "Object 1";
-	CK_BYTE			obj1_data[] = "Object 1's data";
-	CK_ATTRIBUTE            obj1_template[] = {
-		{CKA_CLASS,		&obj1_class,    sizeof(obj1_class)},
-		{CKA_TOKEN,		&true,          sizeof(true)},
-		{CKA_LABEL,		obj1_label,     sizeof(obj1_label)-1},
-		{CKA_VALUE,		obj1_data,	sizeof(obj1_data)}
-	};
-	/* A secret key object */
-	CK_OBJECT_CLASS		obj2_class = CKO_SECRET_KEY;
-	CK_KEY_TYPE		obj2_type = CKK_AES;
-	CK_UTF8CHAR             obj2_label[] = "Object 2";
-	CK_BYTE			obj2_data[AES_KEY_SIZE_128];
-	CK_ATTRIBUTE            obj2_template[] = {
-		{CKA_CLASS,		&obj2_class,    sizeof(obj2_class)},
-		{CKA_TOKEN,		&true,          sizeof(true)},
-		{CKA_KEY_TYPE,		&obj2_type,	sizeof(obj2_type)},
-		{CKA_LABEL,		obj2_label,     sizeof(obj2_label)-1},
-		{CKA_VALUE,		obj2_data,	sizeof(obj2_data)}
-	};
+    /* A counter object */
+    CK_OBJECT_CLASS     counter1_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE  feature1_type = CKH_MONOTONIC_COUNTER;
+    CK_UTF8CHAR         counter1_label[] = "Monotonic counter";
+    CK_CHAR             counter1_value[16];
+    CK_ATTRIBUTE        counter1_template[] = {
+        {CKA_CLASS,             &counter1_class,    sizeof(counter1_class)},
+        {CKA_HW_FEATURE_TYPE,   &feature1_type,     sizeof(feature1_type)},
+        {CKA_LABEL,             counter1_label,     sizeof(counter1_label)-1},
+        {CKA_VALUE,             counter1_value,     sizeof(counter1_value)},
+        {CKA_RESET_ON_INIT,     &true,              sizeof(true)},
+        {CKA_HAS_RESET,         &false,             sizeof(false)}
+    };
 
-	CK_OBJECT_HANDLE        h_counter1,
-				h_clock,
-				h_obj1,
-				h_obj2,
-				obj_list[10];
-	CK_ATTRIBUTE		find_tmpl[] = {
-		{CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
+    /* A clock object */
+    CK_OBJECT_CLASS     clock_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE  clock_type = CKH_CLOCK;
+    CK_UTF8CHAR         clock_label[] = "Clock";
+    CK_CHAR             clock_value[16];
+    CK_ATTRIBUTE        clock_template[] = {
+        {CKA_CLASS,             &clock_class,   sizeof(clock_class)},
+        {CKA_HW_FEATURE_TYPE,   &clock_type,    sizeof(clock_type)},
+        {CKA_LABEL,             clock_label,    sizeof(clock_label)-1},
+        {CKA_VALUE,             clock_value,    sizeof(clock_value)}
+    };
+
+    /* A data object */
+    CK_OBJECT_CLASS obj1_class = CKO_DATA;
+    CK_UTF8CHAR     obj1_label[] = "Object 1";
+    CK_BYTE         obj1_data[] = "Object 1's data";
+    CK_ATTRIBUTE    obj1_template[] = {
+        {CKA_CLASS, &obj1_class,    sizeof(obj1_class)},
+        {CKA_TOKEN, &true,          sizeof(true)},
+        {CKA_LABEL, obj1_label,     sizeof(obj1_label)-1},
+        {CKA_VALUE, obj1_data,      sizeof(obj1_data)}
+    };
+
+    /* A secret key object */
+    CK_OBJECT_CLASS obj2_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE     obj2_type = CKK_AES;
+    CK_UTF8CHAR     obj2_label[] = "Object 2";
+    CK_BYTE         obj2_data[AES_KEY_SIZE_128];
+    CK_ATTRIBUTE    obj2_template[] = {
+		{CKA_CLASS,     &obj2_class,    sizeof(obj2_class)},
+		{CKA_TOKEN,     &true,          sizeof(true)},
+		{CKA_KEY_TYPE,  &obj2_type,     sizeof(obj2_type)},
+		{CKA_LABEL,     obj2_label,     sizeof(obj2_label)-1},
+		{CKA_VALUE,     obj2_data,      sizeof(obj2_data)}
 	};
 
-        if (skip_token_obj == TRUE) {
-                testcase_notice("Skipping tests that creates token objects");
-                return CKR_OK;
-        }
+    CK_OBJECT_HANDLE h_counter1,
+                     h_clock,
+                     h_obj1,
+                     h_obj2,
+                     obj_list[10];
 
-	slot_id = SLOT_ID;
+    CK_ATTRIBUTE find_tmpl[] = {
+        {CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
+    };
 
-        testcase_begin("starting...");
+    if (skip_token_obj == TRUE) {
+        testcase_notice("Skipping tests that creates token objects");
+        return CKR_OK;
+    }
 
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+    slot_id = SLOT_ID;
 
-	/* Open a session with the token */
-	if( (rc = funcs->C_OpenSession(slot_id,
-					(CKF_SERIAL_SESSION|CKF_RW_SESSION),
-					NULL_PTR,
-					NULL_PTR,
-					&h_session)) != CKR_OK ) {
-                testcase_fail("C_OpenSession() rc = %s", p11_get_ckr(rc));
-		goto done;
-	}
+    testcase_begin("starting...");
 
-	// Login correctly
-	rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
-	if( rc != CKR_OK ) {
-                testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-		goto session_close;
-	}
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
 
-	/* Create the 3 test objects */
-	if( (rc = funcs->C_CreateObject(h_session, obj1_template, 4, &h_obj1)) != CKR_OK) {
-                testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+    user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+
+    /* Open a session with the token */
+    rc = funcs->C_OpenSession(slot_id,
+                              (CKF_SERIAL_SESSION|CKF_RW_SESSION),
+                              NULL_PTR,
+                              NULL_PTR,
+                              &h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_OpenSession() rc = %s", p11_get_ckr(rc));
+        goto done;
+    }
+
+    // Login correctly
+    rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
+        goto session_close;
+    }
+
+    /* Create the 4 test objects */
+    rc = funcs->C_CreateObject(h_session, obj1_template, 4, &h_obj1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
 		return rc;
 	}
 
-	if( (rc = funcs->C_CreateObject(h_session, obj2_template, 5, &h_obj2)) != CKR_OK) {
-                testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-		goto destroy_1;
-	}
+    rc = funcs->C_CreateObject(h_session, obj2_template, 5, &h_obj2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto destroy_1;
+    }
 
-	/* try and create a monotonic object. This should fail
-	 * since it is a read only feature.
-	 */
-	if( (rc = funcs->C_CreateObject(h_session, counter1_template, 6, &h_counter1)) != CKR_ATTRIBUTE_READ_ONLY) {
-                testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-		goto destroy_2;
-	}
+    /* try and create a monotonic object. This should fail
+     * since it is a read only feature.
+     */
+    rc = funcs->C_CreateObject(h_session, counter1_template, 6, &h_counter1);
+    if (rc != CKR_ATTRIBUTE_READ_ONLY) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto destroy_2;
+    }
 
-	if( (rc = funcs->C_CreateObject(h_session, clock_template, 4, &h_clock)) != CKR_OK) {
-                testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-		goto destroy_2;
-	}
-
-
-	/* Search for the 2 objects w/o HW_FEATURE set */
-
-	/* A NULL template here should return all objects in v2.01, but
-	 * in v2.11, it should return all objects *except* HW_FEATURE
-	 * objects. - KEY
-	 */
-	rc = funcs->C_FindObjectsInit(h_session, NULL, 0 );
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
-		goto destroy;
-	}
-
-	rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count );
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-		goto destroy;
-	}
-
-	/* So, we created 3 objects before here, and then searched with a NULL
-	 * template, so that should return all objects except our hardware
-	 * feature object. -KEY */
-	if (find_count != 2) {
-                testcase_fail("found %ld objects when expected 2", find_count);
-		rc = -1;
-		goto destroy;
-	}
-
-	if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
-                testcase_fail("found the wrong object handle");
-		rc = -1;
-		goto destroy;
-	}
-
-	if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
-                testcase_fail("found the wrong object handle");
-		rc = -1;
-		goto destroy;
-	}
-
-	rc = funcs->C_FindObjectsFinal(h_session);
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
-		goto destroy;
-	}
+    rc = funcs->C_CreateObject(h_session, clock_template, 4, &h_clock);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto destroy_2;
+    }
 
 
-	// Now find the hardware feature objects
-	rc = funcs->C_FindObjectsInit(h_session, find_tmpl, 1 );
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
-		goto destroy;
-	}
+    /* Search for the 2 objects w/o HW_FEATURE set */
+    /* A NULL template here should return all objects in v2.01, but
+     * in v2.11, it should return all objects *except* HW_FEATURE
+     * objects.
+     */
+    rc = funcs->C_FindObjectsInit(h_session, NULL, 0);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
 
-	rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count );
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-		goto destroy;
-	}
+    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
 
-	if (find_count != 1) {
-                testcase_fail("found %ld objects when expected 1", find_count);
-		funcs->C_FindObjectsFinal(h_session);   // TODO: check if we really need this here
-		rc = -1;
-		goto destroy;
-	}
+    /* So, we created 4 objects before here, and then searched with a NULL
+     * template, so that should return all objects except our hardware
+     * feature object
+     */
+    if (find_count != 2) {
+        testcase_fail("found %ld objects when expected 2", find_count);
+        rc = -1;
+        goto destroy;
+    }
 
-	/* Make sure we got the right ones */
-	for( i=0; i < find_count; i++) {
-		if(obj_list[i] != h_counter1 &&
-		   obj_list[i] != h_clock)
-		{
+    if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
+        testcase_fail("found the wrong object handle");
+        rc = -1;
+        goto destroy;
+    }
 
-                        testcase_fail("found the wrong object handles");
-			rc = -1;
-		}
-	}
+    if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
+        testcase_fail("found the wrong object handle");
+        rc = -1;
+        goto destroy;
+    }
 
-	rc = funcs->C_FindObjectsFinal(h_session );
-	if (rc != CKR_OK) {
-                testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
-	}
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
 
-        testcase_pass("Looks okay...");
+    // Now find the hardware feature objects
+    rc = funcs->C_FindObjectsInit(h_session, find_tmpl, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+
+    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+
+    if (find_count != 1) {
+        testcase_fail("found %ld objects when expected 1", find_count);
+        funcs->C_FindObjectsFinal(h_session);
+        rc = -1;
+        goto destroy;
+    }
+
+    /* Make sure we got the right ones */
+	for (i=0; i < find_count; i++) {
+        if (obj_list[i] != h_counter1 && obj_list[i] != h_clock) {
+            testcase_fail("found the wrong object handles");
+            rc = -1;
+        }
+    }
+
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+    }
+
+    testcase_pass("Looks okay...");
 
 destroy:
-	/* Destroy the created objects, don't clobber the rc */
-	loc_rc = funcs->C_DestroyObject(h_session, h_clock);
-	if( loc_rc != CKR_OK )
-                testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+    /* Destroy the created objects, don't clobber the rc */
+    loc_rc = funcs->C_DestroyObject(h_session, h_clock);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 destroy_2:
-	loc_rc = funcs->C_DestroyObject(h_session, h_obj2);
-	if( loc_rc != CKR_OK )
-                testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+    loc_rc = funcs->C_DestroyObject(h_session, h_obj2);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 destroy_1:
-	loc_rc = funcs->C_DestroyObject(h_session, h_obj1);
-	if( loc_rc != CKR_OK )
-                testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+    loc_rc = funcs->C_DestroyObject(h_session, h_obj1);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 
-	loc_rc = funcs->C_Logout(h_session);
-	if( loc_rc != CKR_OK )
-                testcase_fail("C_Logout() rc = %s", p11_get_ckr(loc_rc));
+    loc_rc = funcs->C_Logout(h_session);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_Logout() rc = %s", p11_get_ckr(loc_rc));
 
 session_close:
-	/* Close the session */
-	if( (loc_rc = funcs->C_CloseSession(h_session)) != CKR_OK )
-                testcase_fail("C_CloseSession() rc = %s", p11_get_ckr(loc_rc));
+    /* Close the session */
+    loc_rc = funcs->C_CloseSession(h_session);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_CloseSession() rc = %s", p11_get_ckr(loc_rc));
+
 done:
-	return rc;
+    return rc;
 }
 
 CK_RV obj_mgmt_functions()
