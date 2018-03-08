@@ -1,12 +1,12 @@
- /*
-  * COPYRIGHT (c) International Business Machines Corp. 2001-2017
-  *
-  * This program is provided under the terms of the Common Public License,
-  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
-  * software constitutes recipient's acceptance of CPL-1.0 terms which can be
-  * found in the file LICENSE file or at
-  * https://opensource.org/licenses/cpl1.0.php
-  */
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
 
 // File:  defs.h
 //
@@ -24,7 +24,7 @@
 #define MAX_SLOT_ID           1024
 
 #ifndef MIN
-  #define MIN(a, b)  ((a) < (b) ? (a) : (b))
+#define MIN(a, b)  ((a) < (b) ? (a) : (b))
 #endif
 
 // the following constants are used for sccSignOn
@@ -64,29 +64,29 @@
 // saved-state identifiers
 //
 enum {
-   STATE_INVALID = 0,
-   STATE_ENCR,
-   STATE_DECR,
-   STATE_DIGEST,
-   STATE_SIGN,
-   STATE_VERIFY
+    STATE_INVALID = 0,
+    STATE_ENCR,
+    STATE_DECR,
+    STATE_DIGEST,
+    STATE_SIGN,
+    STATE_VERIFY
 };
 
 
-#define ENCRYPT	1
+#define ENCRYPT 1
 #define DECRYPT 0
 
-#define MAX_RSA_KEYLEN		1920
+#define MAX_RSA_KEYLEN  1920
 
-#define MAX_AES_KEY_SIZE	64	/* encompasses CCA key size */
-#define AES_KEY_SIZE_256	32
-#define AES_KEY_SIZE_192	24
-#define AES_KEY_SIZE_128	16
-#define AES_BLOCK_SIZE		16
-#define AES_INIT_VECTOR_SIZE	AES_BLOCK_SIZE
+#define MAX_AES_KEY_SIZE 64      /* encompasses CCA key size */
+#define AES_KEY_SIZE_256 32
+#define AES_KEY_SIZE_192 24
+#define AES_KEY_SIZE_128 16
+#define AES_BLOCK_SIZE  16
+#define AES_INIT_VECTOR_SIZE AES_BLOCK_SIZE
 #define AES_COUNTER_SIZE        16
 
-#define MAX_DES_KEY_SIZE	64	/* encompasses CCA key size */
+#define MAX_DES_KEY_SIZE 64      /* encompasses CCA key size */
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8
 
@@ -119,13 +119,13 @@ enum {
 #endif
 
 struct oc_sha_ctx {
-	unsigned char hash[MAX_SHA_HASH_SIZE + 1];
-	unsigned int hash_len;
-	unsigned int hash_blksize;
-	unsigned int tail_len;
-	int message_part;
-	unsigned char tail[MAX_SHA_BLOCK_SIZE];
-	unsigned int dev_ctx_offs;
+    unsigned char hash[MAX_SHA_HASH_SIZE + 1];
+    unsigned int hash_len;
+    unsigned int hash_blksize;
+    unsigned int tail_len;
+    int message_part;
+    unsigned char tail[MAX_SHA_BLOCK_SIZE];
+    unsigned int dev_ctx_offs;
 };
 
 #define MD2_HASH_SIZE   16
@@ -142,17 +142,16 @@ struct oc_sha_ctx {
 
 
 typedef enum {
-   ALL = 1,
-   PRIVATE,
-   PUBLIC
+    ALL = 1,
+    PRIVATE,
+    PUBLIC
 } SESS_OBJ_TYPE;
 
 
-typedef struct _DL_NODE
-{
-   struct _DL_NODE   *next;
-   struct _DL_NODE   *prev;
-   void              *data;
+typedef struct _DL_NODE {
+    struct _DL_NODE *next;
+    struct _DL_NODE *prev;
+    void *data;
 } DL_NODE;
 
 

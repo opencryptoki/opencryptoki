@@ -12,18 +12,15 @@
 #define __SW_CRYPT_H__
 
 #define sw_des3_cbc_encrypt(clear, len, cipher, len2, iv, key) \
-	sw_des3_cbc(clear, len, cipher, len2, iv, key, 1)
+ sw_des3_cbc(clear, len, cipher, len2, iv, key, 1)
 
 #define sw_des3_cbc_decrypt(clear, len, cipher, len2, iv, key) \
-	sw_des3_cbc(clear, len, cipher, len2, iv, key, 0)
+ sw_des3_cbc(clear, len, cipher, len2, iv, key, 0)
 
-CK_RV
-sw_des3_cbc(CK_BYTE * in_data,
-	    CK_ULONG in_data_len,
-	    CK_BYTE *out_data,
-	    CK_ULONG *out_data_len,
-	    CK_BYTE *init_v,
-	    CK_BYTE  *key_value,
-	    CK_BYTE  encrypt);
+CK_RV sw_des3_cbc(CK_BYTE *in_data,
+                  CK_ULONG in_data_len,
+                  CK_BYTE *out_data,
+                  CK_ULONG *out_data_len,
+                  CK_BYTE *init_v, CK_BYTE *key_value, CK_BYTE encrypt);
 
 #endif
