@@ -19,45 +19,44 @@
 #include "trace.h"
 
 void mech_array_to_list(struct mech_list_item *head,
-			MECH_LIST_ELEMENT mech_list_arr[],
-			int list_len) {
-	int i;
-	struct mech_list_item *current;
-	current = head;
-	for (i = 0; i < list_len; i++) {
-		current->next = malloc(sizeof(struct mech_list_item));
-		current = current->next;
-		memcpy(&current->element, &mech_list_arr[i],
-		       sizeof(MECH_LIST_ELEMENT));
-	}
+                        MECH_LIST_ELEMENT mech_list_arr[], int list_len)
+{
+    int i;
+    struct mech_list_item *current;
+    current = head;
+    for (i = 0; i < list_len; i++) {
+        current->next = malloc(sizeof(struct mech_list_item));
+        current = current->next;
+        memcpy(&current->element, &mech_list_arr[i], sizeof(MECH_LIST_ELEMENT));
+    }
 }
 
-struct mech_list_item *
-find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
-			     struct mech_list_item *head)
+struct mech_list_item *find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
+                                                    struct mech_list_item *head)
 {
-	struct mech_list_item *res;
-	res = head->next;
-	while (res) {
-		if (res->element.mech_type == type) {
-			goto out;
-		}
-		res = res->next;
-	}
- out:
-	return res;
+    struct mech_list_item *res;
+    res = head->next;
+    while (res) {
+        if (res->element.mech_type == type) {
+            goto out;
+        }
+        res = res->next;
+    }
+
+out:
+    return res;
 }
 
 void free_mech_list(struct mech_list_item *head)
 {
-	struct mech_list_item *walker;
-	walker = head->next;
-	while (walker) {
-		struct mech_list_item *next;
-		next = walker->next;
-		free(walker);
-		walker = next;
-	}
+    struct mech_list_item *walker;
+    walker = head->next;
+    while (walker) {
+        struct mech_list_item *next;
+        next = walker->next;
+        free(walker);
+        walker = next;
+    }
 }
 
 /**
@@ -66,51 +65,50 @@ void free_mech_list(struct mech_list_item *head)
  * the target.
  */
 void merge_mech_lists(struct mech_list_item *head_of_target,
-		      struct mech_list_item *head_of_source)
+                      struct mech_list_item *head_of_source)
 {
 
 }
 
-CK_RV
-ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-			       CK_ULONG_PTR pulCount)
+CK_RV ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                     CK_ULONG_PTR pulCount)
 {
-	int rc = CKR_OK;
-	unsigned int i;
-	if (pMechanismList == NULL) {
-		(*pulCount) = mech_list_len;
-		goto out;
-	}
-	if ((*pulCount) < mech_list_len) {
-		(*pulCount) = mech_list_len;
-		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-		rc = CKR_BUFFER_TOO_SMALL;
-		goto out;
-	}
-	for (i=0; i < mech_list_len; i++)
-		pMechanismList[i] = mech_list[i].mech_type;
-	(*pulCount) = mech_list_len;
- out:
-	return rc;
+    int rc = CKR_OK;
+    unsigned int i;
+    if (pMechanismList == NULL) {
+        (*pulCount) = mech_list_len;
+        goto out;
+    }
+    if ((*pulCount) < mech_list_len) {
+        (*pulCount) = mech_list_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto out;
+    }
+    for (i = 0; i < mech_list_len; i++)
+        pMechanismList[i] = mech_list[i].mech_type;
+    (*pulCount) = mech_list_len;
+
+out:
+    return rc;
 }
 
-CK_RV
-ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
-			       CK_MECHANISM_INFO_PTR pInfo)
+CK_RV ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                     CK_MECHANISM_INFO_PTR pInfo)
 {
-	int rc = CKR_OK;
-	unsigned int i;
-	for (i=0; i < mech_list_len; i++) {
-		if (mech_list[i].mech_type == type) {
-			memcpy(pInfo, &mech_list[i].mech_info,
-			       sizeof(CK_MECHANISM_INFO));
-			goto out;
-		}
-	}
-	TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-	rc = CKR_MECHANISM_INVALID;
- out:
-	return rc;
+    int rc = CKR_OK;
+    unsigned int i;
+    for (i = 0; i < mech_list_len; i++) {
+        if (mech_list[i].mech_type == type) {
+            memcpy(pInfo, &mech_list[i].mech_info, sizeof(CK_MECHANISM_INFO));
+            goto out;
+        }
+    }
+    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+    rc = CKR_MECHANISM_INVALID;
+
+out:
+    return rc;
 }
 
 /*
@@ -120,25 +118,25 @@ ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
  */
 static void netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
 {
-	char *envrn;
-	CK_ULONG i;
-	if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
-		for (i = 0; i < count; i++) {
-			switch (mech_arr_ptr[i]) {
-			case CKM_SSL3_PRE_MASTER_KEY_GEN:
-			case CKM_SSL3_MASTER_KEY_DERIVE:
-			case CKM_SSL3_KEY_AND_MAC_DERIVE:
-			case CKM_SSL3_MD5_MAC:
-			case CKM_SSL3_SHA1_MAC:
-				mech_arr_ptr[i] = CKM_RSA_PKCS;
-				break;
-			}
-		}
-	}
+    char *envrn;
+    CK_ULONG i;
+    if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
+        for (i = 0; i < count; i++) {
+            switch (mech_arr_ptr[i]) {
+            case CKM_SSL3_PRE_MASTER_KEY_GEN:
+            case CKM_SSL3_MASTER_KEY_DERIVE:
+            case CKM_SSL3_KEY_AND_MAC_DERIVE:
+            case CKM_SSL3_MD5_MAC:
+            case CKM_SSL3_SHA1_MAC:
+                mech_arr_ptr[i] = CKM_RSA_PKCS;
+                break;
+            }
+        }
+    }
 }
 
 void mechanism_list_transformations(CK_MECHANISM_TYPE_PTR mech_arr_ptr,
-				    CK_ULONG_PTR count_ptr)
+                                    CK_ULONG_PTR count_ptr)
 {
-	netscape_hack(mech_arr_ptr, (*count_ptr));
+    netscape_hack(mech_arr_ptr, (*count_ptr));
 }
