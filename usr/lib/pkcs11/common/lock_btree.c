@@ -25,8 +25,8 @@
 #include "local_types.h"
 #include "trace.h"
 
-#define GET_NODE_HANDLE(n)	get_node_handle(n, 1)
-#define TREE_DUMP(t)		tree_dump((t)->top, 0)
+#define GET_NODE_HANDLE(n) get_node_handle(n, 1)
+#define TREE_DUMP(t)  tree_dump((t)->top, 0)
 
 pthread_rwlock_t btree_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
@@ -57,10 +57,10 @@ struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
     i = node_num;
     while (i != 1) {
         if (i & 1) {
-            /* If the bit is 1, traverse right*/
+            /* If the bit is 1, traverse right */
             temp = temp->right;
         } else {
-            /* If the bit is 0, traverse left*/
+            /* If the bit is 0, traverse left */
             temp = temp->left;
         }
         i >>= 1;
@@ -128,7 +128,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
 
     temp = t->top;
 
-    if (!temp) { /* no root node yet exists, create it */
+    if (!temp) {                /* no root node yet exists, create it */
         t->size = 1;
         if (!node_create(&t->top, NULL, value)) {
             pthread_rwlock_unlock(&btree_rwlock);
@@ -156,9 +156,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
     while (new_node_index != 1) {
         if (new_node_index & 1) {
             if (!temp->right) {
-                if (!(node_create(&temp->right,
-                                temp,
-                                value))) {
+                if (!(node_create(&temp->right, temp, value))) {
                     pthread_rwlock_unlock(&btree_rwlock);
                     return 0;
                 }
@@ -169,9 +167,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
             }
         } else {
             if (!temp->left) {
-                if (!(node_create(&temp->left,
-                                temp,
-                                value))) {
+                if (!(node_create(&temp->left, temp, value))) {
                     pthread_rwlock_unlock(&btree_rwlock);
                     return 0;
                 }
@@ -206,8 +202,8 @@ void tree_dump(struct btnode *n, int depth)
     else
         printf("`- %p\n", n->value);
 
-    tree_dump(n->left, depth+1);
-    tree_dump(n->right, depth+1);
+    tree_dump(n->left, depth + 1);
+    tree_dump(n->right, depth + 1);
 }
 
 /*
@@ -220,7 +216,7 @@ void tree_dump(struct btnode *n, int depth)
  * list, so no double freeing can occur
  */
 struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
-                            void (*delete_func)(void *))
+                            void (*delete_func) (void *))
 {
     struct btnode *node;
     int lock = 1;
@@ -232,7 +228,7 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
 
     if (node) {
         if (delete_func)
-            (*delete_func)(node->value);
+            (*delete_func) (node->value);
 
         node->flags |= BT_FLAG_FREE;
 
@@ -252,8 +248,9 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
 }
 
 struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
-        unsigned long node_num, void (*delete_func)(STDLL_TokData_t *tokdata,
-            void *))
+                             unsigned long node_num,
+                             void (*delete_func) (STDLL_TokData_t *tokdata,
+                                                  void *))
 {
     struct btnode *node;
 
@@ -266,7 +263,7 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
 
     if (node) {
         if (delete_func)
-            (*delete_func)(tokdata, node->value);
+            (*delete_func) (tokdata, node->value);
 
         node->flags |= BT_FLAG_FREE;
 
@@ -282,6 +279,7 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
     pthread_rwlock_unlock(&btree_rwlock);
     return node;
 }
+
 /* bt_is_empty
  *
  * return 0 if binary tree has at least 1 node in use, !0 otherwise
@@ -333,27 +331,28 @@ unsigned long bt_nodes_in_use(struct btree *t)
  */
 void
 bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t,
-        void (*func)(STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
-            void *p3), void *p3)
+                 void (*func) (STDLL_TokData_t *tokdata, void *p1,
+                               unsigned long p2, void *p3), void *p3)
 {
     unsigned int i;
     struct btnode *node;
 
-    for (i = 1; i < t->size+1; i++) {
+    for (i = 1; i < t->size + 1; i++) {
         node = bt_get_node(t, i);
 
         if (node) {
-            (*func)(tokdata, node->value, i, p3);
+            (*func) (tokdata, node->value, i, p3);
         }
     }
 }
 
 /* bt_destroy
  *
- * Walk a binary tree backwards (largest index to smallest), deleting nodes along the way.
+ * Walk a binary tree backwards (largest index to smallest), deleting nodes
+ * along the way.
  * Call @func on node->value before freeing the node.
  */
-void bt_destroy(struct btree *t, void (*func)(void *))
+void bt_destroy(struct btree *t, void (*func) (void *))
 {
     unsigned long i;
     struct btnode *temp;
@@ -384,7 +383,7 @@ void bt_destroy(struct btree *t, void (*func)(void *))
          * freed or not.
          */
         if (func && !(temp->flags & BT_FLAG_FREE))
-            (*func)(temp->value);
+            (*func) (temp->value);
 
         free(temp);
         t->size--;

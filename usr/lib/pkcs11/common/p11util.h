@@ -18,7 +18,7 @@
 // p11_get_ckr - return textual interpretation of a CKR_ error code
 // @rc is the CKR_.. error
 //
-char *p11_get_ckr( CK_RV rc );
+char *p11_get_ckr(CK_RV rc);
 //
 // p11_get_ckm - return textual interpretation of a CKM_ mechanism code
 // @rc is the CKM_.. as a string
@@ -29,12 +29,12 @@ char *p11_get_ckm(CK_ULONG);
 //
 // determine whether the specified attribute is defined by Cryptoki
 //
-CK_BBOOL is_attribute_defined( CK_ATTRIBUTE_TYPE type );
+CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type);
 
 // Allocates memory on *dst and puts hex dump from ptr
 // with len bytes.
 // *dst must be freed by the caller
-char * p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len);
+char *p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len);
 
 /* p11_bigint_trim() - trim a big integer. Returns pointer that is
  *        contained within 'in' + '*size' that represents
@@ -54,4 +54,4 @@ CK_BYTE_PTR p11_bigint_trim(CK_BYTE_PTR in, CK_ULONG_PTR size);
  */
 void p11_attribute_trim(CK_ATTRIBUTE *attr);
 
-#endif  // #ifndef _P11UTIL_H_
+#endif                          // #ifndef _P11UTIL_H_

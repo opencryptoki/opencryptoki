@@ -27,7 +27,7 @@
 //
 
 #include <pthread.h>
-#include <string.h>            // for memcmp() et al
+#include <string.h>             // for memcmp() et al
 #include <stdlib.h>
 #include <memory.h>
 
@@ -44,10 +44,10 @@
 // save one boolean operation each - thanks to Rich Schroeppel,
 // rcs@cs.arizona.edu for discovering this
 //
-#define f1(x,y,z) (z ^ (x & (y ^ z)))        // Rounds  0-19
-#define f2(x,y,z) (x ^ y ^ z)                // Rounds 20-39
-#define f3(x,y,z) ((x & y) | (z & (x | y)))  // Rounds 40-59
-#define f4(x,y,z) (x ^ y ^ z)                // Rounds 60-79
+#define f1(x,y,z) (z ^ (x & (y ^ z)))   // Rounds  0-19
+#define f2(x,y,z) (x ^ y ^ z)   // Rounds 20-39
+#define f3(x,y,z) ((x & y) | (z & (x | y)))     // Rounds 40-59
+#define f4(x,y,z) (x ^ y ^ z)   // Rounds 60-79
 
 // The SHA Mysterious Constants.
 // K1 = floor(sqrt(2)  * 2^30)
@@ -55,10 +55,10 @@
 // K3 = floor(sqrt(5)  * 2^30)
 // K4 = floor(sqrt(10) * 2^30)
 //
-#define K1  0x5A827999L // Rounds  0-19
-#define K2  0x6ED9EBA1L // Rounds 20-39
-#define K3  0x8F1BBCDCL // Rounds 40-59
-#define K4  0xCA62C1D6L // Rounds 60-79
+#define K1  0x5A827999L         // Rounds  0-19
+#define K2  0x6ED9EBA1L         // Rounds 20-39
+#define K3  0x8F1BBCDCL         // Rounds 40-59
+#define K4  0xCA62C1D6L         // Rounds 60-79
 
 // SHA initial values
 //
@@ -87,7 +87,8 @@
 //
 
 #define expand(W,i) \
-   (W[i&15] ^= W[(i-14)&15] ^ W[(i-8)&15] ^ W[(i-3)&15], W[i&15] = ROTL(1, W[i&15]))
+   (W[i&15] ^= W[(i-14)&15] ^ W[(i-8)&15] ^ W[(i-3)&15], \
+    W[i&15] = ROTL(1, W[i&15]))
 
 // The prototype SHA sub-round
 //
@@ -113,109 +114,109 @@
  */
 void shaTransform(SHA1_CONTEXT *ctx)
 {
-	register unsigned int A, B, C, D, E;
+    register unsigned int A, B, C, D, E;
 
-	// Set up first buffer
-	//
-	A = ctx->hash_value[0];
-	B = ctx->hash_value[1];
-	C = ctx->hash_value[2];
-	D = ctx->hash_value[3];
-	E = ctx->hash_value[4];
+    // Set up first buffer
+    //
+    A = ctx->hash_value[0];
+    B = ctx->hash_value[1];
+    C = ctx->hash_value[2];
+    D = ctx->hash_value[3];
+    E = ctx->hash_value[4];
 
-	// Heavy mangling, in 4 sub-rounds of 20 interations each.
-	//
-	subRound(A, B, C, D, E, f1, K1, ctx->buf[ 0]);
-	subRound(E, A, B, C, D, f1, K1, ctx->buf[ 1]);
-	subRound(D, E, A, B, C, f1, K1, ctx->buf[ 2]);
-	subRound(C, D, E, A, B, f1, K1, ctx->buf[ 3]);
-	subRound(B, C, D, E, A, f1, K1, ctx->buf[ 4]);
-	subRound(A, B, C, D, E, f1, K1, ctx->buf[ 5]);
-	subRound(E, A, B, C, D, f1, K1, ctx->buf[ 6]);
-	subRound(D, E, A, B, C, f1, K1, ctx->buf[ 7]);
-	subRound(C, D, E, A, B, f1, K1, ctx->buf[ 8]);
-	subRound(B, C, D, E, A, f1, K1, ctx->buf[ 9]);
-	subRound(A, B, C, D, E, f1, K1, ctx->buf[10]);
-	subRound(E, A, B, C, D, f1, K1, ctx->buf[11]);
-	subRound(D, E, A, B, C, f1, K1, ctx->buf[12]);
-	subRound(C, D, E, A, B, f1, K1, ctx->buf[13]);
-	subRound(B, C, D, E, A, f1, K1, ctx->buf[14]);
-	subRound(A, B, C, D, E, f1, K1, ctx->buf[15]);
-	subRound(E, A, B, C, D, f1, K1, expand(ctx->buf, 16));
-	subRound(D, E, A, B, C, f1, K1, expand(ctx->buf, 17));
-	subRound(C, D, E, A, B, f1, K1, expand(ctx->buf, 18));
-	subRound(B, C, D, E, A, f1, K1, expand(ctx->buf, 19));
+    // Heavy mangling, in 4 sub-rounds of 20 interations each.
+    //
+    subRound(A, B, C, D, E, f1, K1, ctx->buf[0]);
+    subRound(E, A, B, C, D, f1, K1, ctx->buf[1]);
+    subRound(D, E, A, B, C, f1, K1, ctx->buf[2]);
+    subRound(C, D, E, A, B, f1, K1, ctx->buf[3]);
+    subRound(B, C, D, E, A, f1, K1, ctx->buf[4]);
+    subRound(A, B, C, D, E, f1, K1, ctx->buf[5]);
+    subRound(E, A, B, C, D, f1, K1, ctx->buf[6]);
+    subRound(D, E, A, B, C, f1, K1, ctx->buf[7]);
+    subRound(C, D, E, A, B, f1, K1, ctx->buf[8]);
+    subRound(B, C, D, E, A, f1, K1, ctx->buf[9]);
+    subRound(A, B, C, D, E, f1, K1, ctx->buf[10]);
+    subRound(E, A, B, C, D, f1, K1, ctx->buf[11]);
+    subRound(D, E, A, B, C, f1, K1, ctx->buf[12]);
+    subRound(C, D, E, A, B, f1, K1, ctx->buf[13]);
+    subRound(B, C, D, E, A, f1, K1, ctx->buf[14]);
+    subRound(A, B, C, D, E, f1, K1, ctx->buf[15]);
+    subRound(E, A, B, C, D, f1, K1, expand(ctx->buf, 16));
+    subRound(D, E, A, B, C, f1, K1, expand(ctx->buf, 17));
+    subRound(C, D, E, A, B, f1, K1, expand(ctx->buf, 18));
+    subRound(B, C, D, E, A, f1, K1, expand(ctx->buf, 19));
 
-	subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 20));
-	subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 21));
-	subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 22));
-	subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 23));
-	subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 24));
-	subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 25));
-	subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 26));
-	subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 27));
-	subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 28));
-	subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 29));
-	subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 30));
-	subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 31));
-	subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 32));
-	subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 33));
-	subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 34));
-	subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 35));
-	subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 36));
-	subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 37));
-	subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 38));
-	subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 39));
+    subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 20));
+    subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 21));
+    subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 22));
+    subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 23));
+    subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 24));
+    subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 25));
+    subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 26));
+    subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 27));
+    subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 28));
+    subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 29));
+    subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 30));
+    subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 31));
+    subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 32));
+    subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 33));
+    subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 34));
+    subRound(A, B, C, D, E, f2, K2, expand(ctx->buf, 35));
+    subRound(E, A, B, C, D, f2, K2, expand(ctx->buf, 36));
+    subRound(D, E, A, B, C, f2, K2, expand(ctx->buf, 37));
+    subRound(C, D, E, A, B, f2, K2, expand(ctx->buf, 38));
+    subRound(B, C, D, E, A, f2, K2, expand(ctx->buf, 39));
 
-	subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 40));
-	subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 41));
-	subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 42));
-	subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 43));
-	subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 44));
-	subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 45));
-	subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 46));
-	subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 47));
-	subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 48));
-	subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 49));
-	subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 50));
-	subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 51));
-	subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 52));
-	subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 53));
-	subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 54));
-	subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 55));
-	subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 56));
-	subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 57));
-	subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 58));
-	subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 59));
+    subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 40));
+    subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 41));
+    subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 42));
+    subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 43));
+    subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 44));
+    subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 45));
+    subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 46));
+    subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 47));
+    subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 48));
+    subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 49));
+    subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 50));
+    subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 51));
+    subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 52));
+    subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 53));
+    subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 54));
+    subRound(A, B, C, D, E, f3, K3, expand(ctx->buf, 55));
+    subRound(E, A, B, C, D, f3, K3, expand(ctx->buf, 56));
+    subRound(D, E, A, B, C, f3, K3, expand(ctx->buf, 57));
+    subRound(C, D, E, A, B, f3, K3, expand(ctx->buf, 58));
+    subRound(B, C, D, E, A, f3, K3, expand(ctx->buf, 59));
 
-	subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 60));
-	subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 61));
-	subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 62) );
-	subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 63) );
-	subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 64) );
-	subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 65) );
-	subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 66) );
-	subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 67) );
-	subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 68) );
-	subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 69) );
-	subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 70) );
-	subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 71) );
-	subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 72) );
-	subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 73) );
-	subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 74) );
-	subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 75) );
-	subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 76) );
-	subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 77) );
-	subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 78) );
-	subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 79) );
+    subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 60));
+    subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 61));
+    subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 62));
+    subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 63));
+    subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 64));
+    subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 65));
+    subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 66));
+    subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 67));
+    subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 68));
+    subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 69));
+    subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 70));
+    subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 71));
+    subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 72));
+    subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 73));
+    subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 74));
+    subRound(A, B, C, D, E, f4, K4, expand(ctx->buf, 75));
+    subRound(E, A, B, C, D, f4, K4, expand(ctx->buf, 76));
+    subRound(D, E, A, B, C, f4, K4, expand(ctx->buf, 77));
+    subRound(C, D, E, A, B, f4, K4, expand(ctx->buf, 78));
+    subRound(B, C, D, E, A, f4, K4, expand(ctx->buf, 79));
 
-	// Build message digest
-	//
-	ctx->hash_value[0] += A;
-	ctx->hash_value[1] += B;
-	ctx->hash_value[2] += C;
-	ctx->hash_value[3] += D;
-	ctx->hash_value[4] += E;
+    // Build message digest
+    //
+    ctx->hash_value[0] += A;
+    ctx->hash_value[1] += B;
+    ctx->hash_value[2] += C;
+    ctx->hash_value[3] += D;
+    ctx->hash_value[4] += E;
 }
 
 /*
@@ -232,79 +233,77 @@ static void byteReverse(unsigned int *buffer, unsigned int byteCount)
 #error  "Endianess MUST be defined"
 #endif
 #if  __BYTE_ORDER == __LITTLE_ENDIAN
-	CK_ULONG value, val;
+    CK_ULONG value, val;
 
-	byteCount /= sizeof(CK_ULONG_32);
+    byteCount /= sizeof(CK_ULONG_32);
 
-	while (byteCount--) {
-		val = *buffer;
-		value = ((0x000000FF & val) << 24) |
-			((0x0000FF00 & val) << 8 ) |
-			((0x00FF0000 & val) >> 8 ) |
-			((0xFF000000 & val) >> 24);
+    while (byteCount--) {
+        val = *buffer;
+        value = ((0x000000FF & val) << 24) |
+            ((0x0000FF00 & val) << 8) |
+            ((0x00FF0000 & val) >> 8) | ((0xFF000000 & val) >> 24);
 
-		*buffer++ = value;
-	}
+        *buffer++ = value;
+    }
 #endif
 
-	/*
-	 * JRM - this code gives funky results on Linux/Intel.
-	 * I assume this is a GCC issue since regression tests passed on NT
-	 *
-	 * byteCount /= sizeof(CK_ULONG);
-	 * while ( byteCount-- ) {
-	 * 	value = (CK_ULONG)((unsigned)((CK_BYTE *)buffer)[0] << 8 |
-	 *	    ((CK_BYTE *)buffer)[1]) << 16 |
-	 *	    ((unsigned)((CK_BYTE *)buffer)[2] << 8 |
-	 *	    ((CK_BYTE *)buffer)[3]);
-	 * 	*buffer++ = value;
-	 * }
-	 */
+    /*
+     * JRM - this code gives funky results on Linux/Intel.
+     * I assume this is a GCC issue since regression tests passed on NT
+     *
+     * byteCount /= sizeof(CK_ULONG);
+     * while ( byteCount-- ) {
+     *      value = (CK_ULONG)((unsigned)((CK_BYTE *)buffer)[0] << 8 |
+     *          ((CK_BYTE *)buffer)[1]) << 16 |
+     *          ((unsigned)((CK_BYTE *)buffer)[2] << 8 |
+     *          ((CK_BYTE *)buffer)[3]);
+     *      *buffer++ = value;
+     * }
+     */
 }
 
 
 void shaUpdate(SHA1_CONTEXT *ctx, CK_BYTE const *buffer, CK_ULONG count)
 {
-	CK_ULONG t;
+    CK_ULONG t;
 
-	// Update bitcount
-	//
-	t = ctx->bits_lo;
-	if ((ctx->bits_lo = t + count) < t)
-		ctx->bits_hi++;   // Carry from low to high
+    // Update bitcount
+    //
+    t = ctx->bits_lo;
+    if ((ctx->bits_lo = t + count) < t)
+        ctx->bits_hi++;         // Carry from low to high
 
-	t &= 0x3f;  // Bytes already in ctx->buf
+    t &= 0x3f;                  // Bytes already in ctx->buf
 
-	// Handle any leading odd-sized chunks
-	//
-	if (t) {
-		CK_BYTE *p = (CK_BYTE *)ctx->buf + t;
+    // Handle any leading odd-sized chunks
+    //
+    if (t) {
+        CK_BYTE *p = (CK_BYTE *) ctx->buf + t;
 
-		t = 64-t;
-		if (count < t) {
-			memcpy(p, buffer, count);
-			return;
-		}
-		memcpy(p, buffer, t);
-		byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
-		shaTransform(ctx);
-		buffer += t;
-		count -= t;
-	}
+        t = 64 - t;
+        if (count < t) {
+            memcpy(p, buffer, count);
+            return;
+        }
+        memcpy(p, buffer, t);
+        byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
+        shaTransform(ctx);
+        buffer += t;
+        count -= t;
+    }
+    // Process data in SHA1_BLOCK_SIZE chunks
+    //
+    while (count >= SHA1_BLOCK_SIZE) {
+        memcpy(ctx->buf, buffer, SHA1_BLOCK_SIZE);
+        byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
+        shaTransform(ctx);
+        buffer += SHA1_BLOCK_SIZE;
+        count -= SHA1_BLOCK_SIZE;
+    }
 
-	// Process data in SHA1_BLOCK_SIZE chunks
-	//
-	while (count >= SHA1_BLOCK_SIZE) {
-		memcpy(ctx->buf, buffer, SHA1_BLOCK_SIZE);
-		byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
-		shaTransform(ctx);
-		buffer += SHA1_BLOCK_SIZE;
-		count -= SHA1_BLOCK_SIZE;
-	}
-
-	// Handle any remaining bytes of data.
-	//
-	memcpy(ctx->buf, buffer, count);
+    // Handle any remaining bytes of data.
+    //
+    memcpy(ctx->buf, buffer, count);
 }
 
 
@@ -314,53 +313,53 @@ void shaUpdate(SHA1_CONTEXT *ctx, CK_BYTE const *buffer, CK_ULONG count)
  */
 void shaFinal(SHA1_CONTEXT *ctx, CK_BYTE *hash)
 {
-	int count;
-	CK_BYTE *p;
+    int count;
+    CK_BYTE *p;
 
-	// Compute number of bytes mod 64
-	//
-	count = (int)ctx->bits_lo & 0x3F;
+    // Compute number of bytes mod 64
+    //
+    count = (int) ctx->bits_lo & 0x3F;
 
-	// Set the first char of padding to 0x80.
-	// This is safe since there is always at least one byte free
-	//
-	p = (CK_BYTE *)ctx->buf + count;
-	*p++ = 0x80;
+    // Set the first char of padding to 0x80.
+    // This is safe since there is always at least one byte free
+    //
+    p = (CK_BYTE *) ctx->buf + count;
+    *p++ = 0x80;
 
-	// Bytes of padding needed to make 64 bytes
-	//
-	count = SHA1_BLOCK_SIZE - 1 - count;
+    // Bytes of padding needed to make 64 bytes
+    //
+    count = SHA1_BLOCK_SIZE - 1 - count;
 
-	// Pad out to 56 mod 64
-	//
-	if (count < 8) {
-		// Two lots of padding:  Pad the first block to 64 bytes
-		//
-		memset(p, 0, count);
-		byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
-		shaTransform(ctx);
+    // Pad out to 56 mod 64
+    //
+    if (count < 8) {
+        // Two lots of padding:  Pad the first block to 64 bytes
+        //
+        memset(p, 0, count);
+        byteReverse(ctx->buf, SHA1_BLOCK_SIZE);
+        shaTransform(ctx);
 
-		// Now fill the next block with 56 bytes
-		//
-		memset(ctx->buf, 0, SHA1_BLOCK_SIZE-8);
-	} else {
-		// Pad block to 56 bytes
-		//
-		memset(p, 0, count-8);
-	}
-	byteReverse(ctx->buf, SHA1_BLOCK_SIZE-8);
+        // Now fill the next block with 56 bytes
+        //
+        memset(ctx->buf, 0, SHA1_BLOCK_SIZE - 8);
+    } else {
+        // Pad block to 56 bytes
+        //
+        memset(p, 0, count - 8);
+    }
+    byteReverse(ctx->buf, SHA1_BLOCK_SIZE - 8);
 
-	// Append length in *bits* and transform
-	//
-	ctx->buf[14] = ctx->bits_hi << 3 | ctx->bits_lo >> 29;
-	ctx->buf[15] = ctx->bits_lo << 3;
+    // Append length in *bits* and transform
+    //
+    ctx->buf[14] = ctx->bits_hi << 3 | ctx->bits_lo >> 29;
+    ctx->buf[15] = ctx->bits_lo << 3;
 
-	shaTransform(ctx);
+    shaTransform(ctx);
 
-	// Store output hash in buffer
-	//
-	byteReverse(ctx->hash_value, SHA1_HASH_SIZE);
-	memcpy(hash, ctx->hash_value, SHA1_HASH_SIZE);
+    // Store output hash in buffer
+    //
+    byteReverse(ctx->hash_value, SHA1_HASH_SIZE);
+    memcpy(hash, ctx->hash_value, SHA1_HASH_SIZE);
 }
 
 //
@@ -369,186 +368,186 @@ void shaFinal(SHA1_CONTEXT *ctx, CK_BYTE *hash)
 
 void sw_sha1_init(DIGEST_CONTEXT *ctx)
 {
-	// Set the h-vars to their initial values
-	SHA1_CONTEXT *sha1_ctx;
-	/* Allocate the context */
-	ctx->context_len = sizeof(SHA1_CONTEXT);
-	ctx->context = (CK_BYTE *)malloc(sizeof(SHA1_CONTEXT));
-	if (ctx->context == NULL) {
-		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-		// TODO: propagate error up?
-		return;
-	}
+    // Set the h-vars to their initial values
+    SHA1_CONTEXT *sha1_ctx;
+    /* Allocate the context */
+    ctx->context_len = sizeof(SHA1_CONTEXT);
+    ctx->context = (CK_BYTE *) malloc(sizeof(SHA1_CONTEXT));
+    if (ctx->context == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        // TODO: propagate error up?
+        return;
+    }
 
-	sha1_ctx = (SHA1_CONTEXT *)ctx->context;
-	sha1_ctx->hash_value[0]  = h0init;
-	sha1_ctx->hash_value[1]  = h1init;
-	sha1_ctx->hash_value[2]  = h2init;
-	sha1_ctx->hash_value[3]  = h3init;
-	sha1_ctx->hash_value[4]  = h4init;
+    sha1_ctx = (SHA1_CONTEXT *) ctx->context;
+    sha1_ctx->hash_value[0] = h0init;
+    sha1_ctx->hash_value[1] = h1init;
+    sha1_ctx->hash_value[2] = h2init;
+    sha1_ctx->hash_value[3] = h3init;
+    sha1_ctx->hash_value[4] = h4init;
 
-	// Initialise bit count
- 	sha1_ctx->bits_lo = sha1_ctx->bits_hi = 0;
+    // Initialise bit count
+    sha1_ctx->bits_lo = sha1_ctx->bits_hi = 0;
 }
 
-CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
-		   CK_BYTE *out_data, CK_ULONG *out_data_len)
+CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                   CK_ULONG in_data_len, CK_BYTE *out_data,
+                   CK_ULONG *out_data_len)
 {
 
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (*out_data_len < SHA1_HASH_SIZE) {
-		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-		return CKR_BUFFER_TOO_SMALL;
-	}
+    if (*out_data_len < SHA1_HASH_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
-	if (ctx->context == NULL)
-		return CKR_HOST_MEMORY;
+    if (ctx->context == NULL)
+        return CKR_HOST_MEMORY;
 
-	shaUpdate((SHA1_CONTEXT *)ctx->context, in_data, in_data_len);
-	shaFinal((SHA1_CONTEXT *)ctx->context, out_data);
-	*out_data_len = SHA1_HASH_SIZE;
-	return CKR_OK;
+    shaUpdate((SHA1_CONTEXT *) ctx->context, in_data, in_data_len);
+    shaFinal((SHA1_CONTEXT *) ctx->context, out_data);
+    *out_data_len = SHA1_HASH_SIZE;
+    return CKR_OK;
 }
 
 CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
-	       DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
-	       CK_BYTE *out_data, CK_ULONG *out_data_len)
+               DIGEST_CONTEXT *ctx, CK_BYTE *in_data, CK_ULONG in_data_len,
+               CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	CK_ULONG hsize;
+    CK_ULONG hsize;
 
-	if (!ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	switch(ctx->mech.mechanism) {
-	case CKM_SHA_1:
-		hsize = SHA1_HASH_SIZE;
-		break;
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA_1:
+        hsize = SHA1_HASH_SIZE;
+        break;
     case CKM_SHA224:
     case CKM_SHA512_224:
         hsize = SHA224_HASH_SIZE;
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
     case CKM_SHA512_256:
-		hsize = SHA256_HASH_SIZE;
-		break;
-	case CKM_SHA384:
-		hsize = SHA384_HASH_SIZE;
-		break;
-	case CKM_SHA512:
-		hsize = SHA512_HASH_SIZE;
-		break;
-	default:
-		return CKR_MECHANISM_INVALID;
-	}
+        hsize = SHA256_HASH_SIZE;
+        break;
+    case CKM_SHA384:
+        hsize = SHA384_HASH_SIZE;
+        break;
+    case CKM_SHA512:
+        hsize = SHA512_HASH_SIZE;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
 
-	if (length_only == TRUE) {
-		*out_data_len = hsize;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hsize;
+        return CKR_OK;
+    }
 
-	if (*out_data_len < hsize) {
-		TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-		return CKR_BUFFER_TOO_SMALL;
-	}
+    if (*out_data_len < hsize) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
-	if (ctx->context == NULL)
-		return CKR_HOST_MEMORY;
+    if (ctx->context == NULL)
+        return CKR_HOST_MEMORY;
 
-	if (token_specific.t_sha != NULL)
-		return token_specific.t_sha(tokdata, ctx, in_data, in_data_len,
-					    out_data, out_data_len);
-	else {
-		if (ctx->mech.mechanism == CKM_SHA_1)
-			return sw_sha1_hash(ctx, in_data, in_data_len, out_data,
-					    out_data_len);
-		else
-			return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_sha != NULL) {
+        return token_specific.t_sha(tokdata, ctx, in_data, in_data_len,
+                                    out_data, out_data_len);
+    } else {
+        if (ctx->mech.mechanism == CKM_SHA_1)
+            return sw_sha1_hash(ctx, in_data, in_data_len, out_data,
+                                out_data_len);
+        else
+            return CKR_MECHANISM_INVALID;
+    }
 }
 
 //
 //
 CK_RV sha_hash_update(STDLL_TokData_t *tokdata, SESSION *sess,
-		      DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-		      CK_ULONG in_data_len)
+                      DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                      CK_ULONG in_data_len)
 {
-	/* if no data to hash, just return */
-	if (!in_data_len)
-		return CKR_OK;
+    /* if no data to hash, just return */
+    if (!in_data_len)
+        return CKR_OK;
 
-	if (token_specific.t_sha_update != NULL)
-		return token_specific.t_sha_update(tokdata, ctx, in_data,
-						   in_data_len);
-	else {
-		if (ctx->mech.mechanism == CKM_SHA_1) {
-			shaUpdate((SHA1_CONTEXT *)ctx->context, in_data,
-				  in_data_len);
-			return CKR_OK;
-		} else
-			return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_sha_update != NULL) {
+        return token_specific.t_sha_update(tokdata, ctx, in_data, in_data_len);
+    } else {
+        if (ctx->mech.mechanism == CKM_SHA_1) {
+            shaUpdate((SHA1_CONTEXT *) ctx->context, in_data, in_data_len);
+            return CKR_OK;
+        } else {
+            return CKR_MECHANISM_INVALID;
+        }
+    }
 }
 
 CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
-		     CK_BYTE length_only, DIGEST_CONTEXT *ctx,
-		     CK_BYTE *out_data, CK_ULONG *out_data_len)
+                     CK_BYTE length_only, DIGEST_CONTEXT *ctx,
+                     CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-	CK_ULONG hsize;
+    CK_ULONG hsize;
 
-	if (!out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	switch(ctx->mech.mechanism) {
-	case CKM_SHA_1:
-		hsize = SHA1_HASH_SIZE;
-		break;
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA_1:
+        hsize = SHA1_HASH_SIZE;
+        break;
     case CKM_SHA224:
     case CKM_SHA512_224:
         hsize = SHA224_HASH_SIZE;
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
     case CKM_SHA512_256:
-		hsize = SHA256_HASH_SIZE;
-		break;
-	case CKM_SHA384:
-		hsize = SHA384_HASH_SIZE;
-		break;
-	case CKM_SHA512:
-		hsize = SHA512_HASH_SIZE;
-		break;
-	default:
-		return CKR_MECHANISM_INVALID;
-	}
+        hsize = SHA256_HASH_SIZE;
+        break;
+    case CKM_SHA384:
+        hsize = SHA384_HASH_SIZE;
+        break;
+    case CKM_SHA512:
+        hsize = SHA512_HASH_SIZE;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
 
-	if (length_only == TRUE) {
-		*out_data_len = hsize;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hsize;
+        return CKR_OK;
+    }
 
-        if (*out_data_len < hsize) {
-            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-            return CKR_BUFFER_TOO_SMALL;
+    if (*out_data_len < hsize) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    if (token_specific.t_sha_final != NULL) {
+        return token_specific.t_sha_final(tokdata, ctx, out_data, out_data_len);
+    } else {
+        if (ctx->mech.mechanism == CKM_SHA_1) {
+            shaFinal((SHA1_CONTEXT *) ctx->context, out_data);
+            *out_data_len = hsize;
+            return CKR_OK;
+        } else {
+            return CKR_MECHANISM_INVALID;
         }
-
-	if (token_specific.t_sha_final != NULL)
-		return token_specific.t_sha_final(tokdata, ctx, out_data,
-						  out_data_len);
-	else {
-		if (ctx->mech.mechanism == CKM_SHA_1) {
-			shaFinal((SHA1_CONTEXT *)ctx->context, out_data);
-			*out_data_len = hsize;
-			return CKR_OK;
-		} else
-			return CKR_MECHANISM_INVALID;
-	}
+    }
 }
 
 // this routine gets called for two mechanisms actually:
@@ -556,183 +555,182 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
 //    CKM_SHA_1_HMAC_GENERAL
 //
 CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
-		     SESSION *sess, CK_BBOOL length_only,
-		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-		     CK_ULONG in_data_len, CK_BYTE *out_data,
-		     CK_ULONG *out_data_len)
+                     SESSION *sess, CK_BBOOL length_only,
+                     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                     CK_ULONG in_data_len, CK_BYTE *out_data,
+                     CK_ULONG *out_data_len)
 {
-	OBJECT *key_obj = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE hash[SHA1_HASH_SIZE];
-	DIGEST_CONTEXT digest_ctx;
-	CK_MECHANISM digest_mech;
-	CK_BYTE k_ipad[SHA1_BLOCK_SIZE];
-	CK_BYTE k_opad[SHA1_BLOCK_SIZE];
-	CK_ULONG key_bytes, hash_len, hmac_len;
-	CK_ULONG i;
-	CK_RV rc;
+    OBJECT *key_obj = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE hash[SHA1_HASH_SIZE];
+    DIGEST_CONTEXT digest_ctx;
+    CK_MECHANISM digest_mech;
+    CK_BYTE k_ipad[SHA1_BLOCK_SIZE];
+    CK_BYTE k_opad[SHA1_BLOCK_SIZE];
+    CK_ULONG key_bytes, hash_len, hmac_len;
+    CK_ULONG i;
+    CK_RV rc;
 
-	if (!sess || !ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL) {
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+    if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL) {
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
-		if (hmac_len == 0) {
-			*out_data_len = 0;
-			return CKR_OK;
-		}
-	} else
-		hmac_len = SHA1_HASH_SIZE;
+        if (hmac_len == 0) {
+            *out_data_len = 0;
+            return CKR_OK;
+        }
+    } else {
+        hmac_len = SHA1_HASH_SIZE;
+    }
 
-	if (length_only == TRUE) {
-		*out_data_len = hmac_len;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hmac_len;
+        return CKR_OK;
+    }
 
-	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(tokdata, sess, in_data,
-						  in_data_len, out_data,
-						  out_data_len);
+    if (token_specific.t_hmac_sign != NULL)
+        return token_specific.t_hmac_sign(tokdata, sess, in_data,
+                                          in_data_len, out_data, out_data_len);
 
-	/* Do manual hmac if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
+    /* Do manual hmac if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
 
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Failed to acquire key from specified handle");
-		if (rc == CKR_OBJECT_HANDLE_INVALID)
-			return CKR_KEY_HANDLE_INVALID;
-		else
-			return rc;
-	}
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
 
-	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-	if (rc == FALSE) {
-		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-		return CKR_FUNCTION_FAILED;
-	} else
-		key_bytes = attr->ulValueLen;
+    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    key_bytes = attr->ulValueLen;
 
 
-	// build (K XOR ipad), (K XOR opad)
-	//
-	if (key_bytes > SHA1_BLOCK_SIZE) {
-		digest_mech.mechanism = CKM_SHA_1;
-		digest_mech.ulParameterLen = 0;
-		digest_mech.pParameter = NULL;
+    // build (K XOR ipad), (K XOR opad)
+    //
+    if (key_bytes > SHA1_BLOCK_SIZE) {
+        digest_mech.mechanism = CKM_SHA_1;
+        digest_mech.ulParameterLen = 0;
+        digest_mech.pParameter = NULL;
 
-		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Init failed.\n");
-			return rc;
-		}
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
 
-		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-				       attr->pValue, attr->ulValueLen, hash,
-				       &hash_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Digest failed.\n");
-			return rc;
-		}
+        hash_len = sizeof(hash);
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+                               attr->pValue, attr->ulValueLen, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            return rc;
+        }
 
-		memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+        memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-		for (i=0; i < hash_len; i++) {
-			k_ipad[i] = hash[i] ^ 0x36;
-			k_opad[i] = hash[i] ^ 0x5C;
-		}
+        for (i = 0; i < hash_len; i++) {
+            k_ipad[i] = hash[i] ^ 0x36;
+            k_opad[i] = hash[i] ^ 0x5C;
+        }
 
-		memset(&k_ipad[i], 0x36, SHA1_BLOCK_SIZE - i);
-		memset(&k_opad[i], 0x5C, SHA1_BLOCK_SIZE - i);
-	} else {
-		CK_BYTE *key = attr->pValue;
+        memset(&k_ipad[i], 0x36, SHA1_BLOCK_SIZE - i);
+        memset(&k_opad[i], 0x5C, SHA1_BLOCK_SIZE - i);
+    } else {
+        CK_BYTE *key = attr->pValue;
 
-		for (i=0; i < key_bytes; i++) {
-			k_ipad[i] = key[i] ^ 0x36;
-			k_opad[i] = key[i] ^ 0x5C;
-		}
+        for (i = 0; i < key_bytes; i++) {
+            k_ipad[i] = key[i] ^ 0x36;
+            k_opad[i] = key[i] ^ 0x5C;
+        }
 
-		memset(&k_ipad[i], 0x36, SHA1_BLOCK_SIZE - key_bytes);
-		memset(&k_opad[i], 0x5C, SHA1_BLOCK_SIZE - key_bytes);
-	}
+        memset(&k_ipad[i], 0x36, SHA1_BLOCK_SIZE - key_bytes);
+        memset(&k_opad[i], 0x5C, SHA1_BLOCK_SIZE - key_bytes);
+    }
 
-	digest_mech.mechanism = CKM_SHA_1;
-	digest_mech.ulParameterLen = 0;
-	digest_mech.pParameter = NULL;
+    digest_mech.mechanism = CKM_SHA_1;
+    digest_mech.ulParameterLen = 0;
+    digest_mech.pParameter = NULL;
 
-	// inner hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    // inner hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
-				      SHA1_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+                                  SHA1_BLOCK_SIZE);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
-				      in_data_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+                                  in_data_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	// outer hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    // outer hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
-					SHA1_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+                                  SHA1_BLOCK_SIZE);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
-				      hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memcpy(out_data, hash, hmac_len);
-	*out_data_len = hmac_len;
+    memcpy(out_data, hash, hmac_len);
+    *out_data_len = hmac_len;
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 /** This routine gets called for two mechanisms actually:
@@ -740,10 +738,10 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
  *    CKM_SHA224_HMAC_GENERAL
  */
 CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
-             SESSION *sess, CK_BBOOL length_only,
-             SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-             CK_ULONG in_data_len, CK_BYTE *out_data,
-             CK_ULONG *out_data_len)
+                       SESSION *sess, CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len, CK_BYTE *out_data,
+                       CK_ULONG *out_data_len)
 {
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -762,7 +760,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     }
 
     if (ctx->mech.mechanism == CKM_SHA224_HMAC_GENERAL) {
-        hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
         if (hmac_len == 0) {
             *out_data_len = 0;
@@ -779,8 +777,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
 
     if (token_specific.t_hmac_sign != NULL)
         return token_specific.t_hmac_sign(tokdata, sess, in_data,
-                          in_data_len, out_data,
-                          out_data_len);
+                                          in_data_len, out_data, out_data_len);
 
     /* Do manual hmac if token doesn't have an hmac crypto call.
      * Secure tokens should not do manual hmac.
@@ -799,9 +796,9 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
         return CKR_FUNCTION_FAILED;
-    } else {
-        key_bytes = attr->ulValueLen;
     }
+
+    key_bytes = attr->ulValueLen;
 
     // build (K XOR ipad), (K XOR opad)
     //
@@ -818,8 +815,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
 
         hash_len = sizeof(hash);
         rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-                    attr->pValue, attr->ulValueLen,
-                    hash, &hash_len);
+                               attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
             return rc;
@@ -827,7 +823,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-        for (i=0; i < hash_len; i++) {
+        for (i = 0; i < hash_len; i++) {
             k_ipad[i] = hash[i] ^ 0x36;
             k_opad[i] = hash[i] ^ 0x5C;
         }
@@ -837,7 +833,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     } else {
         CK_BYTE *key = attr->pValue;
 
-        for (i=0; i < key_bytes; i++) {
+        for (i = 0; i < key_bytes; i++) {
             k_ipad[i] = key[i] ^ 0x36;
             k_opad[i] = key[i] ^ 0x5C;
         }
@@ -897,8 +893,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
-                                  hash_len);
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
         return rc;
@@ -923,180 +918,179 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
  *    CKM_SHA256_HMAC_GENERAL
  */
 CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
-		     SESSION *sess, CK_BBOOL length_only,
-		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-		     CK_ULONG in_data_len, CK_BYTE *out_data,
-		     CK_ULONG *out_data_len)
+                       SESSION *sess, CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len, CK_BYTE *out_data,
+                       CK_ULONG *out_data_len)
 {
-	OBJECT *key_obj = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE hash[SHA256_HASH_SIZE];
-	DIGEST_CONTEXT digest_ctx;
-	CK_MECHANISM digest_mech;
-	CK_BYTE k_ipad[SHA256_BLOCK_SIZE];
-	CK_BYTE k_opad[SHA256_BLOCK_SIZE];
-	CK_ULONG key_bytes, hash_len, hmac_len;
-	CK_ULONG i;
-	CK_RV rc;
+    OBJECT *key_obj = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE hash[SHA256_HASH_SIZE];
+    DIGEST_CONTEXT digest_ctx;
+    CK_MECHANISM digest_mech;
+    CK_BYTE k_ipad[SHA256_BLOCK_SIZE];
+    CK_BYTE k_opad[SHA256_BLOCK_SIZE];
+    CK_ULONG key_bytes, hash_len, hmac_len;
+    CK_ULONG i;
+    CK_RV rc;
 
-	if (!sess || !ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (ctx->mech.mechanism == CKM_SHA256_HMAC_GENERAL) {
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+    if (ctx->mech.mechanism == CKM_SHA256_HMAC_GENERAL) {
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
-		if (hmac_len == 0) {
-			*out_data_len = 0;
-			return CKR_OK;
-		}
-	} else
-		hmac_len = SHA256_HASH_SIZE;
+        if (hmac_len == 0) {
+            *out_data_len = 0;
+            return CKR_OK;
+        }
+    } else {
+        hmac_len = SHA256_HASH_SIZE;
+    }
 
-	if (length_only == TRUE) {
-		*out_data_len = hmac_len;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hmac_len;
+        return CKR_OK;
+    }
 
-	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(tokdata, sess, in_data,
-						  in_data_len, out_data,
-						  out_data_len);
+    if (token_specific.t_hmac_sign != NULL)
+        return token_specific.t_hmac_sign(tokdata, sess, in_data,
+                                          in_data_len, out_data, out_data_len);
 
-	/* Do manual hmac if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    /* Do manual hmac if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Failed to acquire key from specified handle");
-		if (rc == CKR_OBJECT_HANDLE_INVALID)
-			return CKR_KEY_HANDLE_INVALID;
-		else
-			return rc;
-	}
-	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-	if (rc == FALSE) {
-		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-		return CKR_FUNCTION_FAILED;
-	} else
-		key_bytes = attr->ulValueLen;
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
-	// build (K XOR ipad), (K XOR opad)
-	//
-	if (key_bytes > SHA256_BLOCK_SIZE) {
-		digest_mech.mechanism = CKM_SHA256;
-		digest_mech.ulParameterLen = 0;
-		digest_mech.pParameter = NULL;
+    key_bytes = attr->ulValueLen;
 
-		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Init failed.\n");
-			return rc;
-		}
+    // build (K XOR ipad), (K XOR opad)
+    //
+    if (key_bytes > SHA256_BLOCK_SIZE) {
+        digest_mech.mechanism = CKM_SHA256;
+        digest_mech.ulParameterLen = 0;
+        digest_mech.pParameter = NULL;
 
-		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-				       attr->pValue, attr->ulValueLen,
-				       hash, &hash_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Digest failed.\n");
-			return rc;
-		}
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
 
-		memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+        hash_len = sizeof(hash);
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+                               attr->pValue, attr->ulValueLen, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            return rc;
+        }
 
-		for (i=0; i < hash_len; i++) {
-			k_ipad[i] = hash[i] ^ 0x36;
-			k_opad[i] = hash[i] ^ 0x5C;
-		}
+        memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-		memset(&k_ipad[i], 0x36, SHA256_BLOCK_SIZE - i);
-		memset(&k_opad[i], 0x5C, SHA256_BLOCK_SIZE - i);
-	} else {
-		CK_BYTE *key = attr->pValue;
+        for (i = 0; i < hash_len; i++) {
+            k_ipad[i] = hash[i] ^ 0x36;
+            k_opad[i] = hash[i] ^ 0x5C;
+        }
 
-		for (i=0; i < key_bytes; i++) {
-			k_ipad[i] = key[i] ^ 0x36;
-			k_opad[i] = key[i] ^ 0x5C;
-		}
+        memset(&k_ipad[i], 0x36, SHA256_BLOCK_SIZE - i);
+        memset(&k_opad[i], 0x5C, SHA256_BLOCK_SIZE - i);
+    } else {
+        CK_BYTE *key = attr->pValue;
 
-		memset(&k_ipad[i], 0x36, SHA256_BLOCK_SIZE - key_bytes);
-		memset(&k_opad[i], 0x5C, SHA256_BLOCK_SIZE - key_bytes);
-	}
+        for (i = 0; i < key_bytes; i++) {
+            k_ipad[i] = key[i] ^ 0x36;
+            k_opad[i] = key[i] ^ 0x5C;
+        }
 
-	digest_mech.mechanism = CKM_SHA256;
-	digest_mech.ulParameterLen = 0;
-	digest_mech.pParameter = NULL;
+        memset(&k_ipad[i], 0x36, SHA256_BLOCK_SIZE - key_bytes);
+        memset(&k_opad[i], 0x5C, SHA256_BLOCK_SIZE - key_bytes);
+    }
 
-	// inner hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    digest_mech.mechanism = CKM_SHA256;
+    digest_mech.ulParameterLen = 0;
+    digest_mech.pParameter = NULL;
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+    // inner hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA256_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
-				      in_data_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+                                  in_data_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	// outer hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    // outer hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA256_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
-				      hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memcpy(out_data, hash, hmac_len);
-	*out_data_len = hmac_len;
+    memcpy(out_data, hash, hmac_len);
+    *out_data_len = hmac_len;
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 /** This routine gets called for two mechanisms actually:
@@ -1104,181 +1098,180 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
  *    CKM_SHA384_HMAC_GENERAL
  */
 CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
-		     SESSION *sess, CK_BBOOL length_only,
-		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-		     CK_ULONG in_data_len, CK_BYTE *out_data,
-		     CK_ULONG *out_data_len)
+                       SESSION *sess, CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len, CK_BYTE *out_data,
+                       CK_ULONG *out_data_len)
 {
-	OBJECT *key_obj = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE hash[SHA384_HASH_SIZE];
-	DIGEST_CONTEXT digest_ctx;
-	CK_MECHANISM digest_mech;
-	CK_BYTE k_ipad[SHA384_BLOCK_SIZE];
-	CK_BYTE k_opad[SHA384_BLOCK_SIZE];
-	CK_ULONG key_bytes, hash_len, hmac_len;
-	CK_ULONG i;
-	CK_RV rc;
+    OBJECT *key_obj = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE hash[SHA384_HASH_SIZE];
+    DIGEST_CONTEXT digest_ctx;
+    CK_MECHANISM digest_mech;
+    CK_BYTE k_ipad[SHA384_BLOCK_SIZE];
+    CK_BYTE k_opad[SHA384_BLOCK_SIZE];
+    CK_ULONG key_bytes, hash_len, hmac_len;
+    CK_ULONG i;
+    CK_RV rc;
 
-	if (!sess || !ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL) {
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+    if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL) {
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
-		if (hmac_len == 0) {
-			*out_data_len = 0;
-			return CKR_OK;
-		}
-   	} else
-		hmac_len = SHA384_HASH_SIZE;
+        if (hmac_len == 0) {
+            *out_data_len = 0;
+            return CKR_OK;
+        }
+    } else {
+        hmac_len = SHA384_HASH_SIZE;
+    }
 
-	if (length_only == TRUE) {
-		*out_data_len = hmac_len;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hmac_len;
+        return CKR_OK;
+    }
 
-	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(tokdata, sess, in_data,
-						  in_data_len, out_data,
-						  out_data_len);
+    if (token_specific.t_hmac_sign != NULL)
+        return token_specific.t_hmac_sign(tokdata, sess, in_data,
+                                          in_data_len, out_data, out_data_len);
 
-	/* Do manual hmac if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
+    /* Do manual hmac if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
 
-	memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Failed to acquire key from specified handle");
-		if (rc == CKR_OBJECT_HANDLE_INVALID)
-			return CKR_KEY_HANDLE_INVALID;
-		else
-			return rc;
-	}
-	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-	if (rc == FALSE) {
-		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-		return CKR_FUNCTION_FAILED;
-	} else
-		key_bytes = attr->ulValueLen;
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
-	// build (K XOR ipad), (K XOR opad)
-	//
-	if (key_bytes > SHA384_BLOCK_SIZE) {
-		digest_mech.mechanism = CKM_SHA384;
-		digest_mech.ulParameterLen = 0;
-		digest_mech.pParameter = NULL;
+    key_bytes = attr->ulValueLen;
 
-		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Init failed.\n");
-			return rc;
-		}
+    // build (K XOR ipad), (K XOR opad)
+    //
+    if (key_bytes > SHA384_BLOCK_SIZE) {
+        digest_mech.mechanism = CKM_SHA384;
+        digest_mech.ulParameterLen = 0;
+        digest_mech.pParameter = NULL;
 
-		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-				       attr->pValue, attr->ulValueLen, hash,
-				       &hash_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Digest failed.\n");
-			return rc;
-		}
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
 
-		memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+        hash_len = sizeof(hash);
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+                               attr->pValue, attr->ulValueLen, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            return rc;
+        }
 
-		for (i=0; i < hash_len; i++) {
-			k_ipad[i] = hash[i] ^ 0x36;
-			k_opad[i] = hash[i] ^ 0x5C;
-		}
+        memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-		memset(&k_ipad[i], 0x36, SHA384_BLOCK_SIZE - i);
-		memset(&k_opad[i], 0x5C, SHA384_BLOCK_SIZE - i);
-	} else {
-		CK_BYTE *key = attr->pValue;
+        for (i = 0; i < hash_len; i++) {
+            k_ipad[i] = hash[i] ^ 0x36;
+            k_opad[i] = hash[i] ^ 0x5C;
+        }
 
-		for (i=0; i < key_bytes; i++) {
-			k_ipad[i] = key[i] ^ 0x36;
-			k_opad[i] = key[i] ^ 0x5C;
-		}
+        memset(&k_ipad[i], 0x36, SHA384_BLOCK_SIZE - i);
+        memset(&k_opad[i], 0x5C, SHA384_BLOCK_SIZE - i);
+    } else {
+        CK_BYTE *key = attr->pValue;
 
-		memset(&k_ipad[i], 0x36, SHA384_BLOCK_SIZE - key_bytes);
-		memset(&k_opad[i], 0x5C, SHA384_BLOCK_SIZE - key_bytes);
-	}
+        for (i = 0; i < key_bytes; i++) {
+            k_ipad[i] = key[i] ^ 0x36;
+            k_opad[i] = key[i] ^ 0x5C;
+        }
 
-	digest_mech.mechanism = CKM_SHA384;
-	digest_mech.ulParameterLen = 0;
-	digest_mech.pParameter = NULL;
+        memset(&k_ipad[i], 0x36, SHA384_BLOCK_SIZE - key_bytes);
+        memset(&k_opad[i], 0x5C, SHA384_BLOCK_SIZE - key_bytes);
+    }
 
-	// inner hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    digest_mech.mechanism = CKM_SHA384;
+    digest_mech.ulParameterLen = 0;
+    digest_mech.pParameter = NULL;
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+    // inner hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA384_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
-				      in_data_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+                                  in_data_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	// outer hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    // outer hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA384_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
-				      hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memcpy(out_data, hash, hmac_len);
-	*out_data_len = hmac_len;
+    memcpy(out_data, hash, hmac_len);
+    *out_data_len = hmac_len;
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 /** This routine gets called for 6 mechanisms actually:
@@ -1290,36 +1283,36 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
  *    CKM_SHA512_256_HMAC_GENERAL
  */
 CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
-		     SESSION *sess, CK_BBOOL length_only,
-		     SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
-		     CK_ULONG in_data_len, CK_BYTE *out_data,
-		     CK_ULONG *out_data_len)
+                       SESSION *sess, CK_BBOOL length_only,
+                       SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                       CK_ULONG in_data_len, CK_BYTE *out_data,
+                       CK_ULONG *out_data_len)
 {
-	OBJECT *key_obj = NULL;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_BYTE hash[SHA512_HASH_SIZE];
-	DIGEST_CONTEXT digest_ctx;
-	CK_MECHANISM digest_mech;
-	CK_BYTE k_ipad[SHA512_BLOCK_SIZE];
-	CK_BYTE k_opad[SHA512_BLOCK_SIZE];
-	CK_ULONG key_bytes, hash_len, hmac_len;
-	CK_ULONG i;
-	CK_RV rc;
+    OBJECT *key_obj = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE hash[SHA512_HASH_SIZE];
+    DIGEST_CONTEXT digest_ctx;
+    CK_MECHANISM digest_mech;
+    CK_BYTE k_ipad[SHA512_BLOCK_SIZE];
+    CK_BYTE k_opad[SHA512_BLOCK_SIZE];
+    CK_ULONG key_bytes, hash_len, hmac_len;
+    CK_ULONG i;
+    CK_RV rc;
 
-	if (!sess || !ctx || !out_data_len) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL ||
+    if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL ||
         ctx->mech.mechanism == CKM_SHA512_224_HMAC_GENERAL ||
         ctx->mech.mechanism == CKM_SHA512_256_HMAC_GENERAL) {
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
-		if (hmac_len == 0) {
-			*out_data_len = 0;
-			return CKR_OK;
-		}
+        if (hmac_len == 0) {
+            *out_data_len = 0;
+            return CKR_OK;
+        }
     } else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC) {
         hmac_len = SHA224_HASH_SIZE;
     } else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC) {
@@ -1328,216 +1321,213 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
         hmac_len = SHA512_HASH_SIZE;
     }
 
-	if (length_only == TRUE) {
-		*out_data_len = hmac_len;
-		return CKR_OK;
-	}
+    if (length_only == TRUE) {
+        *out_data_len = hmac_len;
+        return CKR_OK;
+    }
 
-	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(tokdata, sess, in_data,
-						  in_data_len,
-						  out_data, out_data_len);
+    if (token_specific.t_hmac_sign != NULL)
+        return token_specific.t_hmac_sign(tokdata, sess, in_data,
+                                          in_data_len, out_data, out_data_len);
 
-	/* Do manual hmac if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    /* Do manual hmac if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("Failed to acquire key from specified handle");
-		if (rc == CKR_OBJECT_HANDLE_INVALID)
-			return CKR_KEY_HANDLE_INVALID;
-		else
-			return rc;
-	}
-	rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-	if (rc == FALSE) {
-		TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-		return CKR_FUNCTION_FAILED;
-	} else
-		key_bytes = attr->ulValueLen;
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
-	// build (K XOR ipad), (K XOR opad)
-	//
-	if (key_bytes > SHA512_BLOCK_SIZE) {
-		digest_mech.mechanism = CKM_SHA512;
-		digest_mech.ulParameterLen = 0;
-		digest_mech.pParameter = NULL;
+    key_bytes = attr->ulValueLen;
 
-		rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Init failed.\n");
-			return rc;
-		}
+    // build (K XOR ipad), (K XOR opad)
+    //
+    if (key_bytes > SHA512_BLOCK_SIZE) {
+        digest_mech.mechanism = CKM_SHA512;
+        digest_mech.ulParameterLen = 0;
+        digest_mech.pParameter = NULL;
 
-		hash_len = sizeof(hash);
-		rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-				       attr->pValue, attr->ulValueLen, hash,
-				       &hash_len);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Digest Mgr Digest failed.\n");
-			return rc;
-		}
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Init failed.\n");
+            return rc;
+        }
 
-		memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+        hash_len = sizeof(hash);
+        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
+                               attr->pValue, attr->ulValueLen, hash, &hash_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            return rc;
+        }
 
-		for (i=0; i < hash_len; i++) {
-			k_ipad[i] = hash[i] ^ 0x36;
-			k_opad[i] = hash[i] ^ 0x5C;
-		}
+        memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-		memset(&k_ipad[i], 0x36, SHA512_BLOCK_SIZE - i);
-		memset(&k_opad[i], 0x5C, SHA512_BLOCK_SIZE - i);
-	} else {
-		CK_BYTE *key = attr->pValue;
+        for (i = 0; i < hash_len; i++) {
+            k_ipad[i] = hash[i] ^ 0x36;
+            k_opad[i] = hash[i] ^ 0x5C;
+        }
 
-		for (i=0; i < key_bytes; i++) {
-			k_ipad[i] = key[i] ^ 0x36;
-			k_opad[i] = key[i] ^ 0x5C;
-		}
+        memset(&k_ipad[i], 0x36, SHA512_BLOCK_SIZE - i);
+        memset(&k_opad[i], 0x5C, SHA512_BLOCK_SIZE - i);
+    } else {
+        CK_BYTE *key = attr->pValue;
 
-		memset(&k_ipad[i], 0x36, SHA512_BLOCK_SIZE - key_bytes);
-		memset(&k_opad[i], 0x5C, SHA512_BLOCK_SIZE - key_bytes);
-	}
+        for (i = 0; i < key_bytes; i++) {
+            k_ipad[i] = key[i] ^ 0x36;
+            k_opad[i] = key[i] ^ 0x5C;
+        }
 
-	digest_mech.mechanism = CKM_SHA512;
-	digest_mech.ulParameterLen = 0;
-	digest_mech.pParameter = NULL;
+        memset(&k_ipad[i], 0x36, SHA512_BLOCK_SIZE - key_bytes);
+        memset(&k_opad[i], 0x5C, SHA512_BLOCK_SIZE - key_bytes);
+    }
 
-	// inner hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    digest_mech.mechanism = CKM_SHA512;
+    digest_mech.ulParameterLen = 0;
+    digest_mech.pParameter = NULL;
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
+    // inner hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
+
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA512_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
-				      in_data_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
+                                  in_data_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	/* Do manual hmac if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	memset( &digest_ctx, 0x0, sizeof(DIGEST_CONTEXT) );
+    /* Do manual hmac if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-	// outer hash
-	//
-	rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Init failed.\n");
-		return rc;
-	}
+    // outer hash
+    //
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Init failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA512_BLOCK_SIZE);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash,
-				      hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Update failed.\n");
-		return rc;
-	}
+    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Update failed.\n");
+        return rc;
+    }
 
-	hash_len = sizeof(hash);
-	rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-				     &hash_len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Digest Mgr Final failed.\n");
-		return rc;
-	}
+    hash_len = sizeof(hash);
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
+                                 &hash_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Digest Mgr Final failed.\n");
+        return rc;
+    }
 
-	memcpy(out_data, hash, hmac_len);
-	*out_data_len = hmac_len;
+    memcpy(out_data, hash, hmac_len);
+    *out_data_len = hmac_len;
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
-		       SIGN_VERIFY_CONTEXT *ctx,
-		       CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *signature, CK_ULONG sig_len)
+                       SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *signature, CK_ULONG sig_len)
 {
-	CK_BYTE hmac[SHA1_HASH_SIZE];
-	SIGN_VERIFY_CONTEXT hmac_ctx;
-	CK_ULONG hmac_len, len;
-	CK_RV rc;
+    CK_BYTE hmac[SHA1_HASH_SIZE];
+    SIGN_VERIFY_CONTEXT hmac_ctx;
+    CK_ULONG hmac_len, len;
+    CK_RV rc;
 
-	if (!sess || !ctx || !in_data || !signature) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !in_data || !signature) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(tokdata, sess, in_data,
-						    in_data_len, signature,
-						    sig_len);
+    if (token_specific.t_hmac_verify != NULL)
+        return token_specific.t_hmac_verify(tokdata, sess, in_data,
+                                            in_data_len, signature, sig_len);
 
-	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL)
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
-	else
-		hmac_len = SHA1_HASH_SIZE;
+    /* Do manual hmac verify  if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    if (ctx->mech.mechanism == CKM_SHA_1_HMAC_GENERAL)
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
+    else
+        hmac_len = SHA1_HASH_SIZE;
 
-	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
+    memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Init failed.\n");
-		goto done;
-	}
-	len = sizeof(hmac);
-	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-			   hmac, &len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Sign failed.\n");
-		goto done;
-	}
-	if ((len != hmac_len) || (len != sig_len)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-		rc = CKR_SIGNATURE_LEN_RANGE;
-		goto done;
-	}
+    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Init failed.\n");
+        goto done;
+    }
+    len = sizeof(hmac);
+    rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
+                       hmac, &len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Sign failed.\n");
+        goto done;
+    }
+    if ((len != hmac_len) || (len != sig_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
+    }
 
-	if (memcmp(hmac, signature, hmac_len) != 0) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-		rc = CKR_SIGNATURE_INVALID;
-	}
+    if (memcmp(hmac, signature, hmac_len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        rc = CKR_SIGNATURE_INVALID;
+    }
 
 done:
-	sign_mgr_cleanup(&hmac_ctx);
-	return rc;
+    sign_mgr_cleanup(&hmac_ctx);
+    return rc;
 }
 
 CK_RV sha224_hmac_verify(STDLL_TokData_t *tokdata,
-               SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
-               CK_BYTE *in_data, CK_ULONG in_data_len,
-               CK_BYTE *signature, CK_ULONG sig_len)
+                         SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len)
 {
     CK_BYTE hmac[SHA224_HASH_SIZE];
     SIGN_VERIFY_CONTEXT hmac_ctx;
@@ -1551,14 +1541,13 @@ CK_RV sha224_hmac_verify(STDLL_TokData_t *tokdata,
 
     if (token_specific.t_hmac_verify != NULL)
         return token_specific.t_hmac_verify(tokdata, sess, in_data,
-                            in_data_len, signature,
-                            sig_len);
+                                            in_data_len, signature, sig_len);
 
     /* Do manual hmac verify  if token doesn't have an hmac crypto call.
      * Secure tokens should not do manual hmac.
      */
     if (ctx->mech.mechanism == CKM_SHA224_HMAC_GENERAL)
-        hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
     else
         hmac_len = SHA224_HASH_SIZE;
 
@@ -1572,7 +1561,7 @@ CK_RV sha224_hmac_verify(STDLL_TokData_t *tokdata,
 
     len = sizeof(hmac);
     rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-               hmac, &len);
+                       hmac, &len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
         goto done;
@@ -1595,317 +1584,314 @@ done:
 }
 
 CK_RV sha256_hmac_verify(STDLL_TokData_t *tokdata,
-		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
-		       CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *signature, CK_ULONG sig_len)
+                         SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len)
 {
-	CK_BYTE hmac[SHA256_HASH_SIZE];
-	SIGN_VERIFY_CONTEXT hmac_ctx;
-	CK_ULONG hmac_len, len;
-	CK_RV rc;
+    CK_BYTE hmac[SHA256_HASH_SIZE];
+    SIGN_VERIFY_CONTEXT hmac_ctx;
+    CK_ULONG hmac_len, len;
+    CK_RV rc;
 
-	if (!sess || !ctx || !in_data || !signature) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx || !in_data || !signature) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(tokdata, sess, in_data,
-						    in_data_len, signature,
-						    sig_len);
+    if (token_specific.t_hmac_verify != NULL)
+        return token_specific.t_hmac_verify(tokdata, sess, in_data,
+                                            in_data_len, signature, sig_len);
 
-	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	if (ctx->mech.mechanism == CKM_SHA256_HMAC_GENERAL)
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
-	else
-		hmac_len = SHA256_HASH_SIZE;
+    /* Do manual hmac verify  if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    if (ctx->mech.mechanism == CKM_SHA256_HMAC_GENERAL)
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
+    else
+        hmac_len = SHA256_HASH_SIZE;
 
-	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
+    memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Init failed.\n");
-		goto done;
-	}
+    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Init failed.\n");
+        goto done;
+    }
 
-	len = sizeof(hmac);
-	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-			   hmac, &len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Sign failed.\n");
-		goto done;
-	}
+    len = sizeof(hmac);
+    rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
+                       hmac, &len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Sign failed.\n");
+        goto done;
+    }
 
-	if ((len != hmac_len) || (len != sig_len)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-		rc = CKR_SIGNATURE_LEN_RANGE;
-		goto done;
-	}
+    if ((len != hmac_len) || (len != sig_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
+    }
 
-	if (memcmp(hmac, signature, hmac_len) != 0) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-		rc = CKR_SIGNATURE_INVALID;
-	}
+    if (memcmp(hmac, signature, hmac_len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        rc = CKR_SIGNATURE_INVALID;
+    }
 
 done:
-	sign_mgr_cleanup(&hmac_ctx);
-	return rc;
+    sign_mgr_cleanup(&hmac_ctx);
+
+    return rc;
 }
 
 CK_RV sha384_hmac_verify(STDLL_TokData_t *tokdata,
-		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
-		       CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *signature, CK_ULONG sig_len)
+                         SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len)
 {
-	CK_BYTE hmac[SHA384_HASH_SIZE];
-	SIGN_VERIFY_CONTEXT hmac_ctx;
-	CK_ULONG hmac_len, len;
-	CK_RV rc;
+    CK_BYTE hmac[SHA384_HASH_SIZE];
+    SIGN_VERIFY_CONTEXT hmac_ctx;
+    CK_ULONG hmac_len, len;
+    CK_RV rc;
 
-	if (!sess || !ctx || !in_data || !signature) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(tokdata, sess, in_data,
-						    in_data_len, signature,
-						    sig_len);
+    if (!sess || !ctx || !in_data || !signature) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (token_specific.t_hmac_verify != NULL)
+        return token_specific.t_hmac_verify(tokdata, sess, in_data,
+                                            in_data_len, signature, sig_len);
 
-	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL)
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
-	else
-		hmac_len = SHA384_HASH_SIZE;
+    /* Do manual hmac verify  if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    if (ctx->mech.mechanism == CKM_SHA384_HMAC_GENERAL)
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
+    else
+        hmac_len = SHA384_HASH_SIZE;
 
-	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
+    memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Init failed.\n");
-		goto done;
-	}
-	len = sizeof(hmac);
-	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-			   hmac, &len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Sign failed.\n");
-		goto done;
-	}
-	if ((len != hmac_len) || (len != sig_len)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-		rc = CKR_SIGNATURE_LEN_RANGE;
-		goto done;
-	}
+    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Init failed.\n");
+        goto done;
+    }
+    len = sizeof(hmac);
+    rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
+                       hmac, &len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Sign failed.\n");
+        goto done;
+    }
+    if ((len != hmac_len) || (len != sig_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
+    }
 
-	if (memcmp(hmac, signature, hmac_len) != 0) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-		rc = CKR_SIGNATURE_INVALID;
-	}
+    if (memcmp(hmac, signature, hmac_len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        rc = CKR_SIGNATURE_INVALID;
+    }
 done:
-	sign_mgr_cleanup(&hmac_ctx);
-	return rc;
+    sign_mgr_cleanup(&hmac_ctx);
+
+    return rc;
 }
 
 CK_RV sha512_hmac_verify(STDLL_TokData_t *tokdata,
-		       SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
-		       CK_BYTE *in_data, CK_ULONG in_data_len,
-		       CK_BYTE *signature, CK_ULONG sig_len)
+                         SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                         CK_BYTE *in_data, CK_ULONG in_data_len,
+                         CK_BYTE *signature, CK_ULONG sig_len)
 {
-	CK_BYTE hmac[SHA512_HASH_SIZE];
-	SIGN_VERIFY_CONTEXT hmac_ctx;
-	CK_ULONG hmac_len, len;
-	CK_RV rc;
+    CK_BYTE hmac[SHA512_HASH_SIZE];
+    SIGN_VERIFY_CONTEXT hmac_ctx;
+    CK_ULONG hmac_len, len;
+    CK_RV rc;
 
-	if (!sess || !ctx || !in_data || !signature) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
-	if (token_specific.t_hmac_verify != NULL)
-		return token_specific.t_hmac_verify(tokdata, sess, in_data,
-						    in_data_len, signature,
-						    sig_len);
+    if (!sess || !ctx || !in_data || !signature) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (token_specific.t_hmac_verify != NULL)
+        return token_specific.t_hmac_verify(tokdata, sess, in_data,
+                                            in_data_len, signature, sig_len);
 
-	/* Do manual hmac verify  if token doesn't have an hmac crypto call.
-	 * Secure tokens should not do manual hmac.
-	 */
-	if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL)
-		hmac_len = *(CK_ULONG *)ctx->mech.pParameter;
-	else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC)
+    /* Do manual hmac verify  if token doesn't have an hmac crypto call.
+     * Secure tokens should not do manual hmac.
+     */
+    if (ctx->mech.mechanism == CKM_SHA512_HMAC_GENERAL)
+        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
+    else if (ctx->mech.mechanism == CKM_SHA512_224_HMAC)
         hmac_len = SHA224_HASH_SIZE;
     else if (ctx->mech.mechanism == CKM_SHA512_256_HMAC)
         hmac_len = SHA256_HASH_SIZE;
-	else
-		hmac_len = SHA512_HASH_SIZE;
+    else
+        hmac_len = SHA512_HASH_SIZE;
 
-	memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
+    memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-	rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Init failed.\n");
-		goto done;
-	}
-	len = sizeof(hmac);
-	rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-			   hmac, &len);
-	if (rc != CKR_OK) {
-		TRACE_DEVEL("Sign Mgr Sign failed.\n");
-		goto done;
-	}
-	if ((len != hmac_len) || (len != sig_len)) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-		rc = CKR_SIGNATURE_LEN_RANGE;
-		goto done;
-	}
+    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Init failed.\n");
+        goto done;
+    }
+    len = sizeof(hmac);
+    rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
+                       hmac, &len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Sign Mgr Sign failed.\n");
+        goto done;
+    }
+    if ((len != hmac_len) || (len != sig_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
+    }
 
-	if (memcmp(hmac, signature, hmac_len) != 0) {
-		TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-		rc = CKR_SIGNATURE_INVALID;
-	}
+    if (memcmp(hmac, signature, hmac_len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        rc = CKR_SIGNATURE_INVALID;
+    }
 done:
-	sign_mgr_cleanup(&hmac_ctx);
-	return rc;
+    sign_mgr_cleanup(&hmac_ctx);
+
+    return rc;
 }
 
 CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
-	       CK_MECHANISM *mech)
+               CK_MECHANISM *mech)
 {
-	if (token_specific.t_sha_init != NULL)
-		return token_specific.t_sha_init(tokdata, ctx, mech);
-	else {
-		/* For current tokens, continue legacy of using software
-		 *  implemented SHA-1 if the token does not have its own
-		 *  SHA-1 implementation.
-		 *  Future tokens' crypto should be its own so that
-		 *  opencryptoki is not responsible for crypto. If token
-		 *  does not have SHA-1, then should be mechanism not
-		 *  supported. JML
-		 */
-		if (mech->mechanism == CKM_SHA_1) {
-			sw_sha1_init(ctx);
-			return CKR_OK;
-		} else
-			return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_sha_init != NULL) {
+        return token_specific.t_sha_init(tokdata, ctx, mech);
+    } else {
+        /* For current tokens, continue legacy of using software
+         *  implemented SHA-1 if the token does not have its own
+         *  SHA-1 implementation.
+         *  Future tokens' crypto should be its own so that
+         *  opencryptoki is not responsible for crypto. If token
+         *  does not have SHA-1, then should be mechanism not
+         *  supported. JML
+         */
+        if (mech->mechanism == CKM_SHA_1) {
+            sw_sha1_init(ctx);
+            return CKR_OK;
+        } else {
+            return CKR_MECHANISM_INVALID;
+        }
+    }
 }
 
 CK_RV hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
-		     CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
+                     CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
 {
-	if (token_specific.t_hmac_sign_init != NULL)
-                return token_specific.t_hmac_sign_init(tokdata, sess, mech, hkey);
-	else
-		/* Return ok with the intention that the local hmac
-		 * implementation will get used instead.
-		 * For those tokens not supporting HMAC at all,
-		 * will need to return CKR_MECHANISM_INVALID.
-		 */
-		return CKR_OK;
+    if (token_specific.t_hmac_sign_init != NULL)
+        return token_specific.t_hmac_sign_init(tokdata, sess, mech, hkey);
+
+    /* Return ok with the intention that the local hmac
+     * implementation will get used instead.
+     * For those tokens not supporting HMAC at all,
+     * will need to return CKR_MECHANISM_INVALID.
+     */
+    return CKR_OK;
 }
 
 CK_RV hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
-		       CK_BYTE *in_data, CK_ULONG in_data_len)
+                       CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+    SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
-	if (!sess || !ctx) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_sign_update != NULL)
-		return token_specific.t_hmac_sign_update(tokdata, sess,
-							 in_data,
-							 in_data_len);
-	else {
-		TRACE_ERROR("hmac-update is not supported\n");
-		return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_hmac_sign_update != NULL)
+        return token_specific.t_hmac_sign_update(tokdata, sess,
+                                                 in_data, in_data_len);
+
+    TRACE_ERROR("hmac-update is not supported\n");
+
+    return CKR_MECHANISM_INVALID;
 }
 
 CK_RV hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
-		      CK_BYTE *signature, CK_ULONG *sig_len)
+                      CK_BYTE *signature, CK_ULONG *sig_len)
 {
-	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+    SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
-	if (!sess || !ctx) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_sign_final != NULL)
-		return token_specific.t_hmac_sign_final(tokdata, sess,
-							signature,
-							sig_len);
-	else {
-		TRACE_ERROR("hmac-final is not supported\n");
-		return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_hmac_sign_final != NULL)
+        return token_specific.t_hmac_sign_final(tokdata, sess,
+                                                signature, sig_len);
+
+    TRACE_ERROR("hmac-final is not supported\n");
+
+    return CKR_MECHANISM_INVALID;
 }
 
 CK_RV hmac_verify_init(STDLL_TokData_t *tokdata, SESSION *sess,
-		       CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
+                       CK_MECHANISM *mech, CK_OBJECT_HANDLE hkey)
 {
-	if (token_specific.t_hmac_verify_init != NULL)
-                return token_specific.t_hmac_verify_init(tokdata, sess, mech,
-							 hkey);
-	else
-		/* Return ok with the intention that the local hmac
-		 * implementation will get used instead.
-		 * For those tokens not supporting HMAC at all,
-		 * will need to return CKR_MECHANISM_INVALID.
-		 */
-		return CKR_OK;
+    if (token_specific.t_hmac_verify_init != NULL)
+        return token_specific.t_hmac_verify_init(tokdata, sess, mech, hkey);
+
+    /* Return ok with the intention that the local hmac
+     * implementation will get used instead.
+     * For those tokens not supporting HMAC at all,
+     * will need to return CKR_MECHANISM_INVALID.
+     */
+    return CKR_OK;
 }
 
 CK_RV hmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
-			 CK_BYTE *in_data, CK_ULONG in_data_len)
+                         CK_BYTE *in_data, CK_ULONG in_data_len)
 {
-	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+    SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
-	if (!sess || !ctx) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_verify_update != NULL)
-		return token_specific.t_hmac_verify_update(tokdata, sess,
-							   in_data,
-							   in_data_len);
-	else {
-		TRACE_ERROR("hmac-update is not supported\n");
-		return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_hmac_verify_update != NULL)
+        return token_specific.t_hmac_verify_update(tokdata, sess,
+                                                   in_data, in_data_len);
+
+    TRACE_ERROR("hmac-update is not supported\n");
+
+    return CKR_MECHANISM_INVALID;
 }
 
 CK_RV hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
-			CK_BYTE *signature, CK_ULONG sig_len)
+                        CK_BYTE *signature, CK_ULONG sig_len)
 {
-	SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
+    SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
-	if (!sess || ! ctx) {
-		TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        return CKR_FUNCTION_FAILED;
+    }
 
-	if (token_specific.t_hmac_verify_final != NULL)
-		return token_specific.t_hmac_verify_final(tokdata, sess,
-							  signature,
-							  sig_len);
-	else {
-		TRACE_ERROR("hmac-final is not supported\n");
-		return CKR_MECHANISM_INVALID;
-	}
+    if (token_specific.t_hmac_verify_final != NULL)
+        return token_specific.t_hmac_verify_final(tokdata, sess,
+                                                  signature, sig_len);
+
+    TRACE_ERROR("hmac-final is not supported\n");
+
+    return CKR_MECHANISM_INVALID;
 }
 
 CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
 {
-	if (token_specific.t_generic_secret_key_gen == NULL) {
-		TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-		return CKR_MECHANISM_INVALID;
-	} else
-		return token_specific.t_generic_secret_key_gen(tokdata, tmpl);
+    if (token_specific.t_generic_secret_key_gen == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return token_specific.t_generic_secret_key_gen(tokdata, tmpl);
 }
