@@ -520,6 +520,8 @@ CK_RV do_SetPIN(void)
 
 	/* try to call C_SetPIN from a R/W public session, it should work.
 	 */
+    testcase_new_assertion();
+
 	flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
 	rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session);
 	if (rc != CKR_OK) {
