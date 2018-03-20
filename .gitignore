@@ -17,13 +17,10 @@ depcomp
 install-sh
 libtool
 ltmain.sh
-man/man1/pkcsconf.1
-man/man1/pkcsicsf.1
-man/man1/pkcscca.1
-man/man1/pkcsep11_migrate.1
-man/man5/opencryptoki.conf.5
-man/man7/opencryptoki.7
-man/man8/pkcsslotd.8
+man/man1/*.1
+man/man5/*.5
+man/man7/*.7
+man/man8/*.8
 misc/pkcsslotd
 misc/pkcsslotd.service
 missing
@@ -88,3 +85,4 @@ usr/sbin/pkcsslotd/lexer.c
 usr/sbin/pkcsicsf/pkcsicsf
 usr/sbin/pkcscca/pkcscca
 usr/sbin/pkcsep11_migrate/pkcsep11_migrate
+usr/sbin/pkcsep11_session/pkcsep11_session
