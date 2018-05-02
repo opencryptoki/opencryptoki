@@ -33,9 +33,9 @@
 int do_GetFunctionList(void);
 int clean_up(void);
 
-CK_SLOT_ID		slot_id;
-CK_FUNCTION_LIST	*funcs;
-CK_SESSION_HANDLE	sess;
+CK_SLOT_ID slot_id;
+CK_FUNCTION_LIST *funcs;
+CK_SESSION_HANDLE sess;
 
 /*
  * do_HW_Feature_Seatch Test:
@@ -54,86 +54,82 @@ CK_SESSION_HANDLE	sess;
  */
 int do_HW_Feature_Search(void)
 {
-    unsigned int    i;
-    CK_RV 			rc;
-    CK_ULONG		find_count;
+    unsigned int i;
+    CK_RV rc;
+    CK_ULONG find_count;
 
-    CK_BBOOL        false = FALSE;
-    CK_BBOOL        true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_BBOOL true = TRUE;
 
     // A counter object
-    CK_OBJECT_CLASS         counter1_class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE      feature1_type = CKH_MONOTONIC_COUNTER;
-    CK_UTF8CHAR             counter1_label[] = "Monotonic counter";
-    CK_CHAR                 counter1_value[16];
-    CK_ATTRIBUTE            counter1_template[] = {
-        {CKA_CLASS,             &counter1_class,    sizeof(counter1_class)},
-        {CKA_HW_FEATURE_TYPE,   &feature1_type,     sizeof(feature1_type)},
-        {CKA_LABEL,             counter1_label,     sizeof(counter1_label)-1},
-        {CKA_VALUE,             counter1_value,     sizeof(counter1_value)},
-        {CKA_RESET_ON_INIT,     &true,              sizeof(true)},
-        {CKA_HAS_RESET,         &false,             sizeof(false)}
+    CK_OBJECT_CLASS counter1_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE feature1_type = CKH_MONOTONIC_COUNTER;
+    CK_UTF8CHAR counter1_label[] = "Monotonic counter";
+    CK_CHAR counter1_value[16];
+    CK_ATTRIBUTE counter1_template[] = {
+        {CKA_CLASS, &counter1_class, sizeof(counter1_class)},
+        {CKA_HW_FEATURE_TYPE, &feature1_type, sizeof(feature1_type)},
+        {CKA_LABEL, counter1_label, sizeof(counter1_label) - 1},
+        {CKA_VALUE, counter1_value, sizeof(counter1_value)},
+        {CKA_RESET_ON_INIT, &true, sizeof(true)},
+        {CKA_HAS_RESET, &false, sizeof(false)}
     };
 
     // Another counter object
-    CK_OBJECT_CLASS         counter2_class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE      feature2_type = CKH_MONOTONIC_COUNTER;
-    CK_UTF8CHAR             counter2_label[] = "Monotonic counter";
-    CK_CHAR                 counter2_value[16];
-    CK_ATTRIBUTE            counter2_template[] = {
-        {CKA_CLASS,             &counter2_class,    sizeof(counter2_class)},
-        {CKA_HW_FEATURE_TYPE,   &feature2_type,     sizeof(feature2_type)},
-        {CKA_LABEL,             counter2_label,     sizeof(counter2_label)-1},
-        {CKA_VALUE,             counter2_value,     sizeof(counter2_value)},
-        {CKA_RESET_ON_INIT,     &true,              sizeof(true)},
-        {CKA_HAS_RESET,         &false,             sizeof(false)}
+    CK_OBJECT_CLASS counter2_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE feature2_type = CKH_MONOTONIC_COUNTER;
+    CK_UTF8CHAR counter2_label[] = "Monotonic counter";
+    CK_CHAR counter2_value[16];
+    CK_ATTRIBUTE counter2_template[] = {
+        {CKA_CLASS, &counter2_class, sizeof(counter2_class)},
+        {CKA_HW_FEATURE_TYPE, &feature2_type, sizeof(feature2_type)},
+        {CKA_LABEL, counter2_label, sizeof(counter2_label) - 1},
+        {CKA_VALUE, counter2_value, sizeof(counter2_value)},
+        {CKA_RESET_ON_INIT, &true, sizeof(true)},
+        {CKA_HAS_RESET, &false, sizeof(false)}
     };
 
     // A clock object
-    CK_OBJECT_CLASS         clock_class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE      clock_type = CKH_CLOCK;
-    CK_UTF8CHAR             clock_label[] = "Clock";
-    CK_CHAR                 clock_value[16];
-    CK_ATTRIBUTE            clock_template[] = {
-        {CKA_CLASS,             &clock_class,   sizeof(clock_class)},
-        {CKA_HW_FEATURE_TYPE,   &clock_type,    sizeof(clock_type)},
-        {CKA_LABEL,             clock_label,    sizeof(clock_label)-1},
-        {CKA_VALUE,             clock_value,    sizeof(clock_value)}
+    CK_OBJECT_CLASS clock_class = CKO_HW_FEATURE;
+    CK_HW_FEATURE_TYPE clock_type = CKH_CLOCK;
+    CK_UTF8CHAR clock_label[] = "Clock";
+    CK_CHAR clock_value[16];
+    CK_ATTRIBUTE clock_template[] = {
+        {CKA_CLASS, &clock_class, sizeof(clock_class)},
+        {CKA_HW_FEATURE_TYPE, &clock_type, sizeof(clock_type)},
+        {CKA_LABEL, clock_label, sizeof(clock_label) - 1},
+        {CKA_VALUE, clock_value, sizeof(clock_value)}
     };
 
     // A data object
-    CK_OBJECT_CLASS     obj1_class = CKO_DATA;
-    CK_UTF8CHAR         obj1_label[] = "Object 1";
-    CK_BYTE             obj1_data[] = "Object 1's data";
-    CK_ATTRIBUTE        obj1_template[] = {
-        {CKA_CLASS,     &obj1_class,    sizeof(obj1_class)},
-        {CKA_TOKEN,     &true,          sizeof(true)},
-        {CKA_LABEL,     obj1_label,     sizeof(obj1_label)-1},
-        {CKA_VALUE,     obj1_data,      sizeof(obj1_data)}
+    CK_OBJECT_CLASS obj1_class = CKO_DATA;
+    CK_UTF8CHAR obj1_label[] = "Object 1";
+    CK_BYTE obj1_data[] = "Object 1's data";
+    CK_ATTRIBUTE obj1_template[] = {
+        {CKA_CLASS, &obj1_class, sizeof(obj1_class)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, obj1_label, sizeof(obj1_label) - 1},
+        {CKA_VALUE, obj1_data, sizeof(obj1_data)}
     };
 
-	// A secret key object
-    CK_OBJECT_CLASS     obj2_class = CKO_SECRET_KEY;
-    CK_KEY_TYPE         obj2_type = CKK_AES;
-    CK_UTF8CHAR         obj2_label[] = "Object 2";
-    CK_BYTE             obj2_data[AES_KEY_SIZE_128];
-    CK_ATTRIBUTE        obj2_template[] = {
-        {CKA_CLASS,     &obj2_class,    sizeof(obj2_class)},
-        {CKA_TOKEN,     &true,          sizeof(true)},
-        {CKA_KEY_TYPE,  &obj2_type,     sizeof(obj2_type)},
-        {CKA_LABEL,     obj2_label,     sizeof(obj2_label)-1},
-        {CKA_VALUE,     obj2_data,      sizeof(obj2_data)}
+    // A secret key object
+    CK_OBJECT_CLASS obj2_class = CKO_SECRET_KEY;
+    CK_KEY_TYPE obj2_type = CKK_AES;
+    CK_UTF8CHAR obj2_label[] = "Object 2";
+    CK_BYTE obj2_data[AES_KEY_SIZE_128];
+    CK_ATTRIBUTE obj2_template[] = {
+        {CKA_CLASS, &obj2_class, sizeof(obj2_class)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_KEY_TYPE, &obj2_type, sizeof(obj2_type)},
+        {CKA_LABEL, obj2_label, sizeof(obj2_label) - 1},
+        {CKA_VALUE, obj2_data, sizeof(obj2_data)}
     };
 
     CK_OBJECT_HANDLE h_counter1,
-                     h_counter2,
-                     h_clock,
-                     h_obj1,
-                     h_obj2,
-                     obj_list[10];
+        h_counter2, h_clock, h_obj1, h_obj2, obj_list[10];
 
     CK_ATTRIBUTE find_tmpl[] = {
-        {CKA_CLASS,	&counter1_class, sizeof(counter1_class)}
+        {CKA_CLASS, &counter1_class, sizeof(counter1_class)}
     };
 
     /* Create the 5 test objects */
@@ -199,14 +195,14 @@ int do_HW_Feature_Search(void)
 
     if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
         printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
-                __FILE__, __LINE__);
+               __FILE__, __LINE__);
         rc = -1;
         goto done;
     }
 
     if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
         printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
-                __FILE__, __LINE__);
+               __FILE__, __LINE__);
         rc = -1;
         goto done;
     }
@@ -243,10 +239,9 @@ int do_HW_Feature_Search(void)
     }
 
     /* Make sure we got the right ones */
-    for( i=0; i < find_count; i++) {
+    for (i = 0; i < find_count; i++) {
         if (obj_list[i] != h_counter1 &&
-            obj_list[i] != h_counter2 &&
-			obj_list[i] != h_clock) {
+            obj_list[i] != h_counter2 && obj_list[i] != h_clock) {
 
             printf("%s:%d ERROR:  C_FindObjects #2 found the wrong\n"
                    " objects!", __FILE__, __LINE__);
@@ -274,91 +269,91 @@ destroy_1:
     return rc;
 }
 
-
-
 int main(int argc, char **argv)
 {
-	int 			i;
-	CK_RV 			rc;
-	CK_C_INITIALIZE_ARGS	initialize_args;
-	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
-	CK_ULONG		user_pin_len;
+    int i;
+    CK_RV rc;
+    CK_C_INITIALIZE_ARGS initialize_args;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
 
-	/* Set default slot to 0 */
-	slot_id = 0;
+    /* Set default slot to 0 */
+    slot_id = 0;
 
-	/* Parse the command line */
-	for( i = 1; i < argc; i++ ) {
-		if(strncmp(argv[i], "-slot", 5) == 0) {
-			slot_id = atoi(argv[i + 1]);
-			i++;
-			break;
-		}
-	}
+    /* Parse the command line */
+    for (i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "-slot", 5) == 0) {
+            slot_id = atoi(argv[i + 1]);
+            i++;
+            break;
+        }
+    }
 
-	printf("Using slot %ld...\n\n", slot_id);
+    printf("Using slot %ld...\n\n", slot_id);
 
-	if(!do_GetFunctionList())
-		return -1;
+    if (!do_GetFunctionList())
+        return -1;
 
-	/* There will be no multi-threaded Cryptoki access in this app */
-	memset( &initialize_args, 0, sizeof(initialize_args) );
+    /* There will be no multi-threaded Cryptoki access in this app */
+    memset(&initialize_args, 0, sizeof(initialize_args));
 
-	if( (rc = funcs->C_Initialize( &initialize_args )) != CKR_OK ) {
-		show_error("C_Initialize", rc);
-		return -1;
-	}
+    rc = funcs->C_Initialize(&initialize_args);
+    if (rc != CKR_OK) {
+        show_error("C_Initialize", rc);
+        return -1;
+    }
 
-	/* Open a session with the token */
-	if( (rc = funcs->C_OpenSession(slot_id,
-					(CKF_SERIAL_SESSION|CKF_RW_SESSION),
-					NULL_PTR,
-					NULL_PTR,
-					&sess)) != CKR_OK ) {
-		show_error("C_OpenSession #1", rc);
-		goto done;
-	}
+    rc = funcs->C_OpenSession(slot_id,
+                              (CKF_SERIAL_SESSION | CKF_RW_SESSION),
+                              NULL_PTR, NULL_PTR, &sess);
+    /* Open a session with the token */
+    if (rc != CKR_OK) {
+        show_error("C_OpenSession #1", rc);
+        goto done;
+    }
 
-	if (get_user_pin(user_pin))
-		return CKR_FUNCTION_FAILED;
-	user_pin_len = (CK_ULONG)strlen((char *)user_pin);
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
 
-	// Login correctly
-	rc = funcs->C_Login(sess, CKU_USER, user_pin, user_pin_len);
-	if( rc != CKR_OK ) {
-		show_error("C_Login #1", rc);
-		goto session_close;
-	}
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
-	printf("do_HW_Feature_Search...\n");
-	rc = do_HW_Feature_Search();
-	if(rc)
-		goto logout;
+    // Login correctly
+    rc = funcs->C_Login(sess, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        show_error("C_Login #1", rc);
+        goto session_close;
+    }
 
-	printf("Hardware Feature tests succeeded.\n");
+    printf("do_HW_Feature_Search...\n");
+    rc = do_HW_Feature_Search();
+    if (rc)
+        goto logout;
+
+    printf("Hardware Feature tests succeeded.\n");
 
 logout:
-        rc = funcs->C_Logout(sess);
-        if( rc != CKR_OK )
-                show_error("C_Logout #1", rc);
+    rc = funcs->C_Logout(sess);
+    if (rc != CKR_OK)
+        show_error("C_Logout #1", rc);
 
 session_close:
-
-	/* Close the session */
-	if( (rc = funcs->C_CloseSession(sess)) != CKR_OK )
-		show_error("C_CloseSession", rc);
+    rc = funcs->C_CloseSession(sess);
+    /* Close the session */
+    if (rc != CKR_OK)
+        show_error("C_CloseSession", rc);
 
 done:
-	/* Call C_Finalize and dlclose the library */
-	return clean_up();
+    /* Call C_Finalize and dlclose the library */
+    return clean_up();
 }
 
 int clean_up(void)
 {
-	CK_RV rc = 0;
+    CK_RV rc = 0;
 
-        if( (rc = funcs->C_Finalize(NULL)) != CKR_OK)
-		show_error("C_Finalize", rc);
+    rc = funcs->C_Finalize(NULL);
+    if (rc != CKR_OK)
+        show_error("C_Finalize", rc);
 
-	return rc;
+    return rc;
 }
