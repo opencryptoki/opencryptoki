@@ -44,7 +44,6 @@ int CreateSharedMemory ( void ) {
   if ( ((Path = getenv("PKCS11_SHMEM_FILE")) == NULL ) || ( Path[0] == '\0' ) ) {
     Path = TOK_PATH;
   }
-  InfoLog( "Shared memory file is %s", Path);
 
    // Get shared memory key token all users of the shared memory
    // need to get the same token
