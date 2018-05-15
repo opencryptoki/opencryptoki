@@ -473,6 +473,7 @@ int main ( int argc, char *argv[], char *envp[]) {
 		if (pidfile) {
 			fprintf(pidfile,"%d",getpid());
 			fclose(pidfile);
+            InfoLog("PID File created");
 		}
 	}
 
