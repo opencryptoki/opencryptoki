@@ -162,6 +162,582 @@ _signVerifyParam signVerifyInput[] = {
 	{ CKM_ECDSA_SHA512, 100, 4 }
 };
 
+#define NUM_KDFS sizeof(kdfs)/sizeof(CK_EC_KDF_TYPE)
+static CK_EC_KDF_TYPE kdfs[] = {
+    CKD_NULL,
+    CKD_SHA1_KDF,
+    CKD_SHA224_KDF,
+    CKD_SHA256_KDF,
+    CKD_SHA384_KDF,
+    CKD_SHA512_KDF,
+};
+
+static unsigned int curve_len(int index)
+{
+    switch (index) {
+    case 0: return CURVE160_LENGTH/8;
+    case 1: return CURVE192_LENGTH/8;
+    case 2: return CURVE224_LENGTH/8;
+    case 3: return CURVE256_LENGTH/8;
+    case 4: return CURVE320_LENGTH/8;
+    case 5: return CURVE384_LENGTH/8;
+    case 6: return CURVE512_LENGTH/8;
+    case 7: return CURVE512_LENGTH/8;
+    case 8: return CURVE192_LENGTH/8;
+    case 9: return CURVE224_LENGTH/8;
+    case 10: return CURVE256_LENGTH/8;
+    case 11: return CURVE384_LENGTH/8;
+    case 12: return CURVE521_LENGTH/8+1;
+    }
+
+    return 0;
+}
+
+static CK_RV curve_supported(const unsigned char *name)
+{
+    if (name[strlen(name)-2] == 'r' || name[strlen(name)-2] == 'v')
+        return 1;
+    else
+        return 0;
+}
+
+/**
+ * A test is skipped for the ep11token, when the derived key length
+ * shall be bigger than the shared secret (z-value). The ep11token is
+ * currently based on PKCS#11 v2.20 where no KDF is considered.
+ * This restriction comes from the ep11 host library.
+ */
+static unsigned int too_many_key_bytes_requested_ep11(unsigned int curve, unsigned int kdf,
+        unsigned int keylen)
+{
+    if (!is_ep11_token(SLOT_ID))
+        return 0;
+
+    if (keylen <= curve_len(curve))
+        return 0;
+    else
+        return 1;
+}
+
+/**
+ * A test is skipped, when no KDF is used and the derived key length
+ * shall be bigger than the shared secret (z-value). Without a KDF, max
+ * z-length key bytes can be derived.
+ */
+static unsigned int too_many_key_bytes_requested(unsigned int curve, unsigned int kdf,
+        unsigned int keylen)
+{
+    if (kdf > 0 || keylen <= curve_len(curve))
+        return 0;
+    else
+        return 1;
+}
+
+/*
+ * Generate EC key-pairs for parties A and B.
+ * Derive shared secrets based on Diffie Hellman key agreement defined in PKCS#3.
+ */
+CK_RV run_DeriveECDHKey()
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE publ_keyA = CK_INVALID_HANDLE, priv_keyA = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE publ_keyB = CK_INVALID_HANDLE, priv_keyB = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_keyA = CK_INVALID_HANDLE, secret_keyB = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
+    CK_BBOOL true = CK_TRUE;
+    CK_BYTE pubkeyA_value[256];
+    CK_BYTE pubkeyB_value[256];
+    CK_BYTE secretA_value[80000]; // enough space for lengths in secret_key_len[]
+    CK_BYTE deriveB_value[80000];
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
+    CK_ULONG i, j, k, m;
+
+    testcase_begin("starting run_DeriveECDHKey...");
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_EC_KEY_PAIR_GEN\n", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_ECDH1_DERIVE)) {
+        testcase_skip("Slot %u doesn't support CKM_ECDH1_DERIVE\n", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    for (i=0; i<NUMEC; i++) {
+
+        CK_ATTRIBUTE prv_attr[] = {
+            {CKA_SIGN, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_DERIVE, &true, sizeof(true)},
+        };
+        CK_ULONG prv_attr_len = sizeof(prv_attr)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE pub_attr[] = {
+            {CKA_ECDSA_PARAMS, der_ec_supported[i].curve, der_ec_supported[i].size},
+            {CKA_VERIFY, &true, sizeof(true)},
+            {CKA_MODIFIABLE, &true, sizeof(true)},
+        };
+        CK_ULONG pub_attr_len = sizeof(pub_attr)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE  extr1_tmpl[] = {
+            {CKA_EC_POINT, pubkeyA_value, sizeof(pubkeyA_value)},
+        };
+        CK_ULONG extr1_tmpl_len = sizeof(extr1_tmpl)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE  extr2_tmpl[] = {
+            {CKA_EC_POINT, pubkeyB_value, sizeof(pubkeyB_value)},
+        };
+        CK_ULONG extr2_tmpl_len = sizeof(extr2_tmpl)/sizeof(CK_ATTRIBUTE);
+
+        if (!(is_cca_token(SLOT_ID))) {
+            if (!memcmp(der_ec_supported[i].curve, brainpoolP512t1, sizeof(brainpoolP512t1))) {
+                testcase_skip("Slot %u doesn't support this curve", (unsigned int)SLOT_ID);
+                continue;
+            }
+        }
+
+        // Testcase #1 - Generate 2 EC key pairs.
+
+        // First, generate the EC key pair for party A
+        mech.mechanism = CKM_EC_KEY_PAIR_GEN;
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        rc = funcs->C_GenerateKeyPair(session, &mech, pub_attr, pub_attr_len, prv_attr, prv_attr_len, &publ_keyA, &priv_keyA);
+        if (rc != CKR_OK) {
+            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Extract public key A
+        rc = funcs->C_GetAttributeValue(session, publ_keyA, extr1_tmpl, extr1_tmpl_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue #1: rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Now generate the EC key pair for party B
+        mech.mechanism = CKM_EC_KEY_PAIR_GEN;
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        rc = funcs->C_GenerateKeyPair(session, &mech, pub_attr, pub_attr_len, prv_attr, prv_attr_len, &publ_keyB, &priv_keyB);
+        if (rc != CKR_OK) {
+            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Extract public key B
+        rc = funcs->C_GetAttributeValue(session, publ_keyB, extr2_tmpl, extr2_tmpl_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue #1: rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Check if the key lengths are equal
+        if (extr1_tmpl->ulValueLen != extr2_tmpl->ulValueLen) {
+            testcase_error("Length of public key A not equal to length of public key B");
+            goto testcase_cleanup;
+        }
+
+        // Testcase #2 - Now derive the secrets...
+
+        for (j=0; j < NUM_KDFS; j++) {
+
+            for (k=0; k<NUM_SECRET_KEY_LENGTHS; k++) {
+
+                if (too_many_key_bytes_requested(i, j, secret_key_len[k]) ||
+                    too_many_key_bytes_requested_ep11(i, j, secret_key_len[k])) {
+                    testcase_skip("Cannot provide %ld key bytes with curve %i without a kdf.\n", secret_key_len[k], i);
+                    continue;
+                }
+
+                CK_ATTRIBUTE  secretA_tmpl[] = {
+                    {CKA_VALUE, secretA_value, sizeof(secretA_value)},
+                };
+                CK_ULONG secretA_tmpl_len = sizeof(secretA_tmpl)/sizeof(CK_ATTRIBUTE);
+
+                CK_ATTRIBUTE  secretB_tmpl[] = {
+                    {CKA_VALUE, deriveB_value, sizeof(deriveB_value)},
+                };
+                CK_ULONG secretB_tmpl_len = sizeof(secretB_tmpl)/sizeof(CK_ATTRIBUTE);
+
+                CK_ATTRIBUTE  derive_tmpl[] = {
+                    {CKA_CLASS, &class, sizeof(class)},
+                    {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+                    {CKA_VALUE_LEN, &(secret_key_len[k]), sizeof(CK_ULONG)},
+                };
+                CK_ULONG secret_tmpl_len = sizeof(derive_tmpl)/sizeof(CK_ATTRIBUTE);
+
+                for (m=0; m<NUM_SHARED_DATA; m++) {
+
+                    testcase_new_assertion();
+
+                    // Now, derive a generic secret key using party A's private key and B's public key
+
+                    if (is_ep11_token(SLOT_ID)) {
+                        /* ep11token implements PKCS#11 v2.20 */
+                        mech.mechanism  = CKM_ECDH1_DERIVE;
+                        mech.ulParameterLen = extr2_tmpl->ulValueLen;
+                        mech.pParameter = extr2_tmpl->pValue;
+                    } else {
+                        /* icatoken implements PKCS#11 v2.40, other tokens don't support derive */
+                        ecdh_parmA.kdf = kdfs[j];
+                        ecdh_parmA.pPublicData = extr2_tmpl->pValue;
+                        ecdh_parmA.ulPublicDataLen = extr2_tmpl->ulValueLen;
+                        ecdh_parmA.pSharedData = shared_data[m].length == 0 ? NULL : (CK_BYTE_PTR)&shared_data[m].data;
+                        ecdh_parmA.ulSharedDataLen = shared_data[m].length;
+
+                        if (kdfs[j] == CKD_NULL) {
+                            ecdh_parmA.pSharedData = NULL;
+                            ecdh_parmA.ulSharedDataLen = 0;
+                        }
+
+                        mech.mechanism = CKM_ECDH1_DERIVE;
+                        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+                        mech.pParameter = &ecdh_parmA;
+                    }
+
+                    rc = funcs->C_DeriveKey(session, &mech, priv_keyA, derive_tmpl, secret_tmpl_len, &secret_keyA);
+                    if (rc != CKR_OK) {
+                        testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
+                    // Now, derive a generic secret key using B's private key and A's public key
+
+                    if (is_ep11_token(SLOT_ID)) {
+                        /* ep11 host lib and token implement PKCS#11 v2.20 */
+                        mech.mechanism  = CKM_ECDH1_DERIVE;
+                        mech.ulParameterLen = extr1_tmpl->ulValueLen;
+                        mech.pParameter = extr1_tmpl->pValue;
+                    } else {
+                        /* icatoken implements PKCS#11 v2.40, other tokens don't support derive */
+                        ecdh_parmB.kdf = kdfs[j];
+                        ecdh_parmB.pPublicData = extr1_tmpl->pValue;
+                        ecdh_parmB.ulPublicDataLen = extr1_tmpl->ulValueLen;
+                        ecdh_parmB.pSharedData = shared_data[m].length == 0 ? NULL : (CK_BYTE_PTR)&shared_data[m].data;
+                        ecdh_parmB.ulSharedDataLen = shared_data[m].length;
+
+                        if (kdfs[j] == CKD_NULL) {
+                            ecdh_parmB.pSharedData = NULL;
+                            ecdh_parmB.ulSharedDataLen = 0;
+                        }
+
+                        mech.mechanism = CKM_ECDH1_DERIVE;
+                        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+                        mech.pParameter = &ecdh_parmB;
+                    }
+
+                    rc = funcs->C_DeriveKey(session, &mech, priv_keyB, derive_tmpl, secret_tmpl_len, &secret_keyB);
+                    if (rc != CKR_OK) {
+                        testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
+                    // Extract the derived secret A
+                    rc = funcs->C_GetAttributeValue(session, secret_keyA, secretA_tmpl, secretA_tmpl_len);
+                    if (rc != CKR_OK) {
+                        testcase_error("C_GetAttributeValue #3:rc = %s", p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
+                    // Extract the derived secret B
+                    rc = funcs->C_GetAttributeValue(session, secret_keyB, secretB_tmpl, secretB_tmpl_len);
+                    if (rc != CKR_OK) {
+                        testcase_error("C_GetAttributeValue #4:rc = %s", p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
+                    // Compare lengths of derived secrets from key object
+                    if (secretA_tmpl[0].ulValueLen != secretB_tmpl[0].ulValueLen) {
+                        testcase_fail("ERROR:derived key #1 length = %ld, derived key #2 length = %ld",
+                                secretA_tmpl[0].ulValueLen, secretB_tmpl[0].ulValueLen);
+                        goto testcase_cleanup;
+                    }
+
+                    // Compare derive secrets A and B
+                    if (memcmp(secretA_tmpl[0].pValue, secretB_tmpl[0].pValue, secretA_tmpl[0].ulValueLen) != 0) {
+                        testcase_fail("ERROR:derived key mismatch, ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu",i,j,k,m);
+                        goto testcase_cleanup;
+                    }
+
+                    testcase_pass("*Derive shared secret ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu passed.", i,j,k,m);
+
+                    if (secret_keyA != CK_INVALID_HANDLE)
+                        funcs->C_DestroyObject(session, secret_keyA);
+                    if (secret_keyB != CK_INVALID_HANDLE)
+                        funcs->C_DestroyObject(session, secret_keyB);
+                }
+            }
+        }
+
+        if (publ_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyA);
+        if (priv_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyA);
+        if (priv_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyB);
+        if (publ_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyB);
+    }
+
+testcase_cleanup:
+    if (publ_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyA);
+    if (priv_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyA);
+    if (priv_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyB);
+    if (publ_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyB);
+    if (secret_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyA);
+    if (secret_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyB);
+
+    testcase_user_logout();
+    testcase_close_session();
+
+	return rc;
+} /* end run_DeriveECDHKey() */
+
+/*
+ * Run some ECDH known answer tests.
+ */
+CK_RV run_DeriveECDHKeyKAT()
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE publ_keyA = CK_INVALID_HANDLE, priv_keyA = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE publ_keyB = CK_INVALID_HANDLE, priv_keyB = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_keyA = CK_INVALID_HANDLE, secret_keyB = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_KEY_TYPE secret_key_type = CKK_GENERIC_SECRET;
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_BYTE secretA_value[1000]; // enough space for key lengths in ecdh_tv[]
+    CK_BYTE secretB_value[1000];
+    CK_ULONG i;
+
+    testcase_begin("starting run_DeriveECDHKeyKAT...");
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!mech_supported(SLOT_ID, CKM_ECDH1_DERIVE)) {
+        testcase_skip("Slot %u doesn't support CKM_ECDH1_DERIVE\n", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    if (is_ep11_token(SLOT_ID)) {
+        testcase_skip("This testcase uses KDFs, currently not supported by ep11token.\n");
+        goto testcase_cleanup;
+    }
+
+    for (i=0; i<ECDH_TV_NUM; i++) {
+
+        // First, import the EC key pair for party A
+        rc = create_ECPrivateKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
+                     ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
+                     ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len, &priv_keyA);
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = create_ECPublicKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
+                    ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len, &publ_keyA);
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Now import the EC key pair for party B
+        rc = create_ECPrivateKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
+                     ecdh_tv[i].privkeyB, ecdh_tv[i].privkey_len,
+                     ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len, &priv_keyB);
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = create_ECPublicKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
+                    ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len, &publ_keyB);
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Now derive the secrets...
+
+        CK_ATTRIBUTE  secretA_tmpl[] = {
+            {CKA_VALUE, secretA_value, sizeof(secretA_value)}
+        };
+        CK_ULONG secretA_tmpl_len = sizeof(secretA_tmpl)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE  secretB_tmpl[] = {
+            {CKA_VALUE, secretB_value, sizeof(secretB_value)}
+        };
+        CK_ULONG secretB_tmpl_len = sizeof(secretB_tmpl)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE  derive_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(class)},
+            {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
+            {CKA_VALUE_LEN, &(ecdh_tv[i].derived_key_len), sizeof(CK_ULONG)},
+        };
+        CK_ULONG derive_tmpl_len = sizeof(derive_tmpl)/sizeof(CK_ATTRIBUTE);
+
+        testcase_new_assertion();
+
+        // Now, derive a generic secret key using party A's private key and B's public key
+
+        if (is_ep11_token(SLOT_ID)) {
+            /* ep11 host lib and token implement PKCS#11 v2.20 */
+            mech.mechanism  = CKM_ECDH1_DERIVE;
+            mech.ulParameterLen = ecdh_tv[i].pubkey_len;
+            mech.pParameter = ecdh_tv[i].pubkeyB;
+        } else {
+            /* icatoken implements PKCS#11 v2.40, other tokens don't support derive */
+            ecdh_parmA.kdf = ecdh_tv[i].kdf;
+            ecdh_parmA.pPublicData = ecdh_tv[i].pubkeyB;
+            ecdh_parmA.ulPublicDataLen = ecdh_tv[i].pubkey_len;
+            ecdh_parmA.pSharedData = ecdh_tv[i].shared_data_len == 0 ? NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
+            ecdh_parmA.ulSharedDataLen = ecdh_tv[i].shared_data_len;
+
+            if (ecdh_tv[i].kdf == CKD_NULL) {
+                ecdh_parmA.pSharedData = NULL;
+                ecdh_parmA.ulSharedDataLen = 0;
+            }
+
+            mech.mechanism  = CKM_ECDH1_DERIVE;
+            mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+            mech.pParameter = &ecdh_parmA;
+        }
+
+        rc = funcs->C_DeriveKey(session, &mech, priv_keyA, derive_tmpl, derive_tmpl_len, &secret_keyA);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Now, derive a generic secret key using B's private key and A's public key
+
+        if (is_ep11_token(SLOT_ID)) {
+            /* ep11token implements PKCS#11 v2.20 */
+            mech.mechanism  = CKM_ECDH1_DERIVE;
+            mech.ulParameterLen = ecdh_tv[i].pubkey_len;
+            mech.pParameter = ecdh_tv[i].pubkeyA;
+        } else {
+            /* icatoken implements PKCS#11 v2.40, other tokens don't support derive */
+            ecdh_parmB.kdf = ecdh_tv[i].kdf;
+            ecdh_parmB.pPublicData = ecdh_tv[i].pubkeyA;
+            ecdh_parmB.ulPublicDataLen = ecdh_tv[i].pubkey_len;
+            ecdh_parmB.pSharedData = ecdh_tv[i].shared_data_len == 0 ? NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
+            ecdh_parmB.ulSharedDataLen = ecdh_tv[i].shared_data_len;
+
+            if (ecdh_tv[i].kdf == CKD_NULL) {
+                ecdh_parmB.pSharedData = NULL;
+                ecdh_parmB.ulSharedDataLen = 0;
+            }
+
+            mech.mechanism = CKM_ECDH1_DERIVE;
+            mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+            mech.pParameter = &ecdh_parmB;
+        }
+
+        rc = funcs->C_DeriveKey(session, &mech, priv_keyB, derive_tmpl, derive_tmpl_len, &secret_keyB);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Extract the derived secret A
+        rc = funcs->C_GetAttributeValue(session, secret_keyA, secretA_tmpl, secretA_tmpl_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue #3:rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Compare lengths of derived secret from key object
+        if (ecdh_tv[i].derived_key_len != secretA_tmpl[0].ulValueLen) {
+            testcase_fail("ERROR:derived key #1 length = %ld, derived key #2 length = %ld",
+                    ecdh_tv[i].derived_key_len, secretA_tmpl[0].ulValueLen);
+            goto testcase_cleanup;
+        }
+
+        // Compare with known value
+        if (memcmp(secretA_tmpl[0].pValue, ecdh_tv[i].derived_key, ecdh_tv[i].derived_key_len) != 0) {
+            testcase_fail("ERROR:derived key mismatch, i=%lu",i);
+            goto testcase_cleanup;
+        }
+
+        // Extract the derived secret B
+        rc = funcs->C_GetAttributeValue(session, secret_keyB, secretB_tmpl, secretB_tmpl_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_GetAttributeValue #4:rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        // Compare lengths of derived secret from key object
+        if (ecdh_tv[i].derived_key_len != secretB_tmpl[0].ulValueLen) {
+            testcase_fail("ERROR:derived key #1 length = %ld, derived key #2 length = %ld",
+                    ecdh_tv[i].derived_key_len, secretB_tmpl[0].ulValueLen);
+            goto testcase_cleanup;
+        }
+
+        // Compare with known value
+        if (memcmp(secretB_tmpl[0].pValue, ecdh_tv[i].derived_key, ecdh_tv[i].derived_key_len) != 0) {
+            testcase_fail("ERROR:derived key mismatch, i=%lu",i);
+            goto testcase_cleanup;
+        }
+
+        testcase_pass("*Derive shared secret i=%lu passed.", i);
+
+        if (priv_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyA);
+        if (publ_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyA);
+        if (priv_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_keyB);
+        if (publ_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_keyB);
+        if (secret_keyA != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyA);
+        if (secret_keyB != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret_keyB);
+    }
+
+testcase_cleanup:
+    if (priv_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyA);
+    if (publ_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyA);
+    if (priv_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_keyB);
+    if (publ_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_keyB);
+    if (secret_keyA != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyA);
+    if (secret_keyB != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_keyB);
+
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+} /* end run_DeriveECDHKeyKAT() */
+
 CK_RV
 run_GenerateSignVerifyECC(CK_SESSION_HANDLE session, CK_MECHANISM_TYPE mechType, CK_ULONG inputlen, CK_ULONG parts, CK_OBJECT_HANDLE priv_key, CK_OBJECT_HANDLE publ_key)
 {
@@ -337,7 +913,7 @@ CK_RV
 run_GenerateECCKeyPairSignVerify()
 {
 	CK_MECHANISM		mech;
-	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_OBJECT_HANDLE	publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
 	CK_SESSION_HANDLE	session;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len, i, j;
@@ -428,6 +1004,12 @@ run_GenerateECCKeyPairSignVerify()
 	rc = CKR_OK;
 
 testcase_cleanup:
+
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+
 	testcase_close_session();
 
 	return rc;
@@ -437,7 +1019,7 @@ CK_RV
 run_ImportECCKeyPairSignVerify()
 {
 	CK_MECHANISM		mech;
-	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_OBJECT_HANDLE	publ_key=CK_INVALID_HANDLE, priv_key=CK_INVALID_HANDLE;
 	CK_SESSION_HANDLE	session;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len, i, j;
@@ -469,6 +1051,13 @@ run_ImportECCKeyPairSignVerify()
 	}
 
 	for (i = 0; i < EC_TV_NUM; i++) {
+
+        if ((is_ica_token(SLOT_ID) || is_cca_token(SLOT_ID))) {
+            if (!curve_supported(ec_tv[i].name)) {
+                testcase_skip("Slot %u doesn't support this curve", (unsigned int)SLOT_ID);
+                continue;
+            }
+        }
 
 		rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
 					 ec_tv[i].privkey, ec_tv[i].privkey_len,
@@ -524,8 +1113,10 @@ run_ImportECCKeyPairSignVerify()
 
 	goto done;
 testcase_cleanup:
-	funcs->C_DestroyObject(session, publ_key);
-	funcs->C_DestroyObject(session, priv_key);
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
 done:
 	testcase_user_logout();
 	testcase_close_session();
@@ -536,7 +1127,7 @@ CK_RV
 run_TransferECCKeyPairSignVerify()
 {
 	CK_MECHANISM		mech;
-	CK_OBJECT_HANDLE	publ_key, priv_key;
+	CK_OBJECT_HANDLE	publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
 	CK_SESSION_HANDLE	session;
 	CK_BYTE			user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG		user_pin_len, i, j;
@@ -544,11 +1135,11 @@ run_TransferECCKeyPairSignVerify()
 	CK_MECHANISM_INFO	mech_info;
 	CK_RV rc;
 	CK_MECHANISM aes_keygen_mech;
-	CK_OBJECT_HANDLE secret_key;
+	CK_OBJECT_HANDLE secret_key=CK_INVALID_HANDLE;
 	CK_BYTE_PTR wrapped_key = NULL;
 	CK_ULONG wrapped_keylen;
-	CK_OBJECT_HANDLE unwrapped_key;
-        CK_MECHANISM wrap_mech;
+	CK_OBJECT_HANDLE unwrapped_key=CK_INVALID_HANDLE;
+    CK_MECHANISM wrap_mech;
 
 	testcase_begin("Starting ECC transfer key pair.");
 
@@ -574,6 +1165,13 @@ run_TransferECCKeyPairSignVerify()
 	}
 
 	for (i = 0; i < EC_TV_NUM; i++) {
+
+        if (!(is_ep11_token(SLOT_ID))) {
+            if (strstr(ec_tv[i].name, "t1") != NULL) {
+                testcase_skip("Slot %u doesn't support curve %s", (unsigned int)SLOT_ID, ec_tv[i].name);
+                continue;
+            }
+        }
 
 		rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
 					 ec_tv[i].privkey, ec_tv[i].privkey_len,
@@ -725,14 +1323,19 @@ run_TransferECCKeyPairSignVerify()
 	}
 
 	goto done;
-testcase_cleanup:
-	funcs->C_DestroyObject(session, publ_key);
-	funcs->C_DestroyObject(session, priv_key);
-	funcs->C_DestroyObject(session, secret_key);
-	funcs->C_DestroyObject(session, unwrapped_key);
 
-	if (wrapped_key)
-		free(wrapped_key);
+testcase_cleanup:
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    if (secret_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key);
+    if (unwrapped_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, unwrapped_key);
+
+    if (wrapped_key)
+        free(wrapped_key);
 
 done:
 	testcase_user_logout();
@@ -786,6 +1389,10 @@ main(int argc, char **argv)
 	rv = run_ImportECCKeyPairSignVerify();
 
 	rv = run_TransferECCKeyPairSignVerify();
+
+    rv = run_DeriveECDHKey();
+
+    rv = run_DeriveECDHKeyKAT();
 
 	testcase_print_result();
 
