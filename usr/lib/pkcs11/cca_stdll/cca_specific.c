@@ -40,6 +40,28 @@
 #include "trace.h"
 #include "cca_func.h"
 
+/**
+ * EC definitions
+ */
+
+/**
+ * the point is encoded as z||x, where the octet z specifies
+ * which solution of the quadratic equation y is
+ */
+#define POINT_CONVERSION_COMPRESSED      0x02
+
+/**
+ * the point is encoded as z||x||y, where z is the octet 0x04
+ */
+#define POINT_CONVERSION_UNCOMPRESSED    0x04
+
+/**
+ * the point is encoded as z||x||y, where the octet z specifies
+ * which solution of the quadratic equation y is
+ */
+#define POINT_CONVERSION_HYBRID          0x06
+
+
 CK_CHAR manuf[] = "IBM Corp.";
 CK_CHAR model[] = "IBM CCA Token";
 CK_CHAR descr[] = "IBM PKCS#11 CCA Token";
@@ -3250,6 +3272,323 @@ static CK_RV import_generic_secret_key(OBJECT *object)
 	return CKR_OK;
 }
 
+CK_RV
+build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG privlen,
+        CK_BYTE *pubkey, CK_ULONG publen,
+        uint8_t curve_type, uint16_t curve_bitlen,
+        unsigned char *key_value_structure, long *key_value_structure_length)
+{
+    ECC_PAIR ecc_pair;
+
+    ecc_pair.curve_type = curve_type;
+    ecc_pair.reserved = 0x00;
+    ecc_pair.p_bitlen = curve_bitlen;
+    ecc_pair.d_length = privlen;
+
+    /* Adjust public key if necessary: there may be an indication if the public
+     * key is compressed, uncompressed, or hybrid. */
+    if (publen == 2 * privlen + 1) {
+        if (pubkey[0] == POINT_CONVERSION_UNCOMPRESSED ||
+            pubkey[0] == POINT_CONVERSION_HYBRID ||
+            pubkey[0] == POINT_CONVERSION_HYBRID+1) {
+            /* uncompressed or hybrid EC public key */
+            ecc_pair.q_length = publen;
+            memcpy(key_value_structure, &ecc_pair, sizeof(ECC_PAIR));
+            memcpy(key_value_structure + sizeof(ECC_PAIR), privkey, privlen);
+            memcpy(key_value_structure + sizeof(ECC_PAIR) + privlen, pubkey, publen);
+            *key_value_structure_length = sizeof(ECC_PAIR) + privlen + publen;
+        } else {
+            TRACE_ERROR("Unsupported public key format\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+    } else if (publen == 2 * privlen) {
+        /* uncompressed or hybrid EC public key without leading indication */
+        ecc_pair.q_length = publen + 1;
+        memcpy(key_value_structure, &ecc_pair, sizeof(ECC_PAIR));
+        memcpy(key_value_structure + sizeof(ECC_PAIR), privkey, privlen);
+        memset(key_value_structure + sizeof(ECC_PAIR) + privlen, POINT_CONVERSION_UNCOMPRESSED, 1);
+        memcpy(key_value_structure + sizeof(ECC_PAIR) + privlen + 1, pubkey, publen);
+        *key_value_structure_length = sizeof(ECC_PAIR) + privlen + 1 + publen;
+    } else {
+        TRACE_ERROR("Unsupported private/public key length (%ld,%ld)\n",privlen,publen);
+        TRACE_ERROR("Compressed public keys are not supported by this token.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
+static unsigned int bitlen2bytelen(uint16_t bitlen)
+{
+    if (bitlen != CURVE521)
+        return bitlen / 8;
+    else
+        return bitlen / 8 + 1;
+}
+
+CK_RV
+build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
+        uint8_t curve_type, uint16_t curve_bitlen,
+        unsigned char *key_value_structure, long *key_value_structure_length)
+{
+    ECC_PUBL ecc_publ;
+
+    ecc_publ.curve_type = curve_type;
+    ecc_publ.reserved = 0x00;
+    ecc_publ.p_bitlen = curve_bitlen;
+
+    if (publen == 2 * bitlen2bytelen(curve_bitlen) + 1) {
+        if (pubkey[0] == POINT_CONVERSION_UNCOMPRESSED ||
+            pubkey[0] == POINT_CONVERSION_HYBRID ||
+            pubkey[0] == POINT_CONVERSION_HYBRID+1) {
+            /* uncompressed or hybrid EC public key */
+            ecc_publ.q_length = publen;
+            memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
+            memcpy(key_value_structure + sizeof(ECC_PUBL), pubkey, publen);
+            *key_value_structure_length = sizeof(ECC_PUBL) + publen;
+         } else {
+             TRACE_ERROR("Unsupported public key format\n");
+             return CKR_TEMPLATE_INCONSISTENT;
+         }
+    } else if (publen == 2 * bitlen2bytelen(curve_bitlen)) {
+        /* uncompressed or hybrid EC public key without leading 0x04 */
+        ecc_publ.q_length = publen + 1;
+        memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
+        memset(key_value_structure + sizeof(ECC_PUBL), POINT_CONVERSION_UNCOMPRESSED, 1);
+        memcpy(key_value_structure + sizeof(ECC_PUBL) + 1, pubkey, publen);
+        *key_value_structure_length = sizeof(ECC_PUBL) + publen + 1;
+    } else {
+        TRACE_ERROR("Unsupported public key length %ld\n",publen);
+        TRACE_ERROR("Compressed public keys are not supported by this token.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV
+curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned int i;
+
+    /* Check if curve supported */
+    if (!template_attribute_find(templ, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if ((attr->ulValueLen == der_ec_supported[i].data_size) &&
+            (memcmp(attr->pValue, der_ec_supported[i].data, attr->ulValueLen) == 0)) {
+            *curve_type = der_ec_supported[i].curve_type;
+            *curve_bitlen = der_ec_supported[i].len_bits;
+            return CKR_OK;
+        }
+    }
+
+    return CKR_MECHANISM_PARAM_INVALID;
+}
+
+CK_RV
+ec_import_privkey(TEMPLATE *priv_templ)
+{
+    long private_key_name_length, key_token_length, target_key_token_length;
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    long key_value_structure_length, param1=0;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
+    unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char *exit_data = NULL;
+    unsigned char *param2=NULL;
+    CK_BYTE *privkey = NULL, *pubkey = NULL;
+    CK_ATTRIBUTE *attr = NULL, *opaque_key;
+    CK_ULONG privlen = 0, publen = 0;
+    CK_RV rc;
+    uint8_t curve_type;
+    uint16_t curve_bitlen;
+
+
+    /* Check if curve supported and determine curve type and bitlen */
+    if (curve_supported(priv_templ, &curve_type, &curve_bitlen) != CKR_OK) {
+        TRACE_ERROR("Curve not supported by this token.\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Find private key data in template */
+    rc = template_attribute_find(priv_templ, CKA_VALUE, &attr);
+    if (rc == TRUE) {
+        privlen = attr->ulValueLen;
+        privkey = attr->pValue;
+    }
+
+    /* Find public key data in template */
+    rc = template_attribute_find(priv_templ, CKA_EC_POINT, &attr);
+    if (rc == TRUE) {
+        publen = attr->ulValueLen;
+        pubkey = attr->pValue;
+    }
+
+    /* Build key_value_structure */
+    memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
+
+    rc = build_private_EC_key_value_structure(privkey, privlen,
+            pubkey, publen, curve_type, curve_bitlen,
+            (unsigned char *)&key_value_structure,
+            &key_value_structure_length);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Build key token */
+    rule_array_count = 1;
+    memcpy(rule_array, "ECC-PAIR", (size_t)(CCA_KEYWORD_SIZE));
+    private_key_name_length = 0;
+    key_token_length = CCA_KEY_TOKEN_SIZE;
+    key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+    dll_CSNDPKB(&return_code, &reason_code,
+            &exit_data_len, exit_data,
+            &rule_array_count, rule_array,
+            &key_value_structure_length, key_value_structure,
+            &private_key_name_length, private_key_name,
+            &param1, param2, &param1, param2, &param1, param2,
+            &param1, param2, &param1, param2,
+            &key_token_length,
+            key_token);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+                " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Now import the PKA key token */
+    rule_array_count = 1;
+    memcpy(rule_array, "ECC     ", (size_t)(CCA_KEYWORD_SIZE));
+    key_token_length = CCA_KEY_TOKEN_SIZE;
+    target_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
+            &rule_array_count, rule_array,
+            &key_token_length, key_token,
+            transport_key_identifier,
+            &target_key_token_length, target_key_token);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
+                return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Add key token to template as CKA_IBM_OPAQUE */
+    if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_token,
+                        target_key_token_length, &opaque_key))) {
+        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
+        return rc;
+    }
+
+    rc = template_update_attribute(priv_templ, opaque_key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        return rc;
+    }
+
+    /* zero clear key values */
+    memset(privkey, 0, privlen);
+    memset(pubkey, 0, publen);
+
+    return CKR_OK;
+}
+
+CK_RV
+ec_import_pubkey(TEMPLATE *pub_templ)
+{
+    CK_RV rc;
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    long private_key_name_length, key_token_length;
+    unsigned char *exit_data = NULL;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long key_value_structure_length;
+    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    CK_ATTRIBUTE *opaque_key;
+    long param1=0;
+    unsigned char *param2=NULL;
+    uint8_t curve_type;
+    uint16_t curve_bitlen;
+    CK_BYTE *pubkey = NULL;
+    CK_ULONG publen = 0;
+    CK_ATTRIBUTE *attr = NULL;
+
+
+    /* Check if curve supported and determine curve type and bitlen */
+    if (curve_supported(pub_templ, &curve_type, &curve_bitlen) != CKR_OK) {
+        TRACE_ERROR("Curve not supported by this token.\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Find public key data in template */
+    rc = template_attribute_find(pub_templ, CKA_EC_POINT, &attr);
+    if (rc == TRUE) {
+        publen = attr->ulValueLen;
+        pubkey = attr->pValue;
+    }
+
+    /* Build key_value_structure */
+    memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
+
+    rc = build_public_EC_key_value_structure(pubkey, publen,
+            curve_type, curve_bitlen,
+            (unsigned char *)&key_value_structure,
+            &key_value_structure_length);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Build public key token */
+    rule_array_count = 1;
+    memcpy(rule_array, "ECC-PUBL", (size_t)(CCA_KEYWORD_SIZE));
+    private_key_name_length = 0;
+    key_token_length = CCA_KEY_TOKEN_SIZE;
+    key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+    dll_CSNDPKB(&return_code, &reason_code,
+            &exit_data_len, exit_data,
+            &rule_array_count, rule_array,
+            &key_value_structure_length, key_value_structure,
+            &private_key_name_length, private_key_name,
+            &param1, param2, &param1, param2, &param1, param2,
+            &param1, param2, &param1, param2,
+            &key_token_length,
+            key_token);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+                " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Public keys do not need to be wrapped, so just add public
+       key token to template as CKA_IBM_OPAQUE */
+    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length, &opaque_key))) {
+        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
+        return rc;
+    }
+    rc = template_update_attribute(pub_templ, opaque_key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        return rc;
+    }
+
+    /* zero clear key value */
+    memset(pubkey, 0, publen);
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *object)
 {
 
@@ -3327,6 +3666,37 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 		TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
 			   " imported\n", attr->ulValueLen);
 		break;
+
+    case CKK_EC:
+        rc = template_attribute_find(object->template, CKA_CLASS, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            return CKR_TEMPLATE_INCOMPLETE;
+        } else {
+            keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+        }
+
+        switch(keyclass) {
+        case CKO_PUBLIC_KEY:
+            // do import public key and create opaque object
+            rc = ec_import_pubkey(object->template);
+            break;
+
+        case CKO_PRIVATE_KEY:
+            // do import keypair and create opaque object
+            rc = ec_import_privkey(object->template);
+            break;
+
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ec import failed\n");
+            return rc;
+        }
+        break;
 
 	default:
 		/* unknown/unsupported key type */
