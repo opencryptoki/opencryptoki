@@ -54,4 +54,29 @@ struct _ec {
 }__attribute__ ((__packed__));
 
 extern struct _ec der_ec_supported[NUMEC];
+
+#define MAX_ECDH_SHARED_SECRET_SIZE  66
+#define MAX_SUPPORTED_HASH_LENGTH 64
+
+/*
+ * Refer to CCA Programmer's Guide, PKA Key Token Build
+ * Key value structure elements, ECC keys
+ */
+typedef struct {
+    uint8_t curve_type; /* 00 = prime, 01 = brainpool */
+    uint8_t reserved;
+    uint16_t p_bitlen;
+    uint16_t d_length;
+    uint16_t q_length;
+    // followed by d || q
+} __attribute__((packed)) ECC_PAIR;
+
+typedef struct {
+    uint8_t curve_type; /* 00 = prime, 01 = brainpool */
+    uint8_t reserved;
+    uint16_t p_bitlen;
+    uint16_t q_length;
+    // followed by q
+} __attribute__((packed)) ECC_PUBL;
+
 #endif
