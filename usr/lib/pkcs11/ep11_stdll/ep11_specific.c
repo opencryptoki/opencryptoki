@@ -961,6 +961,8 @@ ep11_spki_key(CK_BYTE *spki, CK_BYTE **key, CK_ULONG *bit_str_len)
 		*bit_str_len = len;
 	}
 
+    (*bit_str_len)--; /* remove 'unused bits' byte from length */
+
 	return CKR_OK;
 }
 
