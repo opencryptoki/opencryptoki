@@ -77,6 +77,8 @@ extern CK_BYTE            ber_idDSA[];
 extern CK_ULONG           ber_idDSALen;
 extern CK_BYTE            ber_idDH[];
 extern CK_ULONG           ber_idDHLen;
+extern CK_BYTE            ber_idEC[];
+extern CK_ULONG           ber_idECLen;
 
 extern CK_BYTE   ber_md2WithRSAEncryption[];
 extern CK_ULONG  ber_md2WithRSAEncryptionLen;
@@ -961,6 +963,12 @@ ckm_dh_pkcs_key_pair_gen( STDLL_TokData_t *tokdata,
                           TEMPLATE  * priv_tmpl );
 #endif
 /* End code contributed by Corrent corp. */
+
+CK_RV
+ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+        CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
+        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
+        CK_OBJECT_HANDLE *derived_key_obj);
 
 // DES routines - I have to provide two different versions of these
 //                because encryption routines are also used internally
@@ -2537,6 +2545,8 @@ CK_RV     ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
 				   CK_BYTE **data, CK_ULONG *data_len);
 CK_RV     ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
 				     CK_ULONG data_len);
+CK_RV     ec_priv_unwrap(TEMPLATE *tmpl,
+                     CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isOpaque);
 
 // diffie-hellman routines
 //
@@ -2773,6 +2783,14 @@ CK_RV    der_encode_ECPrivateKey(CK_BBOOL      length_only,
                                  CK_ATTRIBUTE *opaque,
                                  CK_ATTRIBUTE *pubkey);
 
+CK_RV    der_decode_ECPrivateKey(CK_BYTE    *data,
+                                 CK_ULONG    data_len,
+                                 CK_ATTRIBUTE  **params,
+                                 CK_ATTRIBUTE  **pub_key,
+                                 CK_ATTRIBUTE  **priv_key,
+                                 CK_ATTRIBUTE  **opaque_key,
+                                 CK_BBOOL isOpaque);
+
 CK_RV    der_decode_ECPublicKey(CK_BYTE       *data,
                                 CK_ULONG       data_len,
                                 CK_ATTRIBUTE **params,
@@ -2804,6 +2822,12 @@ CK_RV    ber_decode_DHPrivateKey(CK_BYTE     * data,
                                  CK_ULONG      data_len,
                                  CK_ATTRIBUTE ** prime,
                                  CK_ATTRIBUTE ** base,
+                                 CK_ATTRIBUTE ** priv_key);
+
+CK_RV    ber_decode_ECDHPrivateKey(CK_BYTE     * data,
+                                 CK_ULONG      data_len,
+                                 CK_ATTRIBUTE ** ecparam,
+                                 CK_ATTRIBUTE ** pub_key,
                                  CK_ATTRIBUTE ** priv_key);
 
 #include "tok_spec_struct.h"

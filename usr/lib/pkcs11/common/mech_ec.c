@@ -104,6 +104,12 @@ ckm_ec_key_pair_gen( STDLL_TokData_t *tokdata, TEMPLATE  * publ_tmpl,
 		     TEMPLATE  * priv_tmpl )
 {
 	CK_RV rc;
+
+    if (token_specific.t_ec_generate_keypair == NULL) {
+        TRACE_ERROR("ec_generate_keypair not supported by this token\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
 	rc = token_specific.t_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
 	if (rc != CKR_OK)
 		TRACE_ERROR("Key Generation failed\n");
@@ -121,6 +127,11 @@ ckm_ec_sign(	STDLL_TokData_t	*tokdata,
 	CK_ATTRIBUTE		* attr     = NULL;
 	CK_OBJECT_CLASS		keyclass;
 	CK_RV			rc;
+
+    if (token_specific.t_ec_sign == NULL) {
+        TRACE_ERROR("ec_sign not supported by this token\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
@@ -204,6 +215,11 @@ ckm_ec_verify(  STDLL_TokData_t *tokdata,
 	CK_ATTRIBUTE	*attr = NULL;
 	CK_OBJECT_CLASS	keyclass;
 	CK_RV		rc;
+
+    if (token_specific.t_ec_verify == NULL) {
+        TRACE_ERROR("ec_verify not supported by this token\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
 
 	rc = template_attribute_find( key_obj->template, CKA_CLASS, &attr );
 	if (rc == FALSE){
@@ -674,4 +690,426 @@ ec_hash_verify_final( STDLL_TokData_t      * tokdata,
 done:
    verify_mgr_cleanup( &verify_ctx );
    return rc;
+}
+
+CK_RV
+ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf, CK_BYTE *data,
+        CK_ULONG data_len, CK_BYTE *hash, CK_ULONG *h_len)
+{
+    CK_RV rc;
+    DIGEST_CONTEXT ctx;
+    CK_MECHANISM digest_mech;
+
+    memset(&ctx, 0, sizeof(DIGEST_CONTEXT));
+    memset(&digest_mech, 0, sizeof(CK_MECHANISM));
+
+    switch (kdf) {
+    case CKD_SHA1_KDF:
+        digest_mech.mechanism = CKM_SHA_1;
+        *h_len = SHA1_HASH_SIZE;
+        break;
+    case CKD_SHA224_KDF:
+        digest_mech.mechanism = CKM_SHA224;
+        *h_len = SHA224_HASH_SIZE;
+        break;
+    case CKD_SHA256_KDF:
+        digest_mech.mechanism = CKM_SHA256;
+        *h_len = SHA256_HASH_SIZE;
+        break;
+    case CKD_SHA384_KDF:
+        digest_mech.mechanism = CKM_SHA384;
+        *h_len = SHA384_HASH_SIZE;
+        break;
+    case CKD_SHA512_KDF:
+        digest_mech.mechanism = CKM_SHA512;
+        *h_len = SHA512_HASH_SIZE;
+        break;
+    case CKD_NULL:
+        memcpy(hash, data, data_len - 4);
+        *h_len = data_len - 4; // data length minus counter length
+        return CKR_OK;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    rc = digest_mgr_init(tokdata, sess, &ctx, &digest_mech);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return rc;
+    }
+
+    rc = digest_mgr_digest(tokdata, sess, FALSE, &ctx, data, data_len, hash, h_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV
+ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
+        CK_ULONG kdf_digest_len, const CK_BYTE *z, CK_ULONG z_len,
+        const CK_BYTE *shared_data, CK_ULONG shared_data_len, CK_BYTE *key,
+        CK_ULONG key_len)
+{
+    CK_ULONG counter_length = 4;
+    CK_BYTE *ctx = NULL;
+    CK_ULONG ctx_len;
+    CK_BYTE hash[MAX_SUPPORTED_HASH_LENGTH];
+    CK_ULONG h_len;
+    CK_RV rc;
+    unsigned int i, counter;
+
+    /* Check max keylen according to ANSI X9.63 */
+    CK_ULONG max_keybytes = kdf_digest_len * 0x100000000ul; /* digest_len * 2^32 */
+    if (key_len >= max_keybytes) {
+        TRACE_ERROR("Desired key length %lu greater than max supported key length %lu.\n",
+                key_len, max_keybytes);
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    /* If no KDF to be used, just return the shared_data. Cannot concatenate hashes. */
+    if (kdf == CKD_NULL) {
+        memcpy(key, z, z_len);
+        return CKR_OK;
+    }
+
+    /* Allocate memory for hash context */
+    ctx_len = z_len + counter_length + shared_data_len;
+    ctx = malloc(ctx_len);
+    if (!ctx)
+        return CKR_HOST_MEMORY;
+    memcpy(ctx, z, z_len);
+    if (shared_data_len > 0)
+        memcpy(ctx + z_len + counter_length, shared_data, shared_data_len);
+
+    /* Provide key bytes according to ANSI X9.63 */
+    counter = 1;
+    for (i = 0; i < key_len / kdf_digest_len; i++) {
+        memcpy(ctx + z_len, &counter, sizeof(int));
+        rc = ckm_kdf(tokdata, sess, kdf, ctx, ctx_len, hash, &h_len);
+        if (rc != 0) {
+            return rc;
+        }
+        memcpy(key + i * kdf_digest_len, hash, kdf_digest_len);
+        counter++;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV
+ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
+        CK_ULONG other_pubkey_len, CK_OBJECT_HANDLE base_key,
+        CK_BYTE *secret_value, CK_ULONG *secret_value_len)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr;
+    OBJECT *base_key_obj = NULL;
+    CK_BYTE *oid_p;
+    CK_ULONG oid_len;
+
+    if (token_specific.t_ecdh_pkcs_derive == NULL) {
+        TRACE_ERROR("ecdh pkcs derive is not supported by this token.\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Find base_key struct */
+    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    /* Get curve oid from CKA_ECDSA_PARAMS */
+    if (!template_attribute_find(base_key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+    oid_p = attr->pValue;
+    oid_len = attr->ulValueLen;
+
+    /* Extract EC private key (D) from base_key */
+    if (!template_attribute_find(base_key_obj->template, CKA_VALUE, &attr)) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Call token specific ECDH key derivation function */
+    rc = token_specific.t_ecdh_pkcs_derive(tokdata,
+            (CK_BYTE *) (attr->pValue), attr->ulValueLen,
+            (CK_BYTE *) other_pubkey, other_pubkey_len, secret_value,
+            secret_value_len, oid_p, oid_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Token specific ecdh pkcs derive failed with rc=%ld.\n", rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV
+digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
+{
+    switch (kdf) {
+    case CKD_SHA1_KDF:
+        *mech = CKM_SHA_1;
+        break;
+    case CKD_SHA224_KDF:
+        *mech = CKM_SHA224;
+        break;
+    case CKD_SHA256_KDF:
+        *mech = CKM_SHA256;
+        break;
+    case CKD_SHA384_KDF:
+        *mech = CKM_SHA384;
+        break;
+    case CKD_SHA512_KDF:
+        *mech = CKM_SHA512;
+        break;
+    default:
+        TRACE_ERROR("Error unsupported KDF %ld.\n", kdf);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV
+pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
+{
+    int i;
+
+    *type = 0;
+    *class = 0;
+
+    for (i = 0; i < attrs_len; i++) {
+        if (attrs[i].type == CKA_CLASS) {
+            *class = *(CK_ULONG *) attrs[i].pValue;
+        }
+    }
+
+    for (i = 0; i < attrs_len; i++) {
+        if (attrs[i].type == CKA_KEY_TYPE) {
+            *type = *(CK_ULONG *) attrs[i].pValue;
+            return CKR_OK;
+        }
+    }
+
+    /* no CKA_KEY_TYPE found, derive from mech */
+    switch (mech->mechanism) {
+    case CKM_DES_KEY_GEN:
+        *type = CKK_DES;
+        break;
+
+    case CKM_DES3_KEY_GEN:
+        *type = CKK_DES3;
+        break;
+
+    case CKM_CDMF_KEY_GEN:
+        *type = CKK_CDMF;
+        break;
+
+    case CKM_AES_KEY_GEN:
+        *type = CKK_AES;
+        break;
+
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+        *type = CKK_RSA;
+        break;
+
+    case CKM_EC_KEY_PAIR_GEN:
+        *type = CKK_EC;
+        break;
+
+    case CKM_DSA_KEY_PAIR_GEN:
+        *type = CKK_DSA;
+        break;
+
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        *type = CKK_DH;
+        break;
+
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+/**
+ * From PKCS#11 v2.40: PKCS #3 Diffie-Hellman key derivation
+ *
+ *   [...] It computes a Diffie-Hellman secret value from the public value and
+ *   private key according to PKCS #3, and truncates the result according to the
+ *   CKA_KEY_TYPE attribute of the template and, if it has one and the key type
+ *   supports it, the CKA_VALUE_LEN attribute of the template.
+ *
+ *   For some key types, the derived key length is known, for others it
+ *   must be specified in the template through CKA_VALUE_LEN.
+ *
+ */
+static CK_ULONG
+keylen_from_keytype(CK_ULONG keytype)
+{
+    switch (keytype) {
+    case CKK_DES:
+        return 8;
+    case CKK_DES2:
+        return 16;
+    case CKK_DES3:
+        return 24;
+    /* for all other keytypes CKA_VALUE_LEN must be specified */
+    default:
+        return 0;
+    }
+}
+
+CK_RV
+ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+        CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key, CK_ATTRIBUTE *pTemplate,
+        CK_ULONG ulCount, CK_OBJECT_HANDLE *derived_key_obj)
+{
+    CK_RV rc;
+    CK_ULONG class = 0, keytype = 0, key_len = 0;
+    CK_ATTRIBUTE *new_attr;
+    OBJECT *temp_obj = NULL;
+    CK_ECDH1_DERIVE_PARAMS *pParms;
+    CK_BYTE z_value[MAX_ECDH_SHARED_SECRET_SIZE];
+    CK_ULONG z_len = 0, kdf_digest_len;
+    CK_MECHANISM_TYPE digest_mech;
+    CK_BYTE *derived_key = NULL;
+    CK_ULONG derived_key_len;
+    int i;
+
+    /* Check parm length */
+    if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Check buffers */
+    pParms = mech->pParameter;
+    if (pParms == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (pParms->pPublicData == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    /* Get the keytype to use when deriving the key object */
+    rc = pkcs_get_keytype(pTemplate, ulCount, mech, &keytype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("get_keytype failed with rc=0x%lx\n",rc);
+        return rc;
+    }
+
+    /* Determine derived key length */
+    for (i = 0; i < ulCount; i++) {
+        if (pTemplate[i].type == CKA_VALUE_LEN) {
+            key_len = *(CK_ULONG *) pTemplate[i].pValue;
+        }
+    }
+
+    if (key_len == 0) {
+        key_len = keylen_from_keytype(keytype);
+        if (key_len == 0) {
+            TRACE_ERROR("Derived key length not specified in template.\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+    }
+
+    /* Optional shared data can only be provided together with a KDF */
+    if (pParms->kdf == CKD_NULL
+            && (pParms->pSharedData != NULL || pParms->ulSharedDataLen != 0)) {
+        TRACE_ERROR("No KDF specified, but shared data ptr is not NULL.\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    /* Derive the shared secret */
+    rc = ckm_ecdh_pkcs_derive(tokdata, pParms->pPublicData, pParms->ulPublicDataLen,
+            base_key, z_value, &z_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Error deriving the shared secret.\n");
+        return rc;
+    }
+
+    /* If no KDF used, max possible key length is the shared_secret length */
+    if (pParms->kdf == CKD_NULL && key_len > z_len) {
+        TRACE_ERROR("Can only provide %ld key bytes without a KDF, but %ld bytes requested.\n",
+                (pParms->ulPublicDataLen / 2), key_len);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    /* Determine digest length */
+    if (pParms->kdf != CKD_NULL) {
+        digest_from_kdf(pParms->kdf, &digest_mech);
+        rc = get_sha_size(digest_mech, &kdf_digest_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Cannot determine SHA digest size.\n");
+            return CKR_ARGUMENTS_BAD;
+        }
+    } else {
+        kdf_digest_len = z_len;
+    }
+
+    /* Allocate memory for derived key */
+    derived_key_len = ((key_len / kdf_digest_len) + 1) * kdf_digest_len;
+    derived_key = malloc(derived_key_len);
+    if (!derived_key) {
+        TRACE_ERROR("Cannot allocate %lu bytes for derived key.\n", derived_key_len);
+        return CKR_HOST_MEMORY;
+    }
+
+    /* Apply KDF function to shared secret */
+    rc = ckm_kdf_X9_63(tokdata, sess, pParms->kdf, kdf_digest_len,
+            z_value, z_len, pParms->pSharedData,
+            pParms->ulSharedDataLen, derived_key, derived_key_len);
+    if (rc != CKR_OK)
+        goto end;
+
+    /* Return the hashed and truncated derived bytes as CKA_VALUE attribute */
+    rc = build_attribute(CKA_VALUE, derived_key, key_len, &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n", ock_err(rc));
+        goto end;
+    }
+
+    /* Create the object that will be passed back as a handle. This will contain
+     * the new (computed) value of the attribute. */
+    rc = object_mgr_create_skel(tokdata, sess, pTemplate, ulCount, MODE_KEYGEN,
+            class, keytype, &temp_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
+        free(new_attr);
+        goto end;
+    }
+
+    /* Update the template in the object with the new attribute */
+    template_update_attribute(temp_obj->template, new_attr);
+
+    /* At this point, the derived key is fully constructed...assign an object handle
+     * and store the key */
+    rc = object_mgr_create_final(tokdata, sess, temp_obj, derived_key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
+        object_free(temp_obj);
+        goto end;
+    }
+
+    rc = CKR_OK;
+
+end:
+    free(derived_key);
+
+    return rc;
 }

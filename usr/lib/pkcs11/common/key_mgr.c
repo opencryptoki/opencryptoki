@@ -712,6 +712,15 @@ key_mgr_wrap_key( STDLL_TokData_t   * tokdata,
 	 }
 	 break;
 #endif
+
+      case CKK_EC:
+          rc = ecdsa_priv_wrap_get_data( key2_obj->template, length_only, &data, &data_len );
+          if (rc != CKR_OK) {
+              TRACE_DEVEL("ecdsa_priv_wrap_get_data failed with rc=%s.\n",ock_err(rc));
+              return rc;
+          }
+          break;
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
          return CKR_KEY_NOT_WRAPPABLE;
@@ -1078,6 +1087,15 @@ key_mgr_get_private_key_type( CK_BYTE     *keydata,
       }
    }
 
+   // Check only the OBJECT IDENTIFIER for EC
+   //
+   if (alg_len >= der_AlgIdECBaseLen) {
+      if (memcmp(alg, ber_idEC, ber_idECLen) == 0) {
+          *keytype = CKK_EC;
+          return CKR_OK;
+      }
+   }
+
    TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
    return CKR_TEMPLATE_INCOMPLETE;
 }
@@ -1136,6 +1154,14 @@ key_mgr_derive_key( STDLL_TokData_t   * tokdata,
       break ;
 #endif
 /* End code contributed by Corrent corp. */
+
+      case CKM_ECDH1_DERIVE:
+          if (!derived_key){
+             TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+             return CKR_FUNCTION_FAILED;
+          }
+          return ecdh_pkcs_derive(tokdata, sess, mech, base_key, pTemplate, ulCount, derived_key);
+    	  break;
 
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));

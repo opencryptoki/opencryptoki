@@ -743,6 +743,84 @@ ber_encode_CHOICE(CK_BBOOL  length_only,
 // }
 //
 CK_RV
+ber_decode_CHOICE( CK_BYTE  * choice,
+                     CK_BYTE ** data,
+                     CK_ULONG * data_len,
+                     CK_ULONG * field_len,
+                     CK_ULONG * option)
+{
+
+    CK_ULONG  len, length_octets;
+
+
+    if (!choice){
+      TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+      return CKR_FUNCTION_FAILED;
+    }
+
+    if ((choice[0] & 0xE0) != 0xA0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *option = choice[0] & 0x1F;
+
+    // short form lengths are easy
+    //
+    if ((choice[1] & 0x80) == 0) {
+        len = choice[1] & 0x7F;
+        *data = &choice[2];
+        *data_len = len;
+        *field_len = 1 + (1) + len;
+        return CKR_OK;
+    }
+
+    length_octets = choice[1] & 0x7F;
+
+    if (length_octets == 1) {
+        len = choice[2];
+        *data = &choice[3];
+        *data_len = len;
+        *field_len = 1 + (1 + 1) + len;
+        return CKR_OK;
+    }
+
+    if (length_octets == 2) {
+        len = choice[2];
+        len = len << 8;
+        len |= choice[3];
+        *data = &choice[4];
+        *data_len = len;
+        *field_len = 1 + (1 + 2) + len;
+        return CKR_OK;
+    }
+
+    if (length_octets == 3) {
+        len = choice[2];
+        len = len << 8;
+        len |= choice[3];
+        len = len << 8;
+        len |= choice[4];
+        *data = &choice[5];
+        *data_len = len;
+        *field_len = 1 + (1 + 3) + len;
+        return CKR_OK;
+    }
+
+    // > 3 length octets implies a length > 16MB
+    //
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+    return CKR_FUNCTION_FAILED;
+}
+
+// PrivateKeyInfo ::= SEQUENCE {
+//    version  Version  -- always '0' for now
+//    privateKeyAlgorithm PrivateKeyAlgorithmIdentifier
+//    privateKey  PrivateKey
+//    attributes
+// }
+//
+CK_RV
 ber_encode_PrivateKeyInfo( CK_BBOOL    length_only,
                            CK_BYTE  ** data,
                            CK_ULONG  * data_len,
@@ -1951,6 +2029,168 @@ error:
 	if (buf)
 		free(buf);
 	return rc;
+}
+
+//
+// From RFC 5915:
+//
+//   ECPrivateKey ::= SEQUENCE {
+//     version        INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+//     privateKey     OCTET STRING,
+//     parameters [0] ECParameters {{ NamedCurve }} OPTIONAL,
+//     publicKey  [1] BIT STRING OPTIONAL
+//   }
+//
+CK_RV
+der_decode_ECPrivateKey(CK_BYTE    *data,
+                        CK_ULONG    data_len,
+                        CK_ATTRIBUTE    **params,
+                        CK_ATTRIBUTE    **pub_key,
+                        CK_ATTRIBUTE    **priv_key,
+                        CK_ATTRIBUTE    **opaque_key,
+                        CK_BBOOL isOpaque)
+{
+    CK_ATTRIBUTE *pub_attr = NULL;
+    CK_ATTRIBUTE *priv_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_ATTRIBUTE *parm_attr = NULL;
+    CK_BYTE *alg = NULL;
+    CK_BYTE *buf = NULL;
+    CK_BYTE *priv_buf = NULL;
+    CK_BYTE *pub_buf = NULL;
+    CK_BYTE *parm_buf = NULL;
+    CK_BYTE *eckey = NULL;
+    CK_BYTE *version = NULL;
+    CK_BYTE *choice = NULL;
+    CK_ULONG version_len, alg_len, priv_len, pub_len, parm_len, buf_len;
+    CK_ULONG buf_offset, field_len, offset, choice_len, option;
+    CK_ULONG pubkey_available = 0;
+    CK_RV rc;
+
+
+    /* Decode PrivateKeyInfo into alg and eckey */
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &alg, &alg_len, &eckey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    /* Check OBJECT IDENTIFIER to make sure this is an EC key */
+    if (memcmp(alg, ber_idEC, ber_idECLen) != 0) {
+       TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+       return CKR_FUNCTION_FAILED;
+    }
+
+    /* Decode the ecdhkey into buf */
+    rc = ber_decode_SEQUENCE(eckey, &buf, &buf_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+    offset = 0;
+
+    /* Decode version (INTEGER) */
+    rc = ber_decode_INTEGER(buf+offset, &version, &version_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    /* Decode private key (OCTET_STRING) */
+    rc = ber_decode_OCTET_STRING(buf+offset, &priv_buf, &priv_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    /* Check if there is an optional public key */
+    buf_offset = buf - data;
+    if (buf_offset + offset < data_len) {
+
+        /* Decode CHOICE */
+        rc = ber_decode_CHOICE(buf+offset, &choice, &choice_len, &field_len, &option);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_CHOICE failed\n");
+            goto cleanup;
+        }
+        offset += field_len - choice_len;
+
+        /* Decode public key (BIT_STRING) according to option */
+        switch (option) {
+        case 0:
+            /* parameters [0] ECParameters {{ NamedCurve }} OPTIONAL
+             * These params, if available, are assumed to be the same as algo above,
+             * so nothing to do here.
+             */
+            break;
+        case 1:
+            /* publicKey  [1] BIT STRING OPTIONAL */
+            rc = ber_decode_BIT_STRING(buf+offset, &pub_buf, &pub_len, &field_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ber_decode_BIT_STRING failed\n");
+                goto cleanup;
+            }
+            pubkey_available = 1;
+            break;
+        default:
+            TRACE_DEVEL("ber_decode_CHOICE returned invalid or unsupported option %ld\n",option);
+            goto cleanup;
+        }
+    }
+
+    /* Now build attribute for CKA_ECDSA_PARAMS */
+    parm_buf = alg + ber_idECLen;
+    parm_len = alg_len - ber_idECLen;
+    rc = build_attribute(CKA_ECDSA_PARAMS, parm_buf, parm_len, &parm_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for CKA_ECDSA_PARAMS failed\n");
+        goto cleanup;
+    }
+
+    /* Build attr for public key */
+    if (pubkey_available) {
+        rc = build_attribute(CKA_EC_POINT, pub_buf, pub_len, &pub_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for public key failed\n");
+            goto cleanup;
+        }
+    }
+
+    /* Build attr for private key */
+    if (isOpaque) {
+        rc = build_attribute(CKA_IBM_OPAQUE, priv_buf, priv_len, &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for private key failed\n");
+            goto cleanup;
+        }
+    } else {
+        rc = build_attribute(CKA_VALUE, priv_buf, priv_len, &priv_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for private key failed\n");
+            goto cleanup;
+        }
+    }
+
+    *pub_key = pub_attr; // may be NULL if no BIT_STRING available
+    *priv_key = priv_attr; // may be NULL if key is opaque
+    *opaque_key = opaque_attr;
+    *params = parm_attr;
+
+    return CKR_OK;
+
+cleanup:
+    if (pub_attr)
+        free(pub_attr);
+    if (priv_attr)
+        free(priv_attr);
+    if (opaque_attr)
+        free(opaque_attr);
+    if (parm_attr)
+        free(parm_attr);
+
+    return rc;
 }
 
 /*

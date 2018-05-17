@@ -560,6 +560,10 @@ priv_key_unwrap( TEMPLATE *tmpl,
          rc = dh_priv_unwrap(tmpl, data, data_len);
          break;
 
+      case CKK_EC:
+         rc = ec_priv_unwrap(tmpl, data, data_len, isopaque);
+         break;
+
       default:
          TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
          return CKR_WRAPPED_KEY_INVALID;
@@ -2648,6 +2652,41 @@ dh_priv_unwrap(TEMPLATE *tmpl,
     template_update_attribute(tmpl, prime);
     template_update_attribute(tmpl, base);
     template_update_attribute(tmpl, value);
+
+    return CKR_OK;
+}
+
+//
+//
+CK_RV
+ec_priv_unwrap(TEMPLATE *tmpl,
+               CK_BYTE  *data,
+               CK_ULONG  total_length,
+               CK_BBOOL isOpaque)
+{
+    CK_ATTRIBUTE *pubkey    = NULL;
+    CK_ATTRIBUTE *privkey   = NULL;
+    CK_ATTRIBUTE *opaque    = NULL;
+    CK_ATTRIBUTE *ecparam   = NULL;
+    CK_RV      rc;
+
+    rc = der_decode_ECPrivateKey(data, total_length, &ecparam,
+                                 &pubkey, &privkey, &opaque, isOpaque);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
+        return rc;
+    }
+    p11_attribute_trim(pubkey);
+    p11_attribute_trim(privkey);
+
+    if (isOpaque)
+        template_update_attribute(tmpl, opaque);
+    if (pubkey)
+        template_update_attribute(tmpl, pubkey);
+    if (privkey)
+        template_update_attribute(tmpl, privkey);
+    template_update_attribute(tmpl, ecparam);
 
     return CKR_OK;
 }
