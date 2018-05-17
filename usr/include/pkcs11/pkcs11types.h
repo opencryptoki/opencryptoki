@@ -1372,6 +1372,29 @@ typedef struct CK_RSA_PKCS_PSS_PARAMS {
 
 typedef CK_RSA_PKCS_PSS_PARAMS CK_PTR CK_RSA_PKCS_PSS_PARAMS_PTR;
 
+/* ECDH mechanisms */
+typedef CK_ULONG CK_EC_KDF_TYPE;
+
+typedef struct CK_ECDH1_DERIVE_PARAMS {
+    CK_EC_KDF_TYPE kdf;
+    CK_ULONG ulSharedDataLen;
+    CK_BYTE_PTR pSharedData;
+    CK_ULONG ulPublicDataLen;
+    CK_BYTE_PTR pPublicData;
+} CK_ECDH1_DERIVE_PARAMS;
+
+/* EC key derivation functions */
+#define CKD_NULL                    0x00000001UL
+#define CKD_SHA1_KDF                0x00000002UL
+
+/* X9.42 DH key derivation functions */
+#define CKD_SHA1_KDF_ASN1           0x00000003UL
+#define CKD_SHA1_KDF_CONCATENATE    0x00000004UL
+#define CKD_SHA224_KDF              0x00000005UL
+#define CKD_SHA256_KDF              0x00000006UL
+#define CKD_SHA384_KDF              0x00000007UL
+#define CKD_SHA512_KDF              0x00000008UL
+
 /* CK_FUNCTION_LIST is a structure holding a Cryptoki spec
  * version and pointers of appropriate types to all the
  * Cryptoki functions */

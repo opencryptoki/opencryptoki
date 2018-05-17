@@ -85,6 +85,7 @@ token_spec_t token_specific = {
 	&token_specific_ec_sign,
 	&token_specific_ec_verify,
 	&token_specific_ec_generate_keypair,
+    NULL,     // ecdh_derive
 #ifndef NODH
 /* Begin code contributed by Corrent corp. */
 	// DH

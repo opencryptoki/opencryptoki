@@ -158,6 +158,8 @@ struct token_specific_struct {
 	CK_RV(*t_ec_generate_keypair) (STDLL_TokData_t *tokdata, TEMPLATE *,
 				       TEMPLATE *);
 
+    CK_RV(*t_ecdh_pkcs_derive) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG, CK_BYTE *, 
+                    CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE *, CK_ULONG);
 
 	/* Begin code contributed by Corrent corp. */
 
