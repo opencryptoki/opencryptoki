@@ -75,6 +75,7 @@ struct token_specific_struct token_specific = {
 	NULL,			// ec_sign
 	NULL,			// ec_verify
 	NULL,			// ec_generate_keypair
+    NULL,            // ecdh_derive
 #ifndef NODH
 	&token_specific_dh_pkcs_derive,
 	&token_specific_dh_pkcs_key_pair_gen,
