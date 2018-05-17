@@ -14,6 +14,8 @@
 #include <string.h>            // for memcmp() et al
 #include <strings.h>
 #include <stdlib.h>
+#include <dlfcn.h>             // for dlopen()
+#include <errno.h>
 
 #ifndef NOAES
 #include <openssl/aes.h>
@@ -33,6 +35,12 @@
 #include "tok_struct.h"
 #include "ica_specific.h"
 #include "ica_api.h"
+#ifndef NO_EC
+#include "ec_defs.h"
+#include "openssl/obj_mac.h"
+#include <openssl/ec.h>
+#endif
+
 // declare the adapter open handle localy
 ica_adapter_handle_t adapter_handle;
 
@@ -50,6 +58,73 @@ CK_CHAR label[] = "IBM ICA  PKCS #11";
 
 pthread_mutex_t  rngmtx = PTHREAD_MUTEX_INITIALIZER;
 unsigned int  rnginitialized=0;
+
+#ifndef NO_EC
+typedef ICA_EC_KEY* (*ica_ec_key_new_t)(unsigned int nid, unsigned int *privlen);
+typedef int (*ica_ec_key_init_t)(const unsigned char *X, const unsigned char *Y,
+    const unsigned char *D, ICA_EC_KEY *key);
+typedef int (*ica_ec_key_generate_t)(ica_adapter_handle_t adapter_handle, ICA_EC_KEY *key);
+typedef int (*ica_ecdh_derive_secret_t)(ica_adapter_handle_t adapter_handle,
+    const ICA_EC_KEY *privkey_A, const ICA_EC_KEY *pubkey_B,
+    unsigned char *z, unsigned int z_length);
+typedef int (*ica_ecdsa_sign_t)(ica_adapter_handle_t adapter_handle, const ICA_EC_KEY *privkey,
+    const unsigned char *hash, unsigned int hash_length, unsigned char *signature,
+    unsigned int signature_length);
+typedef int (*ica_ecdsa_verify_t)(ica_adapter_handle_t adapter_handle, const ICA_EC_KEY *pubkey,
+    const unsigned char *hash, unsigned int hash_length, const unsigned char *signature,
+    unsigned int signature_length);
+typedef int (*ica_ec_key_get_public_key_t)(ICA_EC_KEY *key, unsigned char *q, unsigned int *q_len);
+typedef int (*ica_ec_key_get_private_key_t)(ICA_EC_KEY *key, unsigned char *d, unsigned int *d_len);
+typedef void (*ica_ec_key_free_t)(ICA_EC_KEY *key);
+
+ica_ec_key_new_t                p_ica_ec_key_new;
+ica_ec_key_init_t               p_ica_ec_key_init;
+ica_ec_key_generate_t           p_ica_ec_key_generate;
+ica_ecdh_derive_secret_t        p_ica_ecdh_derive_secret;
+ica_ecdsa_sign_t                p_ica_ecdsa_sign;
+ica_ecdsa_verify_t              p_ica_ecdsa_verify;
+ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
+ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
+ica_ec_key_free_t               p_ica_ec_key_free;
+
+#define LIBICA_SHARED_LIB "libica.so"
+#define BIND(dso, sym)  (p_##sym = (sym##_t)dlsym(dso, #sym))
+
+#define ICATOK_EC_MAX_D_LEN     66 /* secp521 */
+#define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
+#define ICATOK_EC_MAX_SIG_LEN   ICATOK_EC_MAX_Q_LEN
+#define ICATOK_EC_MAX_Z_LEN     ICATOK_EC_MAX_D_LEN
+
+static int ica_ec_support_available = 0;
+
+static CK_RV
+ecc_support_in_libica_available(void)
+{
+    void *ibmca_dso = NULL;
+
+    /* Load libica */
+    ibmca_dso = dlopen(LIBICA_SHARED_LIB, RTLD_NOW);
+    if (ibmca_dso == NULL) {
+        TRACE_ERROR("%s: dlopen(%s) failed\n", __func__, LIBICA_SHARED_LIB);
+        return 0;
+    }
+
+    /* Try to resolve all needed functions for ecc support */
+    if (BIND(ibmca_dso, ica_ec_key_new)
+            && BIND(ibmca_dso, ica_ec_key_init)
+            && BIND(ibmca_dso, ica_ec_key_generate)
+            && BIND(ibmca_dso, ica_ecdh_derive_secret)
+            && BIND(ibmca_dso, ica_ecdsa_sign)
+            && BIND(ibmca_dso, ica_ecdsa_verify)
+            && BIND(ibmca_dso, ica_ec_key_get_public_key)
+            && BIND(ibmca_dso, ica_ec_key_get_private_key)
+            && BIND(ibmca_dso, ica_ec_key_free)) {
+        return 1;
+    }
+
+    return 0;
+}
+#endif
 
 CK_RV
 token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
@@ -76,6 +151,8 @@ token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID  SlotNumber,
 		    char *conf_name)
 {
 	CK_ULONG rc = CKR_OK;
+
+    ica_ec_support_available = ecc_support_in_libica_available();
 
 	rc = mech_list_ica_initialize();
 	if (rc != CKR_OK) {
@@ -476,12 +553,11 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 	case CKM_SHA_1:
 		devctxsize = sizeof(sha_context_t);
 		break;
+    case CKM_SHA224:
 	case CKM_SHA256:
 		devctxsize = sizeof(sha256_context_t);
 		break;
 	case CKM_SHA384:
-		devctxsize = sizeof(sha512_context_t);
-		break;
 	case CKM_SHA512:
 		devctxsize = sizeof(sha512_context_t);
 		break;
@@ -508,6 +584,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 	case CKM_SHA_1:
 		sc->hash_len = SHA1_HASH_SIZE;
 		sc->hash_blksize = SHA1_BLOCK_SIZE;
+		break;
+    case CKM_SHA224:
+        sc->hash_len = SHA224_HASH_SIZE;
+        sc->hash_blksize = SHA224_BLOCK_SIZE;
 		break;
 	case CKM_SHA256:
 		sc->hash_len = SHA256_HASH_SIZE;
@@ -555,6 +635,13 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		sha_context_t *ica_sha_ctx = (sha_context_t *) dev_ctx;
 		rc = ica_sha1(sc->message_part, in_data_len,
 				in_data, ica_sha_ctx, sc->hash);
+		break;
+	}
+	case CKM_SHA224:
+	{
+		sha256_context_t *ica_sha2_ctx = (sha256_context_t *) dev_ctx;
+		rc = ica_sha224(sc->message_part, in_data_len,
+				in_data, ica_sha2_ctx, sc->hash);
 		break;
 	}
 	case CKM_SHA256:
@@ -606,6 +693,17 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data, CK_ULONG data_len)
 		else
 			sc->message_part = SHA_MSG_PART_MIDDLE;
 		ret = ica_sha1(sc->message_part, data_len, data,
+			       ica_sha_ctx, sc->hash);
+		break;
+	}
+	case CKM_SHA224:
+	{
+		sha256_context_t *ica_sha_ctx = (sha256_context_t *) dev_ctx;
+		if (ica_sha_ctx->runningLength == 0)
+			sc->message_part = SHA_MSG_PART_FIRST;
+		else
+			sc->message_part = SHA_MSG_PART_MIDDLE;
+		ret = ica_sha224(sc->message_part, data_len, data,
 			       ica_sha_ctx, sc->hash);
 		break;
 	}
@@ -761,6 +859,18 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		rc = ica_sha1(sc->message_part, sc->tail_len,
 			     (unsigned char *)sc->tail, ica_sha1_ctx,
 			      sc->hash);
+		break;
+	}
+	case CKM_SHA224:
+	{
+		sha256_context_t *ica_sha2_ctx = (sha256_context_t *) dev_ctx;
+		/* accommodate multi-part when input was so small
+		 * that we never got to call into libica until final
+		 */
+		if (ica_sha2_ctx->runningLength == 0)
+			sc->message_part = SHA_MSG_PART_ONLY;
+		rc = ica_sha224(sc->message_part, sc->tail_len,
+			      sc->tail, ica_sha2_ctx, sc->hash);
 		break;
 	}
 	case CKM_SHA256:
@@ -3000,6 +3110,8 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 
 	{190, CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 
+    {190, CKM_SHA224_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+
 	{190, CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 
 	{190, CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW|CKF_SIGN|CKF_VERIFY}},
@@ -3039,6 +3151,8 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 	{01, CKM_SHA_1_HMAC, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 
 	{01, CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_HW|CKF_SIGN|CKF_VERIFY}},
+
+    {03, CKM_SHA224, {0, 0, CKF_HW|CKF_DIGEST}},
 
 	{03, CKM_SHA256, {0, 0, CKF_HW|CKF_DIGEST}},
 
@@ -3099,6 +3213,16 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 	{68, CKM_AES_MAC_GENERAL, {16, 32, CKF_HW|CKF_SIGN|CKF_VERIFY}},
 #endif
         {80, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW|CKF_GENERATE}},
+#ifndef NO_EC
+        {85, CKM_ECDH1_DERIVE, {160, 521, CKF_HW|CKF_DERIVE|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA_SHA1, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA_SHA224, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA_SHA256, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA_SHA384, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {86, CKM_ECDSA_SHA512, {160, 521, CKF_HW|CKF_SIGN|CKF_VERIFY|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+        {88, CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_HW|CKF_GENERATE_KEY_PAIR|CKF_EC_NAMEDCURVE|CKF_EC_F_P}},
+#endif
 };
 
 CK_ULONG ref_mech_list_len = (sizeof(ref_mech_list) / sizeof(REF_MECH_LIST_ELEMENT));
@@ -3124,7 +3248,10 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
 	{0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
 	{0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
-	{0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}} };
+    {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
+    {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
+    {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}}, {0,{0,0,0}},
+};
 
 CK_ULONG mech_list_len = 3;
 
@@ -3350,6 +3477,8 @@ mech_list_ica_initialize(void)
 	 */
 	if (isMechanismAvailable(CKM_SHA_1) && isMechanismAvailable(CKM_RSA_PKCS))
 		addMechanismToList(CKM_SHA1_RSA_PKCS);
+    if (isMechanismAvailable(CKM_SHA224) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_SHA224_RSA_PKCS);
 	if (isMechanismAvailable(CKM_SHA256) && isMechanismAvailable(CKM_RSA_PKCS))
 		addMechanismToList(CKM_SHA256_RSA_PKCS);
 	if (isMechanismAvailable(CKM_SHA384) && isMechanismAvailable(CKM_RSA_PKCS))
@@ -3435,3 +3564,558 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *
 
         return rc;
 }
+
+#ifndef NO_EC
+static CK_RV
+build_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE  type, CK_BYTE *data, CK_ULONG data_len)
+{
+    CK_ATTRIBUTE *attr;
+    CK_RV rv;
+
+    if ((rv = build_attribute(type, data, data_len, &attr)))
+        return rv;
+
+    template_update_attribute(tmpl, attr);
+
+    return CKR_OK;
+}
+
+static CK_RV
+is_equal(unsigned char *a, unsigned int a_length, unsigned char *b, unsigned int b_length)
+{
+    if (a_length != b_length)
+        return 0;
+
+    if (memcmp(a, b, a_length) == 0)
+        return 1;
+    else
+        return 0;
+}
+
+static unsigned int
+nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
+{
+    /* Supported Elliptic Curves */
+    CK_BYTE brainpoolP160r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
+    CK_BYTE brainpoolP192r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x03 };
+    CK_BYTE brainpoolP224r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x05 };
+    CK_BYTE brainpoolP256r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07 };
+    CK_BYTE brainpoolP320r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x09 };
+    CK_BYTE brainpoolP384r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B };
+    CK_BYTE brainpoolP512r1[] = { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D };
+    CK_BYTE prime192[] = { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
+    CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
+    CK_BYTE prime256[] = { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
+    CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
+    CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+
+    if (is_equal(oid, oid_length, (unsigned char*)&prime192, sizeof(prime192)))
+        return NID_X9_62_prime192v1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&secp224, sizeof(secp224)))
+        return NID_secp224r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&prime256, sizeof(prime256)))
+        return NID_X9_62_prime256v1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&secp384, sizeof(secp384)))
+        return NID_secp384r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&secp521, sizeof(secp521)))
+        return NID_secp521r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP160r1, sizeof(brainpoolP160r1)))
+        return NID_brainpoolP160r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP192r1, sizeof(brainpoolP192r1)))
+        return NID_brainpoolP192r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP224r1, sizeof(brainpoolP224r1)))
+        return NID_brainpoolP224r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP256r1, sizeof(brainpoolP256r1)))
+        return NID_brainpoolP256r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP320r1, sizeof(brainpoolP320r1)))
+        return NID_brainpoolP320r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP384r1, sizeof(brainpoolP384r1)))
+        return NID_brainpoolP384r1;
+    else if (is_equal(oid, oid_length, (unsigned char*)&brainpoolP512r1, sizeof(brainpoolP512r1)))
+        return NID_brainpoolP512r1;
+
+    return -1;
+}
+
+CK_RV
+token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr = NULL;
+    ICA_EC_KEY* eckey;
+    CK_BYTE q_array[ICATOK_EC_MAX_Q_LEN];
+    CK_BYTE d_array[ICATOK_EC_MAX_D_LEN];
+    unsigned int nid, privlen, q_len, d_len;
+    int rc;
+
+    if (!ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (nid < 0) {
+        TRACE_ERROR("curve not supported by icatoken.\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    /* Create ICA_EC_KEY object */
+    eckey = p_ica_ec_key_new(nid, &privlen);
+    if (!eckey) {
+        TRACE_ERROR("ica_ec_key_new() failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Generate key data for this key object */
+    rc = p_ica_ec_key_generate(adapter_handle, eckey);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_generate() failed with rc=%d.\n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Return public key (X,Y) via CKA_EC_POINT */
+    rc = p_ica_ec_key_get_public_key(eckey, (unsigned char*) &q_array, &q_len);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_get_public_key() failed with rc=%d.\n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    ret = build_update_attribute(publ_tmpl, CKA_EC_POINT, q_array, q_len);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for (X,Y) failed rc=0x%lx\n", ret);
+        goto end;
+    }
+
+    /* Return private key (D) via CKA_VALUE */
+    rc = p_ica_ec_key_get_private_key(eckey, (unsigned char*) &d_array, &d_len);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_get_private_key() failed with rc=%d.\n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    ret = build_update_attribute(priv_tmpl, CKA_VALUE, d_array, d_len);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for (D) failed, rc=0x%lx\n", ret);
+        goto end;
+    }
+
+    /* Add CKA_ECDSA_PARAMS to private template also */
+    ret = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS, attr->pValue,
+            attr->ulValueLen);
+    if (ret != 0) {
+        TRACE_ERROR("build_update_attribute for CKA_ECDSA_PARAMS failed, rc=0x%lx\n",ret);
+        goto end;
+    }
+
+    ret = CKR_OK;
+
+end:
+
+    p_ica_ec_key_free(eckey);
+
+    return ret;
+}
+
+CK_RV
+token_specific_ec_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+        CK_ULONG in_data_len, CK_BYTE *out_data, CK_ULONG *out_data_len,
+        OBJECT *key_obj)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr, *attr2;
+    ICA_EC_KEY *eckey;
+    unsigned int nid, privlen;
+    int rc;
+
+    *out_data_len = 0;
+
+    if (!ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Get CKA_ECDSA_PARAMS from template */
+    if (!template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (nid < 0) {
+        TRACE_ERROR("Cannot determine curve nid. \n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    /* Create ICA_EC_KEY object */
+    eckey = p_ica_ec_key_new(nid, &privlen);
+    if (!eckey) {
+        TRACE_ERROR("ica_ec_key_new() failed for curve %i.\n", nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Get private key from template via CKA_VALUE */
+    if (!template_attribute_find(key_obj->template, CKA_VALUE, &attr2)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* Plausibility check */
+    if (privlen != attr2->ulValueLen) {
+        TRACE_ERROR("Private key length for curve %i mismatch: length from ica_ec_key_new() = %i, length from attribute = %ld",
+                nid, privlen, attr2->ulValueLen);
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto end;
+    }
+
+    /* Initialize ICA_EC_KEY with private key (D) */
+    rc = p_ica_ec_key_init(NULL, NULL, attr2->pValue, eckey);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_init() failed with rc = %d \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Create signature */
+    rc = p_ica_ecdsa_sign(adapter_handle, eckey, (unsigned char *) in_data,
+            (unsigned int) in_data_len, (unsigned char *) out_data, 2 * privlen);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ecdsa_sign() failed with rc = %d. \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    *out_data_len = 2 * privlen;
+    ret = CKR_OK;
+
+end:
+
+    p_ica_ec_key_free(eckey);
+
+    return ret;
+}
+
+/**
+ * decompress the given compressed public key. Sets x from given pub_key,
+ * re-calculates y from format byte, x and nid.
+ *
+ * @return 0 on success
+ */
+CK_RV
+decompress_pubkey(unsigned int nid, const unsigned char *pub_key, CK_ULONG pub_len,
+        unsigned int priv_len, unsigned char *x, unsigned char *y)
+{
+    BN_CTX *ctx = BN_CTX_new();
+    BIGNUM *bn_x = BN_bin2bn((unsigned char*)&(pub_key[1]), priv_len, NULL);
+    BIGNUM *bn_y = BN_new();
+    EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
+    int y_bit = (pub_key[0] == POINT_CONVERSION_COMPRESSED ? 0 : 1);
+    CK_RV ret = CKR_OK;
+
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (!group) {
+        TRACE_ERROR("Curve %d is not supported by openssl. Cannot decompress public key\n", nid);
+        ret = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto end;
+    }
+
+    point = EC_POINT_new(group);
+    if (!point) {
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    if (!EC_POINT_set_compressed_coordinates_GFp(group, point, bn_x, y_bit, ctx)) {
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    if (!EC_POINT_is_on_curve(group, point, ctx)) {
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    if (!EC_POINT_get_affine_coordinates_GFp(group, point, bn_x, bn_y, ctx)) {
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    memcpy(x, &(pub_key[1]), priv_len);
+    BN_bn2bin(bn_y, y);
+
+end:
+
+    if (ctx)
+        BN_CTX_free(ctx);
+    if (point)
+        EC_POINT_free(point);
+    if (group)
+        EC_GROUP_free(group);
+    if (bn_x)
+        BN_free(bn_x);
+    if (bn_y)
+        BN_free(bn_y);
+
+    return ret;
+}
+
+/**
+ * returns the (X,Y) coordinates of the given EC public key.
+ * For a compressed key, Y is calculated from X and an indication
+ * if Y is even or odd.
+ *
+ * Refer to X9.62, section 4.3.6, "point to octet-string conversion".
+ *
+ * @return 0 on success
+ */
+CK_RV
+set_pubkey_coordinates(unsigned int nid, const unsigned char *pub_key, CK_ULONG pub_len,
+        unsigned int priv_len, unsigned char *x, unsigned char *y)
+{
+    int i, n;
+
+    /* Check if key has no format byte: [X || Y] */
+    if (pub_len == 2 * priv_len) {
+        memcpy(x, pub_key, priv_len);
+        memcpy(y, pub_key + priv_len, priv_len);
+        return CKR_OK;
+    }
+
+    /* Check if key is compressed: [0x0n || X]
+     *   0x0n: 0x02: Y is even
+     *         0x03: Y is odd
+     */
+    if (pub_len == priv_len + 1 &&
+        (pub_key[0] == POINT_CONVERSION_COMPRESSED ||
+         pub_key[0] == POINT_CONVERSION_COMPRESSED+1)) {
+        return decompress_pubkey(nid, pub_key, pub_len, priv_len, x, y);
+    }
+
+    /* Check if key is uncompressed or hybrid: [0x0n || X || Y]
+     *   0x0n: 0x04 : uncompressed
+     *         0c06 : hybrid, Y is even
+     *         0x07 : hybrid, Y is odd
+     */
+    if (pub_len == 2 * priv_len + 1 &&
+        (pub_key[0] == POINT_CONVERSION_UNCOMPRESSED ||
+         pub_key[0] == POINT_CONVERSION_HYBRID ||
+         pub_key[0] == POINT_CONVERSION_HYBRID+1)) {
+        memcpy(x, pub_key + 1, priv_len);
+        memcpy(y, pub_key + 1 + priv_len, priv_len);
+        return CKR_OK;
+    }
+
+    /* Add leading null bytes to pub_key X, if necessary. In this
+     * case there is no format byte */
+    if (pub_len < 2 * priv_len) {
+        n = 2 * priv_len - pub_len;
+        for (i = 0; i < n; i++)
+            x[i] = 0x00;
+        memcpy(x+i, pub_key, priv_len - n);
+        memcpy(y, pub_key + priv_len - n, priv_len);
+        return CKR_OK;
+    }
+
+    memset(x, 0, priv_len);
+    memset(y, 0, priv_len);
+
+    return CKR_FUNCTION_FAILED;
+}
+
+
+CK_RV
+token_specific_ec_verify(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+        CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG signature_len,
+        OBJECT *key_obj)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr, *attr2;
+    ICA_EC_KEY *eckey;
+    unsigned int nid, privlen;
+    unsigned char x_array[ICATOK_EC_MAX_D_LEN];
+    unsigned char y_array[ICATOK_EC_MAX_D_LEN];
+    int rc;
+
+    if (!ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Get CKA_ECDSA_PARAMS from template */
+    if (!template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Create ICA_EC_KEY object */
+    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (nid < 0) {
+        TRACE_ERROR("Cannot determine curve nid. \n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    eckey = p_ica_ec_key_new(nid, &privlen);
+    if (!eckey) {
+        TRACE_ERROR("ica_ec_key_new() failed for curve %i. \n", nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Get public key (X,Y) from template via CKA_EC_POINT */
+    if (!template_attribute_find(key_obj->template, CKA_EC_POINT, &attr2)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* Signature length ok? */
+    if (signature_len != 2 * privlen) {
+        TRACE_ERROR("Supplied signature length mismatch: supplied length = %ld, length from libica = %i\n",
+                signature_len, 2 * privlen);
+        ret = CKR_SIGNATURE_LEN_RANGE;
+        goto end;
+    }
+
+    /* Provide (X,Y), decompress key if necessary */
+    ret = set_pubkey_coordinates(nid, (unsigned char *)attr2->pValue, attr2->ulValueLen,
+                        privlen, x_array, y_array);
+    if (ret != 0) {
+        TRACE_ERROR("Cannot determine public key coordinates from given public key\n");
+        goto end;
+    }
+
+    /* Initialize ICA_EC_KEY with public key (Q) */
+    rc = p_ica_ec_key_init(x_array, y_array, NULL, eckey);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_init() for public key failed with rc = %d \n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Verify signature */
+    rc = p_ica_ecdsa_verify(adapter_handle, eckey, (unsigned char *) in_data,
+            (unsigned int) in_data_len, (unsigned char *) signature,
+            signature_len);
+    switch (rc) {
+    case 0:
+        ret = CKR_OK;
+        break;
+    case EFAULT:
+        TRACE_ERROR("ica_ecdsa_verify() returned invalid signature, rc = %d. \n", rc);
+        ret = CKR_SIGNATURE_INVALID;
+        break;
+    default:
+        TRACE_ERROR("ica_ecdsa_verify() returned internal error, rc = %d. \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+end:
+
+    p_ica_ec_key_free(eckey);
+
+    return ret;
+}
+
+CK_RV
+token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+        CK_BYTE *priv_bytes, CK_ULONG priv_length, CK_BYTE *pub_bytes,
+        CK_ULONG pub_length, CK_BYTE *secret_value, CK_ULONG *secret_value_len,
+        CK_BYTE *oid, CK_ULONG oid_length)
+{
+    CK_RV ret = CKR_OK;
+    ICA_EC_KEY *pubkey = NULL, *privkey = NULL;
+    unsigned int n, privlen, nid;
+    unsigned char d_array[ICATOK_EC_MAX_D_LEN];
+    unsigned char x_array[ICATOK_EC_MAX_D_LEN];
+    unsigned char y_array[ICATOK_EC_MAX_D_LEN];
+    int i, rc;
+
+    *secret_value_len = 0;
+
+    if (!ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Get nid from oid */
+    nid = nid_from_oid(oid, oid_length);
+    if (nid < 0) {
+        TRACE_ERROR("curve not supported by icatoken.\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    /* Create ICA_EC_KEY object with public key */
+    pubkey = p_ica_ec_key_new(nid, &privlen);
+    if (!pubkey) {
+        TRACE_ERROR("ica_ec_key_new() for curve %i failed.\n", nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Provide (X,Y), decompress key if necessary */
+    ret = set_pubkey_coordinates(nid, pub_bytes, pub_length, privlen,
+                        x_array, y_array);
+    if (ret != 0) {
+        TRACE_ERROR("Cannot determine public key coordinates\n");
+        goto end;
+    }
+
+    /* Format (D) as char array with leading nulls if necessary */
+    n = privlen - priv_length;
+    for (i = 0; i < n; i++)
+        d_array[i] = 0x00;
+    memcpy(&(d_array[n]), priv_bytes, priv_length);
+
+    /* Initialize ICA_EC_KEY with public key (X,Y) */
+    rc = p_ica_ec_key_init(x_array, y_array, NULL, pubkey);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_init() for public key failed with rc = %d \n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Create ICA_EC_KEY object with private key */
+    privkey = p_ica_ec_key_new(nid, &privlen);
+    if (!privkey) {
+        TRACE_ERROR("ica_ec_key_new() for curve %i failed. \n", nid);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Initialize ICA_EC_KEY with private key (D) */
+    rc = p_ica_ec_key_init(NULL, NULL, d_array, privkey);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ec_key_init() for private key failed with rc = %d \n",rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    /* Calculate shared secret z */
+    rc = p_ica_ecdh_derive_secret(adapter_handle, privkey, pubkey, secret_value, privlen);
+    if (rc != 0) {
+        TRACE_ERROR("ica_ecdh_derive_secret() failed with rc = %d. \n", rc);
+        ret = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    *secret_value_len = privlen;
+    ret = CKR_OK;
+
+end:
+
+    p_ica_ec_key_free(privkey);
+    p_ica_ec_key_free(pubkey);
+
+    return ret;
+}
+#endif
