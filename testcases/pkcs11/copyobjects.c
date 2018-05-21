@@ -38,7 +38,7 @@ CK_RV do_CopyObjects(void)
 	CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
 	CK_ULONG user_pin_len;
 
-	CK_OBJECT_HANDLE keyobj, firstobj, secondobj, thirdobj, fourthobj;
+	CK_OBJECT_HANDLE keyobj, firstobj, secondobj, thirdobj, fourthobj, fifthobj;
 
 	CK_BBOOL true = TRUE;
 	CK_BBOOL false = FALSE;
@@ -81,6 +81,8 @@ CK_RV do_CopyObjects(void)
 
 	CK_ATTRIBUTE empty_tmpl[] = { };
 
+    CK_ATTRIBUTE *null_tmpl = NULL;
+
 	// Do some setup and login to the token
 	testcase_begin("starting...");
 	testcase_rw_session();
@@ -94,10 +96,58 @@ CK_RV do_CopyObjects(void)
 	}
 
 
-	// Testcase #1 - Copy object exactly with no additional attributes.
-	testcase_new_assertion()
+    // Testcase #1 - Copy object exactly with no additional attributes, by
+    // passing a null object
+    testcase_new_assertion();
 
-	rc = funcs->C_CopyObject(session, keyobj, empty_tmpl, 0, &firstobj);
+    rc = funcs->C_CopyObject(session, keyobj, null_tmpl, 0, &firstobj);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    // Pull up some attributes and verify that new object has
+    // same attribute values as original.
+    rc = funcs->C_GetAttributeValue(session, firstobj, test_tmpl, 4);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    // Step thru template to see if new object matches original...
+    if ((memcmp(test_tmpl[0].pValue, aes_tmpl[0].pValue,
+                aes_tmpl[0].ulValueLen) == 0) &&
+        (memcmp(test_tmpl[1].pValue, aes_tmpl[1].pValue,
+                aes_tmpl[1].ulValueLen) == 0) &&
+        (memcmp(test_tmpl[3].pValue, aes_tmpl[3].pValue,
+                aes_tmpl[3].ulValueLen) == 0))  {
+
+        /* CKA_VALUE is suppose to be zeroed out for
+         * secure key tokens after importing the key.
+         */
+        if ((is_cca_token(SLOT_ID)) || (is_ep11_token(SLOT_ID))) {
+            if (*(CK_BYTE *)test_tmpl[2].pValue == 0)
+                testcase_pass("Copied object's attributes are correct");
+            else
+                testcase_fail("Copied object's attributes are incorrect.");
+        } else {
+            if (memcmp(test_tmpl[2].pValue, aes_tmpl[2].pValue,
+                       aes_tmpl[2].ulValueLen) == 0)
+                testcase_pass("Copied object's attributes are the same.");
+            else
+                testcase_fail("Copied object's attributes are different.");
+        }
+    } else {
+        testcase_fail("Copied object's attributes are different.");
+    }
+
+
+
+	// Testcase #2 - Copy object exactly with no additional attributes, by
+    // passing an empty template.
+	testcase_new_assertion();
+
+	rc = funcs->C_CopyObject(session, keyobj, empty_tmpl, 0, &secondobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -105,7 +155,7 @@ CK_RV do_CopyObjects(void)
 
 	// Pull up some attributes and verify that new object has
 	// same attribute values as original.
-	rc = funcs->C_GetAttributeValue(session, firstobj, test_tmpl, 4);
+	rc = funcs->C_GetAttributeValue(session, secondobj, test_tmpl, 4);
 	if (rc != CKR_OK) {
 		testcase_error("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -138,10 +188,10 @@ CK_RV do_CopyObjects(void)
 		testcase_fail("Copied object's attributes are different.");
 
 
-	// Testcase #2 - Copy an object and include one additional attribute.
+	// Testcase #3 - Copy an object and include one additional attribute.
 	testcase_new_assertion();
 
-	rc = funcs->C_CopyObject(session, keyobj, copy_tmpl, 1, &secondobj);
+	rc = funcs->C_CopyObject(session, keyobj, copy_tmpl, 1, &thirdobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -150,7 +200,7 @@ CK_RV do_CopyObjects(void)
 	// Verify that new object has the new attribute and value (CKA_TOKEN).
 	// NOTE: Since passing in same template, original value will be
 	//       over-written.
-	rc = funcs->C_GetAttributeValue(session, secondobj, copy_tmpl, 1);
+	rc = funcs->C_GetAttributeValue(session, thirdobj, copy_tmpl, 1);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
@@ -163,18 +213,19 @@ CK_RV do_CopyObjects(void)
 
 
 
-	// Testcase #3 - Copy object changing the value of CKA_SENSITIVE
+	// Testcase #4 - Copy object changing the value of CKA_SENSITIVE
 	// 		 from true to false. This should be allowed on copy.
 	testcase_new_assertion();
 
-	rc = funcs->C_CopyObject(session, keyobj, true_sensitive_tmpl, 1, &thirdobj);
+	rc = funcs->C_CopyObject(session, keyobj,
+                             true_sensitive_tmpl, 1, &fourthobj);
 	if (rc != CKR_OK) {
 		testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
 		goto testcase_cleanup;
 	}
 
 	// Verify that new object has CKA_SENSITIVE == true;
-	rc = funcs->C_GetAttributeValue(session, thirdobj,
+	rc = funcs->C_GetAttributeValue(session, fourthobj,
 					test_sensitive_tmpl, 1);
 	if (rc != CKR_OK) {
 		testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
@@ -187,11 +238,12 @@ CK_RV do_CopyObjects(void)
 		testcase_fail("Copied object's CKA_SENSITIVE != TRUE.");
 
 
-	// Testcase #4 - Now try changing CKA_SENSITIVE from TRUE to False.
+	// Testcase #5 - Now try changing CKA_SENSITIVE from TRUE to False.
 	// This should not be allowed.
 	testcase_new_assertion();
 
-	rc = funcs->C_CopyObject(session, thirdobj, false_sensitive_tmpl, 1, &fourthobj);
+	rc = funcs->C_CopyObject(session, fourthobj,
+                             false_sensitive_tmpl, 1, &fifthobj);
 	if (rc != CKR_OK)
 		testcase_pass("C_CopyObject) did not copy the object. rc = %s",
 				p11_get_ckr(rc));
@@ -205,6 +257,8 @@ testcase_cleanup:
 	funcs->C_DestroyObject(session, secondobj);
 	funcs->C_DestroyObject(session, thirdobj);
 	funcs->C_DestroyObject(session, fourthobj);
+	funcs->C_DestroyObject(session, fifthobj);
+
 
 	testcase_user_logout();
 	rc = funcs->C_CloseSession(session);

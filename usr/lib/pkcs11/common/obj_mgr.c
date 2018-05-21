@@ -331,7 +331,7 @@ object_mgr_copy( STDLL_TokData_t  * tokdata,
    CK_RV       rc;
    unsigned long obj_handle;
 
-   if (!sess || !pTemplate || !new_handle){
+   if (!sess || (!pTemplate && ulCount) || !new_handle) {
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }

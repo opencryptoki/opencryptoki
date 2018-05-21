@@ -199,7 +199,7 @@ object_copy( STDLL_TokData_t * tokdata,
    CK_RV       rc;
 
 
-   if (!old_obj || !pTemplate || !new_obj){
+   if (!old_obj || (!pTemplate && ulCount) || !new_obj){
       TRACE_ERROR("Invalid function arguments.\n");
       return CKR_FUNCTION_FAILED;
    }
