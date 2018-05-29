@@ -262,7 +262,8 @@ exit 0
 %{_libdir}/pkcs11/libopencryptoki.so
 %{_libdir}/pkcs11/PKCS11_API.so
 %{_libdir}/pkcs11/stdll
-%{_localstatedir}/log/opencryptoki
+%dir %attr(770,root,pkcs11) %{_localstatedir}/log/opencryptoki
+
 
 %files devel
 %{_includedir}/%{name}/
