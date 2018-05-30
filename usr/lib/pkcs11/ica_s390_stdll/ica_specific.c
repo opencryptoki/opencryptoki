@@ -31,10 +31,17 @@
 #include "h_extern.h"
 #include "trace.h"
 
+#include <ica_api.h>
+
+#ifndef EC_DH
+#define NO_EC
+#warning "Your Libica does not provide ECC support, use Libica 3.3.0 or newer for ECC."
+#endif
+
 #include "tok_specific.h"
 #include "tok_struct.h"
 #include "ica_specific.h"
-#include "ica_api.h"
+
 #ifndef NO_EC
 #include "ec_defs.h"
 #include "openssl/obj_mac.h"
@@ -152,7 +159,9 @@ token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID  SlotNumber,
 {
 	CK_ULONG rc = CKR_OK;
 
+#ifndef NO_EC
     ica_ec_support_available = ecc_support_in_libica_available();
+#endif
 
 	rc = mech_list_ica_initialize();
 	if (rc != CKR_OK) {

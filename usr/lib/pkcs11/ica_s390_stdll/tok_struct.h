@@ -77,11 +77,18 @@ token_spec_t token_specific = {
 	&token_specific_rsa_pss_sign,
 	&token_specific_rsa_pss_verify,
 	&token_specific_rsa_generate_keypair,
-	// Elliptic Curve
+#ifndef NO_EC
+    // Elliptic Curve
     &token_specific_ec_sign,
     &token_specific_ec_verify,
     &token_specific_ec_generate_keypair,
     &token_specific_ecdh_pkcs_derive,
+#else
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+#endif
 #ifndef NODH
 	// DH
 	&token_specific_dh_pkcs_derive,
