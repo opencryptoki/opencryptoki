@@ -1052,7 +1052,11 @@ ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* Determine digest length */
     if (pParms->kdf != CKD_NULL) {
-        digest_from_kdf(pParms->kdf, &digest_mech);
+        rc = digest_from_kdf(pParms->kdf, &digest_mech);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Cannot determine mech from kdf.\n");
+            return CKR_ARGUMENTS_BAD;
+        }
         rc = get_sha_size(digest_mech, &kdf_digest_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("Cannot determine SHA digest size.\n");
