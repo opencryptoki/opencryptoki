@@ -3405,124 +3405,133 @@ addMechanismToList(CK_ULONG mechanism)
  * call libica to receive list of supported mechanisms
  * This method is called once per opencryptoki instance (application context)
  */
-CK_RV
-mech_list_ica_initialize(void)
+CK_RV mech_list_ica_initialize(void)
 {
-	CK_ULONG ret, rc = CKR_OK;
-	unsigned int i, n;
-	unsigned int ica_specific_mech_list_len;
-	CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
+    CK_ULONG ret, rc = CKR_OK;
+    unsigned int i, n;
+    unsigned int ica_specific_mech_list_len;
+    CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
 
-	rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("ica_get_functionlist failed\n");
-		return CKR_FUNCTION_FAILED;
-	}
-	libica_func_list_element libica_func_list[ica_specific_mech_list_len];
-	rc = ica_get_functionlist(libica_func_list, &ica_specific_mech_list_len);
-	if (rc != CKR_OK) {
-		TRACE_ERROR("ica_get_functionlist failed\n");
-		return CKR_FUNCTION_FAILED;
-	}
+    rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ica_get_functionlist failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    libica_func_list_element libica_func_list[ica_specific_mech_list_len];
+    rc = ica_get_functionlist(libica_func_list, &ica_specific_mech_list_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ica_get_functionlist failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
-	/*
-	 * grab the mechanism of the corresponding ID returned by libICA
-	 * from the internel reference list put the mechanism ID and the
-	 * HW support indication into an internel ica_mech_list and get
-	 * additional flag information from the reference list
-	 */
-	ulPreDefMechCtr = mech_list_len;
-	for (i=0; i < ica_specific_mech_list_len; i++) {
+    /*
+     * grab the mechanism of the corresponding ID returned by libICA
+     * from the internel reference list put the mechanism ID and the
+     * HW support indication into an internel ica_mech_list and get
+     * additional flag information from the reference list
+     */
+    ulPreDefMechCtr = mech_list_len;
+    for (i=0; i < ica_specific_mech_list_len; i++) {
 
-		if (libica_func_list[i].flags == 0)
-			continue;
+        if (libica_func_list[i].flags == 0)
+            continue;
 
-		// loop over libica supported list
-		ulActMechCtr = -1;
+        // loop over libica supported list
+        ulActMechCtr = -1;
 
-		/* --- walk through the whole reflist and fetch all
-		 * matching mechanism's (if present) ---
-		 */
-		refIdx = 0;
-		while (refIdx >= 0) {
-			ret = getRefListIdxfromId(libica_func_list[i].mech_mode_id, &refIdx);
-			if (ret != CKR_OK) {
-				// continue with the next libica mechanism
-				break;
-			}
+        /* --- walk through the whole reflist and fetch all
+         * matching mechanism's (if present) ---
+         */
+        refIdx = 0;
+        while (refIdx >= 0) {
+            ret =
+                getRefListIdxfromId(libica_func_list[i].mech_mode_id, &refIdx);
+            if (ret != CKR_OK) {
+                // continue with the next libica mechanism
+                break;
+            }
 
-			/* Loop over the predefined mechanism list and check
-			 * if we have to overrule a software implemented
-			 * mechanism from token by libica HW supported
-			 * mechanism.
-			 */
-			for (n=0; n < ulPreDefMechCtr; n++) {
-				if (mech_list[n].mech_type == ref_mech_list[refIdx].mech_type){
-					ulActMechCtr = n;
-					break;
-				}
-			}
-			if (ulActMechCtr == -1) {
-				/* add a new entry */
-				mech_list[mech_list_len].mech_type  = ref_mech_list[refIdx].mech_type;
-				mech_list[mech_list_len].mech_info.flags = (libica_func_list[i].flags & 0x01) | (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
-				mech_list[mech_list_len].mech_info.ulMinKeySize = ref_mech_list[refIdx].mech_info.ulMinKeySize;
-				mech_list[mech_list_len].mech_info.ulMaxKeySize = ref_mech_list[refIdx].mech_info.ulMaxKeySize;
-				mech_list_len++;
-			} else {
-				/* replace existing entry */
-				mech_list[ulActMechCtr].mech_info.flags = (libica_func_list[i].flags & 0x01) | mech_list[ulActMechCtr].mech_info.flags ;
-			}
-			refIdx++;
-		}
-	}
+            /* Loop over the predefined mechanism list and check
+             * if we have to overrule a software implemented
+             * mechanism from token by libica HW supported
+             * mechanism.
+             */
+            for (n=0; n < ulPreDefMechCtr; n++) {
+                if (mech_list[n].mech_type == ref_mech_list[refIdx].mech_type){
+                    ulActMechCtr = n;
+                    break;
+                }
+            }
+            if (ulActMechCtr == -1) {
+                /* add a new entry */
+                mech_list[mech_list_len].mech_type  =
+                    ref_mech_list[refIdx].mech_type;
+                mech_list[mech_list_len].mech_info.flags =
+                    (libica_func_list[i].flags & 0x01) |
+                    (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
+                mech_list[mech_list_len].mech_info.ulMinKeySize =
+                    ref_mech_list[refIdx].mech_info.ulMinKeySize;
+                mech_list[mech_list_len].mech_info.ulMaxKeySize =
+                    ref_mech_list[refIdx].mech_info.ulMaxKeySize;
+                mech_list_len++;
+            } else {
+                /* replace existing entry */
+                mech_list[ulActMechCtr].mech_info.flags =
+                    (libica_func_list[i].flags & 0x01) |
+                    mech_list[ulActMechCtr].mech_info.flags;
+            }
+            refIdx++;
+        }
+    }
 
-	/*
-	 * check if special combined mechanisms are supported
-	 * if SHA1 and RSA is available   -> insert CKM_SHA1_RSA_PKCS
-	 * if SHA256 and RSA is available -> insert CKM_SHA256_RSA_PKCS
-	 * if MD2 and RSA is available    -> insert CKM_MD2_RSA_PKCS
-	 * if MD5 and RSA is available    -> insert CKM_MD5_RSA_PKCS
-	 */
-	if (isMechanismAvailable(CKM_SHA_1) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_SHA1_RSA_PKCS);
+    /*
+     * check if special combined mechanisms are supported
+     * if SHA1 and RSA is available   -> insert CKM_SHA1_RSA_PKCS
+     * if SHA256 and RSA is available -> insert CKM_SHA256_RSA_PKCS
+     * if MD2 and RSA is available    -> insert CKM_MD2_RSA_PKCS
+     * if MD5 and RSA is available    -> insert CKM_MD5_RSA_PKCS
+     */
+    if (isMechanismAvailable(CKM_SHA_1) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_SHA1_RSA_PKCS);
     if (isMechanismAvailable(CKM_SHA224) && isMechanismAvailable(CKM_RSA_PKCS))
         addMechanismToList(CKM_SHA224_RSA_PKCS);
-	if (isMechanismAvailable(CKM_SHA256) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_SHA256_RSA_PKCS);
-	if (isMechanismAvailable(CKM_SHA384) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_SHA384_RSA_PKCS);
-	if (isMechanismAvailable(CKM_SHA512) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_SHA512_RSA_PKCS);
-	if (isMechanismAvailable(CKM_MD2) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_MD2_RSA_PKCS);
-	if (isMechanismAvailable(CKM_MD5) && isMechanismAvailable(CKM_RSA_PKCS))
-		addMechanismToList(CKM_MD5_RSA_PKCS);
+    if (isMechanismAvailable(CKM_SHA256) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_SHA256_RSA_PKCS);
+    if (isMechanismAvailable(CKM_SHA384) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_SHA384_RSA_PKCS);
+    if (isMechanismAvailable(CKM_SHA512) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_SHA512_RSA_PKCS);
+    if (isMechanismAvailable(CKM_MD2) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_MD2_RSA_PKCS);
+    if (isMechanismAvailable(CKM_MD5) && isMechanismAvailable(CKM_RSA_PKCS))
+        addMechanismToList(CKM_MD5_RSA_PKCS);
 
 	/* sort the mech_list_ica by mechanism ID's (bubble sort)  */
-	for(i=0;i < mech_list_len ; i++) {
-		for (n=i; n < mech_list_len; n++) {
-			if (mech_list[i].mech_type > mech_list[n].mech_type) {
-				tmp = mech_list[i].mech_type;
-				mech_list[i].mech_type = mech_list[n].mech_type;
-				mech_list[n].mech_type = tmp;
+    for(i=0;i < mech_list_len ; i++) {
+        for (n=i; n < mech_list_len; n++) {
+            if (mech_list[i].mech_type > mech_list[n].mech_type) {
+                tmp = mech_list[i].mech_type;
+                mech_list[i].mech_type = mech_list[n].mech_type;
+                mech_list[n].mech_type = tmp;
 
-				tmp = mech_list[i].mech_info.ulMinKeySize;
-				mech_list[i].mech_info.ulMinKeySize = mech_list[n].mech_info.ulMinKeySize;
-				mech_list[n].mech_info.ulMinKeySize = tmp;
+                tmp = mech_list[i].mech_info.ulMinKeySize;
+                mech_list[i].mech_info.ulMinKeySize = mech_list[n].mech_info.ulMinKeySize;
+                mech_list[n].mech_info.ulMinKeySize = tmp;
 
-				tmp = mech_list[i].mech_info.ulMaxKeySize;
-				mech_list[i].mech_info.ulMaxKeySize = mech_list[n].mech_info.ulMaxKeySize;
-				mech_list[n].mech_info.ulMaxKeySize = tmp;
+                tmp = mech_list[i].mech_info.ulMaxKeySize;
+                mech_list[i].mech_info.ulMaxKeySize = mech_list[n].mech_info.ulMaxKeySize;
+                mech_list[n].mech_info.ulMaxKeySize = tmp;
 
-				tmp = mech_list[i].mech_info.flags;
-				mech_list[i].mech_info.flags = mech_list[n].mech_info.flags;
-				mech_list[n].mech_info.flags = tmp;
-			}
-		}
-	}
-	mech_list_ica_init = TRUE;
-	return rc;
+                tmp = mech_list[i].mech_info.flags;
+                mech_list[i].mech_info.flags = mech_list[n].mech_info.flags;
+                mech_list[n].mech_info.flags = tmp;
+            }
+        }
+    }
+
+    mech_list_ica_init = TRUE;
+
+    return rc;
 }
 
 CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
