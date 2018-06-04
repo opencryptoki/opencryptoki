@@ -428,7 +428,7 @@ out_fclose:
 
 static CK_RV is_card_ep11_and_online(const char *name)
 {
-    char fname[250];
+    char fname[290];
     char buf[250];
     CK_RV rc;
     unsigned long val;
@@ -455,7 +455,7 @@ static CK_RV is_card_ep11_and_online(const char *name)
 static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
                                    void* handler_data)
 {
-    char fname[250];
+    char fname[290];
     regex_t reg_buf;
     regmatch_t pmatch[1];
     DIR *d;
