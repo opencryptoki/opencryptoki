@@ -1948,6 +1948,7 @@ MECH_LIST_ELEMENT mech_list[] = {
 
 	{CKM_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA1_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
+    {CKM_SHA224_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA256_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA384_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA512_RSA_PKCS_PSS, {1024, 4096, CKF_SIGN|CKF_VERIFY}},
@@ -1992,6 +1993,9 @@ MECH_LIST_ELEMENT mech_list[] = {
 	{CKM_SHA_1_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
 #endif
+    {CKM_SHA224, {0, 0, CKF_DIGEST}},
+    {CKM_SHA224_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
+    {CKM_SHA224_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA256, {0, 0, CKF_DIGEST}},
 	{CKM_SHA256_HMAC, {0, 0, CKF_SIGN|CKF_VERIFY}},
 	{CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_SIGN|CKF_VERIFY}},
@@ -2061,6 +2065,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		len = sizeof(SHA_CTX);
 		dgst = (void*) &SHA1_Init;
 		break;
+    case CKM_SHA224:
+        len = sizeof(SHA256_CTX);
+        dgst = (void*) &SHA224_Init;
+        break;
 	case CKM_SHA256:
 		len = sizeof(SHA256_CTX);
 		dgst = (void*) &SHA256_Init;
@@ -2116,6 +2124,11 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		dgstup = (void*) &SHA1_Update;
 		dgstfin = (void*) &SHA1_Final;
 		break;
+    case CKM_SHA224:
+        hlen = SHA224_HASH_SIZE;
+        dgstup = (void*) &SHA224_Update;
+        dgstfin = (void*) &SHA224_Final;
+        break;
 	case CKM_SHA256:
 		hlen = SHA256_HASH_SIZE;
 		dgstup = (void*) &SHA256_Update;
@@ -2172,6 +2185,9 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 	case CKM_SHA_1:
 		rc = SHA1_Update((SHA_CTX*) ctx->context, in_data, in_data_len);
 		break;
+    case CKM_SHA224:
+        rc = SHA224_Update((SHA256_CTX*) ctx->context, in_data, in_data_len);
+        break;
 	case CKM_SHA256:
 		rc = SHA256_Update((SHA256_CTX*) ctx->context, in_data, in_data_len);
 		break;
@@ -2213,6 +2229,10 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 		hlen = SHA1_HASH_SIZE;
 		dgstfin = (void*) &SHA1_Final;
 		break;
+    case CKM_SHA224:
+        hlen = SHA224_HASH_SIZE;
+        dgstfin = (void*) &SHA224_Final;
+        break;
 	case CKM_SHA256:
 		hlen = SHA256_HASH_SIZE;
 		dgstfin = (void*) &SHA256_Final;
@@ -2283,6 +2303,10 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata, SIGN_VERIFY_CONTEXT *ct
 	case CKM_SHA_1_HMAC:
 		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha1(), NULL, pkey);
 		break;
+    case CKM_SHA224_HMAC_GENERAL:
+    case CKM_SHA224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha224(), NULL, pkey);
+        break;
 	case CKM_SHA256_HMAC_GENERAL:
 	case CKM_SHA256_HMAC:
 		rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey);
@@ -2352,6 +2376,12 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 	case CKM_SHA_1_HMAC:
 		mac_len = SHA1_HASH_SIZE;
 		break;
+    case CKM_SHA224_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA224_HMAC:
+        mac_len = SHA224_HASH_SIZE;
+        break;
 	case CKM_SHA256_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
@@ -2496,6 +2526,12 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
 	case CKM_SHA_1_HMAC:
 		mac_len = SHA1_HASH_SIZE;
 		break;
+    case CKM_SHA224_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA224_HMAC:
+        mac_len = SHA224_HASH_SIZE;
+        break;
 	case CKM_SHA256_HMAC_GENERAL:
 		general = TRUE;
 		/* fallthrough */
