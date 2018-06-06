@@ -326,6 +326,9 @@ CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
 	case CKG_MGF1_SHA1:
 		*mech = CKM_SHA_1;
 		break;
+    case CKG_MGF1_SHA224:
+        *mech = CKM_SHA224;
+        break;
 	case CKG_MGF1_SHA256:
 		*mech = CKM_SHA256;
 		break;
