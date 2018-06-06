@@ -1,3 +1,13 @@
+* opencryptoki 3.10.0
+- Add support to ECC on ICA token and to common code.
+- Add SHA224 support to SOFT token.
+- Improve pkcsslotd logging.
+- Fix sha512_hmac_sign and rsa_x509_verify for ICA token.
+- Fix tracing of session id.
+- Fix and improve testcases.
+- Fix spec file permission for log directory.
+- Fix build warnings.
+
 * opencryptoki 3.9.0
 - Fix token reinitialization
 - Fix conditional man pages
