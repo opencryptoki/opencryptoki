@@ -1923,6 +1923,7 @@ token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 
 		for (pos2=0; pos2 < modulus_bytes; pos2++)
 			if (out[pos2] != 0)
+                break;
 
 		// at this point, pos1 and pos2 point to the first non-zero
 		// bytes in the input data and the decrypted signature
