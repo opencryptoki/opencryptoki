@@ -1414,7 +1414,7 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
 	}
 
 	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
-                                  SHA512_HASH_SIZE);
+                                  SHA512_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
@@ -1435,11 +1435,6 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
 		return rc;
 	}
 
-	if (token_specific.t_hmac_sign != NULL)
-		return token_specific.t_hmac_sign(tokdata, sess, in_data,
-						  in_data_len, out_data,
-						  out_data_len);
-
 	/* Do manual hmac if token doesn't have an hmac crypto call.
 	 * Secure tokens should not do manual hmac.
 	 */
@@ -1454,7 +1449,7 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
 	}
 
 	rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
-                                  SHA512_HASH_SIZE);
+                                  SHA512_BLOCK_SIZE);
 	if (rc != CKR_OK) {
 		TRACE_DEVEL("Digest Mgr Update failed.\n");
 		return rc;
