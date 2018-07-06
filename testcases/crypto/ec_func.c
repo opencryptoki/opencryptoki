@@ -250,6 +250,7 @@ CK_RV run_DeriveECDHKey()
     CK_RV rc = CKR_OK;
     CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
     CK_BBOOL true = CK_TRUE;
+    CK_BBOOL false = CK_FALSE;
     CK_BYTE pubkeyA_value[256];
     CK_BYTE pubkeyB_value[256];
     CK_BYTE secretA_value[80000]; // enough space for lengths in secret_key_len[]
@@ -374,12 +375,13 @@ CK_RV run_DeriveECDHKey()
                     {CKA_CLASS, &class, sizeof(class)},
                     {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
                     {CKA_VALUE_LEN, &(secret_key_len[k]), sizeof(CK_ULONG)},
+                    {CKA_SENSITIVE, &false, sizeof(false)},
                 };
                 CK_ULONG secret_tmpl_len = sizeof(derive_tmpl)/sizeof(CK_ATTRIBUTE);
 
                 for (m=0; m<NUM_SHARED_DATA; m++) {
 
-                    testcase_new_assertion();
+                    testcase_begin("Starting with ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu", i,j,k,m);
 
                     // Now, derive a generic secret key using party A's private key and B's public key
 
@@ -525,6 +527,7 @@ CK_RV run_DeriveECDHKeyKAT()
     CK_KEY_TYPE secret_key_type = CKK_GENERIC_SECRET;
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
+    CK_BBOOL false = CK_FALSE;
     CK_ULONG user_pin_len;
     CK_RV rc = CKR_OK;
     CK_BYTE secretA_value[1000]; // enough space for key lengths in ecdh_tv[]
@@ -546,6 +549,8 @@ CK_RV run_DeriveECDHKeyKAT()
     }
 
     for (i=0; i<ECDH_TV_NUM; i++) {
+
+    	testcase_begin("Starting with shared secret i=%lu", i);
 
         // First, import the EC key pair for party A
         rc = create_ECPrivateKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
@@ -595,10 +600,9 @@ CK_RV run_DeriveECDHKeyKAT()
             {CKA_CLASS, &class, sizeof(class)},
             {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
             {CKA_VALUE_LEN, &(ecdh_tv[i].derived_key_len), sizeof(CK_ULONG)},
+            {CKA_SENSITIVE, &false, sizeof(false)},
         };
         CK_ULONG derive_tmpl_len = sizeof(derive_tmpl)/sizeof(CK_ATTRIBUTE);
-
-        testcase_new_assertion();
 
         // Now, derive a generic secret key using party A's private key and B's public key
 
