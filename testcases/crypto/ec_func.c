@@ -382,6 +382,7 @@ CK_RV run_DeriveECDHKey()
                 for (m=0; m<NUM_SHARED_DATA; m++) {
 
                     testcase_new_assertion();
+                    testcase_begin("Starting with ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu", i,j,k,m);
 
                     // Now, derive a generic secret key using party A's private key and B's public key
 
@@ -550,6 +551,9 @@ CK_RV run_DeriveECDHKeyKAT()
 
     for (i=0; i<ECDH_TV_NUM; i++) {
 
+        testcase_new_assertion();
+        testcase_begin("Starting with shared secret i=%lu", i);
+
         // First, import the EC key pair for party A
         rc = create_ECPrivateKey(session, ecdh_tv[i].params, ecdh_tv[i].params_len,
                      ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
@@ -601,8 +605,6 @@ CK_RV run_DeriveECDHKeyKAT()
             {CKA_SENSITIVE, &false, sizeof(false)},
         };
         CK_ULONG derive_tmpl_len = sizeof(derive_tmpl)/sizeof(CK_ATTRIBUTE);
-
-        testcase_new_assertion();
 
         // Now, derive a generic secret key using party A's private key and B's public key
 
