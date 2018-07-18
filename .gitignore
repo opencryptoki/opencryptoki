@@ -12,7 +12,7 @@ compile
 config.guess
 config.status
 config.sub
-cscope.out
+cscope.*
 depcomp
 install-sh
 libtool

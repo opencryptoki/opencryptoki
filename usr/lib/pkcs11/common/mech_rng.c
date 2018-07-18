@@ -15,7 +15,7 @@
 // PKCS #11 doesn't consider random number generator to be a "mechanism"
 //
 
-#include <string.h>            // for memcmp() et al
+#include <string.h>             // for memcmp() et al
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,42 +33,39 @@
 
 //
 //
-CK_RV
-local_rng(CK_BYTE *output, CK_ULONG bytes)
+CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes)
 {
-	int ranfd;
-	int rlen;
-	unsigned int totallen=0;
+    int ranfd;
+    int rlen;
+    unsigned int totallen = 0;
 
-	ranfd = open("/dev/urandom",O_RDONLY);
-	if (ranfd >= 0 ) {
-		do {
-			rlen = read(ranfd, output+totallen,
-				    bytes-totallen);
-			totallen += rlen;
-		} while( totallen < bytes);
-		close(ranfd);
-		return CKR_OK;
-	} else {
-		return CKR_FUNCTION_FAILED;
-	}
+    ranfd = open("/dev/urandom", O_RDONLY);
+    if (ranfd >= 0) {
+        do {
+            rlen = read(ranfd, output + totallen, bytes - totallen);
+            totallen += rlen;
+        } while (totallen < bytes);
+        close(ranfd);
+        return CKR_OK;
+    }
 
+    return CKR_FUNCTION_FAILED;
 }
 
 //
 //
-CK_RV
-rng_generate( STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes )
+CK_RV rng_generate(STDLL_TokData_t *tokdata, CK_BYTE *output, CK_ULONG bytes)
 {
-	CK_RV rc;
+    CK_RV rc;
 
-	/* Do token specific rng if it exists. */
-	if (token_specific.t_rng != NULL)
-		rc = token_specific.t_rng(tokdata, output, bytes);
-	else
-		rc = local_rng(output, bytes);
+    /* Do token specific rng if it exists. */
+    if (token_specific.t_rng != NULL)
+        rc = token_specific.t_rng(tokdata, output, bytes);
+    else
+        rc = local_rng(output, bytes);
 
-	if (rc != CKR_OK)
-		TRACE_DEVEL("Token specific rng failed.\n");
-	return rc;
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific rng failed.\n");
+
+    return rc;
 }

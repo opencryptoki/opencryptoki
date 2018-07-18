@@ -1,12 +1,12 @@
- /*
-  * COPYRIGHT (c) International Business Machines Corp. 2001-2017
-  *
-  * This program is provided under the terms of the Common Public License,
-  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
-  * software constitutes recipient's acceptance of CPL-1.0 terms which can be
-  * found in the file LICENSE file or at
-  * https://opensource.org/licenses/cpl1.0.php
-  */
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
 
 //
 //Slot Manager Daemon  Constants...
@@ -33,12 +33,12 @@
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
 #ifndef CK_BOOL
-    #define CK_BOOL  CK_BBOOL
-#endif /* CK_BOOL */
+#define CK_BOOL  CK_BBOOL
+#endif                          /* CK_BOOL */
 
 #ifndef TEST_COND_VARS
-    #define TEST_COND_VARS 0
-#endif /* TEST_COND_VARS */
+#define TEST_COND_VARS 0
+#endif                          /* TEST_COND_VARS */
 
 #define NUMBER_SLOTS_MANAGED 1024
 #define NUMBER_PROCESSES_ALLOWED  1000
@@ -49,27 +49,35 @@
 // when it attaches to the shared memory and released
 // when the C_Finalize is called.
 
-typedef struct{
-   pthread_mutex_t  proc_mutex;
-   pthread_cond_t   proc_slot_cond;
+typedef struct {
+    pthread_mutex_t proc_mutex;
+    pthread_cond_t proc_slot_cond;
 
-   CK_BOOL    inuse;  // flag indicating if the entry is in use
-   pid_t    proc_id; // This could also be used to indicate inuse. however
-                     // we will actualy use it to provide a check for a bad
-                     // process which did not C_finalize and remove itself
-                     // properly.
-   uint32   slotmap; // Bit map of the slots with events App uses this
-                     // in the C_WaitForSlotEvent call
+    CK_BOOL inuse;              // flag indicating if the entry is in use
+    pid_t proc_id;              /* This could also be used to indicate inuse.
+                                 * however we will actualy use it to provide
+                                 * a check for a bad process which did not
+                                 * C_finalize and remove itself properly.
+                                 */
+    uint32 slotmap;             /* Bit map of the slots with events App uses
+                                 * in the C_WaitForSlotEvent call
+                                 */
 
-   uint8    blocking;  // Flag to use if a thread is blocking on the condition
-                       // variable Used by C_Finalize to wake up the
+    uint8 blocking;             /* Flag to use if a thread is blocking on the
+                                 * condition variable Used by C_Finalize to
+                                 * wake up the
+                                 */
 
-   uint8    error ;     // indication of an error causing the thread sleeping on the
-                        // condition variable to wakeup.
-   uint32   slot_session_count[NUMBER_SLOTS_MANAGED];  // Per process session
-                        // count for garbage collection clean up of the global
-                        // session count.
-   time_t   reg_time; // Time application registered
+    uint8 error;                /* indication of an error causing the thread
+                                 * sleeping on the condition variable to wakeup.
+                                 */
+    uint32 slot_session_count[NUMBER_SLOTS_MANAGED];    /* Per process session
+                                                         * count for garbage
+                                                         * collection clean up
+                                                         * of the global
+                                                         * session count.
+                                                         */
+    time_t reg_time;            // Time application registered
 } Slot_Mgr_Proc_t;
 
 //
@@ -79,14 +87,16 @@ typedef struct _LW_SHM_TYPE LW_SHM_TYPE;
 
 // Slot info structure which contains the PKCS11 CK_SLOT_INFO
 // as well as the local information
-typedef struct{
-   CK_SLOT_ID          slot_number;
-   CK_BOOL          present;
-   CK_SLOT_INFO  pk_slot;
-   char          dll_location[NAME_MAX+1];   // location of slot management  DLL
-   char          slot_init_fcn[NAME_MAX+1];  // function to call to initialize the token in the slot
-   LW_SHM_TYPE   *shm_addr;                  // token specific shm address
-}Slot_Info_t;
+typedef struct {
+    CK_SLOT_ID slot_number;
+    CK_BOOL present;
+    CK_SLOT_INFO pk_slot;
+    char dll_location[NAME_MAX + 1];    // location of slot management  DLL
+    char slot_init_fcn[NAME_MAX + 1];   /* function to call to initialize the
+                                         * token in the slot
+                                         */
+    LW_SHM_TYPE *shm_addr;      // token specific shm address
+} Slot_Info_t;
 
 
 #ifdef PKCS64
@@ -105,51 +115,59 @@ typedef unsigned long long CK_SLOT_ID_64;
 typedef unsigned long long CK_FLAGS_64;
 
 typedef struct CK_INFO_64 {
-  CK_VERSION    cryptokiVersion;     /* Cryptoki interface ver */
-  CK_CHAR       manufacturerID[32];  /* blank padded */
-  CK_CHAR	pad1[6];             /* pad for dword alignment */
-  CK_FLAGS_64   flags;               /* must be zero */
+    CK_VERSION cryptokiVersion; /* Cryptoki interface ver */
+    CK_CHAR manufacturerID[32]; /* blank padded */
+    CK_CHAR pad1[6];            /* pad for dword alignment */
+    CK_FLAGS_64 flags;          /* must be zero */
 
-  /* libraryDescription and libraryVersion are new for v2.0 */
-  CK_CHAR       libraryDescription[32];  /* blank padded */
-  CK_VERSION    libraryVersion;          /* version of library */
-  CK_CHAR       pad2[6];             /* pad for dword alignment */
+    /* libraryDescription and libraryVersion are new for v2.0 */
+    CK_CHAR libraryDescription[32];     /* blank padded */
+    CK_VERSION libraryVersion;  /* version of library */
+    CK_CHAR pad2[6];            /* pad for dword alignment */
 } CK_INFO_64;
 
 typedef CK_INFO_64 CK_PTR CK_INFO_PTR_64;
 
 typedef struct CK_SLOT_INFO_64 {
-  CK_CHAR       slotDescription[64];  /* blank padded */
-  CK_CHAR       manufacturerID[32];   /* blank padded */
-  CK_FLAGS_64   flags;
+    CK_CHAR slotDescription[64];        /* blank padded */
+    CK_CHAR manufacturerID[32]; /* blank padded */
+    CK_FLAGS_64 flags;
 
-  /* hardwareVersion and firmwareVersion are new for v2.0 */
-  CK_VERSION    hardwareVersion;  /* version of hardware */
-  CK_VERSION    firmwareVersion;  /* version of firmware */
-  CK_CHAR	pad[4];           /* pad for dword alignment */
+    /* hardwareVersion and firmwareVersion are new for v2.0 */
+    CK_VERSION hardwareVersion; /* version of hardware */
+    CK_VERSION firmwareVersion; /* version of firmware */
+    CK_CHAR pad[4];             /* pad for dword alignment */
 } CK_SLOT_INFO_64;
 
 
 typedef struct Slot_Mgr_Proc_t_64 {
-  // pthread_cond_t   proc_slot_cond;
+    // pthread_cond_t   proc_slot_cond;
 
-   CK_BOOL    inuse;  // flag indicating if the entry is in use
-   pid_t      proc_id;// This could also be used to indicate inuse. however
-                     // we will actualy use it to provide a check for a bad
-                     // process which did not C_finalize and remove itself
-                     // properly.
-   uint32   slotmap; // Bit map of the slots with events App uses this
-                     // in the C_WaitForSlotEvent call
+    CK_BOOL inuse;              // flag indicating if the entry is in use
+    pid_t proc_id;              /* This could also be used to indicate inuse.
+                                 * however we will actualy use it to provide
+                                 * a check for a bad process which did not
+                                 * C_finalize and remove itself properly.
+                                 */
+    uint32 slotmap;             /* Bit map of the slots with events App uses
+                                 * this in the C_WaitForSlotEvent call
+                                 */
 
-   uint8    blocking;  // Flag to use if a thread is blocking on the condition
-                       // variable Used by C_Finalize to wake up the
+    uint8 blocking;             /* Flag to use if a thread is blocking on the
+                                 * condition variable Used by C_Finalize to
+                                 * wake up the
+                                 */
 
-   uint8    error ;     // indication of an error causing the thread sleeping on the
-                        // condition variable to wakeup.
-   uint32   slot_session_count[NUMBER_SLOTS_MANAGED];  // Per process session
-                        // count for garbage collection clean up of the global
-                        // session count.
-   time_t_64   reg_time; // Time application registered
+    uint8 error;                /* indication of an error causing the thread
+                                 * sleeping on the condition variable to wakeup.
+                                 */
+    uint32 slot_session_count[NUMBER_SLOTS_MANAGED];    /* Per process session
+                                                         * count for garbage
+                                                         * collection clean up
+                                                         * of the global
+                                                         * session count.
+                                                         */
+    time_t_64 reg_time;         // Time application registered
 } Slot_Mgr_Proc_t_64;
 
 //
@@ -159,48 +177,48 @@ typedef struct Slot_Mgr_Proc_t_64 {
 // Slot info structure which contains the PKCS11 CK_SLOT_INFO
 // as well as the local information
 typedef struct {
-	CK_SLOT_ID_64	slot_number;
-	CK_BOOL		present;
-	char		pad1[7];		// pad for dword alignment
-	CK_SLOT_INFO_64 pk_slot;
-	char		dll_location[NAME_MAX+1];   // location of slot's  DLL
-	char		confname[NAME_MAX+1];	// token specific config file
-	char		tokname[NAME_MAX+1];	// token specific directory
-	LW_SHM_TYPE	*shm_addr;		// token specific shm address
-}Slot_Info_t_64;
+    CK_SLOT_ID_64 slot_number;
+    CK_BOOL present;
+    char pad1[7];               // pad for dword alignment
+    CK_SLOT_INFO_64 pk_slot;
+    char dll_location[NAME_MAX + 1];    // location of slot's  DLL
+    char confname[NAME_MAX + 1];        // token specific config file
+    char tokname[NAME_MAX + 1]; // token specific directory
+    LW_SHM_TYPE *shm_addr;      // token specific shm address
+} Slot_Info_t_64;
 
 typedef Slot_Info_t_64 SLOT_INFO;
 
 typedef struct {
 
-  /* Information that the API calls will use. */
-  uint32                slot_global_sessions[NUMBER_SLOTS_MANAGED];
-  Slot_Mgr_Proc_t_64    proc_table[NUMBER_PROCESSES_ALLOWED];
+    /* Information that the API calls will use. */
+    uint32 slot_global_sessions[NUMBER_SLOTS_MANAGED];
+    Slot_Mgr_Proc_t_64 proc_table[NUMBER_PROCESSES_ALLOWED];
 } Slot_Mgr_Shr_t;
 
 typedef struct {
-   uint8                 num_slots;
-   CK_INFO_64            ck_info;
-   Slot_Info_t_64        slot_info[NUMBER_SLOTS_MANAGED];
+    uint8 num_slots;
+    CK_INFO_64 ck_info;
+    Slot_Info_t_64 slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
 
-#else	// PKCS64
+#else                           // PKCS64
 
 typedef struct {
-  /* Information that the API calls will use. */
-  uint32                slot_global_sessions[NUMBER_SLOTS_MANAGED];
-  Slot_Mgr_Proc_t       proc_table[NUMBER_PROCESSES_ALLOWED];
+    /* Information that the API calls will use. */
+    uint32 slot_global_sessions[NUMBER_SLOTS_MANAGED];
+    Slot_Mgr_Proc_t proc_table[NUMBER_PROCESSES_ALLOWED];
 } Slot_Mgr_Shr_t;
 
 typedef struct {
-  uint8                 num_slots;
-  CK_INFO               ck_info;
-  Slot_Info_t           slot_info[NUMBER_SLOTS_MANAGED];
+    uint8 num_slots;
+    CK_INFO ck_info;
+    Slot_Info_t slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
 
 typedef Slot_Info_t SLOT_INFO;
 
-#endif	// PKCS64
+#endif                          // PKCS64
 
 
 // Loging type constants
@@ -231,4 +249,4 @@ typedef Slot_Info_t SLOT_INFO;
 
 #define RESTART_SYS_CALLS 1
 
-#endif /* _SLOTMGR_H */
+#endif                          /* _SLOTMGR_H */
