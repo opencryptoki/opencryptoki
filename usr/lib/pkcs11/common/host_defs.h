@@ -25,6 +25,7 @@ typedef struct _ENCR_DECR_CONTEXT {
     CK_ULONG context_len;
     CK_BBOOL multi;
     CK_BBOOL active;
+    CK_BBOOL init_pending;      // indicate init request pending
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {

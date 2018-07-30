@@ -4295,6 +4295,37 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     return rc;
 }
 
+CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
+                             CK_MECHANISM *mech, CK_BBOOL length_only,
+                             CK_OBJECT_HANDLE key, CK_BYTE_PTR input_data,
+                             CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+                             CK_ULONG_PTR p_output_data_len)
+{
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    RETRY_START
+    rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
+                             input_data_len, output_data, p_output_data_len,
+                             (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
 
 CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_BYTE_PTR output_part,
@@ -4374,6 +4405,37 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     return rc;
 }
 
+CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
+                             CK_MECHANISM *mech, CK_BBOOL length_only,
+                             CK_OBJECT_HANDLE key, CK_BYTE_PTR input_data,
+                             CK_ULONG input_data_len, CK_BYTE_PTR output_data,
+                             CK_ULONG_PTR p_output_data_len)
+{
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    RETRY_START
+    rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
+                             input_data_len, output_data, p_output_data_len,
+                             (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
 
 static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                                   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,

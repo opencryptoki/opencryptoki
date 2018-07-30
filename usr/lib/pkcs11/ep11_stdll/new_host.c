@@ -1569,7 +1569,27 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = ep11tok_encrypt_init(tokdata, sess, pMechanism, hKey);
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        /* In case of a single part encrypt operation we don't need the
+         * EncryptInit, instead we can use the EncryptSingle which is much
+         * faster. In case of multi-part operations we are doing the EncryptInit
+         * when EncryptUpdate comes into play.
+         */
+        sess->encr_ctx.init_pending = TRUE;
+        sess->encr_ctx.active = TRUE;
+        sess->encr_ctx.multi = FALSE;
+        sess->encr_ctx.key = hKey;
+
+        sess->encr_ctx.mech.mechanism = pMechanism->mechanism;
+        sess->encr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+        memcpy(sess->encr_ctx.mech.pParameter, pMechanism->pParameter,
+               pMechanism->ulParameterLen);
+        sess->encr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+    } else {
+        rc = ep11tok_encrypt_init(tokdata, sess, pMechanism, hKey);
+        if (rc != CKR_OK)
+                    TRACE_DEVEL("ep11tok_encrypt_init() failed.\n");
+    }
 
 done:
     TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -1616,10 +1636,19 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pEncryptedData)
         length_only = TRUE;
 
-    rc = ep11tok_encrypt(tokdata, sess, pData, ulDataLen, pEncryptedData,
-                         pulEncryptedDataLen);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_encrypt() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        rc = ep11tok_encrypt_single(tokdata, sess, &sess->encr_ctx.mech,
+                                    length_only, sess->encr_ctx.key,
+                                    pData, ulDataLen, pEncryptedData,
+                                    pulEncryptedDataLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_encrypt_single() failed.\n");
+    } else {
+        rc = ep11tok_encrypt(tokdata, sess, pData, ulDataLen, pEncryptedData,
+                             pulEncryptedDataLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_encrypt() failed.\n");
+    }
 
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -1663,6 +1692,15 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
+    }
+
+    if (sess->encr_ctx.init_pending) {
+        rc = ep11tok_encrypt_init(tokdata, sess, &sess->encr_ctx.mech,
+                                  sess->encr_ctx.key);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_encr_init() failed.\n");
+
+        sess->encr_ctx.init_pending = 0;
     }
 
     rc = ep11tok_encrypt_update(tokdata, sess, pPart, ulPartLen, pEncryptedPart,
@@ -1716,6 +1754,12 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 
     if (!pLastEncryptedPart)
         length_only = TRUE;
+
+    if (sess->encr_ctx.init_pending) {
+        /* EncryptInit without Update, no EncryptFinal necessary */
+        sess->encr_ctx.init_pending = 0;
+        return CKR_OK;
+    }
 
     rc = ep11tok_encrypt_final(tokdata, sess, pLastEncryptedPart,
                                pulLastEncryptedPartLen);
@@ -1775,9 +1819,27 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = ep11tok_decrypt_init(tokdata, sess, pMechanism, hKey);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_decrypt_init() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        /* In case of a single part decrypt operation we don't need the
+         * DecryptInit, instead we can use the EncryptSingle which is much
+         * faster. In case of multi-part operations we are doing the DecryptInit
+         * when DecryptUpdate comes into play.
+         */
+        sess->decr_ctx.init_pending = TRUE;
+        sess->decr_ctx.active = TRUE;
+        sess->decr_ctx.multi = FALSE;
+        sess->decr_ctx.key = hKey;
+
+        sess->decr_ctx.mech.mechanism = pMechanism->mechanism;
+        sess->decr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+        memcpy(sess->decr_ctx.mech.pParameter, pMechanism->pParameter,
+               pMechanism->ulParameterLen);
+        sess->decr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+    } else {
+        rc = ep11tok_decrypt_init(tokdata, sess, pMechanism, hKey);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_decrypt_init() failed.\n");
+    }
 
 done:
     TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -1824,10 +1886,19 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pData)
         length_only = TRUE;
 
-    rc = ep11tok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
-                         pData, pulDataLen);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_decrypt() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        rc = ep11tok_decrypt_single(tokdata, sess, &sess->decr_ctx.mech,
+                                    length_only, sess->decr_ctx.key,
+                                    pEncryptedData, ulEncryptedDataLen,
+                                    pData, pulDataLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_decrypt_single() failed.\n");
+    } else {
+        rc = ep11tok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
+                             pData, pulDataLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_decrypt() failed.\n");
+    }
 
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -1871,6 +1942,15 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
+    }
+
+    if (sess->decr_ctx.init_pending) {
+        rc = ep11tok_decrypt_init(tokdata, sess, &sess->decr_ctx.mech,
+                                  sess->decr_ctx.key);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_decr_init() failed.\n");
+
+        sess->decr_ctx.init_pending = 0;
     }
 
     rc = ep11tok_decrypt_update(tokdata, sess, pEncryptedPart,
@@ -1924,6 +2004,12 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 
     if (!pLastPart)
         length_only = TRUE;
+
+    if (sess->decr_ctx.init_pending) {
+        /* DecryptInit without Update, no DecryptFinal necessary */
+        sess->decr_ctx.init_pending = 0;
+        return CKR_OK;
+    }
 
     rc = ep11tok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
     if (rc != CKR_OK)
