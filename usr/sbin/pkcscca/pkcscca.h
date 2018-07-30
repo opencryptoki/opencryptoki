@@ -137,4 +137,46 @@ struct key_count {
     int rsa;
 };
 
+typedef struct _DL_NODE
+{
+    struct _DL_NODE   *next;
+    struct _DL_NODE   *prev;
+    void              *data;
+} DL_NODE;
+
+typedef struct _TEMPLATE
+{
+    DL_NODE  *attribute_list;
+} TEMPLATE;
+
+typedef void *SESSION;
+
+typedef struct _OBJECT
+{
+    CK_OBJECT_CLASS   class;
+    CK_BYTE           name[8];   // for token objects
+
+    SESSION          *session;   // creator; only for session objects
+    TEMPLATE         *template;
+    CK_ULONG          count_hi;  // only significant for token objects
+    CK_ULONG          count_lo;  // only significant for token objects
+    CK_ULONG      index;  // SAB  Index into the SHM
+    CK_OBJECT_HANDLE  map_handle;
+} OBJECT;
+
+struct secaeskeytoken {
+    unsigned char  type;     /* 0x01 for internal key token */
+    unsigned char  res0[3];
+    unsigned char  version;  /* should be 0x04 */
+    unsigned char  res1[1];
+    unsigned char  flag;     /* key flags */
+    unsigned char  res2[1];
+    unsigned long  mkvp;     /* master key verification pattern */
+    unsigned char  key[32];  /* key value (encrypted) */
+    unsigned char  cv[8];    /* control vector */
+    unsigned short bitsize;  /* key bit size */
+    unsigned short keysize;  /* key byte size */
+    unsigned char  tvv[4];   /* token validation value */
+} __packed;
+
 #endif

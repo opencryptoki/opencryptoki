@@ -124,6 +124,780 @@ int cca_decrypt(unsigned char *in_data, unsigned long in_data_len,
     return 0;
 }
 
+// Function:  dlist_remove_node()
+//
+// Attempts to remove the specified node from the list.  The caller is
+// responsible for freeing the data associated with the node prior to
+// calling this routine
+//
+DL_NODE *dlist_remove_node(DL_NODE *list, DL_NODE *node)
+{
+    DL_NODE *temp = list;
+
+    if (!list || !node)
+        return NULL;
+
+    // special case:  removing head of the list
+    //
+    if (list == node) {
+        temp = list->next;
+        if (temp)
+            temp->prev = NULL;
+
+        free(list);
+        return temp;
+    }
+    // we have no guarantee that the node is in the list
+    // so search through the list to find it
+    //
+    while ((temp != NULL) && (temp->next != node))
+        temp = temp->next;
+
+    if (temp != NULL) {
+        DL_NODE *next = node->next;
+
+        temp->next = next;
+        if (next)
+            next->prev = temp;
+
+        free(node);
+    }
+
+    return list;
+}
+
+// Function:  dlist_add_as_first()
+//
+// Adds the specified node to the start of the list
+//
+// Returns:  pointer to the start of the list
+//
+DL_NODE *dlist_add_as_first(DL_NODE *list, void *data)
+{
+    DL_NODE *node = NULL;
+
+    if (!data)
+        return list;
+
+    node = (DL_NODE *) malloc(sizeof(DL_NODE));
+    if (!node)
+        return NULL;
+
+    node->data = data;
+    node->prev = NULL;
+    node->next = list;
+    if (list)
+        list->prev = node;
+
+    return node;
+}
+
+CK_ULONG dlist_length(DL_NODE *list)
+{
+    DL_NODE *temp = list;
+    CK_ULONG len = 0;
+
+    while (temp) {
+        len++;
+        temp = temp->next;
+    }
+
+    return len;
+}
+
+/* template_free() */
+CK_RV template_free(TEMPLATE *tmpl)
+{
+    if (!tmpl)
+        return CKR_OK;
+
+    while (tmpl->attribute_list) {
+        CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *) tmpl->attribute_list->data;
+
+        if (attr)
+            free(attr);
+
+        tmpl->attribute_list = dlist_remove_node(tmpl->attribute_list,
+                                                 tmpl->attribute_list);
+    }
+
+    free(tmpl);
+
+    return CKR_OK;
+}
+
+/* template_update_attribute()
+ *
+ * modifies an existing attribute or adds a new attribute to the template
+ *
+ * Returns:  TRUE on success, FALSE on failure
+ */
+CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
+{
+    DL_NODE *node = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+
+    if (!tmpl || !new_attr) {
+        fprintf(stderr, "Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    node = tmpl->attribute_list;
+
+    /* if the attribute already exists in the list, remove it.
+     * this algorithm will limit an attribute to appearing at most
+     * once in the list
+     */
+    while (node != NULL) {
+        attr = (CK_ATTRIBUTE *) node->data;
+
+        if (new_attr->type == attr->type) {
+            free(attr);
+            tmpl->attribute_list =
+                dlist_remove_node(tmpl->attribute_list, node);
+            break;
+        }
+
+        node = node->next;
+    }
+
+    /* add the new attribute */
+    tmpl->attribute_list = dlist_add_as_first(tmpl->attribute_list, new_attr);
+
+    return CKR_OK;
+}
+
+/* Modified version of template_unflatten that checks
+ * that buf isn't overread.  buf_size=-1 turns off checking
+ * (for backwards compatability)
+ */
+CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
+                                  CK_ULONG count, int buf_size)
+{
+    TEMPLATE *tmpl = NULL;
+    CK_ATTRIBUTE *a2 = NULL;
+    CK_BYTE *ptr = NULL;
+    CK_ULONG i, len;
+    CK_RV rc;
+    CK_ULONG_32 long_len = sizeof(CK_ULONG);
+    CK_ULONG_32 attr_ulong_32;
+    CK_ULONG attr_ulong;
+    CK_ATTRIBUTE *a1_64 = NULL;
+    CK_ATTRIBUTE_32 *a1 = NULL;
+
+
+    if (!new_tmpl || !buf) {
+        fprintf(stderr, "Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    tmpl = (TEMPLATE *) malloc(sizeof(TEMPLATE));
+    if (!tmpl) {
+        fprintf(stderr, "Failed to allocate template\n");
+        return CKR_HOST_MEMORY;
+    }
+    memset(tmpl, 0x0, sizeof(TEMPLATE));
+
+    ptr = buf;
+    for (i = 0; i < count; i++) {
+        if (buf_size >= 0 &&
+            ((ptr + sizeof(CK_ATTRIBUTE)) > (buf + buf_size))) {
+            template_free(tmpl);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (long_len == 4) {
+            a1_64 = (CK_ATTRIBUTE *) ptr;
+
+            len = sizeof(CK_ATTRIBUTE) + a1_64->ulValueLen;
+            a2 = (CK_ATTRIBUTE *) malloc(len);
+            if (!a2) {
+                template_free(tmpl);
+                fprintf(stderr, "Failed to allocate attribute\n");
+                return CKR_HOST_MEMORY;
+            }
+
+            /* if a buffer size is given, make sure it
+             * doesn't get overrun
+             */
+            if (buf_size >= 0 &&
+                (((void *) a1_64 + len) > ((void *) buf + buf_size))) {
+                free(a2);
+                template_free(tmpl);
+                return CKR_FUNCTION_FAILED;
+            }
+            memcpy(a2, a1_64, len);
+        } else {
+            a1 = (CK_ATTRIBUTE_32 *) ptr;
+
+            if ((a1->type == CKA_CLASS || a1->type == CKA_KEY_TYPE
+                 || a1->type == CKA_MODULUS_BITS
+                 || a1->type == CKA_VALUE_BITS
+                 || a1->type == CKA_CERTIFICATE_TYPE
+                 || a1->type == CKA_VALUE_LEN)
+                && a1->ulValueLen != 0) {
+                len = sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG);
+            } else {
+                len = sizeof(CK_ATTRIBUTE) + a1->ulValueLen;
+            }
+
+            a2 = (CK_ATTRIBUTE *) malloc(len);
+            if (!a2) {
+                template_free(tmpl);
+                fprintf(stderr, "Failed to allocate attribute\n");
+                return CKR_HOST_MEMORY;
+            }
+            a2->type = a1->type;
+
+            if ((a1->type == CKA_CLASS || a1->type == CKA_KEY_TYPE
+                 || a1->type == CKA_MODULUS_BITS
+                 || a1->type == CKA_VALUE_BITS
+                 || a1->type == CKA_CERTIFICATE_TYPE
+                 || a1->type == CKA_VALUE_LEN)
+                && a1->ulValueLen != 0) {
+
+                a2->ulValueLen = sizeof(CK_ULONG);
+
+                {
+                    CK_ULONG_32 *p32;
+                    CK_BYTE *pb2;
+
+                    pb2 = (CK_BYTE *) a1;
+                    pb2 += sizeof(CK_ATTRIBUTE_32);
+                    p32 = (CK_ULONG_32 *) pb2;
+                    attr_ulong_32 = *p32;
+                }
+
+                attr_ulong = attr_ulong_32;
+
+                {
+                    CK_BYTE *pb2;
+                    pb2 = (CK_BYTE *) a2;
+                    pb2 += sizeof(CK_ATTRIBUTE);
+                    memcpy(pb2, (CK_BYTE *) & attr_ulong, sizeof(CK_ULONG));
+                }
+            } else {
+                CK_BYTE *pb2, *pb;
+
+                a2->ulValueLen = a1->ulValueLen;
+                pb2 = (CK_BYTE *) a2;
+                pb2 += sizeof(CK_ATTRIBUTE);
+                pb = (CK_BYTE *) a1;
+                pb += sizeof(CK_ATTRIBUTE_32);
+                /* if a buffer size is given, make sure it
+                 * doesn't get overrun
+                 */
+                if (buf_size >= 0 && (pb + a1->ulValueLen) > (buf + buf_size)) {
+                    free(a2);
+                    template_free(tmpl);
+                    return CKR_FUNCTION_FAILED;
+                }
+                memcpy(pb2, pb, a1->ulValueLen);
+            }
+        }
+
+        if (a2->ulValueLen != 0)
+            a2->pValue = (CK_BYTE *) a2 + sizeof(CK_ATTRIBUTE);
+        else
+            a2->pValue = NULL;
+
+        rc = template_update_attribute(tmpl, a2);
+        if (rc != CKR_OK) {
+            free(a2);
+            template_free(tmpl);
+            return rc;
+        }
+        if (long_len == 4)
+            ptr += len;
+        else
+            ptr += sizeof(CK_ATTRIBUTE_32) + a1->ulValueLen;
+    }
+
+    *new_tmpl = tmpl;
+
+    return CKR_OK;
+}
+
+/* template_flatten()
+ * this still gets used when saving token objects to disk
+ */
+CK_RV template_flatten(TEMPLATE *tmpl, CK_BYTE *dest)
+{
+    DL_NODE *node = NULL;
+    CK_BYTE *ptr = NULL;
+    CK_ULONG_32 long_len;
+    CK_ATTRIBUTE_32 *attr_32 = NULL;
+    CK_ULONG Val;
+    CK_ULONG_32 Val_32;
+    CK_ULONG *pVal;
+
+    long_len = sizeof(CK_ULONG);
+
+    if (!tmpl || !dest) {
+        fprintf(stderr, "Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    ptr = dest;
+    node = tmpl->attribute_list;
+    while (node) {
+        CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *) node->data;
+
+        if (long_len == 4) {
+            memcpy(ptr, attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+            ptr += sizeof(CK_ATTRIBUTE) + attr->ulValueLen;
+        } else {
+            attr_32 = malloc(sizeof(CK_ATTRIBUTE_32));
+            if (!attr_32) {
+                fprintf(stderr, "Failed to allocate attribute\n");
+                return CKR_HOST_MEMORY;
+            }
+            attr_32->type = attr->type;
+            attr_32->pValue = 0x00;
+            if ((attr->type == CKA_CLASS ||
+                 attr->type == CKA_KEY_TYPE ||
+                 attr->type == CKA_MODULUS_BITS ||
+                 attr->type == CKA_VALUE_BITS ||
+                 attr->type == CKA_CERTIFICATE_TYPE ||
+                 attr->type == CKA_VALUE_LEN) && attr->ulValueLen != 0) {
+
+                attr_32->ulValueLen = sizeof(CK_ULONG_32);
+
+                memcpy(ptr, attr_32, sizeof(CK_ATTRIBUTE_32));
+                ptr += sizeof(CK_ATTRIBUTE_32);
+
+                pVal = (CK_ULONG *) attr->pValue;
+                Val = *pVal;
+                Val_32 = (CK_ULONG_32) Val;
+                memcpy(ptr, &Val_32, sizeof(CK_ULONG_32));
+                ptr += sizeof(CK_ULONG_32);
+            } else {
+                attr_32->ulValueLen = attr->ulValueLen;
+                memcpy(ptr, attr_32, sizeof(CK_ATTRIBUTE_32));
+                ptr += sizeof(CK_ATTRIBUTE_32);
+                if (attr->ulValueLen != 0) {
+                    memcpy(ptr, attr->pValue, attr->ulValueLen);
+                    ptr += attr->ulValueLen;
+                }
+            }
+        }
+
+        node = node->next;
+    }
+
+    if (attr_32)
+        free(attr_32);
+
+    return CKR_OK;
+}
+
+CK_ULONG template_get_count(TEMPLATE *tmpl)
+{
+    if (tmpl == NULL)
+        return 0;
+
+    return dlist_length(tmpl->attribute_list);
+}
+
+CK_ULONG template_get_compressed_size(TEMPLATE *tmpl)
+{
+    DL_NODE *node;
+    CK_ULONG size = 0;
+
+    if (tmpl == NULL)
+        return 0;
+    node = tmpl->attribute_list;
+    while (node) {
+        CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *) node->data;
+
+        size += sizeof(CK_ATTRIBUTE_32);
+        if ((attr->type == CKA_CLASS || attr->type == CKA_KEY_TYPE
+             || attr->type == CKA_MODULUS_BITS
+             || attr->type == CKA_VALUE_BITS
+             || attr->type == CKA_CERTIFICATE_TYPE
+             || attr->type == CKA_VALUE_LEN)
+            && attr->ulValueLen != 0) {
+            size += sizeof(CK_ULONG_32);
+        } else {
+            size += attr->ulValueLen;
+        }
+
+        node = node->next;
+    }
+
+    return size;
+}
+
+/* template_get_class */
+CK_BBOOL template_get_class(TEMPLATE *tmpl, CK_ULONG *class,
+                            CK_ULONG *subclass)
+{
+    DL_NODE *node;
+    CK_BBOOL found = FALSE;
+
+    if (!tmpl || !class || !subclass)
+        return FALSE;
+
+    node = tmpl->attribute_list;
+
+    /* have to iterate through all attributes. no early exits */
+    while (node) {
+        CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *) node->data;
+
+        if (attr->type == CKA_CLASS) {
+            *class = *(CK_OBJECT_CLASS *) attr->pValue;
+            found = TRUE;
+        }
+
+        /* underneath, these guys are both CK_ULONG so we
+         * could combine this
+         */
+        if (attr->type == CKA_CERTIFICATE_TYPE)
+            *subclass = *(CK_CERTIFICATE_TYPE *) attr->pValue;
+
+        if (attr->type == CKA_KEY_TYPE)
+            *subclass = *(CK_KEY_TYPE *) attr->pValue;
+
+        node = node->next;
+    }
+
+    return found;
+}
+
+/* template_attribute_find()
+ *
+ * find the attribute in the list and return its value
+ */
+CK_BBOOL template_attribute_find(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                 CK_ATTRIBUTE **attr)
+{
+    DL_NODE *node = NULL;
+    CK_ATTRIBUTE *a = NULL;
+
+    if (!tmpl || !attr)
+        return FALSE;
+
+    node = tmpl->attribute_list;
+
+    while (node != NULL) {
+        a = (CK_ATTRIBUTE *) node->data;
+
+        if (type == a->type) {
+            *attr = a;
+            return TRUE;
+        }
+
+        node = node->next;
+    }
+
+    *attr = NULL;
+
+    return FALSE;
+}
+
+CK_RV build_attribute(CK_ATTRIBUTE_TYPE type,
+                      CK_BYTE *data, CK_ULONG data_len, CK_ATTRIBUTE **attrib)
+{
+    CK_ATTRIBUTE *attr = NULL;
+
+    attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + data_len);
+    if (!attr) {
+        fprintf(stderr, "Failed to allocate attribute\n");
+        return CKR_HOST_MEMORY;
+    }
+    attr->type = type;
+    attr->ulValueLen = data_len;
+
+    if (data_len > 0) {
+        attr->pValue = (CK_BYTE *) attr + sizeof(CK_ATTRIBUTE);
+        memcpy(attr->pValue, data, data_len);
+    } else {
+        attr->pValue = NULL;
+    }
+
+    *attrib = attr;
+
+    return CKR_OK;
+}
+
+// object_free()
+//
+// does what it says...
+//
+void object_free(OBJECT * obj)
+{
+    /* refactorization here to do actual free - fix from coverity scan */
+    if (obj) {
+        if (obj->template)
+            template_free(obj->template);
+        free(obj);
+    }
+}
+
+//Modified object_restore to prevent buffer overflow
+//If data_size=-1, won't do bounds checking
+CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
+                              CK_BBOOL replace, int data_size)
+{
+    TEMPLATE *tmpl = NULL;
+    OBJECT *obj = NULL;
+    CK_ULONG offset = 0;
+    CK_ULONG_32 count = 0;
+    CK_RV rc;
+    CK_OBJECT_CLASS_32 class32;
+
+    if (!data || !new_obj) {
+        fprintf(stderr, "Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    obj = (OBJECT *) malloc(sizeof(OBJECT));
+    if (!obj) {
+        fprintf(stderr, "Failed to allocate object\n");
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+
+    memset(obj, 0x0, sizeof(OBJECT));
+
+    memcpy( &class32, data + offset, sizeof(CK_OBJECT_CLASS_32) );
+    obj->class = class32;
+    offset += sizeof(CK_OBJECT_CLASS_32);
+
+    memcpy(&count, data + offset, sizeof(CK_ULONG_32));
+    offset += sizeof(CK_ULONG_32);
+
+
+    memcpy(&obj->name, data + offset, 8);
+    offset += 8;
+
+    rc = template_unflatten_withSize(&tmpl, data + offset, count, data_size);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "template_unflatten_withSize failed rc=%lx.\n", rc);
+        goto error;
+    }
+    obj->template = tmpl;
+
+    if (replace == FALSE) {
+        *new_obj = obj;
+    } else {
+        template_free((*new_obj)->template);
+        memcpy(*new_obj, obj, sizeof(OBJECT));
+
+        free(obj);              // don't want to do object_free() here!
+    }
+
+    return CKR_OK;
+
+error:
+    if (obj)
+        object_free(obj);
+    if (tmpl)
+        template_free(tmpl);
+
+    return rc;
+}
+
+// object_flatten() - this is still used when saving token objects
+//
+CK_RV object_flatten(OBJECT * obj, CK_BYTE ** data, CK_ULONG * len)
+{
+    CK_BYTE *buf = NULL;
+    CK_ULONG tmpl_len, total_len;
+    CK_ULONG offset;
+    CK_ULONG_32 count;
+    CK_OBJECT_CLASS_32 class32;
+    long rc;
+
+    if (!obj) {
+        fprintf(stderr, "Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    count = template_get_count(obj->template);
+    tmpl_len = template_get_compressed_size(obj->template);
+
+    total_len = tmpl_len + sizeof(CK_OBJECT_CLASS_32) + sizeof(CK_ULONG_32) + 8;
+
+    buf = (CK_BYTE *) malloc(total_len);
+    if (!buf) {                 // SAB  XXX FIXME  This was DATA
+        fprintf(stderr, "Failed to allocate buffer\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    memset((CK_BYTE *) buf, 0x0, total_len);
+
+    offset = 0;
+
+    class32 = obj->class;
+    memcpy( buf + offset, &class32, sizeof(CK_OBJECT_CLASS_32) );
+    offset += sizeof(CK_OBJECT_CLASS_32);
+
+    memcpy(buf + offset, &count, sizeof(CK_ULONG_32));
+    offset += sizeof(CK_ULONG_32);
+
+    memcpy(buf + offset, &obj->name, sizeof(CK_BYTE) * 8);
+    offset += 8;
+    rc = template_flatten(obj->template, buf + offset);
+    if (rc != CKR_OK) {
+        free(buf);
+        return rc;
+    }
+
+    *data = buf;
+    *len = total_len;
+
+    return CKR_OK;
+}
+
+CK_RV add_pkcs_padding(CK_BYTE *ptr,
+                       CK_ULONG block_size, CK_ULONG data_len,
+                       CK_ULONG total_len)
+{
+    CK_ULONG i, pad_len;
+    CK_BYTE pad_value;
+
+    pad_len = block_size - (data_len % block_size);
+    pad_value = (CK_BYTE) pad_len;
+
+    if (data_len + pad_len > total_len) {
+        fprintf(stderr, "The total length is too small to add padding.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    for (i = 0; i < pad_len; i++)
+        ptr[i] = pad_value;
+
+    return CKR_OK;
+}
+
+#define CKR_IBM_NOT_TOUCHED     -1
+
+int adjust_secret_key_attributes(OBJECT *obj, CK_ULONG key_type)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_ATTRIBUTE *ibm_opaque_attr = NULL;
+    CK_ULONG key_size;
+    struct secaeskeytoken *aes_token;
+    CK_BYTE *zero = NULL;
+
+    if (key_type != CKK_AES) {
+        /* DES/3DES keys are already contained in CKA_IBM_OPAQUE */
+        return CKR_IBM_NOT_TOUCHED;
+    }
+
+    /* Don't touch if object already has an IBM_OPAQUE attribute */
+    if (template_attribute_find(obj->template, CKA_IBM_OPAQUE, &attr))
+        return CKR_IBM_NOT_TOUCHED;
+
+    if (!template_attribute_find(obj->template, CKA_VALUE, &value_attr)) {
+        fprintf(stderr, "No CKA_VALUE attribute found\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    aes_token = (struct secaeskeytoken *)value_attr->pValue;
+    if (value_attr->ulValueLen != sizeof(struct secaeskeytoken) ||
+        aes_token->type != 0x01 ||
+        aes_token->version != 0x04) {
+        fprintf(stderr, "CKA_VALUE does not contain a CCA secure key\n");
+        return CKR_IBM_NOT_TOUCHED;
+    }
+
+    /* Move CKA_VALUE to CKA_IBM_OPAQUE */
+    rc = build_attribute(CKA_IBM_OPAQUE, value_attr->pValue,
+                         value_attr->ulValueLen, &ibm_opaque_attr);
+    if (rc != CKR_OK)
+        goto cleanup;
+
+    rc = template_update_attribute(obj->template, ibm_opaque_attr);
+    if (rc != CKR_OK)
+        goto cleanup;
+
+    /* Provide dummy CKA_VAUE attribute in (clear) key size */
+    key_size = aes_token->bitsize / 8;
+    zero = (CK_BYTE *)calloc(key_size, 1);
+    if (zero == NULL) {
+        fprintf(stderr, "Failed to allocate zero value\n");
+        rc = CKR_HOST_MEMORY;
+        goto cleanup;
+    }
+
+    rc = build_attribute(CKA_VALUE, zero, key_size, &value_attr);
+    if (rc != CKR_OK)
+        goto cleanup;
+
+    rc = template_update_attribute(obj->template, value_attr);
+    if (rc != CKR_OK)
+        goto cleanup;
+
+    free(zero);
+
+    return CKR_OK;
+
+cleanup:
+    if (ibm_opaque_attr)
+        free(ibm_opaque_attr);
+    if (zero)
+        free(zero);
+    return rc;
+}
+
+/*
+ * OCK version 2.x create AES key objects with the CCA secure key stored
+ * in CKA_VALUE. OCK 3.x requires the secure in CKA_IBM_OPAQUE instead.
+ * Note: Other key types, such as DES/3DES keys as well as symmetric
+ * keys (RSA, EC, etc) already store the key in CKA_IBM_OPAQUE in OCK 2.x
+ *
+ * This function moves the CCA AES key from CKA_VALUE to CKA_IBM_OPAQUE
+ * and supplies a dummy (all zero) key in CKA_VALUE.
+ */
+int adjust_key_object_attributes(unsigned char *data, unsigned long data_len,
+                                 unsigned char **new_data,
+                                 unsigned long *new_data_len)
+{
+    int rc;
+    OBJECT *obj = NULL;
+    CK_ULONG class, subclass;
+
+    *new_data = NULL;
+    *new_data_len = 0;
+
+    /* Now unflatten the OBJ */
+    rc = object_restore_withSize(data, &obj, CK_FALSE, data_len);
+    if (rc)
+        goto cleanup;
+
+    if (!template_get_class(obj->template, &class, &subclass)) {
+        fprintf(stderr, "No CKA_CLASS attribute found\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto cleanup;
+    }
+
+    switch(class) {
+    case CKO_SECRET_KEY:
+        rc = adjust_secret_key_attributes(obj, subclass);
+        if (rc == CKR_IBM_NOT_TOUCHED) {
+            rc = CKR_OK;
+            goto cleanup;
+        }
+        break;
+    default:
+        /* no need to modify the object */
+        rc = CKR_OK;
+        goto cleanup;
+    }
+    if (rc != CKR_OK)
+        goto cleanup;
+
+    /* flatten the object */
+    rc = object_flatten(obj, new_data, new_data_len);
+    if (rc)
+        goto cleanup;
+
+cleanup:
+    if (obj)
+        object_free(obj);
+
+    return rc;
+}
+
 int reencrypt_private_token_object(unsigned char *data, unsigned long len,
                                    unsigned char *new_cipher,
                                    unsigned long *new_cipher_len,
@@ -133,6 +907,13 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
     unsigned char des3_key[64];
     unsigned char sw_des3_key[3 * DES_KEY_SIZE];
     unsigned long clear_len;
+    unsigned char *new_obj_data = NULL;
+    unsigned long new_obj_data_len;
+    CK_ULONG_32 obj_data_len_32;
+    CK_ULONG padded_len;
+    CK_ULONG block_size = DES_BLOCK_SIZE;
+    CK_BYTE *ptr = NULL;
+    CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_RV rc;
     int ret;
 
@@ -151,6 +932,60 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
     if (ret)
         goto done;
 
+    /* Validate the hash */
+    memcpy(&obj_data_len_32, clear, sizeof(CK_ULONG_32));
+    if (obj_data_len_32 >= clear_len) {
+        fprintf(stderr, "Decrypted object data is inconsistent. Possibly already migrated?\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    ret = compute_sha1(clear + sizeof(CK_ULONG_32), obj_data_len_32, hash_sha);
+    if (ret != CKR_OK) {
+        goto done;
+    }
+
+    if (memcmp(clear + sizeof(CK_ULONG_32) + obj_data_len_32, hash_sha,
+               SHA1_HASH_SIZE) != 0) {
+        fprintf(stderr, "Stored hash does not match restored data hash.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Adjust the key object attributes */
+    ret = adjust_key_object_attributes(clear + sizeof(CK_ULONG_32),
+                                       obj_data_len_32,
+                                       &new_obj_data, &new_obj_data_len);
+    if (ret)
+        goto done;
+
+    if (new_obj_data != NULL) {
+        free(clear);
+
+        /* build data to be encrypted */
+        clear_len = sizeof(CK_ULONG_32) + new_obj_data_len + SHA1_HASH_SIZE;
+        padded_len = block_size * (clear_len / block_size + 1);
+
+        clear = malloc(padded_len);
+        if (!clear) {
+            fprintf(stderr, "Failed to allocate buffer\n");
+            goto done;
+        }
+
+        ptr = clear;
+        obj_data_len_32 = new_obj_data_len;
+        memcpy(ptr, &obj_data_len_32, sizeof(CK_ULONG_32));
+        ptr += sizeof(CK_ULONG_32);
+        memcpy(ptr, new_obj_data, obj_data_len_32);
+        ptr += obj_data_len_32;
+        compute_sha1(new_obj_data, new_obj_data_len, hash_sha);
+        memcpy(ptr, hash_sha, SHA1_HASH_SIZE);
+
+        add_pkcs_padding(clear + clear_len, block_size, clear_len,
+                         padded_len);
+
+        clear_len = padded_len;
+    }
     /* now encrypt using software des3 */
     memcpy(sw_des3_key, masterkey, 3 * DES_KEY_SIZE);
     rc = sw_des3_cbc_encrypt(clear, clear_len, new_cipher, new_cipher_len,
@@ -165,8 +1000,8 @@ done:
     return ret;
 }
 
-int load_private_token_objects(unsigned char *data_store,
-                               unsigned char *masterkey)
+int load_token_objects(unsigned char *data_store,
+                       unsigned char *masterkey)
 {
     FILE *fp1 = NULL, *fp2 = NULL;
     unsigned char *buf = NULL;
@@ -194,7 +1029,7 @@ int load_private_token_objects(unsigned char *data_store,
         if (!fp2)
             continue;
 
-        read_size = fread(&size, sizeof(unsigned int), 1, fp2);
+        read_size = fread(&size, sizeof(CK_ULONG_32), 1, fp2);
         if (read_size != 1) {
             fprintf(stderr, "Cannot read size\n");
             goto cleanup;
@@ -204,12 +1039,8 @@ int load_private_token_objects(unsigned char *data_store,
             fprintf(stderr, "Cannot read boolean\n");
             goto cleanup;
         }
-        if (priv == FALSE) {
-            fclose(fp2);
-            continue;
-        }
 
-        size = size - sizeof(unsigned int) - sizeof(CK_BBOOL);
+        size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
         buf = (unsigned char *) malloc(size);
         if (!buf) {
             fprintf(stderr, "Cannot malloc for object %s "
@@ -223,33 +1054,47 @@ int load_private_token_objects(unsigned char *data_store,
             goto cleanup;
         }
 
-        new_cipher_len = size;
-        new_cipher = malloc(new_cipher_len);
-        if (!new_cipher) {
-            fprintf(stderr, "Cannot malloc space for new "
-                    "cipher (ignoring object %s).\n", tmp);
-            goto cleanup;
-        }
-
-        /* After reading the private token object,
-         * decrypt it using CCA des3 and then re-encrypt it
-         * using software des3.
-         */
-        memset(new_cipher, 0, new_cipher_len);
-        rc = reencrypt_private_token_object(buf, size,
-                                            new_cipher, &new_cipher_len,
-                                            masterkey);
-        if (rc)
-            goto cleanup;
-
         fclose(fp2);
+        fp2 = NULL;
+
+        if (priv != FALSE) {
+            /* private token object */
+            new_cipher_len = size * 2; /* obj may grow during processing ! */
+            new_cipher = malloc(new_cipher_len);
+            if (!new_cipher) {
+                fprintf(stderr, "Cannot malloc space for new "
+                        "cipher (ignoring object %s).\n", tmp);
+                goto cleanup;
+            }
+
+            /* After reading the private token object,
+             * decrypt it using CCA des3 and then re-encrypt it
+             * using software des3.
+             */
+            memset(new_cipher, 0, new_cipher_len);
+            rc = reencrypt_private_token_object(buf, size,
+                                                new_cipher, &new_cipher_len,
+                                                masterkey);
+            if (rc)
+                goto cleanup;
+        } else {
+            /* public token object */
+            rc = adjust_key_object_attributes(buf, size, &new_cipher,
+                                              &new_cipher_len);
+            if (rc)
+                goto cleanup;
+
+            /* Only save if the object has been changed */
+            if (new_cipher == NULL)
+                goto cleanup;
+        }
 
         /* now save the newly re-encrypted object back to
          * disk in its original file.
          */
         fp2 = fopen((char *) fname, "w");
-        size = sizeof(unsigned int) + sizeof(CK_BBOOL) + new_cipher_len;
-        (void) fwrite(&size, sizeof(unsigned int), 1, fp2);
+        size = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + new_cipher_len;
+        (void) fwrite(&size, sizeof(CK_ULONG_32), 1, fp2);
         (void) fwrite(&priv, sizeof(CK_BBOOL), 1, fp2);
         (void) fwrite(new_cipher, new_cipher_len, 1, fp2);
         rc = 0;
@@ -1223,8 +2068,10 @@ int migrate_version(char *sopin, char *userpin, unsigned char *data_store)
 
     /* Load all the private token objects and re-encrypt them
      * using software des3, instead of CSNBENC.
+     * For private and public token objects, migrate the key object's
+     * attributes to IBM_OPAQUE.
      */
-    (void) load_private_token_objects(data_store, masterkey);
+    (void)load_token_objects(data_store, masterkey);
 
 done:
     return ret;
