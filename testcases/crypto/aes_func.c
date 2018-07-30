@@ -1413,8 +1413,10 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
                                   &mech,
                                   w_key,
                                   priv_key, wrapped_data, &wrapped_data_len);
-            if (rc != CKR_MECHANISM_INVALID) {
-                testcase_fail("Expected CKR_MECHANISM_INVALID");
+            if (rc != CKR_MECHANISM_INVALID && rc != CKR_KEY_NOT_WRAPPABLE) {
+                testcase_fail("Expected CKR_MECHANISM_INVALID or "
+                              "CKR_KEY_NOT_WRAPPABLE, but got %s",
+                              p11_get_ckr(rc));
             } else {
                 testcase_pass("%s passed wrap/unwrap RSA key "
                               "test.", tsuite->name);
@@ -1538,8 +1540,10 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
             /** try to wrap key **/
             rc = funcs->C_WrapKey(session, &mech, w_key, priv_key,
                                   wrapped_data, &wrapped_data_len);
-            if (rc != CKR_MECHANISM_INVALID)
-                testcase_fail("Expected CKR_MECHANISM_INVALID");
+            if (rc != CKR_MECHANISM_INVALID && rc != CKR_KEY_NOT_WRAPPABLE)
+                testcase_fail("Expected CKR_MECHANISM_INVALID or "
+                              "CKR_KEY_NOT_WRAPPABLE, but got %s",
+                              p11_get_ckr(rc));
             else
                 testcase_pass("%s passed wrap/unwrap RSA key test.",
                               tsuite->name);
@@ -1681,8 +1685,10 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
             /** try to wrap key **/
             rc = funcs->C_WrapKey(session, &mech, w_key, priv_key,
                                   wrapped_data, &wrapped_data_len);
-            if (rc != CKR_MECHANISM_INVALID) {
-                testcase_fail("Expected CKR_MECHANISM_INVALID");
+            if (rc != CKR_MECHANISM_INVALID && rc != CKR_KEY_NOT_WRAPPABLE) {
+                testcase_fail("Expected CKR_MECHANISM_INVALID or "
+                              "CKR_KEY_NOT_WRAPPABLE, but got %s",
+                              p11_get_ckr(rc));
             } else {
                 testcase_pass("%s passed unwrap RSA key test.", tsuite->name);
             }
