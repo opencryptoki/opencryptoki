@@ -3809,9 +3809,10 @@ end:
     return ret;
 }
 
-CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
-                             CK_ULONG in_data_len, CK_BYTE *out_data,
-                             CK_ULONG *out_data_len, OBJECT *key_obj)
+CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj)
 {
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr, *attr2;
@@ -4025,6 +4026,7 @@ CK_RV set_pubkey_coordinates(unsigned int nid,
 
 
 CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
+                               SESSION *sess,
                                CK_BYTE *in_data,
                                CK_ULONG in_data_len,
                                CK_BYTE *signature,

@@ -1739,6 +1739,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 }
 
 CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
+                             SESSION * sess,
                              CK_BYTE * in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE * out_data,
@@ -1784,6 +1785,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
 }
 
 CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
+                               SESSION * sess,
                                CK_BYTE * in_data,
                                CK_ULONG in_data_len,
                                CK_BYTE * out_data,

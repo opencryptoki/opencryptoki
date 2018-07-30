@@ -1698,6 +1698,7 @@ CK_RV ckm_ec_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
                           TEMPLATE *priv_tmpl);
 
 CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
+                  SESSION *sess,
                   CK_BYTE *in_data,
                   CK_ULONG in_data_len,
                   CK_BYTE *out_data,
@@ -1712,6 +1713,7 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
               CK_BYTE *out_data, CK_ULONG *out_data_len);
 
 CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
+                    SESSION *sess,
                     CK_BYTE *in_data,
                     CK_ULONG in_data_len,
                     CK_BYTE *out_data,
