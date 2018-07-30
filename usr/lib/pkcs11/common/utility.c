@@ -802,6 +802,32 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
     return CKR_OK;
 }
 
+CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
+{
+    switch (mech) {
+    case CKM_SHA_1:
+        *bsize = SHA1_BLOCK_SIZE;
+        break;
+    case CKM_SHA224:
+        *bsize = SHA224_BLOCK_SIZE;
+        break;
+    case CKM_SHA256:
+        *bsize = SHA256_BLOCK_SIZE;
+        break;
+    case CKM_SHA384:
+        *bsize = SHA384_BLOCK_SIZE;
+        break;
+    case CKM_SHA512:
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
+        *bsize = SHA512_BLOCK_SIZE;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+    return CKR_OK;
+}
+
 /* Compute specified SHA using either software or token implementation */
 CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash, CK_ULONG mech)
