@@ -48,10 +48,13 @@
 #include <ctype.h>
 #endif
 
+#include <ica_api.h>
+
 #include "ep11.h"
 #include "ep11_func.h"
 
 #define EP11SHAREDLIB "libep11.so"
+#define ICASHAREDLIB  "libica.so"
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR mlist,
@@ -243,6 +246,61 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
 static CK_RV get_control_points(STDLL_TokData_t * tokdata,
                                 unsigned char *cp, size_t * cp_len);
 
+/* Definitions for loading libica dynamically */
+
+typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
+                                   unsigned int input_length,
+                                   unsigned char *input_data,
+                                   sha_context_t *sha_context,
+                                   unsigned char *output_data);
+
+typedef unsigned int (*ica_sha224_t)(unsigned int message_part,
+                                     unsigned int input_length,
+                                     unsigned char *input_data,
+                                     sha256_context_t *sha_context,
+                                     unsigned char *output_data);
+
+typedef unsigned int (*ica_sha256_t)(unsigned int message_part,
+                                     unsigned int input_length,
+                                     unsigned char *input_data,
+                                     sha256_context_t *sha_context,
+                                     unsigned char *output_data);
+
+typedef unsigned int (*ica_sha384_t)(unsigned int message_part,
+                                     unsigned int input_length,
+                                     unsigned char *input_data,
+                                     sha512_context_t *sha_context,
+                                     unsigned char *output_data);
+
+typedef unsigned int (*ica_sha512_t)(unsigned int message_part,
+                                     unsigned int input_length,
+                                     unsigned char *input_data,
+                                     sha512_context_t *sha_context,
+                                     unsigned char *output_data);
+
+typedef unsigned int (*ica_sha512_224_t)(unsigned int message_part,
+                                         unsigned int input_length,
+                                         unsigned char *input_data,
+                                         sha512_context_t *sha_context,
+                                         unsigned char *output_data);
+
+typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
+                                         unsigned int input_length,
+                                         unsigned char *input_data,
+                                         sha512_context_t *sha_context,
+                                         unsigned char *output_data);
+
+typedef struct {
+    void *library;
+    ica_sha1_t ica_sha1;
+    ica_sha224_t ica_sha224;
+    ica_sha256_t ica_sha256;
+    ica_sha384_t ica_sha384;
+    ica_sha512_t ica_sha512;
+    ica_sha512_224_t ica_sha512_224;
+    ica_sha512_256_t ica_sha512_256;
+} libica_t;
+
 /* EP11 token private data */
 typedef struct {
     uint64_t *target_list;      // pointer to adapter target list
@@ -258,6 +316,7 @@ typedef struct {
     int optimize_single_ops;
     int digest_libica;
     char digest_libica_path[PATH_MAX];
+    libica_t libica;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -1588,6 +1647,48 @@ CK_RV ep11_resolve_lib_sym(void *hdl)
     return CKR_OK;
 }
 
+CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    libica_t *libica = &ep11_data->libica;
+    int default_libica = 0;
+    char *errstr;
+
+    if (ep11_data->digest_libica == 0)
+        return CKR_OK;
+
+    if (strcmp(ep11_data->digest_libica_path, "") == 0) {
+        strcpy(ep11_data->digest_libica_path, ICASHAREDLIB);
+        default_libica = 1;
+    }
+
+    libica->library = dlopen(ep11_data->digest_libica_path,
+                             RTLD_GLOBAL | RTLD_NOW);
+    if (libica->library == NULL) {
+        errstr = dlerror();
+        OCK_SYSLOG(default_libica ? LOG_WARNING : LOG_ERR,
+               "%s: Error loading shared library '%s' [%s]\n",
+               __func__, ep11_data->digest_libica_path, errstr);
+        TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
+                __func__, ep11_data->digest_libica_path, errstr);
+        ep11_data->digest_libica = 0;
+        return default_libica ? CKR_OK : CKR_FUNCTION_FAILED;
+    }
+
+    libica->ica_sha1 = (ica_sha1_t)dlsym(libica->library, "ica_sha1");
+    libica->ica_sha224 = (ica_sha224_t)dlsym(libica->library, "ica_sha224");
+    libica->ica_sha256 = (ica_sha256_t)dlsym(libica->library, "ica_sha256");
+    libica->ica_sha384 = (ica_sha384_t)dlsym(libica->library, "ica_sha384");
+    libica->ica_sha512 = (ica_sha512_t)dlsym(libica->library, "ica_sha512");
+    libica->ica_sha512_224 = (ica_sha512_224_t)dlsym(libica->library, "ica_sha512_224");
+    libica->ica_sha512_256 = (ica_sha512_256_t)dlsym(libica->library, "ica_sha512_256");
+    /* No error checking, each of the libica functions is allowed to be NULL */
+
+    TRACE_DEVEL("%s: Loaded libica from '%s'\n", __func__,
+                ep11_data->digest_libica_path);
+    return CKR_OK;
+}
+
 CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name)
 {
@@ -1657,6 +1758,12 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         return CKR_DEVICE_ERROR;
     }
 #endif
+
+    if (ep11_data->digest_libica) {
+        rc = ep11tok_load_libica(tokdata);
+        if (rc != CKR_OK)
+            return rc;
+    }
 
     ep11_data->control_points_len = sizeof(ep11_data->control_points);
     rc = get_control_points(tokdata, ep11_data->control_points,
