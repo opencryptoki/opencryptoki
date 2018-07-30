@@ -2284,7 +2284,7 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE,
                            hKey);
         if (rc != CKR_OK)
@@ -2360,7 +2360,8 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+                                      sess->sign_ctx.key)) {
         rc = sign_mgr_sign(tokdata, sess, length_only, &sess->sign_ctx, pData,
                            ulDataLen, pSignature, pulSignatureLen);
         if (rc != CKR_OK)
@@ -2424,7 +2425,8 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+                                      sess->sign_ctx.key)) {
         rc = sign_mgr_sign_update(tokdata, sess, &sess->sign_ctx, pPart,
                                   ulPartLen);
         if (rc != CKR_OK)
@@ -2492,7 +2494,8 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->sign_ctx.mech.mechanism,
+                                      sess->sign_ctx.key)) {
         rc = sign_mgr_sign_final(tokdata, sess, length_only, &sess->sign_ctx,
                                  pSignature, pulSignatureLen);
         if (rc != CKR_OK)
@@ -2595,7 +2598,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
         rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
                          FALSE, hKey);
         if (rc != CKR_OK)
@@ -2667,7 +2670,8 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+                                      sess->verify_ctx.key)) {
         rc = verify_mgr_verify(tokdata, sess, &sess->verify_ctx, pData,
                            ulDataLen, pSignature, ulSignatureLen);
         if (rc != CKR_OK)
@@ -2730,7 +2734,8 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+                                      sess->verify_ctx.key)) {
         rc = verify_mgr_verify_update(tokdata, sess, &sess->verify_ctx, pPart,
                                       ulPartLen);
         if (rc != CKR_OK)
@@ -2794,7 +2799,8 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism)) {
+    if (ep11tok_libica_mech_available(tokdata, sess->verify_ctx.mech.mechanism,
+                                      sess->verify_ctx.key)) {
         rc = verify_mgr_verify_final(tokdata, sess, &sess->verify_ctx,
                                      pSignature, ulSignatureLen);
         if (rc != CKR_OK)

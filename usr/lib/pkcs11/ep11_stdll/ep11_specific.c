@@ -32,6 +32,7 @@
 #include "stdll.h"
 #include "attributes.h"
 #include "trace.h"
+#include "ec_defs.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -2877,8 +2878,40 @@ CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
+CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
+                                    CK_OBJECT_HANDLE hKey)
+{
+    CK_RV rc;
+    OBJECT *key_obj;
+    CK_ATTRIBUTE *attr = NULL;
+    int i;
+
+    rc = object_mgr_find_in_map1(tokdata, hKey, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, hKey);
+        return CK_FALSE;
+    }
+
+    if (!template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s Could not find CKA_ECDSA_PARAMS for the key.\n",
+                   __func__);
+        return CK_FALSE;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if ((memcmp(attr->pValue, der_ec_supported[i].data,
+             attr->ulValueLen) == 0)) {
+            return CK_TRUE;
+        }
+    }
+
+    TRACE_DEVEL("%s EC curve not supported\n", __func__);
+    return CK_FALSE;
+}
+
 CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
-                                       CK_MECHANISM_TYPE mech)
+                                       CK_MECHANISM_TYPE mech,
+                                       CK_OBJECT_HANDLE hKey)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_MECHANISM_TYPE digest_mech;
@@ -2887,6 +2920,17 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
     rc = ep11tok_digest_from_mech(mech, &digest_mech);
     if (rc != CKR_OK)
         return CK_FALSE;
+
+    switch (mech) {
+       case CKM_ECDSA_SHA1:
+       case CKM_ECDSA_SHA224:
+       case CKM_ECDSA_SHA256:
+       case CKM_ECDSA_SHA384:
+       case CKM_ECDSA_SHA512:
+           if (!ep11tok_ec_curve_supported(tokdata, hKey))
+               return CK_FALSE;
+           break;
+    }
 
     return ep11tok_libica_digest_available(ep11_data, digest_mech);
 }
