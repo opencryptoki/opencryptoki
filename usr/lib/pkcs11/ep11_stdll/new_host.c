@@ -2095,37 +2095,14 @@ done:
 CK_RV SC_DigestKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                    CK_OBJECT_HANDLE hKey)
 {
-    SESSION *sess = NULL;
-    CK_RV rc = CKR_OK;
-
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
-    if (!sess) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-        rc = CKR_SESSION_HANDLE_INVALID;
-        goto done;
-    }
-
-    if (sess->digest_ctx.active == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
-        rc = CKR_OPERATION_NOT_INITIALIZED;
-        goto done;
-    }
-
-    rc = digest_mgr_digest_key(tokdata, sess, &sess->digest_ctx, hKey);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
-
-done:
-    TRACE_INFO("C_DigestKey: rc = 0x%08lx, sess = %ld, key = %lu\n",
-               rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, hKey);
-
-    return rc;
+    /* The EP11 library does not support DigestKey */
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    return CKR_FUNCTION_NOT_SUPPORTED;
 }
 
 
