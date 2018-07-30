@@ -335,6 +335,16 @@ CK_RV do_GetMechanismInfo(void)
     else
         testcase_pass("C_GetMechanismInfo was successful.");
 
+    testcase_new_assertion();
+
+    rc = funcs->C_GetMechanismInfo(slot_id, 0x12345678, &info);
+
+    if (rc != CKR_MECHANISM_INVALID)
+        testcase_fail("C_GetMechanismInfo returned rc=%s instead "
+                          "of CKR_MECHANISM_INVALID", p11_get_ckr(rc));
+    else
+        testcase_pass("C_GetMechanismInfo correctly returned CKR_MECHANISM_INVALID.");
+
 testcase_cleanup:
     if (mech_list)
         free(mech_list);
