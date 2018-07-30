@@ -6830,6 +6830,7 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     } session_id_data;
     CK_MECHANISM mech;
     CK_ULONG len;
+    libica_sha_context_t ctx;
 
     session_id_data.handle = session->handle;
     gettimeofday(&session_id_data.timeofday, NULL);
@@ -6841,11 +6842,20 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     mech.ulParameterLen = 0;
 
     len = sizeof(ep11_session->session_id);
-    rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR) & session_id_data,
-                            sizeof(session_id_data), ep11_session->session_id,
-                            &len, (uint64_t) ep11_data->target_list);
+    if (ep11tok_libica_digest_available(ep11_data, mech.mechanism))
+        rc = ep11tok_libica_digest(ep11_data, mech.mechanism, &ctx,
+                                   (CK_BYTE_PTR)&session_id_data,
+                                   sizeof(session_id_data),
+                                   ep11_session->session_id, &len,
+                                   SHA_MSG_PART_ONLY);
+    else
+        rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data,
+                                sizeof(session_id_data),
+                                ep11_session->session_id, &len,
+                                (uint64_t)ep11_data->target_list);
+
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s m_DigestSingle failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s Digest failed: 0x%lu\n", __func__, rc);
         return rc;
     }
 
