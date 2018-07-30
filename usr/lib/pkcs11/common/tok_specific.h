@@ -98,11 +98,11 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *,
 CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata, TEMPLATE *,
                                           TEMPLATE *);
 
-CK_RV token_specific_rsa_sign(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-                              CK_ULONG *, OBJECT *);
+CK_RV token_specific_rsa_sign(STDLL_TokData_t *, SESSION *, CK_BYTE *, CK_ULONG,
+                              CK_BYTE *, CK_ULONG *, OBJECT *);
 
-CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
-                                CK_BYTE *, CK_ULONG, OBJECT *);
+CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *, CK_BYTE *,
+                                CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
 
 CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata, CK_BYTE *,
                                         CK_ULONG, CK_BYTE *, CK_ULONG *,

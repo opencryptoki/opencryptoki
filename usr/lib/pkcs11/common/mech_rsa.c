@@ -648,8 +648,8 @@ CK_RV rsa_pkcs_sign(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_rsa_sign(tokdata, in_data, in_data_len, out_data,
-                                   out_data_len, key_obj);
+    rc = token_specific.t_rsa_sign(tokdata, sess, in_data, in_data_len,
+                                   out_data, out_data_len, key_obj);
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa sign failed.\n");
@@ -706,8 +706,8 @@ CK_RV rsa_pkcs_verify(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_rsa_verify(tokdata, in_data, in_data_len, signature,
-                                     sig_len, key_obj);
+    rc = token_specific.t_rsa_verify(tokdata, sess, in_data, in_data_len,
+                                     signature, sig_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa verify failed.\n");
 

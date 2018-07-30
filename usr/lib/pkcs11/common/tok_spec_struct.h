@@ -108,10 +108,10 @@ struct token_specific_struct {
     CK_RV(*t_rsa_encrypt) (STDLL_TokData_t *, CK_BYTE *,
                            CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
 
-    CK_RV(*t_rsa_sign) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-                        CK_ULONG *, OBJECT *);
-    CK_RV(*t_rsa_verify) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_BYTE *,
-                          CK_ULONG, OBJECT *);
+    CK_RV(*t_rsa_sign) (STDLL_TokData_t *, SESSION *, CK_BYTE *, CK_ULONG,
+                        CK_BYTE *, CK_ULONG *, OBJECT *);
+    CK_RV(*t_rsa_verify) (STDLL_TokData_t *, SESSION *, CK_BYTE *, CK_ULONG,
+                          CK_BYTE *, CK_ULONG, OBJECT *);
 
     CK_RV(*t_rsa_verify_recover) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
                                   CK_BYTE *, CK_ULONG *, OBJECT *);
