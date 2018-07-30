@@ -139,11 +139,13 @@ struct token_specific_struct {
                                 CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *,
                                 CK_BYTE *, CK_ULONG);
 
-    CK_RV(*t_rsa_pss_sign) (STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
-                            CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *);
+        CK_RV(*t_rsa_pss_sign) (STDLL_TokData_t *, SESSION *,
+                                SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
+                                CK_BYTE *, CK_ULONG *);
 
-    CK_RV(*t_rsa_pss_verify) (STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
-                              CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG);
+        CK_RV(*t_rsa_pss_verify) (STDLL_TokData_t *, SESSION *,
+                                  SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
+                                  CK_BYTE *, CK_ULONG);
 
     CK_RV(*t_rsa_generate_keypair) (STDLL_TokData_t *tokdata, TEMPLATE *,
                                     TEMPLATE *);

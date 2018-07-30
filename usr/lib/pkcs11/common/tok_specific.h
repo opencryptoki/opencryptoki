@@ -134,11 +134,13 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
                                       CK_BYTE *, CK_ULONG, CK_BYTE *,
                                       CK_ULONG *, CK_BYTE *, CK_ULONG);
 
-CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
-                                  CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *);
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *, SESSION *,
+                                  SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
+                                  CK_BYTE *, CK_ULONG *);
 
-CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *, SIGN_VERIFY_CONTEXT *,
-                                    CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG);
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *, SESSION *,
+                                    SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
+                                    CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_ec_sign(STDLL_TokData_t *,
                              CK_BYTE *,
