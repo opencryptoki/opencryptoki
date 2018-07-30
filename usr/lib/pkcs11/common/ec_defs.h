@@ -29,7 +29,7 @@
 #define CURVE521        0x0209
 
 /* Supported Elliptic Curves */
-#define NUMEC           12      /* number of supported curves */
+#define NUMEC           13      /* number of supported curves */
 extern CK_BYTE brainpoolP160r1[];
 extern CK_BYTE brainpoolP192r1[];
 extern CK_BYTE brainpoolP224r1[];
@@ -37,6 +37,7 @@ extern CK_BYTE brainpoolP256r1[];
 extern CK_BYTE brainpoolP320r1[];
 extern CK_BYTE brainpoolP384r1[];
 extern CK_BYTE brainpoolP512r1[];
+extern CK_BYTE brainpoolP512t1[];
 extern CK_BYTE prime192[];
 extern CK_BYTE secp224[];
 extern CK_BYTE prime256[];
