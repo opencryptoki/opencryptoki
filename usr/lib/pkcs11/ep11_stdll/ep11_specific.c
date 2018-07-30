@@ -1392,6 +1392,8 @@ static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
 static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
                              CK_BYTE ** blob, size_t * blob_len,
                              OBJECT ** kobj);
+static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                               CK_BYTE **blob, size_t *blobsize);
 
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
@@ -4256,29 +4258,19 @@ error:
 }
 
 
-/* Returns a blob for a key (handle or key obj).
+/* Returns a blob for a key object.
  * The blob is created if none was build yet.
  */
-static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
-                             CK_BYTE ** blob, size_t * blobsize, OBJECT ** kobj)
+static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                               CK_BYTE **blob, size_t *blobsize)
 {
-    OBJECT *key_obj;
     CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-
-    /* find the key obj by the key handle */
-    rc = object_mgr_find_in_map1(tokdata, handle, &key_obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
-        return rc;
-    }
 
     /* blob already exists */
     if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
         (attr->ulValueLen > 0)) {
         *blob = attr->pValue;
         *blobsize = (size_t) attr->ulValueLen;
-        *kobj = key_obj;
         TRACE_INFO("%s blob found blobsize=0x%zx\n", __func__, *blobsize);
         return CKR_OK;
     } else {
@@ -4289,6 +4281,30 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
         TRACE_ERROR("%s no blob\n", __func__);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
+}
+
+/* Returns a blob for a key handle.
+ * The blob is created if none was build yet.
+ */
+static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
+                             CK_BYTE **blob, size_t *blobsize, OBJECT **kobj)
+{
+    OBJECT *key_obj;
+    CK_RV rc;
+
+    /* find the key obj by the key handle */
+    rc = object_mgr_find_in_map1(tokdata, handle, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
+        return rc;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, blob, blobsize);
+
+    if (rc == CKR_OK)
+        *kobj = key_obj;
+
+    return rc;
 }
 
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
