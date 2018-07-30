@@ -291,6 +291,18 @@ typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
                                          unsigned char *output_data);
 
 typedef struct {
+    CK_BYTE buffer[MAX_SHA_BLOCK_SIZE];
+    CK_ULONG block_size;
+    CK_ULONG offset;
+    CK_BBOOL first;
+    union {
+        sha_context_t sha1;
+        sha256_context_t sha256;
+        sha512_context_t sha512;
+    } ctx;
+} libica_sha_context_t;
+
+typedef struct {
     void *library;
     ica_sha1_t ica_sha1;
     ica_sha224_t ica_sha224;
@@ -2771,22 +2783,140 @@ done:
     return rc;
 }
 
+CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
+                                         CK_MECHANISM_TYPE mech)
+{
+    int use_libica;
+
+    switch (mech) {
+    case CKM_SHA_1:
+        use_libica = ep11_data->libica.ica_sha1 != NULL;
+        break;
+    case CKM_SHA224:
+        use_libica = ep11_data->libica.ica_sha224 != NULL;
+        break;
+    case CKM_SHA256:
+        use_libica = ep11_data->libica.ica_sha256 != NULL;
+        break;
+    case CKM_SHA384:
+        use_libica = ep11_data->libica.ica_sha384 != NULL;
+        break;
+    case CKM_SHA512:
+        use_libica = ep11_data->libica.ica_sha512 != NULL;
+        break;
+    case CKM_SHA512_224:
+        use_libica = ep11_data->libica.ica_sha512_224 != NULL;
+        break;
+    case CKM_SHA512_256:
+        use_libica = ep11_data->libica.ica_sha512_256 != NULL;
+        break;
+    default:
+        use_libica = 0;
+    }
+
+    if (use_libica == 0)
+        TRACE_DEVEL("%s mech=%s is not supported by libica\n", __func__,
+                    ep11_get_ckm(mech));
+
+    return use_libica ? CK_TRUE : CK_FALSE;
+}
+
+CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
+                            CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
+                            CK_BYTE *in_data, CK_ULONG in_data_len,
+                            CK_BYTE *out_data, CK_ULONG *out_data_len,
+                            unsigned int message_part)
+{
+    CK_ULONG hsize;
+    CK_RV rc;
+
+    rc = get_sha_size(mech, &hsize);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (*out_data_len < hsize)
+        return CKR_BUFFER_TOO_SMALL;
+
+    TRACE_DEVEL("%s mech=%s part=%u\n", __func__,
+                ep11_get_ckm(mech), message_part);
+
+    switch (mech) {
+    case CKM_SHA_1:
+        rc = ep11_data->libica.ica_sha1(message_part, in_data_len, in_data,
+                                        &ctx->ctx.sha1, out_data);
+        break;
+    case CKM_SHA224:
+        rc = ep11_data->libica.ica_sha224(message_part, in_data_len, in_data,
+                                          &ctx->ctx.sha256, out_data);
+        break;
+    case CKM_SHA256:
+        rc = ep11_data->libica.ica_sha256(message_part, in_data_len, in_data,
+                                          &ctx->ctx.sha256, out_data);
+        break;
+    case CKM_SHA384:
+        rc = ep11_data->libica.ica_sha384(message_part, in_data_len, in_data,
+                                          &ctx->ctx.sha512, out_data);
+        break;
+    case CKM_SHA512:
+        rc = ep11_data->libica.ica_sha512(message_part, in_data_len, in_data,
+                                          &ctx->ctx.sha512, out_data);
+        break;
+    case CKM_SHA512_224:
+        rc = ep11_data->libica.ica_sha512_224(message_part, in_data_len, in_data,
+                                              &ctx->ctx.sha512, out_data);
+        break;
+    case CKM_SHA512_256:
+        rc = ep11_data->libica.ica_sha512_256(message_part, in_data_len, in_data,
+                                              &ctx->ctx.sha512, out_data);
+        break;
+    default:
+        TRACE_ERROR("%s Invalid mechanism: mech=%s\n", __func__,
+                    ep11_get_ckm(mech));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Libica SHA failed. mech=%s rc=0x%lx\n", __func__,
+                    ep11_get_ckm(mech), rc);
+
+        switch (rc) {
+        case EINVAL:
+            return CKR_ARGUMENTS_BAD;
+        case ENODEV:
+            return CKR_DEVICE_ERROR;
+        default:
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    *out_data_len = hsize;
+    return CKR_OK;
+}
+
 CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                               CK_MECHANISM * mech)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    size_t state_len = MAX_DIGEST_STATE_BYTES;
+    size_t state_len = MAX(MAX_DIGEST_STATE_BYTES, sizeof(libica_sha_context_t));
     CK_BYTE *state;
+    libica_sha_context_t *libica_ctx;
 
-    state = malloc(state_len);  /* freed by dig_mgr.c */
+    state = calloc(state_len, 1); /* freed by dig_mgr.c */
     if (!state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
     }
 
-    rc = dll_m_DigestInit(state, &state_len, mech,
-                          (uint64_t) ep11_data->target_list);
+    if (ep11tok_libica_digest_available(ep11_data, mech->mechanism)) {
+        libica_ctx = (libica_sha_context_t *)state;
+        state_len = sizeof(libica_sha_context_t);
+        libica_ctx->first = CK_TRUE;
+        rc = get_sha_block_size(mech->mechanism, &libica_ctx->block_size);
+    } else {
+        rc = dll_m_DigestInit(state, &state_len, mech,
+                              (uint64_t)ep11_data->target_list);
+    }
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2817,9 +2947,17 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
 
-    rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
-                      out_data, out_data_len,
-                      (uint64_t) ep11_data->target_list);
+    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
+        rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+                                   (libica_sha_context_t *)c->context,
+                                   in_data, in_data_len,
+                                   out_data, out_data_len,
+                                   SHA_MSG_PART_ONLY);
+    } else {
+        rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
+                          out_data, out_data_len,
+                          (uint64_t)ep11_data->target_list);
+    }
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -2834,11 +2972,65 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                 CK_BYTE * in_data, CK_ULONG in_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_RV rc;
+    libica_sha_context_t *libica_ctx = (libica_sha_context_t *)c->context;
+    CK_BYTE temp_out[MAX_SHA_HASH_SIZE];
+    CK_ULONG out_len = sizeof(temp_out);
+    CK_ULONG len;
+    CK_RV rc = CKR_OK;
 
-    rc = dll_m_DigestUpdate(c->context, c->context_len, in_data, in_data_len,
-                            (uint64_t) ep11_data->target_list);
+    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
+        if (libica_ctx->offset > 0 || in_data_len < libica_ctx->block_size) {
+            len = MIN(libica_ctx->block_size - libica_ctx->offset,
+                      in_data_len);
+            memcpy(&libica_ctx->buffer[libica_ctx->offset], in_data, len);
+            libica_ctx->offset += len;
 
+            in_data += len;
+            in_data_len -= len;
+
+            if (libica_ctx->offset == libica_ctx->block_size) {
+                rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+                                           libica_ctx, libica_ctx->buffer,
+                                           libica_ctx->offset, temp_out,
+                                           &out_len, libica_ctx->first ?
+                                                        SHA_MSG_PART_FIRST :
+                                                        SHA_MSG_PART_MIDDLE);
+                if (rc != CKR_OK)
+                    goto out;
+
+                libica_ctx->first = CK_FALSE;
+
+                libica_ctx->offset = 0;
+            }
+        }
+
+        if (in_data_len > 0) {
+            len = (in_data_len / libica_ctx->block_size) * libica_ctx->block_size;
+            rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+                                       libica_ctx, in_data, len, temp_out,
+                                       &out_len, libica_ctx->first ?
+                                                    SHA_MSG_PART_FIRST :
+                                                    SHA_MSG_PART_MIDDLE);
+            if (rc != CKR_OK)
+                goto out;
+
+            libica_ctx->first = CK_FALSE;
+
+            in_data += len;
+            in_data_len -= len;
+
+            if (in_data_len > 0) {
+                memcpy(libica_ctx->buffer, in_data, in_data_len);
+                libica_ctx->offset = in_data_len;
+            }
+        }
+    } else {
+        rc = dll_m_DigestUpdate(c->context, c->context_len,
+                                in_data, in_data_len,
+                                (uint64_t)ep11_data->target_list);
+    }
+
+out:
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
@@ -2852,10 +3044,22 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                CK_BYTE * out_data, CK_ULONG * out_data_len)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    libica_sha_context_t *libica_ctx = (libica_sha_context_t *)c->context;
     CK_RV rc;
 
-    rc = dll_m_DigestFinal(c->context, c->context_len, out_data, out_data_len,
-                           (uint64_t) ep11_data->target_list);
+    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
+        rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+                                   libica_ctx, libica_ctx->buffer,
+                                   libica_ctx->offset,
+                                   out_data, out_data_len,
+                                   libica_ctx->first ?
+                                        SHA_MSG_PART_ONLY :
+                                        SHA_MSG_PART_FINAL);
+    } else {
+        rc = dll_m_DigestFinal(c->context, c->context_len,
+                               out_data, out_data_len,
+                               (uint64_t)ep11_data->target_list);
+    }
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
