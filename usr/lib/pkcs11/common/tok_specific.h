@@ -143,10 +143,12 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *, SESSION *,
                                     CK_BYTE *, CK_ULONG);
 
 CK_RV token_specific_ec_sign(STDLL_TokData_t *,
+                             SESSION *,
                              CK_BYTE *,
                              CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
 
 CK_RV token_specific_ec_verify(STDLL_TokData_t *,
+                               SESSION *,
                                CK_BYTE *,
                                CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *);
 

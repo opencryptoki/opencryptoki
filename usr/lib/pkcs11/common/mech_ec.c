@@ -140,6 +140,7 @@ CK_RV ckm_ec_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
 }
 
 CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
+                  SESSION *sess,
                   CK_BYTE *in_data,
                   CK_ULONG in_data_len,
                   CK_BYTE *out_data, CK_ULONG *out_data_len, OBJECT *key_obj)
@@ -168,7 +169,7 @@ CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
-    rc = token_specific.t_ec_sign(tokdata, in_data, in_data_len, out_data,
+    rc = token_specific.t_ec_sign(tokdata, sess, in_data, in_data_len, out_data,
                                   out_data_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("EC Sign failed.\n");
@@ -217,13 +218,14 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = ckm_ec_sign(tokdata, in_data, in_data_len, out_data,
+    rc = ckm_ec_sign(tokdata, sess, in_data, in_data_len, out_data,
                      out_data_len, key_obj);
 
     return rc;
 }
 
 CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
+                    SESSION *sess,
                     CK_BYTE *in_data,
                     CK_ULONG in_data_len,
                     CK_BYTE *out_data, CK_ULONG out_data_len, OBJECT *key_obj)
@@ -252,7 +254,7 @@ CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
-    rc = token_specific.t_ec_verify(tokdata, in_data, in_data_len,
+    rc = token_specific.t_ec_verify(tokdata, sess, in_data, in_data_len,
                                     out_data, out_data_len, key_obj);
     if (rc != CKR_OK)
         TRACE_ERROR("Token specific ec verify failed.\n");
@@ -290,7 +292,7 @@ CK_RV ec_verify(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
         return CKR_SIGNATURE_LEN_RANGE;
     }
-    rc = ckm_ec_verify(tokdata, in_data, in_data_len, signature,
+    rc = ckm_ec_verify(tokdata, sess, in_data, in_data_len, signature,
                        sig_len, key_obj);
 
     return rc;
