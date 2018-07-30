@@ -2821,6 +2821,74 @@ CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
     return use_libica ? CK_TRUE : CK_FALSE;
 }
 
+CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
+                               CK_MECHANISM_TYPE *digest_mech)
+{
+    switch (mech) {
+    case CKM_SHA_1:
+    //case CKM_SHA1_RSA_PKCS:
+    //case CKM_SHA1_RSA_PKCS_PSS:
+    //case CKM_ECDSA_SHA1:
+        *digest_mech = CKM_SHA_1;
+        break;
+
+    case CKM_SHA224:
+    //case CKM_SHA224_RSA_PKCS:
+    //case CKM_SHA224_RSA_PKCS_PSS:
+    //case CKM_ECDSA_SHA224:
+        *digest_mech = CKM_SHA224;
+        break;
+
+    case CKM_SHA256:
+    //case CKM_SHA256_RSA_PKCS:
+    //case CKM_SHA256_RSA_PKCS_PSS:
+    //case CKM_ECDSA_SHA256:
+        *digest_mech = CKM_SHA256;
+        break;
+
+    case CKM_SHA384:
+    //case CKM_SHA384_RSA_PKCS:
+    //case CKM_SHA384_RSA_PKCS_PSS:
+    //case CKM_ECDSA_SHA384:
+        *digest_mech = CKM_SHA384;
+        break;
+
+    case CKM_SHA512:
+    //case CKM_SHA512_RSA_PKCS:
+    //case CKM_SHA512_RSA_PKCS_PSS:
+    //case CKM_ECDSA_SHA512:
+        *digest_mech = CKM_SHA512;
+        break;
+
+    case CKM_SHA512_224:
+        *digest_mech = CKM_SHA512_224;
+        break;
+
+    case CKM_SHA512_256:
+        *digest_mech = CKM_SHA512_256;
+        break;
+
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
+                                       CK_MECHANISM_TYPE mech)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_MECHANISM_TYPE digest_mech;
+    CK_RV rc;
+
+    rc = ep11tok_digest_from_mech(mech, &digest_mech);
+    if (rc != CKR_OK)
+        return CK_FALSE;
+
+    return ep11tok_libica_digest_available(ep11_data, digest_mech);
+}
+
 CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
                             CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
                             CK_BYTE *in_data, CK_ULONG in_data_len,
