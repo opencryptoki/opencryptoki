@@ -2092,7 +2092,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     return rc;
 }
 
-CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
                                   SIGN_VERIFY_CONTEXT *ctx,
                                   CK_BYTE *in_data, CK_ULONG in_data_len,
                                   CK_BYTE *sig, CK_ULONG *sig_len)
@@ -2160,7 +2160,7 @@ done:
 }
 
 
-CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                                     SIGN_VERIFY_CONTEXT *ctx,
                                     CK_BYTE *in_data, CK_ULONG in_data_len,
                                     CK_BYTE *signature, CK_ULONG sig_len)
