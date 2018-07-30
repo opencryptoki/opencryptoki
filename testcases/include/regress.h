@@ -39,6 +39,8 @@
 #pragma GCC system_header
 static struct timeval timev1;
 static struct timeval timev2;
+static struct timeval timev3;
+static struct timeval timev4;
 static struct timeval timevr;
 
 #ifndef timersub
@@ -115,9 +117,12 @@ int get_user_pin(CK_BYTE_PTR);
             __FILE__, __LINE__, _str, _rc, _rc,                \
             p11_get_ckr(_rc))
 
-#define testcase_setup(total)   \
-    t_total = 0;                \
-	t_errors = 0;
+#define testcase_setup(total)                                   \
+    do {                                                        \
+        t_total = 0;                                            \
+        t_errors = 0;                                           \
+        gettimeofday(&timev3, NULL);                            \
+    } while (0)
 
 #define testsuite_begin(_fmt, ...)                              \
     do {                                                        \
@@ -223,10 +228,14 @@ int get_user_pin(CK_BYTE_PTR);
 
 #define testcase_print_result()                                 \
     do {                                                        \
+        gettimeofday(&timev4, NULL);                            \
+        timersub(&timev4, &timev3, &timevr);                    \
         printf("Total=%lu, Ran=%lu, Passed=%lu, Failed=%lu, "   \
-                "Skipped=%lu, Errors=%lu\n",                    \
-                (t_ran + t_skipped), t_ran, t_passed, t_failed, \
-                t_skipped, t_errors);                           \
+               "Skipped=%lu, Errors=%lu (total elapsed time "   \
+               "%lds %ldus)\n",                                 \
+               (t_ran + t_skipped), t_ran, t_passed, t_failed,  \
+               t_skipped, t_errors, timevr.tv_sec,              \
+               timevr.tv_usec);                                 \
     } while (0)
 
 #define testcase_rw_session()                                             \
