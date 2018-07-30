@@ -308,6 +308,7 @@ CK_RV object_flatten(OBJECT * obj, CK_BYTE ** data, CK_ULONG * len)
     CK_ULONG tmpl_len, total_len;
     CK_ULONG offset;
     CK_ULONG_32 count;
+    CK_OBJECT_CLASS_32 class32;
     long rc;
 
     if (!obj) {
@@ -329,7 +330,8 @@ CK_RV object_flatten(OBJECT * obj, CK_BYTE ** data, CK_ULONG * len)
 
     offset = 0;
 
-    memcpy(buf + offset, &obj->class, sizeof(CK_OBJECT_CLASS_32));
+    class32 = obj->class;
+    memcpy(buf + offset, &class32, sizeof(CK_OBJECT_CLASS_32));
     offset += sizeof(CK_OBJECT_CLASS_32);
 
     memcpy(buf + offset, &count, sizeof(CK_ULONG_32));
@@ -626,6 +628,7 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
     CK_ULONG offset = 0;
     CK_ULONG_32 count = 0;
     CK_RV rc;
+    CK_OBJECT_CLASS_32 class32;
 
     if (!data || !new_obj) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -641,7 +644,8 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
 
     memset(obj, 0x0, sizeof(OBJECT));
 
-    memcpy(&obj->class, data + offset, sizeof(CK_OBJECT_CLASS_32));
+    memcpy(&class32, data + offset, sizeof(CK_OBJECT_CLASS_32));
+    obj->class = class32;
     offset += sizeof(CK_OBJECT_CLASS_32);
 
     memcpy(&count, data + offset, sizeof(CK_ULONG_32));
