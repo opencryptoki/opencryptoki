@@ -1068,9 +1068,10 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 }
 
 
-CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
-                              CK_ULONG in_data_len, CK_BYTE *out_data,
-                              CK_ULONG *out_data_len, OBJECT *key_obj)
+CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BYTE *in_data, CK_ULONG in_data_len,
+                              CK_BYTE *out_data, CK_ULONG *out_data_len,
+                              OBJECT *key_obj)
 {
     CK_BYTE data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
     CK_ULONG modulus_bytes;
@@ -1102,9 +1103,10 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     return rc;
 }
 
-CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
-                                CK_ULONG in_data_len, CK_BYTE *signature,
-                                CK_ULONG sig_len, OBJECT *key_obj)
+CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *signature, CK_ULONG sig_len,
+                                OBJECT *key_obj)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE out[MAX_RSA_KEYLEN], out_data[MAX_RSA_KEYLEN];
