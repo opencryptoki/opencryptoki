@@ -2828,35 +2828,35 @@ CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
 {
     switch (mech) {
     case CKM_SHA_1:
-    //case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA1_RSA_PKCS:
     //case CKM_SHA1_RSA_PKCS_PSS:
     //case CKM_ECDSA_SHA1:
         *digest_mech = CKM_SHA_1;
         break;
 
     case CKM_SHA224:
-    //case CKM_SHA224_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     //case CKM_SHA224_RSA_PKCS_PSS:
     //case CKM_ECDSA_SHA224:
         *digest_mech = CKM_SHA224;
         break;
 
     case CKM_SHA256:
-    //case CKM_SHA256_RSA_PKCS:
+    case CKM_SHA256_RSA_PKCS:
     //case CKM_SHA256_RSA_PKCS_PSS:
     //case CKM_ECDSA_SHA256:
         *digest_mech = CKM_SHA256;
         break;
 
     case CKM_SHA384:
-    //case CKM_SHA384_RSA_PKCS:
+    case CKM_SHA384_RSA_PKCS:
     //case CKM_SHA384_RSA_PKCS_PSS:
     //case CKM_ECDSA_SHA384:
         *digest_mech = CKM_SHA384;
         break;
 
     case CKM_SHA512:
-    //case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA512_RSA_PKCS:
     //case CKM_SHA512_RSA_PKCS_PSS:
     //case CKM_ECDSA_SHA512:
         *digest_mech = CKM_SHA512;
@@ -3131,6 +3131,76 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                (uint64_t)ep11_data->target_list);
     }
 
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
+
+CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
+                              CK_BYTE *in_data, CK_ULONG in_data_len,
+                              CK_BYTE *out_data, CK_ULONG *out_data_len,
+                              OBJECT *key_obj)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    CK_MECHANISM mech;
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    mech.mechanism = CKM_RSA_PKCS;
+    mech.pParameter = NULL;
+    mech.ulParameterLen = 0;
+
+    RETRY_START
+    rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
+                          out_data, out_data_len,
+                          (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
+
+CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *signature, CK_ULONG sig_len,
+                                OBJECT *key_obj)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_BYTE *spki;
+    size_t spki_len = 0;
+    CK_MECHANISM mech;
+
+    rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    mech.mechanism = CKM_RSA_PKCS;
+    mech.pParameter = NULL;
+    mech.ulParameterLen = 0;
+
+    RETRY_START
+    rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
+                            signature, sig_len,
+                            (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
