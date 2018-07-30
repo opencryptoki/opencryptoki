@@ -59,6 +59,8 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
 CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE type,
                                  CK_MECHANISM_INFO_PTR pInfo);
+CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
+                                     CK_MECHANISM_TYPE type);
 
 static m_GenerateRandom_t dll_m_GenerateRandom;
 static m_SeedRandom_t dll_m_SeedRandom;
@@ -4774,7 +4776,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
     CK_RV rc = 0;
     CK_ULONG counter = 0;
     CK_MECHANISM_TYPE_PTR mlist = NULL;
-    int i, j, banned;
+    int i;
 
     /* size querry */
     if (pMechanismList == NULL) {
@@ -4806,27 +4808,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         }
 
         for (i = 0; i < counter; i++) {
-            banned = 0;
-            for (j = 0; j < banned_mech_list_len; j++) {
-                if (mlist[i] == ep11_banned_mech_list[j]) {
-                    banned = 1;
-                    TRACE_INFO("%s banned mech '%s'\n",
-                               __func__,
-                               ep11_get_ckm(ep11_banned_mech_list[j]));
-                }
-            }
-
-            if (!banned &&
-                check_cps_for_mechanism(ep11_data->cp_config,
-                                        mlist[i], ep11_data->control_points,
-                                        ep11_data->control_points_len) !=
-                CKR_OK) {
-                banned = 1;
-                TRACE_INFO("%s banned mech '%s' due to control point\n",
-                           __func__, ep11_get_ckm(mlist[i]));
-            }
-
-            if (banned == 1) {
+            if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) != CKR_OK) {
                 /* banned mech found,
                  * decrement reported list size
                  */
@@ -4871,19 +4853,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         /* copy only mechanisms not banned */
         *pulCount = 0;
         for (i = 0; i < counter; i++) {
-            banned = 0;
-            for (j = 0; j < banned_mech_list_len; j++) {
-                if (mlist[i] == ep11_banned_mech_list[j]) {
-                    banned = 1;
-                }
-            }
-            if (!banned &&
-                check_cps_for_mechanism(ep11_data->cp_config,
-                                        mlist[i], ep11_data->control_points,
-                                        ep11_data->control_points_len) !=
-                CKR_OK)
-                banned = 1;
-            if (banned == 0) {
+            if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) == CKR_OK) {
                 pMechanismList[*pulCount] = mlist[i];
                 *pulCount = *pulCount + 1;
             } else {
@@ -4898,13 +4868,43 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
 }
 
 
+CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
+                                     CK_MECHANISM_TYPE type)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    int i;
+
+    for (i = 0; i < banned_mech_list_len; i++) {
+        if (type == ep11_banned_mech_list[i]) {
+            TRACE_INFO("%s Mech '%s' banned\n", __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+    }
+
+    if (check_cps_for_mechanism(ep11_data->cp_config,
+                                type, ep11_data->control_points,
+                                ep11_data->control_points_len) != CKR_OK) {
+        TRACE_INFO("%s Mech '%s' banned due to control point\n",
+                                   __func__, ep11_get_ckm(type));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE type,
                                  CK_MECHANISM_INFO_PTR pInfo)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    int i;
+
+    rc = ep11tok_is_mechanism_supported(tokdata, type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n", __func__, rc,
+                    ep11_get_ckm(type));
+        return rc;
+    }
 
     rc = dll_m_GetMechanismInfo(0, type, pInfo,
                                 (uint64_t) ep11_data->target_list);
@@ -4919,67 +4919,52 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
      * Customers are not interested in theory but in what mechanism
      * they can use (mechanisms that are not rejected by the card).
      */
-    for (i = 0; i < banned_mech_list_len; i++) {
-        if (type == ep11_banned_mech_list[i])
-            return CKR_MECHANISM_INVALID;
-    }
-
-    if (check_cps_for_mechanism(ep11_data->cp_config,
-                                type, ep11_data->control_points,
-                                ep11_data->control_points_len) != CKR_OK) {
-        TRACE_INFO("%s Mech '%s' banned due to control point\n",
-                   __func__, ep11_get_ckm(type));
-        return CKR_MECHANISM_INVALID;
-    }
 #ifdef DEFENSIVE_MECHLIST
-    if (rc == CKR_OK) {
-        switch (type) {
-        case CKM_RSA_PKCS:
-        case CKM_RSA_PKCS_KEY_PAIR_GEN:
-        case CKM_RSA_X9_31_KEY_PAIR_GEN:
-        case CKM_RSA_PKCS_PSS:
-        case CKM_SHA1_RSA_X9_31:
-        case CKM_SHA1_RSA_PKCS:
-        case CKM_SHA1_RSA_PKCS_PSS:
-        case CKM_SHA256_RSA_PKCS:
-        case CKM_SHA256_RSA_PKCS_PSS:
-        case CKM_SHA224_RSA_PKCS:
-        case CKM_SHA224_RSA_PKCS_PSS:
-        case CKM_SHA384_RSA_PKCS:
-        case CKM_SHA384_RSA_PKCS_PSS:
-        case CKM_SHA512_RSA_PKCS:
-        case CKM_SHA512_RSA_PKCS_PSS:
-        case CKM_RSA_X_509:
-        case CKM_RSA_X9_31:
-            /* EP11 card always in a FIPS mode rejecting
-             * lower key sizes
-             */
-            pInfo->ulMinKeySize = 1024;
-            break;
-        case CKM_SHA224_HMAC:
-        case CKM_SHA256_HMAC:
-        case CKM_SHA384_HMAC:
-        case CKM_SHA512_HMAC:
-        case CKM_DES3_ECB:
-        case CKM_DES3_CBC:
-        case CKM_DES3_CBC_PAD:
-        case CKM_SHA_1_HMAC:
-            /* EP11 card always in a FIPS mode rejecting
-             * lower key sizes < 80 bits.
-             */
-            if (pInfo->ulMinKeySize == 8)
-                pInfo->ulMinKeySize = 16;
-            break;
-        default:
-            ;                   /* do not touch */
-        }
+    switch (type) {
+    case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+    case CKM_RSA_X9_31_KEY_PAIR_GEN:
+    case CKM_RSA_PKCS_PSS:
+    case CKM_SHA1_RSA_X9_31:
+    case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA1_RSA_PKCS_PSS:
+    case CKM_SHA256_RSA_PKCS:
+    case CKM_SHA256_RSA_PKCS_PSS:
+    case CKM_SHA224_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS_PSS:
+    case CKM_SHA384_RSA_PKCS:
+    case CKM_SHA384_RSA_PKCS_PSS:
+    case CKM_SHA512_RSA_PKCS:
+    case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_RSA_X_509:
+    case CKM_RSA_X9_31:
+        /* EP11 card always in a FIPS mode rejecting
+         * lower key sizes
+         */
+        pInfo->ulMinKeySize = 1024;
+        break;
+
+    case CKM_SHA224_HMAC:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA512_HMAC:
+    case CKM_DES3_ECB:
+    case CKM_DES3_CBC:
+    case CKM_DES3_CBC_PAD:
+    case CKM_SHA_1_HMAC:
+        /* EP11 card always in a FIPS mode rejecting
+         * lower key sizes < 80 bits.
+         */
+        if (pInfo->ulMinKeySize == 8)
+            pInfo->ulMinKeySize = 16;
+        break;
+
+    default:
+        ; /* do not touch */
     }
 #endif                          /* DEFENSIVE_MECHLIST */
 
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n",
-                    __func__, rc, ep11_get_ckm(type));
-    return rc;
+    return CKR_OK;
 }
 
 

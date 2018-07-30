@@ -24,6 +24,9 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE type,
                                  CK_MECHANISM_INFO_PTR pInfo);
 
+CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
+                                     CK_MECHANISM_TYPE type);
+
 CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name);
 
