@@ -130,4 +130,6 @@ CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session);
 
 CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session);
 
+CK_BBOOL ep111tok_optimize_single_ops(STDLL_TokData_t *tokdata);
+
 #endif

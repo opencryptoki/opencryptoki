@@ -255,6 +255,7 @@ typedef struct {
     size_t control_points_len;
     int strict_mode;
     int vhsm_mode;
+    int optimize_single_ops;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -5146,18 +5147,24 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
             } else if (strncmp(token, "VHSM_MODE", 11) == 0) {
                 i = 0;
                 ep11_data->vhsm_mode = 1;
+            } else if (strncmp(token, "OPTIMIZE_SINGLE_PART_OPERATIONS", 
+                               31) == 0) {
+               i = 0;
+               ep11_data->optimize_single_ops = 1;
             } else {
                 /* syntax error */
                 TRACE_ERROR("%s Expected APQN_WHITELIST,"
                             " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                            " STRICT_MODE, or VHSM_MODE keyword,"
-                            " found '%s' in config file '%s'\n",
-                            __func__, token, fname);
+                            " STRICT_MODE, VHSM_MODE, or"
+                            " OPTIMIZE_SINGLE_PART_OPERATIONS keyword, found"
+                            " '%s' in config file '%s'\n", __func__, token,
+                            fname);
                 OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                           " STRICT_MODE, or VHSM_MODE keyword,"
-                           " found '%s' in config file '%s'\n",
-                           __func__, token, fname);
+                           " STRICT_MODE, VHSM_MODE, or"
+                           " OPTIMIZE_SINGLE_PART_OPERATIONS keyword, found"
+                           " '%s' in config file '%s'\n", __func__, token,
+                           fname);
                 rc = APQN_FILE_SYNTAX_ERROR_0;
                 break;
             }
@@ -6613,4 +6620,11 @@ CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s SC_CloseSession failed: 0x%lu\n", __func__, rc);
 
     return rc;
+}
+
+CK_BBOOL ep111tok_optimize_single_ops(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    return ep11_data->optimize_single_ops ? CK_TRUE : CK_FALSE;
 }
