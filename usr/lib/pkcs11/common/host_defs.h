@@ -43,6 +43,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL multi;             // is this a multi-part operation?
     CK_BBOOL recover;           // are we in recover mode?
     CK_BBOOL active;
+    CK_BBOOL init_pending;      // indicate init request pending
 } SIGN_VERIFY_CONTEXT;
 
 

@@ -2196,9 +2196,27 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("*_sign_init() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        /* In case of a single part sign operation we don't need the SignInit,
+         * instead we can use the SignSingle which is much faster.
+         * In case of multi-part operations we are doing the SignInit when
+         * SignUpdate comes into play.
+         */
+        sess->sign_ctx.init_pending = TRUE;
+        sess->sign_ctx.active = TRUE;
+        sess->sign_ctx.multi = FALSE;
+        sess->sign_ctx.key = hKey;
+
+        sess->sign_ctx.mech.mechanism = pMechanism->mechanism;
+        sess->sign_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+        memcpy(sess->sign_ctx.mech.pParameter, pMechanism->pParameter,
+              pMechanism->ulParameterLen);
+        sess->sign_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+    } else {
+        rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_sign_init() failed.\n");
+    }
 
 done:
     TRACE_INFO("C_SignInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -2245,10 +2263,18 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pSignature)
         length_only = TRUE;
 
-    rc = ep11tok_sign(tokdata, sess, length_only, pData, ulDataLen, pSignature,
-                      pulSignatureLen);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_sign() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        rc = ep11tok_sign_single(tokdata, sess, &sess->sign_ctx.mech,
+                                 length_only, sess->sign_ctx.key,
+                                 pData, ulDataLen, pSignature, pulSignatureLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_sign_single() failed.\n");
+    } else {
+        rc = ep11tok_sign(tokdata, sess, length_only, pData, ulDataLen,
+                          pSignature, pulSignatureLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_sign() failed.\n");
+    }
 
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
@@ -2290,6 +2316,15 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
+    }
+
+    if (sess->sign_ctx.init_pending) {
+        rc = ep11tok_sign_init(tokdata, sess, &sess->sign_ctx.mech,
+                               FALSE, sess->sign_ctx.key);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_sign_init() failed.\n");
+
+        sess->sign_ctx.init_pending = 0;
     }
 
     rc = ep11tok_sign_update(tokdata, sess, pPart, ulPartLen);
@@ -2342,6 +2377,11 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pSignature)
         length_only = TRUE;
 
+    if (sess->sign_ctx.init_pending) {
+        /* SignInit without Update, no SignFinal necessary */
+        sess->sign_ctx.init_pending = 0;
+        return CKR_OK;
+    }
     rc = ep11tok_sign_final(tokdata, sess, length_only, pSignature,
                             pulSignatureLen);
     if (rc != CKR_OK)
@@ -2431,9 +2471,27 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = ep11tok_verify_init(tokdata, sess, pMechanism, FALSE, hKey);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_verify_init() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        /* In case of a single part verify operation we don't need the
+         * VerifyInit, instead we can use the VerifySingle which is much
+         * faster. In case of multi-part operations we are doing the VerifyInit
+         * when VerifyUpdate comes into play.
+         */
+        sess->verify_ctx.init_pending = TRUE;
+        sess->verify_ctx.active = TRUE;
+        sess->verify_ctx.multi = FALSE;
+        sess->verify_ctx.key = hKey;
+
+        sess->verify_ctx.mech.mechanism = pMechanism->mechanism;
+        sess->verify_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+        memcpy(sess->verify_ctx.mech.pParameter, pMechanism->pParameter,
+               pMechanism->ulParameterLen);
+        sess->verify_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+    } else {
+        rc = ep11tok_verify_init(tokdata, sess, pMechanism, FALSE, hKey);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_verify_init() failed.\n");
+    }
 
 done:
     TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -2476,10 +2534,18 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = ep11tok_verify(tokdata, sess, pData, ulDataLen, pSignature,
-                        ulSignatureLen);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("ep11tok_verify() failed.\n");
+    if (ep111tok_optimize_single_ops(tokdata)) {
+        rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
+                                   sess->verify_ctx.key, pData, ulDataLen,
+                                   pSignature, ulSignatureLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_verify_single() failed.\n");
+    } else {
+        rc = ep11tok_verify(tokdata, sess, pData, ulDataLen, pSignature,
+                            ulSignatureLen);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_verify() failed.\n");
+    }
 
 done:
     verify_mgr_cleanup(&sess->verify_ctx);
@@ -2520,6 +2586,15 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         rc = CKR_OPERATION_NOT_INITIALIZED;
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         goto done;
+    }
+
+    if (sess->verify_ctx.init_pending) {
+        rc = ep11tok_verify_init(tokdata, sess, &sess->verify_ctx.mech,
+                                 FALSE, sess->verify_ctx.key);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("ep11tok_verify_init() failed.\n");
+
+        sess->verify_ctx.init_pending = 0;
     }
 
     rc = ep11tok_verify_update(tokdata, sess, pPart, ulPartLen);
@@ -2568,6 +2643,11 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    if (sess->sign_ctx.init_pending) {
+        /* VerifyInit without Update, no VerifyFinal necessary */
+        sess->sign_ctx.init_pending = 0;
+        return CKR_OK;
+    }
     rc = ep11tok_verify_final(tokdata, sess, pSignature, ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("ep11tok_verify_final() failed.\n");

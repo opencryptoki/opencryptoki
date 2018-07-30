@@ -654,6 +654,7 @@ CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
     ctx->mech.mechanism = 0;
     ctx->multi = FALSE;
     ctx->active = FALSE;
+    ctx->init_pending = FALSE;
     ctx->recover = FALSE;
     ctx->context_len = 0;
 

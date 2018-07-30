@@ -4033,6 +4033,38 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     return rc;
 }
 
+CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
+                          CK_MECHANISM *mech, CK_BBOOL length_only,
+                          CK_OBJECT_HANDLE key, CK_BYTE *in_data,
+                          CK_ULONG in_data_len, CK_BYTE *signature,
+                          CK_ULONG *sig_len)
+{
+    CK_RV rc;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    RETRY_START
+    rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
+                          signature, sig_len,
+                          (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
+
 
 CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                           CK_MECHANISM * mech, CK_BBOOL recover_mode,
@@ -4154,6 +4186,36 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     return rc;
 }
 
+CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
+                            CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                            CK_BYTE *in_data, CK_ULONG in_data_len,
+                            CK_BYTE *signature, CK_ULONG sig_len)
+{
+    CK_RV rc;
+    CK_BYTE *spki;
+    size_t spki_len = 0;
+    OBJECT *key_obj = NULL;
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    RETRY_START
+    rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
+                            signature, sig_len,
+                            (uint64_t)ep11_data->target_list);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
 
 CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_BYTE_PTR output_part,
