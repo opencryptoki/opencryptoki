@@ -6178,7 +6178,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
     CK_BYTE true = TRUE;
     time_t t;
     struct tm *tm;
-    CK_CHAR tmp[4 + 2 + 2 + 1];
+    CK_CHAR tmp[40];
 
     CK_ATTRIBUTE attrs[] = {
         {CKA_CLASS, &class, sizeof(class)}
