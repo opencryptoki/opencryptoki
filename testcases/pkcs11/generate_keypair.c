@@ -244,6 +244,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
+    testcase_setup(0);
     rc = do_GenerateKeyPairRSA();
     testcase_print_result();
 

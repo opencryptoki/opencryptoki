@@ -248,6 +248,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
+    testcase_setup(0);
     rc = do_DestroyObjects();
     testcase_print_result();
 
