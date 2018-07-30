@@ -256,6 +256,8 @@ typedef struct {
     int strict_mode;
     int vhsm_mode;
     int optimize_single_ops;
+    int digest_libica;
+    char digest_libica_path[PATH_MAX];
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -5238,6 +5240,10 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
 
     ep11_targets->length = 0;
 
+    /* Default to use default libica library for digests */
+    ep11_data->digest_libica = 1;
+    strcpy(ep11_data->digest_libica_path, "");
+
     /* parse the file buf
      * please note, we still accept the LOGLEVEL entry
      * for compatibility reasons but just ignore it.
@@ -5275,20 +5281,22 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                                31) == 0) {
                i = 0;
                ep11_data->optimize_single_ops = 1;
+            } else if (strncmp(token, "DIGEST_LIBICA", 13) == 0) {
+                i = 5;
             } else {
                 /* syntax error */
                 TRACE_ERROR("%s Expected APQN_WHITELIST,"
                             " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                            " STRICT_MODE, VHSM_MODE, or"
-                            " OPTIMIZE_SINGLE_PART_OPERATIONS keyword, found"
-                            " '%s' in config file '%s'\n", __func__, token,
-                            fname);
+                            " STRICT_MODE, VHSM_MODE, "
+                            " OPTIMIZE_SINGLE_PART_OPERATIONS, or DIGEST_LIBICA"
+                            " keyword, found '%s' in config file '%s'\n", __func__,
+                            token, fname);
                 OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                           " STRICT_MODE, VHSM_MODE, or"
-                           " OPTIMIZE_SINGLE_PART_OPERATIONS keyword, found"
-                           " '%s' in config file '%s'\n", __func__, token,
-                           fname);
+                           " STRICT_MODE, VHSM_MODE,"
+                           " OPTIMIZE_SINGLE_PART_OPERATIONS, or DIGEST_LIBICA"
+                           " keyword, found '%s' in config file '%s'\n",
+                           __func__, token, fname);
                 rc = APQN_FILE_SYNTAX_ERROR_0;
                 break;
             }
@@ -5412,6 +5420,37 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                     sizeof(ep11_data->cp_filter_config_filename) - 1);
             ep11_data->cp_filter_config_filename[
                 sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
+            i = 0;
+        } else if (i == 5) {
+            /* expecting libica path, 'DEFAULT', or 'OFF' */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected libica path, "
+                           "'DEFAULT', or 'OFF'\n",
+                           __func__, fname);
+                break;
+            }
+            if (strcmp(token, "OFF") == 0) {
+                ep11_data->digest_libica = 0;
+            } else if (strcmp(token, "DEFAULT") == 0) {
+                ep11_data->digest_libica = 1;
+                strcpy(ep11_data->digest_libica_path, "");
+            } else {
+                if (strlen(token) > sizeof(ep11_data->digest_libica_path)-1) {
+                    TRACE_ERROR("%s libica path is too long: '%s'\n",
+                                            __func__, token);
+                    OCK_SYSLOG(LOG_ERR,"%s: Error: libica path '%s' is too long"
+                               " in config file '%s'\n",
+                               __func__, token, fname);
+                    rc = APQN_FILE_SYNTAX_ERROR_6;
+                    break;
+                }
+                ep11_data->digest_libica = 1;
+                strncpy(ep11_data->digest_libica_path, token,
+                        sizeof(ep11_data->digest_libica_path)-1);
+                ep11_data->digest_libica_path[sizeof(ep11_data->digest_libica_path)-1] = '\0';
+            }
             i = 0;
         }
     }
