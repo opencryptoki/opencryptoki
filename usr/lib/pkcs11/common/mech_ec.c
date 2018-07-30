@@ -60,6 +60,12 @@ CK_BYTE brainpoolP512r1[] = {
     0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
     0x02, 0x08, 0x01, 0x01, 0x0D
 };
+
+CK_BYTE brainpoolP512t1[] = {
+    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
+    0x02, 0x08, 0x01, 0x01, 0x0E
+};
+
 CK_BYTE prime192[] =
     { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
 CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
@@ -76,6 +82,7 @@ struct _ec der_ec_supported[NUMEC] = {
     {BRAINPOOL_CURVE, CURVE320, sizeof(brainpoolP320r1), &brainpoolP320r1},
     {BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384r1), &brainpoolP384r1},
     {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512r1), &brainpoolP512r1},
+    {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512t1), &brainpoolP512t1},
     {PRIME_CURVE, CURVE192, sizeof(prime192), &prime192},
     {PRIME_CURVE, CURVE224, sizeof(secp224), &secp224},
     {PRIME_CURVE, CURVE256, sizeof(prime256), &prime256},
