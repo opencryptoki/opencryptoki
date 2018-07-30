@@ -556,6 +556,7 @@ CK_RV encr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
     ctx->mech.mechanism = 0;
     ctx->multi = FALSE;
     ctx->active = FALSE;
+    ctx->init_pending = FALSE;
     ctx->context_len = 0;
 
     if (ctx->mech.pParameter) {
