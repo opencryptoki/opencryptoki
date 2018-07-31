@@ -2011,6 +2011,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_SHA512, {0, 0, CKF_DIGEST}},
     {CKM_SHA512_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA512_224, {0, 0, CKF_DIGEST}},
+    {CKM_SHA512_256, {0, 0, CKF_DIGEST}},
 #if !(NOMD2)
     {CKM_MD2, {0, 0, CKF_DIGEST}},
     {CKM_MD2_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
@@ -2085,6 +2087,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         dgst = (void *) &SHA384_Init;
         break;
     case CKM_SHA512:
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
         len = sizeof(SHA512_CTX);
         dgst = (void *) &SHA512_Init;
         break;
@@ -2107,6 +2111,39 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         return CKR_FUNCTION_FAILED;
     }
 
+    switch (mech->mechanism) {
+    case CKM_SHA512_224:
+        {
+            SHA512_CTX *c = (SHA512_CTX *)ctx->context;
+
+            /* SHA-512/224 uses a distinct initial hash value */
+            c->h[0] = U64(0x8c3d37c819544da2);
+            c->h[1] = U64(0x73e1996689dcd4d6);
+            c->h[2] = U64(0x1dfab7ae32ff9c82);
+            c->h[3] = U64(0x679dd514582f9fcf);
+            c->h[4] = U64(0x0f6d2b697bd44da8);
+            c->h[5] = U64(0x77e36f7304c48942);
+            c->h[6] = U64(0x3f9d85a86a1d36c8);
+            c->h[7] = U64(0x1112e6ad91d692a1);
+            break;
+        }
+    case CKM_SHA512_256:
+        {
+            SHA512_CTX *c = (SHA512_CTX *)ctx->context;
+
+            /* SHA-512/256 uses a distinct initial hash value */
+            c->h[0] = U64(0x22312194fc2bf72c);
+            c->h[1] = U64(0x9f555fa3c84c64c2);
+            c->h[2] = U64(0x2393b86b6f53b151);
+            c->h[3] = U64(0x963877195940eabd);
+            c->h[4] = U64(0x96283ee2a88effe3);
+            c->h[5] = U64(0xbe5e1e2553863992);
+            c->h[6] = U64(0x2b0199fc2c85b8aa);
+            c->h[7] = U64(0x0eb72ddc81c52ca2);
+            break;
+        }
+    }
+
     return CKR_OK;
 }
 
@@ -2118,6 +2155,8 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     unsigned int hlen;
     int (*dgstup) (void *, void *, CK_ULONG);
     int (*dgstfin) (void *, void *);
+    CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
+    CK_BYTE *orig_out_data = out_data;
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -2151,6 +2190,18 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         dgstup = (void *) &SHA512_Update;
         dgstfin = (void *) &SHA512_Final;
         break;
+    case CKM_SHA512_224:
+        hlen = SHA224_HASH_SIZE;
+        dgstup = (void *) &SHA512_Update;
+        dgstfin = (void *) &SHA512_Final;
+        out_data = temp_out_data;
+        break;
+    case CKM_SHA512_256:
+        hlen = SHA256_HASH_SIZE;
+        dgstup = (void *) &SHA512_Update;
+        dgstfin = (void *) &SHA512_Final;
+        out_data = temp_out_data;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -2165,6 +2216,14 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     rc = dgstfin(out_data, ctx->context);
     if (!rc)
         goto error;
+
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
+        memcpy(orig_out_data, temp_out_data, hlen);
+        OPENSSL_cleanse(temp_out_data, sizeof(temp_out_data));
+        break;
+    }
 
     *out_data_len = hlen;
 
@@ -2203,6 +2262,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         rc = SHA384_Update((SHA512_CTX *) ctx->context, in_data, in_data_len);
         break;
     case CKM_SHA512:
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
         rc = SHA512_Update((SHA512_CTX *) ctx->context, in_data, in_data_len);
         break;
     default:
@@ -2225,6 +2286,8 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     int rc;
     unsigned int hlen;
     int (*dgstfin) (void *, void *);
+    CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
+    CK_BYTE *orig_out_data = out_data;
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -2253,6 +2316,16 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         hlen = SHA512_HASH_SIZE;
         dgstfin = (void *) &SHA512_Final;
         break;
+    case CKM_SHA512_224:
+        hlen = SHA224_HASH_SIZE;
+        dgstfin = (void *) &SHA512_Final;
+        out_data = temp_out_data;
+        break;
+    case CKM_SHA512_256:
+        hlen = SHA256_HASH_SIZE;
+        dgstfin = (void *) &SHA512_Final;
+        out_data = temp_out_data;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -2266,6 +2339,14 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         ctx->context = NULL;
         ctx->context_len = 0;
         return CKR_FUNCTION_FAILED;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
+        memcpy(orig_out_data, temp_out_data, hlen);
+        OPENSSL_cleanse(temp_out_data, sizeof(temp_out_data));
+        break;
     }
 
     *out_data_len = hlen;
