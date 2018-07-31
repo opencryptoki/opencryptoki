@@ -66,6 +66,9 @@ CK_CHAR label[] = "IBM ICA  PKCS #11";
 pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 unsigned int rnginitialized = 0;
 
+#define LIBICA_SHARED_LIB "libica.so"
+#define BIND(dso, sym)  (p_##sym = (sym##_t)dlsym(dso, #sym))
+
 #ifndef NO_EC
 typedef ICA_EC_KEY *(*ica_ec_key_new_t) (unsigned int nid,
                                          unsigned int *privlen);
@@ -109,9 +112,6 @@ ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
 ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
 ica_ec_key_free_t               p_ica_ec_key_free;
 
-#define LIBICA_SHARED_LIB "libica.so"
-#define BIND(dso, sym)  (p_##sym = (sym##_t)dlsym(dso, #sym))
-
 #define ICATOK_EC_MAX_D_LEN     66      /* secp521 */
 #define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
 #define ICATOK_EC_MAX_SIG_LEN   ICATOK_EC_MAX_Q_LEN
@@ -121,31 +121,74 @@ static int ica_ec_support_available = 0;
 
 static CK_RV ecc_support_in_libica_available(void)
 {
+    if (p_ica_ec_key_new != NULL &&
+        p_ica_ec_key_init  != NULL &&
+        p_ica_ec_key_generate  != NULL &&
+        p_ica_ecdh_derive_secret  != NULL &&
+        p_ica_ecdsa_sign  != NULL &&
+        p_ica_ecdsa_verify  != NULL &&
+        p_ica_ec_key_get_public_key  != NULL &&
+        p_ica_ec_key_get_private_key  != NULL &&
+        p_ica_ec_key_free != NULL)
+        return 1;
+
+    return 0;
+}
+#endif
+
+#ifdef SHA512_224
+typedef unsigned int (*ica_sha512_224_t)(unsigned int message_part,
+                                         unsigned int input_length,
+                                         unsigned char *input_data,
+                                         sha512_context_t *sha_context,
+                                         unsigned char *output_data);
+
+ica_sha512_224_t                p_ica_sha512_224;
+#endif
+
+#ifdef SHA512_256
+typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
+                                         unsigned int input_length,
+                                         unsigned char *input_data,
+                                         sha512_context_t *sha_context,
+                                         unsigned char *output_data);
+
+ica_sha512_256_t                p_ica_sha512_256;
+#endif
+
+static CK_RV load_libica(void)
+{
     void *ibmca_dso = NULL;
 
     /* Load libica */
     ibmca_dso = dlopen(LIBICA_SHARED_LIB, RTLD_NOW);
     if (ibmca_dso == NULL) {
         TRACE_ERROR("%s: dlopen(%s) failed\n", __func__, LIBICA_SHARED_LIB);
-        return 0;
+        return CKR_FUNCTION_FAILED;
     }
 
+#ifndef NO_EC
     /* Try to resolve all needed functions for ecc support */
-    if (BIND(ibmca_dso, ica_ec_key_new)
-        && BIND(ibmca_dso, ica_ec_key_init)
-        && BIND(ibmca_dso, ica_ec_key_generate)
-        && BIND(ibmca_dso, ica_ecdh_derive_secret)
-        && BIND(ibmca_dso, ica_ecdsa_sign)
-        && BIND(ibmca_dso, ica_ecdsa_verify)
-        && BIND(ibmca_dso, ica_ec_key_get_public_key)
-        && BIND(ibmca_dso, ica_ec_key_get_private_key)
-        && BIND(ibmca_dso, ica_ec_key_free)) {
-        return 1;
-    }
-
-    return 0;
-}
+    BIND(ibmca_dso, ica_ec_key_new);
+    BIND(ibmca_dso, ica_ec_key_init);
+    BIND(ibmca_dso, ica_ec_key_generate);
+    BIND(ibmca_dso, ica_ecdh_derive_secret);
+    BIND(ibmca_dso, ica_ecdsa_sign);
+    BIND(ibmca_dso, ica_ecdsa_verify);
+    BIND(ibmca_dso, ica_ec_key_get_public_key);
+    BIND(ibmca_dso, ica_ec_key_get_private_key);
+    BIND(ibmca_dso, ica_ec_key_free);
 #endif
+
+#ifdef SHA512_224
+    BIND(ibmca_dso, ica_sha512_224);
+#endif
+#ifdef SHA512_256
+    BIND(ibmca_dso, ica_sha512_256);
+#endif
+
+    return CKR_OK;
+}
 
 CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
                          CK_ULONG bytes)
@@ -171,6 +214,10 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
     CK_ULONG rc = CKR_OK;
+
+    rc = load_libica();
+    if (rc != CKR_OK)
+        return rc;
 
 #ifndef NO_EC
     ica_ec_support_available = ecc_support_in_libica_available();
@@ -560,6 +607,12 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         break;
     case CKM_SHA384:
     case CKM_SHA512:
+#ifdef SHA512_224
+    case CKM_SHA512_224:
+#endif
+#ifdef SHA512_256
+    case CKM_SHA512_256:
+#endif
         devctxsize = sizeof(sha512_context_t);
         break;
     default:
@@ -602,6 +655,18 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         sc->hash_len = SHA512_HASH_SIZE;
         sc->hash_blksize = SHA512_BLOCK_SIZE;
         break;
+#ifdef SHA512_224
+    case CKM_SHA512_224:
+        sc->hash_len = SHA224_HASH_SIZE;
+        sc->hash_blksize = SHA512_BLOCK_SIZE;
+        break;
+#endif
+#ifdef SHA512_256
+    case CKM_SHA512_256:
+        sc->hash_len = SHA256_HASH_SIZE;
+        sc->hash_blksize = SHA512_BLOCK_SIZE;
+        break;
+#endif
     }
 
     return CKR_OK;
@@ -666,6 +731,32 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                             in_data, ica_sha5_ctx, sc->hash);
             break;
         }
+#ifdef SHA512_224
+    case CKM_SHA512_224:
+        {
+            sha512_context_t *ica_sha5_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_224 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha512_224(sc->message_part, in_data_len,
+                                  in_data, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA512_256
+    case CKM_SHA512_256:
+        {
+            sha512_context_t *ica_sha5_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_256 == NULL)
+                 return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha512_256(sc->message_part, in_data_len,
+                                  in_data, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -745,6 +836,42 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
                              ica_sha_ctx, sc->hash);
             break;
         }
+#ifdef SHA512_224
+    case CKM_SHA512_224:
+        {
+            sha512_context_t *ica_sha_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_224 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLengthLow == 0 &&
+                ica_sha_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha512_224(sc->message_part, data_len, data,
+                                   ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA512_256
+    case CKM_SHA512_256:
+        {
+            sha512_context_t *ica_sha_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_256 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLengthLow == 0 &&
+                ica_sha_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha512_256(sc->message_part, data_len, data,
+                                   ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -913,6 +1040,44 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                             sc->tail, ica_sha5_ctx, sc->hash);
             break;
         }
+#ifdef SHA512_224
+    case CKM_SHA512_224:
+        {
+            sha512_context_t *ica_sha5_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_224 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha5_ctx->runningLengthLow == 0
+                && ica_sha5_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha512_224(sc->message_part, sc->tail_len,
+                                  sc->tail, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA512_256
+    case CKM_SHA512_256:
+        {
+            sha512_context_t *ica_sha5_ctx = (sha512_context_t *) dev_ctx;
+
+            if (p_ica_sha512_256 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha5_ctx->runningLengthLow == 0
+                && ica_sha5_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha512_256(sc->message_part, sc->tail_len,
+                                  sc->tail, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -3144,6 +3309,12 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {05, CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
     {05, CKM_SHA512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {05, CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+#ifdef SHA512_224
+    {95, CKM_SHA512_224, {0, 0, CKF_HW|CKF_DIGEST}},
+#endif
+#ifdef SHA512_256
+    {96, CKM_SHA512_256, {0, 0, CKF_HW|CKF_DIGEST}},
+#endif
 #if !(NOMD5)
     {53, CKM_MD5, {0, 0, CKF_HW | CKF_DIGEST}},
     {54, CKM_MD5_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -3291,6 +3462,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {0, {0, 0, 0}},
     {0, {0, 0, 0}},
     {0, {0, 0, 0}},
+    {0, {0, 0, 0}},
+    {0, {0 ,0, 0}}, 
     {0, {0, 0, 0}}
 };
 
