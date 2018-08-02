@@ -206,12 +206,14 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t * tokdata,
 	/* If token doesn't have a specific key size that means that it uses a
 	 * clear key.
 	 */
-	if (token_specific.token_keysize == 0) {
+    if (token_specific.token_keysize == 0 &&
+        token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
 		return encrypt_data(tokdata, key, keylen, iv, clear, clear_len,
 				    cipher, p_cipher_len);
 	}
 
-	/* Fall back to a software alternative if key is secure. */
+    /* Fall back to a software alternative if key is secure, or
+     * if token's data store encryption algorithm is 3DES_CBC */
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -322,12 +324,14 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
 	/* If token doesn't have a specific key size that means that it uses a
 	 * clear key.
 	 */
-	if (token_specific.token_keysize == 0) {
+    if (token_specific.token_keysize == 0 &&
+        token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
 		return decrypt_data(tokdata, key, keylen, iv, cipher,
 				    cipher_len, clear, p_clear_len);
 	}
 
-	/* Fall back to a software alternative if key is secure. */
+    /* Fall back to a software alternative if key is secure, or
+     * if token's data store encryption algorithm is 3DES_CBC */
 	initial_vector = duplicate_initial_vector(iv);
 	if (initial_vector == NULL) {
 		TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
