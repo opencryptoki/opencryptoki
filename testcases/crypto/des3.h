@@ -850,7 +850,16 @@ static struct des3_test_vector des3_ofb64_tv[] = {
 	}
 };
 
+/*
+ * All above test vectors use keys that are not FIPS compliant.
+ * This will cause the testcase to fail when the token performs FIPS key
+ * checks.
+ */
+#ifdef NON_FIPS_COMPLIANT_TEST_VECTORS
 # define NUM_OF_PUBLISHED_TESTSUITES	5
+#else
+# define NUM_OF_PUBLISHED_TESTSUITES    0
+#endif
 
 struct published_test_suite_info published_test_suites[] = {
 	{
