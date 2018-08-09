@@ -289,6 +289,17 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
+    /*
+     * If token has a specific key size that means that it uses secure keys.
+     * Secure keys can not be digested by digesting the CKA_VALUE attribute.
+    */
+    if (token_specific.token_keysize > 0) {
+        TRACE_ERROR("%s because its a secure key token\n",
+                    ock_err(CKR_FUNCTION_NOT_SUPPORTED));
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        goto out;
+    }
+
     rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
