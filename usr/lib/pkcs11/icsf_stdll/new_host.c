@@ -298,7 +298,9 @@ CK_RV SC_GetTokenInfo(STDLL_TokData_t * tokdata, CK_SLOT_ID sid,
 
     /* Set the time */
     now = time((time_t *) NULL);
-    strftime((char *) pInfo->utcTime, 16, "%X", localtime(&now));
+    strftime((char *) pInfo->utcTime, 16, "%Y%m%d%H%M%S", localtime(&now));
+    pInfo->utcTime[14] = '0';
+    pInfo->utcTime[15] = '0';
 
 done:
     TRACE_INFO("C_GetTokenInfo: rc = 0x%08lx\n", rc);
