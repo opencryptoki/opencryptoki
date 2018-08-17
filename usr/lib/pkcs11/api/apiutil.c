@@ -623,12 +623,15 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 // representation
 void CK_Info_From_Internal(CK_INFO_PTR dest, CK_INFO_PTR_64 src)
 {
-    memset(dest, 0, sizeof(*dest));
-
     dest->cryptokiVersion = src->cryptokiVersion;
-    memset(dest->manufacturerID, '\0', 32);
-    memcpy(dest->manufacturerID, src->manufacturerID, 32);
+
+    memcpy(dest->manufacturerID, src->manufacturerID,
+           sizeof(dest->manufacturerID));
+
     dest->flags = src->flags;
-    memcpy(dest->libraryDescription, src->libraryDescription, 32);
+
+    memcpy(dest->libraryDescription, src->libraryDescription,
+           sizeof(dest->libraryDescription));
+
     dest->libraryVersion = src->libraryVersion;
 }

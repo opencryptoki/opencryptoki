@@ -176,12 +176,18 @@ void
 set_defaults(void)
 {
 	/* set some defaults if user hasn't set these. */
-	if (!sinfo_struct.pk_slot.slotDescription[0])
+	if (!sinfo_struct.pk_slot.slotDescription[0]) {
+		memset(&sinfo_struct.pk_slot.slotDescription[0], ' ',
+		       sizeof(sinfo_struct.pk_slot.slotDescription));
 		memcpy(&sinfo_struct.pk_slot.slotDescription[0],
 			DEF_SLOTDESC, strlen(DEF_SLOTDESC));
-	if (!sinfo_struct.pk_slot.manufacturerID[0])
+	}
+	if (!sinfo_struct.pk_slot.manufacturerID[0]) {
+		memset(&sinfo_struct.pk_slot.manufacturerID[0], ' ',
+		       sizeof(sinfo_struct.pk_slot.manufacturerID));
 		memcpy(&sinfo_struct.pk_slot.manufacturerID[0],
 			DEF_MANUFID, strlen(DEF_MANUFID));
+	}
 }
 
 int

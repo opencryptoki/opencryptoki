@@ -351,10 +351,14 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     }
 
     /* Copy general info */
-    strcpy(tokdata->nv_token_data->token_info.label, config.name);
-    strcpy(tokdata->nv_token_data->token_info.manufacturerID, config.manuf);
-    strcpy(tokdata->nv_token_data->token_info.model, config.model);
-    strcpy(tokdata->nv_token_data->token_info.serialNumber, config.serial);
+    memcpy(tokdata->nv_token_data->token_info.label, config.name,
+           strlen(config.name));
+    memcpy(tokdata->nv_token_data->token_info.manufacturerID, config.manuf,
+           strlen(config.manuf));
+    memcpy(tokdata->nv_token_data->token_info.model, config.model,
+           strlen(config.model));
+    memcpy(tokdata->nv_token_data->token_info.serialNumber, config.serial,
+           strlen(config.serial));
 
     /* Copy ICSF specific info */
     strcpy(slot_data[slot_id]->uri, config.uri);

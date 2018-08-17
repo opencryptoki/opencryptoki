@@ -2257,9 +2257,11 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 #else
 
     memcpy((char *) &(pInfo->slotDescription[0]),
-           (char *) &(sinfp->pk_slot.slotDescription[0]), 64);
+           (char *) &(sinfp->pk_slot.slotDescription[0]),
+           sizeof(pInfo->slotDescription));
     memcpy((char *) &(pInfo->manufacturerID[0]),
-           (char *) &(sinfp->pk_slot.manufacturerID[0]), 32);
+           (char *) &(sinfp->pk_slot.manufacturerID[0]),
+           sizeof(pInfo->manufacturerID));
 
     pInfo->flags = sinfp->pk_slot.flags;
     pInfo->hardwareVersion = sinfp->pk_slot.hardwareVersion;
