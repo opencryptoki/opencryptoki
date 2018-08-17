@@ -449,12 +449,13 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
 {
     CK_TOKEN_INFO_32 *token_info = &nv_token_data->token_info;
 
+    memset(token_info->label, ' ', sizeof(token_info->label));
     memset(token_info->manufacturerID, ' ', sizeof(token_info->manufacturerID));
     memset(token_info->model, ' ', sizeof(token_info->model));
     memset(token_info->serialNumber, ' ', sizeof(token_info->serialNumber));
+    memset(token_info->utcTime, ' ', sizeof(token_info->utcTime));
 
     memcpy(token_info->label, label, strlen((char *) label));
-
     memcpy(token_info->manufacturerID, manuf, strlen((char *) manuf));
     memcpy(token_info->model, model, strlen((char *) model));
 
@@ -495,8 +496,6 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     token_info->hardwareVersion.minor = 0;
     token_info->firmwareVersion.major = 1;
     token_info->firmwareVersion.minor = 0;
-
-    memset(token_info->utcTime, ' ', sizeof(token_info->utcTime));
 }
 
 //
