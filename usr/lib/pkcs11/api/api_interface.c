@@ -2411,41 +2411,44 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
         }
     }
 
-    *pulCount = count;
     // If only the count is wanted then we set the value and exit
     if (pSlotList == NULL) {
+        *pulCount = count;
         return CKR_OK;
-    } else {
-        // Verify that the buffer passed is large enough
-        if (*pulCount < count) {
-            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-            return CKR_BUFFER_TOO_SMALL;
-        }
-        // Walk through the slot manager information and copy in the
-        // slot id to the list of slot indexes.
-        //
-        //     This is incorrectly going to assume that the slots are
-        //     sequentialy allocated.  While most likely we should be robust
-        //     and handle it.
-        //     Count should correct based on the first loop.
-        //
-        for (sindx = 0, index = 0;
-             (index < NUMBER_SLOTS_MANAGED) && (sindx < count); index++) {
-            if (sinfp[index].present == TRUE && slot_loaded[index] == TRUE) {
-                if (tokenPresent) {
-                    if (sinfp[index].pk_slot.flags & CKF_TOKEN_PRESENT) {
-                        pSlotList[sindx] = sinfp[index].slot_number;
-                        sindx++;        // only increment when we have used it.
-                    }
-                } else {
-                    pSlotList[sindx] = sinfp[index].slot_number;
-                    sindx++;    // only increment when we have used it.
-                }
-            }
-
-        }
     }
 
+    // Verify that the buffer passed is large enough
+    if (*pulCount < count) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        *pulCount = count;
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    *pulCount = count;
+
+    // Walk through the slot manager information and copy in the
+    // slot id to the list of slot indexes.
+    //
+    //     This is incorrectly going to assume that the slots are
+    //     sequentialy allocated.  While most likely we should be robust
+    //     and handle it.
+    //     Count should correct based on the first loop.
+    //
+    for (sindx = 0, index = 0;
+         (index < NUMBER_SLOTS_MANAGED) && (sindx < count); index++) {
+        if (sinfp[index].present == TRUE && slot_loaded[index] == TRUE) {
+            if (tokenPresent) {
+                if (sinfp[index].pk_slot.flags & CKF_TOKEN_PRESENT) {
+                    pSlotList[sindx] = sinfp[index].slot_number;
+                    sindx++;        // only increment when we have used it.
+                }
+            } else {
+                pSlotList[sindx] = sinfp[index].slot_number;
+                sindx++;    // only increment when we have used it.
+            }
+        }
+
+    }
     return CKR_OK;
 }                               // end of C_GetSlotList
 
