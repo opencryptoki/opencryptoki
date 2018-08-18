@@ -112,14 +112,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("object_create_skel failed.\n");
         return rc;
     }
-    // for key objects, we need be careful...
-    //
-    // note:  I would think that keys loaded with C_CreateObject should
-    //        have their CKA_NEVER_EXTRACTABLE == FALSE and
-    //        CKA_ALWAYS_SENSITIVE == FALSE since the key data was presumably
-    //        stored in the clear prior to the call to C_CreateObject.  The
-    //        PKCS #11 spec doesn't impose this restriction however.
-    //
+
     if (class == CKO_PRIVATE_KEY || class == CKO_SECRET_KEY) {
         rc = template_attribute_find(o->template, CKA_SENSITIVE, &attr);
         if (rc == FALSE) {
@@ -128,8 +121,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
             goto error;
         }
 
-        flag = *(CK_BBOOL *) attr->pValue;
-
+        flag = CK_FALSE;
         rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BYTE),
                              &sensitive);
         if (rc != CKR_OK) {
@@ -144,9 +136,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
             goto error;
         }
 
-        flag = *(CK_BBOOL *) attr->pValue;
-        flag = (~flag) & 0x1;
-
+        flag = CK_FALSE;
         rc = build_attribute(CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BYTE),
                              &extractable);
         if (rc != CKR_OK) {
