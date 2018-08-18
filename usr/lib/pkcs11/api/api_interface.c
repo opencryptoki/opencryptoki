@@ -3004,6 +3004,12 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
 
     TRACE_INFO("C_OpenSession  %lu %lx %p %p %p\n", slotID, flags,
                pApplication, Notify, phSession);
+
+    if (!(flags & CKF_SERIAL_SESSION)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_PARALLEL_NOT_SUPPORTED));
+        return CKR_SESSION_PARALLEL_NOT_SUPPORTED;
+    }
+
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
