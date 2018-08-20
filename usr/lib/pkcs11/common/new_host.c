@@ -3001,14 +3001,18 @@ done:
     int i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
         }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
 #endif
 
@@ -3086,24 +3090,32 @@ done:
 
     TRACE_DEBUG("Public Template:\n");
     attr = pPublicKeyTemplate;
-    for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                             ptr[0], ptr[1], ptr[2], ptr[3]);
+        }
+    } else {
+        TRACE_DEBUG("No Attributes\n");
     }
 
     TRACE_DEBUG("Private Template:\n");
     attr = pPublicKeyTemplate;
-    for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+        }
+    } else {
+        TRACE_DEBUG("No Attributes\n");
     }
 #endif
 
@@ -3225,14 +3237,18 @@ done:
     int i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type:  0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
-
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
+        }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
 #endif
 
@@ -3317,18 +3333,19 @@ done:
     }
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        ptr = (CK_BYTE *) attr->pValue;
-
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-
-        if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
-
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
+        }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
-
 #endif                          /* DEBUG */
 
     return rc;
