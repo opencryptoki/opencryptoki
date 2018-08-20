@@ -3473,14 +3473,7 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    CK_ULONG rc = CKR_OK;
-
-    rc = ica_specific_get_mechanism_list(pMechanismList, pulCount);
-    if (rc != CKR_OK) {
-        return CKR_FUNCTION_FAILED;
-    }
-
-    return rc;
+    return ica_specific_get_mechanism_list(pMechanismList, pulCount);
 }
 
 CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
