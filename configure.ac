@@ -488,6 +488,9 @@ if test "x$enable_ep11tok" = "xyes"; then
 		AC_MSG_ERROR([ep11 token build requested but ep11 development files not found])
 		enable_ep11=no
 	fi
+	AC_CHECK_HEADER([ica_api.h], [], [
+		AC_MSG_ERROR([ep11 token build requested but Libica headers couldn't be found])
+	])
 fi
 if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
         enable_ep11tok=yes
