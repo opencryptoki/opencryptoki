@@ -330,7 +330,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
 
     CK_RV rc;
     CK_ULONG i;
-    CK_BBOOL true = TRUE;
+    CK_BBOOL cktrue = TRUE;
     CK_ULONG check_types_pub[] = { CKA_VERIFY, CKA_ENCRYPT, CKA_WRAP };
     CK_ULONG check_types_priv[] = { CKA_SIGN, CKA_DECRYPT, CKA_UNWRAP };
     CK_ULONG check_types_sec[] =
@@ -343,7 +343,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
         { CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT, CKA_SENSITIVE };
     CK_ULONG check_types_derive[] = { CKA_DERIVE };
     CK_ULONG *check_types = NULL;
-    CK_BBOOL *check_values[] = { &true, &true, &true, &true, &true };
+    CK_BBOOL *check_values[] = { &cktrue, &cktrue, &cktrue, &cktrue, &cktrue };
     CK_ULONG attr_cnt = 0;
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
@@ -6175,7 +6175,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
     CK_BYTE subject[] = "EP11 Session Object";
     pid_t pid;
     CK_DATE date;
-    CK_BYTE true = TRUE;
+    CK_BYTE cktrue = TRUE;
     time_t t;
     struct tm *tm;
     CK_CHAR tmp[40];
@@ -6183,11 +6183,11 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE attrs[] = {
         {CKA_CLASS, &class, sizeof(class)}
         ,
-        {CKA_TOKEN, &true, sizeof(true)}
+        {CKA_TOKEN, &cktrue, sizeof(cktrue)}
         ,
-        {CKA_PRIVATE, &true, sizeof(true)}
+        {CKA_PRIVATE, &cktrue, sizeof(cktrue)}
         ,
-        {CKA_HIDDEN, &true, sizeof(true)}
+        {CKA_HIDDEN, &cktrue, sizeof(cktrue)}
         ,
         {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
         ,
@@ -6234,15 +6234,15 @@ static CK_RV get_vhsmpin(STDLL_TokData_t * tokdata,
     CK_ULONG objs_found = 0;
     CK_OBJECT_CLASS class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE true = TRUE;
+    CK_BYTE cktrue = TRUE;
     CK_ATTRIBUTE vhsmpin_template[] = {
         {CKA_CLASS, &class, sizeof(class)}
         ,
-        {CKA_TOKEN, &true, sizeof(true)}
+        {CKA_TOKEN, &cktrue, sizeof(cktrue)}
         ,
-        {CKA_PRIVATE, &true, sizeof(true)}
+        {CKA_PRIVATE, &cktrue, sizeof(cktrue)}
         ,
-        {CKA_HIDDEN, &true, sizeof(true)}
+        {CKA_HIDDEN, &cktrue, sizeof(cktrue)}
         ,
         {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
         ,
