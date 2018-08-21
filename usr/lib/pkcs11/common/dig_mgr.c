@@ -172,6 +172,12 @@ CK_RV digest_mgr_digest(STDLL_TokData_t *tokdata,
         ctx->multi_init = TRUE;
     }
 
+    if (!in_data || !out_data_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto out;
+    }
+
     // if the caller just wants the encrypted length, there is no reason to
     // specify the input data.  I just need the data length
     //
@@ -249,7 +255,14 @@ CK_RV digest_mgr_digest_update(STDLL_TokData_t *tokdata,
     }
     if (ctx->multi == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
-        return CKR_OPERATION_ACTIVE;
+        rc = CKR_OPERATION_ACTIVE;
+        goto out;
+    }
+
+    if (!data && data_len != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto out;
     }
 
     switch (ctx->mech.mechanism) {
@@ -275,6 +288,7 @@ CK_RV digest_mgr_digest_update(STDLL_TokData_t *tokdata,
         rc = CKR_MECHANISM_INVALID;
     }
 
+out:
     if (rc != CKR_OK) {
         digest_mgr_cleanup(ctx);
         // "A call to C_DigestUpdate which results in an error
@@ -382,7 +396,14 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
     }
     if (ctx->multi == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
-        return CKR_OPERATION_ACTIVE;
+        rc = CKR_OPERATION_ACTIVE;
+        goto out;
+    }
+
+    if (!hash_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto out;
     }
 
     switch (ctx->mech.mechanism) {
@@ -408,6 +429,7 @@ CK_RV digest_mgr_digest_final(STDLL_TokData_t *tokdata,
         rc = CKR_MECHANISM_INVALID;     // shouldn't happen
     }
 
+out:
     if (!((rc == CKR_BUFFER_TOO_SMALL) ||
           (rc == CKR_OK && length_only == TRUE))) {
         // "A call to C_DigestFinal always terminates the active digest
