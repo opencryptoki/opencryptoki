@@ -799,10 +799,6 @@ CK_RV C_Digest(CK_SESSION_HANDLE hSession,
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
-    // Null data for digest is bad
-    if (!pData || !pulDigestLen)
-        return CKR_ARGUMENTS_BAD;
-
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
@@ -900,10 +896,6 @@ CK_RV C_DigestFinal(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pulDigestLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);

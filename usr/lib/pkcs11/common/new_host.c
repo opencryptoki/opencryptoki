@@ -2107,15 +2107,6 @@ CK_RV SC_Digest(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    /* Netscape has been known to pass a null pData to DigestUpdate
-     * but never for Digest.  It doesn't really make sense to allow it here
-     */
-    if (!pData || !pulDigestLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2154,12 +2145,6 @@ CK_RV SC_DigestUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
-    }
-
-    if (!pPart && ulPartLen != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -2239,12 +2224,6 @@ CK_RV SC_DigestFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
-    }
-
-    if (!pulDigestLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
