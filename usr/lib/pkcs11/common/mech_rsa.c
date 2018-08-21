@@ -141,11 +141,12 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
             return rc;
         }
         for (i = 2; i < (padding_len + 2); i++) {
-            if (out_data[i] == (CK_BYTE) 0) {
-                /* avoid zeros by explicitly making them all 0xff -
-                 * won't hurt entropy that bad, and it's better than
-                 * looping over rng_generate */
-                out_data[i] = (CK_BYTE) 0xff;
+            while (out_data[i] == (CK_BYTE) 0) {
+                rc = rng_generate(tokdata, &out_data[i], 1);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("rng_generate failed.\n");
+                    return rc;
+                }
             }
         }
         break;
