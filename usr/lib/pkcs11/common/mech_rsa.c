@@ -67,7 +67,7 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
     CK_ULONG padding_len, i;
     CK_RV rc = CKR_OK;
 
-    if (!in_data || !in_data_len || !out_data || !out_data_len) {
+    if (!in_data || !out_data || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
         return CKR_FUNCTION_FAILED;
     }
@@ -157,7 +157,8 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
     out_data[i] = (CK_BYTE) 0;
     i++;
 
-    memcpy(&out_data[i], in_data, in_data_len);
+    if (in_data_len)
+        memcpy(&out_data[i], in_data, in_data_len);
 
     return rc;
 }
