@@ -1647,16 +1647,16 @@ CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pulEncryptedDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (!pData || !pulEncryptedDataLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1675,8 +1675,10 @@ CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("encr_mgr_encrypt() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_Encrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
@@ -1700,16 +1702,16 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if ((!pPart && ulPartLen != 0) || !pulEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if ((!pPart && ulPartLen != 0) || !pulEncryptedPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1729,8 +1731,10 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("encr_mgr_encrypt_update() failed.\n");
 
 done:
-    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL)
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_EncryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
@@ -1773,16 +1777,16 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pulLastEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (!pulLastEncryptedPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1801,8 +1805,10 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_ERROR("encr_mgr_encrypt_final() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_EncryptFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);

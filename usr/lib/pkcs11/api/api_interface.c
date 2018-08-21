@@ -1116,10 +1116,6 @@ CK_RV C_Encrypt(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pData || !pulEncryptedDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -1167,11 +1163,7 @@ CK_RV C_EncryptFinal(CK_SESSION_HANDLE hSession,
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
-    // See comments for DecryptFinal
-    if (!pulLastEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
+
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -1272,10 +1264,6 @@ CK_RV C_EncryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pulEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
