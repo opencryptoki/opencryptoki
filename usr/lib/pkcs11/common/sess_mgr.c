@@ -439,19 +439,24 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
 {
     OP_STATE_DATA *op_data = NULL;
     CK_ULONG op_data_len = 0;
-    CK_ULONG offset;
+    CK_ULONG offset, active_ops;
 
     if (!sess) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
-    // ensure that at least one operation is active
-    //
+
     if (sess->find_active == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
         return CKR_STATE_UNSAVEABLE;
     }
+
+    // ensure that at least one operation is active
+    //
+    active_ops = 0;
+
     if (sess->encr_ctx.active == TRUE) {
+        active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
             return CKR_STATE_UNSAVEABLE;
@@ -490,6 +495,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->decr_ctx.active == TRUE) {
+        active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
             return CKR_STATE_UNSAVEABLE;
@@ -528,6 +534,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->digest_ctx.active == TRUE) {
+        active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
             return CKR_STATE_UNSAVEABLE;
@@ -566,6 +573,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->sign_ctx.active == TRUE) {
+        active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
             return CKR_STATE_UNSAVEABLE;
@@ -604,6 +612,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->verify_ctx.active == TRUE) {
+        active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
             return CKR_STATE_UNSAVEABLE;
@@ -641,8 +650,12 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
         }
     }
 
-    *data_len = op_data_len;
+    if (!active_ops) {
+        TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+        return CKR_OPERATION_NOT_INITIALIZED;
+    }
 
+    *data_len = op_data_len;
     return CKR_OK;
 }
 
