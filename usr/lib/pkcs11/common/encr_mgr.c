@@ -537,6 +537,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     ctx->mech.ulParameterLen = mech->ulParameterLen;
     ctx->mech.mechanism = mech->mechanism;
     ctx->mech.pParameter = ptr;
+    ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = TRUE;
 
@@ -554,6 +555,7 @@ CK_RV encr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
     ctx->key = 0;
     ctx->mech.ulParameterLen = 0;
     ctx->mech.mechanism = 0;
+    ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
     ctx->init_pending = FALSE;
@@ -592,6 +594,11 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = FALSE;
+        ctx->multi_init = TRUE;
+    }
+
     // if the caller just wants the encrypted length, there is no reason to
     // specify the input data.  I just need the data length
     //
@@ -749,7 +756,14 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
-    ctx->multi = TRUE;
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = TRUE;
+        ctx->multi_init = TRUE;
+    }
+    if (ctx->multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
+    }
 
     switch (ctx->mech.mechanism) {
     case CKM_CDMF_ECB:
@@ -874,6 +888,14 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
     if (ctx->active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
+    }
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = TRUE;
+        ctx->multi_init = TRUE;
+    }
+    if (ctx->multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
     }
     switch (ctx->mech.mechanism) {
     case CKM_CDMF_ECB:
