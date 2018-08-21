@@ -61,6 +61,12 @@ CK_RV md5_hash(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < MD5_HASH_SIZE) {
+        *out_data_len = MD5_HASH_SIZE;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     rc = md5_hash_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("md5_hash_update failed\n");
@@ -106,6 +112,11 @@ CK_RV md5_hash_final(STDLL_TokData_t *tokdata,
     if (length_only == TRUE) {
         *out_data_len = MD5_HASH_SIZE;
         return CKR_OK;
+    }
+    if (*out_data_len < MD5_HASH_SIZE) {
+        *out_data_len = MD5_HASH_SIZE;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
     }
 
     rc = ckm_md5_final(tokdata, (MD5_CONTEXT *) ctx->context,

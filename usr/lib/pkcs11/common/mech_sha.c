@@ -453,6 +453,7 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
     }
 
     if (*out_data_len < hsize) {
+        *out_data_len = hsize;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -533,6 +534,7 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     if (*out_data_len < hsize) {
+        *out_data_len = hsize;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         return CKR_BUFFER_TOO_SMALL;
     }
