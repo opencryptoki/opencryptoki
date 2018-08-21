@@ -91,6 +91,12 @@ CK_RV md2_hash(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
+    if (*out_data_len < MD2_HASH_SIZE) {
+        *out_data_len = MD2_HASH_SIZE;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
     rc = md2_hash_update(tokdata, sess, ctx, in_data, in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("md2_hash_update failed.\n");
@@ -135,6 +141,12 @@ CK_RV md2_hash_final(STDLL_TokData_t *tokdata,
     if (length_only == TRUE) {
         *out_data_len = MD2_HASH_SIZE;
         return CKR_OK;
+    }
+
+    if (*out_data_len < MD2_HASH_SIZE) {
+        *out_data_len = MD2_HASH_SIZE;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
     }
 
     rc = ckm_md2_final(tokdata, (MD2_CONTEXT *) ctx->context,
