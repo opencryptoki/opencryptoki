@@ -358,13 +358,6 @@ CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
-    // Null encrypted data is invalid, null pData buffer is invalid
-    // as is null location to put the response into.
-    if (!pEncryptedData || !pulDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
@@ -474,16 +467,6 @@ CK_RV C_DecryptFinal(CK_SESSION_HANDLE hSession,
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
-    // This may have to go to the STDLL for validation
-    // It is acceptable to have a Null pointer for the data since
-    // it is trying to get the length of the last part....
-    // The spec is unclear if a second call to Final is needed
-    // if there is no data in the last part.
-    if (!pulLastPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
@@ -592,12 +575,6 @@ CK_RV C_DecryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_SESSION_HANDLE_INVALID;
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
-
-    // May have to let these go through and let the STDLL handle them
-    if (!pulPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
 
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {

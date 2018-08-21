@@ -1887,16 +1887,16 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pEncryptedData || !pulDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (!pEncryptedData || !pulDataLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1916,8 +1916,10 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("decr_mgr_decrypt() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_Decrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -1941,16 +1943,16 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if ((!pEncryptedPart && ulEncryptedPartLen != 0) || !pulPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if ((!pEncryptedPart && ulEncryptedPartLen != 0) || !pulPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1970,8 +1972,10 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
 done:
-    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL)
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_DecryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -1994,16 +1998,16 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pulLastPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (!pulLastPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -2022,8 +2026,10 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("decr_mgr_decrypt_final() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_DecryptFinal: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
