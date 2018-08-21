@@ -36,6 +36,8 @@ typedef struct _DIGEST_CONTEXT {
     CK_ULONG context_len;
     CK_BBOOL multi;
     CK_BBOOL active;
+    CK_BBOOL multi_init;        // multi field is initialized
+                                // on first call *after* init
 } DIGEST_CONTEXT;
 
 typedef struct _SIGN_VERIFY_CONTEXT {
