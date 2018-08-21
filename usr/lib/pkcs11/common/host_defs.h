@@ -26,6 +26,8 @@ typedef struct _ENCR_DECR_CONTEXT {
     CK_BBOOL multi;
     CK_BBOOL active;
     CK_BBOOL init_pending;      // indicate init request pending
+    CK_BBOOL multi_init;        // multi field is initialized
+                                // on first call *after* init
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {
