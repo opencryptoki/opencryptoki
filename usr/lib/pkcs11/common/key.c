@@ -164,6 +164,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *edate_attr = NULL;
     CK_ATTRIBUTE *derive_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
+    CK_ATTRIBUTE *keygenmech_attr = NULL;
 
     // satisfy the compiler
     //
@@ -177,8 +178,11 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     local_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    keygenmech_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
+                                              + sizeof(CK_MECHANISM_TYPE));
 
-    if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr) {
+    if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr
+        || !keygenmech_attr) {
         if (id_attr)
             free(id_attr);
         if (sdate_attr)
@@ -188,6 +192,8 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         if (derive_attr)
             free(derive_attr);
         if (local_attr)
+            free(local_attr);
+        if (keygenmech_attr)
             free(local_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -215,12 +221,17 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     local_attr->pValue = (CK_BYTE *) local_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) local_attr->pValue = FALSE;
 
+    keygenmech_attr->type = CKA_KEY_GEN_MECHANISM;
+    keygenmech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
+    keygenmech_attr->pValue = (CK_BYTE *) keygenmech_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_MECHANISM_TYPE *) keygenmech_attr->pValue = CK_UNAVAILABLE_INFORMATION;
+
     template_update_attribute(tmpl, id_attr);
     template_update_attribute(tmpl, sdate_attr);
     template_update_attribute(tmpl, edate_attr);
     template_update_attribute(tmpl, derive_attr);
     template_update_attribute(tmpl, local_attr);
-
+    template_update_attribute(tmpl, keygenmech_attr);
     return CKR_OK;
 }
 
