@@ -326,9 +326,6 @@ int main(int argc, char *argv[], char *envp[])
                GetDebugLevel(), DEBUG_NONE, DEBUG_LEVEL0, DEBUG_LEVEL1);
     }
 
-    /* Save our startup directory */
-    SaveStartupDirectory(argv[0]);
-
     ret = load_and_parse(OCK_CONFIG);
     if (ret != 0) {
         ErrLog("Failed to read config file.\n");

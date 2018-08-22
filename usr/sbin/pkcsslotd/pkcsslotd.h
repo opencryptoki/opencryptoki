@@ -69,8 +69,6 @@ extern Slot_Mgr_Socket_t socketData;
  ***********************/
 
 BOOL IsDaemon(void);
-BOOL GetStartDirectory(char *Buffer, u_int32 BufSize);
-BOOL SaveStartupDirectory(char *Arg0);
 BOOL StopGCThread(void *Ptr);
 BOOL StartGCThread(Slot_Mgr_Shr_t *MemPtr);
 BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr);
