@@ -182,7 +182,8 @@ CK_RV do_SignDSA(void)
     }
     // now, corrupt the signature and try to re-verify.
     //
-    memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV", 26);
+    memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV",
+           strlen("ABCDEFGHIJKLMNOPQRSTUV"));
 
     rc = funcs->C_VerifyInit(session, &mech, publ_key);
     if (rc != CKR_OK) {
