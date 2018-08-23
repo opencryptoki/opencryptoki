@@ -187,8 +187,9 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         }
     }
     // now create userdir/TOK_OBJ if it doesn't exist
-    strncat(path_buf, "/", 1);
-    strncat(path_buf, PK_LITE_OBJ_DIR, strlen(PK_LITE_OBJ_DIR));
+    strncat(path_buf, "/", sizeof(path_buf) - (strlen(path_buf) + 1));
+    strncat(path_buf, PK_LITE_OBJ_DIR,
+            sizeof(path_buf) - (strlen(PK_LITE_OBJ_DIR) + 1));
     if (stat(path_buf, &statbuf) < 0) {
         if (mkdir(path_buf, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
             TRACE_ERROR("mkdir(%s): %s\n", path_buf, strerror(errno));
@@ -3359,8 +3360,11 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
 
 int token_specific_creatlock(void)
 {
-    CK_BYTE lockfile[PATH_MAX];
-    CK_BYTE lockdir[PATH_MAX];
+    CK_BYTE lockfile[PATH_MAX + (sizeof(LOCKDIR_PATH) - 1)
+                     + 2 * (sizeof(SUB_DIR) - 1)
+                     + (sizeof("///LCK..") - 1) + 1];
+    CK_BYTE lockdir[(sizeof(LOCKDIR_PATH) - 1) + (sizeof(SUB_DIR) - 1)
+                    + (sizeof("/") - 1) + 1];
     struct passwd *pw = NULL;
     struct stat statbuf;
     mode_t mode = (S_IRUSR | S_IWUSR | S_IXUSR);
@@ -3372,6 +3376,10 @@ int token_specific_creatlock(void)
     pw = getpwuid(getuid());
     if (pw == NULL) {
         OCK_SYSLOG(LOG_ERR, "getpwuid(): %s\n", strerror(errno));
+        return -1;
+    }
+    if (strlen(pw->pw_name) > PATH_MAX) {
+        OCK_SYSLOG(LOG_ERR, "Username(%s) too long\n", pw->pw_name);
         return -1;
     }
 
@@ -3429,7 +3437,7 @@ int token_specific_creatlock(void)
     }
 
     /* create user lock file */
-    memset(lockfile, 0, PATH_MAX);
+    memset(lockfile, 0, sizeof(lockfile));
     sprintf(lockfile, "%s/%s/%s/LCK..%s", LOCKDIR_PATH, SUB_DIR, pw->pw_name,
             SUB_DIR);
 
