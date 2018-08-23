@@ -619,10 +619,10 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     CK_BBOOL flag;
     CK_RV rc;
     CK_ULONG BNLength;
-    RSA *rsa = RSA_new();
+    RSA *rsa = NULL;
     const BIGNUM *bignum;
-    CK_BYTE *ssl_ptr;
-    BIGNUM *e = BN_new();
+    CK_BYTE *ssl_ptr = NULL;
+    BIGNUM *e = NULL;
     unsigned long aux = 0;
 
     flag = template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr);
@@ -649,6 +649,14 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
+    e = BN_new();
+    rsa = RSA_new();
+
+    if (e == NULL || rsa == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
     if (publ_exp->ulValueLen == sizeof(CK_ULONG)) {
         BN_set_word(e, *(CK_ULONG *) publ_exp->pValue);
     } else {
@@ -662,12 +670,10 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 
     if (!RSA_generate_key_ex(rsa, mod_bits, e, NULL)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
     RSA_blinding_off(rsa);
-
-    if (e)
-        BN_free(e);
 
     // Now fill in the objects..
     //
@@ -693,6 +699,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(publ_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // Public Exponent
 #ifdef OLDER_OPENSSL
@@ -726,7 +733,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
-
+    ssl_ptr = NULL;
 
     // local = TRUE
     //
@@ -765,6 +772,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // Private Exponent
 #ifdef OLDER_OPENSSL
@@ -787,6 +795,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // prime #1: p
     //
@@ -810,6 +819,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // prime #2: q
     //
@@ -833,6 +843,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // exponent 1: d mod(p-1)
     //
@@ -856,6 +867,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // exponent 2: d mod(q-1)
     //
@@ -879,6 +891,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     // CRT coefficient:  q_inverse mod(p)
     //
@@ -902,6 +915,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     template_update_attribute(priv_tmpl, attr);
     free(ssl_ptr);
+    ssl_ptr = NULL;
 
     flag = TRUE;
     rc = build_attribute(CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr);
@@ -912,7 +926,12 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     template_update_attribute(priv_tmpl, attr);
 
 done:
-    RSA_free(rsa);
+    if (e != NULL)
+        BN_free(e);
+    if (rsa != NULL)
+        RSA_free(rsa);
+    if (ssl_ptr != NULL)
+        free(ssl_ptr);
 
     return rc;
 }
