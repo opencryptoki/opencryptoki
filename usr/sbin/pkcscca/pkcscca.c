@@ -854,7 +854,7 @@ int adjust_key_object_attributes(unsigned char *data, unsigned long data_len,
 {
     int rc;
     OBJECT *obj = NULL;
-    CK_ULONG class, subclass;
+    CK_ULONG class, subclass = 0;
 
     *new_data = NULL;
     *new_data_len = 0;
