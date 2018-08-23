@@ -981,7 +981,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     // corrupt the signature and re-verify
-    memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV", 26);
+    memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV",
+           strlen("ABCDEFGHIJKLMNOPQRSTUV"));
 
     rc = funcs->C_VerifyInit(session, &mech2, publ_key);
     if (rc != CKR_OK) {
