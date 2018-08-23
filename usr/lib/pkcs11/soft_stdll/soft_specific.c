@@ -396,7 +396,6 @@ void *rsa_convert_public_key(OBJECT *key_obj)
     rsa = RSA_new();
     if (rsa == NULL)
         return NULL;
-    RSA_blinding_off(rsa);
 
     // Create and init BIGNUM structs to stick in the RSA struct
     bn_mod = BN_new();
@@ -492,8 +491,6 @@ void *rsa_convert_private_key(OBJECT *key_obj)
         RSA_meth_set_bn_mod_exp(meth, RSA_meth_get_bn_mod_exp(meth2));
 #endif
     }
-
-    RSA_blinding_off(rsa);
 
     bn_mod = BN_new();
     bn_pub_exp = BN_new();
@@ -673,7 +670,6 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
-    RSA_blinding_off(rsa);
 
     // Now fill in the objects..
     //
@@ -794,6 +790,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -818,6 +815,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -842,6 +840,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -866,6 +865,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -890,6 +890,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -914,6 +915,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto done;
     }
     template_update_attribute(priv_tmpl, attr);
+    OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -1037,7 +1039,7 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                           modulus_bytes, PKCS_BT_2);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_format_block failed\n");
-        return rc;
+        goto done;
     }
     // Do an RSA public encryption
     rc = os_specific_rsa_encrypt(clear, modulus_bytes, cipher, key_obj);
@@ -1049,6 +1051,8 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
     }
 
+done:
+    OPENSSL_cleanse(clear, sizeof(clear));
     return rc;
 }
 
@@ -1065,13 +1069,13 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     rc = os_specific_rsa_decrypt(in_data, modulus_bytes, out, key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-        return rc;
+        goto done;
     }
 
     rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_parse_block failed\n");
-        return rc;
+        goto done;
     }
 
     /*
@@ -1083,6 +1087,8 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
         rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
 
+done:
+    OPENSSL_cleanse(out, sizeof(out));
     return rc;
 }
 
@@ -1349,10 +1355,11 @@ CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
-    } else {
-        modulus_bytes = attr->ulValueLen;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
+
+    modulus_bytes = attr->ulValueLen;
 
     // prepad with zeros
     //
@@ -1367,6 +1374,8 @@ CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
     }
 
+done:
+    OPENSSL_cleanse(clear, sizeof(clear));
     return rc;
 }
 
@@ -1384,10 +1393,11 @@ CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
-    } else {
-        modulus_bytes = attr->ulValueLen;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
+
+    modulus_bytes = attr->ulValueLen;
 
     rc = os_specific_rsa_decrypt(in_data, modulus_bytes, out, key_obj);
     if (rc == CKR_OK) {
@@ -1397,6 +1407,8 @@ CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
     }
 
+done:
+    OPENSSL_cleanse(out, sizeof(out));
     return rc;
 }
 
@@ -1555,9 +1567,9 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
         return CKR_FUNCTION_FAILED;
-    } else {
-        modulus_bytes = attr->ulValueLen;
     }
+
+    modulus_bytes = attr->ulValueLen;
 
     /* pkcs1v2.2, section 7.1.1 Step 2:
      * EME-OAEP encoding.
@@ -1582,8 +1594,10 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     }
 
 done:
-    if (em_data)
+    if (em_data) {
+        OPENSSL_cleanse(em_data, modulus_bytes * sizeof(CK_BYTE));
         free(em_data);
+    }
 
     return rc;
 }
@@ -1619,9 +1633,9 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
         return CKR_FUNCTION_FAILED;
-    } else {
-        *out_data_len = attr->ulValueLen;
     }
+
+    *out_data_len = attr->ulValueLen;
 
     decr_data = (CK_BYTE *) malloc(in_data_len);
     if (decr_data == NULL) {
@@ -1640,8 +1654,10 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                          out_data_len, oaepParms->mgf, hash, hlen);
 
 error:
-    if (decr_data)
+    if (decr_data) {
+        OPENSSL_cleanse(decr_data, in_data_len);
         free(decr_data);
+    }
 
     return rc;
 }
