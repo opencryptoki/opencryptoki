@@ -52,11 +52,8 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
 {
     OBJECT *o = NULL;
     CK_ATTRIBUTE *attr = NULL;
-    CK_ATTRIBUTE *sensitive = NULL;
-    CK_ATTRIBUTE *extractable = NULL;
     CK_BBOOL class_given = FALSE;
     CK_BBOOL subclass_given = FALSE;
-    CK_BBOOL flag;
     CK_ULONG class = 0xFFFFFFFF, subclass = 0xFFFFFFFF;
     CK_RV rc;
     unsigned int i;
@@ -94,6 +91,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
     }
+
     // Return CKR_ATTRIBUTE_TYPE_INVALID when trying to create a
     // vendor-defined object.
     if (class >= CKO_VENDOR_DEFINED) {
@@ -113,53 +111,8 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    if (class == CKO_PRIVATE_KEY || class == CKO_SECRET_KEY) {
-        rc = template_attribute_find(o->template, CKA_SENSITIVE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("Failed to find CKA_SENSITIVE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto error;
-        }
-
-        flag = CK_FALSE;
-        rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BYTE),
-                             &sensitive);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed.\n");
-            goto error;
-        }
-
-        rc = template_attribute_find(o->template, CKA_EXTRACTABLE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("Failed to find CKA_EXTRACTABLE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto error;
-        }
-
-        flag = CK_FALSE;
-        rc = build_attribute(CKA_NEVER_EXTRACTABLE, &flag, sizeof(CK_BYTE),
-                             &extractable);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build attribute failed.\n");
-            goto error;
-        }
-        template_update_attribute(o->template, sensitive);
-        template_update_attribute(o->template, extractable);
-    }
-
     *obj = o;
-
     return CKR_OK;
-
-error:
-    if (sensitive)
-        free(sensitive);
-    if (extractable)
-        free(extractable);
-
-    object_free(o);
-
-    return rc;
 }
 
 
