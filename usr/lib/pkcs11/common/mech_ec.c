@@ -109,8 +109,8 @@ CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
      * (See EC Signatures in pkcs#11v2.20 and docs for CSNDDSG.)
      */
     for (i = 0; i < NUMEC; i++) {
-        if ((memcmp(attr->pValue, der_ec_supported[i].data,
-                    attr->ulValueLen) == 0)) {
+        if (!memcmp(attr->pValue, der_ec_supported[i].data,
+                    MIN(attr->ulValueLen, der_ec_supported[i].data_size))) {
             *size = der_ec_supported[i].len_bits;
             /* round up if necessary */
             if ((*size % 8) == 0)
