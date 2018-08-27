@@ -161,7 +161,7 @@ static void strunpad(char *dest, const char *orig, size_t len, int padding_char)
         if (orig[i - 1] != padding_char)
             break;
 
-    strncpy(dest, orig, i);
+    memcpy(dest, orig, i);
     dest[i] = '\0';
 }
 
