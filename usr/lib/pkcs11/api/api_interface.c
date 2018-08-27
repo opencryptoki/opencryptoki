@@ -1276,7 +1276,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 {
     API_Slot_t *sltp;
     CK_SLOT_ID slotID;
-    Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+    Slot_Mgr_Socket_t *shData;
     SLOT_INFO *sinfp;
 
     TRACE_INFO("C_Finalize\n");
@@ -1284,6 +1284,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    shData = &(Anchor->SocketDataP);
 
     if (pReserved != NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -1862,13 +1864,15 @@ CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 
 CK_RV C_GetInfo(CK_INFO_PTR pInfo)
 {
-    Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+    Slot_Mgr_Socket_t *shData;
 
     TRACE_INFO("C_GetInfo\n");
     if (!API_Initialized()) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    shData = &(Anchor->SocketDataP);
 
     if (!pInfo) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
