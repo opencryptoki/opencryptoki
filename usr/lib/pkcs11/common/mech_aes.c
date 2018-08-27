@@ -451,7 +451,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -530,7 +530,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -609,7 +609,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -696,7 +696,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
     total = context->len + in_data_len;
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -970,7 +970,7 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
     context = (AES_CONTEXT *) ctx->context;
     total = (context->len + in_data_len);
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1041,7 +1041,7 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
     context = (AES_CONTEXT *) ctx->context;
     total = (context->len + in_data_len);
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1492,7 +1492,7 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1664,7 +1664,7 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < AES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1840,7 +1840,7 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < cfb_len) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -2015,7 +2015,7 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < cfb_len) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }

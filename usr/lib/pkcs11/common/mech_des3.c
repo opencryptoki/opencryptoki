@@ -362,7 +362,7 @@ CK_RV des3_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -441,7 +441,7 @@ CK_RV des3_ecb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1171,7 +1171,7 @@ CK_RV des3_ofb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1340,7 +1340,7 @@ CK_RV des3_ofb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1513,7 +1513,7 @@ CK_RV des3_cfb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < cfb_len) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -1688,7 +1688,7 @@ CK_RV des3_cfb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < cfb_len) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }

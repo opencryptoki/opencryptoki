@@ -42,7 +42,8 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
     // a preceding 0x00 byte is stored before the actual data. The decode
     // function does the reverse and may skip this padding.
 
-    if ((length_only && (!data || *data & 0x80)) || (*data & 0x80))
+    if ((length_only && data_len && (!data || *data & 0x80))
+        || (data_len && data && *data & 0x80))
         padding = 1;
 
     // if data_len < 127 use short-form length id
@@ -72,14 +73,17 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
+
     if (data_len + padding < 128) {
         buf[0] = 0x02;
         buf[1] = data_len + padding;
         if (padding) {
             buf[2] = 0x00;
-            memcpy(&buf[3], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[3], data, data_len);
         } else {
-            memcpy(&buf[2], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[2], data, data_len);
         }
         *ber_int_len = len;
         *ber_int = buf;
@@ -92,9 +96,11 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
         buf[2] = data_len + padding;
         if (padding) {
             buf[3] = 0x00;
-            memcpy(&buf[4], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[4], data, data_len);
         } else {
-            memcpy(&buf[3], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[3], data, data_len);
         }
         *ber_int_len = len;
         *ber_int = buf;
@@ -108,9 +114,11 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
         buf[3] = ((data_len + padding)) & 0xFF;
         if (padding) {
             buf[4] = 0x00;
-            memcpy(&buf[5], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[5], data, data_len);
         } else {
-            memcpy(&buf[4], data, data_len);
+            if (data && data_len)
+                memcpy(&buf[4], data, data_len);
         }
         *ber_int_len = len;
         *ber_int = buf;
@@ -125,9 +133,11 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
         buf[4] = ((data_len + padding)) & 0xFF;
         if (padding) {
             buf[5] = 0x00;
-            memcpy(&buf[6], data, data_len);
+            if (data)
+                memcpy(&buf[6], data, data_len);
         } else {
-            memcpy(&buf[5], data, data_len);
+            if (data)
+                memcpy(&buf[5], data, data_len);
         }
         *ber_int_len = len;
         *ber_int = buf;
@@ -859,9 +869,11 @@ CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + len, tmp, total);
-    len += total;
-    free(tmp);
+    if (tmp != NULL) {
+        memcpy(buf + len, tmp, total);
+        len += total;
+        free(tmp);
+    }
 
     memcpy(buf + len, algorithm_id, algorithm_id_len);
     len += algorithm_id_len;
@@ -1031,10 +1043,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, buf2, len);
-    offset += len;
-    free(buf2);
-    buf2 = NULL;
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
     rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                             (CK_BYTE *) modulus + sizeof(CK_ATTRIBUTE),
@@ -1043,10 +1057,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, buf2, len);
-    offset += len;
-    free(buf2);
-    buf2 = NULL;
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
     rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                             (CK_BYTE *) publ_exp + sizeof(CK_ATTRIBUTE),
@@ -1055,10 +1071,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, buf2, len);
-    offset += len;
-    free(buf2);
-    buf2 = NULL;
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
     if (opaque != NULL) {
         // the CKA_IBM_OPAQUE attrib
@@ -1081,10 +1099,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
         rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                                 (CK_BYTE *) prime1 + sizeof(CK_ATTRIBUTE),
@@ -1093,10 +1113,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
         rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                                 (CK_BYTE *) prime2 + sizeof(CK_ATTRIBUTE),
@@ -1105,10 +1127,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
         rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                                 (CK_BYTE *) exponent1 + sizeof(CK_ATTRIBUTE),
@@ -1117,10 +1141,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
         rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                                 (CK_BYTE *) exponent2 + sizeof(CK_ATTRIBUTE),
@@ -1129,10 +1155,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
 
         rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                                 (CK_BYTE *) coeff + sizeof(CK_ATTRIBUTE),
@@ -1141,10 +1169,12 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
     }
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
@@ -1590,10 +1620,12 @@ CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, tmp, len);
-    offset += len;
-    free(tmp);
-    tmp = NULL;
+    if (tmp != NULL) {
+        memcpy(buf + offset, tmp, len);
+        offset += len;
+        free(tmp);
+        tmp = NULL;
+    }
 
     rc = ber_encode_INTEGER(FALSE, &tmp, &len,
                             (CK_BYTE *) prime2 + sizeof(CK_ATTRIBUTE),
@@ -1602,10 +1634,12 @@ CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, tmp, len);
-    offset += len;
-    free(tmp);
-    tmp = NULL;
+    if (tmp != NULL) {
+        memcpy(buf + offset, tmp, len);
+        offset += len;
+        free(tmp);
+        tmp = NULL;
+    }
 
     rc = ber_encode_INTEGER(FALSE, &tmp, &len,
                             (CK_BYTE *) base + sizeof(CK_ATTRIBUTE),
@@ -1614,10 +1648,12 @@ CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, tmp, len);
-    offset += len;
-    free(tmp);
-    tmp = NULL;
+    if (tmp != NULL) {
+        memcpy(buf + offset, tmp, len);
+        offset += len;
+        free(tmp);
+        tmp = NULL;
+    }
 
     rc = ber_encode_SEQUENCE(FALSE, &param, &param_len, buf, offset);
     if (rc != CKR_OK) {
@@ -1961,10 +1997,12 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, buf2, len);
-    offset += len;
-    free(buf2);
-    buf2 = NULL;
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
     if (opaque != NULL) {
         // the CKA_IBM_OPAQUE attrib
@@ -1987,10 +2025,12 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
             TRACE_DEVEL("ber_encode_INTEGER failed\n");
             goto error;
         }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+        if (buf2 != NULL) {
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
     }
 
     /* generate optional bit-string of public key */
@@ -2379,20 +2419,24 @@ CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, tmp, len);
-    offset += len;
-    free(tmp);
-    tmp = NULL;
+    if (tmp != NULL) {
+        memcpy(buf + offset, tmp, len);
+        offset += len;
+        free(tmp);
+        tmp = NULL;
+    }
 
     rc = ber_encode_INTEGER(FALSE, &tmp, &len, base->pValue, base->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
         goto error;
     }
-    memcpy(buf + offset, tmp, len);
-    offset += len;
-    free(tmp);
-    tmp = NULL;
+    if (tmp != NULL) {
+        memcpy(buf + offset, tmp, len);
+        offset += len;
+        free(tmp);
+        tmp = NULL;
+    }
 
     rc = ber_encode_SEQUENCE(FALSE, &param, &param_len, buf, offset);
     if (rc != CKR_OK) {
