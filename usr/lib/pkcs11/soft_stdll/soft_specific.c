@@ -18,11 +18,6 @@
 
 
 ****************************************************************************/
-#if __GLIBC__ >= 2 && __GLIBC_MINOR__ > 19
-#define _DEFAULT_SOURCE
-#else
-#define _BSD_SOURCE
-#endif
 
 #include <pthread.h>
 #include <string.h>             // for memcmp() et al
@@ -620,7 +615,6 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     const BIGNUM *bignum;
     CK_BYTE *ssl_ptr = NULL;
     BIGNUM *e = NULL;
-    unsigned long aux = 0;
 
     flag = template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr);
     if (!flag) {
@@ -654,16 +648,7 @@ CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         return CKR_HOST_MEMORY;
     }
 
-    if (publ_exp->ulValueLen == sizeof(CK_ULONG)) {
-        BN_set_word(e, *(CK_ULONG *) publ_exp->pValue);
-    } else {
-        memcpy(&aux, publ_exp->pValue, publ_exp->ulValueLen);
-
-        if (sizeof(CK_ULONG) == 4)
-            BN_set_word(e, le32toh(aux));
-        else
-            BN_set_word(e, le64toh(aux));
-    }
+    BN_bin2bn(publ_exp->pValue, publ_exp->ulValueLen, e);
 
     if (!RSA_generate_key_ex(rsa, mod_bits, e, NULL)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
