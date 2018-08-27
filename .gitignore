@@ -3,6 +3,9 @@
 *.o
 *.lo
 *.m4
+*gcov
+*gcno
+*gcda
 Makefile
 Makefile.in
 config.log
