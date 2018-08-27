@@ -432,7 +432,7 @@ int get_pin(CK_CHAR **pin)
      * of the PIN) and put the PIN in the return buffer */
     buff[count - 1] = '\0';
     /* keep the trailing null for the strlen */
-    strncpy((char *) *pin, buff, (strlen((char *) buff) + 1));
+    strncpy((char *) *pin, buff, PIN_SIZE);
 out:
     return rc;
 }
@@ -883,8 +883,8 @@ CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
     /* First clear the label array. Per PKCS#11 spec, We must PAD this field to
      * 32 bytes, and it should NOT be null-terminated */
     memset(label, ' ', sizeof(label));
-    strncpy((char *) label, (char *) enteredlabel,
-            strlen((char *) enteredlabel));
+    memcpy((char *) label, (char *) enteredlabel,
+           strlen((char *) enteredlabel));
 
     rc = FunctionPtr->C_InitToken(slot_id, pin, pinlen, label);
     if (rc != CKR_OK) {
