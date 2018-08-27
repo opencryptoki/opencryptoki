@@ -362,7 +362,7 @@ CK_RV des_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -438,7 +438,7 @@ CK_RV des_ecb_decrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -515,7 +515,7 @@ CK_RV des_cbc_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -599,7 +599,7 @@ CK_RV des_cbc_decrypt_update(STDLL_TokData_t *tokdata,
     total = context->len + in_data_len;
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
