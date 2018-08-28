@@ -6160,9 +6160,17 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
         }
 
         if (strchr(ep11_data->cp_filter_config_filename, '/') == NULL) {
-            snprintf(cfgname, sizeof(cfgname) - 1,
-                     "%s/%s", cfg_dir, ep11_data->cp_filter_config_filename);
-            cfgname[sizeof(cfgname) - 1] = '\0';
+            cfgname[0] = '\0';
+
+            if (strlen(cfg_dir) + 1
+                + strlen(ep11_data->cp_filter_config_filename)
+                <= sizeof(cfgname) - 1) {
+                strcpy(cfgname, cfg_dir);
+                cfgname[strlen(cfg_dir)] = '/';
+                strcpy(cfgname + strlen(cfg_dir) + 1,
+                       ep11_data->cp_filter_config_filename);
+            }
+
             strncpy(ep11_data->cp_filter_config_filename, cfgname,
                     sizeof(ep11_data->cp_filter_config_filename));
             ep11_data->cp_filter_config_filename[
