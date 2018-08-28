@@ -38,7 +38,7 @@ pthread_rwlock_t btree_rwlock = PTHREAD_RWLOCK_INITIALIZER;
  */
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 {
-    struct btnode *temp;
+    struct btnode *temp, *rc;
     unsigned long i;
     int lock = 1;
 
@@ -47,10 +47,13 @@ struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 
     temp = t->top;
 
-    if (!node_num || node_num > t->size)
-        return NULL;
+    if (!node_num || node_num > t->size) {
+        rc = NULL;
+        goto done;
+    }
     if (node_num == 1) {
         temp = t->top;
+        rc = ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
         goto done;
     }
 
@@ -66,11 +69,12 @@ struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
         i >>= 1;
     }
 
+    rc = ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
 done:
     if (lock)
         pthread_rwlock_unlock(&btree_rwlock);
 
-    return ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
+    return rc;
 }
 
 void *bt_get_node_value(struct btree *t, unsigned long node_num)

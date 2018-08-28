@@ -239,8 +239,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     sess = bt_get_node_value(&sess_btree, handle);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-        rc = CKR_SESSION_HANDLE_INVALID;
-        goto done;
+        return CKR_SESSION_HANDLE_INVALID;
     }
 
     if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
@@ -315,9 +314,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         object_mgr_purge_map(tokdata, (SESSION *) 0xFFFF, PRIVATE);
     }
 
-done:
     pthread_rwlock_unlock(&sess_list_rwlock);
-
     return rc;
 }
 
