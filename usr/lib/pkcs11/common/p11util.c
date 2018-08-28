@@ -187,6 +187,7 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_IBM_USE_AS_DATA:
     case CKA_IBM_STRUCT_PARAMS:
     case CKA_IBM_STD_COMPLIANCE1:
+    case CKA_NSS_MOZILLA_CA_POLICY:
         return TRUE;
     }
 
