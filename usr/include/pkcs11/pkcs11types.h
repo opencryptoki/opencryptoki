@@ -542,6 +542,11 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 #define CKA_IBM_STRUCT_PARAMS     (CKA_VENDOR_DEFINED +0x10009)
 #define CKA_IBM_STD_COMPLIANCE1   (CKA_VENDOR_DEFINED +0x1000a)
 
+/* For NSS 3.30: */
+#define NSSCK_VENDOR_NSS          0x4E534350
+#define CKA_NSS                   (CKA_VENDOR_DEFINED | NSSCK_VENDOR_NSS)
+#define CKA_NSS_MOZILLA_CA_POLICY (CKA_NSS + 34)
+
 /* CK_ATTRIBUTE is a structure that includes the type, length
  * and value of an attribute */
 typedef struct CK_ATTRIBUTE {
