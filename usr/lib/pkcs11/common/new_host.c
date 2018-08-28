@@ -3230,7 +3230,7 @@ done:
     attr = pTemplate;
     if (attr != NULL) {
         for (i = 0; i < ulCount; i++, attr++) {
-            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            ptr = (CK_BYTE *) attr->pValue;
             TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
@@ -3326,7 +3326,7 @@ done:
     attr = pTemplate;
     if (attr != NULL) {
         for (i = 0; i < ulCount; i++, attr++) {
-            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            ptr = (CK_BYTE *) attr->pValue;
             TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
