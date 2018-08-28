@@ -2182,7 +2182,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
 CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
     Slot_Info_t_64 *sinfp;
-    Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+    Slot_Mgr_Socket_t *shData;
 
     TRACE_INFO("C_GetSlotInfo Slot=%lu  ptr=%p\n", slotID, pInfo);
 
@@ -2190,6 +2190,8 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    shData = &(Anchor->SocketDataP);
 
     if (!pInfo) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -2292,7 +2294,7 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
     CK_ULONG count;
     uint16 index;
     uint16 sindx;
-    Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+    Slot_Mgr_Socket_t *shData;
 
 #ifdef PKCS64
     Slot_Info_t_64 *sinfp;
@@ -2305,6 +2307,9 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    shData = &(Anchor->SocketDataP);
+
     // Null pSlotList is valid to get count for array allocation
     if (pulCount == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -2427,7 +2432,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
     CK_RV rv;
     API_Slot_t *sltp;
     STDLL_FcnList_t *fcn;
-    Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
+    Slot_Mgr_Socket_t *shData;
 
 #ifdef PKCS64
     Slot_Info_t_64 *sinfp;
@@ -2440,6 +2445,8 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    shData = &(Anchor->SocketDataP);
 
     if (!pInfo) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
