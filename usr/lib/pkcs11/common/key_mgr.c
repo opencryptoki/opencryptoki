@@ -35,6 +35,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 static CK_BBOOL true = TRUE, false = FALSE;
 
@@ -784,6 +785,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     rc = encr_mgr_encrypt(tokdata, sess, length_only,
                           ctx, data, data_len, wrapped_key, wrapped_key_len);
     if (data != NULL) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
     }
     encr_mgr_cleanup(ctx);
@@ -1014,16 +1016,20 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("object_mgr_create_final failed.\n");
         goto error;
     }
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
 
     return rc;
 
 error:
     if (key_obj)
         object_free(key_obj);
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
 
     return rc;
 }
