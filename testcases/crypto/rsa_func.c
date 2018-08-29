@@ -277,7 +277,8 @@ testcase_cleanup:
  * 4. Verify signature
  *
  */
-CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
+CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
+                       CK_BBOOL recover_mode)
 {
     int i;                      // test vector index
     int j;                      // message byte index
@@ -285,6 +286,8 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
     CK_ULONG message_len;
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
     CK_ULONG signature_len;
+    CK_BYTE out_message[MAX_MESSAGE_SIZE];
+    CK_ULONG out_message_len;
 
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key, priv_key;
@@ -299,7 +302,9 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
     char *s;
 
     // begin testsuite
-    testsuite_begin("%s Sign Verify.", tsuite->name);
+    testsuite_begin("%s Sign%s Verify%s.", tsuite->name,
+                    recover_mode ? "Recover" : "",
+                    recover_mode ? "Recover" : "");
     testcase_rw_session();
     testcase_user_login();
 
@@ -310,6 +315,16 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                        (unsigned int) slot_id,
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
+    }
+    if (recover_mode) {
+        if (!mech_supported_flags(slot_id, tsuite->mech.mechanism,
+                                  CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER)) {
+            testsuite_skip(tsuite->tvcount,
+                           "Slot %u doesn't support Sign/VerifyRecover with %u",
+                           (unsigned int) slot_id,
+                           (unsigned int) tsuite->mech.mechanism);
+            goto testcase_cleanup;
+        }
     }
     // iterate over test vectors
     for (i = 0; i < tsuite->tvcount; i++) {
@@ -322,9 +337,10 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             goto testcase_cleanup;
         }
         // begin test
-        testcase_begin("%s Sign and Verify with test vector %d, "
+        testcase_begin("%s Sign%s and Verify%s with test vector %d, "
                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu'.",
-                       tsuite->name, i, s,
+                       tsuite->name, recover_mode ? "Recover" : "",
+                       recover_mode ? "Recover" : "", i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen);
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
@@ -379,6 +395,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         // clear buffers
         memset(message, 0, MAX_MESSAGE_SIZE);
         memset(signature, 0, MAX_SIGNATURE_SIZE);
+        memset(out_message, 0, MAX_MESSAGE_SIZE);
 
         // get test vector parameters
         message_len = tsuite->tv[i].inputlen;
@@ -403,37 +420,76 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         mech = tsuite->mech;
 
         // initialize Sign (length only)
-        rc = funcs->C_SignInit(session, &mech, priv_key);
+        if (recover_mode)
+            rc = funcs->C_SignRecoverInit(session, &mech, priv_key);
+        else
+            rc = funcs->C_SignInit(session, &mech, priv_key);
         if (rc != CKR_OK) {
-            testcase_error("C_SignInit(), rc=%s", p11_get_ckr(rc));
+            testcase_error("C_Sign%sInit(), rc=%s",
+                           recover_mode ? "Recover" : "", p11_get_ckr(rc));
             goto error;
         }
         // set buffer size
         signature_len = MAX_SIGNATURE_SIZE;
 
         // do Sign
-        rc = funcs->C_Sign(session,
-                           message, message_len, signature, &signature_len);
+        if (recover_mode)
+            rc = funcs->C_SignRecover(session, message, message_len,
+                                     signature, &signature_len);
+        else
+            rc = funcs->C_Sign(session, message, message_len,
+                               signature, &signature_len);
         if (rc != CKR_OK) {
-            testcase_error("C_Sign(), rc=%s signature len=%ld",
+            testcase_error("C_Sign%s(), rc=%s signature len=%ld",
+                           recover_mode ? "Recover" : "",
                            p11_get_ckr(rc), signature_len);
             goto error;
         }
         // initialize Verify
-        rc = funcs->C_VerifyInit(session, &mech, publ_key);
+        if (recover_mode)
+            rc = funcs->C_VerifyRecoverInit(session, &mech, publ_key);
+        else
+            rc = funcs->C_VerifyInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
-            testcase_error("C_VerifyInit(), rc=%s", p11_get_ckr(rc));
+            testcase_error("C_Verify%sInit(), rc=%s",
+                           recover_mode ? "Recover" : "", p11_get_ckr(rc));
         }
         // do Verify
-        rc = funcs->C_Verify(session,
-                             message, message_len, signature, signature_len);
+        if (recover_mode) {
+            out_message_len = sizeof(out_message);
+            rc = funcs->C_VerifyRecover(session, signature, signature_len,
+                                        out_message, &out_message_len);
+        } else {
+            rc = funcs->C_Verify(session, message, message_len,
+                                 signature, signature_len);
+        }
 
         // check results
         testcase_new_assertion();
         if (rc == CKR_OK) {
-            testcase_pass("C_Verify.");
+            if (recover_mode) {
+                if (mech.mechanism == CKM_RSA_X_509) {
+                    // out_message may have been left padded with binary zeros
+                    if (memcmp(&message[out_message_len - message_len],
+                               out_message, message_len) != 0) {
+                        testcase_fail("C_VerifyRecover() message does not match");
+                    } else {
+                        testcase_pass("C_VerifyRecover.");
+                    }
+                } else {
+                    if (out_message_len != message_len ||
+                            memcmp(message, out_message, message_len) != 0) {
+                        testcase_fail("C_VerifyRecover() message does not match");
+                    } else {
+                        testcase_pass("C_VerifyRecover.");
+                    }
+                }
+            } else {
+                testcase_pass("C_Verify.");
+            }
         } else {
-            testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
+            testcase_fail("C_Verify%s(), rc=%s", recover_mode ? "Recover" : "",
+                          p11_get_ckr(rc));
         }
 
         // clean up
@@ -1311,7 +1367,14 @@ CK_RV rsa_funcs()
 
     // generated sign verify tests
     for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
-        rv = do_SignVerifyRSA(&generated_sigver_test_suites[i]);
+        rv = do_SignVerifyRSA(&generated_sigver_test_suites[i], FALSE);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    // generated sign verify tests for recover mode
+    for (i = 0; i < NUM_OF_GENERATED_SIGVER_TESTSUITES; i++) {
+        rv = do_SignVerifyRSA(&generated_sigver_test_suites[i], TRUE);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
