@@ -89,14 +89,8 @@ token_spec_t token_specific = {
     NULL,
     NULL,
 #endif
-#ifndef NODH
-    // DH
-    &token_specific_dh_pkcs_derive,
-    &token_specific_dh_pkcs_key_pair_gen,
-#else
-    NULL,
-    NULL,
-#endif
+    NULL,                       // dh_pkcs_derive
+    NULL,                       // dh_pkcs_key_pair_gen
     // SHA
     &token_specific_sha_init,
     &token_specific_sha,
