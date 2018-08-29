@@ -38,6 +38,21 @@ int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism)
     return (rc == CKR_OK);
 }
 
+int mech_supported_flags(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_FLAGS flags)
+{
+    CK_MECHANISM_INFO mech_info;
+    int rc;
+
+    rc = funcs->C_GetMechanismInfo(slot_id, mechanism, &mech_info);
+    if (rc != CKR_OK)
+        return FALSE;
+
+    if (mech_info.flags & flags)
+        return TRUE;
+
+    return FALSE;
+}
+
 int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen)
 {
     CK_MECHANISM_INFO mech_info;
