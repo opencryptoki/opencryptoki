@@ -23,6 +23,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 //
 //
@@ -1451,6 +1452,8 @@ CK_RV ckm_des_wrap_format(STDLL_TokData_t *tokdata,
 
 
     len1 = *data_len;
+    if (*data == NULL)
+        len1 = 0;
 
     // if the input key data isn't a multiple of the blocksize,
     // we pad with NULLs to the next blocksize multiple.
@@ -1459,12 +1462,21 @@ CK_RV ckm_des_wrap_format(STDLL_TokData_t *tokdata,
         len2 = DES_BLOCK_SIZE * ((len1 / DES_BLOCK_SIZE) + 1);
 
         if (length_only == FALSE) {
-            ptr = (CK_BYTE *) realloc(*data, len2);
+            /*
+             * Don't use realloc here, since the buffer contains a key and the
+             * old buffer needs to be cleansed before it is freed.
+             */
+            ptr = (CK_BYTE *)malloc(len2);
             if (!ptr) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 return CKR_HOST_MEMORY;
-            } else {
-                memset(ptr + len1, 0x0, (len2 - len1));
+            }
+
+            memset(ptr + len1, 0x0, (len2 - len1));
+            if (*data != NULL) {
+                memcpy(ptr, *data, len1);
+                OPENSSL_cleanse(*data, len1);
+                free(*data);
             }
 
             *data = ptr;
