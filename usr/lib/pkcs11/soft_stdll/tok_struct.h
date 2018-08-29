@@ -106,8 +106,13 @@ token_spec_t token_specific = {
     NULL,                       // ecdh_derive
 /* Begin code contributed by Corrent corp. */
     // DH
+#ifndef NODH
     &token_specific_dh_pkcs_derive,
     &token_specific_dh_pkcs_key_pair_gen,
+#else
+    NULL,                       // dh_pkcs_derive
+    NULL,                       // dh_pkcs_key_pair_gen
+#endif
 /* End code contributed by Corrent corp. */
     &token_specific_sha_init,
     &token_specific_sha,
@@ -124,9 +129,15 @@ token_spec_t token_specific = {
     &token_specific_hmac_verify_final,
     &token_specific_generic_secret_key_gen,
     // AES
+#ifndef NOAES
     &token_specific_aes_key_gen,
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
+#else
+    NULL,                       // aes_key_gen
+    NULL,                       // aes_ecb
+    NULL,                       // aes_cbc
+#endif
     NULL,                       // aes_ctr
     NULL,                       // aes_gcm_init
     NULL,                       // aes_gcm
