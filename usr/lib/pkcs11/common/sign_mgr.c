@@ -60,20 +60,30 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
-    // is key allowed to generate signatures?
-    //
-    rc = template_attribute_find(key_obj->template, CKA_SIGN, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_SIGN for the key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+
+    if (recover_mode) {
+        // is key allowed to generate signatures where the data can be
+        // recovered from the signature?
+        rc = template_attribute_find(key_obj->template, CKA_SIGN_RECOVER,
+                                     &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_SIGN_RECOVER for the key.\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
     } else {
-        flag = *(CK_BBOOL *) attr->pValue;
-        if (flag != TRUE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+        // is key allowed to generate signatures where the signature is an
+        // appendix to the data?
+        rc = template_attribute_find(key_obj->template, CKA_SIGN, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_SIGN for the key.\n");
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
         }
     }
-
+    flag = *(CK_BBOOL *) attr->pValue;
+    if (flag != TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
 
     // is the mechanism supported?  is the key type correct?  is a
     // parameter present if required?  is the key size allowed?
