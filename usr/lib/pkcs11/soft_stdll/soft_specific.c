@@ -1627,6 +1627,7 @@ error:
     return rc;
 }
 
+#ifndef NOAES
 
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *key,
                                  CK_ULONG len, CK_ULONG keysize)
@@ -1714,9 +1715,10 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
 
     return CKR_OK;
 }
+#endif
 
 /* Begin code contributed by Corrent corp. */
-
+#ifndef NODH
 // This computes DH shared secret, where:
 //     Output: z is computed shared secret
 //     Input:  y is other party's public key
@@ -1935,7 +1937,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 
     return CKR_OK;
 }                               /* end token_specific_dh_key_pair_gen() */
-
+#endif
 /* End code contributed by Corrent corp. */
 
 MECH_LIST_ELEMENT mech_list[] = {
