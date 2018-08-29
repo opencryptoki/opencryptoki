@@ -1420,12 +1420,6 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (!pData || !pulEncryptedDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1434,6 +1428,12 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pData || !pulEncryptedDataLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->encr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1450,8 +1450,10 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_encrypt() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_Encrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
@@ -1474,12 +1476,6 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if ((!pPart && ulPartLen != 0) || !pulEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1488,6 +1484,12 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if ((!pPart && ulPartLen != 0) || !pulEncryptedPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->encr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1501,8 +1503,10 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_encrypt_update() failed.\n");
 
 done:
-    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_EncryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
@@ -1525,12 +1529,6 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (!pulLastEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1539,6 +1537,12 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pulLastEncryptedPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->encr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1555,8 +1559,10 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_ERROR("icsftok_encrypt_final() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        encr_mgr_cleanup(&sess->encr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            encr_mgr_cleanup(&sess->encr_ctx);
+    }
 
     TRACE_INFO("C_EncryptFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
@@ -1636,12 +1642,6 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (!pEncryptedData || !pulDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1650,6 +1650,12 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pEncryptedData || !pulDataLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->decr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1666,8 +1672,10 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_decrypt() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_Decrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -1690,12 +1698,6 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if ((!pEncryptedPart && ulEncryptedPartLen != 0) || !pulPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1704,6 +1706,12 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if ((!pEncryptedPart && ulEncryptedPartLen != 0) || !pulPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->decr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1717,8 +1725,10 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_decrypt_update() failed.\n");
 
 done:
-    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL)
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_DecryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -1741,12 +1751,6 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (!pulLastPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1755,6 +1759,12 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pulLastPartLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->decr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -1769,8 +1779,10 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_final() failed.\n");
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        decr_mgr_cleanup(&sess->decr_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess)
+            decr_mgr_cleanup(&sess->decr_ctx);
+    }
 
     TRACE_INFO("C_DecryptFinal:  rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
@@ -1850,15 +1862,6 @@ CK_RV SC_Digest(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    /* Netscape has been known to pass a null pData to DigestUpdate
-     * but never for Digest.  It doesn't really make sense to allow it here
-     */
-    if (!pData || !pulDigestLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1899,12 +1902,6 @@ CK_RV SC_DigestUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
-    }
-
-    if (!pPart && ulPartLen != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -1987,12 +1984,6 @@ CK_RV SC_DigestFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
-    }
-
-    if (!pulDigestLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -2607,14 +2598,18 @@ done:
     CK_ATTRIBUTE *attr = NULL;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
         }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
 #endif
 
@@ -2693,24 +2688,32 @@ done:
 
     TRACE_DEBUG("Public Template:\n");
     attr = pPublicKeyTemplate;
-    for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                             ptr[0], ptr[1], ptr[2], ptr[3]);
+        }
+    } else {
+        TRACE_DEBUG("No Attributes\n");
     }
 
     TRACE_DEBUG("Private Template:\n");
     attr = pPublicKeyTemplate;
-    for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
-        CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
+    if (attr != NULL) {
+        for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+            CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+        }
+    } else {
+        TRACE_DEBUG("No Attributes\n");
     }
 #endif
 
@@ -2832,14 +2835,18 @@ done:
     CK_BYTE *ptr = NULL;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        ptr = (CK_BYTE *) attr->pValue;
-        TRACE_DEBUG("%d: Attribute type:  0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-        if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes:  %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
-
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
+        }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
 #endif
 
@@ -2926,18 +2933,19 @@ done:
     }
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        ptr = (CK_BYTE *) attr->pValue;
-
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
-                    i, attr->type, attr->ulValueLen);
-
-        if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        ptr[0], ptr[1], ptr[2], ptr[3]);
-
+    if (attr != NULL) {
+        for (i = 0; i < ulCount; i++, attr++) {
+            ptr = (CK_BYTE *) attr->pValue;
+            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+                        i, attr->type, attr->ulValueLen);
+            if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            ptr[0], ptr[1], ptr[2], ptr[3]);
+            }
+        }
+    } else {
+        TRACE_DEBUG("No attributes\n");
     }
-
 #endif                          /* DEBUG */
 
     return rc;
