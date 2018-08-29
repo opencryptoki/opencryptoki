@@ -26,6 +26,8 @@
 #include "trace.h"
 
 
+#ifndef NODSA
+
 //
 //
 CK_RV dsa_sign(STDLL_TokData_t *tokdata,
@@ -242,3 +244,5 @@ CK_RV ckm_dsa_verify(STDLL_TokData_t *tokdata,
 
     return rc;
 }
+
+#endif
