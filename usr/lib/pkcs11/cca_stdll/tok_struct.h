@@ -85,16 +85,8 @@ token_spec_t token_specific = {
     &token_specific_ec_verify,
     &token_specific_ec_generate_keypair,
     NULL,                       // ecdh_derive
-#ifndef NODH
-/* Begin code contributed by Corrent corp. */
-    // DH
-    &token_specific_dh_pkcs_derive,
-    &token_specific_dh_pkcs_key_pair_gen,
-/* End code contributed by Corrent corp. */
-#else
-    NULL,
-    NULL,
-#endif
+    NULL,                       // dh_pkcs_derive
+    NULL,                       // dh_pkcs_key_pair_gen
     // SHA
     token_specific_sha_init,
     token_specific_sha,

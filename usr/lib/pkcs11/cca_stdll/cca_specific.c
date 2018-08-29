@@ -1423,31 +1423,6 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
 }
 #endif
 
-#ifndef NODH
-/* Begin code contributed by Corrent corp. */
-CK_RV token_specific_dh_pkcs_derive(CK_BYTE * z,
-                                    CK_ULONG * z_len,
-                                    CK_BYTE * y,
-                                    CK_ULONG y_len,
-                                    CK_BYTE * x,
-                                    CK_ULONG x_len, CK_BYTE * p, CK_ULONG p_len)
-{
-    TRACE_DEVEL("Unsupported function reached.\n");
-
-    return CKR_FUNCTION_NOT_SUPPORTED;
-}
-
-CK_RV token_specific_dh_pkcs_key_pair_gen(TEMPLATE * publ_tmpl,
-                                          TEMPLATE * priv_tmpl)
-{
-    TRACE_DEVEL("Unsupported function reached.\n");
-
-    return CKR_FUNCTION_NOT_SUPPORTED;
-}
-
-/* End code contributed by Corrent corp. */
-#endif
-
 /* See the top of this file for the declarations of mech_list and
  * mech_list_len.
  */
