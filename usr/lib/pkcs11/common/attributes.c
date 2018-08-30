@@ -22,11 +22,11 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "trace.h"
+#include <openssl/crypto.h>
 
-/*
- * Free an array of attributes allocated with dup_attribute_array().
- */
-void free_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+static void __cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
+                                               CK_ULONG attrs_len,
+                                               CK_BBOOL cleanse)
 {
     CK_ULONG i;
 
@@ -34,9 +34,30 @@ void free_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
         return;
 
     for (i = 0; i < attrs_len; i++)
-        if (attrs[i].pValue)
+        if (attrs[i].pValue) {
+            if (cleanse)
+                OPENSSL_cleanse(attrs[i].pValue, attrs[i].ulValueLen);
             free(attrs[i].pValue);
+        }
     free(attrs);
+}
+
+/*
+ * Free an array of attributes allocated with dup_attribute_array().
+ */
+void free_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+{
+    __cleanse_and_free_attribute_array(attrs, attrs_len, FALSE);
+}
+
+/*
+ * Free an array of attributes allocated with dup_attribute_array() and cleanse
+ * all attribute values.
+ */
+void cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
+                                      CK_ULONG attrs_len)
+{
+    __cleanse_and_free_attribute_array(attrs, attrs_len, TRUE);
 }
 
 /*

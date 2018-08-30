@@ -50,6 +50,7 @@
 #endif
 
 #include <ica_api.h>
+#include <openssl/crypto.h>
 
 #include "ep11.h"
 #include "ep11_func.h"
@@ -394,6 +395,20 @@ typedef struct const_info {
 #define CKM_IBM_WIRETEST                   CKM_VENDOR_DEFINED + 0x00030004
 #define CKM_IBM_RETAINKEY                  CKM_VENDOR_DEFINED + 0x00040001
 
+static CK_RV cleanse_attribute(TEMPLATE *template,
+                               CK_ATTRIBUTE_TYPE attr_type)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr;
+
+    rc = template_attribute_find(template, attr_type, &attr);
+    if (rc != CKR_OK)
+        return rc;
+
+    OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
+
+    return CKR_OK;
+}
 
 static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                                   CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
@@ -1977,7 +1992,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
-            return rc;
+            goto import_RSA_key_end;
         }
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
@@ -2002,15 +2017,24 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
         }
+
+        cleanse_attribute(rsa_key_obj->template, CKA_PRIVATE_EXPONENT);
+        cleanse_attribute(rsa_key_obj->template, CKA_PRIME_1);
+        cleanse_attribute(rsa_key_obj->template, CKA_PRIME_2);
+        cleanse_attribute(rsa_key_obj->template, CKA_EXPONENT_1);
+        cleanse_attribute(rsa_key_obj->template, CKA_EXPONENT_2);
+        cleanse_attribute(rsa_key_obj->template, CKA_COEFFICIENT);
     }
 
 import_RSA_key_end:
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
     if (p_attrs != NULL)
-        free_attribute_array(p_attrs, attrs_len);
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
-        free_attribute_array(new_p_attrs, new_attrs_len);
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
     return rc;
 }
 
@@ -2158,7 +2182,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
-            return rc;
+            goto import_EC_key_end;
         }
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
@@ -2185,15 +2209,19 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
         }
+
+        cleanse_attribute(ec_key_obj->template, CKA_VALUE);
     }
 
 import_EC_key_end:
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
     if (p_attrs != NULL)
-        free_attribute_array(p_attrs, attrs_len);
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
-        free_attribute_array(new_p_attrs, new_attrs_len);
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
     return rc;
 }
 
@@ -2353,7 +2381,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s DSA check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
-            return rc;
+            goto import_DSA_key_end;
         }
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dsa_key_obj),
@@ -2380,15 +2408,19 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
         }
+
+        cleanse_attribute(dsa_key_obj->template, CKA_VALUE);
     }
 
 import_DSA_key_end:
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
     if (p_attrs != NULL)
-        free_attribute_array(p_attrs, attrs_len);
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
-        free_attribute_array(new_p_attrs, new_attrs_len);
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
     return rc;
 }
 
@@ -2538,7 +2570,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s DH check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
-            return rc;
+            goto import_DH_key_end;
         }
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dh_key_obj),
@@ -2565,15 +2597,19 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
         }
+
+        cleanse_attribute(dh_key_obj->template, CKA_VALUE);
     }
 
 import_DH_key_end:
-    if (data)
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
         free(data);
+    }
     if (p_attrs != NULL)
-        free_attribute_array(p_attrs, attrs_len);
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
-        free_attribute_array(new_p_attrs, new_attrs_len);
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
     return rc;
 }
 
@@ -2660,7 +2696,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* clear value attribute */
-        memset(attr->pValue, 0, attr->ulValueLen);
+        OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
 
         TRACE_INFO("%s rawkey_2_blob rc=0x%lx blobsize=0x%zx\n",
                    __func__, rc, blobsize);
