@@ -1701,8 +1701,10 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->encr_ctx.init_pending) {
         rc = ep11tok_encrypt_init(tokdata, sess, &sess->encr_ctx.mech,
                                   sess->encr_ctx.key);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_encr_init() failed.\n");
+            goto done;
+        }
 
         sess->encr_ctx.init_pending = 0;
     }
@@ -1764,7 +1766,7 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->encr_ctx.init_pending) {
         /* EncryptInit without Update, no EncryptFinal necessary */
         sess->encr_ctx.init_pending = 0;
-        return CKR_OK;
+        goto done;
     }
 
     rc = ep11tok_encrypt_final(tokdata, sess, pLastEncryptedPart,
@@ -1957,8 +1959,10 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->decr_ctx.init_pending) {
         rc = ep11tok_decrypt_init(tokdata, sess, &sess->decr_ctx.mech,
                                   sess->decr_ctx.key);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_decr_init() failed.\n");
+            goto done;
+        }
 
         sess->decr_ctx.init_pending = 0;
     }
@@ -2020,7 +2024,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->decr_ctx.init_pending) {
         /* DecryptInit without Update, no DecryptFinal necessary */
         sess->decr_ctx.init_pending = 0;
-        return CKR_OK;
+        goto done;
     }
 
     rc = ep11tok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
@@ -2429,8 +2433,10 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->sign_ctx.init_pending) {
         rc = ep11tok_sign_init(tokdata, sess, &sess->sign_ctx.mech,
                                FALSE, sess->sign_ctx.key);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_sign_init() failed.\n");
+            goto done;
+        }
 
         sess->sign_ctx.init_pending = 0;
     }
@@ -2498,7 +2504,7 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->sign_ctx.init_pending) {
         /* SignInit without Update, no SignFinal necessary */
         sess->sign_ctx.init_pending = 0;
-        return CKR_OK;
+        goto done;
     }
     rc = ep11tok_sign_final(tokdata, sess, length_only, pSignature,
                             pulSignatureLen);
@@ -2738,8 +2744,10 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->verify_ctx.init_pending) {
         rc = ep11tok_verify_init(tokdata, sess, &sess->verify_ctx.mech,
                                  FALSE, sess->verify_ctx.key);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             TRACE_DEVEL("ep11tok_verify_init() failed.\n");
+            goto done;
+        }
 
         sess->verify_ctx.init_pending = 0;
     }
@@ -2803,7 +2811,7 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->sign_ctx.init_pending) {
         /* VerifyInit without Update, no VerifyFinal necessary */
         sess->sign_ctx.init_pending = 0;
-        return CKR_OK;
+        goto done;
     }
     rc = ep11tok_verify_final(tokdata, sess, pSignature, ulSignatureLen);
     if (rc != CKR_OK)
