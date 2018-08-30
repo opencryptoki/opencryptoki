@@ -39,6 +39,7 @@
 #include "ec_defs.h"
 #include "trace.h"
 #include "cca_func.h"
+#include <openssl/crypto.h>
 
 /**
  * EC definitions
@@ -2681,7 +2682,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     uint16_t mod_bits, mod_bytes, bytes;
     CK_ATTRIBUTE *opaque_key = NULL, *pub_exp = NULL, *mod = NULL,
         *p_prime = NULL, *q_prime = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp =
-        NULL;
+        NULL, *priv_exp = NULL;
     CK_RV rc;
 
     /* Look for parameters to set key in the CRT format */
@@ -2824,7 +2825,8 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto err;
     }
 
     /* Now import the PKA key token */
@@ -2843,22 +2845,36 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto err;
     }
 
     /* Add the key object to the template */
     if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_token,
                               target_key_token_length, &opaque_key))) {
         TRACE_DEVEL("build_attribute failed\n");
-        return rc;
+        goto err;
     }
     rc = template_update_attribute(priv_tmpl, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute failed\n");
-        return rc;
+        goto err;
     }
 
-    return CKR_OK;
+    OPENSSL_cleanse(p_prime->pValue, p_prime->ulValueLen);
+    OPENSSL_cleanse(q_prime->pValue, q_prime->ulValueLen);
+    OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
+    OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
+    OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
+    if (template_attribute_find(priv_tmpl, CKA_PRIVATE_EXPONENT, &priv_exp)) {
+        OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
+    }
+
+    rc =CKR_OK;
+
+err:
+    OPENSSL_cleanse(key_value_structure, sizeof(key_value_structure));
+    return rc;
 }
 
 static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
@@ -3022,7 +3038,7 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
     }
 
     /* zero clear key value */
-    memset(attr->pValue, 0, attr->ulValueLen);
+    OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
 
     return CKR_OK;
 }
@@ -3109,7 +3125,7 @@ static CK_RV import_generic_secret_key(OBJECT * object)
     }
 
     /* zero clear key value */
-    memset(attr->pValue, 0, attr->ulValueLen);
+    OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
 
     return CKR_OK;
 }
@@ -3335,8 +3351,7 @@ CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     }
 
     /* zero clear key values */
-    memset(privkey, 0, privlen);
-    memset(pubkey, 0, publen);
+    OPENSSL_cleanse(privkey, privlen);
 
     return CKR_OK;
 }
@@ -3419,9 +3434,6 @@ CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
         return rc;
     }
-
-    /* zero clear key value */
-    memset(pubkey, 0, publen);
 
     return CKR_OK;
 }
