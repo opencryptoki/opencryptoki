@@ -322,8 +322,8 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
     */
     if (token_specific.token_keysize > 0) {
         TRACE_ERROR("%s because its a secure key token\n",
-                    ock_err(CKR_FUNCTION_NOT_SUPPORTED));
-        rc = CKR_FUNCTION_NOT_SUPPORTED;
+                    ock_err(CKR_KEY_INDIGESTIBLE));
+        rc = CKR_KEY_INDIGESTIBLE;
         goto out;
     }
 
