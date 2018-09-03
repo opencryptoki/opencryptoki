@@ -2191,7 +2191,7 @@ CK_RV SC_DigestKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 
     /* The EP11 library does not support DigestKey */
     TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    return CKR_FUNCTION_NOT_SUPPORTED;
+    return CKR_KEY_INDIGESTIBLE;
 }
 
 
