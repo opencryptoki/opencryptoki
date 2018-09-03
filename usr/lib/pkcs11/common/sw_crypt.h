@@ -23,4 +23,17 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
                   CK_ULONG *out_data_len,
                   CK_BYTE *init_v, CK_BYTE *key_value, CK_BYTE encrypt);
 
+#define sw_aes_cbc_encrypt(clear, len, cipher, len2, iv, key, keylen) \
+ sw_aes_cbc(clear, len, cipher, len2, iv, key, keylen, 1)
+
+#define sw_aes_cbc_decrypt(clear, len, cipher, len2, iv, key, keylen) \
+ sw_aes_cbc(clear, len, cipher, len2, iv, key, keylen, 0)
+
+CK_RV sw_aes_cbc(CK_BYTE *in_data,
+                  CK_ULONG in_data_len,
+                  CK_BYTE *out_data,
+                  CK_ULONG *out_data_len,
+                  CK_BYTE *init_v, CK_BYTE *key_value, CK_ULONG keylen,
+                  CK_BYTE encrypt);
+
 #endif
