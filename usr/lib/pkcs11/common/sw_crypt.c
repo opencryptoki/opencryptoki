@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <openssl/des.h>
+#include <openssl/aes.h>
 #include <fcntl.h>
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -38,8 +39,8 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
     DES_cblock ivec;
 
     // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % 8) {
+    // by DES_BLOCK_SIZE
+    if (in_data_len % DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -70,6 +71,38 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
                              &des_key2, &des_key3, &ivec, DES_DECRYPT);
 
         *out_data_len = in_data_len;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV sw_aes_cbc(CK_BYTE *in_data,
+                 CK_ULONG in_data_len,
+                 CK_BYTE *out_data,
+                 CK_ULONG *out_data_len,
+                 CK_BYTE *init_v, CK_BYTE *key_value, CK_ULONG keylen,
+                 CK_BYTE encrypt)
+{
+    AES_KEY aes_key;
+
+    memset(&aes_key, 0, sizeof(aes_key));
+
+    // the aes decrypt will only fail if the data length is not evenly divisible
+    // by AES_BLOCK_SIZE
+    if (in_data_len % AES_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    // Encrypt or decrypt the data
+    if (encrypt) {
+        AES_set_encrypt_key(key_value, keylen * 8, &aes_key);
+        AES_cbc_encrypt(in_data, out_data, in_data_len, &aes_key,
+                        init_v, AES_ENCRYPT);
+    } else {
+        AES_set_decrypt_key(key_value, keylen * 8, &aes_key);
+        AES_cbc_encrypt(in_data,  out_data, in_data_len, &aes_key,
+                        init_v, AES_DECRYPT);
     }
 
     return CKR_OK;

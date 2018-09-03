@@ -220,6 +220,10 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
         rc = sw_des3_cbc_encrypt(clear, clear_len,
                                  cipher, p_cipher_len, initial_vector, key);
         break;
+    case CKM_AES_CBC:
+        rc = sw_aes_cbc_encrypt(clear, clear_len, cipher, p_cipher_len,
+                                initial_vector, key, keylen);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = ERR_MECHANISM_INVALID;
@@ -331,6 +335,10 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC:
         rc = sw_des3_cbc_decrypt(cipher, cipher_len, clear, p_clear_len,
                                  initial_vector, key);
+        break;
+    case CKM_AES_CBC:
+        rc = sw_aes_cbc_decrypt(cipher, cipher_len, clear, p_clear_len,
+                                 initial_vector, key, keylen);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
