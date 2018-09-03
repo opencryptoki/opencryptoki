@@ -317,10 +317,9 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
     }
 
     /*
-     * If token has a specific key size that means that it uses secure keys.
      * Secure keys can not be digested by digesting the CKA_VALUE attribute.
-    */
-    if (token_specific.token_keysize > 0) {
+     */
+    if (is_secure_key_token()) {
         TRACE_ERROR("%s because its a secure key token\n",
                     ock_err(CKR_KEY_INDIGESTIBLE));
         rc = CKR_KEY_INDIGESTIBLE;

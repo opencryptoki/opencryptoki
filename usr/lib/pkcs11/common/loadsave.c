@@ -91,10 +91,9 @@ static CK_RV get_encryption_info(CK_ULONG *p_key_len, CK_ULONG *p_block_size)
         return rc;
 
     /* Tokens that use a secure key have a different size for key because
-     * it's just an indentifier not a real key. token_keysize > 0 indicates
-     * that a token uses a specific key format.
+     * it's just an indentifier not a real key.
      */
-    if (token_specific.token_keysize) {
+    if (is_secure_key_token()) {
         if (p_key_len)
             *p_key_len = token_specific.token_keysize;
     }
@@ -202,10 +201,7 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    /* If token doesn't have a specific key size that means that it uses a
-     * clear key.
-     */
-    if (token_specific.token_keysize == 0 &&
+    if (!is_secure_key_token() &&
         token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
         return encrypt_data(tokdata, key, keylen, iv, clear, clear_len,
                             cipher, p_cipher_len);
@@ -317,14 +313,11 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    /* If token doesn't have a specific key size that means that it uses a
-     * clear key.
-     */
-    if (token_specific.token_keysize == 0 &&
+    if (!is_secure_key_token() &&
         token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
         return decrypt_data(tokdata, key, keylen, iv, cipher,
                             cipher_len, clear, p_clear_len);
-	}
+    }
 
     /* Fall back to a software alternative if key is secure, or
      * if token's data store encryption algorithm is 3DES_CBC */
@@ -1585,7 +1578,7 @@ CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key)
     /* For secure key tokens, object encrypt/decrypt uses
      * software(openssl), not token. So generate masterkey via RNG.
      */
-    if (token_specific.token_keysize)
+    if (is_secure_key_token())
         return rng_generate(tokdata, key, key_len);
 
     /* For clear key tokens, let token generate masterkey

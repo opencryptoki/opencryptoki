@@ -2678,6 +2678,8 @@ CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 
+CK_BBOOL is_secure_key_token();
+
 /* logging */
 #define OCK_SYSLOG(priority, fmt, ...) \
         syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);

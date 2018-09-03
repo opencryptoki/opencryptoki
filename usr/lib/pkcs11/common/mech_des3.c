@@ -2184,7 +2184,7 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         return CKR_MECHANISM_INVALID;
     }
 
-    if (token_specific.token_keysize)
+    if (is_secure_key_token())
         keysize = token_specific.token_keysize;
     else
         keysize = (3 * DES_KEY_SIZE);
@@ -2202,7 +2202,7 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     /* For secure-key keys put in CKA_IBM_OPAQUE
      * and put dummy_key in CKA_VALUE.
      */
-    if (token_specific.token_keysize) {
+    if (is_secure_key_token()) {
         opaque_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + keysize);
         if (!opaque_attr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -2243,7 +2243,7 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = 3 * DES_KEY_SIZE;
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-    if (token_specific.token_keysize)
+    if (is_secure_key_token())
         memcpy(value_attr->pValue, dummy_key, 3 * DES_KEY_SIZE);
     else
         memcpy(value_attr->pValue, des_key, 3 * DES_KEY_SIZE);
