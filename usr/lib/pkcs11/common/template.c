@@ -536,13 +536,11 @@ CK_RV template_flatten(TEMPLATE *tmpl, CK_BYTE *dest)
                     ptr += attr->ulValueLen;
                 }
             }
+            free(attr_32);
         }
 
         node = node->next;
     }
-
-    if (attr_32)
-        free(attr_32);
 
     return CKR_OK;
 }
