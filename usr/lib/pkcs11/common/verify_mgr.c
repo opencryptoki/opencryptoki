@@ -640,6 +640,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     ctx->mech.ulParameterLen = mech->ulParameterLen;
     ctx->mech.mechanism = mech->mechanism;
     ctx->mech.pParameter = ptr;
+    ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = TRUE;
     ctx->recover = recover_mode;
@@ -659,6 +660,7 @@ CK_RV verify_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
     ctx->key = 0;
     ctx->mech.ulParameterLen = 0;
     ctx->mech.mechanism = 0;
+    ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
     ctx->init_pending = FALSE;
@@ -700,6 +702,11 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = FALSE;
+        ctx->multi_init = TRUE;
+    }
+
     // if the caller just wants the signature length, there is no reason to
     // specify the input data.  I just need the input data length
     //
@@ -829,8 +836,14 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
-    ctx->multi = TRUE;
-
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = TRUE;
+        ctx->multi_init = TRUE;
+    }
+    if (ctx->multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
+    }
 
     switch (ctx->mech.mechanism) {
     case CKM_MD2_RSA_PKCS:
@@ -907,6 +920,15 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    if (ctx->multi_init == FALSE) {
+        ctx->multi = TRUE;
+        ctx->multi_init = TRUE;
+    }
+    if (ctx->multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
+    }
+
     switch (ctx->mech.mechanism) {
     case CKM_MD2_RSA_PKCS:
     case CKM_MD5_RSA_PKCS:
