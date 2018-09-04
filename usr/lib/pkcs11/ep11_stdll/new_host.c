@@ -1597,7 +1597,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
     return rc;
 }
@@ -1855,7 +1855,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
     return rc;
 }
@@ -2037,9 +2037,9 @@ done:
             decr_mgr_cleanup(&sess->decr_ctx);
     }
 
-    TRACE_INFO("C_DecryptFinal:  rc = 0x%08lx, sess = %ld, amount = %lu\n",
+    TRACE_INFO("C_DecryptFinal: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               *pulLastPartLen);
+               (pulLastPartLen ? *pulLastPartLen : 0));
 
     return rc;
 }
@@ -2093,7 +2093,7 @@ CK_RV SC_DigestInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
     return rc;
 }
@@ -2314,7 +2314,7 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_SignInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
     return rc;
 }
@@ -2630,7 +2630,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
     return rc;
 }
@@ -2970,7 +2970,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_GenerateKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
@@ -3053,7 +3053,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t * tokdata,
 done:
     TRACE_INFO("C_GenerateKeyPair: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
@@ -3201,7 +3201,7 @@ done:
     TRACE_INFO("C_UnwrapKey: rc = 0x%08lx, sess = %ld, decrypting key = %lu,"
                "unwrapped key = %lu\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               hUnwrappingKey, *phKey);
+               hUnwrappingKey, (phKey ? *phKey : 0));
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
@@ -3274,7 +3274,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_DeriveKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               pMechanism->mechanism);
+               (pMechanism ? pMechanism->mechanism : -1));
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
