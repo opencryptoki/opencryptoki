@@ -240,11 +240,6 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 {
     CK_RV rc = CKR_OK;
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
     /* If somebody else has taken care of things, leave... */
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -281,6 +276,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
     if (tokdata)
         free(tokdata);
 
+    final_data_store();
     return rc;
 }
 
