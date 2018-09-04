@@ -4588,6 +4588,8 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
     rc = object_mgr_find_in_map1(tokdata, handle, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s key 0x%lx not mapped\n", __func__, handle);
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
         return rc;
     }
 
