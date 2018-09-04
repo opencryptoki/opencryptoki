@@ -2407,7 +2407,8 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
     mdctx = EVP_MD_CTX_create();
     if (mdctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     switch (mech->mechanism) {
@@ -2434,19 +2435,24 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
     default:
         EVP_MD_CTX_destroy(mdctx);
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     if (rc != 1) {
         EVP_MD_CTX_destroy(mdctx);
         ctx->context = NULL;
         TRACE_ERROR("EVP_DigestSignInit failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         ctx->context = (CK_BYTE *) mdctx;
     }
 
-    return CKR_OK;
+    rc = CKR_OK;
+done:
+    EVP_PKEY_free(pkey);
+    return rc;
 }
 
 CK_RV token_specific_hmac_sign_init(STDLL_TokData_t *tokdata, SESSION *sess,
