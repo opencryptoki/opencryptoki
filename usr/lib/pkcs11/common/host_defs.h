@@ -49,6 +49,8 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL recover;           // are we in recover mode?
     CK_BBOOL active;
     CK_BBOOL init_pending;      // indicate init request pending
+    CK_BBOOL multi_init;        // multi field is initialized
+                                // on first call *after* init
 } SIGN_VERIFY_CONTEXT;
 
 

@@ -2359,6 +2359,9 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    sess->sign_ctx.multi_init = FALSE;
+    sess->sign_ctx.multi = FALSE;
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         /* In case of a single part sign operation we don't need the SignInit,
          * instead we can use the SignSingle which is much faster.
@@ -2367,7 +2370,6 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
          */
         sess->sign_ctx.init_pending = TRUE;
         sess->sign_ctx.active = TRUE;
-        sess->sign_ctx.multi = FALSE;
         sess->sign_ctx.key = hKey;
 
         sess->sign_ctx.mech.mechanism = pMechanism->mechanism;
@@ -2436,6 +2438,17 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    if (sess->sign_ctx.multi_init == FALSE) {
+        sess->sign_ctx.multi = FALSE;
+        sess->sign_ctx.multi_init = TRUE;
+    }
+
+    if (sess->sign_ctx.multi == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
+        goto done;
+    }
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_sign_single(tokdata, sess, &sess->sign_ctx.mech,
                                  length_only, sess->sign_ctx.key,
@@ -2498,6 +2511,17 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         if (rc != CKR_OK)
             TRACE_DEVEL("sign_mgr_sign_update() failed.\n");
 
+        goto done;
+    }
+
+    if (sess->sign_ctx.multi_init == FALSE) {
+        sess->sign_ctx.multi = TRUE;
+        sess->sign_ctx.multi_init = TRUE;
+    }
+
+    if (sess->sign_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -2569,6 +2593,17 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         if (rc != CKR_OK)
             TRACE_ERROR("sign_mgr_sign_final() failed.\n");
 
+        goto done;
+    }
+
+    if (sess->sign_ctx.multi_init == FALSE) {
+        sess->sign_ctx.multi = TRUE;
+        sess->sign_ctx.multi_init = TRUE;
+    }
+
+    if (sess->sign_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -2675,6 +2710,9 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    sess->verify_ctx.multi_init = FALSE;
+    sess->verify_ctx.multi = FALSE;
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         /* In case of a single part verify operation we don't need the
          * VerifyInit, instead we can use the VerifySingle which is much
@@ -2748,6 +2786,17 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    if (sess->verify_ctx.multi_init == FALSE) {
+        sess->verify_ctx.multi = FALSE;
+        sess->verify_ctx.multi_init = TRUE;
+    }
+
+    if (sess->verify_ctx.multi == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
+        goto done;
+    }
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
                                    sess->verify_ctx.key, pData, ulDataLen,
@@ -2809,6 +2858,17 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         if (rc != CKR_OK)
             TRACE_DEVEL("verify_mgr_verify_update() failed.\n");
 
+        goto done;
+    }
+
+    if (sess->verify_ctx.multi_init == FALSE) {
+        sess->verify_ctx.multi = TRUE;
+        sess->verify_ctx.multi_init = TRUE;
+    }
+
+    if (sess->verify_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -2879,9 +2939,20 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (sess->sign_ctx.init_pending) {
+    if (sess->verify_ctx.multi_init == FALSE) {
+        sess->verify_ctx.multi = TRUE;
+        sess->verify_ctx.multi_init = TRUE;
+    }
+
+    if (sess->verify_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
+        goto done;
+    }
+
+    if (sess->verify_ctx.init_pending) {
         /* VerifyInit without Update, no VerifyFinal necessary */
-        sess->sign_ctx.init_pending = 0;
+        sess->verify_ctx.init_pending = 0;
         goto done;
     }
     rc = ep11tok_verify_final(tokdata, sess, pSignature, ulSignatureLen);
