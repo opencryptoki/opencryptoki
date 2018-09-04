@@ -1607,6 +1607,12 @@ CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key)
 void init_data_store(char *directory, char *data_store)
 {
     char *pkdir;
+
+    if (pk_dir != NULL) {
+        free(pk_dir);
+        pk_dir = NULL;
+    }
+
     if ((pkdir = getenv("PKCS_APP_STORE")) != NULL) {
         pk_dir = (char *) malloc(strlen(pkdir) + 1024);
         memset(pk_dir, 0, strlen(pkdir) + 1024);
@@ -1627,5 +1633,13 @@ void init_data_store(char *directory, char *data_store)
     }
 
     return;
- }
+}
+
+void final_data_store(void)
+{
+    if (pk_dir != NULL) {
+        free(pk_dir);
+        pk_dir = NULL;
+    }
+}
 
