@@ -1572,6 +1572,9 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    sess->encr_ctx.multi_init = FALSE;
+    sess->encr_ctx.multi = FALSE;
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         /* In case of a single part encrypt operation we don't need the
          * EncryptInit, instead we can use the EncryptSingle which is much
@@ -1580,7 +1583,6 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
          */
         sess->encr_ctx.init_pending = TRUE;
         sess->encr_ctx.active = TRUE;
-        sess->encr_ctx.multi = FALSE;
         sess->encr_ctx.key = hKey;
 
         sess->encr_ctx.mech.mechanism = pMechanism->mechanism;
@@ -1639,6 +1641,17 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pEncryptedData)
         length_only = TRUE;
 
+    if (sess->encr_ctx.multi_init == FALSE) {
+        sess->encr_ctx.multi = FALSE;
+        sess->encr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->encr_ctx.multi == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
+        goto done;
+    }
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_encrypt_single(tokdata, sess, &sess->encr_ctx.mech,
                                     length_only, sess->encr_ctx.key,
@@ -1696,6 +1709,17 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->encr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (sess->encr_ctx.multi_init == FALSE) {
+        sess->encr_ctx.multi = TRUE;
+        sess->encr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->encr_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -1758,6 +1782,17 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->encr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (sess->encr_ctx.multi_init == FALSE) {
+        sess->encr_ctx.multi = TRUE;
+        sess->encr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->encr_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -1830,6 +1865,9 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
+    sess->decr_ctx.multi_init = FALSE;
+    sess->decr_ctx.multi = FALSE;
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         /* In case of a single part decrypt operation we don't need the
          * DecryptInit, instead we can use the EncryptSingle which is much
@@ -1838,7 +1876,6 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
          */
         sess->decr_ctx.init_pending = TRUE;
         sess->decr_ctx.active = TRUE;
-        sess->decr_ctx.multi = FALSE;
         sess->decr_ctx.key = hKey;
 
         sess->decr_ctx.mech.mechanism = pMechanism->mechanism;
@@ -1897,6 +1934,17 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pData)
         length_only = TRUE;
 
+    if (sess->decr_ctx.multi_init == FALSE) {
+        sess->decr_ctx.multi = FALSE;
+        sess->decr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->decr_ctx.multi == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
+        goto done;
+    }
+
     if (ep111tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_decrypt_single(tokdata, sess, &sess->decr_ctx.mech,
                                     length_only, sess->decr_ctx.key,
@@ -1954,6 +2002,17 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->decr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (sess->decr_ctx.multi_init == FALSE) {
+        sess->decr_ctx.multi = TRUE;
+        sess->decr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->decr_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
@@ -2016,6 +2075,17 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (sess->decr_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (sess->decr_ctx.multi_init == FALSE) {
+        sess->decr_ctx.multi = TRUE;
+        sess->decr_ctx.multi_init = TRUE;
+    }
+
+    if (sess->decr_ctx.multi == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        rc = CKR_OPERATION_ACTIVE;
         goto done;
     }
 
