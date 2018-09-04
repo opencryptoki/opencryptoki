@@ -848,7 +848,10 @@ CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
         TRACE_DEBUG("failed to create digest.\n");
         return rv;
     }
-    return sha_hash(tokdata, NULL, FALSE, &ctx, data, len, hash, &hash_len);
+    rv = sha_hash(tokdata, NULL, FALSE, &ctx, data, len, hash, &hash_len);
+
+    digest_mgr_cleanup(&ctx);
+    return rv;
 }
 
 /* Compute SHA1 using software implementation */
