@@ -5588,7 +5588,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = 0;
-    CK_ULONG counter = 0;
+    CK_ULONG counter = 0, size = 0;
     CK_MECHANISM_TYPE_PTR mlist = NULL;
     int i;
 
@@ -5631,6 +5631,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         }
     } else {
         /* 2. call, content request */
+        size = *pulCount;
 
         /* find out size ep11 will report, cannot use the size
          * that comes as parameter, this is a 'reduced size',
@@ -5668,12 +5669,13 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         *pulCount = 0;
         for (i = 0; i < counter; i++) {
             if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) == CKR_OK) {
-                pMechanismList[*pulCount] = mlist[i];
+                if (*pulCount < size)
+                    pMechanismList[*pulCount] = mlist[i];
                 *pulCount = *pulCount + 1;
-            } else {
-                ;
-            }                   /* do not copy banned mech */
+            }
         }
+        if (*pulCount >= size)
+            rc = CKR_BUFFER_TOO_SMALL;
     }
 
     if (mlist)
