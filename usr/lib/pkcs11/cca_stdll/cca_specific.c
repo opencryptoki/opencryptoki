@@ -1064,6 +1064,12 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (*out_data_len > 512)
+        *out_data_len = 512;
+
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
@@ -1107,6 +1113,12 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
     }
+
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (out_data_len > 512)
+        out_data_len = 512;
 
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
