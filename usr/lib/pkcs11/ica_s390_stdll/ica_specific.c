@@ -3314,7 +3314,7 @@ CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
         }
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+    TRACE_DEBUG("%s\n", ock_err(ERR_MECHANISM_INVALID));
 
     return CKR_MECHANISM_INVALID;
 }

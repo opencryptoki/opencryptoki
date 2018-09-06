@@ -1478,7 +1478,7 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
         }
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+    TRACE_DEBUG("%s\n", ock_err(ERR_MECHANISM_INVALID));
 
     return CKR_MECHANISM_INVALID;
 }

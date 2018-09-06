@@ -5715,7 +5715,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
 
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s rc=0x%lx unsupported '%s'\n", __func__, rc,
+        TRACE_DEBUG("%s rc=0x%lx unsupported '%s'\n", __func__, rc,
                     ep11_get_ckm(type));
         return rc;
     }
