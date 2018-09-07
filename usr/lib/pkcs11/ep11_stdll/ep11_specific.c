@@ -5165,6 +5165,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
         if (rc != CKR_OK) {
+            decr_mgr_cleanup(ctx);
             TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
                         "mech=0x%lx\n", __func__, rc, blob_len,
                         mech->mechanism);
@@ -5183,6 +5184,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
         if (rc != CKR_OK) {
+            encr_mgr_cleanup(ctx);
             TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
                         "mech=0x%lx\n", __func__, rc, blob_len,
                         mech->mechanism);
