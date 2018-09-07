@@ -1136,12 +1136,22 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     } else if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSV (RSA VERIFY) failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
+        if (return_code == 8 && reason_code == 72) {
+            /*
+             * Return CKR_SIGNATURE_INVALID in case of return code 8 and
+             * reason code 72 because we dont know why the RSA op failed
+             * and it may have failed due to a tampered signature being
+             * greater or equal to the modulus.
+             */
+            return CKR_SIGNATURE_INVALID;
+        }
         return CKR_FUNCTION_FAILED;
-    } else if (reason_code != 0) {
+    }
+
+    if (reason_code != 0) {
         TRACE_WARNING("CSNDDSV (RSA VERIFY) succeeded, but"
                       " returned reason:%ld\n", reason_code);
     }
-
     return CKR_OK;
 }
 
