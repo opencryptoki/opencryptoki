@@ -3509,7 +3509,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
 				     rc);
-			return CKR_FUNCTION_FAILED;
+			return rc;
 		}
 		TRACE_INFO("symmetric key with len=%ld successful imported\n",
 			    attr->ulValueLen);
@@ -3519,7 +3519,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 		if (rc != CKR_OK) {
 			TRACE_DEVEL("Generic Secret (HMAC) key import failed "
 				    " with rc=0x%lx\n", rc);
-			return CKR_FUNCTION_FAILED;
+			return rc;
 		}
 		TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
 			   " imported\n", attr->ulValueLen);
