@@ -395,8 +395,8 @@ CK_RV run_DeriveECDHKey()
                 if (too_many_key_bytes_requested(i, j, secret_key_len[k]) ||
                     too_many_key_bytes_requested_ep11(i, j,
                                                       secret_key_len[k])) {
-                    testcase_skip("Cannot provide %ld key bytes with curve %i "
-                                  "without a kdf.\n", secret_key_len[k], i);
+                    testcase_skip("Cannot provide %lu key bytes with curve %lu"
+                                  " without a kdf.\n", secret_key_len[k], i);
                     continue;
                 }
 
