@@ -1532,6 +1532,9 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                              &cslen, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
+    if (rc == 0x8001000d)
+        rc = CKR_KEY_SIZE_RANGE;
+
     if (rc != CKR_OK) {
         TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
     } else {
