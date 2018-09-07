@@ -1610,13 +1610,18 @@ CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
         goto cleanup_pubkey;
     }
     rc = ica_rsa_mod_expo(adapter_handle, in_data, publKey, out_data);
-
     if (rc != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-    } else {
-        rc = CKR_OK;
+        if (rc == EINVAL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+            rc = CKR_ARGUMENTS_BAD;
+        } else {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+        }
+        goto cleanup_pubkey;
     }
+
+    rc = CKR_OK;
 
 cleanup_pubkey:
     free(publKey->modulus);
@@ -1878,31 +1883,38 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
-    if (rc == CKR_OK) {
-        rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len,
-                             PKCS_BT_1);
-        if (rc == CKR_OK) {
-            if (in_data_len != out_data_len) {
-                TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-                return CKR_SIGNATURE_INVALID;
-            }
-
-            if (memcmp(in_data, out_data, out_data_len) != 0) {
-                TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-                return CKR_SIGNATURE_INVALID;
-            }
-        } else if (rc == CKR_ENCRYPTED_DATA_INVALID) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-            return CKR_SIGNATURE_INVALID;
-        } else {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            return CKR_FUNCTION_FAILED;
-        }
-    } else {
-        TRACE_DEVEL("rsa_parse_block failed\n");
+    if (rc != CKR_OK) {
+        /*
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD
+         * because we dont know why the RSA op failed and it may have
+         * failed due to a tampered signature being greater or equal
+         * to the modulus.
+         */
+        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
+        return rc == CKR_ARGUMENTS_BAD ? CKR_SIGNATURE_INVALID : rc;
     }
 
-    return rc;
+    rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len,
+                         PKCS_BT_1);
+    if (rc == CKR_ENCRYPTED_DATA_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        return CKR_SIGNATURE_INVALID;
+    } else if (rc != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (in_data_len != out_data_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        return CKR_SIGNATURE_INVALID;
+    }
+
+    if (memcmp(in_data, out_data, out_data_len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+        return CKR_SIGNATURE_INVALID;
+    }
+
+    return CKR_OK;
 }
 
 CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
