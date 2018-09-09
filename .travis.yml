@@ -1,5 +1,3 @@
-
-# Ubuntu 14.04 Trusty support
 sudo: required
 dist: trusty
 
@@ -8,11 +6,24 @@ language: c
 before_install:
     - sudo apt-get -qq update
     - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev
+
+matrix:
+    include:
+        - name: "linux-clang-locks"
+          os: linux
+          compiler: clang
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks"
+        - name: "linux-gcc-debug"
+          os: linux
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-debug"
+
 before_script:
     - sudo groupadd pkcs11
     - ./bootstrap.sh
+
 script:
-    - ./configure --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-debug && make
+    - ./configure $CONFIG_OPTS && make
     - sudo make install
     - sudo ldconfig
     - sudo pkcsslotd
