@@ -9,7 +9,7 @@
  */
 
 #ifndef _P11UTIL_H_
-#define _P11UTIL_H__
+#define _P11UTIL_H_
 
 
 #include "pkcs11types.h"
