@@ -2719,7 +2719,7 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    if (!((pssParams->sLen >= 0) && (pssParams->sLen <= modlen - 2 - hlen))) {
+    if (!(pssParams->sLen <= modlen - 2 - hlen)) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_PARAM_INVALID;
     }
