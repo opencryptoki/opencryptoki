@@ -20,7 +20,7 @@
 
 CK_RV do_TestAttributes(void)
 {
-    CK_OBJECT_HANDLE obj_handle;
+    CK_OBJECT_HANDLE obj_handle = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_RV rc = 0, rv = 0;
     CK_FLAGS flags;

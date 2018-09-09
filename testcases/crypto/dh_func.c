@@ -157,9 +157,12 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
 {
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE publ_key, priv_key;
-    CK_OBJECT_HANDLE peer_publ_key, peer_priv_key;
-    CK_OBJECT_HANDLE secret_key, peer_secret_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE peer_publ_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE peer_priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE peer_secret_key = CK_INVALID_HANDLE;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;

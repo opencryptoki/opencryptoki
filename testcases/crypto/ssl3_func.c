@@ -340,8 +340,8 @@ done:
 CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 {
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE h_pm_secret;
-    CK_OBJECT_HANDLE h_mk;
+    CK_OBJECT_HANDLE h_pm_secret = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE h_mk = CK_INVALID_HANDLE;
     CK_RV rc = CKR_OK;
 
     CK_VERSION version = { 3, 0 };
