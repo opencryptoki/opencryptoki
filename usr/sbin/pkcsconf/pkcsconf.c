@@ -25,6 +25,7 @@
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
 #include "p11util.h"
+#include "defs.h"
 
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
@@ -440,10 +441,10 @@ out:
 int get_slot(char *optarg)
 {
     char *endptr;
-    int val;
+    long val;
 
     errno = 0;
-    val = (int) strtol(optarg, &endptr, 10);
+    val = strtol(optarg, &endptr, 10);
 
     /* Check for various possible errors */
     if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN))
@@ -456,7 +457,11 @@ int get_slot(char *optarg)
     if (endptr == optarg)
         return -1;
 
-    return val;
+    /* Invalid slot id */
+    if (val < INT_MIN || val > MAX_SLOT_ID)
+        return -1;
+
+    return (int)val;
 }
 
 int echo(int bool)
