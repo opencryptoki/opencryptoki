@@ -1050,7 +1050,7 @@ static int icsf_list(LDAP * ld, int *reason, char *handle, size_t handle_len,
      *      outListLen      INTEGER (0 .. MaxCSFPInteger)
      * }
      */
-    if (ber_scanf(result, "{Oi}", bv_list, &out_list_len) < 0) {
+    if (ber_scanf(result, "{Oi}", bv_list, &out_list_len) == LBER_ERROR) {
         TRACE_ERROR("Failed to decode message.\n");
         rc = -1;
         goto cleanup;
@@ -1416,7 +1416,7 @@ int icsf_generate_key_pair(LDAP * ld, int *reason, const char *token_name,
         goto cleanup;
 
     /* Get private key handle from GKP response */
-    if (ber_scanf(result, "m", &bv_priv_handle) < 0) {
+    if (ber_scanf(result, "m", &bv_priv_handle) == LBER_ERROR) {
         TRACE_ERROR("Failed to decode the response.\n");
         rc = -1;
         goto cleanup;
@@ -1841,7 +1841,7 @@ int icsf_secret_key_encrypt(LDAP * ld, int *p_reason,
 
     /* Parse response */
     if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_cipher_data,
-                  &length) < 0) {
+                  &length) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -1987,7 +1987,7 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
 
     /* Parse response */
     if (ber_scanf(result, "{mmi", &bv_chaining_data, &bv_clear_data,
-                  &length) < 0) {
+                  &length) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2312,7 +2312,7 @@ int icsf_private_key_sign(LDAP * ld, int *p_reason, int decrypt,
         && reason != ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT)
         goto done;
 
-    if (ber_scanf(result, "{mi}", &bv_clear_text, &length) < 0) {
+    if (ber_scanf(result, "{mi}", &bv_clear_text, &length) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2415,7 +2415,7 @@ int icsf_public_key_verify(LDAP * ld, int *p_reason, int encrypt,
     if (!encrypt)
         goto done;
 
-    if (ber_scanf(result, "{mi}", &bv_cipher_text, &length) < 0) {
+    if (ber_scanf(result, "{mi}", &bv_cipher_text, &length) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2538,7 +2538,8 @@ int icsf_hmac_sign(LDAP * ld, int *reason, struct icsf_object_record *key,
      *   this changes in the future.
      */
 
-    if (ber_scanf(result, "{ooi}", &bvChain, &bvHmac, &hmac_length) < 0) {
+    if (ber_scanf(result, "{ooi}", &bvChain, &bvHmac, &hmac_length)
+        == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2666,7 +2667,7 @@ int icsf_hmac_verify(LDAP * ld, int *reason, struct icsf_object_record *key,
      * - chainData is always blindly returned, whether it is pertinent
      *   or not.
      */
-    if (ber_scanf(result, "m", &bvChain) < 0) {
+    if (ber_scanf(result, "m", &bvChain) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2783,7 +2784,8 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      *      wrappedKeyLen   INTEGER
      * }
      */
-    if (ber_scanf(result, "{mi}", &bv_wrapped_key, &wrapped_key_len) < 0) {
+    if (ber_scanf(result, "{mi}", &bv_wrapped_key, &wrapped_key_len)
+        == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -2971,7 +2973,7 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         goto done;
 
     /* Parse the response. */
-    if (ber_scanf(result, "{ooi}", &bvChain, &bvSig, &length) < 0) {
+    if (ber_scanf(result, "{ooi}", &bvChain, &bvSig, &length) == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
@@ -3142,7 +3144,7 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
          * }
          */
         if (mech->mechanism == CKM_SSL3_MASTER_KEY_DERIVE) {
-            if (ber_scanf(result, "o", &bvParam) < 0) {
+            if (ber_scanf(result, "o", &bvParam) == LBER_ERROR) {
                 TRACE_ERROR("Failed to Derive Key\n");
                 rc = -1;
                 goto cleanup;
@@ -3309,7 +3311,8 @@ int icsf_derive_multiple_keys(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      */
     if (ber_scanf(result, "{t{mmmmmm}}", &tag, &bv_client_mac_handle,
                   &bv_server_mac_handle, &bv_client_key_handle,
-                  &bv_server_key_handle, &bv_client_iv, &bv_server_iv) < 0) {
+                  &bv_server_key_handle, &bv_client_iv, &bv_server_iv)
+        == LBER_ERROR) {
         rc = -1;
         TRACE_ERROR("Failed to decode the response.\n");
         goto done;
