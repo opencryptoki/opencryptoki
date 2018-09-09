@@ -9,14 +9,22 @@ before_install:
 
 matrix:
     include:
-        - name: "linux-clang-locks"
+        - name: "linux-x86-clang-locks"
           os: linux
           compiler: clang
           env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks"
-        - name: "linux-gcc-debug"
+        - name: "linux-x86-gcc-debug"
           os: linux
           compiler: gcc
           env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-debug"
+        - name: "linux-ppc64le-clang-locks-debug"
+          os: linux-ppc64le
+          compiler: clang
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks --enable-debug"
+        - name: "linux-ppc64le-gcc"
+          os: linux-ppc64le
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases"
 
 before_script:
     - sudo groupadd pkcs11
