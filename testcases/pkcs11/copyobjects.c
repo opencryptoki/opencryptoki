@@ -36,7 +36,12 @@ CK_RV do_CopyObjects(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
 
-    CK_OBJECT_HANDLE keyobj, firstobj, secondobj, thirdobj, fourthobj, fifthobj;
+    CK_OBJECT_HANDLE keyobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE firstobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE secondobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE thirdobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE fourthobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE fifthobj = CK_INVALID_HANDLE;
 
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;

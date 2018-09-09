@@ -29,7 +29,8 @@ CK_RV do_GenerateKeyPairRSA(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
 
-    CK_OBJECT_HANDLE priv_key, publ_key;
+    CK_OBJECT_HANDLE priv_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE;
     CK_MECHANISM mech;
 
     CK_KEY_TYPE keytype = CKK_RSA;

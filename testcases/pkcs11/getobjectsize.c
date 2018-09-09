@@ -38,7 +38,7 @@ CK_RV do_GetObjectSize(void)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
 
-    CK_OBJECT_HANDLE keyobj;
+    CK_OBJECT_HANDLE keyobj = CK_INVALID_HANDLE;
 
     CK_BBOOL false = FALSE;
     CK_KEY_TYPE aes_type = CKK_AES;
