@@ -12,7 +12,7 @@ before_script:
     - sudo groupadd pkcs11
     - ./bootstrap.sh
 script:
-    - ./configure --enable-testcases --enable-debug && make
+    - ./configure --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-debug && make
     - sudo make install
     - sudo ldconfig
     - sudo pkcsslotd
