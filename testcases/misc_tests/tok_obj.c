@@ -391,7 +391,7 @@ int do_inittoken(void)
 
     printf("Enter Token Label:");
     if (!fgets(label, 32, stdin)) {
-        show_error("fgets failed", CKR_FUNCTION_FAILED);
+        show_error("fgets failed", (unsigned long)CKR_FUNCTION_FAILED);
         rc = FALSE;
         goto done;
     }
