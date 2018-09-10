@@ -154,6 +154,8 @@ CK_RV dp_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *local_attr = NULL;
 
+    UNUSED(mode);
+
     local_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 

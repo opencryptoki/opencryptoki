@@ -85,6 +85,8 @@ CK_RV sw_aes_cbc(CK_BYTE *in_data,
 {
     AES_KEY aes_key;
 
+    UNUSED(out_data_len); //XXX can this parameter be removed ?
+
     memset(&aes_key, 0, sizeof(aes_key));
 
     // the aes decrypt will only fail if the data length is not evenly divisible

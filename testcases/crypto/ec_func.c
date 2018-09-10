@@ -19,6 +19,7 @@
 #include "regress.h"
 #include "common.c"
 #include "ec.h"
+#include "defs.h"
 
 /*
  * Below is a list for the OIDs and DER encodings of the brainpool.
@@ -263,6 +264,8 @@ static unsigned int too_many_key_bytes_requested_ep11(unsigned int curve,
                                                       unsigned int kdf,
                                                       unsigned int keylen)
 {
+    UNUSED(kdf);
+
     if (!is_ep11_token(SLOT_ID))
         return 0;
 

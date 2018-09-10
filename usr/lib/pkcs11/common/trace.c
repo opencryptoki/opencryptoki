@@ -125,7 +125,7 @@ void trace_finalize(void)
     if (trace.fd)
         close(trace.fd);
     trace.fd = -1;
-    trace.level = 0;
+    trace.level = TRACE_LEVEL_NONE;
 }
 
 CK_RV trace_initialize(void)
@@ -137,7 +137,7 @@ CK_RV trace_initialize(void)
     char tracefile[PATH_MAX];
 
     /* initialize the trace values */
-    trace.level = 0;
+    trace.level = TRACE_LEVEL_NONE;
     trace.fd = -1;
 
     opt = getenv("OPENCRYPTOKI_TRACE_LEVEL");
@@ -200,7 +200,7 @@ CK_RV trace_initialize(void)
     return (CKR_OK);
 
 error:
-    trace.level = 0;
+    trace.level = TRACE_LEVEL_NONE;
     trace.fd = -1;
 
     return (CKR_FUNCTION_FAILED);

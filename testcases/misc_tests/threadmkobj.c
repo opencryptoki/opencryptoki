@@ -26,6 +26,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "defs.h"
 
 int do_GetInfo(void);
 int do_GetFunctionList(void);
@@ -117,6 +118,8 @@ int thread_func(void *thid)
 {
     int i = 0;
     CK_RV rv;
+
+    UNUSED(thid);
 
     do {
         rv = do_create_token_object();

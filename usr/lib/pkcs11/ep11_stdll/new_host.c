@@ -232,6 +232,9 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp)
 {
     CK_RV rc;
 
+    UNUSED(sid);
+    UNUSED(sinfp);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -312,6 +315,10 @@ done:
 CK_RV SC_WaitForSlotEvent(STDLL_TokData_t * tokdata, CK_FLAGS flags,
                           CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 {
+    UNUSED(flags);
+    UNUSED(pSlot);
+    UNUSED(pReserved);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -723,6 +730,8 @@ static void _ep11tok_login_session(STDLL_TokData_t * tokdata, void *node_value,
     CK_RV rc;
     CK_RV *r = (CK_RV *) p3;
 
+    UNUSED(node_idx);
+
     rc = ep11tok_login_session(tokdata, (SESSION *) node_value);
     if (rc != CKR_OK)
         *r = rc;
@@ -731,6 +740,9 @@ static void _ep11tok_login_session(STDLL_TokData_t * tokdata, void *node_value,
 static void _ep11tok_logout_session(STDLL_TokData_t * tokdata, void *node_value,
                                     unsigned long node_idx, void *p3)
 {
+    UNUSED(node_idx);
+    UNUSED(p3);
+
     ep11tok_logout_session(tokdata, (SESSION *) node_value);
 }
 
@@ -2255,6 +2267,9 @@ done:
 CK_RV SC_DigestKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                    CK_OBJECT_HANDLE hKey)
 {
+    UNUSED(sSession);
+    UNUSED(hKey);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2632,6 +2647,9 @@ CK_RV SC_SignRecoverInit(STDLL_TokData_t * tokdata,
                          ST_SESSION_HANDLE * sSession,
                          CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
+    UNUSED(sSession);
+    UNUSED(pMechanism);
+    UNUSED(hKey);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2648,6 +2666,11 @@ CK_RV SC_SignRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                      CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                      CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
+    UNUSED(sSession);
+    UNUSED(pData);
+    UNUSED(ulDataLen);
+    UNUSED(pSignature);
+    UNUSED(pulSignatureLen);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2973,6 +2996,9 @@ CK_RV SC_VerifyRecoverInit(STDLL_TokData_t * tokdata,
                            ST_SESSION_HANDLE * sSession,
                            CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
+    UNUSED(sSession);
+    UNUSED(pMechanism);
+    UNUSED(hKey);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2989,6 +3015,12 @@ CK_RV SC_VerifyRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                        CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen,
                        CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
+    UNUSED(sSession);
+    UNUSED(pSignature);
+    UNUSED(ulSignatureLen);
+    UNUSED(pData);
+    UNUSED(pulDataLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3005,6 +3037,12 @@ CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t * tokdata,
                              CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                              CK_ULONG_PTR pulEncryptedPartLen)
 {
+    UNUSED(sSession);
+    UNUSED(pPart);
+    UNUSED(ulPartLen);
+    UNUSED(pEncryptedPart);
+    UNUSED(pulEncryptedPartLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3022,6 +3060,12 @@ CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t * tokdata,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
 {
+    UNUSED(sSession);
+    UNUSED(pEncryptedPart);
+    UNUSED(ulEncryptedPartLen);
+    UNUSED(pPart);
+    UNUSED(pulPartLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3038,6 +3082,12 @@ CK_RV SC_SignEncryptUpdate(STDLL_TokData_t * tokdata,
                            CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                            CK_ULONG_PTR pulEncryptedPartLen)
 {
+    UNUSED(sSession);
+    UNUSED(pPart);
+    UNUSED(ulPartLen);
+    UNUSED(pEncryptedPart);
+    UNUSED(pulEncryptedPartLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3055,6 +3105,12 @@ CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t * tokdata,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
 {
+    UNUSED(sSession);
+    UNUSED(pEncryptedPart);
+    UNUSED(ulEncryptedPartLen);
+    UNUSED(pPart);
+    UNUSED(pulPartLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3467,6 +3523,10 @@ done:
 CK_RV SC_SeedRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                     CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 {
+    UNUSED(sSession);
+    UNUSED(pSeed);
+    UNUSED(ulSeedLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3517,6 +3577,8 @@ done:
 CK_RV SC_GetFunctionStatus(STDLL_TokData_t * tokdata,
                            ST_SESSION_HANDLE * sSession)
 {
+    UNUSED(sSession);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3529,6 +3591,8 @@ CK_RV SC_GetFunctionStatus(STDLL_TokData_t * tokdata,
 
 CK_RV SC_CancelFunction(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
 {
+    UNUSED(sSession);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;

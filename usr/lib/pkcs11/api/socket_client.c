@@ -38,7 +38,8 @@ int init_socket_data()
     struct sockaddr_un daemon_address;
     struct stat file_info;
     struct group *grp;
-    int n, bytes_received = 0;
+    int n;
+    unsigned int bytes_received = 0;
     Slot_Mgr_Socket_t *daemon_socket_data = NULL;
     int ret = FALSE;
 

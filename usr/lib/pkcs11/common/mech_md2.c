@@ -469,6 +469,8 @@ void ckm_md2_transform(STDLL_TokData_t *tokdata,
     CK_ULONG i, j, t;
     CK_BYTE x[48];
 
+    UNUSED(tokdata);
+
     // Form encryption block from state, block, state ^ block.
     //
     memcpy((CK_BYTE *) x, (CK_BYTE *) state, 16);

@@ -19,6 +19,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "defs.h"
 
 #define DATALEN 1024
 CK_BYTE DATA[DATALEN];
@@ -107,6 +108,8 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey,
     CK_RV rc;
     CK_ULONG outlen = 16;
     unsigned long int i;
+
+    UNUSED(hkey);
 
     for (i = 0; i < DATALEN; i += outlen) {
         rc = funcs->C_EncryptUpdate(hsess, (CK_BYTE_PTR) (DATA + i), blocklen,

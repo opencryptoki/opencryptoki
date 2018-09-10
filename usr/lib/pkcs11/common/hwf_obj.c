@@ -113,6 +113,9 @@ CK_RV hwf_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     template_update_attribute(tmpl, local_attr);
 #endif
+    UNUSED(tmpl);
+    UNUSED(mode);
+
     return CKR_OK;
 }
 
@@ -142,6 +145,8 @@ CK_RV hwf_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 CK_RV clock_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                CK_ULONG mode)
 {
+    UNUSED(mode);
+
     switch (attr->type) {
     case CKA_VALUE:
         return CKR_OK;

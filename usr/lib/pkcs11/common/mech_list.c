@@ -67,7 +67,8 @@ void free_mech_list(struct mech_list_item *head)
 void merge_mech_lists(struct mech_list_item *head_of_target,
                       struct mech_list_item *head_of_source)
 {
-
+    UNUSED(head_of_target);
+    UNUSED(head_of_source);
 }
 
 CK_RV ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,

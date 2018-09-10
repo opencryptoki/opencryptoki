@@ -337,6 +337,7 @@ CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -405,6 +406,7 @@ CK_RV rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -478,6 +480,8 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     CK_RV rc;
     CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
+
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -798,6 +802,7 @@ CK_RV rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     CK_ULONG modulus_bytes;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -866,6 +871,7 @@ CK_RV rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -1014,6 +1020,7 @@ CK_RV rsa_x509_verify(STDLL_TokData_t *tokdata,
     CK_ULONG modulus_bytes;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -2354,6 +2361,8 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
     CK_RV rc = CKR_OK;
     CK_ULONG dbMask_len, ps_len;
     CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask;
+
+    UNUSED(emLen);
 
     if (!emData || !out_data) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);

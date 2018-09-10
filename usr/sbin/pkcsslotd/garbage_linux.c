@@ -104,6 +104,8 @@ BOOL StopGCThread(void *Ptr)
 
     void *Status;
 
+    UNUSED(Ptr);
+
 #if !(THREADED)
     return TRUE;
 #endif
@@ -240,6 +242,8 @@ void *GCMain(void *Ptr)
 
 void GCCancel(void *Ptr)
 {
+    UNUSED(Ptr);
+
     /* Yeah, yeah.  Doesn't do anything, but I had plans */
     DbgLog(DL3, "GCCancel: tid: %d running cleanup routine", pthread_self());
 

@@ -113,6 +113,8 @@ CK_RV sw_sha1_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
 CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
                CK_MECHANISM *mech)
 {
+    UNUSED(sess);
+
     if (token_specific.t_sha_init != NULL) {
         return token_specific.t_sha_init(tokdata, ctx, mech);
     } else {
@@ -138,6 +140,8 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
                CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     CK_ULONG hsize;
+
+    UNUSED(sess);
 
     if (!ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -198,6 +202,8 @@ CK_RV sha_hash_update(STDLL_TokData_t *tokdata, SESSION *sess,
                       DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                       CK_ULONG in_data_len)
 {
+    UNUSED(sess);
+
     /* if no data to hash, just return */
     if (!in_data_len)
         return CKR_OK;
@@ -217,6 +223,8 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
                      CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     CK_ULONG hsize;
+
+    UNUSED(sess);
 
     if (!out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);

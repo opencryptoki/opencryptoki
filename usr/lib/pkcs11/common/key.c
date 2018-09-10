@@ -5408,6 +5408,7 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
     CK_ULONG key_size;
     CK_BBOOL found = FALSE;
 
+    UNUSED(tokdata);
 
     /* accept CKA_VALUE_LEN. pkcs11v2.20 doesn't want this attribute when
      * unwrapping an AES key, but we need it for several reasons:

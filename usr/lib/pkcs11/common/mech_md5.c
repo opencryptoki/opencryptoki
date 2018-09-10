@@ -367,6 +367,8 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata,
 
 void ckm_md5_init(STDLL_TokData_t *tokdata, MD5_CONTEXT *context)
 {
+    UNUSED(tokdata);
+
     context->i[0] = context->i[1] = 0;
 
     // Load magic initialization constants.
@@ -652,6 +654,8 @@ void ckm_md5_transform(STDLL_TokData_t *tokdata, CK_ULONG *long_buf,
     CK_ULONG_32 in[16];         // temps for long_in[i]
 
     int i;                      // loop counter
+
+    UNUSED(tokdata);
 
 #define ROUND_FCN(FCN, a, b, c, d, x_index, rotate_cnt, t_index) \
     { a += FCN(b,c,d) + in[x_index] + T[t_index-1];           \

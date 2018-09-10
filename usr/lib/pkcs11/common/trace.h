@@ -113,7 +113,7 @@ typedef enum {
 /* Encapsulate all trace variables */
 struct trace_handle_t {
     int fd;                     /* file descriptor for filename */
-    int level;                  /* trace level */
+    trace_level_t level;        /* trace level */
 };
 
 extern struct trace_handle_t trace;

@@ -2279,6 +2279,8 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_ULONG field_len, len;
     CK_RV rc;
 
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
     rc = ber_decode_SEQUENCE(data, &inner_seq, &len, &field_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");

@@ -45,6 +45,7 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {
@@ -107,6 +108,7 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
 
+    UNUSED(sess);
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
     if (rc != CKR_OK) {

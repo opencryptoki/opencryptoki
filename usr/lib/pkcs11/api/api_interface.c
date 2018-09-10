@@ -79,6 +79,8 @@ void child_fork_initializer()
 // specification.
 CK_RV C_CancelFunction(CK_SESSION_HANDLE hSession)
 {
+    UNUSED(hSession);
+
     TRACE_INFO("C_CancelFunction\n");
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -1842,6 +1844,8 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
 
 CK_RV C_GetFunctionStatus(CK_SESSION_HANDLE hSession)
 {
+    UNUSED(hSession);
+
     TRACE_INFO("C_GetFunctionStatus\n");
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -4055,6 +4059,10 @@ CK_RV C_VerifyUpdate(CK_SESSION_HANDLE hSession,
 CK_RV C_WaitForSlotEvent(CK_FLAGS flags, CK_SLOT_ID_PTR pSlot,
                          CK_VOID_PTR pReserved)
 {
+    UNUSED(flags);
+    UNUSED(pSlot);
+    UNUSED(pReserved);
+
 #ifdef PLUGGABLE_TOKENS_SUPPORTED
 #ifdef PKCS64
     Slot_Mgr_Proc_t_64 *procp;
