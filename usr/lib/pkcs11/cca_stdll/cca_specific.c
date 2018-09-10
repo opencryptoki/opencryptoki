@@ -2232,8 +2232,8 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                   CK_BYTE * in_data, CK_ULONG in_data_len, CK_BYTE * signature,
                   CK_ULONG * sig_len, CK_BBOOL sign)
 {
-    struct cca_sha_ctx *cca_ctx;
-    long return_code = 0, reason_code = 0, rule_array_count = 3;
+    struct cca_sha_ctx *cca_ctx = (struct cca_sha_ctx *) ctx->context;
+    long keylen, return_code = 0, reason_code = 0, rule_array_count = 3;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     OBJECT *key = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2256,12 +2256,16 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     }
 
     if (template_attribute_find(key->template,
+                                CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    keylen = attr->ulValueLen;
+    if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         return CKR_FUNCTION_FAILED;
     }
-
-    cca_ctx = (struct cca_sha_ctx *) ctx->context;
 
     switch (ctx->mech.mechanism) {
     case CKM_SHA_1_HMAC_GENERAL:
@@ -2289,7 +2293,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return CKR_MECHANISM_INVALID;
     }
 
-    TRACE_INFO("ccatok_hmac: key length is %lu\n", attr->ulValueLen);
+    TRACE_INFO("HMAC key length is %ld\n", keylen);
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
