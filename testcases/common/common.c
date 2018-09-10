@@ -61,6 +61,9 @@ int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen)
     if (rc != CKR_OK)
         return FALSE;
 
+    /* keylen is in bytes, but key sizes in mech info are in bits */
+    keylen *= 8;
+
     return ((mech_info.ulMinKeySize <= keylen)
             && (keylen <= mech_info.ulMaxKeySize));
 }
