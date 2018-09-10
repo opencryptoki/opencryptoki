@@ -2079,7 +2079,6 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     struct cca_sha_ctx *cca_ctx;
     long return_code, reason_code, rule_array_count = 2;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-    unsigned char dummy_buf[1] = { 0 };
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -2146,13 +2145,11 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     }
 
     TRACE_DEBUG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu\n",
-                cca_ctx->tail_len,
-                cca_ctx->tail ? cca_ctx->tail : dummy_buf,
+                cca_ctx->tail_len, cca_ctx->tail,
                 cca_ctx->chain_vector_len, cca_ctx->hash_len);
 
     dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &cca_ctx->tail_len,
-                cca_ctx->tail ? cca_ctx->tail : dummy_buf,
+                rule_array, &cca_ctx->tail_len, cca_ctx->tail,
                 &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                 &cca_ctx->hash_len, cca_ctx->hash);
 
