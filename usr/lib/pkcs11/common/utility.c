@@ -862,6 +862,8 @@ CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
     DIGEST_CONTEXT ctx;
     CK_ULONG hash_len = SHA1_HASH_SIZE;
 
+    UNUSED(tokdata);
+
     memset(&ctx, 0x0, sizeof(ctx));
 
     sw_sha1_init(&ctx);

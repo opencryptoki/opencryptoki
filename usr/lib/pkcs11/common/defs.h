@@ -30,6 +30,8 @@
 #define MAX(a, b)  ((a) > (b) ? (a) : (b))
 #endif
 
+#define UNUSED(var)            ((void)(var))
+
 // the following constants are used for sccSignOn
 //
 #define PKCS_11_PRG_ID         "pkcs11 2.01"

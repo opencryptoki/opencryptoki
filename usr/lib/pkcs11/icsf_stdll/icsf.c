@@ -142,6 +142,8 @@ static void strpad(char *dest, const char *orig, size_t len, int padding_char)
 {
     size_t str_len = strlen(orig);
 
+    UNUSED(padding_char);
+
     if (str_len > len)
         str_len = len;
 
@@ -3197,6 +3199,9 @@ int icsf_derive_multiple_keys(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
     struct berval bv_server_key_handle = { 0, NULL };
     struct berval bv_client_iv = { 0, NULL };
     struct berval bv_server_iv = { 0, NULL };
+
+    UNUSED(client_iv);
+    UNUSED(server_iv);
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(mech);

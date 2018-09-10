@@ -50,6 +50,8 @@
 #define  XCP_MAX_PINBYTES         16
 #endif
 
+#define UNUSED(var)            ((void)(var))
+
 typedef unsigned int (*m_Logout_t) (const unsigned char *pin, size_t len,
                                     uint64_t target);
 
@@ -574,6 +576,8 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
     CK_RV rc;
     int i;
 
+    UNUSED(pin_blob_size);
+
     for (i = 0; i < session_id_len; i++)
         printf("%02X", session_id[i]);
     printf(":\n");
@@ -633,6 +637,12 @@ static CK_RV show_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                               pid_t pid, CK_DATE *date)
 {
     int i;
+
+    UNUSED(session);
+    UNUSED(obj);
+    UNUSED(pin_blob);
+    UNUSED(pin_blob_size);
+    UNUSED(ep11_targets);
 
     for (i = 0; i < session_id_len; i++)
         printf("%02X", session_id[i]);

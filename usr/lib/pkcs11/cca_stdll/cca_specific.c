@@ -238,6 +238,8 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     CK_ULONG bytes_so_far = 0, bytes_left;
     CK_RV rv;
 
+    UNUSED(tokdata);
+
     memcpy(form, "RANDOM  ", (size_t) CCA_KEYWORD_SIZE);
 
     while (bytes_so_far < bytes) {
@@ -380,6 +382,9 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     void *lib_csulcca;
     CK_RV rc;
 
+    UNUSED(tokdata);
+    UNUSED(conf_name);
+
     TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
 
     lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
@@ -500,6 +505,8 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * des_key,
     unsigned char key_form[CCA_KEYWORD_SIZE];
     unsigned char key_type_1[CCA_KEYWORD_SIZE];
 
+    UNUSED(tokdata);
+
     /* make sure key is the right size for the token */
     if (len != CCA_KEY_ID_SIZE)
         return CKR_FUNCTION_FAILED;
@@ -518,6 +525,14 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
+    UNUSED(tokdata);
+    UNUSED(in_data);
+    UNUSED(in_data_len);
+    UNUSED(out_data);
+    UNUSED(out_data_len);
+    UNUSED(key);
+    UNUSED(encrypt);
+
     TRACE_INFO("Unsupported function reached.\n");
 
     return CKR_FUNCTION_NOT_SUPPORTED;
@@ -537,6 +552,8 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(tokdata);
 
     if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
@@ -626,6 +643,14 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
                               CK_ULONG * out_data_len,
                               OBJECT * key, CK_BYTE encrypt)
 {
+    UNUSED(tokdata);
+    UNUSED(in_data);
+    UNUSED(in_data_len);
+    UNUSED(out_data);
+    UNUSED(out_data_len);
+    UNUSED(key);
+    UNUSED(encrypt);
+
     TRACE_WARNING("Unsupported function reached.\n");
 
     return CKR_FUNCTION_NOT_SUPPORTED;
@@ -803,6 +828,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     CK_BYTE_PTR ptr;
     CK_ULONG tmpsize, tmpexp;
 
+    UNUSED(tokdata);
 
     if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
         TRACE_ERROR("Could not find CKA_MODULUS_BITS for the key.\n");
@@ -946,6 +972,8 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
 
+    UNUSED(tokdata);
+
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -998,6 +1026,8 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+
+    UNUSED(tokdata);
 
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
@@ -1055,6 +1085,9 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
 
+    UNUSED(tokdata);
+    UNUSED(sess);
+
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -1104,6 +1137,9 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
 
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
@@ -1170,6 +1206,8 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * aes_key,
     unsigned char reserved_1[4] = { 0, };
     unsigned char point_to_array_of_zeros = 0;
     unsigned char mkvp[16] = { 0, };
+
+    UNUSED(tokdata);
 
     /* make sure key is the right size for the token */
     if (len != CCA_KEY_ID_SIZE)
@@ -1238,7 +1276,6 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
-
     long return_code, reason_code, rule_array_count;
     long block_size = 16;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
@@ -1248,6 +1285,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG key_len;
+
+    UNUSED(tokdata);
 
     if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
@@ -1338,6 +1377,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     char exit_data[0];
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG key_len;
+
+    UNUSED(tokdata);
 
     // get the key value
     if (template_attribute_find(key->template,
@@ -1454,6 +1495,8 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
 {
     CK_ULONG i;
 
+    UNUSED(tokdata);
+
     if (pMechanismList == NULL) {
         (*pulCount) = mech_list_len;
         return CKR_OK;
@@ -1477,6 +1520,8 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_INFO * pInfo)
 {
     CK_ULONG i;
+
+    UNUSED(tokdata);
 
     for (i = 0; i < mech_list_len; i++) {
         if (mech_list[i].mech_type == type) {
@@ -1634,6 +1679,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     long param1 = 0;
     unsigned char *param2 = NULL;
 
+    UNUSED(tokdata);
+
     if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
@@ -1747,6 +1794,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
 
+    UNUSED(tokdata);
+    UNUSED(sess);
+
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -1792,6 +1842,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
 
+    UNUSED(tokdata);
+    UNUSED(sess);
+
     /* Find the secure key token */
     if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
@@ -1832,6 +1885,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
 {
     CK_ULONG hash_size;
     struct cca_sha_ctx *cca_ctx;
+
+    UNUSED(tokdata);
 
     switch (mech->mechanism) {
     case CKM_SHA_1:
@@ -1875,6 +1930,8 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     struct cca_sha_ctx *cca_ctx;
     long return_code, reason_code, rule_array_count = 2;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+
+    UNUSED(tokdata);
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -1940,6 +1997,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     CK_RV rc = CKR_OK;
     unsigned char *buffer = NULL;
     int blocksz, blocksz_mask, use_buffer = 0;
+
+    UNUSED(tokdata);
 
     if (!in_data)
         return CKR_ARGUMENTS_BAD;
@@ -2087,6 +2146,8 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     long return_code, reason_code, rule_array_count = 2;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
+    UNUSED(tokdata);
+
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
@@ -2205,6 +2266,8 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT * ctx, CK_MECHANISM * mech,
     struct cca_sha_ctx *cca_ctx;
     long maclen = -1;
 
+    UNUSED(key);
+
     maclen = get_mac_len(mech);
     if (maclen < 0)
         return CKR_MECHANISM_INVALID;
@@ -2228,12 +2291,16 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT * ctx, CK_MECHANISM * mech,
 CK_RV token_specific_hmac_sign_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                     CK_MECHANISM * mech, CK_OBJECT_HANDLE key)
 {
+    UNUSED(tokdata);
+
     return ccatok_hmac_init(&sess->sign_ctx, mech, key);
 }
 
 CK_RV token_specific_hmac_verify_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                       CK_MECHANISM * mech, CK_OBJECT_HANDLE key)
 {
+    UNUSED(tokdata);
+
     return ccatok_hmac_init(&sess->verify_ctx, mech, key);
 }
 
@@ -3460,11 +3527,13 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 
 CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *object)
 {
-
 	CK_RV rc;
 	CK_ATTRIBUTE *attr = NULL;
 	CK_KEY_TYPE keytype;
 	CK_OBJECT_CLASS keyclass;
+
+	UNUSED(tokdata);
+	UNUSED(sess);
 
 	if (!object) {
 		TRACE_ERROR("Invalid argument\n");
@@ -3584,6 +3653,8 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
     long key_token_length = sizeof(key_token);
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+
+    UNUSED(tokdata);
 
     rc = template_attribute_find(template, CKA_VALUE_LEN, &attr);
     if (rc == FALSE) {

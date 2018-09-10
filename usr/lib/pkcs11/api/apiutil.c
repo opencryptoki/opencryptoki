@@ -126,6 +126,8 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
     API_Slot_t *sltp;
     STDLL_FcnList_t *fcn;
 
+    UNUSED(tokdata);
+
     if (s->slotID == slot_id) {
         /* the single ugliest part about moving to a binary tree: these are the
          * guts of the C_CloseSession function, copied here without tests for

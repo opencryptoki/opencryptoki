@@ -66,6 +66,9 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
+    UNUSED(tokdata);
+    UNUSED(conf_name);
+
     TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
 
     return CKR_OK;
@@ -81,6 +84,8 @@ CK_RV token_specific_final()
 CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *des_key,
                                  CK_ULONG len, CK_ULONG keysize)
 {
+    UNUSED(keysize);
+
     // Nothing different to do for DES or TDES here as this is just
     // random data...  Validation handles the rest
     // Only check for weak keys when single DES.
@@ -106,12 +111,13 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t *tokdata,
                              OBJECT *key, CK_BYTE encrypt)
 {
     CK_ULONG rc;
-
     DES_key_schedule des_key2;
     const_DES_cblock key_val_SSL, in_key_data;
     DES_cblock out_key_data;
     unsigned int i, j;
     CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(tokdata);
 
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
@@ -164,11 +170,11 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
 {
     CK_ULONG rc;
     CK_ATTRIBUTE *attr = NULL;
-
     DES_cblock ivec;
-
     DES_key_schedule des_key2;
     const_DES_cblock key_val_SSL;
+
+    UNUSED(tokdata);
 
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
@@ -213,14 +219,14 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE key_value[3 * DES_KEY_SIZE];
     CK_KEY_TYPE keytype;
-
     unsigned int k, j;
     DES_key_schedule des_key1;
     DES_key_schedule des_key2;
     DES_key_schedule des_key3;
-
     const_DES_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
     DES_cblock out_key_data;
+
+    UNUSED(tokdata);
 
     // get the key type
     rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -294,13 +300,13 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE key_value[3 * DES_KEY_SIZE];
     CK_KEY_TYPE keytype;
-
     DES_key_schedule des_key1;
     DES_key_schedule des_key2;
     DES_key_schedule des_key3;
-
     const_DES_cblock key_SSL1, key_SSL2, key_SSL3;
     DES_cblock ivec;
+
+    UNUSED(tokdata);
 
     // get the key type
     rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -897,6 +903,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 {
     CK_RV rc;
 
+    UNUSED(tokdata);
+
     rc = os_specific_rsa_keygen(publ_tmpl, priv_tmpl);
     if (rc != CKR_OK)
         TRACE_DEVEL("os_specific_rsa_keygen failed\n");
@@ -1016,6 +1024,8 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     CK_BYTE out[MAX_RSA_KEYLEN];
     CK_ULONG modulus_bytes;
 
+    UNUSED(tokdata);
+
     modulus_bytes = in_data_len;
 
     rc = os_specific_rsa_decrypt(in_data, modulus_bytes, out, key_obj);
@@ -1055,6 +1065,9 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
+    UNUSED(tokdata);
+    UNUSED(sess);
+
     /* format the data */
     if (!template_attribute_find(key_obj->template, CKA_MODULUS, &attr)) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
@@ -1090,6 +1103,10 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG modulus_bytes, out_data_len;
     CK_BBOOL flag;
     CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(sig_len);
 
     out_data_len = MAX_RSA_KEYLEN;
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
@@ -1154,6 +1171,9 @@ CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
 
+    UNUSED(tokdata);
+    UNUSED(sig_len);
+
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
@@ -1193,6 +1213,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     OBJECT *key_obj = NULL;
     CK_BYTE *emdata = NULL;
     CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
+
+    UNUSED(sess);
 
     /* check the arguments */
     if (!in_data || !sig) {
@@ -1261,6 +1283,8 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE out[MAX_RSA_KEYLEN];
     CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
 
+    UNUSED(sess);
+
     /* check the arguments */
     if (!in_data || !signature) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -1315,6 +1339,8 @@ CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
 
+    UNUSED(tokdata);
+
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
@@ -1353,6 +1379,9 @@ CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
 
+    UNUSED(tokdata);
+    UNUSED(in_data_len);
+
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
@@ -1385,6 +1414,8 @@ CK_RV token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     CK_ULONG modulus_bytes;
     CK_BBOOL flag;
     CK_RV rc;
+
+    UNUSED(tokdata);
 
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
@@ -1421,6 +1452,9 @@ CK_RV token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata,
     CK_ULONG modulus_bytes;
     CK_BBOOL flag;
     CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sig_len);
 
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
@@ -1477,6 +1511,9 @@ CK_RV token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
     CK_ULONG modulus_bytes;
     CK_BBOOL flag;
     CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sig_len);
 
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
@@ -1630,6 +1667,8 @@ error:
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *key,
                                  CK_ULONG len, CK_ULONG keysize)
 {
+    UNUSED(keysize);
+
     return rng_generate(tokdata, key, len);
 }
 
@@ -1646,6 +1685,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
     /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
      * so this is fine */
     CK_ULONG loops = (CK_ULONG) (in_data_len / AES_BLOCK_SIZE);
+
+    UNUSED(tokdata);
 
     memset(&ssl_aes_key, 0, sizeof(AES_KEY));
 
@@ -1688,6 +1729,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
     AES_KEY ssl_aes_key;
     CK_ATTRIBUTE *attr = NULL;
 
+    UNUSED(tokdata);
 
     memset(&ssl_aes_key, 0, sizeof(AES_KEY));
 
@@ -1734,6 +1776,8 @@ CK_RV token_specific_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     CK_RV rc;
     BIGNUM *bn_z, *bn_y, *bn_x, *bn_p;
     BN_CTX *ctx;
+
+    UNUSED(tokdata);
 
     //  Create and Init the BIGNUM structures.
     bn_y = BN_new();
@@ -1805,11 +1849,12 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_BYTE *temp_byte;
     CK_ULONG temp_bn_len;
-
     DH *dh;
     BIGNUM *bn_p;
     BIGNUM *bn_g;
     const BIGNUM *temp_bn;
+
+    UNUSED(tokdata);
 
     rc = template_attribute_find(publ_tmpl, CKA_PRIME, &prime_attr);
     rc &= template_attribute_find(publ_tmpl, CKA_BASE, &base_attr);
@@ -2045,6 +2090,9 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
                                         CK_ULONG_PTR pulCount)
 {
     int rc;
+
+    UNUSED(tokdata);
+
     /* common/mech_list.c */
     rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
 
@@ -2056,6 +2104,9 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
     int rc;
+
+    UNUSED(tokdata);
+
     /* common/mech_list.c */
     rc = ock_generic_get_mechanism_info(type, pInfo);
 
@@ -2068,6 +2119,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     int rc;
     int (*dgst) (void *);
     CK_ULONG len;
+
+    UNUSED(tokdata);
 
     switch (mech->mechanism) {
     case CKM_SHA_1:
@@ -2158,6 +2211,8 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
 
+    UNUSED(tokdata);
+
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
@@ -2242,6 +2297,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     int rc;
 
+    UNUSED(tokdata);
+
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
@@ -2288,6 +2345,8 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     int (*dgstfin) (void *, void *);
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
+
+    UNUSED(tokdata);
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -2549,6 +2608,8 @@ CK_RV token_specific_hmac_sign(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_BYTE *in_data, CK_ULONG in_data_len,
                                CK_BYTE *signature, CK_ULONG *sig_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac(&sess->sign_ctx, in_data, in_data_len, signature,
                         sig_len, TRUE);
 }
@@ -2557,6 +2618,8 @@ CK_RV token_specific_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                                  CK_BYTE *in_data, CK_ULONG in_data_len,
                                  CK_BYTE *signature, CK_ULONG sig_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac(&sess->verify_ctx, in_data, in_data_len, signature,
                         &sig_len, FALSE);
 }
@@ -2567,6 +2630,8 @@ static CK_RV softtok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
     int rc;
     EVP_MD_CTX *mdctx = NULL;
     CK_RV rv = CKR_OK;
+
+    UNUSED(sign);
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -2590,6 +2655,8 @@ static CK_RV softtok_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
 CK_RV token_specific_hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
                                       CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac_update(&sess->sign_ctx, in_data, in_data_len, TRUE);
 }
 
@@ -2597,6 +2664,8 @@ CK_RV token_specific_hmac_verify_update(STDLL_TokData_t *tokdata,
                                         SESSION *sess, CK_BYTE *in_data,
                                         CK_ULONG in_data_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac_update(&sess->verify_ctx, in_data, in_data_len, FALSE);
 }
 
@@ -2691,6 +2760,8 @@ done:
 CK_RV token_specific_hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
                                      CK_BYTE *signature, CK_ULONG *sig_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac_final(&sess->sign_ctx, signature, sig_len, TRUE);
 }
 
@@ -2698,6 +2769,8 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *tokdata,
                                        SESSION *sess, CK_BYTE *signature,
                                        CK_ULONG sig_len)
 {
+    UNUSED(tokdata);
+
     return softtok_hmac_final(&sess->verify_ctx, signature, &sig_len, FALSE);
 }
 

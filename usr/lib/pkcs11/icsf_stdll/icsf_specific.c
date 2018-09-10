@@ -498,6 +498,8 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
     LDAP *ldapd = NULL;
     int ret;
 
+    UNUSED(pass_file_type);
+
     /* Check Slot ID */
     if (slot_id > MAX_SLOT_ID) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
@@ -681,6 +683,8 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 {
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
+
+    UNUSED(label);
 
     /* Check pin */
     rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
@@ -1012,6 +1016,8 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
     CK_RV rc = CKR_OK;
     unsigned long i;
     int reason = 0;
+
+    UNUSED(tokdata);
 
     /* Remove each session object */
     for (i = 1; i <= objects.size; i++) {
@@ -3156,6 +3162,8 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
     struct icsf_object_mapping *mapping = NULL;
     int reason;
     CK_RV rc = CKR_OK;
+
+    UNUSED(tokdata);
 
     /* Get session state */
     if (!(session_state = get_session_state(sess->handle))) {

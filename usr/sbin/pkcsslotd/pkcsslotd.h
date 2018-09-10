@@ -21,6 +21,8 @@
  * Defines *
  ***********/
 
+#define UNUSED(var)            ((void)(var))
+
 #ifdef DEV
 #ifndef BECOME_DAEMON
 #define BECOME_DAEMON   FALSE
@@ -33,8 +35,6 @@
 #ifndef DEFAULT_DEBUG_LEVEL
 #define DEFAULT_DEBUG_LEVEL DEBUG_LEVEL0
 #endif                          /* DEFAULT_DEBUG_LEVEL */
-
-
 
 #else                           /* DEV not defined */
 #define BECOME_DAEMON          TRUE

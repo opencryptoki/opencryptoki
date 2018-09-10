@@ -16,7 +16,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>             // for memcmp() et al
+#include <string.h>
 #include <strings.h>
 
 #include "pkcs11types.h"
@@ -255,6 +255,8 @@ CK_RV object_mgr_add_to_map(STDLL_TokData_t *tokdata,
                             CK_OBJECT_HANDLE *map_handle)
 {
     OBJECT_MAP *map_node = NULL;
+
+    UNUSED(tokdata);
 
     if (!sess || !obj || !map_handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -801,6 +803,8 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
     OBJECT_MAP *map = (OBJECT_MAP *) node;
     OBJECT *o;
 
+    UNUSED(p3);
+
     if (!(map->is_session_obj)) {
         if (map->is_private)
             o = bt_get_node_value(&priv_token_obj_btree, map->obj_handle);
@@ -987,6 +991,8 @@ void find_obj_cb(STDLL_TokData_t *tokdata, void *node,
     OBJECT_MAP *map = (OBJECT_MAP *) node;
     OBJECT *obj;
     struct find_args *fa = (struct find_args *) p3;
+
+    UNUSED(tokdata);
 
     if (fa->done)
         return;
@@ -1304,6 +1310,8 @@ void purge_session_obj_cb(STDLL_TokData_t *tokdata, void *node,
     struct purge_args *pa = (struct purge_args *) p3;
     CK_BBOOL del = FALSE;
 
+    UNUSED(tokdata);
+
     if (obj->session == pa->sess) {
         if (pa->type == PRIVATE) {
             if (object_is_private(obj))
@@ -1337,6 +1345,8 @@ CK_BBOOL object_mgr_purge_session_objects(STDLL_TokData_t *tokdata,
 {
     struct purge_args pa = { sess, type };
 
+    UNUSED(tokdata);
+
     if (!sess)
         return FALSE;
 
@@ -1354,6 +1364,8 @@ void purge_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
 {
     OBJECT *obj = (OBJECT *) node;
     struct btree *t = (struct btree *) p3;
+
+    UNUSED(tokdata);
 
     if (obj->map_handle)
         bt_node_free(&object_map_btree, obj->map_handle, free);
@@ -1798,6 +1810,9 @@ CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *obj_list,
 {
 // SAB  XXX reduce the search time since this is what seems to be burning cycles
     CK_ULONG idx;
+
+    UNUSED(lo);
+
     if (obj->index == 0) {
         for (idx = 0; idx <= hi; idx++) {
             if (memcmp(obj->name, obj_list[idx].name, 8) == 0) {
@@ -1874,6 +1889,8 @@ void delete_objs_from_btree_cb(STDLL_TokData_t *tokdata, void *node,
     OBJECT *obj = (OBJECT *) node;
     CK_ULONG index;
 
+    UNUSED(tokdata);
+
     /* for each TOK_OBJ_ENTRY in the SHM list */
     for (index = 0; index < *(ua->num_entries); index++) {
         shm_te = &(ua->entries[index]);
@@ -1893,6 +1910,9 @@ void find_by_name_cb(STDLL_TokData_t *tokdata, void *node,
 {
     OBJECT *obj = (OBJECT *) node;
     struct find_by_name_args *fa = (struct find_by_name_args *) p3;
+
+    UNUSED(tokdata);
+    UNUSED(obj_handle);
 
     if (fa->done)
         return;
@@ -1997,6 +2017,8 @@ void purge_map_by_type_cb(STDLL_TokData_t *tokdata, void *node,
     OBJECT_MAP *map = (OBJECT_MAP *) node;
     SESS_OBJ_TYPE type = *(SESS_OBJ_TYPE *) p3;
 
+    UNUSED(tokdata);
+
     if (type == PRIVATE) {
         if (map->is_private) {
             bt_node_free(&object_map_btree, map_handle, free);
@@ -2011,8 +2033,9 @@ void purge_map_by_type_cb(STDLL_TokData_t *tokdata, void *node,
 CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
                               SESSION *sess, SESS_OBJ_TYPE type)
 {
-    bt_for_each_node(tokdata, &object_map_btree, purge_map_by_type_cb, &type);
+    UNUSED(sess);
 
+    bt_for_each_node(tokdata, &object_map_btree, purge_map_by_type_cb, &type);
     return TRUE;
 }
 

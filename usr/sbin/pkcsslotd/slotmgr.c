@@ -315,6 +315,10 @@ int main(int argc, char *argv[], char *envp[])
     /* FIXME: Arguments affecting the log files, whether to use syslog, etc.
      * (Read conf file?) */
 
+    UNUSED(argc);
+    UNUSED(argv);
+    UNUSED(envp);
+
     /* Do some basic sanity checks */
     run_sanity_checks();
 

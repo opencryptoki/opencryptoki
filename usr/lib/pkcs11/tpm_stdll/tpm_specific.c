@@ -151,6 +151,8 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     TSS_HTPM hTPM;
     BYTE *random_bytes = NULL;
 
+    UNUSED(tokdata);
+
     rc = Tspi_Context_GetTpmObject(tspContext, &hTPM);
     if (rc) {
         TRACE_ERROR("Tspi_Context_GetTpmObject: %x\n", rc);
@@ -175,6 +177,9 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     TSS_RESULT result;
     char path_buf[PATH_MAX], fname[PATH_MAX];
     struct stat statbuf;
+
+    UNUSED(tokdata);
+    UNUSED(conf_name);
 
     TRACE_INFO("tpm %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -1707,6 +1712,8 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     TSS_RESULT result;
 
+    UNUSED(sess);
+
     result = token_load_srk();
     if (result) {
         TRACE_DEVEL("token_load_srk failed. rc=0x%x\n", result);
@@ -1892,6 +1899,11 @@ CK_RV token_specific_logout()
 CK_RV token_specific_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                               CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(pPin);
+    UNUSED(ulPinLen);
+
     /* Since the SO must log in before calling C_InitPIN, we will
      * be able to return CKR_OK automatically here.
      * This is because the USER key structure is created at the
@@ -2330,6 +2342,8 @@ CK_RV token_specific_final()
 CK_RV token_specific_des_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * des_key,
                                  CK_ULONG len, CK_ULONG keysize)
 {
+    UNUSED(keysize);
+
     // Nothing different to do for DES or TDES here as this is just
     // random data...  Validation handles the rest
     // Only check for weak keys when DES.
@@ -2361,6 +2375,8 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
     const_DES_cblock key_val_SSL, in_key_data;
     DES_cblock out_key_data;
     unsigned int i, j;
+
+    UNUSED(tokdata);
 
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
@@ -2419,6 +2435,8 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     DES_key_schedule des_key2;
     const_DES_cblock key_val_SSL;
 
+    UNUSED(tokdata);
+
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
@@ -2470,6 +2488,8 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
 
     const_DES_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
     DES_cblock out_key_data;
+
+    UNUSED(tokdata);
 
     // get the key type
     rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -2550,6 +2570,8 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
 
     const_DES_cblock key_SSL1, key_SSL2, key_SSL3;
     DES_cblock ivec;
+
+    UNUSED(tokdata);
 
     // get the key type
     rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
@@ -3086,6 +3108,8 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     TSS_HKEY hKey;
     CK_RV rc;
 
+    UNUSED(sess);
+
     rc = token_rsa_load_key(tokdata, key_obj, &hKey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("token_rsa_load_key failed. rc=0x%lx\n", rc);
@@ -3135,6 +3159,8 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     UINT32 sig_len;
     TSS_HKEY hKey;
     CK_RV rc;
+
+    UNUSED(sess);
 
     rc = token_rsa_load_key(tokdata, key_obj, &hKey);
     if (rc != CKR_OK) {
@@ -3251,6 +3277,8 @@ CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t * tokdata,
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * key,
                                  CK_ULONG len, CK_ULONG keysize)
 {
+    UNUSED(keysize);
+
     return token_specific_rng(tokdata, key, len);
 }
 
@@ -3267,6 +3295,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
      * so this is fine */
     CK_ULONG loops = (CK_ULONG) (in_data_len / AES_BLOCK_SIZE);
+
+    UNUSED(tokdata);
 
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
@@ -3310,6 +3340,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     AES_KEY ssl_aes_key;
     CK_ATTRIBUTE *attr = NULL;
 
+    UNUSED(tokdata);
+
     // get the key value
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
@@ -3341,6 +3373,9 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
                                         CK_ULONG_PTR pulCount)
 {
     int rc;
+
+    UNUSED(tokdata);
+
     /* common/mech_list.c */
     rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
 
@@ -3352,6 +3387,9 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
     int rc;
+
+    UNUSED(tokdata);
+
     /* common/mech_list.c */
     rc = ock_generic_get_mechanism_info(type, pInfo);
 
@@ -3464,6 +3502,9 @@ err:
 CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id)
 {
+    UNUSED(tokdata);
+    UNUSED(slot_id);
+
     /* do nothing. */
     return CKR_OK;
 }

@@ -260,6 +260,8 @@ CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
     FILE *fp;
     CK_RV rc;
 
+    UNUSED(mklen);
+
     /* see if the file exists ... */
     if ((stat(RACFFILE, &statbuf) < 0) && (errno = ENOENT)) {
         TRACE_ERROR("File does not exist.\n");
@@ -418,6 +420,7 @@ CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
     CK_BYTE output[ENCRYPT_SIZE];
     CK_ULONG_32 totallen, outputlen;
 
+    UNUSED(keylen);
 
     /* generate an iv... */
     if ((get_randombytes(iv, AES_INIT_VECTOR_SIZE)) != CKR_OK) {

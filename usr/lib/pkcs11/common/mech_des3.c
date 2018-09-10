@@ -863,6 +863,9 @@ CK_RV des3_ecb_encrypt_final(STDLL_TokData_t *tokdata,
 {
     DES_CONTEXT *context = NULL;
 
+    UNUSED(tokdata);
+    UNUSED(out_data);
+
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
         return CKR_FUNCTION_FAILED;
@@ -897,6 +900,9 @@ CK_RV des3_ecb_decrypt_final(STDLL_TokData_t *tokdata,
                              CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     DES_CONTEXT *context = NULL;
+
+    UNUSED(tokdata);
+    UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
@@ -934,6 +940,9 @@ CK_RV des3_cbc_encrypt_final(STDLL_TokData_t *tokdata,
 {
     DES_CONTEXT *context = NULL;
 
+    UNUSED(tokdata);
+    UNUSED(out_data);
+
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
         return CKR_FUNCTION_FAILED;
@@ -969,6 +978,9 @@ CK_RV des3_cbc_decrypt_final(STDLL_TokData_t *tokdata,
                              CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     DES_CONTEXT *context = NULL;
+
+    UNUSED(tokdata);
+    UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);

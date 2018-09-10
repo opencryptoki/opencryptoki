@@ -524,6 +524,8 @@ static CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     BerValue *val;
     BerElement *ber;
 
+    UNUSED(length_only);
+
     offset = 0;
     rc = 0;
     total_len = ber_AlgIdRSAEncryptionLen;
@@ -3669,6 +3671,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         size_t pg_bytes;        /* total size: 2*bytecount(P) */
         unsigned char *pg;
     } dh_pgs;
+
+    UNUSED(h);
+
     memset(&dh_pgs, 0, sizeof(dh_pgs));
     memset(publblob, 0, sizeof(publblob));
     memset(privblob, 0, sizeof(privblob));
@@ -3913,6 +3918,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         size_t pqg_bytes;       /* total size: 3*bytecount(P) */
         unsigned char *pqg;
     } dsa_pqgs;
+
+    UNUSED(h);
+
     memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
     memset(publblob, 0, sizeof(publblob));
     memset(privblob, 0, sizeof(privblob));
@@ -4186,6 +4194,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+
+    UNUSED(h);
 
     if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
         ktype = CKK_EC;
@@ -4646,6 +4656,8 @@ static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 {
     CK_ATTRIBUTE *attr = NULL;
 
+    UNUSED(tokdata);
+
     /* blob already exists */
     if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
         (attr->ulValueLen > 0)) {
@@ -4702,6 +4714,8 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
     CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
+    UNUSED(recover_mode);
+
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -4749,6 +4763,8 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+
+    UNUSED(length_only);
 
     RETRY_START
         rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
@@ -4798,6 +4814,8 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
 
+    UNUSED(length_only);
+
     RETRY_START
         rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
                              (uint64_t) ep11_data->target_list);
@@ -4823,6 +4841,8 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
     ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    UNUSED(length_only);
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
     if (rc != CKR_OK) {
@@ -4857,6 +4877,8 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
     CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+
+    UNUSED(recover_mode);
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -5086,6 +5108,8 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     OBJECT *key_obj = NULL;
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
+    UNUSED(length_only);
+
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
@@ -5195,6 +5219,8 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
     ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    UNUSED(length_only);
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj);
     if (rc != CKR_OK) {

@@ -328,6 +328,8 @@ session_free(STDLL_TokData_t *tokdata, void *node_value,
 {
     SESSION *sess = (SESSION *) node_value;
 
+    UNUSED(p3);
+
     object_mgr_purge_session_objects(tokdata, sess, ALL);
     sess->handle = CK_INVALID_HANDLE;
 
@@ -400,6 +402,9 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
     SESSION *s = (SESSION *) node_value;
     CK_USER_TYPE user_type = *(CK_USER_TYPE *) p3;
 
+    UNUSED(tokdata);
+    UNUSED(node_idx);
+
     if (s->session_info.flags & CKF_RW_SESSION) {
         if (user_type == CKU_USER)
             s->session_info.state = CKS_RW_USER_FUNCTIONS;
@@ -434,6 +439,9 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
                     unsigned long node_idx, void *p3)
 {
     SESSION *s = (SESSION *) node_value;
+
+    UNUSED(node_idx);
+    UNUSED(p3);
 
     // all sessions get logged out so destroy any private objects
     // public objects are left alone
@@ -704,6 +712,7 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
     CK_BYTE *ptr3 = NULL;
     CK_ULONG len;
 
+    UNUSED(data_len);
 
     if (!sess || !data) {
         TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
