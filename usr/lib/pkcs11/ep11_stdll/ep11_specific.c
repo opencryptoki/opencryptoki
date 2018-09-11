@@ -1438,6 +1438,55 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
 static int read_cp_filter_config_file(const char *conf_name,
                                       cp_config_t ** cp_config);
 
+/*
+ * EP11 specific return codes
+ */
+#define CKR_IBM_WKID_MISMATCH       CKR_VENDOR_DEFINED + 0x00010001
+#define CKR_IBM_INTERNAL_ERROR      CKR_VENDOR_DEFINED + 0x00010002
+#define CKR_IBM_TRANSPORT_ERROR     CKR_VENDOR_DEFINED + 0x00010003
+#define CKR_IBM_BLOB_ERROR          CKR_VENDOR_DEFINED + 0x00010004
+#define CKR_IBM_BLOBKEY_CONFLICT    CKR_VENDOR_DEFINED + 0x00010005
+#define CKR_IBM_MODE_CONFLICT       CKR_VENDOR_DEFINED + 0x00010006
+#define CKR_IBM_NONCRT_KEY_SIZE     CKR_VENDOR_DEFINED + 0x00010008
+#define CKR_IBM_WK_NOT_INITIALIZED  CKR_VENDOR_DEFINED + 0x00010009
+#define CKR_IBM_OA_API_ERROR        CKR_VENDOR_DEFINED + 0x0001000a
+#define CKR_IBM_REQ_TIMEOUT         CKR_VENDOR_DEFINED + 0x0001000b
+#define CKR_IBM_READONLY            CKR_VENDOR_DEFINED + 0x0001000c
+#define CKR_IBM_STATIC_POLICY       CKR_VENDOR_DEFINED + 0x0001000d
+#define CKR_IBM_TRANSPORT_LIMIT     CKR_VENDOR_DEFINED + 0x00010010
+
+static CK_RV ep11_error_to_pkcs11_error(CK_RV rc)
+{
+    if (rc < CKR_VENDOR_DEFINED)
+        return rc;
+
+    TRACE_ERROR("%s ep11 specific error: rc=0x%lx\n", __func__, rc);
+
+    switch (rc) {
+    case CKR_IBM_INTERNAL_ERROR:
+    case CKR_IBM_TRANSPORT_ERROR:
+    case CKR_IBM_OA_API_ERROR:
+    case CKR_IBM_TRANSPORT_LIMIT:
+    case CKR_IBM_REQ_TIMEOUT:
+        return CKR_FUNCTION_FAILED;
+    case CKR_IBM_WKID_MISMATCH:
+    case CKR_IBM_WK_NOT_INITIALIZED:
+        return CKR_DEVICE_ERROR;
+    case CKR_IBM_STATIC_POLICY:
+        return CKR_KEY_SIZE_RANGE;
+    case CKR_IBM_READONLY:
+        return CKR_ARGUMENTS_BAD;
+    case CKR_IBM_BLOB_ERROR:
+    case CKR_IBM_BLOBKEY_CONFLICT:
+        return CKR_ENCRYPTED_DATA_INVALID;
+    case CKR_IBM_MODE_CONFLICT:
+    case CKR_IBM_NONCRT_KEY_SIZE:
+        return CKR_ARGUMENTS_BAD;
+    default:
+        return CKR_FUNCTION_FAILED;
+    }
+}
+
 /* import a DES/AES key, that is, make a blob for a DES/AES key
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
  * unwrap it by the wrap key
@@ -1532,10 +1581,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                              &cslen, (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
 
-    if (rc == 0x8001000d)
-        rc = CKR_KEY_SIZE_RANGE;
-
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc);
         TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
@@ -4635,6 +4682,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc);
         TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
                     __func__, rc, keyblobsize, key, mech->mechanism);
         free(ep11_sign_state);
@@ -4791,6 +4839,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc);
         TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                     "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
                     rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
