@@ -55,11 +55,6 @@
 #pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
 #define OLDER_OPENSSL
 #endif
-typedef unsigned int uint32_t;
-
-pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t nextmutex = PTHREAD_MUTEX_INITIALIZER;
-unsigned int rnginitialized = 0;
 
 #define MAX_GENERIC_KEY_SIZE 256
 
@@ -370,7 +365,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
 // convert from the local PKCS11 template representation to
 // the underlying requirement
 // returns the pointer to the local key representation
-void *rsa_convert_public_key(OBJECT *key_obj)
+static void *rsa_convert_public_key(OBJECT *key_obj)
 {
     CK_BBOOL rc;
     CK_ATTRIBUTE *modulus = NULL;
@@ -418,7 +413,7 @@ void *rsa_convert_public_key(OBJECT *key_obj)
     return (void *) rsa;
 }
 
-void *rsa_convert_private_key(OBJECT *key_obj)
+static void *rsa_convert_private_key(OBJECT *key_obj)
 {
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
@@ -576,34 +571,7 @@ void *rsa_convert_private_key(OBJECT *key_obj)
     return (void *) rsa;
 }
 
-#define RNG_BUF_SIZE 100
-
-
-// This function is only required if public key cryptography
-// has been selected in your variant set up.
-// Set a mutex in this function and get a cache;
-// using the ICA device to get random numbers a byte at a
-//  time is VERY slow..  Keygen is gated by this function.
-unsigned char nextRandom(STDLL_TokData_t *tokdata)
-{
-    static unsigned char buffer[RNG_BUF_SIZE];
-    unsigned char byte;
-    static int used = (RNG_BUF_SIZE);   // protected access by the mutex
-
-    pthread_mutex_lock(&nextmutex);
-    if (used >= RNG_BUF_SIZE) {
-        rng_generate(tokdata, buffer, sizeof(buffer));
-        used = 0;
-    }
-
-    byte = buffer[used++];
-    pthread_mutex_unlock(&nextmutex);
-
-    return ((unsigned char) byte);
-}
-
-
-CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_ATTRIBUTE *publ_exp = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -937,9 +905,9 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 }
 
 
-CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
-                              CK_ULONG in_data_len,
-                              CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
 {
     CK_RV rc;
     RSA *rsa;
@@ -969,9 +937,9 @@ done:
     return rc;
 }
 
-CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
-                              CK_ULONG in_data_len,
-                              CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
 {
     CK_RV rc;
     RSA *rsa;
@@ -2110,7 +2078,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         len = sizeof(SHA256_CTX);
         dgst = (void*) &SHA224_Init;
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
         len = sizeof(SHA256_CTX);
         dgst = (void *) &SHA256_Init;
         break;
@@ -2207,7 +2175,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         dgstup = (void*) &SHA224_Update;
         dgstfin = (void*) &SHA224_Final;
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
         hlen = SHA256_HASH_SIZE;
         dgstup = (void *) &SHA256_Update;
         dgstfin = (void *) &SHA256_Final;
@@ -2287,7 +2255,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     case CKM_SHA224:
         rc = SHA224_Update((SHA256_CTX*) ctx->context, in_data, in_data_len);
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
         rc = SHA256_Update((SHA256_CTX *) ctx->context, in_data, in_data_len);
         break;
     case CKM_SHA384:
@@ -2336,7 +2304,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         hlen = SHA224_HASH_SIZE;
         dgstfin = (void*) &SHA224_Final;
         break;
-	case CKM_SHA256:
+    case CKM_SHA256:
         hlen = SHA256_HASH_SIZE;
         dgstfin = (void *) &SHA256_Final;
         break;
@@ -2430,7 +2398,7 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
     case CKM_SHA224_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha224(), NULL, pkey);
         break;
-	case CKM_SHA256_HMAC_GENERAL:
+    case CKM_SHA256_HMAC_GENERAL:
     case CKM_SHA256_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey);
         break;
@@ -2512,7 +2480,7 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
     case CKM_SHA224_HMAC:
         mac_len = SHA224_HASH_SIZE;
         break;
-	case CKM_SHA256_HMAC_GENERAL:
+    case CKM_SHA256_HMAC_GENERAL:
         general = TRUE;
         /* fallthrough */
     case CKM_SHA256_HMAC:
@@ -2663,7 +2631,7 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
     case CKM_SHA224_HMAC:
         mac_len = SHA224_HASH_SIZE;
         break;
-	case CKM_SHA256_HMAC_GENERAL:
+    case CKM_SHA256_HMAC_GENERAL:
         general = TRUE;
         /* fallthrough */
     case CKM_SHA256_HMAC:
