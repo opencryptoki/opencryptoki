@@ -37,7 +37,6 @@
 
 #include "tok_specific.h"
 #include "tok_struct.h"
-#include "ica_specific.h"
 
 #ifndef NO_EC
 #include "ec_defs.h"
@@ -46,7 +45,7 @@
 #endif
 
 // declare the adapter open handle localy
-ica_adapter_handle_t adapter_handle;
+static ica_adapter_handle_t adapter_handle;
 
 // Linux really does not need these so we just dummy them up
 // so the common code across platforms is usable...
@@ -60,8 +59,7 @@ CK_CHAR model[] = "IBM ICA     ";
 CK_CHAR descr[] = "IBM PKCS#11 ICA token ";
 CK_CHAR label[] = "IBM ICA  PKCS #11";
 
-pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
-unsigned int rnginitialized = 0;
+static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
 #define LIBICA_SHARED_LIB "libica.so"
 #define BIND(dso, sym)  (p_##sym = (sym##_t)dlsym(dso, #sym))
@@ -99,15 +97,21 @@ typedef int (*ica_ec_key_get_private_key_t) (ICA_EC_KEY *key,
                                              unsigned int *d_len);
 typedef void (*ica_ec_key_free_t) (ICA_EC_KEY *key);
 
-ica_ec_key_new_t                p_ica_ec_key_new;
-ica_ec_key_init_t               p_ica_ec_key_init;
-ica_ec_key_generate_t           p_ica_ec_key_generate;
-ica_ecdh_derive_secret_t        p_ica_ecdh_derive_secret;
-ica_ecdsa_sign_t                p_ica_ecdsa_sign;
-ica_ecdsa_verify_t              p_ica_ecdsa_verify;
-ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
-ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
-ica_ec_key_free_t               p_ica_ec_key_free;
+static ica_ec_key_new_t                p_ica_ec_key_new;
+static ica_ec_key_init_t               p_ica_ec_key_init;
+static ica_ec_key_generate_t           p_ica_ec_key_generate;
+static ica_ecdh_derive_secret_t        p_ica_ecdh_derive_secret;
+static ica_ecdsa_sign_t                p_ica_ecdsa_sign;
+static ica_ecdsa_verify_t              p_ica_ecdsa_verify;
+static ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
+static ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
+static ica_ec_key_free_t               p_ica_ec_key_free;
+
+static CK_RV mech_list_ica_initialize(void);
+static CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                             CK_ULONG_PTR pulCount);
+static CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                             CK_MECHANISM_INFO_PTR pInfo);
 
 #define ICATOK_EC_MAX_D_LEN     66      /* secp521 */
 #define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
@@ -140,7 +144,7 @@ typedef unsigned int (*ica_sha512_224_t)(unsigned int message_part,
                                          sha512_context_t *sha_context,
                                          unsigned char *output_data);
 
-ica_sha512_224_t                p_ica_sha512_224;
+static ica_sha512_224_t                p_ica_sha512_224;
 #endif
 
 #ifdef SHA512_256
@@ -150,7 +154,7 @@ typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
                                          sha512_context_t *sha_context,
                                          unsigned char *output_data);
 
-ica_sha512_256_t                p_ica_sha512_256;
+static ica_sha512_256_t                p_ica_sha512_256;
 #endif
 
 static CK_RV load_libica(void)
@@ -240,7 +244,7 @@ CK_RV token_specific_final()
 }
 
 // count_ones_in_byte: for use in adjust_des_key_parity_bits below
-CK_BYTE count_ones_in_byte(CK_BYTE byte)
+static CK_BYTE count_ones_in_byte(CK_BYTE byte)
 {
     CK_BYTE and_mask,           // bit selector
      number_of_ones = 0;
@@ -255,8 +259,8 @@ CK_BYTE count_ones_in_byte(CK_BYTE byte)
 #define EVEN_PARITY TRUE
 #define ODD_PARITY FALSE
  // adjust_des_key_parity_bits: to conform to NIST spec for DES and 3DES keys
-void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size,
-                                CK_BBOOL parity)
+static void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size,
+                                       CK_BBOOL parity)
 {
     CK_BYTE *des_key_byte;
 
@@ -1098,9 +1102,9 @@ out:
 /* Creates a libICA modulus+exponent key representation using
  * PKCS#11 attributes
  */
-ica_rsa_key_mod_expo_t *rsa_convert_mod_expo_key(CK_ATTRIBUTE *modulus,
-                                                 CK_ATTRIBUTE *mod_bits,
-                                                 CK_ATTRIBUTE *exponent)
+static ica_rsa_key_mod_expo_t *rsa_convert_mod_expo_key(CK_ATTRIBUTE *modulus,
+                                                        CK_ATTRIBUTE *mod_bits,
+                                                        CK_ATTRIBUTE *exponent)
 {
     CK_BYTE *ptr = NULL;
     ica_rsa_key_mod_expo_t *modexpokey = NULL;
@@ -1168,12 +1172,12 @@ err:
 /* Creates a libICA CRT key representation using
  * PKCS#11 attributes
  */
-ica_rsa_key_crt_t *rsa_convert_crt_key(CK_ATTRIBUTE *modulus,
-                                       CK_ATTRIBUTE *prime1,
-                                       CK_ATTRIBUTE *prime2,
-                                       CK_ATTRIBUTE *exp1,
-                                       CK_ATTRIBUTE *exp2,
-                                       CK_ATTRIBUTE *coeff)
+static ica_rsa_key_crt_t *rsa_convert_crt_key(CK_ATTRIBUTE *modulus,
+                                              CK_ATTRIBUTE *prime1,
+                                              CK_ATTRIBUTE *prime2,
+                                              CK_ATTRIBUTE *exp1,
+                                              CK_ATTRIBUTE *exp2,
+                                              CK_ATTRIBUTE *coeff)
 {
     CK_BYTE *ptr = NULL;
     ica_rsa_key_crt_t *crtkey = NULL;
@@ -1270,7 +1274,7 @@ err_crtkey:
 
 
 //
-CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_ATTRIBUTE *publ_exp = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -1578,9 +1582,9 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 
 //
 //
-CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
-                              CK_ULONG in_data_len,
-                              CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
 {
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
@@ -1629,9 +1633,9 @@ done:
 
 //
 //
-CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
-                              CK_ULONG in_data_len,
-                              CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
 {
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *prime1 = NULL;
@@ -3020,7 +3024,13 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 
 #endif
 
-REF_MECH_LIST_ELEMENT ref_mech_list[] = {
+typedef struct _REF_MECH_LIST_ELEMENT {
+    CK_ULONG lica_idx;
+    CK_MECHANISM_TYPE mech_type;
+    CK_MECHANISM_INFO mech_info;
+} REF_MECH_LIST_ELEMENT;
+
+static REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {92, CKM_RSA_PKCS_KEY_PAIR_GEN,
      {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}
     },
@@ -3160,7 +3170,7 @@ REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 
 };
 
-CK_ULONG ref_mech_list_len =
+static CK_ULONG ref_mech_list_len =
     (sizeof(ref_mech_list) / sizeof(REF_MECH_LIST_ELEMENT));
 
 /**
@@ -3256,8 +3266,8 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
     return ica_specific_get_mechanism_list(pMechanismList, pulCount);
 }
 
-CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-                                      CK_ULONG_PTR pulCount)
+static CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+                                             CK_ULONG_PTR pulCount)
 {
     unsigned int i;
 
@@ -3296,8 +3306,8 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
     return rc;
 }
 
-CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-                                      CK_MECHANISM_INFO_PTR pInfo)
+static CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
+                                             CK_MECHANISM_INFO_PTR pInfo)
 {
     unsigned int i;
 
@@ -3319,7 +3329,7 @@ CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
     return CKR_MECHANISM_INVALID;
 }
 
-CK_RV getRefListIdxfromId(CK_ULONG ica_idx, CK_ULONG_PTR pRefIdx)
+static CK_RV getRefListIdxfromId(CK_ULONG ica_idx, CK_ULONG_PTR pRefIdx)
 {
     unsigned int n;
 
@@ -3333,7 +3343,7 @@ CK_RV getRefListIdxfromId(CK_ULONG ica_idx, CK_ULONG_PTR pRefIdx)
     return CKR_MECHANISM_INVALID;
 }
 
-CK_RV getRefListIdxfromMech(CK_ULONG mech, CK_ULONG_PTR pRefIdx)
+static CK_RV getRefListIdxfromMech(CK_ULONG mech, CK_ULONG_PTR pRefIdx)
 {
     unsigned int n;
 
@@ -3346,7 +3356,7 @@ CK_RV getRefListIdxfromMech(CK_ULONG mech, CK_ULONG_PTR pRefIdx)
     return CKR_MECHANISM_INVALID;
 }
 
-CK_BBOOL isMechanismAvailable(CK_ULONG mechanism)
+static CK_BBOOL isMechanismAvailable(CK_ULONG mechanism)
 {
     unsigned int i;
 
@@ -3358,7 +3368,7 @@ CK_BBOOL isMechanismAvailable(CK_ULONG mechanism)
     return FALSE;
 }
 
-CK_RV addMechanismToList(CK_ULONG mechanism)
+static CK_RV addMechanismToList(CK_ULONG mechanism)
 {
     CK_ULONG ret;
     CK_ULONG refIdx = 0;
@@ -3383,7 +3393,7 @@ CK_RV addMechanismToList(CK_ULONG mechanism)
  * call libica to receive list of supported mechanisms
  * This method is called once per opencryptoki instance (application context)
  */
-CK_RV mech_list_ica_initialize(void)
+static CK_RV mech_list_ica_initialize(void)
 {
     CK_ULONG ret, rc = CKR_OK;
     unsigned int i, n;
@@ -3508,8 +3518,6 @@ CK_RV mech_list_ica_initialize(void)
             }
         }
     }
-
-    mech_list_ica_init = TRUE;
 
     return rc;
 }
@@ -3843,11 +3851,11 @@ end:
  *
  * @return 0 on success
  */
-CK_RV decompress_pubkey(unsigned int nid,
-                        const unsigned char *pub_key,
-                        CK_ULONG pub_len,
-                        unsigned int priv_len,
-                        unsigned char *x, unsigned char *y)
+static CK_RV decompress_pubkey(unsigned int nid,
+                               const unsigned char *pub_key,
+                               CK_ULONG pub_len,
+                               unsigned int priv_len,
+                               unsigned char *x, unsigned char *y)
 {
     BN_CTX *ctx = BN_CTX_new();
     BIGNUM *bn_x = BN_bin2bn((unsigned char *) &(pub_key[1]), priv_len, NULL);
@@ -3914,11 +3922,11 @@ end:
  *
  * @return 0 on success
  */
-CK_RV set_pubkey_coordinates(unsigned int nid,
-                             const unsigned char *pub_key,
-                             CK_ULONG pub_len,
-                             unsigned int priv_len,
-                             unsigned char *x, unsigned char *y)
+static CK_RV set_pubkey_coordinates(unsigned int nid,
+                                    const unsigned char *pub_key,
+                                    CK_ULONG pub_len,
+                                    unsigned int priv_len,
+                                    unsigned char *x, unsigned char *y)
 {
     int i, n;
 
