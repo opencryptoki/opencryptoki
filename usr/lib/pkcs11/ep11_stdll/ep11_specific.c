@@ -171,7 +171,7 @@ CK_CHAR label[] = "IBM OS PKCS#11   ";
 #define MAX_APQN 256
 
 /* wrap_key is used for importing keys */
-char wrap_key_name[] = "EP11_wrapkey";
+static const char wrap_key_name[] = "EP11_wrapkey";
 
 typedef struct cp_mech_config {
     CK_MECHANISM_TYPE mech;     // the mechanism ID
@@ -228,14 +228,14 @@ typedef struct {
 
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
-CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
-CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session);
-void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
-                       CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len);
-CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
-                               CK_SESSION_HANDLE_PTR phSession);
-CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                ST_SESSION_HANDLE * sSession);
+static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
+static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session);
+static void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
+                              CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len);
+static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
+                                      CK_SESSION_HANDLE_PTR phSession);
+static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
+                                       ST_SESSION_HANDLE * sSession);
 
 static void free_cp_config(cp_config_t * cp);
 #ifdef DEBUG
@@ -512,9 +512,9 @@ cleanup:
     return rc;
 }
 
-CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
-                              CK_ULONG * data_len, CK_ATTRIBUTE * modulus,
-                              CK_ATTRIBUTE * publ_exp)
+static CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                                     CK_ULONG * data_len, CK_ATTRIBUTE * modulus,
+                                     CK_ATTRIBUTE * publ_exp)
 {
     CK_ULONG len, offset, total, total_len;
     CK_RV rc;
@@ -612,9 +612,9 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
 }
 
 
-CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
-                             CK_ULONG * data_len, CK_ATTRIBUTE * params,
-                             CK_ATTRIBUTE * point)
+static CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                                    CK_ULONG * data_len, CK_ATTRIBUTE * params,
+                                    CK_ATTRIBUTE * point)
 {
     CK_ULONG len, total;
     CK_ULONG algid_len = der_AlgIdECBaseLen + params->ulValueLen;
@@ -690,10 +690,10 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     return rc;
 }
 
-CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
-                              CK_ULONG * data_len, CK_ATTRIBUTE * prime,
-                              CK_ATTRIBUTE * subprime, CK_ATTRIBUTE * base,
-                              CK_ATTRIBUTE * value)
+static CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                                     CK_ULONG * data_len, CK_ATTRIBUTE * prime,
+                                     CK_ATTRIBUTE * subprime, CK_ATTRIBUTE * base,
+                                     CK_ATTRIBUTE * value)
 {
     CK_ULONG len, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
@@ -844,9 +844,9 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     return rc;
 }
 
-CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
-                             CK_ULONG * data_len, CK_ATTRIBUTE * prime,
-                             CK_ATTRIBUTE * base, CK_ATTRIBUTE * value)
+static CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
+                                    CK_ULONG * data_len, CK_ATTRIBUTE * prime,
+                                    CK_ATTRIBUTE * base, CK_ATTRIBUTE * value)
 {
     CK_ULONG len, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
@@ -996,7 +996,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
  *     parameters  ANY DEFINED BY algorithm OPTIONAL
  *   }
  */
-CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_len)
+static CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_len)
 {
     CK_BYTE *out_seq, *id_seq, *bit_str;
     CK_BYTE *data;
@@ -1071,8 +1071,8 @@ CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_len)
 }
 
 
-CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
-                       CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
+static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
+                              CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
 {
     int i;
     CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
@@ -1601,7 +1601,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     return rc;
 }
 
-CK_RV ep11_resolve_lib_sym(void *hdl)
+static CK_RV ep11_resolve_lib_sym(void *hdl)
 {
     char *error = NULL;
 
@@ -1680,7 +1680,7 @@ CK_RV ep11_resolve_lib_sym(void *hdl)
     return CKR_OK;
 }
 
-CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
+static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     libica_t *libica = &ep11_data->libica;
@@ -2825,8 +2825,8 @@ done:
     return rc;
 }
 
-CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
-                                         CK_MECHANISM_TYPE mech)
+static CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
+                                                CK_MECHANISM_TYPE mech)
 {
     int use_libica;
 
@@ -2863,8 +2863,8 @@ CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
     return use_libica ? CK_TRUE : CK_FALSE;
 }
 
-CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
-                               CK_MECHANISM_TYPE *digest_mech)
+static CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
+                                      CK_MECHANISM_TYPE *digest_mech)
 {
     switch (mech) {
     case CKM_SHA_1:
@@ -2917,8 +2917,8 @@ CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
-CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
-                                    CK_OBJECT_HANDLE hKey)
+static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
+                                           CK_OBJECT_HANDLE hKey)
 {
     CK_RV rc;
     OBJECT *key_obj;
@@ -2974,11 +2974,11 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
     return ep11tok_libica_digest_available(ep11_data, digest_mech);
 }
 
-CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
-                            CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
-                            CK_BYTE *in_data, CK_ULONG in_data_len,
-                            CK_BYTE *out_data, CK_ULONG *out_data_len,
-                            unsigned int message_part)
+static CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
+                                   CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
+                                   CK_BYTE *in_data, CK_ULONG in_data_len,
+                                   CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                   unsigned int message_part)
 {
     CK_ULONG hsize;
     CK_RV rc;
@@ -5536,7 +5536,7 @@ done:
 /* mechanisms ep11 reports but should be hidden because e.g.
    the EP11 card operates in a FIPS mode that forbides the mechanism,
    add here other mechanisms if required */
-const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
+static const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
 #ifdef DEFENSIVE_MECHLIST
     CKM_DES_KEY_GEN,
     CKM_DES_ECB,
@@ -5582,7 +5582,7 @@ const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
 #endif
 };
 
-const CK_ULONG banned_mech_list_len =
+static const CK_ULONG banned_mech_list_len =
     (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
 
@@ -7432,7 +7432,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
 }
 
 
-CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
+static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
     CK_ATTRIBUTE_PTR attr;
 
@@ -7449,8 +7449,8 @@ CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
     return FALSE;
 }
 
-void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
-                       CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len)
+static void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
+                              CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len)
 {
     if (ep11_session != NULL &&
         (ep11_session->flags & EP11_STRICT_MODE) && is_session_obj) {
@@ -7469,8 +7469,8 @@ void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
     }
 }
 
-CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
-                               CK_SESSION_HANDLE_PTR phSession)
+static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
+                                      CK_SESSION_HANDLE_PTR phSession)
 {
     CK_RV rc;
 
@@ -7485,8 +7485,8 @@ CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
     return rc;
 }
 
-CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                ST_SESSION_HANDLE * sSession)
+static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
+                                       ST_SESSION_HANDLE * sSession)
 {
     CK_RV rc;
 
@@ -7499,7 +7499,7 @@ CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
     return rc;
 }
 
-CK_BBOOL ep111tok_optimize_single_ops(STDLL_TokData_t *tokdata)
+CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
