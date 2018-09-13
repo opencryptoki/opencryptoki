@@ -1575,7 +1575,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     sess->encr_ctx.multi_init = FALSE;
     sess->encr_ctx.multi = FALSE;
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         /* In case of a single part encrypt operation we don't need the
          * EncryptInit, instead we can use the EncryptSingle which is much
          * faster. In case of multi-part operations we are doing the EncryptInit
@@ -1652,7 +1652,7 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_encrypt_single(tokdata, sess, &sess->encr_ctx.mech,
                                     length_only, sess->encr_ctx.key,
                                     pData, ulDataLen, pEncryptedData,
@@ -1868,7 +1868,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     sess->decr_ctx.multi_init = FALSE;
     sess->decr_ctx.multi = FALSE;
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         /* In case of a single part decrypt operation we don't need the
          * DecryptInit, instead we can use the EncryptSingle which is much
          * faster. In case of multi-part operations we are doing the DecryptInit
@@ -1945,7 +1945,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_decrypt_single(tokdata, sess, &sess->decr_ctx.mech,
                                     length_only, sess->decr_ctx.key,
                                     pEncryptedData, ulEncryptedDataLen,
@@ -2362,7 +2362,7 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     sess->sign_ctx.multi_init = FALSE;
     sess->sign_ctx.multi = FALSE;
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         /* In case of a single part sign operation we don't need the SignInit,
          * instead we can use the SignSingle which is much faster.
          * In case of multi-part operations we are doing the SignInit when
@@ -2449,7 +2449,7 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_sign_single(tokdata, sess, &sess->sign_ctx.mech,
                                  length_only, sess->sign_ctx.key,
                                  pData, ulDataLen, pSignature, pulSignatureLen);
@@ -2713,7 +2713,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     sess->verify_ctx.multi_init = FALSE;
     sess->verify_ctx.multi = FALSE;
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         /* In case of a single part verify operation we don't need the
          * VerifyInit, instead we can use the VerifySingle which is much
          * faster. In case of multi-part operations we are doing the VerifyInit
@@ -2797,7 +2797,7 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    if (ep111tok_optimize_single_ops(tokdata)) {
+    if (ep11tok_optimize_single_ops(tokdata)) {
         rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
                                    sess->verify_ctx.key, pData, ulDataLen,
                                    pSignature, ulSignatureLen);
