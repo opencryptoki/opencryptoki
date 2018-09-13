@@ -264,7 +264,7 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     return CKR_OK;
 }
 
-CK_RV cca_resolve_lib_sym(void *hdl)
+static CK_RV cca_resolve_lib_sym(void *hdl)
 {
     char *error = NULL;
 
@@ -430,7 +430,7 @@ CK_RV token_specific_final()
     return CKR_OK;
 }
 
-CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
+static CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
                   unsigned char *key_form, unsigned char *key_type_1,
                   CK_ULONG key_size)
 {
@@ -3150,7 +3150,7 @@ static CK_RV import_generic_secret_key(OBJECT * object)
     return CKR_OK;
 }
 
-CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG privlen,
+static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG privlen,
         CK_BYTE *pubkey, CK_ULONG publen,
         uint8_t curve_type, uint16_t curve_bitlen,
         unsigned char *key_value_structure, long *key_value_structure_length)
@@ -3203,7 +3203,7 @@ static unsigned int bitlen2bytelen(uint16_t bitlen)
     return bitlen / 8 + 1;
 }
 
-CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
+static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
         uint8_t curve_type, uint16_t curve_bitlen,
         unsigned char *key_value_structure, long *key_value_structure_length)
 {
@@ -3242,7 +3242,7 @@ CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
     return CKR_OK;
 }
 
-CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
+static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
 {
     CK_ATTRIBUTE *attr = NULL;
     unsigned int i;
@@ -3265,7 +3265,7 @@ CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitl
     return CKR_MECHANISM_PARAM_INVALID;
 }
 
-CK_RV ec_import_privkey(TEMPLATE *priv_templ)
+static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
 {
     long private_key_name_length, key_token_length, target_key_token_length;
     long return_code, reason_code, rule_array_count, exit_data_len = 0;
@@ -3376,7 +3376,7 @@ CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     return CKR_OK;
 }
 
-CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
+static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 {
     CK_RV rc;
     long return_code, reason_code, rule_array_count, exit_data_len = 0;
