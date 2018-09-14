@@ -197,9 +197,9 @@ typedef unsigned int (*m_admin_t) (unsigned char *response1, size_t * r1len,
                                    const unsigned char *cmd, size_t clen,
                                    const unsigned char *sigs, size_t slen,
                                    uint64_t target);
-typedef unsigned int (*m_add_backend_t) (const char *name, unsigned int port);
-typedef unsigned int (*m_init_t) (void);
-typedef unsigned int (*m_shutdown_t) (void);
+typedef int (*m_add_backend_t) (const char *name, unsigned int port);
+typedef int (*m_init_t) (void);
+typedef int (*m_shutdown_t) (void);
 
 #ifndef XCP_SERIALNR_CHARS
 #define XCP_SERIALNR_CHARS        8

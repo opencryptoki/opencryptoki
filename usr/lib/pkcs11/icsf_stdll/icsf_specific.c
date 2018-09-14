@@ -631,12 +631,13 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                       CK_CHAR_PTR token_name, CK_CHAR_PTR pin, CK_ULONG pin_len)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rv = CKR_OK;
     LDAP *ld = NULL;
     struct icsf_object_record records[16];
     struct icsf_object_record *previous = NULL;
     size_t i, records_len;
     int reason = 0;
+    int rc;
 
     if (login(tokdata, &ld, slot_id, pin, pin_len, RACFFILE))
         return CKR_FUNCTION_FAILED;
@@ -649,7 +650,7 @@ CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                                previous, records, &records_len, 0);
         if (ICSF_RC_IS_ERROR(rc)) {
             TRACE_DEVEL("Failed to list objects for slot %lu.\n", slot_id);
-            rc = CKR_FUNCTION_FAILED;
+            rv = CKR_FUNCTION_FAILED;
             goto done;
         }
 
@@ -659,7 +660,7 @@ CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                             "%s/%lu/%c in slot %lu.\n",
                             records[i].token_name,
                             records[i].sequence, records[i].id, slot_id);
-                rc = icsf_to_ock_err(rc, reason);
+                rv = icsf_to_ock_err(rc, reason);
                 goto done;
             }
         }
@@ -669,10 +670,10 @@ CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     } while (records_len);
 
 done:
-    if (icsf_logout(ld) && rc == CKR_OK)
-        rc = CKR_FUNCTION_FAILED;
+    if (icsf_logout(ld) && rv == CKR_OK)
+        rv = CKR_FUNCTION_FAILED;
 
-    return rc;
+    return rv;
 }
 
 /*
@@ -3003,9 +3004,9 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     struct icsf_object_record records[MAX_RECORDS];
     struct icsf_object_record *previous = NULL;
     size_t records_len;
-    int i, j, node_number;
+    int i, j, node_number, rc;
     int reason = 0;
-    CK_RV rc = CKR_OK;
+    CK_RV rv = CKR_OK;
 
     /* Whether we retrieve public or private objects is determined by
      * the caller's SAF authority on the token, something ock doesn't
@@ -3068,7 +3069,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                &records_len, 0);
         if (ICSF_RC_IS_ERROR(rc)) {
             TRACE_DEVEL("Failed to list objects.\n");
-            rc = icsf_to_ock_err(rc, reason);
+            rv = icsf_to_ock_err(rc, reason);
             goto done;
         }
 
@@ -3108,7 +3109,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
 
                 if (!(new_mapping = malloc(sizeof(*new_mapping)))) {
                     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    rc = CKR_HOST_MEMORY;
+                    rv = CKR_HOST_MEMORY;
                     goto done;
                 }
                 new_mapping->session_id = sess->handle;
@@ -3116,7 +3117,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
 
                 if (!(node_number = bt_node_add(&objects, new_mapping))) {
                     TRACE_ERROR("Failed to add object to " "binary tree.\n");
-                    rc = CKR_FUNCTION_FAILED;
+                    rv = CKR_FUNCTION_FAILED;
                     goto done;
                 }
             }
@@ -3133,7 +3134,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                         find_len * sizeof(CK_OBJECT_HANDLE));
                     if (!find_list) {
                         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                        rc = CKR_HOST_MEMORY;
+                        rv = CKR_HOST_MEMORY;
                         goto done;
                     }
                     sess->find_list = find_list;
@@ -3149,7 +3150,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     sess->find_active = TRUE;
 
 done:
-    return rc;
+    return rv;
 }
 
 /*

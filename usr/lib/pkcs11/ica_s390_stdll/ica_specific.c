@@ -3531,15 +3531,10 @@ static CK_RV mech_list_ica_initialize(void)
          * matching mechanism's (if present) ---
          */
         refIdx = 0;
-        while (refIdx >= 0) {
-            ret =
-                getRefListIdxfromId(libica_func_list[i].mech_mode_id, &refIdx);
-            if (ret != CKR_OK) {
-                // continue with the next libica mechanism
-                break;
-            }
-
-            /* Loop over the predefined mechanism list and check
+        while ((ret = getRefListIdxfromId(libica_func_list[i].mech_mode_id,
+                                          &refIdx)) == CKR_OK) {
+            /*
+	     * Loop over the predefined mechanism list and check
              * if we have to overrule a software implemented
              * mechanism from token by libica HW supported
              * mechanism.
@@ -3701,7 +3696,7 @@ static CK_RV is_equal(unsigned char *a,
     return 0;
 }
 
-static unsigned int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
+static int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
 {
     /* Supported Elliptic Curves */
     CK_BYTE brainpoolP160r1[] =
@@ -3782,8 +3777,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     ICA_EC_KEY *eckey;
     CK_BYTE q_array[ICATOK_EC_MAX_Q_LEN];
     CK_BYTE d_array[ICATOK_EC_MAX_D_LEN];
-    unsigned int nid, privlen, q_len, d_len;
-    int rc;
+    unsigned int privlen, q_len, d_len;
+    int rc, nid;
 
     UNUSED(tokdata);
 
@@ -3873,8 +3868,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
-    unsigned int nid, privlen;
-    int rc;
+    unsigned int privlen;
+    int rc, nid;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -4096,10 +4091,10 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
-    unsigned int nid, privlen;
+    unsigned int privlen;
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
-    int rc;
+    int rc, nid;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -4202,11 +4197,11 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 {
     CK_RV ret = CKR_OK;
     ICA_EC_KEY *pubkey = NULL, *privkey = NULL;
-    unsigned int n, privlen, nid;
+    unsigned int n, privlen;
     unsigned char d_array[ICATOK_EC_MAX_D_LEN];
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
-    int i, rc;
+    int i, rc, nid;
 
     UNUSED(tokdata);
 
