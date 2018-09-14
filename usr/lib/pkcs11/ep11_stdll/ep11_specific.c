@@ -5816,14 +5816,31 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
         pInfo->ulMinKeySize = 1024;
         break;
 
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA_1_HMAC_GENERAL:
     case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
     case CKM_SHA256_HMAC:
+    case CKM_SHA256_HMAC_GENERAL:
     case CKM_SHA384_HMAC:
+    case CKM_SHA384_HMAC_GENERAL:
     case CKM_SHA512_HMAC:
+    case CKM_SHA512_HMAC_GENERAL:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_224_HMAC_GENERAL:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA512_256_HMAC_GENERAL:
+        /*
+         * EP11 currently reports ulMinKeySize in bytes, but ulMaxKeySize in
+         * bits for HMAC mechanisms. Adjust ulMinKeySize so that both are in
+         * its, as required by the PKCS#11 standard.
+         */
+        pInfo->ulMinKeySize *= 8;
+        break;
+
     case CKM_DES3_ECB:
     case CKM_DES3_CBC:
     case CKM_DES3_CBC_PAD:
-    case CKM_SHA_1_HMAC:
         /* EP11 card always in a FIPS mode rejecting
          * lower key sizes < 80 bits.
          */
