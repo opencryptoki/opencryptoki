@@ -206,7 +206,8 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
      * is set, the existing shared memory is truncated and any data on it is
      * lost.
      */
-    if (stat_buf.st_size == 0 || (force && stat_buf.st_size != real_len)) {
+    if (stat_buf.st_size == 0
+        || (force && (size_t)stat_buf.st_size != real_len)) {
         /*
          * If the shared memory region was just created, it's necessary
          * to extend it to the expected size using ftruncate.
@@ -223,7 +224,7 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
             SYS_ERROR(errno, "Cannot truncate \"%s\".\n", name);
             goto done;
         }
-    } else if (stat_buf.st_size != real_len) {
+    } else if ((size_t)stat_buf.st_size != real_len) {
         rc = -1;
         TRACE_ERROR("Error: shared memory \"%s\" exists and does not "
                     "match the expected size.\n", name);

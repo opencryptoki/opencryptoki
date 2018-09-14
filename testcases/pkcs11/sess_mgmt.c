@@ -1276,5 +1276,5 @@ int main(int argc, char **argv)
     rv = sess_mgmt_functions();
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

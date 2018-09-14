@@ -1581,7 +1581,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG key_type;
 
     /* Check and set default attributes based on mech */
-    if ((key_type = get_generate_key_type(mech)) == -1) {
+    if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
         goto done;
@@ -1689,7 +1689,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     int reason = 0;
 
     /* Check attributes */
-    if ((key_type = get_generate_key_type(mech)) == -1) {
+    if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         rc = CKR_MECHANISM_INVALID;
         goto done;
@@ -3004,7 +3004,8 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     struct icsf_object_record records[MAX_RECORDS];
     struct icsf_object_record *previous = NULL;
     size_t records_len;
-    int i, j, node_number, rc;
+    unsigned int i, j;
+    int node_number, rc;
     int reason = 0;
     CK_RV rv = CKR_OK;
 
@@ -4511,8 +4512,8 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG node_number;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
     CK_SSL3_KEY_MAT_PARAMS *params = { 0 };
+    unsigned int i;
     int reason = 0;
-    int i;
 
     /* Variable for multiple keys derivation */
     int multiple = 0;

@@ -317,10 +317,10 @@ int config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
 
 int list_tokens(void)
 {
-    size_t tokenCount = MAX_RECORDS;
+    size_t i, tokenCount = MAX_RECORDS;
     struct icsf_token_record *previous = NULL;
     struct icsf_token_record tokens[MAX_RECORDS];
-    int rc, i, num_seen = 0;
+    int rc, num_seen = 0;
 
     do {
         /* get the token list from remote z/OS host */
@@ -352,10 +352,10 @@ int list_tokens(void)
 
 int lookup_name(char *name, struct icsf_token_record *found)
 {
-    size_t tokenCount = MAX_RECORDS;
+    size_t i, tokenCount = MAX_RECORDS;
     struct icsf_token_record *previous = NULL;
     struct icsf_token_record tokens[MAX_RECORDS];
-    int rc, i;
+    int rc;
 
     do {
         /* get the token list from remote z/OS host */

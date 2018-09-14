@@ -33,7 +33,7 @@ CK_RV get_randombytes(char *output, int bytes)
 {
     int ranfd;
     int rlen;
-    unsigned int totallen = 0;
+    int totallen = 0;
 
     ranfd = open("/dev/urandom", O_RDONLY);
     if (ranfd >= 0) {
@@ -323,7 +323,8 @@ CK_RV pbkdf(CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
     unsigned int r, num_of_blocks;
     unsigned int count, hashlen;
     CK_ULONG rc = CKR_OK;
-    int i, j, k;
+    unsigned int i, j;
+    int k;
 
     /* check inputs */
     if (!password || !salt) {

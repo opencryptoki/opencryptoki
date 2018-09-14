@@ -35,7 +35,7 @@ CK_RV do_GenerateKeyPairRSA(void)
 
     CK_KEY_TYPE keytype = CKK_RSA;
     CK_ULONG modbits = 2048;
-    int modbytes = modbits / 8;
+    unsigned int modbytes = modbits / 8;
     CK_BYTE pubExp[3] = { 0x01, 0x00, 0x01 };
     CK_ATTRIBUTE publ_tmpl[] = {
         {CKA_KEY_TYPE, &keytype, sizeof(keytype)},
@@ -250,5 +250,5 @@ int main(int argc, char **argv)
     testcase_print_result();
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

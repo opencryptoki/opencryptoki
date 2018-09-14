@@ -559,7 +559,8 @@ CK_RV do_FindObjects(void)
 
     CK_OBJECT_HANDLE obj_list[10];
     CK_ULONG find_count;
-    int i, got_it = 0;
+    unsigned int i;
+    int got_it = 0;
 
     testcase_begin("starting...");
 
@@ -708,7 +709,8 @@ destroy_1:
  */
 CK_RV do_CreateTokenObjects(void)
 {
-    int i, got_it = 0;
+    unsigned int i;
+    int got_it = 0;
     CK_SLOT_ID slot_id;
     CK_FLAGS flags;
     CK_SESSION_HANDLE h_session;
@@ -1253,5 +1255,5 @@ int main(int argc, char **argv)
     rv = obj_mgmt_functions();
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

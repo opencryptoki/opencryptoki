@@ -82,7 +82,7 @@ void DestroySharedMemory(void);
 int SetupSignalHandlers(void);
 void slotdGenericSignalHandler(int Signal);
 void PopulateCKInfo(CK_INFO_PTR_64 ckinf);
-void PopulateSlotInfo(Slot_Info_t_64 *slot_info, int *processed);
+void PopulateSlotInfo(Slot_Info_t_64 *slot_info, unsigned int *processed);
 
 int XProcLock(void);
 int XProcUnLock(void);

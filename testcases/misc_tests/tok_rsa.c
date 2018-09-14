@@ -230,7 +230,8 @@ CK_RV do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE * label,
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
-    int i, bits, ret = 1;
+    unsigned int bits;
+    int i, ret = 1;
     CK_RV rv;
     CK_BYTE user_pin[128];
     CK_ULONG user_pin_len;

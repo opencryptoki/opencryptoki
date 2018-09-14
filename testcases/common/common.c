@@ -648,8 +648,9 @@ int keysize_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG size)
 /** Returns true if pubexp is valid for EP11 Tokens **/
 int is_valid_ep11_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
 {
+    CK_ULONG i;
+
     /* everything > 0x10 valid */
-    int i;
     if (pubexp[0] > 0x10) {
         return 1;
     } else {

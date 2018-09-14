@@ -48,7 +48,7 @@
  */
 CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
-    int i, j;
+    unsigned int i, j;
     CK_BYTE original[BIG_REQUEST];
     CK_ULONG original_len;
     CK_BYTE crypt[BIG_REQUEST];
@@ -282,8 +282,8 @@ testcase_cleanup:
 CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                        CK_BBOOL recover_mode)
 {
-    int i;                      // test vector index
-    int j;                      // message byte index
+    unsigned int i;                      // test vector index
+    unsigned int j;                      // message byte index
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_ULONG message_len;
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
@@ -544,8 +544,8 @@ testcase_cleanup:
 #define MAX_HASH_SIZE 64
 CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 {
-    int i;                      // test vector index
-    int j;                      // message byte index
+    unsigned int i;                      // test vector index
+    unsigned int j;                      // message byte index
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
     CK_BYTE hash[MAX_HASH_SIZE];
@@ -733,7 +733,7 @@ testcase_cleanup:
  */
 CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
 {
-    int i = 0, j = 0;
+    unsigned int i = 0, j = 0;
     char *s = NULL;
     CK_OBJECT_HANDLE publ_key, priv_key, secret_key, unwrapped_key;
     CK_BYTE_PTR wrapped_key = NULL;
@@ -1048,7 +1048,7 @@ testcase_cleanup:
  */
 CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE actual[MAX_SIGNATURE_SIZE];
     CK_BYTE expected[MAX_SIGNATURE_SIZE];
@@ -1228,7 +1228,7 @@ testcase_cleanup:
  */
 CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE actual[MAX_SIGNATURE_SIZE];
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_ULONG message_len;
@@ -1360,7 +1360,7 @@ testcase_cleanup:
 
 CK_RV rsa_funcs()
 {
-    int i;
+    unsigned int i;
     CK_RV rv = CKR_OK;
 
     // published (known answer) tests

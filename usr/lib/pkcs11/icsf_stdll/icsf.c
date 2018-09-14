@@ -2042,7 +2042,8 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
     int attrtype;
     struct berval attrbval = { 0, NULL };
     ber_int_t intval;
-    int i, found = 0;
+    unsigned int i;
+    CK_ULONG found = 0;
     ber_tag_t tag;
     CK_RV rc = CKR_OK;
 
@@ -2077,7 +2078,7 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
          * are no  more attributes to search
          */
         for (i = 0; i < attrs_len; i++) {
-            if (attrs[i].type != attrtype)
+            if (attrs[i].type != (CK_ATTRIBUTE_TYPE)attrtype)
                 continue;
 
             /* we have decoded attribute, now add the values */
@@ -2135,8 +2136,8 @@ int icsf_get_attribute(LDAP * ld, int *reason,
     char handle[ICSF_HANDLE_LEN];
     BerElement *msg = NULL;
     BerElement *result = NULL;
+    unsigned int i;
     int rc = 0;
-    int i;
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(attrs);

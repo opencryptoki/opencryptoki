@@ -22,7 +22,7 @@
 /** Tests DES encryption with published test vectors. **/
 CK_RV do_EncryptDES(struct published_test_suite_info *tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE actual[BIG_REQUEST];
     CK_ULONG expected_len, actual_len;
@@ -143,7 +143,7 @@ testcase_cleanup:
 /** Tests DES multipart encryption with published test vectors. **/
 CK_RV do_EncryptUpdateDES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE plaintext[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST];
@@ -312,7 +312,7 @@ testcase_cleanup:
 /** Tests DES decryption with published test vectors. **/
 CK_RV do_DecryptDES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE actual[BIG_REQUEST];
     CK_ULONG expected_len, actual_len;
@@ -434,7 +434,7 @@ testcase_cleanup:
 /** Tests DES multipart decryption with published test vectors. **/
 CK_RV do_DecryptUpdateDES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE cipher[BIG_REQUEST];
     CK_BYTE plaintext[BIG_REQUEST];
@@ -605,7 +605,7 @@ testcase_cleanup:
 /** Tests DES encryption & decryption with generated (secure) keys. **/
 CK_RV do_EncryptDecryptDES(struct generated_test_suite_info * tsuite)
 {
-    int j;
+    unsigned int j;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES_BLOCK_SIZE];
@@ -729,7 +729,7 @@ testcase_cleanup:
 /** Tests DES multipart encryption & decryption with generated keys. **/
 CK_RV do_EncryptDecryptUpdateDES(struct generated_test_suite_info * tsuite)
 {
-    int i, j, k;
+    unsigned int i, j, k;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES_BLOCK_SIZE];
@@ -897,7 +897,7 @@ testcase_cleanup:
 /** Tests DES encryption & decryption with wrapped/unwrapped keys. **/
 CK_RV do_WrapUnwrapDES(struct generated_test_suite_info * tsuite)
 {
-    int j;
+    unsigned int j;
     CK_BYTE expected[BIG_REQUEST + DES_BLOCK_SIZE];
     CK_BYTE actual[BIG_REQUEST + DES_BLOCK_SIZE];
     CK_ULONG expected_len, actual_len, cipher_len;

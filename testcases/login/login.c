@@ -68,10 +68,10 @@ int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
     CK_USER_TYPE userType = CKU_USER;
+    CK_SLOT_ID slot_id = 0;
     CK_RV rc = 0;
-    int i;
     char *pass = NULL;
-    int slot_id = 0;
+    int i;
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-pass") == 0) {
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     }
 
     if (slot_id != SLOT_ID)
-        printf("Using user specified slot %d.\n", slot_id);
+        printf("Using user specified slot %lu.\n", slot_id);
 
     rc = do_GetFunctionList();
     if (funcs == NULL)

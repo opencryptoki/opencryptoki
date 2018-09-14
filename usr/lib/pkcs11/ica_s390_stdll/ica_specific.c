@@ -267,16 +267,14 @@ static CK_BYTE count_ones_in_byte(CK_BYTE byte)
 static void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size,
                                        CK_BBOOL parity)
 {
-    CK_BYTE *des_key_byte;
+    CK_ULONG i;
 
-    for (des_key_byte = des_key; des_key_byte - des_key < key_size;
-         ++des_key_byte)
-        // look at each byte in the key
+    for (i = 0; i < key_size; i++) // look at each byte in the key
     {
-        if ((count_ones_in_byte(*des_key_byte) % 2) ^ (parity == ODD_PARITY)) {
+        if ((count_ones_in_byte(des_key[i]) % 2) ^ (parity == ODD_PARITY)) {
             // if parity for this byte isn't what it should be,
             // flip the parity (least significant) bit
-            *des_key_byte ^= 1;
+            des_key[i] ^= 1;
         }
     }
 }
@@ -3525,7 +3523,7 @@ static CK_RV mech_list_ica_initialize(void)
             continue;
 
         // loop over libica supported list
-        ulActMechCtr = -1;
+        ulActMechCtr = (CK_ULONG)(-1);
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
@@ -3545,7 +3543,7 @@ static CK_RV mech_list_ica_initialize(void)
                     break;
                 }
             }
-            if (ulActMechCtr == -1) {
+            if (ulActMechCtr == (CK_ULONG)(-1)) {
                 /* add a new entry */
                 mech_list[mech_list_len].mech_type =
                     ref_mech_list[refIdx].mech_type;
@@ -4197,11 +4195,11 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 {
     CK_RV ret = CKR_OK;
     ICA_EC_KEY *pubkey = NULL, *privkey = NULL;
-    unsigned int n, privlen;
+    unsigned int n, privlen, i;
     unsigned char d_array[ICATOK_EC_MAX_D_LEN];
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
-    int i, rc, nid;
+    int rc, nid;
 
     UNUSED(tokdata);
 
