@@ -1200,7 +1200,7 @@ done:
     TRACE_INFO("C_CreateObject: rc = 0x%08lx\n", rc);
 
 #ifdef DEBUG
-    int i;
+    CK_ULONG i;
 
     for (i = 0; i < ulCount; i++) {
         if (pTemplate[i].type == CKA_CLASS) {
@@ -1357,13 +1357,13 @@ done:
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
-    int i;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
         ptr = (CK_BYTE *) attr->pValue;
 
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+        TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
         if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
@@ -1407,13 +1407,13 @@ done:
                rc, hObject);
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
-    int i;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
         CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
 
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+        TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
         if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
@@ -1466,13 +1466,13 @@ done:
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
-    int i;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
         CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
 
-        TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+        TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
         if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
@@ -1630,7 +1630,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
 
     return rc;
 }
@@ -1870,7 +1870,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
 
     return rc;
 }
@@ -2090,7 +2090,7 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     return rc;
 }
@@ -2308,7 +2308,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_SignInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     return rc;
 }
@@ -2512,7 +2512,7 @@ CK_RV SC_SignRecoverInit(STDLL_TokData_t *tokdata,
 done:
     TRACE_INFO("C_SignRecoverInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     return rc;
 }
@@ -2619,7 +2619,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     return rc;
 }
@@ -2815,7 +2815,7 @@ CK_RV SC_VerifyRecoverInit(STDLL_TokData_t *tokdata,
 done:
     TRACE_INFO("C_VerifyRecoverInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     return rc;
 }
@@ -3012,17 +3012,17 @@ CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_GenerateKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
-    int i;
+    CK_ULONG i;
 
     attr = pTemplate;
     if (attr != NULL) {
         for (i = 0; i < ulCount; i++, attr++) {
             CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+            TRACE_DEBUG("%lu: Attribute type: 0x%08lx,Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
                 TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3095,11 +3095,11 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
 done:
     TRACE_INFO("C_GenerateKeyPair: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
-    int i;
+    CK_ULONG i;
 
     if (rc == CKR_OK) {
         TRACE_DEBUG("Public handle: %lu, Private handle: %lu\n",
@@ -3111,7 +3111,7 @@ done:
     if (attr != NULL) {
         for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
             CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+            TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL))
                 TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3126,7 +3126,7 @@ done:
     if (attr != NULL) {
         for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
             CK_BYTE *ptr = (CK_BYTE *) attr->pValue;
-            TRACE_DEBUG("%d: Attribute type: 0x%08lx, Value Length: %lu\n",
+            TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != (CK_ULONG) (-1) && (ptr != NULL))
                 TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3252,13 +3252,13 @@ done:
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
-    int i;
+    CK_ULONG i;
 
     attr = pTemplate;
     if (attr != NULL) {
         for (i = 0; i < ulCount; i++, attr++) {
             ptr = (CK_BYTE *) attr->pValue;
-            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+            TRACE_DEBUG("%lu: Attribute type: 0x%08lx,Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
                 TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
@@ -3320,11 +3320,11 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_DeriveKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : -1));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
 #ifdef DEBUG
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
-    int i;
+    CK_ULONG i;
 
     if (rc == CKR_OK) {
         switch (pMechanism->mechanism) {
@@ -3354,7 +3354,7 @@ done:
     if (attr != NULL) {
         for (i = 0; i < ulCount; i++, attr++) {
             ptr = (CK_BYTE *) attr->pValue;
-            TRACE_DEBUG("%d: Attribute type: 0x%08lx,Value Length: %lu\n",
+            TRACE_DEBUG("%lu: Attribute type: 0x%08lx,Value Length: %lu\n",
                         i, attr->type, attr->ulValueLen);
             if (attr->ulValueLen != ((CK_ULONG) - 1) && (ptr != NULL)) {
                 TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",

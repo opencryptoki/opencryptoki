@@ -22,7 +22,7 @@
 /** Tests triple DES encryption with published test vectors. **/
 CK_RV do_EncryptDES3(struct published_test_suite_info *tsuite)
 {
-    int i;                      // test vector index
+    unsigned int i;                      // test vector index
     CK_BYTE expected[BIG_REQUEST];      // encrypted data
     CK_BYTE actual[BIG_REQUEST];        // encryption buffer
     CK_ULONG expected_len, actual_len, original_len, k;
@@ -142,7 +142,7 @@ testcase_cleanup:
 /** Tests triple DES multipart encryption with published test vectors. **/
 CK_RV do_EncryptUpdateDES3(struct published_test_suite_info * tsuite)
 {
-    int i;                      // test vector index
+    unsigned int i;                      // test vector index
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE plaintext[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST];
@@ -311,7 +311,7 @@ testcase_cleanup:
 /** Tests triple DES decryption with published test vectors. **/
 CK_RV do_DecryptDES3(struct published_test_suite_info * tsuite)
 {
-    int i;                      // test vector index
+    unsigned int i;                      // test vector index
     CK_BYTE expected[BIG_REQUEST];      // decrypted data
     CK_BYTE actual[BIG_REQUEST];        // decryption buffer
     CK_ULONG expected_len, actual_len;
@@ -431,7 +431,7 @@ testcase_cleanup:
 /** Tests triple DES multipart decryption with  published test vectors **/
 CK_RV do_DecryptUpdateDES3(struct published_test_suite_info * tsuite)
 {
-    int i;                      // test vector index
+    unsigned int i;                      // test vector index
     CK_BYTE expected[BIG_REQUEST];
     CK_BYTE cipher[BIG_REQUEST];
     CK_BYTE plaintext[BIG_REQUEST];
@@ -600,7 +600,7 @@ testcase_cleanup:
 /** Tests triple DES encryption & decryption using generated keys **/
 CK_RV do_EncryptDecryptDES3(struct generated_test_suite_info * tsuite)
 {
-    int j;
+    unsigned int j;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES3_BLOCK_SIZE];
@@ -726,7 +726,7 @@ testcase_cleanup:
  */
 CK_RV do_EncryptDecryptUpdateDES3(struct generated_test_suite_info * tsuite)
 {
-    int i, j, k;
+    unsigned int i, j, k;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE crypt[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + DES3_BLOCK_SIZE];
@@ -931,7 +931,7 @@ testcase_cleanup:
  */
 CK_RV do_WrapUnwrapDES3(struct generated_test_suite_info * tsuite)
 {
-    int j;
+    unsigned int j;
     CK_BYTE expected[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_BYTE actual[BIG_REQUEST + DES3_BLOCK_SIZE];
     CK_ULONG expected_len, actual_len, cipher_len;

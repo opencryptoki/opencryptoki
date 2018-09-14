@@ -25,7 +25,7 @@
 /** Tests messge digest with published test vectors. **/
 CK_RV do_Digest(struct digest_test_suite_info *tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE data[MAX_DATA_SIZE];
     CK_ULONG data_len;
     CK_BYTE actual[MAX_HASH_SIZE];
@@ -120,7 +120,7 @@ testcase_cleanup:
 /** Tests multipart message digest with published test vectors. **/
 CK_RV do_DigestUpdate(struct digest_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE data[MAX_DATA_SIZE];
     CK_ULONG data_len, data_done;
     CK_BYTE actual[MAX_HASH_SIZE];
@@ -255,7 +255,7 @@ testcase_cleanup:
 /** Tests signature verification with published test vectors. **/
 CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len, mac_size;
@@ -372,7 +372,7 @@ testcase_cleanup:
 /** Tests signature verification with published test vectors. **/
 CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, expected_mac_len, mac_size;
@@ -475,7 +475,7 @@ testcase_cleanup:
 /** Tests signature generation with published test vectors. **/
 CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len;
@@ -621,7 +621,7 @@ testcase_cleanup:
 /** Tests signature generation with published test vectors. **/
 CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, expected_mac_len;
@@ -756,7 +756,7 @@ testcase_cleanup:
 /** Tests signature generation with published test vectors. **/
 CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, actual_mac_len, expected_mac_len;
@@ -942,7 +942,7 @@ testcase_cleanup:
 /** Tests signature verification with published test vectors. **/
 CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE], data[MAX_DATA_SIZE];
     CK_ULONG key_len, data_len, expected_mac_len;
@@ -1113,7 +1113,7 @@ testcase_cleanup:
 /** Tests signature verification with published test vectors. **/
 CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE];
     CK_ULONG key_len;
@@ -1253,7 +1253,8 @@ testcase_cleanup:
 /** Tests signature verification with published test vectors. **/
 CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
 {
-    int len1 = 0, len2 = 0, i;
+    int len1 = 0, len2 = 0;
+    unsigned int i;
     CK_MECHANISM mech;
     CK_BYTE key[MAX_KEY_SIZE];
     CK_ULONG key_len;
@@ -1533,7 +1534,7 @@ testcase_cleanup:
 CK_RV digest_funcs()
 {
     CK_RV rc;
-    int i;
+    unsigned int i;
 
     /** Digest tests **/
     for (i = 0; i < NUM_DIGEST_TEST_SUITES; i++) {
@@ -1648,5 +1649,5 @@ int main(int argc, char **argv)
     funcs->C_Finalize(NULL);
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

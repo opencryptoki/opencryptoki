@@ -163,7 +163,8 @@ int close_all_sess(void)
 int do_SessionPerformance(unsigned int count)
 {
     SYSTEMTIME t1, t2;
-    int rc, i;
+    int rc;
+    unsigned int i;
     context_table_t *t = NULL;
 
     if (count == 0) {

@@ -60,10 +60,10 @@ void PopulateCKInfo(CK_INFO_PTR_64 ckinf)
 
 }
 
-void PopulateSlotInfo(Slot_Info_t_64 *slot_info, int *processed)
+void PopulateSlotInfo(Slot_Info_t_64 *slot_info, unsigned int *processed)
 {
     CK_SLOT_ID id;
-    int slot_count = 0;
+    unsigned int slot_count = 0;
 
     /*
      *  populate the Slot entries...

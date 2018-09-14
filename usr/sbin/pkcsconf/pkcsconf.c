@@ -74,7 +74,7 @@ int in_slot;
 
 int main(int argc, char *argv[])
 {
-    CK_RV rc = CKR_OK;          // Return Code
+    CK_RV rv = CKR_OK;          // Return Code
     CK_FLAGS flags = 0;         // Bit mask for what options were passed in
     CK_CHAR_PTR sopin = NULL,   // The Security Office PIN
         pin = NULL,             // The User PIN
@@ -181,11 +181,13 @@ int main(int argc, char *argv[])
         usage(argv[0]);
     }
     /* Load the PKCS11 library and start the slotmanager if it is not running */
-    if (init() != CKR_OK)
-        exit(-1);
+    if (init() != CKR_OK) {
+        rv = CKR_FUNCTION_FAILED;
+	goto done;
+    }
 
     /* Get the slot list and indicate if a slot number was passed in or not */
-    if ((rc = get_slot_list()))
+    if ((rv = get_slot_list()))
         goto done;
 
     /* If the user tries to set the user and SO pin at the same time print an
@@ -193,32 +195,33 @@ int main(int argc, char *argv[])
     if ((flags & CFG_SET_USER) && (flags & CFG_SET_SO)) {
         printf("Setting the SO and user PINs are mutually exclusive.\n");
         fflush(stdout);
-        return CKR_FUNCTION_FAILED;
+        rv = CKR_FUNCTION_FAILED;
+	goto done;
     }
 
     /* If the user wants to display PKCS11 info call the function to do so */
     if (flags & CFG_PKCS_INFO)
-        if ((rc = display_pkcs11_info()))
+        if ((rv = display_pkcs11_info()))
             goto done;
 
     /* If the user wants to display token info call the function to do so */
     if (flags & CFG_TOKEN_INFO)
-        if ((rc = display_token_info((flags & CFG_SLOT) ? in_slot : -1)))
+        if ((rv = display_token_info((flags & CFG_SLOT) ? in_slot : -1)))
             goto done;
 
     /* If the user wants to display slot info call the function to do so */
     if (flags & CFG_SLOT_INFO)
-        if ((rc = display_slot_info((flags & CFG_SLOT) ? in_slot : -1)))
+        if ((rv = display_slot_info((flags & CFG_SLOT) ? in_slot : -1)))
             goto done;
 
     /* If the user wants to display slot info call the function to do so */
     if (flags & CFG_LIST_SLOT)
-        if ((rc = list_slot((flags & CFG_SLOT) ? in_slot : -1)))
+        if ((rv = list_slot((flags & CFG_SLOT) ? in_slot : -1)))
             goto done;
 
     /* If the user wants to display mechanism info call the function to do so */
     if (flags & CFG_MECHANISM_INFO)
-        if ((rc = display_mechanism_info((flags & CFG_SLOT) ? in_slot : -1)))
+        if ((rv = display_mechanism_info((flags & CFG_SLOT) ? in_slot : -1)))
             goto done;
 
     /* If the user wants to initialize the card check to see if they passed in
@@ -233,11 +236,11 @@ int main(int argc, char *argv[])
                     rc = get_pin(&(sopin));
                 } while (rc == -EINVAL);
             }
-            rc = init_token(in_slot, sopin);
+            rv = init_token(in_slot, sopin);
         } else {
             printf("Must specify one slot");
             fflush(stdout);
-            rc = -EINVAL;
+            rv = CKR_FUNCTION_FAILED;
         }
     }
 
@@ -250,6 +253,7 @@ int main(int argc, char *argv[])
         if (flags & CFG_SLOT) {
             if (~flags & CFG_SO_PIN) {
                 int rc;
+
                 do {
                     printf("Enter the SO PIN: ");
                     fflush(stdout);
@@ -258,6 +262,7 @@ int main(int argc, char *argv[])
             }
             if (~flags & CFG_NEW_PIN) {
                 int rc;
+
                 do {
                     printf("Enter the new user PIN: ");
                     fflush(stdout);
@@ -277,11 +282,11 @@ int main(int argc, char *argv[])
                     exit(CKR_PIN_INVALID);
                 }
             }
-            rc = init_user_pin(in_slot, newpin, sopin);
+            rv = init_user_pin(in_slot, newpin, sopin);
         } else {
             printf("Must specify one slot");
             fflush(stdout);
-            rc = -EINVAL;
+            rv = CKR_FUNCTION_FAILED;
         }
     }
 
@@ -320,11 +325,11 @@ int main(int argc, char *argv[])
                     exit(CKR_PIN_INVALID);
                 }
             }
-            rc = set_user_pin(in_slot, CKU_SO, sopin, newpin);
+            rv = set_user_pin(in_slot, CKU_SO, sopin, newpin);
         } else {
             printf("Must specify one slot");
             fflush(stdout);
-            rc = -EINVAL;
+            rv = CKR_FUNCTION_FAILED;
         }
     }
 
@@ -343,6 +348,8 @@ int main(int argc, char *argv[])
                 } while (rc == -EINVAL);
             }
             if (~flags & CFG_NEW_PIN) {
+		int rc;
+
                 do {
                     printf("Enter the new user PIN: ");
                     fflush(stdout);
@@ -362,11 +369,11 @@ int main(int argc, char *argv[])
                     exit(CKR_PIN_INVALID);
                 }
             }
-            rc = set_user_pin(in_slot, CKU_USER, pin, newpin);
+            rv = set_user_pin(in_slot, CKU_USER, pin, newpin);
         } else {
             printf("Must specify one slot");
             fflush(stdout);
-            rc = -EINVAL;
+            rv = CKR_FUNCTION_FAILED;
         }
     }
 
@@ -395,7 +402,7 @@ done:
         free(newpin2);
     }
 
-    return ((rc == 0) || (rc % 256) ? rc : -1);
+    return rv == CKR_OK ? 0 : -1;
 }
 
 int get_pin(CK_CHAR **pin)

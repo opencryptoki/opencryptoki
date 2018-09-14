@@ -1941,7 +1941,7 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
 
     cca_ctx = (struct cca_sha_ctx *) ctx->context;
 
-    if (*out_data_len < cca_ctx->hash_len)
+    if (*out_data_len < (CK_ULONG)cca_ctx->hash_len)
         return CKR_BUFFER_TOO_SMALL;
 
     switch (ctx->mech.mechanism) {
@@ -2152,7 +2152,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
         return CKR_OPERATION_NOT_INITIALIZED;
 
     cca_ctx = (struct cca_sha_ctx *) ctx->context;
-    if (*out_data_len < cca_ctx->hash_len) {
+    if (*out_data_len < (CK_ULONG)cca_ctx->hash_len) {
         TRACE_ERROR("out buf too small for hash: %lu\n", *out_data_len);
         return CKR_BUFFER_TOO_SMALL;
     }
@@ -2998,7 +2998,7 @@ static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
     }
 
     /* check total length does not exceed key_value_structure_length */
-    if ((pub_mod->ulValueLen + 8) > key_value_structure_length) {
+    if ((pub_mod->ulValueLen + 8) > (CK_ULONG)key_value_structure_length) {
         TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
         return CKR_KEY_SIZE_RANGE;
     }

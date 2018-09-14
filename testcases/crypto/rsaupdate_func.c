@@ -43,8 +43,8 @@
  */
 CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 {
-    int i;                      // test vector index
-    int j;                      // message byte index
+    unsigned int i;                      // test vector index
+    unsigned int j;                      // message byte index
     int inc, count, len;
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_ULONG message_len;
@@ -293,8 +293,8 @@ testcase_cleanup:
 #define MAX_HASH_SIZE 64
 CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 {
-    int i;                      // test vector index
-    int j;                      // message byte index
+    unsigned int i;                      // test vector index
+    unsigned int j;                      // message byte index
     int len;
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE signature[MAX_SIGNATURE_SIZE];
@@ -406,7 +406,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         if (tsuite->tv[i].num_chunks) {
             CK_BYTE *data_chunk = NULL;
 
-            for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+            for (j = 0; j < (unsigned int)tsuite->tv[i].num_chunks; j++) {
                 if (tsuite->tv[i].chunks[j] == -1) {
                     len = 0;
                     data_chunk = NULL;
@@ -465,7 +465,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         if (tsuite->tv[i].num_chunks) {
             CK_BYTE *data_chunk = NULL;
 
-            for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+            for (j = 0; j < (unsigned int)tsuite->tv[i].num_chunks; j++) {
                 if (tsuite->tv[i].chunks[j] == -1) {
                     len = 0;
                     data_chunk = NULL;
@@ -543,7 +543,7 @@ testcase_cleanup:
  */
 CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 {
-    int i, inc, len, j;
+    unsigned int i, inc, len, j;
     CK_BYTE actual[MAX_SIGNATURE_SIZE];
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_ULONG message_len;
@@ -718,7 +718,7 @@ testcase_cleanup:
  */
 CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 {
-    int i, len, j;
+    unsigned int i, len, j;
     CK_BYTE message[MAX_MESSAGE_SIZE];
     CK_BYTE actual[MAX_SIGNATURE_SIZE];
     CK_BYTE expected[MAX_SIGNATURE_SIZE];
@@ -868,7 +868,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (tsuite->tv[i].num_chunks) {
             CK_BYTE *data_chunk = NULL;
 
-            for (j = 0; j < tsuite->tv[i].num_chunks; j++) {
+            for (j = 0; j < (unsigned int)tsuite->tv[i].num_chunks; j++) {
                 if (tsuite->tv[i].chunks[j] == -1) {
                     len = 0;
                     data_chunk = NULL;
@@ -958,7 +958,7 @@ testcase_cleanup:
 
 CK_RV rsa_funcs()
 {
-    int i;
+    unsigned int i;
     CK_RV rv = CKR_OK;
 
     // published (known answer) tests

@@ -87,7 +87,7 @@ int CreateListenerSocket(void)
 
 int InitSocketData(Slot_Mgr_Socket_t *socketData)
 {
-    int processed = 0;
+    unsigned int processed = 0;
 
     PopulateCKInfo(&(socketData->ck_info));
     socketData->num_slots = NumberSlotsInDB;

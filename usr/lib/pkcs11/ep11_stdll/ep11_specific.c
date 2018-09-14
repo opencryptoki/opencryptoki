@@ -134,7 +134,7 @@ static inline void hexdump(void *buf, size_t buflen)
        xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
      */
 
-    int i, j;
+    size_t i, j;
     char line[68];
     for (i = 0; i < buflen; i += 16) {
         for (j = 0; j < 16; j++) {
@@ -1076,7 +1076,7 @@ static CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_le
 static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
                               CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
 {
-    int i;
+    CK_ULONG i;
     CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
 
     *type = 0;
@@ -3654,7 +3654,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
     size_t p_len = 0, g_len = 0;
-    int i, new_public_attr;
+    int new_public_attr;
+    CK_ULONG i;
     CK_ULONG data_len;
     CK_ULONG field_len;
     CK_BYTE *data;
@@ -3900,7 +3901,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *attr = NULL;
     size_t p_len = 0, q_len = 0, g_len = 0;
-    int i, new_public_attr;
+    int new_public_attr;
+    CK_ULONG i;
     CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
     CK_BYTE *key;
     CK_BYTE *data;
@@ -4180,7 +4182,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     size_t publblobsize = sizeof(publblob);
     CK_BYTE privblob[MAX_BLOBSIZE];
     size_t privblobsize = sizeof(privblob);
-    int i;
+    CK_ULONG i;
     CK_ULONG bit_str_len;
     CK_BYTE *key;
     CK_BYTE *data;
@@ -5462,7 +5464,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE keyblob[MAX_BLOBSIZE];
     size_t keyblobsize = sizeof(keyblob);
     CK_ATTRIBUTE *attr = NULL;
-    int i = 0;
+    CK_ULONG i;
     CK_ULONG ktype;
     CK_ULONG class;
     CK_ULONG len;
@@ -5708,7 +5710,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
     CK_RV rc = 0;
     CK_ULONG counter = 0, size = 0;
     CK_MECHANISM_TYPE_PTR mlist = NULL;
-    int i;
+    CK_ULONG i;
 
     /* size querry */
     if (pMechanismList == NULL) {
@@ -5806,7 +5808,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_TYPE type)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    int i;
+    CK_ULONG i;
 
     for (i = 0; i < banned_mech_list_len; i++) {
         if (type == ep11_banned_mech_list[i]) {
@@ -6888,7 +6890,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
     cp_handler_data_t *data = (cp_handler_data_t *) handler_data;
     unsigned char cp[XCP_CP_BYTES];
     size_t cp_len = sizeof(cp);
-    int i;
+    CK_ULONG i;
 
     TRACE_INFO("Getting control points for adapter %02X.%04X\n", adapter,
                domain);

@@ -383,7 +383,7 @@ testcase_cleanup:
 
 CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE input[BIG_REQUEST]; // cleartext buffer
     CK_BYTE output[BIG_REQUEST];        // encryption buffer
     CK_BYTE expected[BIG_REQUEST];      // encrypted data
@@ -514,7 +514,7 @@ testcase_cleanup:
 
 CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE plaintext[BIG_REQUEST];
     CK_BYTE expected[BIG_REQUEST];      // encrypted data
     CK_BYTE crypt[BIG_REQUEST];
@@ -685,7 +685,7 @@ testcase_cleanup:
 
 CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE input[BIG_REQUEST]; // encrypted buffer
     CK_BYTE output[BIG_REQUEST];        // decryption buffer
     CK_BYTE expected[BIG_REQUEST];      // decrypted data
@@ -814,7 +814,7 @@ testcase_cleanup:
 
 CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE cipher[BIG_REQUEST];
     CK_BYTE expected[BIG_REQUEST];      // decrypted data
     CK_BYTE plaintext[BIG_REQUEST];
@@ -979,7 +979,7 @@ testcase_cleanup:
 
 CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
 {
-    int i, j;
+    unsigned int i, j;
     CK_BYTE original[BIG_REQUEST + AES_BLOCK_SIZE];
     CK_BYTE crypt[BIG_REQUEST + AES_BLOCK_SIZE];
     CK_BYTE decrypt[BIG_REQUEST + AES_BLOCK_SIZE];
@@ -1207,7 +1207,7 @@ testcase_cleanup:
 
 CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE original[BIG_REQUEST];
     CK_BYTE decipher[BIG_REQUEST + AES_BLOCK_SIZE];
     CK_BYTE cipher[BIG_REQUEST + AES_BLOCK_SIZE];
@@ -1432,7 +1432,7 @@ testcase_cleanup:
 
 CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_BYTE pub_exp[] = { 0x01, 0x00, 0x01 };
@@ -1560,7 +1560,7 @@ testcase_cleanup:
 
 CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
 {
-    int i;
+    unsigned int i;
     CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_BYTE pub_exp[] = { 0x01, 0x00, 0x01 };
@@ -1703,7 +1703,7 @@ testcase_cleanup:
 
 CK_RV aes_funcs()
 {
-    int i;
+    unsigned int i;
     CK_RV rv = CKR_OK;
 
     for (i = 0; i < NUM_OF_PUBLISHED_TESTSUITES; i++) {
@@ -1802,5 +1802,5 @@ int main(int argc, char **argv)
     funcs->C_Finalize(NULL);
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

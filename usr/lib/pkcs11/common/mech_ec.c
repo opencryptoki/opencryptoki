@@ -940,7 +940,7 @@ static CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
 {
-    int i;
+    CK_ULONG i;
 
     *type = 0;
     *class = 0;
@@ -1032,8 +1032,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG z_len = 0, kdf_digest_len;
     CK_MECHANISM_TYPE digest_mech;
     CK_BYTE *derived_key = NULL;
-    CK_ULONG derived_key_len;
-    int i;
+    CK_ULONG derived_key_len, i;
 
     /* Check parm length */
     if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {

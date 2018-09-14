@@ -342,7 +342,7 @@ static int do_ParseArgs(int argc, char **argv)
             return -1;
         }
     }
-    if (SLOT_ID == -1) {
+    if (SLOT_ID == (CK_SLOT_ID)(-1)) {
         printf("Slot-ID not set!\n");
         return -1;
     }
@@ -574,7 +574,7 @@ static CK_RV logout_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                                 pid_t pid, CK_DATE *date)
 {
     CK_RV rc;
-    int i;
+    CK_ULONG i;
 
     UNUSED(pin_blob_size);
 
@@ -636,7 +636,7 @@ static CK_RV show_session_obj(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE obj,
                               ep11_target_t *ep11_targets,
                               pid_t pid, CK_DATE *date)
 {
-    int i;
+    CK_ULONG i;
 
     UNUSED(session);
     UNUSED(obj);

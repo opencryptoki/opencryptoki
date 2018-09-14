@@ -68,7 +68,7 @@ static const struct ock_key ock_keywords[] = {
 void set_init(void);
 void set_defaults(void);
 int lookup_keyword(const char *key);
-int do_str(char *slotinfo, int size, char* kw, char *val);
+int do_str(char *slotinfo, size_t size, char* kw, char *val);
 int do_vers(CK_VERSION *slotinfo, char *kw, char *val);
 
 %}
@@ -191,7 +191,7 @@ set_defaults(void)
 }
 
 int
-do_str(char *slotinfo, int size, char* kw, char *val)
+do_str(char *slotinfo, size_t size, char* kw, char *val)
 {
 	if (strlen(val) > size) {
 		snprintf(errbuf, ERRSTRLEN, "%s has too many characters\n", kw);

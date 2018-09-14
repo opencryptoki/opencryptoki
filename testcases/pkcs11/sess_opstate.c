@@ -49,7 +49,8 @@ int sess_opstate_funcs(int loops)
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_ULONG flags;
     CK_RV rc;
-    int i, counter, rbytes;
+    unsigned int i;
+    int counter, rbytes;
     CK_BYTE *rdata = NULL;
     CK_MECHANISM mech1 = { CKM_SHA256, 0, 0 };
     CK_MECHANISM mech2 = { CKM_SHA_1, 0, 0 };
@@ -158,7 +159,7 @@ int sess_opstate_funcs(int loops)
             goto out;
         }
 
-        for (i = 0; i < loops; i++) {
+        for (i = 0; i < (unsigned int)loops; i++) {
             rbytes = random() % sizeof(rdata);
             rdata = alloc_random_buf(s1, rbytes);
             if (!rdata)
@@ -282,5 +283,5 @@ int main(int argc, char **argv)
     rv = sess_opstate_funcs(loops);
 
     /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? rv : -1);
+    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
 }

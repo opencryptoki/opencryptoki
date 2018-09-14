@@ -363,7 +363,7 @@ static int do_ParseArgs(int argc, char **argv)
             return -1;
         }
     }
-    if (SLOT_ID == -1) {
+    if (SLOT_ID == (CK_SLOT_ID)(-1)) {
         printf("Slot-ID not set!\n");
         return -1;
     }
@@ -383,12 +383,12 @@ static int do_ParseArgs(int argc, char **argv)
 int main(int argc, char **argv)
 {
     int rc;
-    int obj;
     void *lib_ep11;
     CK_C_INITIALIZE_ARGS cinit_args;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN + 1];
     CK_FLAGS flags;
     CK_SESSION_HANDLE session;
+    CK_ULONG obj;
     CK_ULONG user_pin_len;
     CK_ULONG keys_found = 0;
 

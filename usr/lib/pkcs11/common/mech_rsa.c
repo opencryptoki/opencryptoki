@@ -2205,13 +2205,13 @@ CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
            CK_BYTE *mask, CK_ULONG maskLen, CK_RSA_PKCS_MGF_TYPE mgf)
 {
 
-    int i, T_len = 0;
+    int i;
     char *seed_buffer;
     unsigned char counter[4];
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     CK_RV rc = CKR_OK;
     CK_MECHANISM_TYPE mech;
-    CK_ULONG hlen;
+    CK_ULONG hlen, T_len = 0;
 
     if (!mask || !seed)
         return CKR_FUNCTION_FAILED;
@@ -2249,14 +2249,14 @@ CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
 
         if (T_len >= hlen) {
             memcpy(mask + (i * hlen), hash, hlen);
+            T_len -= hlen;
         } else {
             /* in the case masklen is not a multiple of the
              * of the hash length, only copy over remainder
              */
             memcpy(mask + (i * hlen), hash, T_len);
+	    T_len = 0;
         }
-
-        T_len -= hlen;
     }
 
 done:
@@ -2272,7 +2272,8 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
                       CK_BYTE *emData, CK_ULONG modLength,
                       CK_RSA_PKCS_MGF_TYPE mgf, CK_BYTE *hash, CK_ULONG hlen)
 {
-    int i, ps_len, dbMask_len;
+    int ps_len;
+    CK_ULONG dbMask_len, i;
     CK_BYTE *maskedSeed, *maskedDB, *dbMask;
     CK_BYTE seed[MAX_SHA_HASH_SIZE];
     CK_RV rc = CKR_OK;
@@ -2357,9 +2358,9 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
                       CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
                       CK_BYTE *hash, CK_ULONG hlen)
 {
-    int i, error = 0;;
+    int error = 0;;
     CK_RV rc = CKR_OK;
-    CK_ULONG dbMask_len, ps_len;
+    CK_ULONG dbMask_len, ps_len, i;
     CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask;
 
     UNUSED(emLen);
@@ -2452,9 +2453,8 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,
                       CK_ULONG in_data_len, CK_BYTE *em, CK_ULONG *modbytes)
 {
     CK_BYTE *salt, *DB, *H, *buf = NULL;
-    CK_ULONG emBits, emLen, buflen, hlen, PSlen;
+    CK_ULONG emBits, emLen, buflen, hlen, PSlen, i;
     CK_RV rc = CKR_OK;
-    int i;
 
     /*
      * Note: pkcs#11v2.20, Section 12.1.10:
@@ -2553,8 +2553,7 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
                       CK_RSA_PKCS_PSS_PARAMS *pssParms, CK_BYTE *in_data,
                       CK_ULONG in_data_len, CK_BYTE *sig, CK_ULONG modbytes)
 {
-    int i;
-    CK_ULONG buflen, hlen, emBits, emLen, plen;
+    CK_ULONG buflen, hlen, emBits, emLen, plen, i;
     CK_BYTE *salt, *H, *M, *buf = NULL;
     CK_BYTE hash[MAX_SHA_HASH_SIZE];
     CK_RV rc = CKR_OK;
