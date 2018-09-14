@@ -114,7 +114,7 @@ done:
 
 #define NUMOBJS 10
 
-int thread_func(void *thid)
+void *thread_func(void *thid)
 {
     int i = 0;
     CK_RV rv;
@@ -124,10 +124,10 @@ int thread_func(void *thid)
     do {
         rv = do_create_token_object();
         if (rv != 1)
-            return rv;
+            return NULL;
     } while (++i < NUMOBJS);
 
-    return rv;
+    return thid;
 }
 
 #define THREADCNT 5
