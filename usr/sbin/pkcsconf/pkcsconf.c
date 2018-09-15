@@ -22,6 +22,7 @@
 #include <memory.h>
 #include <string.h>
 #include <strings.h>
+#include <openssl/crypto.h>
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
 #include "p11util.h"
@@ -370,27 +371,27 @@ int main(int argc, char *argv[])
     }
 
     /* We are done, detach from shared memory, and free the memory we may have
-     * allocated.  In the case of PIN's we memset them to ensure that they are
+     * allocated.  In the case of PIN's we use cleanse to ensure that they are
      * not left around in system memory*/
 
 done:
     if (sopin) {
-        memset(sopin, 0, strlen((char *) sopin));
+        OPENSSL_cleanse(sopin, strlen((char *) sopin));
         free(sopin);
     }
 
     if (pin) {
-        memset(pin, 0, strlen((char *) pin));
+        OPENSSL_cleanse(pin, strlen((char *) pin));
         free(pin);
     }
 
     if (newpin) {
-        memset(newpin, 0, strlen((char *) newpin));
+        OPENSSL_cleanse(newpin, strlen((char *) newpin));
         free(newpin);
     }
 
     if (newpin2) {
-        memset(newpin2, 0, strlen((char *) newpin2));
+        OPENSSL_cleanse(newpin2, strlen((char *) newpin2));
         free(newpin2);
     }
 

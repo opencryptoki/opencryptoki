@@ -1,6 +1,6 @@
 sbin_PROGRAMS=pkcsconf
 
-pkcsconf_LDFLAGS = -lpthread -ldl
+pkcsconf_LDFLAGS = -lpthread -ldl -lcrypto
 
 # Not all versions of automake observe sbinname_CFLAGS
 pkcsconf_CFLAGS = -D_THREAD_SAFE -DDEBUG -DDEV -DAPI
