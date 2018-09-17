@@ -515,7 +515,7 @@ int DL_Load(Slot_Info_t *sinfp, API_Slot_t *sltp, DLL_Load_t *dllload)
         char *e = dlerror();
         OCK_SYSLOG(LOG_WARNING,
                    "%s: dlopen() failed for [%s]; dlerror = [%s]\n",
-                   __FUNCTION__, sinfp->dll_location, e);
+                   __func__, sinfp->dll_location, e);
         TRACE_DEVEL("DL_Load of %s failed, dlerror: %s\n",
                     sinfp->dll_location, e);
         sltp->dlop_p = NULL;

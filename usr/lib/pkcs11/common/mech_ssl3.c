@@ -72,7 +72,7 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
@@ -220,7 +220,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (SSL3_MAC_CONTEXT *) ctx->context;
@@ -316,7 +316,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
@@ -432,7 +432,7 @@ CK_RV ssl3_mac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
@@ -487,7 +487,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (SSL3_MAC_CONTEXT *) ctx->context;
@@ -581,7 +581,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
@@ -958,7 +958,7 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !mech) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *) mech->pParameter;
@@ -1230,7 +1230,7 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !mech) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     params = (CK_SSL3_KEY_MAT_PARAMS *) mech->pParameter;

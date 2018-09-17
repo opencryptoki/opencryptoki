@@ -715,7 +715,7 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
     UNUSED(data_len);
 
     if (!sess || !data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     op_data = (OP_STATE_DATA *) data;

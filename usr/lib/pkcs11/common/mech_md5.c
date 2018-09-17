@@ -52,7 +52,7 @@ CK_RV md5_hash(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -85,7 +85,7 @@ CK_RV md5_hash_update(STDLL_TokData_t *tokdata,
                       CK_BYTE *in_data, CK_ULONG in_data_len)
 {
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -106,7 +106,7 @@ CK_RV md5_hash_final(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (length_only == TRUE) {
@@ -156,7 +156,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -321,7 +321,7 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (ctx->mech.mechanism == CKM_MD5_HMAC_GENERAL)
@@ -436,7 +436,7 @@ CK_RV ckm_md5_final(STDLL_TokData_t *tokdata,
     CK_ULONG padLen;
 
     if (!out_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 

@@ -94,10 +94,10 @@ enum cca_key_type {
 
 #ifdef DEBUG
 #define CCADBG(fn, rc, reason) ock_logit("CCA_TOK DEBUG %s:%d  %s failed. " \
-        "return: %ld, reason: %ld\n", __FUNCTION__, __LINE__, fn, rc, reason)
+        "return: %ld, reason: %ld\n", __func__, __LINE__, fn, rc, reason)
 
 #define DBG(fmt, ...) ock_logit("CCA_TOK DEBUG %s:%d %s " fmt "\n", \
-    __FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+    __FILE__, __LINE__, __func__, ##__VA_ARGS__)
 #else
 #define CCADBG(...)   do { } while (0)
 #define DBG(...)   do { } while (0)
