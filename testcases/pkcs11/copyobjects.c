@@ -82,7 +82,7 @@ CK_RV do_CopyObjects(void)
         {CKA_SENSITIVE, &sensitive, sizeof(sensitive)}
     };
 
-    CK_ATTRIBUTE empty_tmpl[] = { };
+    CK_ATTRIBUTE empty_tmpl[] = {0};
 
     CK_ATTRIBUTE *null_tmpl = NULL;
 
