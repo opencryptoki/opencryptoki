@@ -53,6 +53,13 @@ int mech_supported_flags(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_FLAGS flags)
     return FALSE;
 }
 
+/*
+ * Check if the specified key size is in the supported range of the mechanism.
+ *
+ * ATTENTION: It is mechanism dependent if the key size is in bits or bytes.
+ * The caller of this function must take care that the keylen parameter is
+ * specified in the appropriate unit.
+ */
 int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen)
 {
     CK_MECHANISM_INFO mech_info;
@@ -60,9 +67,6 @@ int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen)
     rc = funcs->C_GetMechanismInfo(slot_id, mechanism, &mech_info);
     if (rc != CKR_OK)
         return FALSE;
-
-    /* keylen is in bytes, but key sizes in mech info are in bits */
-    keylen *= 8;
 
     return ((mech_info.ulMinKeySize <= keylen)
             && (keylen <= mech_info.ulMaxKeySize));

@@ -1161,7 +1161,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         key_len = tsuite->tv[i].key_len;
 
         if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
-            (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len))) {
+            (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len * 8))) {
             testcase_skip("keysize %d is not supported in slot %ld",
                           (unsigned int) key_len, slot_id);
             continue;
@@ -1302,7 +1302,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         key_len = tsuite->tv[i].key_len;
 
         if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
-            (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len))) {
+            (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len * 8))) {
             testcase_skip("keysize %d is not supported in slot %ld",
                           (unsigned int) key_len, slot_id);
             continue;
