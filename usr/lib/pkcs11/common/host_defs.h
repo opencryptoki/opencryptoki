@@ -284,7 +284,7 @@ typedef struct _STDLL_TokData_t {
     CK_BYTE master_key[MAX_KEY_SIZE];
     CK_BBOOL initialized;
     CK_ULONG ro_session_count;
-    CK_STATE global_login_state;;
+    CK_STATE global_login_state;
     LW_SHM_TYPE *global_shm;
     TOKEN_DATA *nv_token_data;
     void *private_data;
