@@ -4691,7 +4691,6 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
          * also by another adapter (stateless requests)
          */
         ctx->key = key;
-        ctx->multi = FALSE;
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
@@ -4845,7 +4844,6 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                     rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
     } else {
         ctx->key = key;
-        ctx->multi = FALSE;
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
