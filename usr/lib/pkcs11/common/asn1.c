@@ -15,7 +15,7 @@
 
 #include <pthread.h>
 #include <stdlib.h>
-#include <string.h>             // for memcmp() et al
+#include <string.h>
 #include <lber.h>
 
 #include "pkcs11types.h"
@@ -1963,7 +1963,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                                pubkey->ulValueLen * 8, 0x03);
         rc = ber_flatten(ber, &val);
 
-        ber_encode_CHOICE(TRUE, 1, &buf2, &len, val->bv_val, val->bv_len);
+        ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
+                          val->bv_len);
         offset += len;
         ber_free(ber, 1);
     }
@@ -2040,7 +2041,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                                pubkey->ulValueLen * 8, 0x03);
         rc = ber_flatten(ber, &val);
 
-        ber_encode_CHOICE(FALSE, 1, &buf2, &len, val->bv_val, val->bv_len);
+        ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
+                          val->bv_len);
         memcpy(buf + offset, buf2, len);
         offset += len;
         free(buf2);

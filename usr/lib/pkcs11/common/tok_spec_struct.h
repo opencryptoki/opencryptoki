@@ -25,10 +25,10 @@
 
 struct token_specific_struct {
     // Used to be in the token_local.h as a #def
-    CK_BYTE token_directory[PATH_MAX];
+    char token_directory[PATH_MAX];
 
     // Subdirectory
-    CK_BYTE token_subdir[PATH_MAX];
+    char token_subdir[PATH_MAX];
 
     // Set to keysize for secure key tokens
     int token_keysize;

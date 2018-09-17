@@ -390,7 +390,7 @@ int do_inittoken(void)
     memcpy(label, "                                      ", 32);
 
     printf("Enter Token Label:");
-    if (!fgets(label, 32, stdin)) {
+    if (!fgets((char *)label, 32, stdin)) {
         show_error("fgets failed", (unsigned long)CKR_FUNCTION_FAILED);
         rc = FALSE;
         goto done;

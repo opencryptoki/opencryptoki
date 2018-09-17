@@ -63,10 +63,10 @@
 
 TSS_RESULT util_set_public_modulus(TSS_HKEY, unsigned long, unsigned char *);
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "TPM v1.1 Token";
-CK_CHAR descr[] = "Token for the Trusted Platform Module";
-CK_CHAR label[] = "IBM PKCS#11 TPM Token";
+const char manuf[] = "IBM Corp.";
+const char model[] = "TPM v1.1 Token";
+const char descr[] = "Token for the Trusted Platform Module";
+const char label[] = "IBM PKCS#11 TPM Token";
 
 MECH_LIST_ELEMENT mech_list[] = {
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
@@ -1543,7 +1543,7 @@ CK_RV save_masterkey_private()
         return CKR_FUNCTION_FAILED;
     }
     //fp = fopen("/etc/pkcs11/tpm/MK_PRIVATE", "r");
-    sprintf((char *) fname, "%s/%s/%s", pk_dir, pw->pw_name,
+    sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name,
             TPMTOK_MASTERKEY_PRIVATE);
 
     /* if file exists, assume its been written correctly before */
@@ -1585,7 +1585,7 @@ CK_RV save_masterkey_private()
     }
 
     /* write the encrypted key to disk */
-    if ((fp = fopen((char *) fname, "w")) == NULL) {
+    if ((fp = fopen(fname, "w")) == NULL) {
         TRACE_ERROR("Error opening %s for write: %s\n", fname, strerror(errno));
         Tspi_Context_FreeMemory(tspContext, encrypted_masterkey);
         return CKR_FUNCTION_FAILED;
@@ -1626,7 +1626,7 @@ CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf((char *) fname, "%s/%s/%s", pk_dir, pw->pw_name,
+    sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name,
             TPMTOK_MASTERKEY_PRIVATE);
 
     /* if file exists, check its size */
@@ -1654,7 +1654,7 @@ CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
     }
 
     //fp = fopen("/etc/pkcs11/tpm/MK_PUBLIC", "r");
-    if ((fp = fopen((char *) fname, "r")) == NULL) {
+    if ((fp = fopen(fname, "r")) == NULL) {
         TRACE_ERROR("Error opening %s: %s\n", fname, strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
@@ -3398,11 +3398,11 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
 
 int token_specific_creatlock(void)
 {
-    CK_BYTE lockfile[PATH_MAX + (sizeof(LOCKDIR_PATH) - 1)
-                     + 2 * (sizeof(SUB_DIR) - 1)
-                     + (sizeof("///LCK..") - 1) + 1];
-    CK_BYTE lockdir[(sizeof(LOCKDIR_PATH) - 1) + (sizeof(SUB_DIR) - 1)
-                    + (sizeof("/") - 1) + 1];
+    char lockfile[PATH_MAX + (sizeof(LOCKDIR_PATH) - 1)
+                  + 2 * (sizeof(SUB_DIR) - 1)
+                  + (sizeof("///LCK..") - 1) + 1];
+    char lockdir[(sizeof(LOCKDIR_PATH) - 1) + (sizeof(SUB_DIR) - 1)
+                 + (sizeof("/") - 1) + 1];
     struct passwd *pw = NULL;
     struct stat statbuf;
     mode_t mode = (S_IRUSR | S_IWUSR | S_IXUSR);

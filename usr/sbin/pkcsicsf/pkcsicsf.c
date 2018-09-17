@@ -117,7 +117,7 @@ int get_pin(char **pin, size_t *pinlen)
      * Note: nread includes carriage return.
      * Replace with terminating NULL.
      */
-    *pin = (unsigned char *) malloc(nread);
+    *pin = (char *) malloc(nread);
     if (*pin == NULL) {
         rc = -ENOMEM;
         goto done;
@@ -386,7 +386,7 @@ int lookup_name(char *name, struct icsf_token_record *found)
 
 void remove_racf_file(void)
 {
-    unsigned char fname[PATH_MAX];
+    char fname[PATH_MAX];
 
     /* remove the so and user files */
     snprintf(fname, sizeof(fname), "%s/RACF", ICSF_CONFIG_PATH);
@@ -425,7 +425,7 @@ int retrieve_all(void)
 int secure_racf_passwd(char *racfpwd, unsigned int len)
 {
     char *sopin = NULL;
-    char masterkey[AES_KEY_SIZE_256];
+    unsigned char masterkey[AES_KEY_SIZE_256];
     char fname[PATH_MAX];
     int rc;
     size_t sopinlen;
@@ -449,7 +449,7 @@ int secure_racf_passwd(char *racfpwd, unsigned int len)
     }
 
     /* use the master key to secure the racf passwd */
-    rc = secure_racf(racfpwd, len, masterkey, AES_KEY_SIZE_256);
+    rc = secure_racf((CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256);
     if (rc != 0) {
         fprintf(stderr, "Failed to secure racf passwd.\n");
         rc = -1;
@@ -459,7 +459,7 @@ int secure_racf_passwd(char *racfpwd, unsigned int len)
     /* now secure the master key with a derived key */
     /* first get the filename to put the  encrypted masterkey */
     snprintf(fname, sizeof(fname), "%s/MK_SO", ICSF_CONFIG_PATH);
-    rc = secure_masterkey(masterkey, AES_KEY_SIZE_256, sopin,
+    rc = secure_masterkey(masterkey, AES_KEY_SIZE_256, (CK_BYTE *)sopin,
                           strlen(sopin), fname);
 
     if (rc != 0) {

@@ -44,10 +44,10 @@
 #include "shared_memory.h"
 
 /* Default token attributes */
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "IBM ICSFTok ";
-CK_CHAR descr[] = "IBM PKCS#11 ICSF token";
-CK_CHAR label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM Corp.";
+const char model[] = "IBM ICSFTok ";
+const char descr[] = "IBM PKCS#11 ICSF token";
+const char label[] = "IBM OS PKCS#11   ";
 
 /* mechanisms provided by this token */
 MECH_LIST_ELEMENT mech_list[] = {
@@ -523,7 +523,8 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         CK_BYTE racf_pass[PIN_SIZE];
         int mk_len = sizeof(mk);
         int racf_pass_len = sizeof(racf_pass);
-        CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
+        char pk_dir_buf[PATH_MAX];
+        char fname[PATH_MAX];
 
         /* Load master key */
         sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
@@ -539,7 +540,7 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         }
 
         /* Simple bind */
-        ret = icsf_login(&ldapd, data.uri, data.dn, racf_pass);
+        ret = icsf_login(&ldapd, data.uri, data.dn, (char *)racf_pass);
     } else {
         /* SASL bind */
         ret = icsf_sasl_login(&ldapd, data.uri, data.cert_file,
@@ -572,7 +573,8 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     CK_BYTE racf_pass[PIN_SIZE];
     int mk_len = sizeof(mk);
     int racf_pass_len = sizeof(racf_pass);
-    CK_BYTE pk_dir_buf[PATH_MAX], fname[PATH_MAX];
+    char pk_dir_buf[PATH_MAX];
+    char fname[PATH_MAX];
 
     /* Remove user's masterkey */
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
@@ -646,7 +648,7 @@ CK_RV destroy_objects(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     do {
         records_len = sizeof(records) / sizeof(records[0]);
 
-        rc = icsf_list_objects(ld, NULL, token_name, 0, NULL,
+        rc = icsf_list_objects(ld, NULL, (char *)token_name, 0, NULL,
                                previous, records, &records_len, 0);
         if (ICSF_RC_IS_ERROR(rc)) {
             TRACE_DEVEL("Failed to list objects for slot %lu.\n", slot_id);
@@ -720,7 +722,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_SLOT_ID sid;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     char pk_dir_buf[PATH_MAX];
 
     /* get slot id */
@@ -769,8 +771,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_RV rc = CKR_OK;
     CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
-    CK_BYTE fname[PATH_MAX];
     CK_SLOT_ID sid;
+    char fname[PATH_MAX];
     char pk_dir_buf[PATH_MAX];
 
     /* get slot id */
@@ -904,7 +906,7 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 
         /* ok got the passwd, perform simple ldap bind call */
         rc = icsf_login(&new_ld, slot_data[slot_id]->uri,
-                        slot_data[slot_id]->dn, racfpwd);
+                        slot_data[slot_id]->dn, (char *)racfpwd);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
             return NULL;
@@ -2019,15 +2021,15 @@ CK_RV icsftok_encrypt(SESSION * session, CK_BYTE_PTR input_data,
         rc = icsf_secret_key_encrypt(session_state->ld, &reason,
                                      &mapping->icsf_object,
                                      &encr_ctx->mech,
-                                     ICSF_CHAINING_ONLY, input_data,
-                                     input_data_len, output_data,
+                                     ICSF_CHAINING_ONLY, (char *)input_data,
+                                     input_data_len, (char *)output_data,
                                      p_output_data_len, chain_data,
                                      &chain_data_len);
     } else {
         rc = icsf_public_key_verify(session_state->ld, &reason, TRUE,
                                     &mapping->icsf_object,
-                                    &encr_ctx->mech, input_data,
-                                    input_data_len, output_data,
+                                    &encr_ctx->mech, (char *)input_data,
+                                    input_data_len, (char *)output_data,
                                     p_output_data_len);
     }
     if (rc) {
@@ -2162,7 +2164,7 @@ CK_RV icsftok_encrypt_update(SESSION * session, CK_BYTE_PTR input_part,
                                  &mapping->icsf_object,
                                  &encr_ctx->mech, chaining,
                                  buffer, total - remaining,
-                                 output_part, p_output_part_len,
+                                 (char *)output_part, p_output_part_len,
                                  chain_data, &chain_data_len);
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
@@ -2316,7 +2318,7 @@ CK_RV icsftok_encrypt_final(SESSION * session, CK_BYTE_PTR output_part,
                                  &encr_ctx->mech, chaining,
                                  multi_part_ctx->data,
                                  multi_part_ctx->used_data_len,
-                                 output_part, p_output_part_len,
+                                 (char *)output_part, p_output_part_len,
                                  chain_data, &chain_data_len);
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
@@ -2497,15 +2499,15 @@ CK_RV icsftok_decrypt(SESSION * session, CK_BYTE_PTR input_data,
         rc = icsf_secret_key_decrypt(session_state->ld, &reason,
                                      &mapping->icsf_object,
                                      &decr_ctx->mech,
-                                     ICSF_CHAINING_ONLY, input_data,
-                                     input_data_len, output_data,
+                                     ICSF_CHAINING_ONLY, (char *)input_data,
+                                     input_data_len, (char *)output_data,
                                      p_output_data_len, chain_data,
                                      &chain_data_len);
     } else {
         rc = icsf_private_key_sign(session_state->ld, &reason, TRUE,
                                    &mapping->icsf_object,
-                                   &decr_ctx->mech, input_data,
-                                   input_data_len, output_data,
+                                   &decr_ctx->mech, (char *)input_data,
+                                   input_data_len, (char *)output_data,
                                    p_output_data_len);
     }
     if (rc) {
@@ -2657,7 +2659,7 @@ CK_RV icsftok_decrypt_update(SESSION * session, CK_BYTE_PTR input_part,
                                  &mapping->icsf_object,
                                  &decr_ctx->mech, chaining,
                                  buffer, total - remaining,
-                                 output_part, p_output_part_len,
+                                 (char *)output_part, p_output_part_len,
                                  chain_data, &chain_data_len);
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
@@ -2810,7 +2812,7 @@ CK_RV icsftok_decrypt_final(SESSION * session, CK_BYTE_PTR output_part,
                                  &decr_ctx->mech, chaining,
                                  multi_part_ctx->data,
                                  multi_part_ctx->used_data_len,
-                                 output_part, p_output_part_len,
+                                 (char *)output_part, p_output_part_len,
                                  chain_data, &chain_data_len);
     if (rc) {
         if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT) {
@@ -3415,7 +3417,7 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_RV rc = CKR_OK;
     int hlen, reason;
@@ -3470,7 +3472,8 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
 
         rc = icsf_hmac_sign(session_state->ld, &reason,
                             &mapping->icsf_object, &ctx->mech, "ONLY",
-                            in_data, in_data_len, signature, sig_len,
+                            (char *)in_data, in_data_len,
+                            (char *)signature, sig_len,
                             chain_data, &chain_data_len);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
@@ -3480,8 +3483,9 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     case CKM_DSA:
     case CKM_ECDSA:
         rc = icsf_private_key_sign(session_state->ld, &reason, FALSE,
-                                   &mapping->icsf_object, &ctx->mech, in_data,
-                                   in_data_len, signature, sig_len);
+                                   &mapping->icsf_object, &ctx->mech,
+                                   (char *)in_data, in_data_len,
+                                   (char *)signature, sig_len);
         if (rc != 0) {
             if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT &&
                 length_only) {
@@ -3506,8 +3510,9 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
 
         rc = icsf_hash_signverify(session_state->ld, &reason,
                                   &mapping->icsf_object, &ctx->mech,
-                                  "ONLY", in_data, in_data_len, signature,
-                                  sig_len, chain_data, &chain_data_len, 0);
+                                  "ONLY", (char *)in_data, in_data_len,
+                                  (char *)signature, sig_len,
+                                  chain_data, &chain_data_len, 0);
         if (rc != 0) {
             if (reason == ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT &&
                 length_only) {
@@ -3537,7 +3542,7 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_RV rc = CKR_OK;
     int reason;
@@ -3593,7 +3598,7 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
         rc = icsf_hmac_sign(session_state->ld, &reason,
                             &mapping->icsf_object, &ctx->mech,
                             (multi_part_ctx->initiated) ? "MIDDLE" : "FIRST",
-                            in_data, in_data_len, NULL, &siglen,
+                            (char *)in_data, in_data_len, NULL, &siglen,
                             chain_data, &chain_data_len);
 
         if (rc != 0) {
@@ -3620,7 +3625,7 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
                 memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
-                       in_data, in_data_len);
+                       (char *)in_data, in_data_len);
                 multi_part_ctx->used_data_len += in_data_len;
 
                 rc = CKR_OK;
@@ -3639,7 +3644,8 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
                 memcpy(buffer + multi_part_ctx->used_data_len,
-                       in_data, out_len - multi_part_ctx->used_data_len);
+                       (char *)in_data,
+                       out_len - multi_part_ctx->used_data_len);
 
                 /* copy remainder of data to ctx
                  * for next time. caching.
@@ -3690,7 +3696,7 @@ CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     char *buffer = NULL;
     CK_RV rc = CKR_OK;
@@ -3750,7 +3756,8 @@ CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
         rc = icsf_hmac_sign(session_state->ld, &reason,
                             &mapping->icsf_object, &ctx->mech,
                             multi_part_ctx->initiated ? "LAST" : "ONLY", "",
-                            0, signature, sig_len, chain_data, &chain_data_len);
+                            0, (char *)signature, sig_len,
+                            chain_data, &chain_data_len);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
         break;
@@ -3780,8 +3787,9 @@ CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
                                   &mapping->icsf_object, &ctx->mech,
                                   multi_part_ctx->initiated ? "LAST" : "ONLY",
                                   (buffer) ? buffer : NULL,
-                                  multi_part_ctx->used_data_len, signature,
-                                  sig_len, chain_data, &chain_data_len, 0);
+                                  multi_part_ctx->used_data_len,
+                                  (char *)signature, sig_len,
+                                  chain_data, &chain_data_len, 0);
 
         if (rc != 0) {
             if (length_only && reason == 3003) {
@@ -3972,7 +3980,7 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_RV rc = CKR_OK;
     int reason;
@@ -4014,7 +4022,8 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     case CKM_SSL3_SHA1_MAC:
         rc = icsf_hmac_verify(session_state->ld, &reason,
                               &mapping->icsf_object, &ctx->mech, "ONLY",
-                              in_data, in_data_len, signature, sig_len,
+                              (char *)in_data, in_data_len,
+                              (char *)signature, sig_len,
                               chain_data, &chain_data_len);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
@@ -4025,8 +4034,9 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     case CKM_DSA:
     case CKM_ECDSA:
         rc = icsf_public_key_verify(session_state->ld, &reason, FALSE,
-                                    &mapping->icsf_object, &ctx->mech, in_data,
-                                    in_data_len, signature, &sig_len);
+                                    &mapping->icsf_object, &ctx->mech,
+                                    (char *)in_data, in_data_len,
+                                    (char *)signature, &sig_len);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
         break;
@@ -4039,8 +4049,9 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     case CKM_ECDSA_SHA1:
         rc = icsf_hash_signverify(session_state->ld, &reason,
                                   &mapping->icsf_object, &ctx->mech,
-                                  "ONLY", in_data, in_data_len, signature,
-                                  &sig_len, chain_data, &chain_data_len, 1);
+                                  "ONLY", (char *)in_data, in_data_len,
+                                  (char *)signature, &sig_len,
+                                  chain_data, &chain_data_len, 1);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
 
@@ -4062,7 +4073,7 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_RV rc = CKR_OK;
     int reason;
@@ -4116,7 +4127,7 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
         rc = icsf_hmac_verify(session_state->ld, &reason,
                               &mapping->icsf_object, &ctx->mech,
                               (multi_part_ctx->initiated) ? "MIDDLE" : "FIRST",
-                              in_data, in_data_len, "", 0,
+                              (char *)in_data, in_data_len, "", 0,
                               chain_data, &chain_data_len);
 
         if (rc != 0) {
@@ -4143,7 +4154,7 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
                 memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
-                       in_data, in_data_len);
+                       (char *)in_data, in_data_len);
                 multi_part_ctx->used_data_len += in_data_len;
 
                 rc = CKR_OK;
@@ -4162,14 +4173,15 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
                 memcpy(buffer + multi_part_ctx->used_data_len,
-                       in_data, out_len - multi_part_ctx->used_data_len);
+                       (char *)in_data,
+                       out_len - multi_part_ctx->used_data_len);
 
                 /* copy remainder of data to ctx
                  * for next time. caching.
                  */
                 if (remain != 0)
                     memcpy(multi_part_ctx->data,
-                           in_data + (in_data_len - remain), remain);
+                           (char *)in_data + (in_data_len - remain), remain);
 
                 multi_part_ctx->used_data_len = remain;
             }
@@ -4213,7 +4225,7 @@ CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
-    CK_BYTE chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
+    char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_RV rc = CKR_OK;
     int reason;
@@ -4268,8 +4280,8 @@ CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
         rc = icsf_hmac_verify(session_state->ld, &reason,
                               &mapping->icsf_object, &ctx->mech,
                               multi_part_ctx->initiated ? "LAST" : "ONLY", "",
-                              0, signature, sig_len, chain_data,
-                              &chain_data_len);
+                              0, (char *)signature, sig_len,
+                              chain_data, &chain_data_len);
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);
 
@@ -4295,8 +4307,9 @@ CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
                                   &mapping->icsf_object, &ctx->mech,
                                   multi_part_ctx->initiated ? "LAST" : "ONLY",
                                   (buffer) ? buffer : NULL,
-                                  multi_part_ctx->used_data_len, signature,
-                                  &sig_len, chain_data, &chain_data_len, 1);
+                                  multi_part_ctx->used_data_len,
+                                  (char *)signature, &sig_len,
+                                  chain_data, &chain_data_len, 1);
 
         if (rc != 0)
             rc = icsf_to_ock_err(rc, reason);

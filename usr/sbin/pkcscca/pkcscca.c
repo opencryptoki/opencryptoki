@@ -45,11 +45,11 @@ void (*CSNBKTC2) ();
 void (*CSNBDEC) ();
 void *lib_csulcca;
 
-struct algo aes = { "RTCMK   AES     ", "AES", 2 };
-struct algo des = { "RTCMK   ", "DES", 1 };
-struct algo hmac = { "RTCMK   HMAC    ", "HMAC", 2 };
-struct algo ecc = { "RTCMK   ECC     ", "ECC", 2 };
-struct algo rsa = { "RTCMK   ", "RSA", 1 };
+static struct algo aes = {(CK_BYTE *)"RTCMK   AES     ", (CK_BYTE *)"AES", 2 };
+static struct algo des = {(CK_BYTE *)"RTCMK   ", (CK_BYTE *)"DES", 1 };
+static struct algo hmac = {(CK_BYTE *)"RTCMK   HMAC    ", (CK_BYTE *)"HMAC", 2 };
+static struct algo ecc = {(CK_BYTE *)"RTCMK   ECC     ", (CK_BYTE *)"ECC", 2 };
+static struct algo rsa = {(CK_BYTE *)"RTCMK   ", (CK_BYTE *)"RSA", 1 };
 
 int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
 {
@@ -926,7 +926,8 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
 
     /* decrypt using cca des3 */
     memcpy(des3_key, masterkey, MASTER_KEY_SIZE);
-    ret = cca_decrypt(data, len, clear, &clear_len, "10293847", des3_key);
+    ret = cca_decrypt(data, len, clear, &clear_len, (CK_BYTE *)"10293847",
+                      des3_key);
     if (ret)
         goto done;
 
@@ -938,7 +939,8 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
         goto done;
     }
 
-    ret = compute_sha1(clear + sizeof(CK_ULONG_32), obj_data_len_32, hash_sha);
+    ret = compute_sha1((char *)(clear + sizeof(CK_ULONG_32)),
+                       obj_data_len_32, (char *)hash_sha);
     if (ret != CKR_OK) {
         goto done;
     }
@@ -976,7 +978,7 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
         ptr += sizeof(CK_ULONG_32);
         memcpy(ptr, new_obj_data, obj_data_len_32);
         ptr += obj_data_len_32;
-        compute_sha1(new_obj_data, new_obj_data_len, hash_sha);
+        compute_sha1((char *)new_obj_data, new_obj_data_len, (char *)hash_sha);
         memcpy(ptr, hash_sha, SHA1_HASH_SIZE);
 
         add_pkcs_padding(clear + clear_len, block_size, clear_len,
@@ -987,7 +989,7 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
     /* now encrypt using software des3 */
     memcpy(sw_des3_key, masterkey, 3 * DES_KEY_SIZE);
     rc = sw_des3_cbc_encrypt(clear, clear_len, new_cipher, new_cipher_len,
-                             "10293847", sw_des3_key);
+                             (CK_BYTE *)"10293847", sw_des3_key);
     if (rc != CKR_OK)
         ret = -1;
 
@@ -1003,7 +1005,7 @@ int load_token_objects(unsigned char *data_store,
 {
     FILE *fp1 = NULL, *fp2 = NULL;
     unsigned char *buf = NULL;
-    unsigned char tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
+    char tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
     CK_BBOOL priv;
     unsigned int size;
     int rc = 0, scount = 0, fcount = 0;
@@ -1127,10 +1129,10 @@ cleanup:
 int load_masterkey(char *mkfile, char *pin, char *masterkey)
 {
     unsigned char des3_key[3 * DES_KEY_SIZE];
-    unsigned char hash_sha[SHA1_HASH_SIZE];
-    unsigned char pin_md5_hash[MD5_HASH_SIZE];
+    char hash_sha[SHA1_HASH_SIZE];
+    char pin_md5_hash[MD5_HASH_SIZE];
     unsigned char *cipher = NULL;
-    unsigned char *clear = NULL;
+    char *clear = NULL;
     unsigned long cipher_len, clear_len;
     int ret;
     CK_RV rc;
@@ -1171,8 +1173,9 @@ int load_masterkey(char *mkfile, char *pin, char *masterkey)
     memcpy(des3_key, pin_md5_hash, MD5_HASH_SIZE);
     memcpy(des3_key + MD5_HASH_SIZE, pin_md5_hash, DES_KEY_SIZE);
 
-    rc = sw_des3_cbc_decrypt(cipher, cipher_len, clear, &clear_len,
-                             (unsigned char *) "12345678", des3_key);
+    rc = sw_des3_cbc_decrypt(cipher, cipher_len, (unsigned char *)clear,
+                             &clear_len, (unsigned char *) "12345678",
+                             des3_key);
     if (rc != CKR_OK) {
         print_error("Error decrypting master key file after read");
         ret = -1;
@@ -1250,7 +1253,7 @@ int get_pin(char **pin, size_t *pinlen)
      * Note: nread includes carriage return.
      * Replace with terminating NULL.
      */
-    *pin = (unsigned char *) malloc(nread);
+    *pin = (char *) malloc(nread);
     if (*pin == NULL) {
         rc = -ENOMEM;
         goto done;
@@ -1273,8 +1276,8 @@ int verify_pins(char *data_store, char *sopin, unsigned long sopinlen,
                 char *userpin, unsigned long userpinlen)
 {
     TOKEN_DATA td;
-    unsigned char fname[PATH_MAX];
-    unsigned char pin_sha[SHA1_HASH_SIZE];
+    char fname[PATH_MAX];
+    char pin_sha[SHA1_HASH_SIZE];
     FILE *fp = NULL;
     int ret;
 
@@ -1994,7 +1997,7 @@ finalize:
 
 int migrate_version(char *sopin, char *userpin, unsigned char *data_store)
 {
-    unsigned char masterkey[MASTER_KEY_SIZE];
+    char masterkey[MASTER_KEY_SIZE];
     char fname[PATH_MAX];
     struct stat statbuf;
     int ret = 0;
@@ -2069,7 +2072,7 @@ int migrate_version(char *sopin, char *userpin, unsigned char *data_store)
      * For private and public token objects, migrate the key object's
      * attributes to IBM_OPAQUE.
      */
-    (void)load_token_objects(data_store, masterkey);
+    (void)load_token_objects(data_store, (CK_BYTE *)masterkey);
 
 done:
     return ret;
@@ -2105,9 +2108,9 @@ int main(int argc, char **argv)
     CK_SLOT_ID slot_id = 0;
     char *sopin = NULL, *userpin = NULL;
     size_t sopinlen, userpinlen;
-    unsigned char *data_store = NULL;
-    unsigned char *m_type = NULL;
-    unsigned char *mk_type = NULL;
+    char *data_store = NULL;
+    char *m_type = NULL;
+    char *mk_type = NULL;
     void *lib_csulcca;
 
     int m_version = 0;
@@ -2221,7 +2224,7 @@ int main(int argc, char **argv)
 
     if (m_version) {
         CSNBDEC = dlsym(lib_csulcca, "CSNBDEC");
-        ret = migrate_version(sopin, userpin, data_store);
+        ret = migrate_version(sopin, userpin, (CK_BYTE *)data_store);
     } else if (m_keys) {
         if (!slot_id) {
             print_error("missing slot number\n");

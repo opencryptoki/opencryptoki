@@ -208,7 +208,7 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     int uid, rc;
     mode_t proc_umask;
     char *tokdir = psinfo->tokname;
-    unsigned char token_md5_hash[MD5_HASH_SIZE];
+    char token_md5_hash[MD5_HASH_SIZE];
 
     /* skip if no dedicated token directory is required */
     if (!tokdir || strlen(tokdir) == 0)

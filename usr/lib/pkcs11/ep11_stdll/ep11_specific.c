@@ -157,10 +157,10 @@ static inline void hexdump(void *buf, size_t buflen)
 
 #endif                          /* DEBUG */
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "IBM EP11Tok ";
-CK_CHAR descr[] = "IBM PKCS#11 EP11 token";
-CK_CHAR label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM Corp.";
+const char model[] = "IBM EP11Tok ";
+const char descr[] = "IBM PKCS#11 EP11 token";
+const char label[] = "IBM OS PKCS#11   ";
 
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
 #define MAX_BLOBSIZE 8192
@@ -601,7 +601,7 @@ static CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
 
     /* need a bitstring */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, buf2, len * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)buf2, len * 8, 0x03);
     rc = ber_flatten(ber, &val);
     memcpy(buf3 + total_len, val->bv_val, val->bv_len);
     total_len += val->bv_len;
@@ -644,7 +644,8 @@ static CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
 
     /* public key */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, point->pValue, point->ulValueLen * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)point->pValue,
+                           point->ulValueLen * 8, 0x03);
     rc = ber_flatten(ber, &val);
 
     rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
@@ -673,7 +674,8 @@ static CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
 
     /* generate bitstring */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, point->pValue, point->ulValueLen * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)point->pValue,
+                           point->ulValueLen * 8, 0x03);
     rc = ber_flatten(ber, &val);
 
     memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
@@ -737,7 +739,7 @@ static CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
     rc = ber_flatten(ber, &val);
     pub_len = val->bv_len;
     ber_free(ber, 1);
@@ -821,7 +823,7 @@ static CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
     rc = ber_flatten(ber, &val);
     free(buf);
 
@@ -888,7 +890,7 @@ static CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
     rc = ber_flatten(ber, &val);
     pub_len = val->bv_len;
     ber_free(ber, 1);
@@ -962,7 +964,7 @@ static CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, buf, len * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
     rc = ber_flatten(ber, &val);
     free(buf);
 
@@ -1499,7 +1501,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                            unsigned char *blob, size_t * blen, OBJECT * key_obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    char cipher[MAX_BLOBSIZE];
+    CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG clen = sizeof(cipher);
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t cslen = sizeof(csum);
@@ -1622,7 +1624,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL_PTR, 0 };
-    unsigned char csum[MAX_CSUMSIZE];
+    CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
     CK_RV rc;
 
@@ -1928,7 +1930,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
@@ -2111,7 +2113,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
@@ -2298,7 +2300,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
@@ -2497,7 +2499,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
@@ -3495,7 +3497,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize;
     CK_BYTE newblob[MAX_BLOBSIZE];
     size_t newblobsize = sizeof(newblob);
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_ATTRIBUTE *opaque_attr = NULL;
     OBJECT *key_obj = NULL;
@@ -5458,7 +5460,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_RV rc;
     CK_BYTE *wrapping_blob;
     size_t wrapping_blob_len;
-    char csum[MAX_BLOBSIZE];
+    CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     OBJECT *key_obj = NULL;
     CK_BYTE keyblob[MAX_BLOBSIZE];
@@ -6828,7 +6830,8 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     unsigned char cmd[100];
     struct XCPadmresp rb;
     size_t rlen, clen;
-    long rc, rv = 0;
+    long rc;
+    CK_RV rv = 0;
     ep11_target_t target;
 
     memset(&target, 0, sizeof(target));
@@ -7061,7 +7064,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
     CK_BYTE cktrue = TRUE;
     time_t t;
     struct tm *tm;
-    CK_CHAR tmp[40];
+    char tmp[40];
 
     CK_ATTRIBUTE attrs[] = {
         {CKA_CLASS, &class, sizeof(class)}
@@ -7177,7 +7180,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
     CK_RV rc;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
     CK_ULONG pin_blob_len = XCP_PINBLOB_BYTES;
-    CK_BYTE *pin = DEFAULT_EP11_PIN;
+    CK_BYTE *pin = (CK_BYTE *)DEFAULT_EP11_PIN;
     CK_ULONG pin_len = strlen(DEFAULT_EP11_PIN);
     CK_BYTE *nonce = NULL;
     CK_ULONG nonce_len = 0;

@@ -29,7 +29,7 @@
 #include "trace.h"
 
 
-CK_RV get_randombytes(char *output, int bytes)
+CK_RV get_randombytes(unsigned char *output, int bytes)
 {
     int ranfd;
     int rlen;
@@ -79,8 +79,8 @@ CK_RV set_perms(int file)
 CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
                   CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen)
 {
-    CK_ULONG_32 tmplen;
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
+    int tmplen;
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -174,8 +174,8 @@ CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
     return CKR_OK;
 }
 
-CK_RV get_masterkey(CK_BYTE * pin, CK_ULONG pinlen, CK_BYTE * fname,
-                    CK_BYTE * masterkey, int *len)
+CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
+                    CK_BYTE *masterkey, int *len)
 {
     struct stat statbuf;
     FILE *fp;
@@ -419,7 +419,8 @@ CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
     CK_BYTE iv[AES_INIT_VECTOR_SIZE];
     FILE *fp;
     CK_BYTE output[ENCRYPT_SIZE];
-    CK_ULONG_32 totallen, outputlen;
+    CK_ULONG_32 totallen;
+    int outputlen;
 
     UNUSED(keylen);
 
@@ -470,7 +471,7 @@ CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
 }
 
 CK_RV secure_masterkey(CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
-                       CK_ULONG pinlen, CK_BYTE * fname)
+                       CK_ULONG pinlen, const char *fname)
 {
     CK_RV rc = CKR_OK;
     CK_BYTE salt[SALTSIZE];

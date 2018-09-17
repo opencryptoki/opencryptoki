@@ -58,10 +58,10 @@
 
 #define MAX_GENERIC_KEY_SIZE 256
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "IBM SoftTok ";
-CK_CHAR descr[] = "IBM PKCS#11 Soft token";
-CK_CHAR label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM Corp.";
+const char model[] = "IBM SoftTok ";
+const char descr[] = "IBM PKCS#11 Soft token";
+const char label[] = "IBM OS PKCS#11   ";
 
 CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)

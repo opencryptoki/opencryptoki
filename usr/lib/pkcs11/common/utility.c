@@ -282,8 +282,8 @@ CK_RV _UnlockMutex(MUTEX *mutex)
 
 CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
 {
-    CK_BYTE lockfile[2 * PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
-    CK_BYTE lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
+    char lockfile[2 * PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
+    char lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
     struct group *grp;
     struct stat statbuf;
     mode_t mode = (S_IRUSR | S_IRGRP);
@@ -421,10 +421,10 @@ void XProcLock_Init(STDLL_TokData_t *tokdata)
 //
 //
 
-extern CK_CHAR manuf[];
-extern CK_CHAR model[];
-extern CK_CHAR descr[];
-extern CK_CHAR label[];
+extern const char manuf[];
+extern const char model[];
+extern const char descr[];
+extern const char label[];
 
 //
 //
@@ -433,8 +433,8 @@ void init_slotInfo(CK_SLOT_INFO *slot_info)
     memset(slot_info->slotDescription, ' ', sizeof(slot_info->slotDescription));
     memset(slot_info->manufacturerID, ' ', sizeof(slot_info->manufacturerID));
 
-    memcpy(slot_info->slotDescription, descr, strlen((char *) descr));
-    memcpy(slot_info->manufacturerID, manuf, strlen((char *) manuf));
+    memcpy(slot_info->slotDescription, descr, strlen(descr));
+    memcpy(slot_info->manufacturerID, manuf, strlen(manuf));
 
     slot_info->hardwareVersion.major = 1;
     slot_info->hardwareVersion.minor = 0;
@@ -455,9 +455,9 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     memset(token_info->serialNumber, ' ', sizeof(token_info->serialNumber));
     memset(token_info->utcTime, ' ', sizeof(token_info->utcTime));
 
-    memcpy(token_info->label, label, strlen((char *) label));
-    memcpy(token_info->manufacturerID, manuf, strlen((char *) manuf));
-    memcpy(token_info->model, model, strlen((char *) model));
+    memcpy(token_info->label, label, strlen(label));
+    memcpy(token_info->manufacturerID, manuf, strlen(manuf));
+    memcpy(token_info->model, model, strlen(model));
 
     // use the 41-xxxxx serial number from the coprocessor
     //
@@ -523,7 +523,7 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     memset(tokdata->nv_token_data->token_info.label, ' ',
            sizeof(tokdata->nv_token_data->token_info.label));
     memcpy(tokdata->nv_token_data->token_info.label, label,
-           strlen((char *) label));
+           strlen(label));
 
     tokdata->nv_token_data->tweak_vector.allow_weak_des = TRUE;
     tokdata->nv_token_data->tweak_vector.check_des_parity = FALSE;

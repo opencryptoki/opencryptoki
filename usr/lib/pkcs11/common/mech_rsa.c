@@ -541,7 +541,7 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* hash the label now */
     if (!(oaepParms->pSourceData) || !(oaepParms->ulSourceDataLen))
-        rc = compute_sha(tokdata, "", 0, hash, oaepParms->hashAlg);
+        rc = compute_sha(tokdata, (CK_BYTE *)"", 0, hash, oaepParms->hashAlg);
     else
         rc = compute_sha(tokdata, oaepParms->pSourceData,
                          oaepParms->ulSourceDataLen, hash, oaepParms->hashAlg);
@@ -2243,7 +2243,8 @@ CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
         memcpy(seed_buffer + seedlen, counter, 4);
 
         /* compute hash of concatenated seed and octet string */
-        rc = compute_sha(tokdata, seed_buffer, seedlen + 4, hash, mech);
+        rc = compute_sha(tokdata, (CK_BYTE *)seed_buffer, seedlen + 4, hash,
+                         mech);
         if (rc != CKR_OK)
             goto done;
 

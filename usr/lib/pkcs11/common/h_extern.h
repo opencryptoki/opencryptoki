@@ -457,7 +457,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *ptr);
 CK_RV delete_token_data(STDLL_TokData_t *tokdata);
 
-CK_BYTE *get_pk_dir(char *);
+char *get_pk_dir(char *);
 
 CK_RV init_token_data(STDLL_TokData_t *, CK_SLOT_ID);
 CK_RV load_token_data(STDLL_TokData_t *, CK_SLOT_ID);
