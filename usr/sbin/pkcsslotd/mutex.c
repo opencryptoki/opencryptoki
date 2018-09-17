@@ -37,7 +37,7 @@ int CreateXProcLock(void)
             if (xplfd != -1) {
                 if (fchmod(xplfd, mode) == -1) {
                     DbgLog(DL0, "%s:fchmod(%s):%s\n",
-                           __FUNCTION__, OCK_API_LOCK_FILE, strerror(errno));
+                           __func__, OCK_API_LOCK_FILE, strerror(errno));
                     goto error;
                 }
 
@@ -45,13 +45,13 @@ int CreateXProcLock(void)
                 if (grp != NULL) {
                     if (fchown(xplfd, -1, grp->gr_gid) == -1) {
                         DbgLog(DL0, "%s:fchown(%s):%s\n",
-                               __FUNCTION__,
+                               __func__,
                                OCK_API_LOCK_FILE, strerror(errno));
                         goto error;
                     }
                 } else {
                     DbgLog(DL0, "%s:getgrnam():%s\n",
-                           __FUNCTION__, strerror(errno));
+                           __func__, strerror(errno));
                     goto error;
                 }
             }

@@ -56,11 +56,11 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !mech || !handle) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (!pTemplate && (ulCount != 0)) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // it's silly but Cryptoki allows the user to specify the CKA_CLASS
@@ -277,15 +277,15 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !mech || !publ_key_handle || !priv_key_handle) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (!publ_tmpl && (publ_count != 0)) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (!priv_tmpl && (priv_count != 0)) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // it's silly but Cryptoki allows the user to specify the CKA_CLASS
@@ -529,7 +529,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !wrapped_key_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -819,7 +819,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1088,17 +1088,17 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
     if (!sess || !mech) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (!pTemplate && (ulCount != 0)) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     switch (mech->mechanism) {
     case CKM_SSL3_MASTER_KEY_DERIVE:
         if (!derived_key) {
-            TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
             return CKR_FUNCTION_FAILED;
         }
         return ssl3_master_key_derive(tokdata, sess, mech, base_key,
@@ -1112,7 +1112,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
 #ifndef NODH
     case CKM_DH_PKCS_DERIVE:
         if (!derived_key) {
-            TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
             return CKR_FUNCTION_FAILED;
         }
         return dh_pkcs_derive(tokdata, sess, mech, base_key,
@@ -1122,7 +1122,7 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
 /* End code contributed by Corrent corp. */
     case CKM_ECDH1_DERIVE:
         if (!derived_key) {
-            TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+            TRACE_ERROR("%s received bad argument(s)\n", __func__);
             return CKR_FUNCTION_FAILED;
         }
         return ecdh_pkcs_derive(tokdata, sess, mech, base_key, pTemplate,

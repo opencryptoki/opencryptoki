@@ -63,7 +63,7 @@ CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
 {
 
     if (!ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -144,7 +144,7 @@ CK_RV sha_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
     UNUSED(sess);
 
     if (!ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -227,7 +227,7 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
     UNUSED(sess);
 
     if (!out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -296,7 +296,7 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -479,7 +479,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -659,7 +659,7 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -839,7 +839,7 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1024,7 +1024,7 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1202,7 +1202,7 @@ CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1259,7 +1259,7 @@ CK_RV sha224_hmac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1318,7 +1318,7 @@ CK_RV sha256_hmac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1378,7 +1378,7 @@ CK_RV sha384_hmac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (token_specific.t_hmac_verify != NULL)
@@ -1434,7 +1434,7 @@ CK_RV sha512_hmac_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (token_specific.t_hmac_verify != NULL)
@@ -1503,7 +1503,7 @@ CK_RV hmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
     SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1522,7 +1522,7 @@ CK_RV hmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
     SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1555,7 +1555,7 @@ CK_RV hmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
     SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1574,7 +1574,7 @@ CK_RV hmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
     SIGN_VERIFY_CONTEXT *ctx = &sess->sign_ctx;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 

@@ -232,7 +232,7 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -358,7 +358,7 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -437,7 +437,7 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
@@ -499,7 +499,7 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !sig_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -563,7 +563,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -645,7 +645,7 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
@@ -706,7 +706,7 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));

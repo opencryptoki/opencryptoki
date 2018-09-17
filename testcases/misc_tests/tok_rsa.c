@@ -179,7 +179,7 @@ CK_RV do_VerifyTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE * label,
         }
     }
 
-    printf("%s: Success\n", __FUNCTION__);
+    printf("%s: Success\n", __func__);
 
     return CKR_OK;
 }
@@ -222,7 +222,7 @@ CK_RV do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE * label,
         }
     }
 
-    printf("%s: Success\n", __FUNCTION__);
+    printf("%s: Success\n", __func__);
 
     return CKR_OK;
 }

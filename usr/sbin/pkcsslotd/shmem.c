@@ -149,18 +149,18 @@ int CreateSharedMemory(void)
             fd = open(MAPFILENAME, O_RDWR | O_CREAT, MODE); // Create the file
             if (fd < 0) {   // We are really hosed here, since we should be able
                 // to create the file now
-                ErrLog("%s: open(%s): %s", __FUNCTION__, MAPFILENAME,
+                ErrLog("%s: open(%s): %s", __func__, MAPFILENAME,
                        strerror(errno));
                 return FALSE;
             } else {
                 if (fchmod(fd, MODE) == -1) {
-                    ErrLog("%s: fchmod(%s): %s", __FUNCTION__, MAPFILENAME,
+                    ErrLog("%s: fchmod(%s): %s", __func__, MAPFILENAME,
                            strerror(errno));
                     close(fd);
                     return FALSE;
                 }
                 if (fchown(fd, 0, grp->gr_gid) == -1) {
-                    ErrLog("%s: fchown(%s, root, pkcs11): %s", __FUNCTION__,
+                    ErrLog("%s: fchown(%s, root, pkcs11): %s", __func__,
                            MAPFILENAME, strerror(errno));
                     close(fd);
                     return FALSE;
@@ -177,7 +177,7 @@ int CreateSharedMemory(void)
             ErrLog("%s: [%s] exists; you may already have a pkcsslot daemon "
                    "running. If this is not the case, then the prior daemon "
                    "was not shut down cleanly. Please delete this file and "
-                   "try again\n", __FUNCTION__, MAPFILENAME);
+                   "try again\n", __func__, MAPFILENAME);
             close(fd);
             return FALSE;
         }

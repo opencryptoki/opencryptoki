@@ -40,7 +40,7 @@ CK_RV aes_ecb_encrypt(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (in_data_len % AES_BLOCK_SIZE != 0) {
@@ -84,7 +84,7 @@ CK_RV aes_ecb_decrypt(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // CKM_DES3_ECB requires the input data to be an integral
@@ -130,7 +130,7 @@ CK_RV aes_cbc_encrypt(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // CKM_DES3_CBC requires the input data to be an integral
@@ -177,7 +177,7 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // CKM_DES3_CBC requires the input data to be an integral
@@ -225,7 +225,7 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // DES3-CBC-PAD has no input length requirements
@@ -287,7 +287,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     //
@@ -349,7 +349,7 @@ CK_RV aes_ctr_encrypt(STDLL_TokData_t *tokdata,
     CK_AES_CTR_PARAMS *aesctr = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (in_data_len % AES_BLOCK_SIZE != 0) {
@@ -395,7 +395,7 @@ CK_RV aes_ctr_decrypt(STDLL_TokData_t *tokdata,
     CK_AES_CTR_PARAMS *aesctr = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (in_data_len % AES_BLOCK_SIZE != 0) {
@@ -443,7 +443,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad arguments\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad arguments\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -522,7 +522,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -601,7 +601,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -687,7 +687,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -775,7 +775,7 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -871,7 +871,7 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -964,7 +964,7 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
     CK_AES_CTR_PARAMS *aesctr = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -1035,7 +1035,7 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
     CK_AES_CTR_PARAMS *aesctr = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -1102,7 +1102,7 @@ CK_RV aes_ecb_encrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1141,7 +1141,7 @@ CK_RV aes_ecb_decrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1180,7 +1180,7 @@ CK_RV aes_cbc_encrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1219,7 +1219,7 @@ CK_RV aes_cbc_decrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1255,7 +1255,7 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1310,7 +1310,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
@@ -1368,7 +1368,7 @@ CK_RV aes_ctr_encrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1414,7 +1414,7 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
     UNUSED(out_data);
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1457,7 +1457,7 @@ CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1501,7 +1501,7 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -1577,7 +1577,7 @@ CK_RV aes_ofb_encrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1628,7 +1628,7 @@ CK_RV aes_ofb_decrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1672,7 +1672,7 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1749,7 +1749,7 @@ CK_RV aes_ofb_decrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     // satisfy the compiler
@@ -1804,7 +1804,7 @@ CK_RV aes_cfb_encrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1849,7 +1849,7 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -1927,7 +1927,7 @@ CK_RV aes_cfb_encrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1979,7 +1979,7 @@ CK_RV aes_cfb_decrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2024,7 +2024,7 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (AES_CONTEXT *) ctx->context;
@@ -2102,7 +2102,7 @@ CK_RV aes_cfb_decrypt_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2155,7 +2155,7 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
     CK_ULONG mac_len;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2217,7 +2217,7 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
     CK_ULONG total, remain, out_len;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2279,7 +2279,7 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2344,7 +2344,7 @@ CK_RV aes_mac_verify(STDLL_TokData_t *tokdata,
     CK_ULONG mac_len;
 
     if (!sess || !ctx || !in_data || !out_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2401,7 +2401,7 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
     CK_ULONG total, remain, out_len;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2461,7 +2461,7 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
     AES_DATA_CONTEXT *context = NULL;
 
     if (!sess || !ctx || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2533,7 +2533,7 @@ CK_RV aes_gcm_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG tag_data_len;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2577,7 +2577,7 @@ CK_RV aes_gcm_encrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2622,7 +2622,7 @@ CK_RV aes_gcm_encrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc = CKR_OK;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2670,7 +2670,7 @@ CK_RV aes_gcm_decrypt(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2714,7 +2714,7 @@ CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2766,7 +2766,7 @@ CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc = CKR_OK;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2939,7 +2939,7 @@ CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *tokdata,
     CK_ULONG rc;
 
     if (!in_data || !out_data || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
@@ -2973,7 +2973,7 @@ CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *tokdata,
 
 
     if (!in_data || !out_data || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
@@ -3008,7 +3008,7 @@ CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *tokdata,
     CK_ULONG rc;
 
     if (!in_data || !out_data || !init_v || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
@@ -3044,7 +3044,7 @@ CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *tokdata,
     CK_ULONG rc;
 
     if (!in_data || !out_data || !init_v || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
@@ -3078,7 +3078,7 @@ CK_RV ckm_aes_ctr_encrypt(STDLL_TokData_t *tokdata,
 {
     CK_ULONG rc;
     if (!in_data || !out_data || !counterblock || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {
@@ -3117,7 +3117,7 @@ CK_RV ckm_aes_ctr_decrypt(STDLL_TokData_t *tokdata,
 {
     CK_ULONG rc;
     if (!in_data || !out_data || !counterblock || !key) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (*out_data_len < in_data_len) {

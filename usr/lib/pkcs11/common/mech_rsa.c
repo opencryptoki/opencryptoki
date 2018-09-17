@@ -68,7 +68,7 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
 
     if (!in_data || !out_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -179,7 +179,7 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
     CK_RV rc = CKR_OK;
 
     if (!in_data || !out_data || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -608,7 +608,7 @@ CK_RV rsa_pkcs_sign(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
@@ -738,7 +738,7 @@ CK_RV rsa_pkcs_verify_recover(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
@@ -952,7 +952,7 @@ CK_RV rsa_x509_sign(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
@@ -1082,7 +1082,7 @@ CK_RV rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
 
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
@@ -1152,7 +1152,7 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RSA_PKCS_PSS_PARAMS_PTR pssParms = NULL;
 
     if (!sess || !ctx || !out_data_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1284,7 +1284,7 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1364,7 +1364,7 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1421,7 +1421,7 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !sig_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1477,7 +1477,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -1560,7 +1560,7 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     if (!sess || !ctx || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1630,7 +1630,7 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -1740,7 +1740,7 @@ CK_RV rsa_hash_pkcs_sign_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
@@ -1808,7 +1808,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !in_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     memset(&digest_ctx, 0x0, sizeof(digest_ctx));
@@ -1916,7 +1916,7 @@ CK_RV rsa_hash_pkcs_verify_update(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
@@ -1983,7 +1983,7 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !sig_len) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2092,7 +2092,7 @@ CK_RV rsa_hash_pkcs_verify_final(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     if (!sess || !ctx || !signature) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     if (ctx->mech.mechanism == CKM_MD2_RSA_PKCS) {
@@ -2280,7 +2280,7 @@ CK_RV encode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *mData, CK_ULONG mLen,
     CK_RV rc = CKR_OK;
 
     if (!mData || !emData) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2367,7 +2367,7 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
     UNUSED(emLen);
 
     if (!emData || !out_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __FUNCTION__);
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
