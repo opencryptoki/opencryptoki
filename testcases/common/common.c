@@ -252,7 +252,7 @@ CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_RSA;
     CK_UTF8CHAR label[] = "An RSA private key object";
-    CK_BYTE subject[] = { };
+    CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_RV rc;
 
@@ -262,7 +262,7 @@ CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label) - 1},
-        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_SUBJECT, subject, 0},
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
@@ -330,7 +330,7 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
 {
     CK_RV rc;
     CK_MECHANISM mech = { CKM_RSA_PKCS_KEY_PAIR_GEN, NULL, 0 };
-    CK_BYTE subject[] = { };
+    CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_BBOOL true = TRUE;
     CK_ATTRIBUTE publicKeyTemplate[] = {
@@ -343,7 +343,7 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
     CK_ATTRIBUTE privateKeyTemplate[] = {
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_PRIVATE, &true, sizeof(true)},
-        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_SUBJECT, subject, 0},
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
@@ -378,7 +378,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_EC;
     CK_UTF8CHAR label[] = "An EC private key object";
-    CK_BYTE subject[] = { };
+    CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_RV rc;
 
@@ -389,7 +389,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_PRIVATE, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label)},
-        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_SUBJECT, subject, 0},
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
@@ -459,7 +459,7 @@ CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_DSA;
     CK_UTF8CHAR label[] = "An DSA private key object";
-    CK_BYTE subject[] = { };
+    CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_RV rc;
 
@@ -469,7 +469,7 @@ CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label)},
-        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_SUBJECT, subject, 0},
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
@@ -544,7 +544,7 @@ CK_RV create_DHPrivateKey(CK_SESSION_HANDLE session,
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keyType = CKK_DH;
     CK_UTF8CHAR label[] = "An DH private key object";
-    CK_BYTE subject[] = { };
+    CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_RV rc;
 
@@ -554,7 +554,7 @@ CK_RV create_DHPrivateKey(CK_SESSION_HANDLE session,
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_TOKEN, &true, sizeof(true)},
         {CKA_LABEL, label, sizeof(label)},
-        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_SUBJECT, subject, 0},
         {CKA_ID, id, sizeof(id)},
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},

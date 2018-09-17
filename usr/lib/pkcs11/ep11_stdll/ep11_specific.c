@@ -349,7 +349,7 @@ typedef struct {
 /* mechanisms provided by this token will be generated from the underlaying
  * crypto adapter. Anyway to be conform to the generic mech_list handling
  * we need to define these dummies */
-MECH_LIST_ELEMENT mech_list[] = { };
+MECH_LIST_ELEMENT mech_list[] = {0};
 
 CK_ULONG mech_list_len = 0;
 

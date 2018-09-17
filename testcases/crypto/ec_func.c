@@ -1414,7 +1414,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
         CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
         CK_KEY_TYPE key_type = CKK_EC;
         CK_BYTE unwrap_label[] = "unwrapped_private_EC_Key";
-        CK_BYTE subject[] = { };
+        CK_BYTE subject[] = {0};
         CK_BYTE id[] = { 123 };
 
         CK_ATTRIBUTE unwrap_tmpl[] = {
