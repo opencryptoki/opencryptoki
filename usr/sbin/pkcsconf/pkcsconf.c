@@ -578,7 +578,7 @@ void display_mechanism_name(CK_MECHANISM_TYPE mech)
 void display_mechanism_flags(CK_FLAGS flags)
 {
     CK_ULONG i, firsties = 1;
-    CK_CHAR_PTR tok = "(";
+    char *tok = "(";
 
     for (i = 0; pkcs11_mech_flags[i].name; i++) {
         if (pkcs11_mech_flags[i].flag & flags) {

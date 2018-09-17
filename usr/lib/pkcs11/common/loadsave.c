@@ -42,7 +42,7 @@
 
 char *pk_dir;
 
-CK_BYTE *get_pk_dir(char *fname)
+char *get_pk_dir(char *fname)
 {
     struct passwd *pw = NULL;
 
@@ -391,7 +391,7 @@ error:
 CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
     FILE *fp = NULL;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     TOKEN_DATA td;
     CK_RV rc;
 
@@ -402,7 +402,7 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     }
 
     sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen((char *) fname, "r");
+    fp = fopen(fname, "r");
     if (!fp) {
         /* Better error checking added */
         if (errno == ENOENT) {
@@ -417,7 +417,7 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
                 goto out_nolock;
             }
 
-            fp = fopen((char *) fname, "r");
+            fp = fopen(fname, "r");
             if (!fp) {
                 // were really hosed here since the created
                 // did not occur
@@ -467,7 +467,7 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     FILE *fp = NULL;
     TOKEN_DATA td;
     CK_RV rc;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
@@ -476,7 +476,7 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     }
 
     sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen((char *) fname, "w");
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -515,9 +515,9 @@ out_nolock:
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
     FILE *fp = NULL;
-    CK_BYTE line[100];
+    char line[256];
+    char fname[PATH_MAX];
     CK_RV rc;
-    CK_BYTE fname[PATH_MAX];
 
     if (object_is_private(obj) == TRUE)
         rc = save_private_token_object(tokdata, obj);
@@ -530,12 +530,12 @@ CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     // update the index file if it exists
     sprintf(fname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
             PK_LITE_OBJ_IDX);
-    fp = fopen((char *) fname, "r");
+    fp = fopen(fname, "r");
     if (fp) {
         set_perm(fileno(fp));
-        while (fgets((char *) line, 50, fp)) {
+        while (fgets(line, 50, fp)) {
             line[strlen(line) - 1] = 0;
-            if (strcmp(line, obj->name) == 0) {
+            if (strcmp(line, (char *)obj->name) == 0) {
                 fclose(fp);
                 // object is already in the list
                 return CKR_OK;
@@ -546,7 +546,7 @@ CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     // we didn't find it...either the index file doesn't exist or this
     // is a new object...
     //
-    fp = fopen((char *) fname, "a");
+    fp = fopen(fname, "a");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         return CKR_FUNCTION_FAILED;
@@ -566,7 +566,7 @@ CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
     FILE *fp = NULL;
     CK_BYTE *clear = NULL;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_ULONG clear_len;
     CK_BBOOL flag = FALSE;
     CK_RV rc;
@@ -577,8 +577,8 @@ CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
     }
 
     sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-    strncat((char *) fname, (char *) obj->name, 8);
-    fp = fopen((char *) fname, "w");
+    strncat(fname, (char *) obj->name, 8);
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -616,7 +616,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     CK_BYTE *clear = NULL;
     CK_BYTE *cipher = NULL;
     CK_BYTE *ptr = NULL;
-    CK_BYTE fname[266];
+    char fname[266];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_BYTE *key = NULL;
     CK_ULONG key_len = 0L;
@@ -692,8 +692,8 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     }
 
     sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-    strncat((char *) fname, (char *) obj->name, 8);
-    fp = fopen((char *) fname, "w");
+    strncat(fname, (char *) obj->name, 8);
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -742,7 +742,9 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
 {
     FILE *fp1 = NULL, *fp2 = NULL;
     CK_BYTE *buf = NULL;
-    CK_BYTE tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
+    char tmp[PATH_MAX];
+    char iname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_BBOOL priv;
     CK_ULONG_32 size;
     size_t read_size;
@@ -750,17 +752,17 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
     sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
             PK_LITE_OBJ_IDX);
 
-    fp1 = fopen((char *) iname, "r");
+    fp1 = fopen(iname, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
-    while (fgets((char *) tmp, 50, fp1)) {
-        tmp[strlen((char *) tmp) - 1] = 0;
+    while (fgets(tmp, 50, fp1)) {
+        tmp[strlen(tmp) - 1] = 0;
 
-        sprintf((char *) fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-        strcat((char *) fname, (char *) tmp);
+        sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
+        strcat(fname, tmp);
 
-        fp2 = fopen((char *) fname, "r");
+        fp2 = fopen(fname, "r");
         if (!fp2)
             continue;
 
@@ -819,7 +821,9 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
 {
     FILE *fp1 = NULL, *fp2 = NULL;
     CK_BYTE *buf = NULL;
-    CK_BYTE tmp[PATH_MAX], fname[PATH_MAX], iname[PATH_MAX];
+    char tmp[PATH_MAX];
+    char iname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_BBOOL priv;
     CK_ULONG_32 size;
     CK_RV rc;
@@ -828,17 +832,17 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
     sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
             PK_LITE_OBJ_IDX);
 
-    fp1 = fopen((char *) iname, "r");
+    fp1 = fopen(iname, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
-    while (fgets((char *) tmp, 50, fp1)) {
-        tmp[strlen((char *) tmp) - 1] = 0;
+    while (fgets(tmp, 50, fp1)) {
+        tmp[strlen(tmp) - 1] = 0;
 
-        sprintf((char *) fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-        strcat((char *) fname, (char *) tmp);
+        sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
+        strcat(fname, tmp);
 
-        fp2 = fopen((char *) fname, "r");
+        fp2 = fopen(fname, "r");
         if (!fp2)
             continue;
 
@@ -867,7 +871,7 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
             continue;
         }
 
-        read_size = fread((char *) buf, 1, size, fp2);
+        read_size = fread(buf, 1, size, fp2);
         if (read_size != size) {
             free(buf);
             fclose(fp2);
@@ -1022,7 +1026,7 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
     CK_ULONG data_len;
     CK_ULONG cipher_len, clear_len;
     CK_RV rc;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_ULONG key_len = 0L;
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
@@ -1051,7 +1055,7 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
     // exists
     //
     sprintf(fname, "%s/MK_SO", tokdata->data_store);
-    fp = fopen((char *) fname, "r");
+    fp = fopen(fname, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1125,7 +1129,7 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
     CK_ULONG data_len;
     CK_ULONG cipher_len, clear_len;
     CK_RV rc;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_ULONG key_len = 0L;
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
@@ -1154,7 +1158,7 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
     // exists
     //
     sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen((char *) fname, "r");
+    fp = fopen(fname, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1230,7 +1234,7 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
     CK_ULONG data_len = 0L;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_RV rc;
 
     /* Skip it if master key is not needed. */
@@ -1278,7 +1282,7 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
     // probably ought to ensure the permissions are correct
     //
     sprintf(fname, "%s/MK_SO", tokdata->data_store);
-    fp = fopen((char *) fname, "w");
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1322,7 +1326,7 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
     CK_ULONG data_len = 0L;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_RV rc;
 
     if ((rc = get_encryption_info_for_clear_key(&key_len,
@@ -1366,7 +1370,7 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
     // probably ought to ensure the permissions are correct
     //
     sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen((char *) fname, "w");
+    fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1402,20 +1406,20 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
     FILE *fp = NULL;
     CK_BYTE *buf = NULL;
-    CK_BYTE fname[PATH_MAX];
+    char fname[PATH_MAX];
     CK_BBOOL priv;
     CK_ULONG_32 size;
     CK_ULONG size_64;
     CK_RV rc;
     size_t read_size;
 
-    memset((char *) fname, 0x0, sizeof(fname));
+    memset(fname, 0x0, sizeof(fname));
 
-    sprintf((char *) fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
+    sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
 
-    strncat((char *) fname, (char *) obj->name, 8);
+    strncat(fname, (char *) obj->name, 8);
 
-    fp = fopen((char *) fname, "r");
+    fp = fopen(fname, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -1478,12 +1482,11 @@ extern void set_perm(int);
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
     FILE *fp1, *fp2;
-    CK_BYTE line[100];
-    CK_BYTE objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX];
+    char objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX], line[256];
 
-    sprintf((char *) objidx, "%s/%s/%s", tokdata->data_store,
+    sprintf(objidx, "%s/%s/%s", tokdata->data_store,
             PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
-    sprintf((char *) idxtmp, "%s/%s/%s", tokdata->data_store,
+    sprintf(idxtmp, "%s/%s/%s", tokdata->data_store,
             PK_LITE_OBJ_DIR, "IDX.TMP");
 
     // FIXME:  on UNIX, we need to make sure these guys aren't symlinks
@@ -1493,8 +1496,8 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     // remove the object from the index file
     //
 
-    fp1 = fopen((char *) objidx, "r");
-    fp2 = fopen((char *) idxtmp, "w");
+    fp1 = fopen(objidx, "r");
+    fp2 = fopen(idxtmp, "w");
     if (!fp1 || !fp2) {
         if (fp1)
             fclose(fp1);
@@ -1506,9 +1509,9 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     set_perm(fileno(fp2));
 
-    while (fgets((char *) line, 50, fp1)) {
-        line[strlen((char *) line) - 1] = 0;
-        if (strcmp((char *) line, (char *) obj->name) == 0)
+    while (fgets(line, 50, fp1)) {
+        line[strlen(line) - 1] = 0;
+        if (strcmp(line, (char *)obj->name) == 0)
             continue;
         else
             fprintf(fp2, "%s\n", line);
@@ -1516,8 +1519,8 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     fclose(fp1);
     fclose(fp2);
-    fp2 = fopen((char *) objidx, "w");
-    fp1 = fopen((char *) idxtmp, "r");
+    fp2 = fopen(objidx, "w");
+    fp1 = fopen(idxtmp, "r");
     if (!fp1 || !fp2) {
         if (fp1)
             fclose(fp1);
@@ -1529,16 +1532,16 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     set_perm(fileno(fp2));
 
-    while (fgets((char *) line, 50, fp1)) {
-        fprintf(fp2, "%s", (char *) line);
+    while (fgets(line, 50, fp1)) {
+        fprintf(fp2, "%s", line);
     }
 
     fclose(fp1);
     fclose(fp2);
 
-    sprintf((char *) fname, "%s/%s/%s", tokdata->data_store,
+    sprintf(fname, "%s/%s/%s", tokdata->data_store,
             PK_LITE_OBJ_DIR, (char *) obj->name);
-    unlink((char *) fname);
+    unlink(fname);
 
     return CKR_OK;
 }

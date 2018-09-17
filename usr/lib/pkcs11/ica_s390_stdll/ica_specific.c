@@ -54,10 +54,10 @@ static ica_adapter_handle_t adapter_handle;
 
 #define MAX_GENERIC_KEY_SIZE 256
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "IBM ICA     ";
-CK_CHAR descr[] = "IBM PKCS#11 ICA token ";
-CK_CHAR label[] = "IBM ICA  PKCS #11";
+const char manuf[] = "IBM Corp.";
+const char model[] = "IBM ICA     ";
+const char descr[] = "IBM PKCS#11 ICA token ";
+const char label[] = "IBM ICA  PKCS #11";
 
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
@@ -2637,12 +2637,12 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
 
     if (encrypt) {
         rc = ica_aes_gcm_initialize(icv, icv_length,
-                                    (char *) attr->pValue,
-                                    attr->ulValueLen, icb, ucb, subkey, 1);
+                                    attr->pValue, attr->ulValueLen,
+                                    icb, ucb, subkey, 1);
     } else {
         rc = ica_aes_gcm_initialize(icv, icv_length,
-                                    (char *) attr->pValue,
-                                    attr->ulValueLen, icb, ucb, subkey, 0);
+                                    attr->pValue, attr->ulValueLen,
+                                    icb, ucb, subkey, 0);
     }
     if (rc != 0) {
         TRACE_ERROR("ica_aes_gcm_initialize() failed.\n");

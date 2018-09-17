@@ -3114,9 +3114,9 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
         random_data = (CK_SSL3_RANDOM_DATA *) (&params->RandomInfo);
 
         clientData.bv_len = random_data->ulClientRandomLen;
-        clientData.bv_val = random_data->pClientRandom;
+        clientData.bv_val = (char *)random_data->pClientRandom;
         serverData.bv_len = random_data->ulServerRandomLen;
-        serverData.bv_val = random_data->pServerRandom;
+        serverData.bv_val = (char *)random_data->pServerRandom;
 
         if (ber_printf(msg, "t{OO}", 1 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED,
                        &clientData, &serverData) < 0) {
@@ -3271,9 +3271,9 @@ int icsf_derive_multiple_keys(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
 
     tag = 0 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED;
     bv_client_random_data.bv_len = params->RandomInfo.ulClientRandomLen;
-    bv_client_random_data.bv_val = params->RandomInfo.pClientRandom;
+    bv_client_random_data.bv_val = (char *)params->RandomInfo.pClientRandom;
     bv_server_random_data.bv_len = params->RandomInfo.ulServerRandomLen;
-    bv_server_random_data.bv_val = params->RandomInfo.pServerRandom;
+    bv_server_random_data.bv_val = (char *)params->RandomInfo.pServerRandom;
 
     rc = ber_printf(msg, "t{biiiOO}", tag,
                     (ber_int_t) params->bIsExport,

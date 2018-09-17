@@ -237,7 +237,7 @@ int get_pin(char **pin, size_t *pinlen)
      * Note: nread includes carriage return.
      * Replace with terminating NULL.
      */
-    *pin = (unsigned char *) malloc(nread);
+    *pin = (char *) malloc(nread);
     if (*pin == NULL) {
         rc = -ENOMEM;
         goto done;

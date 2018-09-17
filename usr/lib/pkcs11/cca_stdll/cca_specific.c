@@ -63,10 +63,10 @@
 #define POINT_CONVERSION_HYBRID          0x06
 
 
-CK_CHAR manuf[] = "IBM Corp.";
-CK_CHAR model[] = "IBM CCA Token";
-CK_CHAR descr[] = "IBM PKCS#11 CCA Token";
-CK_CHAR label[] = "IBM PKCS#11 for CCA";
+const char manuf[] = "IBM Corp.";
+const char model[] = "IBM CCA Token";
+const char descr[] = "IBM PKCS#11 CCA Token";
+const char label[] = "IBM PKCS#11 for CCA";
 
 #define CCASHAREDLIB "libcsulcca.so"
 
@@ -1281,10 +1281,10 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     long opt_data_len = 0, key_params_len = 0, exit_data_len = 0, IV_len = 0,
          chain_vector_len = 0;
-    char exit_data[0];
+    unsigned char exit_data[0];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG key_len;
+    long int key_len;
 
     UNUSED(tokdata);
 
@@ -1315,8 +1315,11 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
                     NULL,
                     &chain_vector_len,
                     NULL,
-                    &in_data_len,
-                    in_data, out_data_len, local_out, &opt_data_len, NULL);
+                    (long int *)&in_data_len,
+                    in_data,
+                    (long int *)out_data_len,
+                    local_out,
+                    &opt_data_len, NULL);
     } else {
         dll_CSNBSAD(&return_code,
                     &reason_code,
@@ -1333,8 +1336,12 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
                     NULL,
                     &chain_vector_len,
                     NULL,
-                    &in_data_len,
-                    in_data, out_data_len, local_out, &opt_data_len, NULL);
+                    (long int *)&in_data_len,
+                    in_data,
+                    (long int *)out_data_len,
+                    local_out,
+                    &opt_data_len,
+                    NULL);
     }
 
     if (return_code != CCA_SUCCESS) {
@@ -1374,9 +1381,9 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     long opt_data_len = 0, key_params_len = 0, exit_data_len = 0, IV_len = 16,
          chain_vector_len = 32;
     CK_BYTE *local_out = out_data;
-    char exit_data[0];
+    unsigned char exit_data[0];
     CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG key_len;
+    long int key_len;
 
     UNUSED(tokdata);
 
@@ -1424,7 +1431,11 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                     &chain_vector_len,
                     chaining_vector,
                     &length,
-                    in_data, out_data_len, out_data, &opt_data_len, NULL);
+                    in_data,
+                    (long int *)out_data_len,
+                    out_data,
+                    &opt_data_len,
+                    NULL);
     } else {
         dll_CSNBSAD(&return_code,
                     &reason_code,
@@ -1442,7 +1453,11 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                     &chain_vector_len,
                     chaining_vector,
                     &length,
-                    in_data, out_data_len, out_data, &opt_data_len, NULL);
+                    in_data,
+                    (long int *)out_data_len,
+                    out_data,
+                    &opt_data_len,
+                    NULL);
     }
 
     if (return_code != CCA_SUCCESS) {
@@ -1971,8 +1986,9 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
 
 
     dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &in_data_len, in_data, &cca_ctx->chain_vector_len,
-                cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
+                rule_array, (long int *)&in_data_len, in_data,
+                &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                &cca_ctx->hash_len, cca_ctx->hash);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH failed. return:%ld, reason:%ld\n",
@@ -2374,8 +2390,9 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
     if (sign) {
         dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue, &in_data_len, in_data,
+                    &rule_array_count, rule_array,
+                    (long int *)&attr->ulValueLen, attr->pValue,
+                    (long int *)&in_data_len, in_data,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &cca_ctx->hash_len, cca_ctx->hash);
 
@@ -2394,8 +2411,9 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         *sig_len = cca_ctx->hash_len;
     } else {                    // verify
         dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue, &in_data_len, in_data,
+                    &rule_array_count, rule_array,
+                    (long int *)&attr->ulValueLen,
+                    attr->pValue, (long int *)&in_data_len, in_data,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &cca_ctx->hash_len, signature);
 
@@ -2581,9 +2599,9 @@ send:
 
     if (sign) {
         dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue,
-                    use_buffer ? &buffer_len : (long *) &in_data_len,
+                    &rule_array_count, rule_array,
+		    (long int *)&attr->ulValueLen, attr->pValue,
+                    use_buffer ? &buffer_len : (long int *) &in_data_len,
                     use_buffer ? buffer : in_data,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &hsize, cca_ctx->hash);
@@ -2595,9 +2613,9 @@ send:
         }
     } else {                    // verify
         dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue,
-                    use_buffer ? &buffer_len : (long *) &in_data_len,
+                    &rule_array_count, rule_array,
+                    (long int *)&attr->ulValueLen, attr->pValue,
+                    use_buffer ? &buffer_len : (long int *) &in_data_len,
                     use_buffer ? buffer : in_data,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &hsize, cca_ctx->hash);
@@ -2694,8 +2712,9 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
     if (sign) {
         dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
+                    &rule_array_count, rule_array,
+                    (long int *)&attr->ulValueLen, attr->pValue,
+                    &cca_ctx->tail_len, cca_ctx->tail,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &cca_ctx->hash_len, cca_ctx->hash);
 
@@ -2714,8 +2733,9 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
     } else {                    // verify
         dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array, &attr->ulValueLen,
-                    attr->pValue, &cca_ctx->tail_len, cca_ctx->tail,
+                    &rule_array_count, rule_array,
+                    (long int *)&attr->ulValueLen, attr->pValue,
+                    &cca_ctx->tail_len, cca_ctx->tail,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
                     &cca_ctx->hash_len, signature);
 
@@ -3104,7 +3124,8 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
     rule_array_count = 1;
 
     dll_CSNBCKM(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &attr->ulValueLen, attr->pValue, target_key_id);
+                rule_array, (long int *)&attr->ulValueLen, attr->pValue,
+                target_key_id);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",

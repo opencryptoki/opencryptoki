@@ -129,7 +129,7 @@ int get_pin(char **pin, size_t *pinlen)
      * Note: nread includes carriage return.
      * Replace with terminating NULL.
      */
-    *pin = (unsigned char *) malloc(nread);
+    *pin = (char *) malloc(nread);
     if (*pin == NULL) {
         rc = -ENOMEM;
         goto done;
@@ -889,7 +889,7 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
         { CKA_HIDDEN, &true, sizeof(true) },
         { CKA_HW_FEATURE_TYPE, &type, sizeof(type) },
         { CKA_SUBJECT, &subject, sizeof(subject) },
-        { CKA_VALUE, vhsm_pin, strlen(vhsm_pin) },
+        { CKA_VALUE, vhsm_pin, strlen((char *)vhsm_pin) },
     };
 
     rc = find_vhsmpin_object(session, &obj);

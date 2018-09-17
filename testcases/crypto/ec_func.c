@@ -246,9 +246,9 @@ static unsigned int curve_len(int index)
     return 0;
 }
 
-static CK_RV curve_supported(const unsigned char *name)
+static CK_RV curve_supported(const char *name)
 {
-    if (name[strlen(name)-2] == 'r' || name[strlen(name)-2] == 'v')
+    if (name[strlen(name) - 2] == 'r' || name[strlen(name) - 2] == 'v')
         return 1;
 
     return 0;
@@ -1201,7 +1201,7 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
     for (i = 0; i < EC_TV_NUM; i++) {
         if ((is_ica_token(SLOT_ID) || is_cca_token(SLOT_ID))) {
-            if (!curve_supported(ec_tv[i].name)) {
+            if (!curve_supported((char *)ec_tv[i].name)) {
                 testcase_skip("Slot %u doesn't support this curve",
                               (unsigned int)SLOT_ID);
                 continue;
@@ -1321,7 +1321,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
     for (i = 0; i < EC_TV_NUM; i++) {
         if (!(is_ep11_token(SLOT_ID))) {
-            if (strstr(ec_tv[i].name, "t1") != NULL) {
+            if (strstr((char *)ec_tv[i].name, "t1") != NULL) {
                 testcase_skip("Slot %u doesn't support curve %s",
                               (unsigned int)SLOT_ID, ec_tv[i].name);
                 continue;

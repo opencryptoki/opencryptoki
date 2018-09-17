@@ -128,11 +128,11 @@ keyword_defs:
 			memcpy(sinfo_struct.dll_location, $3, strlen($3));
 			break;
 		case KW_SLOTDESC:
-			do_str(sinfo_struct.pk_slot.slotDescription,
+			do_str((char *)sinfo_struct.pk_slot.slotDescription,
 			  sizeof(sinfo_struct.pk_slot.slotDescription), $1, $3);
 			break;
 		case KW_MANUFID:
-			do_str(sinfo_struct.pk_slot.manufacturerID,
+			do_str((char *)sinfo_struct.pk_slot.manufacturerID,
 			   sizeof(sinfo_struct.pk_slot.manufacturerID), $1, $3);
 			break;
 		case KW_HWVERSION:
