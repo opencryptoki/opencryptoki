@@ -29,20 +29,26 @@
 #define CURVE521        0x0209
 
 /* Supported Elliptic Curves */
-#define NUMEC           13      /* number of supported curves */
-extern CK_BYTE brainpoolP160r1[];
-extern CK_BYTE brainpoolP192r1[];
-extern CK_BYTE brainpoolP224r1[];
-extern CK_BYTE brainpoolP256r1[];
-extern CK_BYTE brainpoolP320r1[];
-extern CK_BYTE brainpoolP384r1[];
-extern CK_BYTE brainpoolP512r1[];
-extern CK_BYTE brainpoolP512t1[];
-extern CK_BYTE prime192[];
-extern CK_BYTE secp224[];
-extern CK_BYTE prime256[];
-extern CK_BYTE secp384[];
-extern CK_BYTE secp521[];
+#define NUMEC           19      /* number of supported curves */
+extern const CK_BYTE brainpoolP160r1[];
+extern const CK_BYTE brainpoolP160t1[];
+extern const CK_BYTE brainpoolP192r1[];
+extern const CK_BYTE brainpoolP192t1[];
+extern const CK_BYTE brainpoolP224r1[];
+extern const CK_BYTE brainpoolP224t1[];
+extern const CK_BYTE brainpoolP256r1[];
+extern const CK_BYTE brainpoolP256t1[];
+extern const CK_BYTE brainpoolP320r1[];
+extern const CK_BYTE brainpoolP320t1[];
+extern const CK_BYTE brainpoolP384r1[];
+extern const CK_BYTE brainpoolP384t1[];
+extern const CK_BYTE brainpoolP512r1[];
+extern const CK_BYTE brainpoolP512t1[];
+extern const CK_BYTE prime192[];
+extern const CK_BYTE secp224[];
+extern const CK_BYTE prime256[];
+extern const CK_BYTE secp384[];
+extern const CK_BYTE secp521[];
 
 
 // structure of supported Elliptic Curves
@@ -51,10 +57,10 @@ struct _ec {
     uint8_t curve_type;         /* uint8_t - prime or brainpool curve */
     uint16_t len_bits;          /* uint16_t - len in bits */
     CK_ULONG data_size;
-    CK_VOID_PTR data;
+    void const *data;
 } __attribute__ ((__packed__));
 
-extern struct _ec der_ec_supported[NUMEC];
+extern const struct _ec der_ec_supported[NUMEC];
 
 #define MAX_ECDH_SHARED_SECRET_SIZE  66
 #define MAX_SUPPORTED_HASH_LENGTH 64
