@@ -22,8 +22,6 @@
 
 /*
  * Below is a list for the OIDs and DER encodings of the brainpool.
- * Currently we only support the regular curves and not the twisted curves.
- * They are listed here for completeness.
  * Beginning of each DER encoding should be 06 for OID and 09 for the length.
  * For example brainpoolP160r1 should be 06092B2403030208010101
  * brainpoolP160r1
@@ -88,64 +86,83 @@
 CK_ULONG total_assertions = 65;
 
 typedef struct ec_struct {
-    CK_VOID_PTR curve;
+    void const *curve;
     CK_ULONG size;
+    CK_BBOOL twisted;
 } _ec_struct;
 
 /* Supported Elliptic Curves */
-#define NUMEC		13
-CK_BYTE brainpoolP160r1[] =
+#define NUMEC		19
+const CK_BYTE brainpoolP160r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
-CK_BYTE brainpoolP192r1[] =
+const CK_BYTE brainpoolP160t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x02 };
+const CK_BYTE brainpoolP192r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x03 };
-CK_BYTE brainpoolP224r1[] =
+const CK_BYTE brainpoolP192t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x04 };
+const CK_BYTE brainpoolP224r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x05 };
-CK_BYTE brainpoolP256r1[] =
+const CK_BYTE brainpoolP224t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x06 };
+const CK_BYTE brainpoolP256r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07 };
-CK_BYTE brainpoolP320r1[] =
+const CK_BYTE brainpoolP256t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x08 };
+const CK_BYTE brainpoolP320r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x09 };
-CK_BYTE brainpoolP384r1[] =
+const CK_BYTE brainpoolP320t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0A };
+const CK_BYTE brainpoolP384r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B };
-CK_BYTE brainpoolP512r1[] =
+const CK_BYTE brainpoolP384t1[] =
+    { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0C };
+const CK_BYTE brainpoolP512r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D };
-CK_BYTE brainpoolP512t1[] =
+const CK_BYTE brainpoolP512t1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0E };
-CK_BYTE prime192[] =
+const CK_BYTE prime192[] =
     { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
-CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
-CK_BYTE prime256[] =
+const CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
+const CK_BYTE prime256[] =
     { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
-CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
-CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
+const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
 
-_ec_struct der_ec_supported[NUMEC] = {
-    {&brainpoolP160r1, sizeof(brainpoolP160r1)},
-    {&brainpoolP192r1, sizeof(brainpoolP192r1)},
-    {&brainpoolP224r1, sizeof(brainpoolP224r1)},
-    {&brainpoolP256r1, sizeof(brainpoolP256r1)},
-    {&brainpoolP320r1, sizeof(brainpoolP320r1)},
-    {&brainpoolP384r1, sizeof(brainpoolP384r1)},
-    {&brainpoolP512r1, sizeof(brainpoolP512r1)},
-    {&brainpoolP512t1, sizeof(brainpoolP512t1)},
-    {&prime192, sizeof(prime192)},
-    {&secp224, sizeof(secp224)},
-    {&prime256, sizeof(prime256)},
-    {&secp384, sizeof(secp384)},
-    {&secp521, sizeof(secp521)}
+const _ec_struct der_ec_supported[NUMEC] = {
+    {&brainpoolP160r1, sizeof(brainpoolP160r1), CK_FALSE},
+    {&brainpoolP160t1, sizeof(brainpoolP160t1), CK_TRUE},
+    {&brainpoolP192r1, sizeof(brainpoolP192r1), CK_FALSE},
+    {&brainpoolP192t1, sizeof(brainpoolP192t1), CK_TRUE},
+    {&brainpoolP224r1, sizeof(brainpoolP224r1), CK_FALSE},
+    {&brainpoolP224t1, sizeof(brainpoolP224t1), CK_TRUE},
+    {&brainpoolP256r1, sizeof(brainpoolP256r1), CK_FALSE},
+    {&brainpoolP256t1, sizeof(brainpoolP256t1), CK_TRUE},
+    {&brainpoolP320r1, sizeof(brainpoolP320r1), CK_FALSE},
+    {&brainpoolP320t1, sizeof(brainpoolP320t1), CK_TRUE},
+    {&brainpoolP384r1, sizeof(brainpoolP384r1), CK_FALSE},
+    {&brainpoolP384t1, sizeof(brainpoolP384t1), CK_TRUE},
+    {&brainpoolP512r1, sizeof(brainpoolP512r1), CK_FALSE},
+    {&brainpoolP512t1, sizeof(brainpoolP512t1), CK_TRUE},
+    {&prime192, sizeof(prime192), CK_FALSE},
+    {&secp224, sizeof(secp224), CK_FALSE},
+    {&prime256, sizeof(prime256), CK_FALSE},
+    {&secp384, sizeof(secp384), CK_FALSE},
+    {&secp521, sizeof(secp521), CK_FALSE}
 };
 
 /* Invalid curves */
 #define NUMECINVAL	4
-CK_BYTE invalidCurve[] =
+const CK_BYTE invalidCurve[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x08, 0x08, 0x01, 0x01, 0x01 };
-CK_BYTE invalidLen1[] =
+const CK_BYTE invalidLen1[] =
     { 0x06, 0x0A, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
-CK_BYTE invalidLen2[] =
+const CK_BYTE invalidLen2[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01 };
-CK_BYTE invalidOIDfield[] =
+const CK_BYTE invalidOIDfield[] =
     { 0x05, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
 
-_ec_struct der_ec_notsupported[NUMECINVAL] = {
+const _ec_struct der_ec_notsupported[NUMECINVAL] = {
     {&invalidCurve, sizeof(invalidCurve)},
     {&invalidLen1, sizeof(invalidLen1)},
     {&invalidLen2, sizeof(invalidLen2)},
@@ -192,19 +209,37 @@ static CK_EC_KDF_TYPE kdfs[] = {
 static unsigned int curve_len(int index)
 {
     switch (index) {
-    case 0: return CURVE160_LENGTH/8;
-    case 1: return CURVE192_LENGTH/8;
-    case 2: return CURVE224_LENGTH/8;
-    case 3: return CURVE256_LENGTH/8;
-    case 4: return CURVE320_LENGTH/8;
-    case 5: return CURVE384_LENGTH/8;
-    case 6: return CURVE512_LENGTH/8;
-    case 7: return CURVE512_LENGTH/8;
-    case 8: return CURVE192_LENGTH/8;
-    case 9: return CURVE224_LENGTH/8;
-    case 10: return CURVE256_LENGTH/8;
-    case 11: return CURVE384_LENGTH/8;
-    case 12: return CURVE521_LENGTH/8+1;
+    case 0:
+    case 1:
+        return CURVE160_LENGTH/8;
+    case 2:
+    case 3:
+        return CURVE192_LENGTH/8;
+    case 4:
+    case 5:
+        return CURVE224_LENGTH/8;
+    case 6:
+    case 7:
+        return CURVE256_LENGTH/8;
+    case 8:
+    case 9:
+        return CURVE320_LENGTH/8;
+    case 10:
+    case 11:
+        return CURVE384_LENGTH/8;
+    case 12:
+    case 13:
+        return CURVE512_LENGTH/8;
+    case 14:
+        return CURVE192_LENGTH/8;
+    case 15:
+        return CURVE224_LENGTH/8;
+    case 16:
+        return CURVE256_LENGTH/8;
+    case 17:
+        return CURVE384_LENGTH/8;
+    case 18:
+        return CURVE521_LENGTH/8+1;
     }
 
     return 0;
@@ -305,7 +340,7 @@ CK_RV run_DeriveECDHKey()
         CK_ULONG prv_attr_len = sizeof(prv_attr)/sizeof(CK_ATTRIBUTE);
 
         CK_ATTRIBUTE pub_attr[] = {
-            {CKA_ECDSA_PARAMS, der_ec_supported[i].curve,
+            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
              der_ec_supported[i].size},
             {CKA_VERIFY, &true, sizeof(true)},
             {CKA_MODIFIABLE, &true, sizeof(true)},
@@ -322,9 +357,8 @@ CK_RV run_DeriveECDHKey()
         };
         CK_ULONG extr2_tmpl_len = sizeof(extr2_tmpl)/sizeof(CK_ATTRIBUTE);
 
-        if (!(is_cca_token(SLOT_ID))) {
-            if (!memcmp(der_ec_supported[i].curve,
-                        brainpoolP512t1, sizeof(brainpoolP512t1))) {
+        if (!is_ep11_token(SLOT_ID)) {
+            if (der_ec_supported[i].twisted) {
                 testcase_skip("Slot %u doesn't support this curve",
                               (unsigned int) SLOT_ID);
                 continue;
@@ -1062,9 +1096,8 @@ CK_RV run_GenerateECCKeyPairSignVerify()
 
     for (i = 0; i < NUMEC; i++) {
 
-        if (!(is_ep11_token(SLOT_ID))) {
-            if (!memcmp(der_ec_supported[i].curve, brainpoolP512t1,
-                        sizeof(brainpoolP512t1))) {
+        if (!is_ep11_token(SLOT_ID)) {
+            if (der_ec_supported[i].twisted) {
                 testcase_skip("Slot %u doesn't support this curve",
                               (unsigned int) SLOT_ID);
                 continue;
@@ -1072,7 +1105,7 @@ CK_RV run_GenerateECCKeyPairSignVerify()
         }
 
         CK_ATTRIBUTE ec_attr[] = {
-            {CKA_ECDSA_PARAMS, der_ec_supported[i].curve,
+            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
              der_ec_supported[i].size}
         };
 
@@ -1105,7 +1138,7 @@ CK_RV run_GenerateECCKeyPairSignVerify()
 
     for (i = 0; i < NUMECINVAL; i++) {
         CK_ATTRIBUTE ec_attr[] = {
-            {CKA_ECDSA_PARAMS, der_ec_notsupported[i].curve,
+            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_notsupported[i].curve,
              der_ec_notsupported[i].size}
         };
 
