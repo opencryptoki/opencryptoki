@@ -1440,8 +1440,10 @@ CK_RV run_TransferECCKeyPairSignVerify()
             goto testcase_cleanup;
         }
 
-        if (wrapped_key)
+        if (wrapped_key) {
             free(wrapped_key);
+            wrapped_key = NULL;
+	}
 
         /* create signature with unwrapped private key and verify with
          * public key */
