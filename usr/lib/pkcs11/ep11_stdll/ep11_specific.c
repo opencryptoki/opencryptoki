@@ -3504,8 +3504,46 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
+    CK_ECDH1_DERIVE_PARAMS *ecdh1_parms;
+    CK_MECHANISM ecdh1_mech;
 
     memset(newblob, 0, sizeof(newblob));
+
+    /*
+     * EP11 supports CKM_ECDH1_DERIVE slightly different than specified in
+     * PKCS#11 v2.11 or later. It expects the public data directly as mechanism
+     * param, not via CK_ECDH1_DERIVE_PARAMS. It also does not support KDFs and
+     * shared data.
+     *
+     * ATTENTION: Once the EP11 library supports CKM_ECDH1_DERIVE in PKCS#11
+     * way, the following if block needs to be adapted.
+     */
+    if (mech->mechanism == CKM_ECDH1_DERIVE) {
+        if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
+            TRACE_ERROR("%s Param len for CKM_ECDH1_DERIVE wrong: %lu\n",
+                        __func__, mech->ulParameterLen);
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        ecdh1_parms = mech->pParameter;
+
+        if (ecdh1_parms->kdf != CKD_NULL) {
+            TRACE_ERROR("%s KDF for CKM_ECDH1_DERIVE not supported: %lu\n",
+                        __func__, ecdh1_parms->kdf);
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        if (ecdh1_parms->pSharedData != NULL ||
+            ecdh1_parms->ulSharedDataLen > 0) {
+            TRACE_ERROR("%s Shared data for CKM_ECDH1_DERIVE not supported\n",
+                        __func__);
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        ecdh1_mech.mechanism = CKM_ECDH1_DERIVE;
+        ecdh1_mech.pParameter = ecdh1_parms->pPublicData;
+        ecdh1_mech.ulParameterLen = ecdh1_parms->ulPublicDataLen;
+        mech = &ecdh1_mech;
+    }
 
     rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
     if (rc != CKR_OK) {
