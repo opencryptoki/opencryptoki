@@ -164,10 +164,10 @@ const CK_BYTE invalidOIDfield[] =
     { 0x05, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
 
 const _ec_struct der_ec_notsupported[NUMECINVAL] = {
-    {&invalidCurve, sizeof(invalidCurve)},
-    {&invalidLen1, sizeof(invalidLen1)},
-    {&invalidLen2, sizeof(invalidLen2)},
-    {&invalidOIDfield, sizeof(invalidOIDfield)}
+    {&invalidCurve, sizeof(invalidCurve), CK_FALSE},
+    {&invalidLen1, sizeof(invalidLen1), CK_FALSE},
+    {&invalidLen2, sizeof(invalidLen2), CK_FALSE},
+    {&invalidOIDfield, sizeof(invalidOIDfield), CK_FALSE}
 };
 
 typedef struct signVerifyParam {
