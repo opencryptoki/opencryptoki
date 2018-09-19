@@ -124,7 +124,7 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
     rc = _m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
                   (unsigned long long) &target);
 
-    if (rc != CKR_OK || resp_len == 0 || resp == NULL) {
+    if (rc != CKR_OK || resp_len == 0) {
         fprintf(stderr, "reencryption failed %lx %ld\n", rc, req_len);
         return -3;
     }
