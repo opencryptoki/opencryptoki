@@ -464,30 +464,29 @@ CK_RV run_DeriveECDHKey()
                     // key and B's public key
 
                     if (is_ep11_token(SLOT_ID)) {
-                        /* ep11token implements PKCS#11 v2.20 */
-                        mech.mechanism  = CKM_ECDH1_DERIVE;
-                        mech.ulParameterLen = extr2_tmpl->ulValueLen;
-                        mech.pParameter = extr2_tmpl->pValue;
-                    } else {
-                        /* icatoken implements PKCS#11 v2.40, other tokens
-                         * don't support derive */
-                        ecdh_parmA.kdf = kdfs[j];
-                        ecdh_parmA.pPublicData = extr2_tmpl->pValue;
-                        ecdh_parmA.ulPublicDataLen = extr2_tmpl->ulValueLen;
-                        ecdh_parmA.pSharedData =
-                            shared_data[m].length == 0 ?
-                                NULL : (CK_BYTE_PTR) &shared_data[m].data;
-                        ecdh_parmA.ulSharedDataLen = shared_data[m].length;
-
-                        if (kdfs[j] == CKD_NULL) {
-                            ecdh_parmA.pSharedData = NULL;
-                            ecdh_parmA.ulSharedDataLen = 0;
+                        /* ep11token does not support KDFs nor shared data */
+                        if (kdfs[j] != CKD_NULL || shared_data[m].length > 0) {
+                            testcase_skip("EP11 does not support KDFs and shared data\n");
+                            continue;
                         }
-
-                        mech.mechanism = CKM_ECDH1_DERIVE;
-                        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
-                        mech.pParameter = &ecdh_parmA;
                     }
+
+                    ecdh_parmA.kdf = kdfs[j];
+                    ecdh_parmA.pPublicData = extr2_tmpl->pValue;
+                    ecdh_parmA.ulPublicDataLen = extr2_tmpl->ulValueLen;
+                    ecdh_parmA.pSharedData =
+                        shared_data[m].length == 0 ?
+                            NULL : (CK_BYTE_PTR) &shared_data[m].data;
+                    ecdh_parmA.ulSharedDataLen = shared_data[m].length;
+
+                    if (kdfs[j] == CKD_NULL) {
+                        ecdh_parmA.pSharedData = NULL;
+                        ecdh_parmA.ulSharedDataLen = 0;
+                    }
+
+                    mech.mechanism = CKM_ECDH1_DERIVE;
+                    mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+                    mech.pParameter = &ecdh_parmA;
 
                     rc = funcs->C_DeriveKey(session, &mech,
                                             priv_keyA, derive_tmpl,
@@ -502,30 +501,29 @@ CK_RV run_DeriveECDHKey()
                     // and A's public key
 
                     if (is_ep11_token(SLOT_ID)) {
-                        /* ep11 host lib and token implement PKCS#11 v2.20 */
-                        mech.mechanism  = CKM_ECDH1_DERIVE;
-                        mech.ulParameterLen = extr1_tmpl->ulValueLen;
-                        mech.pParameter = extr1_tmpl->pValue;
-                    } else {
-                        /* icatoken implements PKCS#11 v2.40, other tokens
-                         * don't support derive */
-                        ecdh_parmB.kdf = kdfs[j];
-                        ecdh_parmB.pPublicData = extr1_tmpl->pValue;
-                        ecdh_parmB.ulPublicDataLen = extr1_tmpl->ulValueLen;
-                        ecdh_parmB.pSharedData =
-                            shared_data[m].length == 0 ?
-                                NULL : (CK_BYTE_PTR)&shared_data[m].data;
-                        ecdh_parmB.ulSharedDataLen = shared_data[m].length;
-
-                        if (kdfs[j] == CKD_NULL) {
-                            ecdh_parmB.pSharedData = NULL;
-                            ecdh_parmB.ulSharedDataLen = 0;
+                        /* ep11token does not support KDFs nor shared data */
+                        if (kdfs[j] != CKD_NULL || shared_data[m].length > 0) {
+                            testcase_skip("EP11 does not support KDFs and shared data\n");
+                            continue;
                         }
-
-                        mech.mechanism = CKM_ECDH1_DERIVE;
-                        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
-                        mech.pParameter = &ecdh_parmB;
                     }
+
+                    ecdh_parmB.kdf = kdfs[j];
+                    ecdh_parmB.pPublicData = extr1_tmpl->pValue;
+                    ecdh_parmB.ulPublicDataLen = extr1_tmpl->ulValueLen;
+                    ecdh_parmB.pSharedData =
+                        shared_data[m].length == 0 ?
+                            NULL : (CK_BYTE_PTR)&shared_data[m].data;
+                    ecdh_parmB.ulSharedDataLen = shared_data[m].length;
+
+                    if (kdfs[j] == CKD_NULL) {
+                        ecdh_parmB.pSharedData = NULL;
+                        ecdh_parmB.ulSharedDataLen = 0;
+                    }
+
+                    mech.mechanism = CKM_ECDH1_DERIVE;
+                    mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+                    mech.pParameter = &ecdh_parmB;
 
                     rc = funcs->C_DeriveKey(session, &mech,
                                             priv_keyB, derive_tmpl,
@@ -734,30 +732,29 @@ CK_RV run_DeriveECDHKeyKAT()
         // and B's public key
 
         if (is_ep11_token(SLOT_ID)) {
-            /* ep11 host lib and token implement PKCS#11 v2.20 */
-            mech.mechanism  = CKM_ECDH1_DERIVE;
-            mech.ulParameterLen = ecdh_tv[i].pubkey_len;
-            mech.pParameter = ecdh_tv[i].pubkeyB;
-        } else {
-            /* icatoken implements PKCS#11 v2.40, other tokens don't
-             * support derive */
-            ecdh_parmA.kdf = ecdh_tv[i].kdf;
-            ecdh_parmA.pPublicData = ecdh_tv[i].pubkeyB;
-            ecdh_parmA.ulPublicDataLen = ecdh_tv[i].pubkey_len;
-            ecdh_parmA.pSharedData =
-                ecdh_tv[i].shared_data_len == 0 ?
-                    NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
-            ecdh_parmA.ulSharedDataLen = ecdh_tv[i].shared_data_len;
-
-            if (ecdh_tv[i].kdf == CKD_NULL) {
-                ecdh_parmA.pSharedData = NULL;
-                ecdh_parmA.ulSharedDataLen = 0;
+            /* ep11token does not support KDFs nor shared data */
+            if (ecdh_tv[i].kdf != CKD_NULL || ecdh_tv[i].shared_data_len > 0) {
+                testcase_skip("EP11 does not support KDFs and shared data\n");
+                continue;
             }
-
-            mech.mechanism  = CKM_ECDH1_DERIVE;
-            mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
-            mech.pParameter = &ecdh_parmA;
         }
+
+        ecdh_parmA.kdf = ecdh_tv[i].kdf;
+        ecdh_parmA.pPublicData = ecdh_tv[i].pubkeyB;
+        ecdh_parmA.ulPublicDataLen = ecdh_tv[i].pubkey_len;
+        ecdh_parmA.pSharedData =
+            ecdh_tv[i].shared_data_len == 0 ?
+                NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
+        ecdh_parmA.ulSharedDataLen = ecdh_tv[i].shared_data_len;
+
+        if (ecdh_tv[i].kdf == CKD_NULL) {
+            ecdh_parmA.pSharedData = NULL;
+            ecdh_parmA.ulSharedDataLen = 0;
+        }
+
+        mech.mechanism  = CKM_ECDH1_DERIVE;
+        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+        mech.pParameter = &ecdh_parmA;
 
         rc = funcs->C_DeriveKey(session, &mech,
                                 priv_keyA, derive_tmpl,
@@ -771,30 +768,29 @@ CK_RV run_DeriveECDHKeyKAT()
         // A's public key
 
         if (is_ep11_token(SLOT_ID)) {
-            /* ep11token implements PKCS#11 v2.20 */
-            mech.mechanism  = CKM_ECDH1_DERIVE;
-            mech.ulParameterLen = ecdh_tv[i].pubkey_len;
-            mech.pParameter = ecdh_tv[i].pubkeyA;
-        } else {
-            /* icatoken implements PKCS#11 v2.40, other tokens don't
-             * support derive */
-            ecdh_parmB.kdf = ecdh_tv[i].kdf;
-            ecdh_parmB.pPublicData = ecdh_tv[i].pubkeyA;
-            ecdh_parmB.ulPublicDataLen = ecdh_tv[i].pubkey_len;
-            ecdh_parmB.pSharedData =
-                ecdh_tv[i].shared_data_len == 0 ?
-                    NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
-            ecdh_parmB.ulSharedDataLen = ecdh_tv[i].shared_data_len;
-
-            if (ecdh_tv[i].kdf == CKD_NULL) {
-                ecdh_parmB.pSharedData = NULL;
-                ecdh_parmB.ulSharedDataLen = 0;
+            /* ep11token does not support KDFs nor shared data */
+            if (ecdh_tv[i].kdf != CKD_NULL || ecdh_tv[i].shared_data_len > 0) {
+                testcase_skip("EP11 does not support KDFs and shared data\n");
+                continue;
             }
-
-            mech.mechanism = CKM_ECDH1_DERIVE;
-            mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
-            mech.pParameter = &ecdh_parmB;
         }
+
+        ecdh_parmB.kdf = ecdh_tv[i].kdf;
+        ecdh_parmB.pPublicData = ecdh_tv[i].pubkeyA;
+        ecdh_parmB.ulPublicDataLen = ecdh_tv[i].pubkey_len;
+        ecdh_parmB.pSharedData =
+            ecdh_tv[i].shared_data_len == 0 ?
+                NULL : (CK_BYTE_PTR)&ecdh_tv[i].shared_data;
+        ecdh_parmB.ulSharedDataLen = ecdh_tv[i].shared_data_len;
+
+        if (ecdh_tv[i].kdf == CKD_NULL) {
+            ecdh_parmB.pSharedData = NULL;
+            ecdh_parmB.ulSharedDataLen = 0;
+        }
+
+        mech.mechanism = CKM_ECDH1_DERIVE;
+        mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
+        mech.pParameter = &ecdh_parmB;
 
         rc = funcs->C_DeriveKey(session, &mech,
                                 priv_keyB, derive_tmpl,
