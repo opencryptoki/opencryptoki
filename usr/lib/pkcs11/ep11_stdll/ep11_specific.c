@@ -125,6 +125,8 @@ static m_shutdown_t dll_m_shutdown;
 static xcpa_queryblock_t dll_xcpa_queryblock;
 static xcpa_internal_rv_t dll_xcpa_internal_rv;
 
+static m_get_xcp_info_t dll_m_get_xcp_info;
+
 #ifdef DEBUG
 
 /* a simple function for dumping out a memory area */
@@ -249,6 +251,8 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
 static CK_RV get_control_points(STDLL_TokData_t * tokdata,
                                 unsigned char *cp, size_t * cp_len);
 
+static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -332,6 +336,10 @@ typedef struct {
     int digest_libica;
     char digest_libica_path[PATH_MAX];
     libica_t libica;
+    CK_VERSION ep11_lib_version;
+    CK_VERSION firmware_version;
+    CK_ULONG firmware_API_version;
+    CK_ULONG card_type;
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -1723,6 +1731,8 @@ static CK_RV ep11_resolve_lib_sym(void *hdl)
     *(void **)(&dll_xcpa_queryblock) = dlsym(hdl, "xcpa_queryblock");
     *(void **)(&dll_xcpa_internal_rv) = dlsym(hdl, "xcpa_internal_rv");
 
+    *(void **)(&dll_m_get_xcp_info) = dlsym(hdl, "m_get_xcp_info");
+
     if ((error = dlerror()) != NULL) {
         TRACE_ERROR("%s Error: %s\n", __func__, error);
         OCK_SYSLOG(LOG_ERR, "%s: Error: %s\n", __func__, error);
@@ -1845,6 +1855,10 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         return CKR_DEVICE_ERROR;
     }
 #endif
+
+    rc = ep11tok_get_ep11_version(tokdata);
+    if (rc != CKR_OK)
+        return rc;
 
     if (ep11_data->digest_libica) {
         rc = ep11tok_load_libica(tokdata);
@@ -7692,3 +7706,194 @@ CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata)
 
     return ep11_data->optimize_single_ops ? CK_TRUE : CK_FALSE;
 }
+
+/* return -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2 */
+static int compare_ck_version(CK_VERSION *v1, CK_VERSION *v2)
+{
+
+    if (v1->major < v2->major)
+        return -1;
+    if (v1->major > v2->major)
+        return 1;
+    if (v1->minor < v2->minor)
+        return -1;
+    if (v1->minor > v2->minor)
+        return 1;
+    return 0;
+}
+
+static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
+{
+    char fname[PATH_MAX];
+    char buf[250];
+    CK_RV rc;
+
+    sprintf(fname, "%scard%02d/type", SYSFS_DEVICES_AP, adapter);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return rc;
+    if (sscanf(buf, "CEX%luP", type) != 1)
+        return CKR_FUNCTION_FAILED;
+    return CKR_OK;
+}
+
+typedef struct query_version
+{
+    CK_ULONG firmware_API_version;
+    CK_VERSION firmware_version;
+    CK_ULONG card_type;
+    CK_BBOOL first;
+    CK_BBOOL error;
+} query_version_t;
+
+static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
+                                   void *handler_data)
+{
+    query_version_t *qv = (query_version_t *)handler_data;
+    CK_IBM_XCP_INFO xcp_info;
+    CK_ULONG xcp_info_len = sizeof(xcp_info);
+    CK_RV rc;
+    ep11_target_t target;
+    CK_ULONG card_type;
+
+    memset(&target, 0, sizeof(target));
+    target.length = 1;
+    target.apqns[0] = adapter;
+    target.apqns[1] = domain;
+
+    rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
+                           (uint64_t)&target);
+   if (rc != CKR_OK) {
+       TRACE_ERROR("%s Failed to query module version from adapter %02X.%04X\n",
+                           __func__, adapter, domain);
+       /* card may no longer be online, so ignore this error situation */
+       return CKR_OK;
+   }
+
+   rc = get_card_type(adapter, &card_type);
+   if (rc != CKR_OK) {
+       TRACE_ERROR("%s Failed to get card type for adapter %02X.%04X\n",
+                   __func__, adapter, domain);
+       /* card may no longer be online, so ignore this error situation */
+       return CKR_OK;
+   }
+
+   if (!qv->first && qv->card_type != card_type) {
+       TRACE_ERROR("%s Adapter %02X.%04X has a different card type "
+                                 "than the previous adapters: CEX%luP\n",
+                                 __func__, adapter, domain,
+                                 card_type);
+       OCK_SYSLOG(LOG_ERR,
+                  "Warning: Adapter %02X.%04X has a card card_type "
+                  " than the previous adapters: CEX%luP\n",
+                  adapter, domain, card_type);
+       qv->error = TRUE;
+       return CKR_OK;
+   }
+
+   if (!qv->first && qv->firmware_API_version != xcp_info.firmwareApi) {
+       TRACE_ERROR("%s Adapter %02X.%04X has a different API version "
+                                 "than the previous adapters: %lu\n",
+                                 __func__, adapter, domain,
+                                 xcp_info.firmwareApi);
+       OCK_SYSLOG(LOG_ERR,
+                  "Warning: Adapter %02X.%04X has a different API version "
+                  " than the previous adapters: %lu\n",
+                  adapter, domain, xcp_info.firmwareApi);
+       qv->error = TRUE;
+       return CKR_OK;
+   }
+
+   if (!qv->first && compare_ck_version(&qv->firmware_version,
+                                        &xcp_info.firmwareVersion) != 0) {
+       TRACE_ERROR("%s Adapter %02X.%04X has a different firmware version"
+                                 "than the previous adapters: %d.%d\n",
+                                 __func__, adapter, domain,
+                                 xcp_info.firmwareVersion.major,
+                                 xcp_info.firmwareVersion.minor);
+       OCK_SYSLOG(LOG_ERR,
+                  "Warning: Adapter %02X.%04X has a different firmware version"
+                  " than the previous adapters: %d.%d\n",
+                  adapter, domain,  xcp_info.firmwareVersion.major,
+                  xcp_info.firmwareVersion.minor);
+       qv->error = TRUE;
+       return CKR_OK;
+   }
+
+   qv->firmware_API_version = xcp_info.firmwareApi;
+   qv->firmware_version = xcp_info.firmwareVersion;
+   qv->card_type = card_type;
+   qv->first = FALSE;
+
+   return CKR_OK;
+}
+
+static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    query_version_t qv;
+    unsigned int host_version;
+    CK_ULONG version_len = sizeof(host_version);
+    CK_RV rc;
+
+    if (dll_m_get_xcp_info == NULL) {
+        TRACE_ERROR("%s Function dll_m_get_xcp_info is not available\n",
+                    __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = dll_m_get_xcp_info(&host_version, &version_len,
+                            CK_IBM_XCPHQ_VERSION, 0, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s dll_m_get_xcp_info (HOST) failed: rc=0x%lx\n", __func__,
+                    rc);
+        return rc;
+    }
+    ep11_data->ep11_lib_version.major = (host_version & 0x00FF0000) >> 16;
+    ep11_data->ep11_lib_version.minor = host_version & 0x000000FF0000;
+    /*
+     * EP11 host library < v2.0 returns an invalid version (i.e. 0x100). This
+     * can safely be treated as version 1.0
+     */
+    if (ep11_data->ep11_lib_version.major == 0) {
+        ep11_data->ep11_lib_version.major = 1;
+        ep11_data->ep11_lib_version.minor = 0;
+    }
+
+    TRACE_INFO("%s Host library version: %d.%d\n", __func__,
+               ep11_data->ep11_lib_version.major,
+               ep11_data->ep11_lib_version.minor);
+
+    memset(&qv, 0, sizeof(qv));
+    qv.first = TRUE;
+
+    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
+                               version_query_handler, &qv);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+    if (qv.first) {
+        TRACE_ERROR("%s No EP11 adapters are online or configured\n", __func__);
+        return CKR_DEVICE_ERROR;
+    }
+    if (qv.error) {
+        TRACE_ERROR("%s Failed to query version of EP11 adapters\n", __func__);
+        return CKR_DEVICE_ERROR;
+    }
+
+    ep11_data->firmware_API_version = qv.firmware_API_version;
+    ep11_data->firmware_version = qv.firmware_version;
+    ep11_data->card_type = qv.card_type;
+
+    TRACE_INFO("%s Firmware API: %lu\n", __func__,
+               ep11_data->firmware_API_version);
+    TRACE_INFO("%s Firmware Version: %d.%d\n", __func__,
+               ep11_data->firmware_version.major,
+               ep11_data->firmware_version.minor);
+    TRACE_INFO("%s Card type: CEX%luP\n", __func__, ep11_data->card_type);
+
+    return CKR_OK;
+}
+
