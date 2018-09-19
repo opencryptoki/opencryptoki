@@ -6,21 +6,20 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS = -DDEV			\
 					     -DSHALLOW=0 -DSWTOK=0	\
 					     -DLITE=1 -DNODH		\
 					     -DNOCDMF -DNOMD2 -DNODSA	\
-					     -DSTDLL_NAME=\"icatok\"	\
-					     -lrt
+					     -DSTDLL_NAME=\"icatok\"
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     $(ICA_LIB_DIRS)		\
 					     -nostartfiles -shared	\
-					     -Wl,-z,defs,-Bsymbolic		\
+					     -Wl,-z,defs,-Bsymbolic	\
 					     -Wl,-soname,$@		\
-					     -lc		\
-					     -lpthread -lica -ldl \
-					     -lcrypto
+					     -lc			\
+					     -lpthread -lica -ldl	\
+					     -lcrypto -lrt
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
-					      ../common/lock_btree.c		\
+					      ../common/lock_btree.c	\
 					      ../common/cert.c		\
 					      ../common/hwf_obj.c	\
 					      ../common/dp_obj.c	\
@@ -60,11 +59,11 @@ else
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     $(ICA_LIB_DIRS)		\
 					     -nostartfiles -shared	\
-					     -Wl,-z,defs,-Bsymbolic		\
+					     -Wl,-z,defs,-Bsymbolic	\
 					     -Wl,-soname,$@		\
-					     -lc		\
+					     -lc			\
 					     -lpthread -litm -lica -ldl \
-					     -lcrypto
+					     -lcrypto -lrt
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\
