@@ -24,6 +24,7 @@
 #include "pkcs11types.h"
 #include "common.c"
 #include "regress.h"
+#include "mech_to_str.h"
 
 #include "rsa.h"
 
@@ -70,8 +71,9 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -319,8 +321,9 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -567,8 +570,9 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -740,8 +744,9 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
