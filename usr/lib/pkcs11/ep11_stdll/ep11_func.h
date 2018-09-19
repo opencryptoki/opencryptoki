@@ -331,6 +331,99 @@ typedef long (*xcpa_queryblock_t) (unsigned char *blk, size_t blen,
 typedef long (*xcpa_internal_rv_t) (const unsigned char *rsp, size_t rlen,
                                     struct XCPadmresp * rspblk, CK_RV * rv);
 
+typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
+                                unsigned int query, unsigned int subquery,
+                                uint64_t target);
+
+#ifndef CK_IBM_XCP_HOSTQ_IDX
+
+typedef enum {
+    CK_IBM_XCPQ_API         =  0,  /* API and build identifier     */
+    CK_IBM_XCPQ_MODULE      =  1,  /* module-level information     */
+    CK_IBM_XCPQ_DOMAINS     =  2,  /* list active domains & WK IDs */
+    CK_IBM_XCPQ_DOMAIN      =  3,
+    CK_IBM_XCPQ_SELFTEST    =  4,  /* integrity & algorithm tests  */
+    CK_IBM_XCPQ_EXT_CAPS    =  5,  /* extended capabilities, count */
+    CK_IBM_XCPQ_EXT_CAPLIST =  6,  /* extended capabilities, list  */
+    CK_IBM_XCPQ_AUDITLOG    =  8,  /* audit record or records      */
+    CK_IBM_XCPQ_DESCRTEXT   =  9,  /* human-readable text/tokens   */
+    CK_IBM_XCPQ_EC_CURVES   = 10,  /* supported elliptic curves    */
+    CK_IBM_XCPQ_COMPAT      = 11,  /* domains' compatibility modes */
+    CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_COMPAT
+} CK_IBM_XCPQUERY_t;
+
+#define CK_IBM_XCP_HOSTQ_IDX  0xff000000  /* host-only queries index, min. */
+typedef enum {
+    CK_IBM_XCPHQ_COUNT    = 0xff000000, /* number of host-query indexes   */
+                                        /* including this type itself     */
+    CK_IBM_XCPHQ_VERSION  = 0xff000001, /* host-specific package version  */
+                                        /* such as packaging library ID   */
+    CK_IBM_XCPHQ_VERSION_HASH = 0xff000002,
+                                        /* assumed-unique identifier of   */
+                                        /* host code, such as version-    */
+                                        /* identifying cryptographic hash */
+                                        /* (library signature field...)   */
+    CK_IBM_XCPHQ_DIAGS    = 0xff000003, /* host code diagnostic level     */
+                                        /* 0 if non-diagnostics host code */
+    CK_IBM_XCPHQ_HVERSION = 0xff000004, /* human-readable host version    */
+                                        /* identification (recommended:   */
+                                        /* UTF-8 string)                  */
+    CK_IBM_XCPHQ_TGT_MODE = 0xff000005, /* host targeting modes           */
+                                        /* returns supported target modes */
+                                        /* as bitmask                     */
+                                        /* if not available only compat   */
+                                        /* target mode is in use          */
+                                        /* See CK_IBM_XCPHQ_TGT_MODES_t   */
+                                        /**/
+    CK__IBM_XCPHQ_MAX = CK_IBM_XCPHQ_TGT_MODE
+} CK_IBM_XCPHQUERY_t;
+
+typedef struct CK_IBM_XCPAPI_INFO {
+    CK_ULONG firmwareApi;
+    CK_ULONG firmwareConfig;          /* truncated firmware hash */
+} CK_IBM_XCPAPI_INFO;
+
+typedef CK_IBM_XCPAPI_INFO    CK_PTR   CK_IBM_XCPAPI_INFO_PTR;
+
+typedef struct CK_IBM_XCP_INFO {
+    CK_ULONG   firmwareApi;         /* API ordinal number */
+                                    /* major+minor pairs  */
+    CK_ULONG   firmwareId;          /* truncated firmwareConfig */
+
+    CK_VERSION firmwareVersion;     /* xcp only, matches xcpConfig below */
+    CK_VERSION cspVersion;
+
+                                    /* hashes, possibly truncated */
+    CK_BYTE    firmwareConfig[ 32 ];
+    CK_BYTE    xcpConfig     [ 32 ];
+    CK_BYTE    cspConfig     [ 32 ];
+
+    CK_CHAR    serialNumber[ 16 ];    /* device || instance */
+    CK_CHAR    utcTime     [ 16 ];
+
+    CK_ULONG   opMode2;               /* currently, reserved 0        */
+    CK_ULONG   opMode1;               /* operational mode, card-level */
+
+    CK_FLAGS   flags;               /*     PKCS#11 capabilities */
+    CK_FLAGS   extflags;            /* non-PKCS#11 capabilities */
+
+    CK_ULONG   domains;
+    CK_ULONG   symmStateBytes;
+    CK_ULONG digestStateBytes;
+    CK_ULONG    pinBlockBytes;
+    CK_ULONG     symmKeyBytes;
+    CK_ULONG        spkiBytes;
+    CK_ULONG      prvkeyBytes;
+
+    CK_ULONG  maxPayloadBytes;
+    CK_ULONG   cpProfileBytes;
+    CK_ULONG    controlPoints;
+} CK_IBM_XCP_INFO;
+
+typedef CK_IBM_XCP_INFO    CK_PTR   CK_IBM_XCP_INFO_PTR;
+
+#endif
+
 #ifndef XCP_PINBLOB_BYTES
 #define  XCP_HMAC_BYTES ((size_t) (256 /8))     /* SHA-256 */
 #define  XCP_WK_BYTES   ((size_t) (256 /8))     /* keypart and session sizes  */
