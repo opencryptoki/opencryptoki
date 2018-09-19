@@ -24,6 +24,7 @@
 #include "pkcs11types.h"
 #include "common.c"
 #include "regress.h"
+#include "mech_to_str.h"
 
 #include "rsa.h"
 
@@ -74,8 +75,9 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -311,8 +313,9 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -320,8 +323,9 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
         if (!mech_supported_flags(slot_id, tsuite->mech.mechanism,
                                   CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER)) {
             testsuite_skip(tsuite->tvcount,
-                           "Slot %u doesn't support Sign/VerifyRecover with %u",
+                           "Slot %u doesn't support Sign/VerifyRecover with %s (%u)",
                            (unsigned int) slot_id,
+                           mech_to_str(tsuite->mech.mechanism),
                            (unsigned int) tsuite->mech.mechanism);
             goto testcase_cleanup;
         }
@@ -568,8 +572,9 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -766,8 +771,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
     // skip all tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     } else if (!wrap_supported(slot_id, tsuite->mech)) {
@@ -781,8 +787,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
         // skip if the slot doesn't support the keygen mechanism
         if (!mech_supported(slot_id, tsuite->tv[i].keytype.mechanism)) {
-            testcase_skip("Slot %u doesn't support %u",
+            testcase_skip("Slot %u doesn't support %s (%u)",
                           (unsigned int) slot_id,
+                          mech_to_str(tsuite->tv[i].keytype.mechanism),
                           (unsigned int) tsuite->tv[i].keytype.mechanism);
             continue;
         }
@@ -1065,8 +1072,9 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
@@ -1245,8 +1253,9 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "Slot %u doesn't support %u",
+                       "Slot %u doesn't support %s (%u)",
                        (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
