@@ -90,7 +90,10 @@ struct shm_context {
  */
 static inline struct shm_context *get_shm_context(void *addr)
 {
-    struct shm_context *ctx = addr - offsetof(struct shm_context, data);
+    struct shm_context *ctx;
+
+    ctx = (struct shm_context *)((unsigned char *)addr
+                                 - offsetof(struct shm_context, data));
     return ctx;
 }
 

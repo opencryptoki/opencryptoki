@@ -319,7 +319,8 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
              * doesn't get overrun
              */
             if (buf_size >= 0 &&
-                (((void *) a1_64 + len) > ((void *) buf + buf_size))) {
+                (((unsigned char *) a1_64 + len)
+                 > ((unsigned char *) buf + buf_size))) {
                 free(a2);
                 template_free(tmpl);
                 return CKR_FUNCTION_FAILED;
