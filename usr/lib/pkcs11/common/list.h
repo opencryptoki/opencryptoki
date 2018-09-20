@@ -74,7 +74,7 @@ struct _list_entry {
  * Assignment initialization macro.
  */
 #define LIST_INIT() \
- { NULL, NULL };
+ { NULL, NULL }
 
 /*
  * Initialize a list.

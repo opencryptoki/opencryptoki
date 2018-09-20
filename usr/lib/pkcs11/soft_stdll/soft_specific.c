@@ -2219,7 +2219,6 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                          CK_BYTE *in_data, CK_ULONG in_data_len,
                          CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-    int rc;
     unsigned int hlen;
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
@@ -2359,7 +2358,6 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-    int rc;
     unsigned int hlen;
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
