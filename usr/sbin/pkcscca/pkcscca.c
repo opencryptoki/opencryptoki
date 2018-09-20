@@ -2223,7 +2223,7 @@ int main(int argc, char **argv)
     }
 
     if (m_version) {
-        CSNBDEC = dlsym(lib_csulcca, "CSNBDEC");
+        CSNBDEC = (void (*)())dlsym(lib_csulcca, "CSNBDEC");
         ret = migrate_version(sopin, userpin, (CK_BYTE *)data_store);
     } else if (m_keys) {
         if (!slot_id) {
@@ -2238,9 +2238,9 @@ int main(int argc, char **argv)
             return -1;
         }
 
-        CSNDKTC = dlsym(lib_csulcca, "CSNDKTC");
-        CSNBKTC = dlsym(lib_csulcca, "CSNBKTC");
-        CSNBKTC2 = dlsym(lib_csulcca, "CSNBKTC2");
+        CSNDKTC = (void (*)())dlsym(lib_csulcca, "CSNDKTC");
+        CSNBKTC = (void (*)())dlsym(lib_csulcca, "CSNBKTC");
+        CSNBKTC2 = (void (*)())dlsym(lib_csulcca, "CSNBKTC2");
         ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
     }
 
