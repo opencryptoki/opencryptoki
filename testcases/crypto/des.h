@@ -57,7 +57,7 @@ static struct des_test_vector des_ecb_tv[] = {
     {                           // 1
         .key = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
         .klen = 8,
-        .iv = {},
+        .iv = {0},
         .ivlen = 0,
         .plaintext = {0x4e, 0x6f, 0x77, 0x20, 0x69, 0x73, 0x20, 0x74},
         .plen = 8,
@@ -66,7 +66,7 @@ static struct des_test_vector des_ecb_tv[] = {
     }, {              // 2
         .key = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
         .klen = 8,
-        .iv = {},
+        .iv = {0},
         .ivlen = 0,
         .plaintext = {0x68, 0x65, 0x20, 0x74, 0x69, 0x6d, 0x65, 0x20},
         .plen = 8,
@@ -77,7 +77,7 @@ static struct des_test_vector des_ecb_tv[] = {
     }, {          // 3
         .key = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef},
         .klen = 8,
-        .iv = {},
+        .iv = {0},
         .ivlen = 0,
         .plaintext = {0x66, 0x6f, 0x72, 0x20, 0x61, 0x6c, 0x6c, 0x20},
         .plen = 8,
