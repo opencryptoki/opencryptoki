@@ -856,8 +856,8 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
 
         /* make pValue into CK_ULONG so we can compare */
         tmpexp = 0;
-        memcpy((void *) &tmpexp + sizeof(CK_ULONG) - tmpsize,   // right align
-               ptr, tmpsize);
+        memcpy((unsigned char *) &tmpexp + sizeof(CK_ULONG) - tmpsize,
+               ptr, tmpsize);	/* right align */
 
         /* Check for one of the three allowed values */
         if ((tmpexp != 0) && (tmpexp != 3) && (tmpexp != 65537))

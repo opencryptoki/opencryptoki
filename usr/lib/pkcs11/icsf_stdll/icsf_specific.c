@@ -480,7 +480,8 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     }
 
     *shm = ptr;
-    slot_data[slot_id] = ptr + sizeof(**shm);
+    slot_data[slot_id] = (struct slot_data *)((unsigned char *)ptr
+                                              + sizeof(**shm));
 
 done:
     XProcUnLock(tokdata);
