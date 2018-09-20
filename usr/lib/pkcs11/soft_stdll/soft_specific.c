@@ -2117,7 +2117,6 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                               CK_MECHANISM *mech)
 {
     int rc;
-    int (*dgst) (void *);
     CK_ULONG len;
 
     UNUSED(tokdata);
@@ -2125,25 +2124,20 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     switch (mech->mechanism) {
     case CKM_SHA_1:
         len = sizeof(SHA_CTX);
-        dgst = (void *) &SHA1_Init;
         break;
     case CKM_SHA224:
         len = sizeof(SHA256_CTX);
-        dgst = (void*) &SHA224_Init;
         break;
     case CKM_SHA256:
         len = sizeof(SHA256_CTX);
-        dgst = (void *) &SHA256_Init;
         break;
     case CKM_SHA384:
         len = sizeof(SHA512_CTX);
-        dgst = (void *) &SHA384_Init;
         break;
     case CKM_SHA512:
     case CKM_SHA512_224:
     case CKM_SHA512_256:
         len = sizeof(SHA512_CTX);
-        dgst = (void *) &SHA512_Init;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -2155,7 +2149,28 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
-    rc = dgst(ctx->context);
+
+    switch (mech->mechanism) {
+    case CKM_SHA_1:
+        rc = SHA1_Init((SHA_CTX *)ctx->context);
+        break;
+    case CKM_SHA224:
+        rc = SHA224_Init((SHA256_CTX *)ctx->context);
+        break;
+    case CKM_SHA256:
+        rc = SHA256_Init((SHA256_CTX *)ctx->context);
+        break;
+    case CKM_SHA384:
+        rc = SHA384_Init((SHA512_CTX *)ctx->context);
+        break;
+    case CKM_SHA512:
+    case CKM_SHA512_224:
+    case CKM_SHA512_256:
+        rc = SHA512_Init((SHA512_CTX *)ctx->context);
+        break;
+    default:	/* cannot happen */
+        rc = CKR_MECHANISM_INVALID;
+    }
 
     if (!rc) {
         free(ctx->context);
@@ -2206,8 +2221,6 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     int rc;
     unsigned int hlen;
-    int (*dgstup) (void *, void *, CK_ULONG);
-    int (*dgstfin) (void *, void *);
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
 
@@ -2222,40 +2235,24 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     switch (ctx->mech.mechanism) {
     case CKM_SHA_1:
         hlen = SHA1_HASH_SIZE;
-        dgstup = (void *) &SHA1_Update;
-        dgstfin = (void *) &SHA1_Final;
         break;
     case CKM_SHA224:
         hlen = SHA224_HASH_SIZE;
-        dgstup = (void*) &SHA224_Update;
-        dgstfin = (void*) &SHA224_Final;
         break;
     case CKM_SHA256:
         hlen = SHA256_HASH_SIZE;
-        dgstup = (void *) &SHA256_Update;
-        dgstfin = (void *) &SHA256_Final;
         break;
     case CKM_SHA384:
         hlen = SHA384_HASH_SIZE;
-        dgstup = (void *) &SHA384_Update;
-        dgstfin = (void *) &SHA384_Final;
         break;
     case CKM_SHA512:
         hlen = SHA512_HASH_SIZE;
-        dgstup = (void *) &SHA512_Update;
-        dgstfin = (void *) &SHA512_Final;
         break;
     case CKM_SHA512_224:
         hlen = SHA224_HASH_SIZE;
-        dgstup = (void *) &SHA512_Update;
-        dgstfin = (void *) &SHA512_Final;
-        out_data = temp_out_data;
         break;
     case CKM_SHA512_256:
         hlen = SHA256_HASH_SIZE;
-        dgstup = (void *) &SHA512_Update;
-        dgstfin = (void *) &SHA512_Final;
-        out_data = temp_out_data;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -2264,24 +2261,46 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (*out_data_len < hlen)
         return CKR_BUFFER_TOO_SMALL;
 
-    rc = dgstup(ctx->context, in_data, in_data_len);
-    if (!rc)
-        goto error;
-
-    rc = dgstfin(out_data, ctx->context);
-    if (!rc)
-        goto error;
-
     switch (ctx->mech.mechanism) {
+    case CKM_SHA_1:
+	if (!SHA1_Update((SHA_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA1_Final(out_data, (SHA_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA224:
+	if (!SHA224_Update((SHA256_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA224_Final(out_data, (SHA256_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA256:
+	if (!SHA256_Update((SHA256_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA256_Final(out_data, (SHA256_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA384:
+	if (!SHA384_Update((SHA512_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA384_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA512:
+	if (!SHA512_Update((SHA512_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA512_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+        break;
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+        out_data = temp_out_data;
+
+	if (!SHA512_Update((SHA512_CTX *)ctx->context, in_data, in_data_len)
+            || !SHA512_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+
         memcpy(orig_out_data, temp_out_data, hlen);
         OPENSSL_cleanse(temp_out_data, sizeof(temp_out_data));
         break;
     }
 
     *out_data_len = hlen;
-
     return CKR_OK;
 
 error:
@@ -2342,7 +2361,6 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     int rc;
     unsigned int hlen;
-    int (*dgstfin) (void *, void *);
     CK_BYTE temp_out_data[MAX_SHA_HASH_SIZE];
     CK_BYTE *orig_out_data = out_data;
 
@@ -2357,33 +2375,24 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     switch (ctx->mech.mechanism) {
     case CKM_SHA_1:
         hlen = SHA1_HASH_SIZE;
-        dgstfin = (void *) &SHA1_Final;
         break;
     case CKM_SHA224:
         hlen = SHA224_HASH_SIZE;
-        dgstfin = (void*) &SHA224_Final;
         break;
     case CKM_SHA256:
         hlen = SHA256_HASH_SIZE;
-        dgstfin = (void *) &SHA256_Final;
         break;
     case CKM_SHA384:
         hlen = SHA384_HASH_SIZE;
-        dgstfin = (void *) &SHA384_Final;
         break;
     case CKM_SHA512:
         hlen = SHA512_HASH_SIZE;
-        dgstfin = (void *) &SHA512_Final;
         break;
     case CKM_SHA512_224:
         hlen = SHA224_HASH_SIZE;
-        dgstfin = (void *) &SHA512_Final;
-        out_data = temp_out_data;
         break;
     case CKM_SHA512_256:
         hlen = SHA256_HASH_SIZE;
-        dgstfin = (void *) &SHA512_Final;
-        out_data = temp_out_data;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -2392,25 +2401,47 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (*out_data_len < hlen)
         return CKR_BUFFER_TOO_SMALL;
 
-    rc = dgstfin(out_data, ctx->context);
-    if (!rc) {
-        free(ctx->context);
-        ctx->context = NULL;
-        ctx->context_len = 0;
-        return CKR_FUNCTION_FAILED;
-    }
-
     switch (ctx->mech.mechanism) {
+    case CKM_SHA_1:
+	if (!SHA1_Final(out_data, (SHA_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA224:
+	if (!SHA224_Final(out_data, (SHA256_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA256:
+	if (!SHA256_Final(out_data, (SHA256_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA384:
+	if (!SHA384_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+        break;
+    case CKM_SHA512:
+	if (!SHA512_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+        break;
     case CKM_SHA512_224:
     case CKM_SHA512_256:
+        out_data = temp_out_data;
+
+	if (!SHA512_Final(out_data, (SHA512_CTX *)ctx->context))
+            goto error;
+
         memcpy(orig_out_data, temp_out_data, hlen);
         OPENSSL_cleanse(temp_out_data, sizeof(temp_out_data));
         break;
     }
 
     *out_data_len = hlen;
-
     return CKR_OK;
+
+error:
+    free(ctx->context);
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    return CKR_FUNCTION_FAILED;
 }
 
 static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,

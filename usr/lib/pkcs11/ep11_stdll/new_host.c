@@ -3605,7 +3605,7 @@ CK_RV SC_CancelFunction(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
 
 void SC_SetFunctionList(void)
 {
-    function_list.ST_Initialize = (void *) ST_Initialize;
+    function_list.ST_Initialize = ST_Initialize;
     function_list.ST_GetTokenInfo = SC_GetTokenInfo;
     function_list.ST_GetMechanismList = SC_GetMechanismList;
     function_list.ST_GetMechanismInfo = SC_GetMechanismInfo;

@@ -49,7 +49,7 @@ typedef int int_32;
   returnType (* name)
 
 #ifndef NULL_PTR
-#define NULL_PTR ((void *) NULL)
+#define NULL_PTR NULL
 #endif                          /* NULL_PTR */
 
 /* an unsigned 8-bit value */

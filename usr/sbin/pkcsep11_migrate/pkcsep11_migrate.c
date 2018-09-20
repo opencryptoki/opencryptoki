@@ -37,16 +37,25 @@ CK_LONG adapter = -1;
 CK_LONG domain = -1;
 CK_OBJECT_HANDLE key_store[4096];
 
-int (*_m_get_ep11_info) (CK_VOID_PTR pinfo, CK_ULONG_PTR, unsigned int,
-                         unsigned int, uint64_t);
-long (*_ep11a_cmdblock) (unsigned char *, size_t, unsigned int,
-                         const struct ep11_admresp *, const unsigned char *,
-                         const unsigned char *, size_t);
-unsigned long int (*_m_admin) (unsigned char *, size_t *, unsigned char *,
-                               size_t *, const unsigned char *, size_t,
-                               const unsigned char *, size_t, uint64_t);
-long (*_ep11a_internal_rv) (const unsigned char *, size_t,
-                            struct ep11_admresp *, CK_RV *);
+typedef int (*m_get_ep11_info_t) (CK_VOID_PTR, CK_ULONG_PTR,
+                                  unsigned int, unsigned int, uint64_t);
+typedef unsigned long int (*m_admin_t) (unsigned char *, size_t *,
+                                        unsigned char *,
+                                        size_t *, const unsigned char *,
+                                        size_t, const unsigned char *,
+                                        size_t, uint64_t);
+typedef long (*ep11a_cmdblock_t) (unsigned char *, size_t, unsigned int,
+                                  const struct ep11_admresp *,
+                                  const unsigned char *,
+                                  const unsigned char *, size_t);
+typedef long (*ep11a_internal_rv_t) (const unsigned char *, size_t,
+                                     struct ep11_admresp *, CK_RV *);
+
+m_get_ep11_info_t _m_get_ep11_info;
+m_admin_t _m_admin;
+ep11a_cmdblock_t _ep11a_cmdblock;
+ep11a_internal_rv_t _ep11a_internal_rv;
+
 
 typedef struct {
     short format;
@@ -405,10 +414,11 @@ int main(int argc, char **argv)
         return CKR_FUNCTION_FAILED;
     }
 
-    _m_get_ep11_info = dlsym(lib_ep11, "m_get_ep11_info");
-    _ep11a_cmdblock = dlsym(lib_ep11, "ep11a_cmdblock");
-    _m_admin = dlsym(lib_ep11, "m_admin");
-    _ep11a_internal_rv = dlsym(lib_ep11, "ep11a_internal_rv");
+    _m_get_ep11_info = (m_get_ep11_info_t)dlsym(lib_ep11, "m_get_ep11_info");
+    _ep11a_cmdblock = (ep11a_cmdblock_t)dlsym(lib_ep11, "ep11a_cmdblock");
+    _m_admin = (m_admin_t)dlsym(lib_ep11, "m_admin");
+    _ep11a_internal_rv = (ep11a_internal_rv_t)dlsym(lib_ep11,
+                                                    "ep11a_internal_rv");
 
     if (!_m_get_ep11_info || !_ep11a_cmdblock ||
         !_m_admin || !_ep11a_internal_rv) {
