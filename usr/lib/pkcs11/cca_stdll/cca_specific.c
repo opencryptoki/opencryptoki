@@ -1281,7 +1281,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     long opt_data_len = 0, key_params_len = 0, exit_data_len = 0, IV_len = 0,
          chain_vector_len = 0;
-    unsigned char exit_data[0];
+    unsigned char exit_data[1];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
@@ -1381,7 +1381,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     long opt_data_len = 0, key_params_len = 0, exit_data_len = 0, IV_len = 16,
          chain_vector_len = 32;
     CK_BYTE *local_out = out_data;
-    unsigned char exit_data[0];
+    unsigned char exit_data[1];
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
 
