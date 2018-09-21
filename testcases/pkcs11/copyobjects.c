@@ -35,6 +35,7 @@ CK_RV do_CopyObjects(void)
     CK_RV rc = 0;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
+    CK_ATTRIBUTE empty_tmpl;
 
     CK_OBJECT_HANDLE keyobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE firstobj = CK_INVALID_HANDLE;
@@ -82,7 +83,7 @@ CK_RV do_CopyObjects(void)
         {CKA_SENSITIVE, &sensitive, sizeof(sensitive)}
     };
 
-    CK_ATTRIBUTE empty_tmpl[] = {{0}};
+    memset(&empty_tmpl, 0, sizeof(empty_tmpl));
 
     CK_ATTRIBUTE *null_tmpl = NULL;
 
@@ -149,7 +150,7 @@ CK_RV do_CopyObjects(void)
     // passing an empty template.
     testcase_new_assertion();
 
-    rc = funcs->C_CopyObject(session, keyobj, empty_tmpl, 0, &secondobj);
+    rc = funcs->C_CopyObject(session, keyobj, &empty_tmpl, 0, &secondobj);
     if (rc != CKR_OK) {
         testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
