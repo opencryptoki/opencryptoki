@@ -23,13 +23,13 @@
 #define MAX_CHUNKS 8
 
 struct des3_test_vector {
-    char key[MAX_KEY_SIZE];
+    unsigned char key[MAX_KEY_SIZE];
     unsigned char klen;
-    char iv[MAX_IV_SIZE];
+    unsigned char iv[MAX_IV_SIZE];
     unsigned char ivlen;
-    char plaintext[MAX_TEXT_SIZE];
+    unsigned char plaintext[MAX_TEXT_SIZE];
     unsigned char plen;
-    char ciphertext[MAX_TEXT_SIZE];
+    unsigned char ciphertext[MAX_TEXT_SIZE];
     unsigned char clen;
     int chunks[MAX_CHUNKS];
     int num_chunks;
@@ -54,7 +54,7 @@ struct CK_MECHANISM des3_keygen = {
     .pParameter = NULL,
 };
 
-char des3_cbc_iv[] = { 0x67, 0x9f, 0xdb, 0xee, 0x16, 0x6c, 0x2e, 0x0a };
+unsigned char des3_cbc_iv[] = {0x67, 0x9f, 0xdb, 0xee, 0x16, 0x6c, 0x2e, 0x0a};
 
 /** http://csrc.nist.gov/groups/STM/cavp/documents/des/tdesmmt.zip
     TECBMMT1.rsp

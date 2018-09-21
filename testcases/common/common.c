@@ -108,7 +108,8 @@ int unwrap_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
 
 /** Create an AES key handle with given value **/
 int create_AESKey(CK_SESSION_HANDLE session,
-                  char key[], unsigned char key_len, CK_OBJECT_HANDLE * h_key)
+                  unsigned char key[], unsigned char key_len,
+                  CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_BBOOL true = TRUE;
@@ -148,7 +149,8 @@ int generate_AESKey(CK_SESSION_HANDLE session,
 
 /** Create a DES key handle with given value **/
 int create_DESKey(CK_SESSION_HANDLE session,
-                  char key[], unsigned char klen, CK_OBJECT_HANDLE * h_key)
+                  unsigned char key[], unsigned char klen,
+                  CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -177,7 +179,8 @@ int create_DESKey(CK_SESSION_HANDLE session,
 
 /** Create DES3 key handle with given value **/
 int create_DES3Key(CK_SESSION_HANDLE session,
-                   char key[], unsigned char klen, CK_OBJECT_HANDLE * h_key)
+                   unsigned char key[], unsigned char klen,
+                   CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;

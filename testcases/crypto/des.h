@@ -16,7 +16,7 @@
 #define DES_BLOCK_SIZE 8
 #define MAX_CHUNKS 8
 
-char des_cbc_iv[] = { 0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef };
+unsigned char des_cbc_iv[] = {0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef};
 
 struct CK_MECHANISM des_keygen = {
     .mechanism = CKM_DES_KEY_GEN,
@@ -25,13 +25,13 @@ struct CK_MECHANISM des_keygen = {
 };
 
 struct des_test_vector {
-    char key[DES_KEY_SIZE];
+    unsigned char key[DES_KEY_SIZE];
     unsigned char klen;
-    char iv[DES_IV_SIZE];
+    unsigned char iv[DES_IV_SIZE];
     unsigned char ivlen;
-    char plaintext[MAX_TEXT_SIZE];
+    unsigned char plaintext[MAX_TEXT_SIZE];
     unsigned char plen;
-    char ciphertext[MAX_TEXT_SIZE];
+    unsigned char ciphertext[MAX_TEXT_SIZE];
     unsigned char clen;
     int chunks[MAX_CHUNKS];
     int num_chunks;

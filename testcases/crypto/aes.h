@@ -38,15 +38,15 @@
 
 
 struct aes_test_vector {
-    char key[MAX_KEY_SIZE];
+    unsigned char key[MAX_KEY_SIZE];
     unsigned char klen;
-    char plaintext[MAX_TEXT_SIZE];
+    unsigned char plaintext[MAX_TEXT_SIZE];
     unsigned char plen;
-    char ciphertext[MAX_TEXT_SIZE];
+    unsigned char ciphertext[MAX_TEXT_SIZE];
     unsigned char clen;
-    char iv[MAX_IV_SIZE];       // aes cbc mode
+    unsigned char iv[MAX_IV_SIZE];       // aes cbc mode
     unsigned char ivlen;        // aes cbc mode
-    char counter[MAX_COUNTER_SIZE];     // aes ctr mode
+    unsigned char counter[MAX_COUNTER_SIZE];     // aes ctr mode
     unsigned char counterlen;   // aes ctr mode
     unsigned int counterbits;   // aes ctr mode
     unsigned char aad[MAX_AAD_SIZE];    // aes gcm mode
