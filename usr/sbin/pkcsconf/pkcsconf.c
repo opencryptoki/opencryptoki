@@ -1056,7 +1056,7 @@ CK_RV init(void)
     }
 
     /* Get the list of the PKCS11 functions this token support */
-    symPtr = (void (*)()) dlsym(dllPtr, "C_GetFunctionList");
+    *(void **)(&symPtr) = dlsym(dllPtr, "C_GetFunctionList");
     if (!symPtr) {
         printf("Error getting function list, symbol not found, error: %s\n",
                strerror(errno));

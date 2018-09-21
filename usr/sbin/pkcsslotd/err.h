@@ -69,7 +69,7 @@
 
 typedef struct _ConstInfo {
     unsigned const int Code;
-    unsigned const char Name[128];
+    const char *Name;
     /* UCHAR      Descrip[256]; */
 } ConstInfo, *pConstInfo;
 

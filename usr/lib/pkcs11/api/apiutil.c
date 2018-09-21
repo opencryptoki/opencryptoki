@@ -592,7 +592,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
         return FALSE;
     }
 
-    pSTinit = (int (*)()) dlsym(sltp->dlop_p, "ST_Initialize");
+    *(void **)(&pSTinit) = dlsym(sltp->dlop_p, "ST_Initialize");
     if (!pSTinit) {
         // Unload the DLL
         DL_Unload(sltp);
@@ -610,11 +610,11 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     } else {
         sltp->DLLoaded = TRUE;
         // Check if a SC_Finalize function has been exported
-        pSTfini = (void (*)()) dlsym(sltp->dlop_p, "SC_Finalize");
+        *(void **)(&pSTfini) = dlsym(sltp->dlop_p, "SC_Finalize");
         sltp->pSTfini = pSTfini;
 
-        sltp->pSTcloseall =
-            (CK_RV(*)())dlsym(sltp->dlop_p, "SC_CloseAllSessions");
+        *(void **)(&sltp->pSTcloseall) =
+            dlsym(sltp->dlop_p, "SC_CloseAllSessions");
         return TRUE;
     }
 

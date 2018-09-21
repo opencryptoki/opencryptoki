@@ -687,7 +687,7 @@ const unsigned char *ConstName(pConstInfo pInfoArray,
 
     for (i = 0; i < InfoArraySize; i++) {
         if (pInfoArray[i].Code == ConstValue) {
-            retval = &(pInfoArray[i].Name[0]);
+            retval = (unsigned char *)&(pInfoArray[i].Name[0]);
             break;
         }
         /* end if */

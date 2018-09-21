@@ -310,7 +310,7 @@ int get_srk_info(struct srk_info *srk)
 
         /* convert hexadecimal string into a byte array... */
         for (i = 0; i < h_len; i++) {
-            sscanf(passwd_ptr, "%2hhx", &secret_h[i]);
+            sscanf(passwd_ptr, "%2hhx", (unsigned char *)&secret_h[i]);
             passwd_ptr += 2;
         }
 

@@ -1361,7 +1361,7 @@ CK_FUNCTION_LIST *p11_init(void)
     }
 
 get_list:
-    pfoo = (CK_RV(*)())dlsym(p11_lib, "C_GetFunctionList");
+    *(void **)(&pfoo) = dlsym(p11_lib, "C_GetFunctionList");
     if (pfoo == NULL) {
         print_error("Couldn't get the address of the C_GetFunctionList "
                     "routine.");
@@ -2224,7 +2224,7 @@ int main(int argc, char **argv)
     }
 
     if (m_version) {
-        CSNBDEC = (void (*)())dlsym(lib_csulcca, "CSNBDEC");
+        *(void **)(&CSNBDEC) = dlsym(lib_csulcca, "CSNBDEC");
         ret = migrate_version(sopin, userpin, (CK_BYTE *)data_store);
     } else if (m_keys) {
         if (!slot_id) {
@@ -2239,9 +2239,9 @@ int main(int argc, char **argv)
             return -1;
         }
 
-        CSNDKTC = (void (*)())dlsym(lib_csulcca, "CSNDKTC");
-        CSNBKTC = (void (*)())dlsym(lib_csulcca, "CSNBKTC");
-        CSNBKTC2 = (void (*)())dlsym(lib_csulcca, "CSNBKTC2");
+        *(void **)(&CSNDKTC) = dlsym(lib_csulcca, "CSNDKTC");
+        *(void **)(&CSNBKTC) = dlsym(lib_csulcca, "CSNBKTC");
+        *(void **)(&CSNBKTC2) = dlsym(lib_csulcca, "CSNBKTC2");
         ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
     }
 

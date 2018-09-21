@@ -2976,7 +2976,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
     ST_SESSION_T *apiSessp;
 
     TRACE_INFO("C_OpenSession  %lu %lx %p %p %p\n", slotID, flags,
-               pApplication, (void *)Notify, (void *)phSession);
+               pApplication, *(void **)(&Notify), *(void **)(&phSession));
 
     if (!(flags & CKF_SERIAL_SESSION)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_PARALLEL_NOT_SUPPORTED));

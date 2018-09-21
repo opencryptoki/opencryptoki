@@ -224,7 +224,7 @@ static int do_GetFunctionList(void)
     if (d == NULL)
         return 0;
 
-    func_list = (CK_RV(*)())dlsym(d, "C_GetFunctionList");
+    *(void **)(&func_list) = dlsym(d, "C_GetFunctionList");
     if (func_list == NULL)
         return 0;
 
@@ -941,7 +941,7 @@ int main(int argc, char **argv)
                 EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
     }
-    dll_m_Logout = (m_Logout_t) dlsym(lib_ep11, "m_Logout");
+    *(void **)(&dll_m_Logout) = dlsym(lib_ep11, "m_Logout");
     if (dll_m_Logout == NULL) {
         fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
                 EP11SHAREDLIB, dlerror());
