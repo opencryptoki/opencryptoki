@@ -309,7 +309,7 @@ int sm_close(void *addr, int destroy)
 
     if (munmap(ctx, sizeof(*ctx) + ctx->data_len)) {
         rc = -errno;
-        SYS_ERROR(errno, "Failed to unmap \"%s\" (%p).\n", name, ctx);
+        SYS_ERROR(errno, "Failed to unmap \"%s\" (%p).\n", name, (void *)ctx);
         return rc;
     }
 

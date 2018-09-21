@@ -1905,7 +1905,8 @@ CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID,
     API_Slot_t *sltp;
     STDLL_FcnList_t *fcn;
 
-    TRACE_INFO("C_GetMechansimInfo %lu  %lx  %p\n", slotID, type, pInfo);
+    TRACE_INFO("C_GetMechansimInfo %lu  %lx  %p\n", slotID, type,
+               (void *)pInfo);
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -1965,7 +1966,7 @@ CK_RV C_GetMechanismList(CK_SLOT_ID slotID,
     }
 
     TRACE_DEVEL("Slot %lu MechList %p Count %lu\n",
-                slotID, pMechanismList, *pulCount);
+                slotID, (void *)pMechanismList, *pulCount);
 
     // Null PMechanism is valid to get a count of mechanisms
 
@@ -2128,7 +2129,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
     STDLL_FcnList_t *fcn;
     ST_SESSION_T rSession;
 
-    TRACE_INFO("C_GetSessionInfo  %lx  %p\n", hSession, pInfo);
+    TRACE_INFO("C_GetSessionInfo  %lx  %p\n", hSession, (void *)pInfo);
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2188,7 +2189,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
     Slot_Info_t_64 *sinfp;
     Slot_Mgr_Socket_t *shData;
 
-    TRACE_INFO("C_GetSlotInfo Slot=%lu  ptr=%p\n", slotID, pInfo);
+    TRACE_INFO("C_GetSlotInfo Slot=%lu  ptr=%p\n", slotID, (void *)pInfo);
 
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -2249,7 +2250,7 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
     Slot_Info_t *sinfp;
     Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 
-    TRACE_INFO("C_GetSlotInfo Slot=%d  ptr=%p\n", slotID, pInfo);
+    TRACE_INFO("C_GetSlotInfo Slot=%d  ptr=%p\n", slotID, (void *)pInfo);
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -2462,7 +2463,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
     }
 
     sltp = &(Anchor->SltList[slotID]);
-    TRACE_DEVEL("Slot p = %p id %lu\n", sltp, slotID);
+    TRACE_DEVEL("Slot p = %p id %lu\n", (void *)sltp, slotID);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
         return CKR_TOKEN_NOT_PRESENT;
@@ -2975,7 +2976,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
     ST_SESSION_T *apiSessp;
 
     TRACE_INFO("C_OpenSession  %lu %lx %p %p %p\n", slotID, flags,
-               pApplication, Notify, phSession);
+               pApplication, (void *)Notify, (void *)phSession);
 
     if (!(flags & CKF_SERIAL_SESSION)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_PARALLEL_NOT_SUPPORTED));

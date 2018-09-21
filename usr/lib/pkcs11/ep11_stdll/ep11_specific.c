@@ -1610,7 +1610,7 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                                     (uint64_t) ep11_data->target_list);
     if (rc != CKR_OK)
         TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
-                    __func__, output, bytes, rc);
+                    __func__, (void *)output, bytes, rc);
     return rc;
 }
 
@@ -3715,7 +3715,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
 
     if (prime_attr == NULL || base_attr == NULL) {
         TRACE_ERROR("%s Incomplete template prime_attr=%p base_attr=%p\n",
-                    __func__, prime_attr, base_attr);
+                    __func__, (void *)prime_attr, (void *)base_attr);
         rc = CKR_TEMPLATE_INCOMPLETE;
         goto dh_generate_keypair_end;
     }
@@ -4570,15 +4570,15 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
                     " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
                     __func__, rc, *phPublicKey, *phPrivateKey,
-                    public_key_obj->name, private_key_obj->name, public_key_obj,
-                    private_key_obj);
+                    public_key_obj->name, private_key_obj->name,
+                    (void *)public_key_obj, (void *)private_key_obj);
         goto error;
     } else {
         TRACE_INFO("%s rc=0x%lx hpubkey=0x%lx hprivkey=0x%lx"
                    " pub_name='%s' priv_name='%s' pub_obj=%p priv_obj=%p\n",
                    __func__, rc, *phPublicKey, *phPrivateKey,
-                   public_key_obj->name, private_key_obj->name, public_key_obj,
-                   private_key_obj);
+                   public_key_obj->name, private_key_obj->name,
+                   (void *)public_key_obj, (void *)private_key_obj);
     }
 
     /* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
@@ -5440,7 +5440,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx wr_key=%p wr_key_len=0x%lx\n",
-                   __func__, rc, wrapped_key, *p_wrapped_key_len);
+                   __func__, rc, (void *)wrapped_key, *p_wrapped_key_len);
     }
 
     if (size_querry)
