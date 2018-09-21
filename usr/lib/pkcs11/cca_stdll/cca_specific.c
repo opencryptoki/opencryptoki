@@ -2229,7 +2229,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     }
 
     TRACE_DEBUG("tail_len: %lu, tail: %p, cvl: %lu, sl: %lu\n",
-                cca_ctx->tail_len, cca_ctx->tail,
+                cca_ctx->tail_len, (void *)cca_ctx->tail,
                 cca_ctx->chain_vector_len, cca_ctx->hash_len);
 
     dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
