@@ -48,9 +48,9 @@
   if (strerror_r(_errno, _sys_error, sizeof(_sys_error))) \
    strcpy(_sys_error, "Unknown error");  \
   syslog(LOG_ERR, "Error: " _msg " %s (errno=%d)", \
-   ##__VA_ARGS__, _sys_error, _errno);  \
+   __VA_ARGS__, _sys_error, _errno);  \
   TRACE_ERROR("Error: " _msg " %s (errno=%d)",  \
-   ##__VA_ARGS__, _sys_error, _errno);  \
+   __VA_ARGS__, _sys_error, _errno);  \
  } while (0)
 
 /*

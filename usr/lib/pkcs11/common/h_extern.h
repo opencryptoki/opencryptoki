@@ -24,6 +24,7 @@
 #define _H_EXTERN_H
 
 #include <stdio.h>
+#include "ock_syslog.h"
 
 extern char *pk_dir;
 // global variables
@@ -2680,10 +2681,6 @@ CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
 extern token_spec_t token_specific;
 
 CK_BBOOL is_secure_key_token();
-
-/* logging */
-#define OCK_SYSLOG(priority, fmt, ...) \
-        syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);
 
 
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call.
