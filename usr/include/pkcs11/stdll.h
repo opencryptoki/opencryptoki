@@ -19,6 +19,8 @@
 #include <local_types.h>
 #include <slotmgr.h>
 
+#include "local_types.h"
+
 #ifndef _STDLL_H
 #define _STDLL_H
 
@@ -28,8 +30,6 @@ typedef struct {
     CK_SESSION_HANDLE sessionh;
 } ST_SESSION_T;
 
-typedef struct _STDLL_TokData_t STDLL_TokData_t;
-typedef struct API_Slot API_Slot_t;
 typedef struct trace_handle_t trace_handle;
 typedef ST_SESSION_T ST_SESSION_HANDLE;
 

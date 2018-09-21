@@ -18,6 +18,8 @@
 #include "pkcs32.h"
 #include <stdint.h>
 
+#include "local_types.h"
+
 typedef struct _ENCR_DECR_CONTEXT {
     CK_OBJECT_HANDLE key;
     CK_MECHANISM mech;
@@ -265,7 +267,7 @@ typedef struct _TOK_OBJ_ENTRY {
     CK_ULONG_32 count_hi;
 } TOK_OBJ_ENTRY;
 
-typedef struct _LW_SHM_TYPE {
+struct _LW_SHM_TYPE {
     TOKEN_DATA nv_token_data;
     CK_ULONG_32 num_priv_tok_obj;
     CK_ULONG_32 num_publ_tok_obj;
@@ -273,9 +275,9 @@ typedef struct _LW_SHM_TYPE {
     CK_BBOOL publ_loaded;
     TOK_OBJ_ENTRY publ_tok_objs[MAX_TOK_OBJS];
     TOK_OBJ_ENTRY priv_tok_objs[MAX_TOK_OBJS];
-} LW_SHM_TYPE;
+};
 
-typedef struct _STDLL_TokData_t {
+struct _STDLL_TokData_t {
     CK_SLOT_INFO slot_info;
     int spinxplfd;              // token specific lock
     char data_store[256];       // path information of the token directory
@@ -288,7 +290,7 @@ typedef struct _STDLL_TokData_t {
     LW_SHM_TYPE *global_shm;
     TOKEN_DATA *nv_token_data;
     void *private_data;
-} STDLL_TokData_t;
+};
 
 // These are the same for both AIX and Linux...
 #define  MY_CreateMutex(x)    _CreateMutex((MUTEX *)(x))
