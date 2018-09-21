@@ -13,19 +13,19 @@ matrix:
         - name: "linux-x86-clang-locks"
           os: linux
           compiler: clang
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-x86-gcc-tm"
           os: linux
           compiler: gcc
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-ppc64le-clang-locks"
           os: linux-ppc64le
           compiler: clang
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-ppc64le-gcc-tm"
           os: linux-ppc64le
           compiler: gcc
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
 
 before_script:
     - sudo groupadd pkcs11
