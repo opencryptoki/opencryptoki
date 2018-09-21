@@ -1658,69 +1658,63 @@ static CK_RV ep11_resolve_lib_sym(void *hdl)
 
     dlerror();                  /* Clear existing error */
 
-    dll_m_GenerateRandom = (m_GenerateRandom_t) dlsym(hdl, "m_GenerateRandom");
-    dll_m_SeedRandom = (m_SeedRandom_t) dlsym(hdl, "m_SeedRandom");
+    *(void **)(&dll_m_GenerateRandom) = dlsym(hdl, "m_GenerateRandom");
+    *(void **)(&dll_m_SeedRandom) = dlsym(hdl, "m_SeedRandom");
 
-    dll_m_Digest = (m_Digest_t) dlsym(hdl, "m_Digest");
-    dll_m_DigestInit = (m_DigestInit_t) dlsym(hdl, "m_DigestInit");
-    dll_m_DigestUpdate = (m_DigestUpdate_t) dlsym(hdl, "m_DigestUpdate");
-    dll_m_DigestFinal = (m_DigestFinal_t) dlsym(hdl, "m_DigestFinal");
-    dll_m_DigestKey = (m_DigestKey_t) dlsym(hdl, "m_DigestKey");
-    dll_m_DigestSingle = (m_DigestSingle_t) dlsym(hdl, "m_DigestSingle");
+    *(void **)(&dll_m_Digest) = dlsym(hdl, "m_Digest");
+    *(void **)(&dll_m_DigestInit) = dlsym(hdl, "m_DigestInit");
+    *(void **)(&dll_m_DigestUpdate) = dlsym(hdl, "m_DigestUpdate");
+    *(void **)(&dll_m_DigestFinal) = dlsym(hdl, "m_DigestFinal");
+    *(void **)(&dll_m_DigestKey) = dlsym(hdl, "m_DigestKey");
+    *(void **)(&dll_m_DigestSingle) = dlsym(hdl, "m_DigestSingle");
 
-    dll_m_Encrypt = (m_Encrypt_t) dlsym(hdl, "m_Encrypt");
-    dll_m_EncryptInit = (m_EncryptInit_t) dlsym(hdl, "m_EncryptInit");
-    dll_m_EncryptUpdate = (m_EncryptUpdate_t) dlsym(hdl, "m_EncryptUpdate");
-    dll_m_EncryptFinal = (m_EncryptFinal_t) dlsym(hdl, "m_EncryptFinal");
-    dll_m_EncryptSingle = (m_EncryptSingle_t) dlsym(hdl, "m_EncryptSingle");
+    *(void **)(&dll_m_Encrypt) = dlsym(hdl, "m_Encrypt");
+    *(void **)(&dll_m_EncryptInit) = dlsym(hdl, "m_EncryptInit");
+    *(void **)(&dll_m_EncryptUpdate) = dlsym(hdl, "m_EncryptUpdate");
+    *(void **)(&dll_m_EncryptFinal) = dlsym(hdl, "m_EncryptFinal");
+    *(void **)(&dll_m_EncryptSingle) = dlsym(hdl, "m_EncryptSingle");
 
-    dll_m_Decrypt = (m_Decrypt_t) dlsym(hdl, "m_Decrypt");
-    dll_m_DecryptInit = (m_DecryptInit_t) dlsym(hdl, "m_DecryptInit");
-    dll_m_DecryptUpdate = (m_DecryptUpdate_t) dlsym(hdl, "m_DecryptUpdate");
-    dll_m_DecryptFinal = (m_DecryptFinal_t) dlsym(hdl, "m_DecryptFinal");
-    dll_m_DecryptSingle = (m_DecryptSingle_t) dlsym(hdl, "m_DecryptSingle");
+    *(void **)(&dll_m_Decrypt) = dlsym(hdl, "m_Decrypt");
+    *(void **)(&dll_m_DecryptInit) = dlsym(hdl, "m_DecryptInit");
+    *(void **)(&dll_m_DecryptUpdate) = dlsym(hdl, "m_DecryptUpdate");
+    *(void **)(&dll_m_DecryptFinal) = dlsym(hdl, "m_DecryptFinal");
+    *(void **)(&dll_m_DecryptSingle) = dlsym(hdl, "m_DecryptSingle");
 
-    dll_m_ReencryptSingle =
-        (m_ReencryptSingle_t) dlsym(hdl, "m_ReencryptSingle");
-    dll_m_GenerateKey = (m_GenerateKey_t) dlsym(hdl, "m_GenerateKey");
-    dll_m_GenerateKeyPair =
-        (m_GenerateKeyPair_t) dlsym(hdl, "m_GenerateKeyPair");
+    *(void **)(&dll_m_ReencryptSingle) = dlsym(hdl, "m_ReencryptSingle");
+    *(void **)(&dll_m_GenerateKey) = dlsym(hdl, "m_GenerateKey");
+    *(void **)(&dll_m_GenerateKeyPair) = dlsym(hdl, "m_GenerateKeyPair");
 
-    dll_m_Sign = (m_Sign_t) dlsym(hdl, "m_Sign");
-    dll_m_SignInit = (m_SignInit_t) dlsym(hdl, "m_SignInit");
-    dll_m_SignUpdate = (m_SignUpdate_t) dlsym(hdl, "m_SignUpdate");
-    dll_m_SignFinal = (m_SignFinal_t) dlsym(hdl, "m_SignFinal");
-    dll_m_SignSingle = (m_SignSingle_t) dlsym(hdl, "m_SignSingle");
+    *(void **)(&dll_m_Sign) = dlsym(hdl, "m_Sign");
+    *(void **)(&dll_m_SignInit) = dlsym(hdl, "m_SignInit");
+    *(void **)(&dll_m_SignUpdate) = dlsym(hdl, "m_SignUpdate");
+    *(void **)(&dll_m_SignFinal) = dlsym(hdl, "m_SignFinal");
+    *(void **)(&dll_m_SignSingle) = dlsym(hdl, "m_SignSingle");
 
-    dll_m_Verify = (m_Verify_t) dlsym(hdl, "m_Verify");
-    dll_m_VerifyInit = (m_VerifyInit_t) dlsym(hdl, "m_VerifyInit");
-    dll_m_VerifyUpdate = (m_VerifyUpdate_t) dlsym(hdl, "m_VerifyUpdate");
-    dll_m_VerifyFinal = (m_VerifyFinal_t) dlsym(hdl, "m_VerifyFinal");
-    dll_m_VerifySingle = (m_VerifySingle_t) dlsym(hdl, "m_VerifySingle");
+    *(void **)(&dll_m_Verify) = dlsym(hdl, "m_Verify");
+    *(void **)(&dll_m_VerifyInit) = dlsym(hdl, "m_VerifyInit");
+    *(void **)(&dll_m_VerifyUpdate) = dlsym(hdl, "m_VerifyUpdate");
+    *(void **)(&dll_m_VerifyFinal) = dlsym(hdl, "m_VerifyFinal");
+    *(void **)(&dll_m_VerifySingle) = dlsym(hdl, "m_VerifySingle");
 
-    dll_m_WrapKey = (m_WrapKey_t) dlsym(hdl, "m_WrapKey");
-    dll_m_UnwrapKey = (m_UnwrapKey_t) dlsym(hdl, "m_UnwrapKey");
-    dll_m_DeriveKey = (m_DeriveKey_t) dlsym(hdl, "m_DeriveKey");
+    *(void **)(&dll_m_WrapKey) = dlsym(hdl, "m_WrapKey");
+    *(void **)(&dll_m_UnwrapKey) = dlsym(hdl, "m_UnwrapKey");
+    *(void **)(&dll_m_DeriveKey) = dlsym(hdl, "m_DeriveKey");
 
-    dll_m_GetMechanismList =
-        (m_GetMechanismList_t) dlsym(hdl, "m_GetMechanismList");
-    dll_m_GetMechanismInfo =
-        (m_GetMechanismInfo_t) dlsym(hdl, "m_GetMechanismInfo");
-    dll_m_GetAttributeValue =
-        (m_GetAttributeValue_t) dlsym(hdl, "m_GetAttributeValue");
-    dll_m_SetAttributeValue =
-        (m_SetAttributeValue_t) dlsym(hdl, "m_SetAttributeValue");
+    *(void **)(&dll_m_GetMechanismList) = dlsym(hdl, "m_GetMechanismList");
+    *(void **)(&dll_m_GetMechanismInfo) = dlsym(hdl, "m_GetMechanismInfo");
+    *(void **)(&dll_m_GetAttributeValue) = dlsym(hdl, "m_GetAttributeValue");
+    *(void **)(&dll_m_SetAttributeValue) = dlsym(hdl, "m_SetAttributeValue");
 
-    dll_m_Login = (m_Login_t) dlsym(hdl, "m_Login");
-    dll_m_Logout = (m_Logout_t) dlsym(hdl, "m_Logout");
-    dll_m_admin = (m_admin_t) dlsym(hdl, "m_admin");
+    *(void **)(&dll_m_Login) = dlsym(hdl, "m_Login");
+    *(void **)(&dll_m_Logout) = dlsym(hdl, "m_Logout");
+    *(void **)(&dll_m_admin) = dlsym(hdl, "m_admin");
 
-    dll_m_init = (m_init_t) dlsym(hdl, "m_init");
-    dll_m_add_backend = (m_add_backend_t) dlsym(hdl, "m_add_backend");
-    dll_m_shutdown = (m_shutdown_t) dlsym(hdl, "m_shutdown");
+    *(void **)(&dll_m_init) = dlsym(hdl, "m_init");
+    *(void **)(&dll_m_add_backend) = dlsym(hdl, "m_add_backend");
+    *(void **)(&dll_m_shutdown) = dlsym(hdl, "m_shutdown");
 
-    dll_xcpa_queryblock = (xcpa_queryblock_t) dlsym(hdl, "xcpa_queryblock");
-    dll_xcpa_internal_rv = (xcpa_internal_rv_t) dlsym(hdl, "xcpa_internal_rv");
+    *(void **)(&dll_xcpa_queryblock) = dlsym(hdl, "xcpa_queryblock");
+    *(void **)(&dll_xcpa_internal_rv) = dlsym(hdl, "xcpa_internal_rv");
 
     if ((error = dlerror()) != NULL) {
         TRACE_ERROR("%s Error: %s\n", __func__, error);
@@ -1759,13 +1753,15 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
         return default_libica ? CKR_OK : CKR_FUNCTION_FAILED;
     }
 
-    libica->ica_sha1 = (ica_sha1_t)dlsym(libica->library, "ica_sha1");
-    libica->ica_sha224 = (ica_sha224_t)dlsym(libica->library, "ica_sha224");
-    libica->ica_sha256 = (ica_sha256_t)dlsym(libica->library, "ica_sha256");
-    libica->ica_sha384 = (ica_sha384_t)dlsym(libica->library, "ica_sha384");
-    libica->ica_sha512 = (ica_sha512_t)dlsym(libica->library, "ica_sha512");
-    libica->ica_sha512_224 = (ica_sha512_224_t)dlsym(libica->library, "ica_sha512_224");
-    libica->ica_sha512_256 = (ica_sha512_256_t)dlsym(libica->library, "ica_sha512_256");
+    *(void **)(&libica->ica_sha1) = dlsym(libica->library, "ica_sha1");
+    *(void **)(&libica->ica_sha224) = dlsym(libica->library, "ica_sha224");
+    *(void **)(&libica->ica_sha256) = dlsym(libica->library, "ica_sha256");
+    *(void **)(&libica->ica_sha384) = dlsym(libica->library, "ica_sha384");
+    *(void **)(&libica->ica_sha512) = dlsym(libica->library, "ica_sha512");
+    *(void **)(&libica->ica_sha512_224) =
+        dlsym(libica->library, "ica_sha512_224");
+    *(void **)(&libica->ica_sha512_256) =
+        dlsym(libica->library, "ica_sha512_256");
     /* No error checking, each of the libica functions is allowed to be NULL */
 
     TRACE_DEVEL("%s: Loaded libica from '%s'\n", __func__,

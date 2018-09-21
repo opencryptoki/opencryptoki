@@ -942,7 +942,7 @@ int do_GetFunctionList(void)
         return FALSE;
     }
 
-    pfoo = (CK_RV(*)())dlsym(d, "C_GetFunctionList");
+    *(void **)(&pfoo) = dlsym(d, "C_GetFunctionList");
     if (pfoo == NULL) {
         return FALSE;
     }

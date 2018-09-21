@@ -62,7 +62,7 @@ const char label[] = "IBM ICA  PKCS #11";
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
 #define LIBICA_SHARED_LIB "libica.so"
-#define BIND(dso, sym)  (p_##sym = (sym##_t)dlsym(dso, #sym))
+#define BIND(dso, sym)  (*(void **)(&p_##sym) = dlsym(dso, #sym))
 
 #ifndef NO_EC
 typedef ICA_EC_KEY *(*ica_ec_key_new_t) (unsigned int nid,

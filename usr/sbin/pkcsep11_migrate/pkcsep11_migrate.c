@@ -310,7 +310,7 @@ static int do_GetFunctionList(void)
         return 0;
     }
 
-    func_list = (CK_RV(*)())dlsym(d, "C_GetFunctionList");
+    *(void **)(&func_list) = dlsym(d, "C_GetFunctionList");
     if (func_list == NULL) {
         return 0;
     }
@@ -414,11 +414,10 @@ int main(int argc, char **argv)
         return CKR_FUNCTION_FAILED;
     }
 
-    _m_get_ep11_info = (m_get_ep11_info_t)dlsym(lib_ep11, "m_get_ep11_info");
-    _ep11a_cmdblock = (ep11a_cmdblock_t)dlsym(lib_ep11, "ep11a_cmdblock");
-    _m_admin = (m_admin_t)dlsym(lib_ep11, "m_admin");
-    _ep11a_internal_rv = (ep11a_internal_rv_t)dlsym(lib_ep11,
-                                                    "ep11a_internal_rv");
+    *(void **)(&_m_get_ep11_info) = dlsym(lib_ep11, "m_get_ep11_info");
+    *(void **)(&_ep11a_cmdblock) = dlsym(lib_ep11, "ep11a_cmdblock");
+    *(void **)(&_m_admin) = dlsym(lib_ep11, "m_admin");
+    *(void **)(&_ep11a_internal_rv) = dlsym(lib_ep11, "ep11a_internal_rv");
 
     if (!_m_get_ep11_info || !_ep11a_cmdblock ||
         !_m_admin || !_ep11a_internal_rv) {

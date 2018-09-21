@@ -11,6 +11,7 @@
 #ifndef OCK_SYSLOG_H
 #define OCK_SYSLOG_H
 
+#include <stdarg.h>
 #include <string.h>
 #include <syslog.h>
 
