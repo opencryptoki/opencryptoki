@@ -43,6 +43,8 @@ struct btree {
 };
 
 typedef struct _STDLL_TokData_t STDLL_TokData_t;
+typedef struct _LW_SHM_TYPE LW_SHM_TYPE;
+typedef struct API_Slot API_Slot_t;
 
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
 void *bt_get_node_value(struct btree *t, unsigned long node_num);

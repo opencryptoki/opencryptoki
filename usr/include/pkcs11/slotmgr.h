@@ -18,8 +18,9 @@
 #include <limits.h>
 #include <local_types.h>
 #include <pthread.h>
-
 #include <sys/mman.h>
+
+#include "local_types.h"
 
 #ifndef _SLOTMGR_H
 #define _SLOTMGR_H
@@ -80,10 +81,6 @@ typedef struct {
     time_t reg_time;            // Time application registered
 } Slot_Mgr_Proc_t;
 
-//
-// Shared Memory Region of Slot information
-//
-typedef struct _LW_SHM_TYPE LW_SHM_TYPE;
 
 // Slot info structure which contains the PKCS11 CK_SLOT_INFO
 // as well as the local information

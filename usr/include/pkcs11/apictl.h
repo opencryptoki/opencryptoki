@@ -14,6 +14,8 @@
 #include <stdll.h>
 #include <slotmgr.h>
 
+#include "local_types.h"
+
 #ifndef _APILOCAL_H
 #define _APILOCAL_H
 
@@ -37,7 +39,6 @@ struct API_Slot {
     void (*pSTfini) ();         // Addition of Final function.
     CK_RV(*pSTcloseall) ();    // Addition of close all for leeds code
 };
-typedef struct API_Slot API_Slot_t;
 
 
 // Per process API structure.
