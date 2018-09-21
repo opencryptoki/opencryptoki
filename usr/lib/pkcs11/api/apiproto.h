@@ -19,6 +19,7 @@
 #define _APIEXT_H
 
 #include "apictl.h"
+#include "ock_syslog.h"
 
 void *attach_shared_memory();
 void detach_shared_memory(char *);
@@ -52,8 +53,5 @@ int sessions_exist(CK_SLOT_ID);
 
 void CloseAllSessions(CK_SLOT_ID slot_id);
 int init_socket_data();
-
-#define OCK_SYSLOG(priority, fmt, ...) \
-        syslog(priority, "%s " fmt, __FILE__, ##__VA_ARGS__);
 
 #endif

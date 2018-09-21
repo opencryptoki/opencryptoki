@@ -69,8 +69,24 @@ char *p11strerror(CK_RV);
 
 #define p11_error(s,rc) fprintf(stderr, "%s:%d %s failed: rc=0x%lX (%s)\n", \
                                 __FILE__, __LINE__, s, rc, p11strerror(rc))
-#define print_error(x, ...) fprintf(stderr, "%s:%d " x "\n", __FILE__, \
-                                    __LINE__, ##__VA_ARGS__)
+
+static inline void _print_error(const char *file, int line,
+                                const char *fmt, ...) {
+    char buf[512];
+    size_t off;
+    va_list ap;
+
+    snprintf(buf, sizeof(buf), "%s:%d ", file, line);
+    off = strlen("%s:%d ");
+
+    va_start(ap, fmt);
+    vsnprintf(buf + off, sizeof(buf) - off, fmt, ap);
+    va_end(ap);
+
+    fprintf(stderr, "%s", buf);
+}
+#define print_error(...) _print_error(__FILE__, __LINE__, __VA_ARGS__)
+
 #define cca_error(f,rc,rsn) fprintf(stderr, "%s:%d " f " failed. return code: "\
                                     "%ld, reason code: %ld\n", __FILE__, \
                                     __LINE__, rc, rsn)

@@ -206,11 +206,13 @@ error:
     return (CKR_FUNCTION_FAILED);
 }
 
-void ock_traceit(trace_level_t level, const char *fmt, ...)
+void ock_traceit(trace_level_t level, const char *file, int line,
+                 const char *stdll_name, const char *fmt, ...)
 {
     va_list ap;
     time_t t;
     struct tm *tm;
+    const char *fmt_pre;
     char buf[1024];
     char *pbuf;
     int buflen, len;
@@ -218,29 +220,55 @@ void ock_traceit(trace_level_t level, const char *fmt, ...)
     if (trace.fd < 0)
         return;
 
-    if (level <= trace.level) {
-        pbuf = buf;
-        buflen = sizeof(buf);
+    if (level > trace.level)
+        return;
 
-        /* add the current time */
-        t = time(0);
-        tm = localtime(&t);
-        len = strftime(pbuf, buflen, "%m/%d/%Y %H:%M:%S ", tm);
-        pbuf += len;
-        buflen -= len;
-        /* add the current time */
+    pbuf = buf;
+    buflen = sizeof(buf);
 
-        /* add the format */
-        va_start(ap, fmt);
-        vsnprintf(pbuf, buflen, fmt, ap);
-        va_end(ap);
+    /* add the current time */
+    t = time(0);
+    tm = localtime(&t);
+    len = strftime(pbuf, buflen, "%m/%d/%Y %H:%M:%S ", tm);
+    pbuf += len;
+    buflen -= len;
 
-        /* serialize appends to the file */
-        pthread_mutex_lock(&tlmtx);
-        if (write(trace.fd, buf, strlen(buf)) == -1)
-            fprintf(stderr, "cannot write to trace file\n");
-        pthread_mutex_unlock(&tlmtx);
+    /* add file line and stdll name */
+    switch (level) {
+    case TRACE_LEVEL_ERROR:
+        fmt_pre = "[%s:%d %s] ERROR: ";
+        break;
+    case TRACE_LEVEL_WARNING:
+        fmt_pre = "[%s:%d %s] WARN: ";
+        break;
+    case TRACE_LEVEL_INFO:
+        fmt_pre = "[%s:%d %s] INFO: ";
+        break;
+    case TRACE_LEVEL_DEVEL:
+        fmt_pre = "[%s:%d %s] DEVEL: ";
+        break;
+    case TRACE_LEVEL_DEBUG:
+        fmt_pre = "[%s:%d %s] DEBUG: ";
+        break;
+    default:	/* cannot happen */
+        fmt_pre = "[%s:%d %s] ERROR: ";
+        break;
     }
+    snprintf(pbuf, buflen, fmt_pre, file, line, stdll_name);
+
+    /* add the format */
+    len = strlen(buf);
+    pbuf = buf + len;
+    buflen = sizeof(buf) - len;
+    va_start(ap, fmt);
+    vsnprintf(pbuf, buflen, fmt, ap);
+    va_end(ap);
+
+    /* serialize appends to the file */
+    pthread_mutex_lock(&tlmtx);
+    if (write(trace.fd, buf, strlen(buf)) == -1)
+        fprintf(stderr, "cannot write to trace file\n");
+    pthread_mutex_unlock(&tlmtx);
 }
 
 const char *ock_err(int num)

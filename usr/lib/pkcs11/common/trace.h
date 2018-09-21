@@ -121,42 +121,29 @@ extern struct trace_handle_t trace;
 void set_trace(struct trace_handle_t t);
 CK_RV trace_initialize();
 void trace_finalize();
-void ock_traceit(trace_level_t level, const char *fmt, ...)
-    __attribute__ ((format(printf, 2, 3)));
+void ock_traceit(trace_level_t level, const char *file, int line,
+                 const char *stdll_name, const char *fmt, ...)
+                 __attribute__ ((format(printf, 5, 6)));
 const char *ock_err(int num);
 
-#define TRACE_ERROR(fmt, ...)   ock_traceit(TRACE_LEVEL_ERROR, \
-        "[%s:%d %s] ERROR: " fmt, \
-        __FILE__, \
-        __LINE__, \
-        STDLL_NAME, \
-        ##__VA_ARGS__)
-#define TRACE_WARNING(fmt, ...) ock_traceit(TRACE_LEVEL_WARNING, \
-        "[%s:%d %s] WARN: " fmt, \
-        __FILE__, \
-        __LINE__, \
-        STDLL_NAME, \
-        ##__VA_ARGS__)
-#define TRACE_INFO(fmt, ...)    ock_traceit(TRACE_LEVEL_INFO, \
-        "[%s:%d %s] INFO: " fmt, \
-        __FILE__, \
-        __LINE__, \
-        STDLL_NAME, \
-        ##__VA_ARGS__)
-#define TRACE_DEVEL(fmt, ...) ock_traceit(TRACE_LEVEL_DEVEL, \
-        "[%s:%d %s] DEVEL: " fmt, \
-        __FILE__, \
-        __LINE__, \
-        STDLL_NAME, \
-        ##__VA_ARGS__)
+
+#define TRACE_ERROR(...)						\
+    ock_traceit(TRACE_LEVEL_ERROR, __FILE__, __LINE__, STDLL_NAME, __VA_ARGS__)
+
+#define TRACE_WARNING(...)						\
+    ock_traceit(TRACE_LEVEL_WARNING, __FILE__, __LINE__, STDLL_NAME,	\
+                __VA_ARGS__)
+
+#define TRACE_INFO(...)							\
+    ock_traceit(TRACE_LEVEL_INFO, __FILE__, __LINE__, STDLL_NAME, __VA_ARGS__)
+
+#define TRACE_DEVEL(...)						\
+    ock_traceit(TRACE_LEVEL_DEVEL, __FILE__, __LINE__, STDLL_NAME, __VA_ARGS__)
 
 #ifdef DEBUG
-#define TRACE_DEBUG(fmt, ...) ock_traceit(TRACE_LEVEL_DEBUG, \
-        "[%s:%d %s] DEBUG: " fmt, \
-        __FILE__, \
-        __LINE__, \
-        STDLL_NAME, \
-        ##__VA_ARGS__)
+#define TRACE_DEBUG(...)						\
+    ock_traceit(TRACE_LEVEL_DEBUG, __FILE__, __LINE__, STDLL_NAME, __VA_ARGS__)
+
 void dump_shm(LW_SHM_TYPE *, const char *);
 #define DUMP_SHM(x,y) dump_shm(x,y)
 #else
