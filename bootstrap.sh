@@ -8,8 +8,5 @@
 # in the file LICENSE file or at https://opensource.org/licenses/cpl1.0.php
 #
 
-#set -x
-aclocal
-libtoolize --force -c
-automake --add-missing -c
-autoconf
+set -x
+autoreconf --force --install --verbose --warnings=all
