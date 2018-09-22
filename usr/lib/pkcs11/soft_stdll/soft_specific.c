@@ -52,7 +52,6 @@
  * we need to check for its version
  */
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-#pragma GCC diagnostic ignored "-Wimplicit-function-declaration"
 #define OLDER_OPENSSL
 #endif
 
