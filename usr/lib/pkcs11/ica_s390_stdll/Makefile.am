@@ -16,7 +16,8 @@ opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     -Wl,-soname,$@		\
 					     -lc			\
 					     -lpthread -lica -ldl	\
-					     -lcrypto -lrt
+					     -lcrypto -lrt		\
+					     -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/lock_btree.c	\
@@ -63,7 +64,9 @@ opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS = $(LCRYPTO)		\
 					     -Wl,-soname,$@		\
 					     -lc			\
 					     -lpthread -litm -lica -ldl \
-					     -lcrypto -lrt
+					     -lcrypto -lrt		\
+					     -Wl,--version-script=../opencryptoki_tok.map
+
 
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c		\

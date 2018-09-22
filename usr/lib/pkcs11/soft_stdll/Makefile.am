@@ -12,7 +12,8 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS = -DDEV -D_THREAD_SAFE            \
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
-					     -lc -lpthread -lcrypto -lrt
+					     -lc -lpthread -lcrypto -lrt	\
+					     -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/lock_btree.c		\
@@ -54,7 +55,8 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     soft_specific.c
 else
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
-					     -lc -lpthread -litm -lcrypto -lrt
+					     -lc -lpthread -litm -lcrypto -lrt	\
+					     -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES = ../common/asn1.c		\
 					     ../common/btree.c		\

@@ -21,12 +21,13 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS = -DNOCDMF			\
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
-					       -Wl,-z,defs,-Bsymbolic		\
+					       -Wl,-z,defs,-Bsymbolic	\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
 					       -lrt			\
-					       -llber
+					       -llber			\
+					       -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       ../common/lock_btree.c	\
@@ -73,13 +74,14 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       icsf.c
 else
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS = -shared			\
-					       -Wl,-z,defs,-Bsymbolic		\
+					       -Wl,-z,defs,-Bsymbolic	\
 					       -lcrypto			\
 					       -lldap			\
 					       -lpthread		\
-						   -litm		\
+					       -litm			\
 					       -lrt			\
-					       -llber
+					       -llber			\
+					       -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = ../common/asn1.c		\
 					       ../common/btree.c	\

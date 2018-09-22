@@ -19,7 +19,8 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS = -DLINUX -DNOCDMF		\
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -ltspi -lpthread	\
-					      -lrt
+					      -lrt			\
+					      -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/lock_btree.c		\
@@ -64,7 +65,8 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 
 else
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
-					      -lcrypto -ltspi -lpthread -litm -lrt
+					      -lcrypto -ltspi -lpthread -litm -lrt \
+					      -Wl,--version-script=../opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES = ../common/asn1.c		\
 					      ../common/btree.c	\
