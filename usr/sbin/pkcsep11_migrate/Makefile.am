@@ -1,11 +1,11 @@
 sbin_PROGRAMS=pkcsep11_migrate
 
-pkcsep11_migrate_SOURCES = ../../lib/pkcs11/common/p11util.c pkcsep11_migrate.c 
-pkcsep11_migrate_CFLAGS  = -I ../../include/pkcs11/ -I../../lib/pkcs11/ep11_stdll/ -DLINUX -DPROGRAM_NAME=\"$(@)\"
-pkcsep11_migrate_LDFLAGS = -lc  -ldl -lpthread
-AM_CPPFLAGS = -I. -I../../lib/pkcs11/common
+pkcsep11_migrate_LDFLAGS = -lc -ldl -lpthread
 
-# Not all versions of automake observe sbinname_CFLAGS
-# AM_CFLAGS = -DLINUX -DPROGRAM_NAME=\"$(@)\"
-#
-# AM_CPPFLAGS = -I. -I../../include/pkcs11
+pkcsep11_migrate_CFLAGS  = -I../../include/pkcs11/ 		\
+			   -I../../lib/pkcs11/ep11_stdll/ -I.	\
+			   -I../../lib/pkcs11/common		\
+			   -DLINUX -DPROGRAM_NAME=\"$(@)\"
+
+pkcsep11_migrate_SOURCES = ../../lib/pkcs11/common/p11util.c	\
+			   pkcsep11_migrate.c 

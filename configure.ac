@@ -1,4 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
+AC_PREREQ([2.69])
 AC_INIT([openCryptoki],[3.10.0],[opencryptoki-tech@lists.sourceforge.net],[],[https://github.com/opencryptoki/opencryptoki])]
 AC_CONFIG_SRCDIR([testcases/common/common.c])
 
@@ -54,9 +55,7 @@ AC_PATH_PROG([GROUPADD], [groupadd], [/usr/sbin/groupadd])
 AC_PATH_PROG([CAT], [cat], [/bin/cat])
 AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
 AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
-AC_PROG_CXX
 AC_PROG_AWK
-AC_PROG_CPP
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
