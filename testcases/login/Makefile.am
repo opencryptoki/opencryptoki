@@ -1,8 +1,8 @@
 noinst_PROGRAMS=login init_tok set_pin init_pin digest_init login_flags_test
 
-AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -I../common -I../../usr/lib/pkcs11/common -Wall
-
 AM_LDFLAGS =-L../common -lc  -ldl -lpthread -lcommon
+
+AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -I../common -I../../usr/lib/pkcs11/common -Wall
 
 login_SOURCES = ../../usr/lib/pkcs11/common/p11util.c login.c
 
