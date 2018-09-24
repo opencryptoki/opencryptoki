@@ -24,7 +24,6 @@
 #define _H_EXTERN_H
 
 #include <stdio.h>
-#include "ock_syslog.h"
 
 extern char *pk_dir;
 // global variables

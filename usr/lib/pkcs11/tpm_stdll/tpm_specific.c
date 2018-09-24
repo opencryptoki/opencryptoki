@@ -56,6 +56,7 @@
 #include "tok_spec_struct.h"
 #include "tok_struct.h"
 #include "trace.h"
+#include "ock_syslog.h"
 
 #include "tpm_specific.h"
 

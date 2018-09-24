@@ -47,6 +47,7 @@ extern API_Proc_Struct_t *Anchor;
 
 #include <stdarg.h>
 #include "trace.h"
+#include "ock_syslog.h"
 
 CK_RV CreateProcLock(void)
 {
