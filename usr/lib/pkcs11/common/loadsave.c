@@ -37,6 +37,7 @@
 #include "pkcs32.h"
 #include "sw_crypt.h"
 #include "trace.h"
+#include "ock_syslog.h"
 
 /* #include "../api/apiproto.h" */
 

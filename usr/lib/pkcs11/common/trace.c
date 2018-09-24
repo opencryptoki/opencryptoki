@@ -27,6 +27,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "trace.h"
+#include "ock_syslog.h"
 
 pthread_mutex_t tlmtx = PTHREAD_MUTEX_INITIALIZER;
 struct trace_handle_t trace;

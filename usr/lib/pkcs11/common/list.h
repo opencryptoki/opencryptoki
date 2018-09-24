@@ -78,11 +78,12 @@ struct _list_entry {
 
 /*
  * Initialize a list.
- */
+ * (currently unused)
 static inline void list_init(list_t *list)
 {
     list->head = list->tail = NULL;
 }
+ */
 
 static inline int list_is_empty(list_t *list)
 {
@@ -108,7 +109,7 @@ static inline void list_insert_head(list_t *list, list_entry_t *new)
 
 /*
  * Insert a element at the end.
- */
+ * (currently unused)
 static inline void list_insert_tail(list_t *list, list_entry_t *new)
 {
     if (!list->tail) {
@@ -122,6 +123,7 @@ static inline void list_insert_tail(list_t *list, list_entry_t *new)
     }
     new->list = list;
 }
+ */
 
 /*
  * Remove an element.

@@ -33,6 +33,7 @@
 
 #include <apiproto.h>
 #include "trace.h"
+#include "ock_syslog.h"
 
 void api_init();
 

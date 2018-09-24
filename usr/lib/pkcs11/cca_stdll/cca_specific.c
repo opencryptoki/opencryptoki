@@ -38,6 +38,7 @@
 #include "csulincl.h"
 #include "ec_defs.h"
 #include "trace.h"
+#include "ock_syslog.h"
 #include "cca_func.h"
 #include <openssl/crypto.h>
 

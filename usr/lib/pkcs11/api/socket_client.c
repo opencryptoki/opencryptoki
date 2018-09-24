@@ -27,6 +27,7 @@
 #include "apiproto.h"
 #include "slotmgr.h"
 #include "apictl.h"
+#include "ock_syslog.h"
 
 extern API_Proc_Struct_t *Anchor;
 //

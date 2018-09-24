@@ -30,6 +30,7 @@
 #include "pkcs32.h"
 #include "shared_memory.h"
 #include "trace.h"
+#include "ock_syslog.h"
 
 #include <sys/file.h>
 #include <syslog.h>

@@ -32,6 +32,7 @@
 #include "stdll.h"
 #include "attributes.h"
 #include "trace.h"
+#include "ock_syslog.h"
 #include "ec_defs.h"
 
 #include <sys/types.h>
