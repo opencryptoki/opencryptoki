@@ -5,7 +5,7 @@ AC_CONFIG_SRCDIR([testcases/common/common.c])
 dnl Needed for $target!
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects])
+AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects no-dependencies])
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
