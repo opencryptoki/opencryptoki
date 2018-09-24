@@ -617,7 +617,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     CK_BYTE *clear = NULL;
     CK_BYTE *cipher = NULL;
     CK_BYTE *ptr = NULL;
-    char fname[266];
+    char fname[PATH_MAX];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_BYTE *key = NULL;
     CK_ULONG key_len = 0L;
