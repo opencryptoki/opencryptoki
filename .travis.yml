@@ -17,11 +17,11 @@ matrix:
         - name: "linux-x86-gcc-tm"
           os: linux
           compiler: gcc
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-clang-locks"
           os: linux-ppc64le
           compiler: clang
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-gcc-tm"
           os: linux-ppc64le
           compiler: gcc

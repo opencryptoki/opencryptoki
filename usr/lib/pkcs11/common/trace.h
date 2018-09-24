@@ -147,7 +147,7 @@ const char *ock_err(int num);
 void dump_shm(LW_SHM_TYPE *, const char *);
 #define DUMP_SHM(x,y) dump_shm(x,y)
 #else
-#define TRACE_DEBUG(fmt, ...)
+#define TRACE_DEBUG(...)
 #define DUMP_SHM(x,y)
 #endif
 
