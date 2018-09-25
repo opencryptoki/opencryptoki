@@ -11,3 +11,5 @@ endif
 ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = usr man $(MISCDIR) $(TESTDIR)
+
+EXTRA_DIST = opencryptoki.map opencryptoki_tok.map

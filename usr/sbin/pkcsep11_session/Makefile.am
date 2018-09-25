@@ -1,10 +1,16 @@
 sbin_PROGRAMS=pkcsep11_session
 
-pkcsep11_session_LDFLAGS = -lc  -ldl -lpthread
+bindir=${top_srcdir}/usr/sbin
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
 
-pkcsep11_session_CFLAGS  = -I../../include/pkcs11/		\
-			   -I../../lib/pkcs11/ep11_stdll/	\
-			   -DLINUX -DPROGRAM_NAME=\"$(@)\"	\
-			   -I. -I../../lib/pkcs11/common
+pkcsep11_session_LDFLAGS = -lc -ldl -lpthread
 
-pkcsep11_session_SOURCES = ../../lib/pkcs11/common/p11util.c pkcsep11_session.c 
+pkcsep11_session_CFLAGS  = -I${incdir}/pkcs11/		\
+			   -I${pkcsdir}/ep11_stdll/	\
+			   -I${pkcsdir}/common		\
+			   -I${bindir}/pkcsep11_session	\
+			   -DLINUX -DPROGRAM_NAME=\"$(@)\"
+
+pkcsep11_session_SOURCES = ${pkcsdir}/common/p11util.c	\
+			   ${bindir}/pkcsep11_session/pkcsep11_session.c 

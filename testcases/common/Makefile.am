@@ -1,9 +1,17 @@
 noinst_LTLIBRARIES=libcommon.la
 
-libcommon_la_LDFLAGS=-lc  -ldl -lpthread
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
+testdir=${top_srcdir}/testcases
 
-libcommon_la_CFLAGS=-c -I/usr/include -I. -I../../usr/include/pkcs11	\
-		    -I../include -I../../usr/lib/pkcs11/common
+libcommon_la_LDFLAGS=-lc -ldl -lpthread
 
-libcommon_la_SOURCES=../../usr/lib/pkcs11/common/p11util.c	\
-		     common.c
+libcommon_la_CFLAGS=-c					\
+		    -I${testdir}/common			\
+		    -I${testdir}/include		\
+		    -I${incdir}/pkcs11			\
+		    -I${incdir}				\
+		    -I${pkcsdir}/common
+
+libcommon_la_SOURCES=${pkcsdir}/common/p11util.c	\
+		     ${testdir}/common/common.c

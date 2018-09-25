@@ -1,17 +1,25 @@
 noinst_PROGRAMS=hw_fn sess_mgmt_tests sess_bench sess_opstate attribute findobjects destroyobjects copyobjects generate_keypair gen_purpose getobjectsize
 
-AM_LDFLAGS=-L../common -lc  -ldl -lpthread -lcommon
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
+testdir=${top_srcdir}/testcases
 
-AM_CFLAGS=-I. -I../../usr/include/pkcs11 -I../include -I../common -I../../usr/lib/pkcs11/common -Wall
+AM_LDFLAGS=-L${testdir}/common -lc -ldl -lpthread -lcommon
 
-hw_fn_SOURCES = hw_fn.c
-sess_mgmt_tests_SOURCES = sess_mgmt.c
-sess_bench_SOURCES = sess_perf.c
-sess_opstate_SOURCES = sess_opstate.c
-attribute_SOURCES = attribute.c
-findobjects_SOURCES = findobjects.c
-destroyobjects_SOURCES = destroyobjects.c
-copyobjects_SOURCES = copyobjects.c
-generate_keypair_SOURCES = generate_keypair.c
-gen_purpose_SOURCES = gen_purpose.c
-getobjectsize_SOURCES = getobjectsize.c
+AM_CFLAGS=-I${testdir}/pkcs11	\
+	  -I${incdir}/pkcs11	\
+	  -I${testdir}/include	\
+	  -I${testdir}/common	\
+	  -I${pkcsdir}/common
+
+hw_fn_SOURCES = ${testdir}/pkcs11/hw_fn.c
+sess_mgmt_tests_SOURCES = ${testdir}/pkcs11/sess_mgmt.c
+sess_bench_SOURCES = ${testdir}/pkcs11/sess_perf.c
+sess_opstate_SOURCES = ${testdir}/pkcs11/sess_opstate.c
+attribute_SOURCES = ${testdir}/pkcs11/attribute.c
+findobjects_SOURCES = ${testdir}/pkcs11/findobjects.c
+destroyobjects_SOURCES = ${testdir}/pkcs11/destroyobjects.c
+copyobjects_SOURCES = ${testdir}/pkcs11/copyobjects.c
+generate_keypair_SOURCES = ${testdir}/pkcs11/generate_keypair.c
+gen_purpose_SOURCES = ${testdir}/pkcs11/gen_purpose.c
+getobjectsize_SOURCES = ${testdir}/pkcs11/getobjectsize.c
