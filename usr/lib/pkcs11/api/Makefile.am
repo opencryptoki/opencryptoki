@@ -4,31 +4,38 @@ SO_CURRENT=0
 SO_REVISION=0
 SO_AGE=0
 
-# Not all versions of automake observe libname_CFLAGS
-opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE 		\
-					 -fPIC -I../. -I../../../include/pkcs11 \
-					 -I ../common -DSTDLL_NAME=\"api\"
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
+
+opencryptoki_libopencryptoki_la_CFLAGS = -DAPI -DDEV -D_THREAD_SAFE -fPIC	\
+					 -I${incdir}/pkcs11			\
+					 -I${pkcsdir}/common			\
+					 -DSTDLL_NAME=\"api\"
 
 if ENABLE_LOCKS
 opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic -lc -ldl \
-					  -lpthread -version-info   \
-					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE) \
-					  -Wl,--version-script=../opencryptoki.map
+					  -lpthread -version-info  		  \
+					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)  \
+					  -Wl,--version-script=${top_srcdir}/opencryptoki.map
 
-opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
-					  socket_client.c apiutil.c \
-					  ../common/trace.c ../common/lock_btree.c
+opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c	\
+					  socket_client.c apiutil.c	\
+					  ${pkcsdir}/common/trace.c	\
+					  ${pkcsdir}/common/lock_btree.c
 else
 opencryptoki_libopencryptoki_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic -lc -ldl \
-					  -lpthread -litm -version-info   \
-					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE) \
-					  -Wl,--version-script=../opencryptoki.map
+					  -lpthread -litm -version-info		  \
+					  $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)  \
+					  -Wl,--version-script=${top_srcdir}/opencryptoki.map
 
 
-opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c \
-					  socket_client.c apiutil.c \
-					  ../common/trace.c ../common/btree.c
+opencryptoki_libopencryptoki_la_SOURCES = api_interface.c shrd_mem.c	\
+					  socket_client.c apiutil.c	\
+					  ${pkcsdir}/common/trace.c	\
+					  ${pkcsdir}/common/btree.c
 endif
+
+noinst_HEADERS = ${pkcsdir}/api/apiproto.h
 
 install-data-hook:
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll

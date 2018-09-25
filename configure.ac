@@ -622,6 +622,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile			\
 		 usr/sbin/pkcscca/Makefile		\
 		 usr/sbin/pkcsep11_migrate/Makefile	\
 		 usr/sbin/pkcsep11_session/Makefile	\
+		 usr/lib/pkcs11/common/Makefile		\
 		 usr/lib/pkcs11/soft_stdll/Makefile	\
 		 usr/lib/pkcs11/ep11_stdll/Makefile	\
 		 usr/lib/pkcs11/tpm_stdll/Makefile	\
@@ -629,6 +630,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile			\
 		 usr/lib/pkcs11/icsf_stdll/Makefile	\
 		 misc/Makefile				\
 		 testcases/Makefile			\
+		 testcases/include/Makefile		\
 		 testcases/common/Makefile		\
 		 testcases/crypto/Makefile		\
 		 testcases/pkcs11/Makefile		\
@@ -647,6 +649,7 @@ AC_CONFIG_FILES([Makefile usr/Makefile			\
 		 man/man7/opencryptoki.7		\
 		 man/man8/Makefile			\
 		 man/man8/pkcsslotd.8])
+
 AC_OUTPUT
 
 echo "Enabled features:"

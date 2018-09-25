@@ -1,12 +1,18 @@
 sbin_PROGRAMS=pkcsicsf
 
+bindir=${top_srcdir}/usr/sbin
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
+
 pkcsicsf_LDFLAGS = -lldap -lssl -llber -lcrypto
 
 pkcsicsf_CFLAGS = -D_THREAD_SAFE -DDEV -DAPI -DSTDLL_NAME=\"icsf\"	\
-		  -I../../include/pkcs11 -I. -I../../lib/pkcs11/common	\
-		  -I../../lib/pkcs11/icsf_stdll
+		  -I${bindir}/pkcsicsf		\
+		  -I${incdir}/pkcs11		\
+		  -I${pkcsdir}/icsf_stdll	\
+		  -I${pkcsdir}/common
 
-pkcsicsf_SOURCES = ../../lib/pkcs11/icsf_stdll/icsf.c	\
-		   ../../lib/pkcs11/icsf_stdll/pbkdf.c	\
-		   ../../lib/pkcs11/common/trace.c	\
-		   pkcsicsf.c
+pkcsicsf_SOURCES = ${pkcsdir}/icsf_stdll/icsf.c	\
+		   ${pkcsdir}/icsf_stdll/pbkdf.c\
+		   ${pkcsdir}/common/trace.c	\
+		   ${bindir}/pkcsicsf/pkcsicsf.c

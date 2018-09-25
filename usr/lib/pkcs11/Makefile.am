@@ -26,5 +26,5 @@ if ENABLE_LIBRARY
 API = api
 endif 
 
-SUBDIRS = $(API) $(SW_DLL) $(ICA_DLL) $(TPM_DLL) $(CCA_DLL) $(ICSF_DLL) $(EP11_DLL)
+SUBDIRS = $(API) $(SW_DLL) $(ICA_DLL) $(TPM_DLL) $(CCA_DLL) $(ICSF_DLL) $(EP11_DLL) common
 

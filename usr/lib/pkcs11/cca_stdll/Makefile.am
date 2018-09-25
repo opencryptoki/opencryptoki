@@ -6,12 +6,15 @@
 #
 nobase_lib_LTLIBRARIES=opencryptoki/stdll/libpkcs11_cca.la
 
-# Not all versions of automake observe libname_CFLAGS
+pkcsdir=${top_srcdir}/usr/lib/pkcs11
+incdir=${top_srcdir}/usr/include
+
 opencryptoki_stdll_libpkcs11_cca_la_CFLAGS = -DLINUX -DNOCDMF		\
 					     -DNODSA -DNODH -DNOECB	\
-					     -I. -I../../../include	\
-					     -I../../../include/pkcs11	\
-					     -I../common		\
+					     -I${pkcsdir}/cca_stdll	\
+					     -I${pkcsdir}/common	\
+					     -I${incdir}		\
+					     -I${incdir}/pkcs11		\
 					     -DSTDLL_NAME=\"ccatok\"
 
 if ENABLE_LOCKS
@@ -20,97 +23,99 @@ opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\
 					      -lrt -ldl			\
-					      -Wl,--version-script=../opencryptoki_tok.map
+					      -Wl,--version-script=${top_srcdir}/opencryptoki_tok.map
 
-opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
-					      ../common/lock_btree.c	\
-					      ../common/dig_mgr.c	\
-					      ../common/hwf_obj.c	\
-					      ../common/trace.c		\
-					      ../common/key.c		\
-						  ../common/mech_list.c \
-					      ../common/mech_dh.c	\
-					      ../common/mech_rng.c	\
-					      ../common/new_host.c	\
-					      ../common/sign_mgr.c	\
-					      ../common/cert.c		\
-					      ../common/dp_obj.c	\
-					      ../common/mech_aes.c	\
-					      ../common/mech_rsa.c	\
-					      ../common/mech_ec.c	\
-					      ../common/obj_mgr.c	\
-					      ../common/template.c	\
-					      ../common/data_obj.c	\
-					      ../common/encr_mgr.c	\
-					      ../common/key_mgr.c	\
-					      ../common/mech_md2.c	\
-					      ../common/mech_sha.c	\
-					      ../common/object.c	\
-					      ../common/decr_mgr.c	\
-					      ../common/globals.c	\
-					      ../common/loadsave.c	\
-					      ../common/utility.c	\
-					      ../common/mech_des.c	\
-					      ../common/mech_des3.c	\
-					      ../common/mech_md5.c	\
-					      ../common/mech_ssl3.c	\
-					      ../common/lock_sess_mgr.c	\
-					      ../common/verify_mgr.c	\
-					      ../common/p11util.c	\
-					      ../common/sw_crypt.c	\
-					      ../common/shared_memory.c	\
-					      cca_specific.c
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ${pkcsdir}/common/asn1.c		\
+					      ${pkcsdir}/common/lock_btree.c	\
+					      ${pkcsdir}/common/dig_mgr.c	\
+					      ${pkcsdir}/common/hwf_obj.c	\
+					      ${pkcsdir}/common/trace.c		\
+					      ${pkcsdir}/common/key.c		\
+					      ${pkcsdir}/common/mech_list.c	\
+					      ${pkcsdir}/common/mech_dh.c	\
+					      ${pkcsdir}/common/mech_rng.c	\
+					      ${pkcsdir}/common/new_host.c	\
+					      ${pkcsdir}/common/sign_mgr.c	\
+					      ${pkcsdir}/common/cert.c		\
+					      ${pkcsdir}/common/dp_obj.c	\
+					      ${pkcsdir}/common/mech_aes.c	\
+					      ${pkcsdir}/common/mech_rsa.c	\
+					      ${pkcsdir}/common/mech_ec.c	\
+					      ${pkcsdir}/common/obj_mgr.c	\
+					      ${pkcsdir}/common/template.c	\
+					      ${pkcsdir}/common/data_obj.c	\
+					      ${pkcsdir}/common/encr_mgr.c	\
+					      ${pkcsdir}/common/key_mgr.c	\
+					      ${pkcsdir}/common/mech_md2.c	\
+					      ${pkcsdir}/common/mech_sha.c	\
+					      ${pkcsdir}/common/object.c	\
+					      ${pkcsdir}/common/decr_mgr.c	\
+					      ${pkcsdir}/common/globals.c	\
+					      ${pkcsdir}/common/loadsave.c	\
+					      ${pkcsdir}/common/utility.c	\
+					      ${pkcsdir}/common/mech_des.c	\
+					      ${pkcsdir}/common/mech_des3.c	\
+					      ${pkcsdir}/common/mech_md5.c	\
+					      ${pkcsdir}/common/mech_ssl3.c	\
+					      ${pkcsdir}/common/lock_sess_mgr.c	\
+					      ${pkcsdir}/common/verify_mgr.c	\
+					      ${pkcsdir}/common/p11util.c	\
+					      ${pkcsdir}/common/sw_crypt.c	\
+					      ${pkcsdir}/common/shared_memory.c	\
+					      ${pkcsdir}/cca_stdll/cca_specific.c
 else
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared -Wl,-z,defs,-Bsymbolic	\
 					      -lcrypto -lpthread -litm \
 					      -nostartfiles		\
 					      -Wl,-soname,$@		\
 					      -lrt -ldl			\
-					      -Wl,--version-script=../opencryptoki_tok.map
+					      -Wl,--version-script=${top_srcdir}/opencryptoki_tok.map
 
-opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ../common/asn1.c		\
-					      ../common/btree.c		\
-					      ../common/dig_mgr.c	\
-					      ../common/hwf_obj.c	\
-					      ../common/trace.c		\
-					      ../common/key.c		\
-						  ../common/mech_list.c \
-					      ../common/mech_dh.c	\
-					      ../common/mech_rng.c	\
-					      ../common/new_host.c	\
-					      ../common/sign_mgr.c	\
-					      ../common/cert.c		\
-					      ../common/dp_obj.c	\
-					      ../common/mech_aes.c	\
-					      ../common/mech_rsa.c	\
-					      ../common/mech_ec.c	\
-					      ../common/obj_mgr.c	\
-					      ../common/template.c	\
-					      ../common/data_obj.c	\
-					      ../common/encr_mgr.c	\
-					      ../common/key_mgr.c	\
-					      ../common/mech_md2.c	\
-					      ../common/mech_sha.c	\
-					      ../common/object.c	\
-					      ../common/decr_mgr.c	\
-					      ../common/globals.c	\
-					      ../common/loadsave.c	\
-					      ../common/utility.c	\
-					      ../common/mech_des.c	\
-					      ../common/mech_des3.c	\
-					      ../common/mech_md5.c	\
-					      ../common/mech_ssl3.c	\
-					      ../common/sess_mgr.c	\
-					      ../common/verify_mgr.c	\
-					      ../common/p11util.c	\
-					      ../common/sw_crypt.c	\
-					      ../common/shared_memory.c	\
-					      cca_specific.c
+opencryptoki_stdll_libpkcs11_cca_la_SOURCES = ${pkcsdir}/common/asn1.c		\
+					      ${pkcsdir}/common/btree.c		\
+					      ${pkcsdir}/common/dig_mgr.c	\
+					      ${pkcsdir}/common/hwf_obj.c	\
+					      ${pkcsdir}/common/trace.c		\
+					      ${pkcsdir}/common/key.c		\
+					      ${pkcsdir}/common/mech_list.c	\
+					      ${pkcsdir}/common/mech_dh.c	\
+					      ${pkcsdir}/common/mech_rng.c	\
+					      ${pkcsdir}/common/new_host.c	\
+					      ${pkcsdir}/common/sign_mgr.c	\
+					      ${pkcsdir}/common/cert.c		\
+					      ${pkcsdir}/common/dp_obj.c	\
+					      ${pkcsdir}/common/mech_aes.c	\
+					      ${pkcsdir}/common/mech_rsa.c	\
+					      ${pkcsdir}/common/mech_ec.c	\
+					      ${pkcsdir}/common/obj_mgr.c	\
+					      ${pkcsdir}/common/template.c	\
+					      ${pkcsdir}/common/data_obj.c	\
+					      ${pkcsdir}/common/encr_mgr.c	\
+					      ${pkcsdir}/common/key_mgr.c	\
+					      ${pkcsdir}/common/mech_md2.c	\
+					      ${pkcsdir}/common/mech_sha.c	\
+					      ${pkcsdir}/common/object.c	\
+					      ${pkcsdir}/common/decr_mgr.c	\
+					      ${pkcsdir}/common/globals.c	\
+					      ${pkcsdir}/common/loadsave.c	\
+					      ${pkcsdir}/common/utility.c	\
+					      ${pkcsdir}/common/mech_des.c	\
+					      ${pkcsdir}/common/mech_des3.c	\
+					      ${pkcsdir}/common/mech_md5.c	\
+					      ${pkcsdir}/common/mech_ssl3.c	\
+					      ${pkcsdir}/common/sess_mgr.c	\
+					      ${pkcsdir}/common/verify_mgr.c	\
+					      ${pkcsdir}/common/p11util.c	\
+					      ${pkcsdir}/common/sw_crypt.c	\
+					      ${pkcsdir}/common/shared_memory.c	\
+					      ${pkcsdir}/cca_stdll/cca_specific.c
 endif
 
-noinst_HEADERS = defs.h		\
-		 csulincl.h	\
-		 cca_stdll.h
+noinst_HEADERS = ${pkcsdir}/cca_stdll/defs.h		\
+		 ${pkcsdir}/cca_stdll/csulincl.h	\
+		 ${pkcsdir}/cca_stdll/cca_stdll.h	\
+		 ${pkcsdir}/cca_stdll/cca_func.h	\
+		 ${pkcsdir}/cca_stdll/tok_struct.h
 
 install-data-hook:
 	cd $(DESTDIR)/$(libdir)/opencryptoki/stdll && \
