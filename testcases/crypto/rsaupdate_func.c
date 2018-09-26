@@ -220,6 +220,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_VerifyInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit(), rc=%s", p11_get_ckr(rc));
+            goto error;
         }
         // do VerifyUpdate
         len = message_len;
@@ -459,6 +460,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_VerifyInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_VerifyInit(), rc=%s", p11_get_ckr(rc));
+            goto error;
         }
         // do VerifyUpdate
         data_done = 0;
