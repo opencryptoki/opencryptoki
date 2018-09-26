@@ -192,6 +192,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         rc = funcs->C_EncryptInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
+            goto error;
         }
         // do (public key) encryption
         rc = funcs->C_Encrypt(session,
@@ -457,6 +458,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
         if (rc != CKR_OK) {
             testcase_error("C_Verify%sInit(), rc=%s",
                            recover_mode ? "Recover" : "", p11_get_ckr(rc));
+            goto error;
         }
         // do Verify
         if (recover_mode) {
