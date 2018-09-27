@@ -1460,12 +1460,15 @@ static int read_cp_filter_config_file(const char *conf_name,
 #define CKR_IBM_STATIC_POLICY       CKR_VENDOR_DEFINED + 0x0001000d
 #define CKR_IBM_TRANSPORT_LIMIT     CKR_VENDOR_DEFINED + 0x00010010
 
-static CK_RV ep11_error_to_pkcs11_error(CK_RV rc)
+static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
 {
     if (rc < CKR_VENDOR_DEFINED)
         return rc;
 
     TRACE_ERROR("%s ep11 specific error: rc=0x%lx\n", __func__, rc);
+
+    if (session != NULL)
+        session->session_info.ulDeviceError = rc;
 
     switch (rc) {
     case CKR_IBM_INTERNAL_ERROR:
@@ -1557,6 +1560,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
                     __func__, ksize, clen, rc);
         goto rawkey_2_blob_end;
@@ -1587,7 +1591,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc);
+        rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
@@ -1610,6 +1614,7 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     CK_RV rc = dll_m_GenerateRandom(output, bytes,
                                     (uint64_t) ep11_data->target_list);
     if (rc != CKR_OK)
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
                     __func__, (void *)output, bytes, rc);
     return rc;
@@ -1643,6 +1648,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
                     __func__, ep11_data->raw2key_wrap_blob_l, rc);
     } else {
@@ -2033,6 +2039,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                         __func__, rc, cipher_l);
             goto import_RSA_key_end;
@@ -2062,6 +2069,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                         __func__, rc, *blob_size);
         } else {
@@ -2223,6 +2231,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                         __func__, rc, cipher_l);
             goto import_EC_key_end;
@@ -2254,6 +2263,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                         __func__, rc, *blob_size);
         } else {
@@ -2422,6 +2432,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                         __func__, rc, cipher_l);
             goto import_DSA_key_end;
@@ -2453,6 +2464,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                         __func__, rc, *blob_size);
         } else {
@@ -2611,6 +2623,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, cipher_l);
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                         __func__, rc, cipher_l);
             goto import_DH_key_end;
@@ -2642,6 +2655,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
             TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                         __func__, rc, *blob_size);
         } else {
@@ -2823,6 +2837,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                                (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                     __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
         return rc;
@@ -3120,6 +3135,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     }
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
         free(state);
     } else {
@@ -3161,6 +3177,7 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     }
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3233,6 +3250,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
 
 out:
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3263,6 +3281,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     }
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3298,6 +3317,7 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
                           (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3333,6 +3353,7 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
                             (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3369,6 +3390,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
                           (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3405,6 +3427,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
                             (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3440,6 +3463,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
                           (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3475,6 +3499,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
                             (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -3788,6 +3813,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s m_GenerateKeyPair failed rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
     }
@@ -4079,6 +4105,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s m_GenerateKeyPair failed with rc=0x%lx\n", __func__,
                     rc);
         goto dsa_generate_keypair_end;
@@ -4255,6 +4282,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                                    (uint64_t) ep11_data->target_list);
     RETRY_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                     "privkey_blob_len=0x%zx mech='%s'\n",
                     __func__, rc, spki_len, privkey_blob_len,
@@ -4735,7 +4763,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc);
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
                     __func__, rc, keyblobsize, key, mech->mechanism);
         free(ep11_sign_state);
@@ -4773,6 +4801,7 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4798,6 +4827,7 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4823,6 +4853,7 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4857,6 +4888,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
                           (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4899,7 +4931,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc);
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                     "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
                     rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
@@ -4933,6 +4965,7 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4958,6 +4991,7 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -4980,6 +5014,7 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5011,6 +5046,7 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
                             (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5034,6 +5070,7 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5058,6 +5095,7 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5089,6 +5127,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5123,6 +5162,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                              (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5146,6 +5186,7 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5170,6 +5211,7 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5201,6 +5243,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5235,6 +5278,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                              (uint64_t)ep11_data->target_list);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
@@ -5278,6 +5322,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context_len = ep11_state_l;
         if (rc != CKR_OK) {
             decr_mgr_cleanup(ctx);
+            rc = ep11_error_to_pkcs11_error(rc, session);
             TRACE_ERROR("%s m_DecryptInit rc=0x%lx blob_len=0x%zx "
                         "mech=0x%lx\n", __func__, rc, blob_len,
                         mech->mechanism);
@@ -5297,6 +5342,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context_len = ep11_state_l;
         if (rc != CKR_OK) {
             encr_mgr_cleanup(ctx);
+            rc = ep11_error_to_pkcs11_error(rc, session);
             TRACE_ERROR("%s m_EncryptInit rc=0x%lx blob_len=0x%zx "
                         "mech=0x%lx\n", __func__, rc, blob_len,
                         mech->mechanism);
@@ -5552,6 +5598,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                     __func__, rc, keyblobsize, mech->mechanism);
         goto error;
@@ -5716,6 +5763,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
                                     (uint64_t) ep11_data->target_list);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n",
                         __func__, rc);
             return rc;
@@ -5734,6 +5782,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         rc = dll_m_GetMechanismList(0, mlist, &counter,
                                     (uint64_t) ep11_data->target_list);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
                         __func__, rc);
             free(mlist);
@@ -5759,6 +5808,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         rc = dll_m_GetMechanismList(0, mlist, &counter,
                                     (uint64_t) ep11_data->target_list);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n",
                         __func__, rc);
             return rc;
@@ -5774,6 +5824,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         rc = dll_m_GetMechanismList(0, mlist, &counter,
                                     (uint64_t) ep11_data->target_list);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
                         __func__, rc);
             free(mlist);
@@ -5844,6 +5895,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     rc = dll_m_GetMechanismInfo(0, type, pInfo,
                                 (uint64_t) ep11_data->target_list);
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
                     __func__, type, rc);
         return rc;
@@ -7038,6 +7090,7 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
                                 (uint64_t)ep11_data->target_list);
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s Digest failed: 0x%lu\n", __func__, rc);
         return rc;
     }
@@ -7197,6 +7250,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
                          nonce, nonce_len,
                          pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
@@ -7235,6 +7289,7 @@ strict_mode:
                          nonce, nonce_len,
                          pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
@@ -7289,6 +7344,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
         rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
                           (uint64_t) & target);
         if (rc != CKR_OK)
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
         /* ignore any errors during m_logout */
     }
@@ -7302,6 +7358,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
         rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
                           (uint64_t) & target);
         if (rc != CKR_OK)
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
         /* ignore any errors during m_logout */
     }
