@@ -294,6 +294,25 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     return 0;
 }
 
+static int create_pid_file(pid_t pid)
+{
+    FILE *pidfile;
+
+    pidfile = fopen(PID_FILE_PATH, "w");
+    if (!pidfile) {
+        fprintf(stderr, "Could not create pid file '%s' [errno=%d].\n",
+                PID_FILE_PATH, errno);
+        return -1;
+    }
+
+    fprintf(pidfile, "%d\n", (int) pid);
+    fflush(pidfile);
+    fclose(pidfile);
+    InfoLog("PID File created");
+
+    return 0;
+}
+
 /*****************************************
  *  main() -
  *      You know what main does.
@@ -411,18 +430,23 @@ int main(int argc, char *argv[], char *envp[])
             DetachFromSharedMemory();
             DestroySharedMemory();
             return 7;
+        } else if (pid != 0) {
+            /*
+             * This is the parent
+             * Create the pid file for the client as systemd wants to
+             * see the pid file a soon as the parent terminates.
+             */
+            create_pid_file(pid);
+            /* now terminate the parent */
+            exit(0);
         } else {
-            if (pid != 0) {
-                exit(0);        // Terminate the parent
-            } else {
-
-                setsid();       // Session leader
+            /* This is the child */
+            setsid();       // Session leader
 #ifndef DEV
-                fclose(stderr);
-                fclose(stdout);
-                fclose(stdin);
+            fclose(stderr);
+            fclose(stdout);
+            fclose(stdin);
 #endif
-            }
         }
     } else {
 #ifdef DEV
@@ -475,17 +499,13 @@ int main(int argc, char *argv[], char *envp[])
     }
 #endif
 
-    // We've fully become a daemon.  Now create the PID file
-    {
-        FILE *pidfile;
-
-        pidfile = fopen(PID_FILE_PATH, "w");
-        if (pidfile) {
-            fprintf(pidfile, "%d", getpid());
-            fclose(pidfile);
-            InfoLog("PID File created");
-        }
-    }
+    /*
+     * We've fully become a daemon.
+     * In not-daemon mode the pid file hasn't been created jet,
+     * so let's do this now.
+     */
+    if (!Daemon)
+        create_pid_file(getpid());
 
     while (1) {
 #if !(THREADED) && !(NOGARBAGE)
