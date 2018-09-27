@@ -103,6 +103,7 @@ const CK_BYTE prime256[] =
     { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
 const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
 const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+const CK_BYTE secp256k1[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A };
 
 const struct _ec der_ec_supported[NUMEC] = {
     {BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160r1), &brainpoolP160r1},
@@ -124,6 +125,7 @@ const struct _ec der_ec_supported[NUMEC] = {
     {PRIME_CURVE, CURVE256, sizeof(prime256), &prime256},
     {PRIME_CURVE, CURVE384, sizeof(secp384), &secp384},
     {PRIME_CURVE, CURVE521, sizeof(secp521), &secp521},
+    {PRIME_CURVE, CURVE256, sizeof(secp256k1), &secp256k1},
 };
 
 
