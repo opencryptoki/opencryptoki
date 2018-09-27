@@ -102,7 +102,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 32,
         .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
     },
-    {   // #5
+    {   // #6
         .modbits = 1024,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -111,7 +111,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 24,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
-    {       // #6
+    {       // #7
         .modbits = 2048,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -121,7 +121,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 32,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
-    {   // #7
+    {   // #8
         .modbits = 4096,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -131,7 +131,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 32,
         .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
     },
-    {       // #8
+    {       // #9
         .modbits = 1024,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -140,7 +140,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 24,
         .keytype = {CKM_DES3_KEY_GEN, 0, 0}
     },
-    {   // #9
+    {   // #10
         .modbits = 2048,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -150,7 +150,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 16,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
-    {       // #10
+    {       // #11
         .modbits = 4096,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -160,7 +160,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 24,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
-    {   // #11
+    {   // #12
         .modbits = 2048,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -169,7 +169,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 32,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
-    {       // #12
+    {       // #13
         .modbits = 2048,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
@@ -179,7 +179,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .keylen = 8,
         .keytype = {CKM_CDMF_KEY_GEN, 0, 0},
     },
-    {   // #13
+    {   // #14
         .modbits = 4096,
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
