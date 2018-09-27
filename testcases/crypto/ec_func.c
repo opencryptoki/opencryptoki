@@ -93,7 +93,7 @@ typedef struct ec_struct {
 } _ec_struct;
 
 /* Supported Elliptic Curves */
-#define NUMEC		19
+#define NUMEC		20
 const CK_BYTE brainpoolP160r1[] =
     { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
 const CK_BYTE brainpoolP160t1[] =
@@ -129,6 +129,7 @@ const CK_BYTE prime256[] =
     { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
 const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
 const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+const CK_BYTE secp256k1[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A };
 
 const _ec_struct der_ec_supported[NUMEC] = {
     {&brainpoolP160r1, sizeof(brainpoolP160r1), CK_FALSE},
@@ -149,7 +150,8 @@ const _ec_struct der_ec_supported[NUMEC] = {
     {&secp224, sizeof(secp224), CK_FALSE},
     {&prime256, sizeof(prime256), CK_FALSE},
     {&secp384, sizeof(secp384), CK_FALSE},
-    {&secp521, sizeof(secp521), CK_FALSE}
+    {&secp521, sizeof(secp521), CK_FALSE},
+    {&secp256k1, sizeof(secp256k1), CK_FALSE}
 };
 
 /* Invalid curves */
@@ -241,6 +243,8 @@ static unsigned int curve_len(int index)
         return CURVE384_LENGTH/8;
     case 18:
         return CURVE521_LENGTH/8+1;
+    case 19:
+        return CURVE256_LENGTH/8;
     }
 
     return 0;
@@ -366,6 +370,11 @@ CK_RV run_DeriveECDHKey()
                               (unsigned int) SLOT_ID);
                 continue;
             }
+            if (der_ec_supported[i].curve == secp256k1) {
+                testcase_skip("Slot %u doesn't support this curve",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
         }
 
         // Testcase #1 - Generate 2 EC key pairs.
@@ -380,6 +389,12 @@ CK_RV run_DeriveECDHKey()
                                       prv_attr, prv_attr_len,
                                       &publ_keyA, &priv_keyA);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_skip("Slot %u doesn't support this curve",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
             testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -1101,6 +1116,11 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                               (unsigned int) SLOT_ID);
                 continue;
             }
+            if (der_ec_supported[i].curve == secp256k1) {
+                testcase_skip("Slot %u doesn't support this curve",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
         }
 
         CK_ATTRIBUTE ec_attr[] = {
@@ -1112,6 +1132,12 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                                       &publ_key, &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID ||
+                rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                testcase_skip("Slot %u doesn't support this curve",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
             testcase_fail
                 ("C_GenerateKeyPair with valid input failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
