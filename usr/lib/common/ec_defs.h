@@ -29,7 +29,7 @@
 #define CURVE521        0x0209
 
 /* Supported Elliptic Curves */
-#define NUMEC           19      /* number of supported curves */
+#define NUMEC           20      /* number of supported curves */
 extern const CK_BYTE brainpoolP160r1[];
 extern const CK_BYTE brainpoolP160t1[];
 extern const CK_BYTE brainpoolP192r1[];
@@ -49,6 +49,7 @@ extern const CK_BYTE secp224[];
 extern const CK_BYTE prime256[];
 extern const CK_BYTE secp384[];
 extern const CK_BYTE secp521[];
+extern const CK_BYTE secp256k1[];
 
 
 // structure of supported Elliptic Curves
