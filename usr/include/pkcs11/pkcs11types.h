@@ -1030,6 +1030,8 @@ typedef CK_ULONG CK_RV;
 #define CKR_RANDOM_NO_RNG                     0x00000121
 /* CKR_DOMAIN_PARAMS_INVALID is new for v2.11 */
 #define CKR_DOMAIN_PARAMS_INVALID             0x00000130
+/* CKR_CURVE_NOT_SUPPORTED is new for v2.40 */
+#define CKR_CURVE_NOT_SUPPORTED               0x00000140
 #define CKR_BUFFER_TOO_SMALL                  0x00000150
 #define CKR_SAVED_STATE_INVALID               0x00000160
 #define CKR_INFORMATION_SENSITIVE             0x00000170
@@ -1040,6 +1042,9 @@ typedef CK_ULONG CK_RV;
 #define CKR_CRYPTOKI_ALREADY_INITIALIZED      0x00000191
 #define CKR_MUTEX_BAD                         0x000001A0
 #define CKR_MUTEX_NOT_LOCKED                  0x000001A1
+
+/* CKR_FUNCTION_REJECTED is new for v2.20 */
+#define CKR_FUNCTION_REJECTED                 0x00000200
 
 #define CKR_VENDOR_DEFINED                    0x80000000
 
