@@ -6,7 +6,7 @@ AC_CONFIG_SRCDIR([testcases/common/common.c])
 dnl Needed for $target!
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects no-dependencies])
+AM_INIT_AUTOMAKE([-Wall -Wno-portability foreign subdir-objects])
 
 dnl Checks for header files.
 AC_DISABLE_STATIC
@@ -607,47 +607,15 @@ AC_PROG_CC
 
 AC_CONFIG_MACRO_DIRS([m4])
 
-AC_CONFIG_FILES([Makefile usr/Makefile			\
-		 usr/include/Makefile			\
-		 usr/include/pkcs11/Makefile		\
-		 usr/lib/Makefile			\
-		 usr/lib/pkcs11/Makefile		\
-		 usr/lib/pkcs11/api/Makefile		\
-		 usr/lib/pkcs11/api/shrd_mem.c		\
-		 usr/lib/pkcs11/ica_s390_stdll/Makefile	\
-		 usr/sbin/Makefile			\
-		 usr/sbin/pkcsslotd/Makefile		\
-		 usr/sbin/pkcsconf/Makefile		\
-		 usr/sbin/pkcsicsf/Makefile		\
-		 usr/sbin/pkcscca/Makefile		\
-		 usr/sbin/pkcsep11_migrate/Makefile	\
-		 usr/sbin/pkcsep11_session/Makefile	\
-		 usr/lib/pkcs11/common/Makefile		\
-		 usr/lib/pkcs11/soft_stdll/Makefile	\
-		 usr/lib/pkcs11/ep11_stdll/Makefile	\
-		 usr/lib/pkcs11/tpm_stdll/Makefile	\
-		 usr/lib/pkcs11/cca_stdll/Makefile	\
-		 usr/lib/pkcs11/icsf_stdll/Makefile	\
-		 misc/Makefile				\
-		 testcases/Makefile			\
-		 testcases/include/Makefile		\
-		 testcases/common/Makefile		\
-		 testcases/crypto/Makefile		\
-		 testcases/pkcs11/Makefile		\
-		 testcases/login/Makefile		\
-		 testcases/misc_tests/Makefile		\
-		 man/Makefile				\
-		 man/man1/Makefile			\
+AC_CONFIG_FILES([Makefile				\
+		 usr/lib/api/shrd_mem.c			\
 		 man/man1/pkcsconf.1			\
 		 man/man1/pkcsicsf.1			\
 		 man/man1/pkcscca.1			\
 		 man/man1/pkcsep11_migrate.1		\
 		 man/man1/pkcsep11_session.1		\
-		 man/man5/Makefile			\
 		 man/man5/opencryptoki.conf.5		\
-		 man/man7/Makefile			\
 		 man/man7/opencryptoki.7		\
-		 man/man8/Makefile			\
 		 man/man8/pkcsslotd.8])
 
 AC_OUTPUT
