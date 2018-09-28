@@ -97,6 +97,8 @@ char *p11_get_ckr(CK_RV rc)
         _sym2str(CKR_WRAPPING_KEY_TYPE_INCONSISTENT);
         _sym2str(CKR_RANDOM_SEED_NOT_SUPPORTED);
         _sym2str(CKR_RANDOM_NO_RNG);
+        _sym2str(CKR_DOMAIN_PARAMS_INVALID);
+        _sym2str(CKR_CURVE_NOT_SUPPORTED);
         _sym2str(CKR_BUFFER_TOO_SMALL);
         _sym2str(CKR_SAVED_STATE_INVALID);
         _sym2str(CKR_INFORMATION_SENSITIVE);
@@ -105,6 +107,7 @@ char *p11_get_ckr(CK_RV rc)
         _sym2str(CKR_CRYPTOKI_ALREADY_INITIALIZED);
         _sym2str(CKR_MUTEX_BAD);
         _sym2str(CKR_MUTEX_NOT_LOCKED);
+        _sym2str(CKR_FUNCTION_REJECTED);
     default:
         return "UNKNOWN";
     }
