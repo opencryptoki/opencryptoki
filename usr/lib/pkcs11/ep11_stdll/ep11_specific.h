@@ -159,4 +159,7 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
                                        CK_MECHANISM_TYPE mech,
                                        CK_OBJECT_HANDLE hKey);
 
+void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
+                                 CK_TOKEN_INFO_PTR pInfo);
+
 #endif
