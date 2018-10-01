@@ -6014,6 +6014,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
     case CKM_RSA_X9_31_KEY_PAIR_GEN:
     case CKM_RSA_PKCS_PSS:
+    case CKM_RSA_PKCS_OAEP:
     case CKM_SHA1_RSA_X9_31:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS_PSS:
