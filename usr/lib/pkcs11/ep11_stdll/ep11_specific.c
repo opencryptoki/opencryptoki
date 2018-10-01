@@ -340,6 +340,7 @@ typedef struct {
     CK_VERSION firmware_version;
     CK_ULONG firmware_API_version;
     CK_ULONG card_type;
+    CK_CHAR serialNumber[16];
 } ep11_private_data_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -7742,6 +7743,7 @@ typedef struct query_version
     CK_ULONG firmware_API_version;
     CK_VERSION firmware_version;
     CK_ULONG card_type;
+    CK_CHAR serialNumber[16];
     CK_BBOOL first;
     CK_BBOOL error;
 } query_version_t;
@@ -7823,6 +7825,9 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
    qv->firmware_API_version = xcp_info.firmwareApi;
    qv->firmware_version = xcp_info.firmwareVersion;
    qv->card_type = card_type;
+   if (qv->first)
+       memcpy(qv->serialNumber, xcp_info.serialNumber,
+              sizeof(qv->serialNumber));
    qv->first = FALSE;
 
    return CKR_OK;
@@ -7886,6 +7891,8 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
     ep11_data->firmware_API_version = qv.firmware_API_version;
     ep11_data->firmware_version = qv.firmware_version;
     ep11_data->card_type = qv.card_type;
+    memcpy(ep11_data->serialNumber, qv.serialNumber,
+           sizeof(ep11_data->serialNumber));
 
     TRACE_INFO("%s Firmware API: %lu\n", __func__,
                ep11_data->firmware_API_version);
@@ -7893,7 +7900,23 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
                ep11_data->firmware_version.major,
                ep11_data->firmware_version.minor);
     TRACE_INFO("%s Card type: CEX%luP\n", __func__, ep11_data->card_type);
+    TRACE_INFO("%s Serial number: %.16s\n", __func__, ep11_data->serialNumber);
 
     return CKR_OK;
+}
+
+void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
+                                 CK_TOKEN_INFO_PTR pInfo)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    /*
+     * report the EP11 firmware version as hardware version, and
+     * the EP11 host library version as firmware version
+     */
+    pInfo->hardwareVersion = ep11_data->firmware_version;
+    pInfo->firmwareVersion = ep11_data->ep11_lib_version;
+    memcpy(pInfo->serialNumber, ep11_data->serialNumber,
+           sizeof(pInfo->serialNumber));
 }
 
