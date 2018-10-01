@@ -114,6 +114,13 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                               "be used with publ_exp.='%s'", s);
                 continue;
             }
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                (tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
+                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "other than SHA-1");
+                continue;
+            }
         }
         // cca special cases:
         // cca token can only use the following public exponents
@@ -815,6 +822,13 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                continue;
+            }
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                (tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
+                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "other than SHA-1");
                 continue;
             }
         }
