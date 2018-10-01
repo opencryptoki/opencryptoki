@@ -265,6 +265,7 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
                               const CK_VERSION *ep11_lib_version,
                               const CK_VERSION *firmware_version,
                               const CK_ULONG *firmware_API_version);
+static int compare_ck_version(const CK_VERSION *v1, const CK_VERSION *v2);
 
 typedef struct {
     const CK_VERSION *min_lib_version;
@@ -5918,6 +5919,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_TYPE type)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
     CK_ULONG i;
     int status;
 
@@ -5965,6 +5967,12 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                         __func__, ep11_get_ckm(type));
             return CKR_MECHANISM_INVALID;
         }
+        break;
+
+    case CKM_RSA_PKCS_OAEP:
+        /* CKM_RSA_PKCS_OAEP is not supported with EP11 host library <= 1.3 */
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver1_3) <= 0)
+            return CKR_MECHANISM_INVALID;
         break;
     }
 
