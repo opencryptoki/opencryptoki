@@ -49,7 +49,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 28,
-        .oaep_params = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, "", 0},
+        .oaep_params = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, NULL, 0},
         .keylen = 24,
         .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0}
     },
@@ -78,7 +78,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 28,
-        .oaep_params = {CKM_SHA224, CKG_MGF1_SHA224, CKZ_DATA_SPECIFIED, "", 0},
+        .oaep_params = {CKM_SHA224, CKG_MGF1_SHA224, CKZ_DATA_SPECIFIED, NULL, 0},
         .keylen = 24,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
@@ -107,7 +107,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 28,
-        .oaep_params = {CKM_SHA256, CKG_MGF1_SHA256, CKZ_DATA_SPECIFIED, "", 0},
+        .oaep_params = {CKM_SHA256, CKG_MGF1_SHA256, CKZ_DATA_SPECIFIED, NULL, 0},
         .keylen = 24,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
@@ -136,7 +136,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 28,
-        .oaep_params = {CKM_SHA384, CKG_MGF1_SHA384, CKZ_DATA_SPECIFIED, "", 0},
+        .oaep_params = {CKM_SHA384, CKG_MGF1_SHA384, CKZ_DATA_SPECIFIED, NULL, 0},
         .keylen = 24,
         .keytype = {CKM_DES3_KEY_GEN, 0, 0}
     },
@@ -165,7 +165,7 @@ struct RSA_GENERATED_TEST_VECTOR rsa_oaep_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 28,
-        .oaep_params = {CKM_SHA512, CKG_MGF1_SHA512, CKZ_DATA_SPECIFIED, "", 0},
+        .oaep_params = {CKM_SHA512, CKG_MGF1_SHA512, CKZ_DATA_SPECIFIED, NULL, 0},
         .keylen = 32,
         .keytype = {CKM_AES_KEY_GEN, 0, 0}
     },
