@@ -248,9 +248,11 @@ static const char *ep11_get_cp(unsigned int cp);
 static CK_ULONG ep11_get_cp_by_name(const char *name);
 static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
-                                     unsigned char *cp, size_t cp_len);
+                                     unsigned char *cp, size_t cp_len,
+                                     size_t max_cp_index);
 static CK_RV get_control_points(STDLL_TokData_t * tokdata,
-                                unsigned char *cp, size_t * cp_len);
+                                unsigned char *cp, size_t * cp_len,
+                                size_t *max_cp_index);
 
 typedef struct ep11_card_version {
     struct ep11_card_version *next;
@@ -367,6 +369,7 @@ typedef struct {
     cp_config_t *cp_config;
     unsigned char control_points[XCP_CP_BYTES];
     size_t control_points_len;
+    size_t max_control_point_index;
     int strict_mode;
     int vhsm_mode;
     int optimize_single_ops;
@@ -1909,7 +1912,8 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     ep11_data->control_points_len = sizeof(ep11_data->control_points);
     rc = get_control_points(tokdata, ep11_data->control_points,
-                            &ep11_data->control_points_len);
+                            &ep11_data->control_points_len,
+                            &ep11_data->max_control_point_index);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get the control points (get_control_points "
                     "rc=0x%lx)\n", __func__, rc);
@@ -5932,7 +5936,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 
     if (check_cps_for_mechanism(ep11_data->cp_config,
                                 type, ep11_data->control_points,
-                                ep11_data->control_points_len) != CKR_OK) {
+                                ep11_data->control_points_len,
+                                ep11_data->max_control_point_index) != CKR_OK) {
         TRACE_INFO("%s Mech '%s' banned due to control point\n",
                                    __func__, ep11_get_ckm(type));
         return CKR_MECHANISM_INVALID;
@@ -6771,7 +6776,8 @@ static CK_ULONG ep11_get_cp_by_name(const char *name)
 
 static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
-                                     unsigned char *cp, size_t cp_len)
+                                     unsigned char *cp, size_t cp_len,
+                                     size_t max_cp_index)
 {
     cp_config_t *cp_cfg = cp_config;
     cp_mech_config_t *mech_cfg;
@@ -6780,7 +6786,8 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
                 ep11_get_ckm(mech));
 
     while (cp_cfg != NULL) {
-        if (CP_BYTE_NO(cp_cfg->cp) >= cp_len ||
+        if (CP_BYTE_NO(cp_cfg->cp) < cp_len &&
+            cp_cfg->cp <= max_cp_index &&
             (cp[CP_BYTE_NO(cp_cfg->cp)] & CP_BIT_MASK(cp_cfg->cp)) == 0) {
             /* CP is off, check if the current mechanism is
              * associated with it */
@@ -6987,7 +6994,8 @@ static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
 }
 
 static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
-                                            unsigned char *cp, size_t * cp_len)
+                                            unsigned char *cp, size_t * cp_len,
+                                            size_t *max_cp_index)
 {
     unsigned char rsp[200];
     unsigned char cmd[100];
@@ -6996,6 +7004,8 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     long rc;
     CK_RV rv = 0;
     ep11_target_t target;
+    CK_IBM_XCP_INFO xcp_info;
+    CK_ULONG xcp_info_len = sizeof(xcp_info);
 
     memset(&target, 0, sizeof(target));
     target.length = 1;
@@ -7038,6 +7048,16 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     memcpy(cp, rb.payload, rb.pllen);
     *cp_len = rb.pllen;
 
+    rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
+                           (uint64_t)&target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query xcp info from adapter %02X.%04X\n",
+                    __func__, adapter, domain);
+        return CKR_DEVICE_ERROR;
+    }
+
+    *max_cp_index = xcp_info.controlPoints;
+
     return CKR_OK;
 }
 
@@ -7047,6 +7067,7 @@ typedef struct cp_handler_data {
     uint32_t first_adapter;
     uint32_t first_domain;
     int first;
+    size_t max_cp_index;
 } cp_handler_data_t;
 
 static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
@@ -7056,13 +7077,15 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
     cp_handler_data_t *data = (cp_handler_data_t *) handler_data;
     unsigned char cp[XCP_CP_BYTES];
     size_t cp_len = sizeof(cp);
+    size_t max_cp_index;
     CK_ULONG i;
 
     TRACE_INFO("Getting control points for adapter %02X.%04X\n", adapter,
                domain);
 
     memset(cp, 0, sizeof(cp));
-    rc = get_control_points_for_adapter(adapter, domain, cp, &cp_len);
+    rc = get_control_points_for_adapter(adapter, domain, cp, &cp_len,
+                                        &max_cp_index);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get CPS from adapter %02X.%04X\n",
                     __func__, adapter, domain);
@@ -7079,6 +7102,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
         data->first_domain = domain;
         memcpy(data->first_cp, cp, cp_len);
         memcpy(data->combined_cp, cp, cp_len);
+        data->max_cp_index = max_cp_index;
         data->first = 0;
     } else {
         // check if subsequent adapters have the same CPs
@@ -7097,17 +7121,32 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
         for (i = 0; i < cp_len; i++) {
             data->combined_cp[i] &= cp[i];
         }
+
+        if (max_cp_index != data->max_cp_index) {
+            TRACE_WARNING("%s Adapter %02X.%04X has a different number of "
+                          "control points than adapter %02X.%04X, using "
+                          "maximum.\n", __func__, adapter, domain,
+                          data->first_adapter, data->first_domain);
+            OCK_SYSLOG(LOG_WARNING,
+                       "Warning: Adapter %02X.%04X has a different number of "
+                       "control points than adapter %02X.%04X, using maximum\n",
+                       adapter, domain, data->first_adapter,
+                       data->first_domain);
+
+            data->max_cp_index = MAX(max_cp_index, data->max_cp_index);
+        }
     }
 
     return CKR_OK;
 }
 
 #ifdef DEBUG
-static void print_control_points(unsigned char *cp, size_t cp_len)
+static void print_control_points(unsigned char *cp, size_t cp_len,
+                                 size_t max_cp_index)
 {
     unsigned int i;
 
-    for (i = 0; i <= XCP_CPBITS_MAX && CP_BYTE_NO(i) < cp_len; i++) {
+    for (i = 0; i <= max_cp_index && CP_BYTE_NO(i) < cp_len; i++) {
         if ((cp[CP_BYTE_NO(i)] & CP_BIT_MASK(i)) == 0)
             TRACE_INFO("CP %u (%s)is off\n", i, ep11_get_cp(i));
         else
@@ -7117,7 +7156,8 @@ static void print_control_points(unsigned char *cp, size_t cp_len)
 #endif
 
 static CK_RV get_control_points(STDLL_TokData_t * tokdata,
-                                unsigned char *cp, size_t * cp_len)
+                                unsigned char *cp, size_t * cp_len,
+                                size_t *max_cp_index)
 {
     CK_RV rc;
     cp_handler_data_t data;
@@ -7132,11 +7172,13 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
 
     *cp_len = MIN(*cp_len, sizeof(data.combined_cp));
     memcpy(cp, data.combined_cp, *cp_len);
+    *max_cp_index = data.max_cp_index;
 
 #ifdef DEBUG
-    TRACE_DEBUG("Combined control points from all cards:\n");
+    TRACE_DEBUG("Combined control points from all cards (%lu CPs):\n",
+                data.max_cp_index);
     TRACE_DEBUG_DUMP(cp, *cp_len);
-    print_control_points(cp, *cp_len);
+    print_control_points(cp, *cp_len, data.max_cp_index);
 #endif
 
     return CKR_OK;
