@@ -885,6 +885,7 @@ void usage(char *fct)
 int do_ParseArgs(int argc, char **argv)
 {
     int i;
+    char *endp;
 
     skip_token_obj = TRUE;
     no_stop = FALSE;
@@ -900,7 +901,17 @@ int do_ParseArgs(int argc, char **argv)
         } else if (strcmp(argv[i], "-noskip") == 0) {
             skip_token_obj = FALSE;
         } else if (strcmp(argv[i], "-slot") == 0) {
-            SLOT_ID = atoi(argv[i + 1]);
+            if (argc <= i + 1) {
+                printf("No slot number specified\n");
+                usage(argv[0]);
+                return -1;
+            }
+            SLOT_ID = strtol(argv[i + 1], &endp, 10);
+            if (*endp != '\0') {
+                printf("Invalid slot number specified: %s\n", argv[i + 1]);
+                usage(argv[0]);
+                return -1;
+            }
             i++;
         } else if (strcmp(argv[i], "-securekey") == 0) {
             securekey = TRUE;
