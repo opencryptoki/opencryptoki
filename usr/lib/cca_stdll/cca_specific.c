@@ -1556,6 +1556,54 @@ CK_RV build_update_attribute(TEMPLATE * tmpl,
     return CKR_OK;
 }
 
+CK_BBOOL is_curve_error(long return_code, long reason_code)
+{
+    if (return_code == 8) {
+        /*
+         * The following reason codes denote that the curve is not supported
+         *  8 874 (36A)    Error in Cert processing. Elliptic Curve is not
+         *                 supported.
+         *  8 2158 (86E)   There is a mismatch between ECC key tokens of curve
+         *                 types, key lengths, or both. Curve types and key
+         *                 lengths must match.
+         *  8 6015 (177F)  An ECC curve type is invalid or its usage is
+         *                 inconsistent.
+         *  8 6017 (1781)  Curve size p is invalid or its usage is inconsistent.
+         */
+        switch (reason_code) {
+        case 874:
+        case 2158:
+        case 6015:
+        case 6017:
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned int i;
+
+    /* Check if curve supported */
+    if (!template_attribute_find(templ, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if ((attr->ulValueLen == der_ec_supported[i].data_size) &&
+            (memcmp(attr->pValue, der_ec_supported[i].data, attr->ulValueLen) == 0)) {
+            *curve_type = der_ec_supported[i].curve_type;
+            *curve_bitlen = der_ec_supported[i].len_bits;
+            return CKR_OK;
+        }
+    }
+
+    return CKR_CURVE_NOT_SUPPORTED;
+}
+
 uint16_t cca_ec_privkey_offset(CK_BYTE * tok)
 {
     uint8_t privkey_id = CCA_PRIVKEY_ID, privkey_rec;
@@ -1678,41 +1726,27 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
     unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
     unsigned char generated_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    unsigned int i;
-    CK_BBOOL found = FALSE;
-    CK_ATTRIBUTE *attr = NULL;
     CK_RV rv;
     long param1 = 0;
     unsigned char *param2 = NULL;
+    uint8_t curve_type;
+    uint16_t curve_bitlen;
 
     UNUSED(tokdata);
 
-    if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    for (i = 0; i < NUMEC; i++) {
-        if ((attr->ulValueLen == der_ec_supported[i].data_size) &&
-            (memcmp(attr->pValue, der_ec_supported[i].data,
-                    attr->ulValueLen) == 0)) {
-            found = TRUE;
-            break;
-        }
-    }
-
-    if (found == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_PARAM_INVALID;
+    rv = curve_supported(publ_tmpl, &curve_type, &curve_bitlen);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("Curve not supported\n");
+        return rv;
     }
 
     /*
      * See CCA doc: page 94 for offset of data in key_value_structure
      */
     memcpy(key_value_structure,
-           &(der_ec_supported[i].curve_type), sizeof(uint8_t));
+           &curve_type, sizeof(uint8_t));
     memcpy(&key_value_structure[CCA_PKB_EC_LEN_OFFSET],
-           &(der_ec_supported[i].len_bits), sizeof(uint16_t));
+           &curve_bitlen, sizeof(uint16_t));
 
     key_value_structure_length = CCA_EC_KEY_VALUE_STRUCT_SIZE;
 
@@ -1744,6 +1778,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1771,6 +1807,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (EC KEY GENERATE) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1828,6 +1866,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (EC SIGN) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         TRACE_WARNING("CSNDDSG (EC SIGN) succeeded, but"
@@ -1877,6 +1917,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     } else if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSV (EC VERIFY) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         TRACE_WARNING("CSNDDSV (EC VERIFY) succeeded, but"
@@ -3321,29 +3363,6 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
     return CKR_OK;
 }
 
-static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
-{
-    CK_ATTRIBUTE *attr = NULL;
-    unsigned int i;
-
-    /* Check if curve supported */
-    if (!template_attribute_find(templ, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    for (i = 0; i < NUMEC; i++) {
-        if ((attr->ulValueLen == der_ec_supported[i].data_size) &&
-            (memcmp(attr->pValue, der_ec_supported[i].data, attr->ulValueLen) == 0)) {
-            *curve_type = der_ec_supported[i].curve_type;
-            *curve_bitlen = der_ec_supported[i].len_bits;
-            return CKR_OK;
-        }
-    }
-
-    return CKR_MECHANISM_PARAM_INVALID;
-}
-
 static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
 {
     long private_key_name_length, key_token_length, target_key_token_length;
@@ -3366,9 +3385,10 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
 
 
     /* Check if curve supported and determine curve type and bitlen */
-    if (curve_supported(priv_templ, &curve_type, &curve_bitlen) != CKR_OK) {
+    rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Curve not supported by this token.\n");
-        return CKR_MECHANISM_PARAM_INVALID;
+        return rc;
     }
 
     /* Find private key data in template */
@@ -3415,6 +3435,8 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
                 " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -3433,6 +3455,8 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
                 return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     }
 
@@ -3477,9 +3501,10 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 
 
     /* Check if curve supported and determine curve type and bitlen */
-    if (curve_supported(pub_templ, &curve_type, &curve_bitlen) != CKR_OK) {
+    rc = curve_supported(pub_templ, &curve_type, &curve_bitlen);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Curve not supported by this token.\n");
-        return CKR_MECHANISM_PARAM_INVALID;
+        return rc;
     }
 
     /* Find public key data in template */
@@ -3519,6 +3544,8 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
                 " reason:%ld\n", return_code, reason_code);
+        if (is_curve_error(return_code, reason_code))
+            return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
     }
 
