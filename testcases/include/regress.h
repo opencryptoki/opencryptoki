@@ -296,11 +296,11 @@ int get_user_pin(CK_BYTE_PTR);
 
 #define testcase_user_logout()                                          \
     do {                                                                \
-        rc = funcs->C_Logout(session);                                  \
-        if (rc != CKR_OK) {                                             \
-            testcase_error("C_Logout() rc = %s", p11_get_ckr(rc));      \
-            if (rc != CKR_USER_NOT_LOGGED_IN)                           \
-                goto testcase_cleanup;                                  \
+        if (session != CK_INVALID_HANDLE) {                             \
+            rc = funcs->C_Logout(session);                              \
+            if (rc != CKR_OK) {                                         \
+                testcase_error("C_Logout() rc = %s", p11_get_ckr(rc));  \
+            }                                                           \
         }                                                               \
     } while (0)
 
