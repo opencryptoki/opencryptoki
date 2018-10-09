@@ -1234,17 +1234,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * aes_key,
         TRACE_ERROR("Invalid key length: %lu\n", key_size);
         return CKR_KEY_SIZE_RANGE;
     }
-#ifdef DEBUG
-    {
-        uint32_t j;
-        TRACE_DEBUG("Rule Array:");
-        for (j = 0; j < 32; j++)
-            printf("%c", rule_array[j]);
-        printf("\n");
-        for (j = 0; j < 8; j++)
-            printf("%c", key_type[j]);
-    }
-#endif
+
     rule_array_count = 4;
     dll_CSNBKTB(&return_code,
                 &reason_code,
