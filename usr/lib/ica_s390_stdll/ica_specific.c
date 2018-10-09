@@ -3697,27 +3697,27 @@ static CK_RV is_equal(unsigned char *a,
 static int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
 {
     /* Supported Elliptic Curves */
-    CK_BYTE brainpoolP160r1[] =
+    static const CK_BYTE brainpoolP160r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
-    CK_BYTE brainpoolP192r1[] =
+    static const CK_BYTE brainpoolP192r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x03 };
-    CK_BYTE brainpoolP224r1[] =
+    static const CK_BYTE brainpoolP224r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x05 };
-    CK_BYTE brainpoolP256r1[] =
+    static const CK_BYTE brainpoolP256r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07 };
-    CK_BYTE brainpoolP320r1[] =
+    static const CK_BYTE brainpoolP320r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x09 };
-    CK_BYTE brainpoolP384r1[] =
+    static const CK_BYTE brainpoolP384r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0B };
-    CK_BYTE brainpoolP512r1[] =
+    static const CK_BYTE brainpoolP512r1[] =
         { 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D };
-    CK_BYTE prime192[] =
+    static const CK_BYTE prime192[] =
         { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
-    CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
-    CK_BYTE prime256[] =
+    static const CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
+    static const CK_BYTE prime256[] =
         { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
-    CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
-    CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
+    static const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
+    static const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
 
     if (is_equal
         (oid, oid_length, (unsigned char *) &prime192, sizeof(prime192)))
@@ -3794,7 +3794,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     nid = nid_from_oid(attr->pValue, attr->ulValueLen);
     if (nid < 0) {
         TRACE_ERROR("curve not supported by icatoken.\n");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     /* Create ICA_EC_KEY object */
@@ -3889,7 +3889,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     nid = nid_from_oid(attr->pValue, attr->ulValueLen);
     if (nid < 0) {
         TRACE_ERROR("Cannot determine curve nid. \n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     /* Create ICA_EC_KEY object */
@@ -3969,7 +3969,7 @@ static CK_RV decompress_pubkey(unsigned int nid,
     if (!group) {
         TRACE_ERROR("Curve %d is not supported by openssl. Cannot decompress "
                     "public key\n", nid);
-        ret = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        ret = CKR_CURVE_NOT_SUPPORTED;
         goto end;
     }
 
@@ -4112,7 +4112,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     nid = nid_from_oid(attr->pValue, attr->ulValueLen);
     if (nid < 0) {
         TRACE_ERROR("Cannot determine curve nid. \n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     eckey = p_ica_ec_key_new(nid, &privlen);
@@ -4214,7 +4214,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     nid = nid_from_oid(oid, oid_length);
     if (nid < 0) {
         TRACE_ERROR("curve not supported by icatoken.\n");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     /* Create ICA_EC_KEY object with public key */
