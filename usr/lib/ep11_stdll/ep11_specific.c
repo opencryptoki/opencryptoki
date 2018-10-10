@@ -252,7 +252,15 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
 static CK_RV get_control_points(STDLL_TokData_t * tokdata,
                                 unsigned char *cp, size_t * cp_len);
 
+typedef struct ep11_card_version {
+    struct ep11_card_version *next;
+    CK_ULONG card_type;
+    CK_VERSION firmware_version;
+    CK_ULONG firmware_API_version;
+} ep11_card_version_t;
+
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
+static void free_card_versions(ep11_card_version_t *card_version);
 
 /* Definitions for loading libica dynamically */
 
@@ -338,9 +346,7 @@ typedef struct {
     char digest_libica_path[PATH_MAX];
     libica_t libica;
     CK_VERSION ep11_lib_version;
-    CK_VERSION firmware_version;
-    CK_ULONG firmware_API_version;
-    CK_ULONG card_type;
+    ep11_card_version_t *card_versions;
     CK_CHAR serialNumber[16];
 } ep11_private_data_t;
 
@@ -1930,6 +1936,7 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
         if (ep11_data->target_list)
             free(ep11_data->target_list);
         free_cp_config(ep11_data->cp_config);
+        free_card_versions(ep11_data->card_versions);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
@@ -7752,9 +7759,7 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
 
 typedef struct query_version
 {
-    CK_ULONG firmware_API_version;
-    CK_VERSION firmware_version;
-    CK_ULONG card_type;
+    ep11_private_data_t *ep11_data;
     CK_CHAR serialNumber[16];
     CK_BBOOL first;
     CK_BBOOL error;
@@ -7769,6 +7774,7 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     CK_RV rc;
     ep11_target_t target;
     CK_ULONG card_type;
+    ep11_card_version_t *card_version;
 
     memset(&target, 0, sizeof(target));
     target.length = 1;
@@ -7777,77 +7783,96 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
 
     rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
                            (uint64_t)&target);
-   if (rc != CKR_OK) {
-       TRACE_ERROR("%s Failed to query module version from adapter %02X.%04X\n",
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query module version from adapter %02X.%04X\n",
                            __func__, adapter, domain);
        /* card may no longer be online, so ignore this error situation */
-       return CKR_OK;
-   }
+        return CKR_OK;
+    }
 
-   rc = get_card_type(adapter, &card_type);
-   if (rc != CKR_OK) {
-       TRACE_ERROR("%s Failed to get card type for adapter %02X.%04X\n",
+    rc = get_card_type(adapter, &card_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get card type for adapter %02X.%04X\n",
                    __func__, adapter, domain);
-       /* card may no longer be online, so ignore this error situation */
-       return CKR_OK;
-   }
+        /* card may no longer be online, so ignore this error situation */
+        return CKR_OK;
+    }
 
-   if (!qv->first && qv->card_type != card_type) {
-       TRACE_ERROR("%s Adapter %02X.%04X has a different card type "
-                                 "than the previous adapters: CEX%luP\n",
-                                 __func__, adapter, domain,
-                                 card_type);
-       OCK_SYSLOG(LOG_ERR,
-                  "Warning: Adapter %02X.%04X has a card card_type "
-                  " than the previous adapters: CEX%luP\n",
-                  adapter, domain, card_type);
-       qv->error = TRUE;
-       return CKR_OK;
-   }
+    /* Try to find existing version info for this card type */
+    card_version = qv->ep11_data->card_versions;
+    while (card_version != NULL) {
+        if (card_version->card_type == card_type)
+           break;
+        card_version = card_version->next;
+    }
 
-   if (!qv->first && qv->firmware_API_version != xcp_info.firmwareApi) {
-       TRACE_ERROR("%s Adapter %02X.%04X has a different API version "
-                                 "than the previous adapters: %lu\n",
-                                 __func__, adapter, domain,
-                                 xcp_info.firmwareApi);
-       OCK_SYSLOG(LOG_ERR,
-                  "Warning: Adapter %02X.%04X has a different API version "
-                  " than the previous adapters: %lu\n",
-                  adapter, domain, xcp_info.firmwareApi);
-       qv->error = TRUE;
-       return CKR_OK;
-   }
+    if (card_version == NULL) {
+        /*
+         * No version info for this card type found, create new entry and add
+         * it to the list
+         */
+        card_version = calloc(1, sizeof(ep11_card_version_t));
+        if (card_version == NULL) {
+            TRACE_ERROR("%s Memory allocation failed\n", __func__);
+            qv->error = TRUE;
+            return CKR_HOST_MEMORY;
+        }
 
-   if (!qv->first && compare_ck_version(&qv->firmware_version,
-                                        &xcp_info.firmwareVersion) != 0) {
-       TRACE_ERROR("%s Adapter %02X.%04X has a different firmware version"
-                                 "than the previous adapters: %d.%d\n",
-                                 __func__, adapter, domain,
-                                 xcp_info.firmwareVersion.major,
-                                 xcp_info.firmwareVersion.minor);
-       OCK_SYSLOG(LOG_ERR,
-                  "Warning: Adapter %02X.%04X has a different firmware version"
-                  " than the previous adapters: %d.%d\n",
-                  adapter, domain,  xcp_info.firmwareVersion.major,
-                  xcp_info.firmwareVersion.minor);
-       qv->error = TRUE;
-       return CKR_OK;
-   }
+        card_version->card_type = card_type;
+        card_version->firmware_API_version = xcp_info.firmwareApi;
+        card_version->firmware_version = xcp_info.firmwareVersion;
 
-   qv->firmware_API_version = xcp_info.firmwareApi;
-   qv->firmware_version = xcp_info.firmwareVersion;
-   qv->card_type = card_type;
-   if (qv->first)
-       memcpy(qv->serialNumber, xcp_info.serialNumber,
-              sizeof(qv->serialNumber));
-   qv->first = FALSE;
+        card_version->next = qv->ep11_data->card_versions;
+        qv->ep11_data->card_versions = card_version;
+    } else {
+        /*
+         * Version info for this card type is already available, so check this
+         * card against the existing info
+         */
+        if (card_version->firmware_API_version != xcp_info.firmwareApi) {
+            TRACE_ERROR("%s Adapter %02X.%04X has a different API version "
+                        "than the previous CEX%luP adapters: %lu\n", __func__,
+                        adapter, domain, card_version->card_type,
+                        xcp_info.firmwareApi);
+            OCK_SYSLOG(LOG_ERR,
+                       "Warning: Adapter %02X.%04X has a different API version "
+                       "than the previous CEX%luP adapters: %lu\n",
+                       adapter, domain, card_version->card_type,
+                       xcp_info.firmwareApi);
+            qv->error = TRUE;
+            return CKR_OK;
+        }
 
-   return CKR_OK;
+        if (compare_ck_version(&card_version->firmware_version,
+                               &xcp_info.firmwareVersion) != 0) {
+            TRACE_ERROR("%s Adapter %02X.%04X has a different firmware version "
+                        "than the previous CEX%luP adapters: %d.%d\n", __func__,
+                        adapter, domain, card_version->card_type,
+                        xcp_info.firmwareVersion.major,
+                        xcp_info.firmwareVersion.minor);
+            OCK_SYSLOG(LOG_ERR,
+                       "Warning: Adapter %02X.%04X has a different firmware "
+                       "version than the previous CEX%luP adapters: %d.%d\n",
+                       adapter, domain, card_version->card_type,
+                       xcp_info.firmwareVersion.major,
+                       xcp_info.firmwareVersion.minor);
+            qv->error = TRUE;
+            return CKR_OK;
+        }
+    }
+
+    if (qv->first)
+        memcpy(qv->serialNumber, xcp_info.serialNumber,
+               sizeof(qv->serialNumber));
+    qv->first = FALSE;
+
+    return CKR_OK;
 }
 
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_card_version_t *card_version;
     query_version_t qv;
     unsigned int host_version;
     CK_ULONG version_len = sizeof(host_version);
@@ -7882,6 +7907,7 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
                ep11_data->ep11_lib_version.minor);
 
     memset(&qv, 0, sizeof(qv));
+    qv.ep11_data = ep11_data;
     qv.first = TRUE;
 
     rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
@@ -7900,21 +7926,37 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
         return CKR_DEVICE_ERROR;
     }
 
-    ep11_data->firmware_API_version = qv.firmware_API_version;
-    ep11_data->firmware_version = qv.firmware_version;
-    ep11_data->card_type = qv.card_type;
     memcpy(ep11_data->serialNumber, qv.serialNumber,
            sizeof(ep11_data->serialNumber));
 
-    TRACE_INFO("%s Firmware API: %lu\n", __func__,
-               ep11_data->firmware_API_version);
-    TRACE_INFO("%s Firmware Version: %d.%d\n", __func__,
-               ep11_data->firmware_version.major,
-               ep11_data->firmware_version.minor);
-    TRACE_INFO("%s Card type: CEX%luP\n", __func__, ep11_data->card_type);
     TRACE_INFO("%s Serial number: %.16s\n", __func__, ep11_data->serialNumber);
 
+    card_version = ep11_data->card_versions;
+    while (card_version != NULL) {
+        TRACE_INFO("%s Card type: CEX%luP\n", __func__,
+                   card_version->card_type);
+        TRACE_INFO("%s   Firmware API: %lu\n", __func__,
+                card_version->firmware_API_version);
+        TRACE_INFO("%s   Firmware Version: %d.%d\n", __func__,
+                card_version->firmware_version.major,
+                card_version->firmware_version.minor);
+        card_version = card_version->next;
+    }
+
     return CKR_OK;
+}
+
+static void free_card_versions(ep11_card_version_t *card_version)
+{
+    ep11_card_version_t *next_card_version;
+
+    TRACE_INFO("%s running\n", __func__);
+
+    while (card_version != NULL) {
+        next_card_version = card_version->next;
+        free(card_version);
+        card_version = next_card_version;
+    }
 }
 
 void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
@@ -7926,7 +7968,8 @@ void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
      * report the EP11 firmware version as hardware version, and
      * the EP11 host library version as firmware version
      */
-    pInfo->hardwareVersion = ep11_data->firmware_version;
+    if (ep11_data->card_versions != NULL)
+        pInfo->hardwareVersion = ep11_data->card_versions->firmware_version;
     pInfo->firmwareVersion = ep11_data->ep11_lib_version;
     memcpy(pInfo->serialNumber, ep11_data->serialNumber,
            sizeof(pInfo->serialNumber));
