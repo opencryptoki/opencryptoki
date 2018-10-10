@@ -261,6 +261,10 @@ typedef struct ep11_card_version {
 
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
 static void free_card_versions(ep11_card_version_t *card_version);
+CK_BBOOL check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                            CK_VERSION *ep11_lib_version,
+                            CK_VERSION *firmware_version,
+                            CK_ULONG *firmware_API_version);
 
 /* Definitions for loading libica dynamically */
 
@@ -7975,3 +7979,54 @@ void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
            sizeof(pInfo->serialNumber));
 }
 
+/**
+ * returns TRUE if all APQNs of the specified card type are at least at the
+ * specified versions, or no APQN of that card type is online.
+ * Those parameters that are NULL are not checked.
+ */
+CK_BBOOL check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                            CK_VERSION *ep11_lib_version,
+                            CK_VERSION *firmware_version,
+                            CK_ULONG *firmware_API_version)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_card_version_t *card_version;
+
+    TRACE_INFO("%s checking versions for CEX%luP cards.\n", __func__, card_type);
+
+    if (ep11_lib_version != NULL) {
+        if (compare_ck_version(&ep11_data->ep11_lib_version,
+                               ep11_lib_version) < 0) {
+            TRACE_INFO("%s ep11_lib_version is less than required\n", __func__);
+            return FALSE;
+        }
+    }
+
+    card_version = ep11_data->card_versions;
+    while (card_version != NULL) {
+        if (card_version->card_type == card_type)
+            break;
+        card_version = card_version->next;
+    }
+
+    if (card_version == NULL)
+        return TRUE;
+
+    if (firmware_version != NULL) {
+        if (compare_ck_version(&card_version->firmware_version,
+                               firmware_version) < 0) {
+            TRACE_INFO("%s firmware_version is less than required\n", __func__);
+            return FALSE;
+        }
+    }
+
+    if (firmware_API_version != NULL) {
+        if (card_version->firmware_API_version < *firmware_API_version) {
+            TRACE_INFO("%s firmware_API_version is less than required\n",
+                       __func__);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
