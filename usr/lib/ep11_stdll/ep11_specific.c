@@ -55,6 +55,7 @@
 
 #include "ep11.h"
 #include "ep11_func.h"
+#include "ep11_specific.h"
 
 #define EP11SHAREDLIB "libep11.so"
 #define ICASHAREDLIB  "libica.so"
@@ -1818,8 +1819,10 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (ep11_data == NULL)
         return CKR_HOST_MEMORY;
     ep11_data->target_list = calloc(1, sizeof(ep11_target_t));
-    if (ep11_data->target_list == NULL)
+    if (ep11_data->target_list == NULL) {
+        free(ep11_data);
         return CKR_HOST_MEMORY;
+    }
 
     tokdata->private_data = ep11_data;
 
@@ -1828,7 +1831,8 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     rc = read_adapter_config_file(tokdata, conf_name);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
-        return CKR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
+        goto error;
     }
 
     /* dynamically load in the ep11 shared library */
@@ -1839,12 +1843,13 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    __func__, EP11SHAREDLIB, dlerror());
         TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
                     __func__, EP11SHAREDLIB, dlerror());
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
 
     rc = ep11_resolve_lib_sym(lib_ep11);
     if (rc != CKR_OK)
-        return rc;
+        goto error;
 
 #ifndef XCP_STANDALONE
     /* call ep11 shared lib init */
@@ -1853,18 +1858,19 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         OCK_SYSLOG(LOG_ERR,
                    "%s: Error: EP 11 library initialization failed\n",
                    __func__);
-        return CKR_DEVICE_ERROR;
+        rc = CKR_DEVICE_ERROR;
+        goto error;
     }
 #endif
 
     rc = ep11tok_get_ep11_version(tokdata);
     if (rc != CKR_OK)
-        return rc;
+        goto error;
 
     if (ep11_data->digest_libica) {
         rc = ep11tok_load_libica(tokdata);
         if (rc != CKR_OK)
-            return rc;
+            goto error;
     }
 
     ep11_data->control_points_len = sizeof(ep11_data->control_points);
@@ -1875,7 +1881,7 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                     "rc=0x%lx)\n", __func__, rc);
         OCK_SYSLOG(LOG_ERR, "%s: Failed to get the control points rc=0x%lx\n",
                    __func__, rc);
-        return rc;
+        goto error;
     }
 
     /* create an AES key needed for importing keys
@@ -1884,7 +1890,7 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     rc = make_wrapblob(tokdata, wrap_tmpl, 8);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s make_wrapblob failed rc=0x%lx\n", __func__, rc);
-        if (rc == 0x80010009) {
+        if (rc == CKR_IBM_WK_NOT_INITIALIZED) {
             TRACE_ERROR("%s rc is CKR_IBM_WK_NOT_INITIALIZED, "
                         "no master key set ?\n", __func__);
             OCK_SYSLOG(LOG_ERR,
@@ -1901,12 +1907,17 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                        "control point 13 (generate or derive symmetric "
                        "keys including DSA parameters) disabled ?\n", __func__);
         }
-        return CKR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
+        goto error;
     }
 
     TRACE_INFO("%s init done successfully\n", __func__);
-
     return CKR_OK;
+
+error:
+    ep11tok_final(tokdata);
+    TRACE_INFO("%s init failed with rc: 0x%lx\n", __func__, rc);
+    return rc;
 }
 
 CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
@@ -7544,7 +7555,8 @@ done:
     return rc;
 }
 
-CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session)
+static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
+                                     SESSION * session)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
