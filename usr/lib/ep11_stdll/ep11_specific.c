@@ -7752,7 +7752,7 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
     char buf[250];
     CK_RV rc;
 
-    sprintf(fname, "%scard%02d/type", SYSFS_DEVICES_AP, adapter);
+    sprintf(fname, "%scard%02x/type", SYSFS_DEVICES_AP, adapter);
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
         return rc;
