@@ -43,6 +43,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "trace.h"
+#include "slotmgr.h"
 
 #include "../api/apiproto.h"
 
@@ -299,7 +300,7 @@ CK_RV SC_GetTokenInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
-    if (sid > MAX_SLOT_ID) {
+    if (sid >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         rc = CKR_SLOT_ID_INVALID;
         goto done;
@@ -353,7 +354,7 @@ CK_RV SC_GetMechanismList(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         rc = CKR_ARGUMENTS_BAD;
         goto out;
     }
-    if (sid > MAX_SLOT_ID) {
+    if (sid >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         rc = CKR_SLOT_ID_INVALID;
         goto out;
@@ -396,7 +397,7 @@ CK_RV SC_GetMechanismInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
         rc = CKR_ARGUMENTS_BAD;
         goto out;
     }
-    if (sid > MAX_SLOT_ID) {
+    if (sid >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         rc = CKR_SLOT_ID_INVALID;
         goto out;
@@ -738,7 +739,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         return CKR_ARGUMENTS_BAD;
     }
-    if (sid > MAX_SLOT_ID) {
+    if (sid >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         return CKR_SLOT_ID_INVALID;
     }
