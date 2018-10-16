@@ -21,8 +21,6 @@
 #define MAX_PIN_LEN           8
 #define MIN_PIN_LEN           4
 
-#define MAX_SLOT_ID           1024
-
 #ifndef MIN
 #define MIN(a, b)  ((a) < (b) ? (a) : (b))
 #endif

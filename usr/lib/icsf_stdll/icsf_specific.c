@@ -42,6 +42,7 @@
 #include "../api/apiproto.h"
 #include "trace.h"
 #include "shared_memory.h"
+#include "slotmgr.h"
 
 /* Default token attributes */
 const char manuf[] = "IBM Corp.";
@@ -212,7 +213,7 @@ struct slot_data {
     char key_file[PATH_MAX + 1];
     int mech;
 };
-struct slot_data *slot_data[MAX_SLOT_ID + 1];
+struct slot_data *slot_data[NUMBER_SLOTS_MANAGED];
 
 /*
  * Converts an ICSF reason code to an ock error code
@@ -283,7 +284,7 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     TRACE_INFO("icsf %s slot=%lu running\n", __func__, slot_id);
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -315,7 +316,7 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     struct icsf_config config;
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -382,7 +383,7 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
     struct slot_data data;
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -414,7 +415,7 @@ CK_RV token_specific_save_token_data(STDLL_TokData_t * tokdata,
     CK_RV rc = CKR_OK;
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -453,7 +454,7 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     size_t len = sizeof(**shm) + sizeof(**slot_data);
     char *shm_id = NULL;
 
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -502,7 +503,7 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
     UNUSED(pass_file_type);
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
@@ -1139,7 +1140,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_SLOT_ID slot_id = sess->session_info.slotID;
 
     /* Check Slot ID */
-    if (slot_id > MAX_SLOT_ID) {
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
