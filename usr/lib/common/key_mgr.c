@@ -234,6 +234,13 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         goto error;
     }
 
+    /* add/update CKA_LOCAL with value true to the template */
+    rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
+    if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+    }
+    template_update_attribute(key_obj->template, new_attr);
 
     // at this point, the key should be fully constructed...assign
     // an object handle and store the key
@@ -472,6 +479,19 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
+    /* add/update CKA_LOCAL with value true to the keypair templates */
+    rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
+    if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+    }
+    template_update_attribute(publ_key_obj->template, new_attr);
+    rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
+    if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+    }
+    template_update_attribute(priv_key_obj->template, new_attr);
 
     // at this point, the keys should be fully constructed...assign
     // object handles and store the keys
