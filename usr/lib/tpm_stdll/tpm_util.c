@@ -272,11 +272,12 @@ int get_srk_info(struct srk_info *srk)
      */
 
     if (srk->len != 0) {
-        if ((secret = (char *) malloc(srk->len)) == NULL) {
+        if ((secret = (char *) malloc(srk->len + 1)) == NULL) {
             TRACE_ERROR("malloc of %d bytes failed.\n", srk->len);
             return -1;
         }
         memcpy(secret, passwd_ptr, srk->len);
+        secret[srk->len] = '\0';
         srk->secret = secret;
     }
 
