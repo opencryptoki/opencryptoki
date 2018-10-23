@@ -391,7 +391,7 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
 
 int Stat2Proc(int pid, proc_t *p)
 {
-    char buf[800];          // about 40 fields, 64-bit decimal is about 20 chars
+    char buf[800 + 1];      // about 40 fields, 64-bit decimal is about 20 chars
     char fbuf[800];         // about 40 fields, 64-bit decimal is about 20 chars
     char *tmp;
     int fd, num;
@@ -414,7 +414,7 @@ int Stat2Proc(int pid, proc_t *p)
     if (num < 80)
         return FALSE;
 
-    // buf[num] = '\0';
+    buf[num] = '\0';
 
     tmp = strrchr(buf, ')');    // split into "PID (cmd" and "<rest>"
     *tmp = '\0';                // replacing trailing ')' with NULL
