@@ -997,6 +997,8 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
 done:
     if (clear)
         free(clear);
+    if (new_obj_data)
+        free(new_obj_data);
 
     return ret;
 }
