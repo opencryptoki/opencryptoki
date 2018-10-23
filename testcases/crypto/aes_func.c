@@ -987,9 +987,9 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
     CK_MECHANISM mechkey, mech;
-    CK_OBJECT_HANDLE h_key;
-    CK_OBJECT_HANDLE w_key;
-    CK_OBJECT_HANDLE uw_key;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE w_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE uw_key = CK_INVALID_HANDLE;
     CK_ULONG wrapped_data_len = 0;
     CK_ULONG user_pin_len;
     CK_ULONG orig_len, crypt_len, decrypt_len;
@@ -1164,35 +1164,44 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
         }
+        h_key = CK_INVALID_HANDLE;
 
         rc = funcs->C_DestroyObject(session, w_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
         }
+        w_key = CK_INVALID_HANDLE;
 
         rc = funcs->C_DestroyObject(session, uw_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
         }
+        uw_key = CK_INVALID_HANDLE;
     }
     goto testcase_cleanup;
 error:
     if (wrapped_data)
         free(wrapped_data);
 
-    rc = funcs->C_DestroyObject(session, h_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+    if (h_key != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+        }
     }
 
-    rc = funcs->C_DestroyObject(session, w_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+    if (w_key != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, w_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+        }
     }
 
-    rc = funcs->C_DestroyObject(session, uw_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+    if (uw_key != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, uw_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+        }
     }
     goto testcase_cleanup;
 
