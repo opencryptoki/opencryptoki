@@ -958,12 +958,14 @@ int do_GetFunctionList(void)
 
     *(void **)(&pfoo) = dlsym(d, "C_GetFunctionList");
     if (pfoo == NULL) {
+        dlclose(d);
         return FALSE;
     }
     rc = pfoo(&funcs);
 
     if (rc != CKR_OK) {
         testcase_error("C_GetFunctionList rc=%s", p11_get_ckr(rc));
+        dlclose(d);
         return FALSE;
     }
 
