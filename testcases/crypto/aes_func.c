@@ -1125,8 +1125,10 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
             goto error;
         }
 
-        if (wrapped_data)
+        if (wrapped_data) {
             free(wrapped_data);
+            wrapped_data = NULL;
+        }
 
         /** initiate decryption (with unwrapped key) **/
         rc = funcs->C_DecryptInit(session, &mech, uw_key);
