@@ -1795,6 +1795,9 @@ int cca_migrate(struct key *keys, struct key_count *count,
             else
                 count->rsa++;
             break;
+        default:
+            rc = 1;
+            break;
         }
 
         /* replace the original key with the migrated key */
