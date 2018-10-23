@@ -1460,6 +1460,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                         " reason:%ld\n", return_code, reason_code);
         }
         (*out_data_len) = 0;
+        if (local_out != out_data)
+            free(local_out);
         return CKR_FUNCTION_FAILED;
     } else if (reason_code != 0) {
         if (encrypt) {
