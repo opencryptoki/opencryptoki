@@ -648,19 +648,15 @@ CK_RV object_create_skel(STDLL_TokData_t * tokdata,
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
-    o = (OBJECT *) malloc(sizeof(OBJECT));
-    tmpl = (TEMPLATE *) malloc(sizeof(TEMPLATE));
-    tmpl2 = (TEMPLATE *) malloc(sizeof(TEMPLATE));
+    o = (OBJECT *) calloc(1, sizeof(OBJECT));
+    tmpl = (TEMPLATE *) calloc(1, sizeof(TEMPLATE));
+    tmpl2 = (TEMPLATE *) calloc(1, sizeof(TEMPLATE));
 
     if (!o || !tmpl || !tmpl2) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto done;
     }
-    memset(o, 0x0, sizeof(OBJECT));
-    memset(tmpl, 0x0, sizeof(TEMPLATE));
-    memset(tmpl2, 0x0, sizeof(TEMPLATE));
-
 
     rc = template_add_attributes(tmpl2, pTemplate, ulCount);
     if (rc != CKR_OK)
