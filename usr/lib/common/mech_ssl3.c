@@ -362,7 +362,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     }
     // now, do the outer hash
     //
-    memset(&context->hash_context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+    memset(context, 0x0, sizeof(SSL3_MAC_CONTEXT));
 
     memset(outer, 0x5C, 48);
 
@@ -616,7 +616,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     }
     // now, do the outer hash
     //
-    memset(&context->hash_context, 0x0, sizeof(SSL3_MAC_CONTEXT));
+    memset(context, 0x0, sizeof(SSL3_MAC_CONTEXT));
 
     memset(outer, 0x5C, 48);
 
