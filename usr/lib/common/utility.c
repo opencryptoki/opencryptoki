@@ -567,6 +567,10 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 // This gives us a namespace of 36^8 = 2,821,109,907,456 objects before wrapping
 // around
 //
+// Note: If the current name contains an invalid character (i.e. not within
+//       [0-9A-Z]), then this character is set to '0' in the next name and
+//       the following characters are incremented by 1 adjusting as necessary.
+//
 CK_RV compute_next_token_obj_name(CK_BYTE *current, CK_BYTE *next)
 {
     int val[8];
@@ -581,9 +585,10 @@ CK_RV compute_next_token_obj_name(CK_BYTE *current, CK_BYTE *next)
     for (i = 0; i < 8; i++) {
         if (current[i] >= '0' && current[i] <= '9')
             val[i] = current[i] - '0';
-
-        if (current[i] >= 'A' && current[i] <= 'Z')
+        else if (current[i] >= 'A' && current[i] <= 'Z')
             val[i] = current[i] - 'A' + 10;
+        else
+            val[i] = 36;
     }
 
     val[0]++;
