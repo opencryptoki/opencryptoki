@@ -2026,7 +2026,6 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
-        free(cca_ctx->tail);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -2273,7 +2272,6 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH (SHA FINAL) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
-        free(cca_ctx->tail);
         return CKR_FUNCTION_FAILED;
     }
 
