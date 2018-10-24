@@ -1032,7 +1032,7 @@ testcase_cleanup:
     testcase_user_logout();
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK) {
-        testcase_error("C_CloseAllSessions(), rc=%s.", p11_get_ckr(rc));
+        testcase_error("C_CloseAllSessions(), rc=%s.", p11_get_ckr(loc_rc));
     }
 
     return rc;
@@ -1214,7 +1214,7 @@ testcase_cleanup:
     testcase_user_logout();
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK) {
-        testcase_error("C_CloseAllSessions, rc=%s.", p11_get_ckr(rc));
+        testcase_error("C_CloseAllSessions, rc=%s.", p11_get_ckr(loc_rc));
     }
 
     return rc;
