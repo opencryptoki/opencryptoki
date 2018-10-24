@@ -2357,7 +2357,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                   CK_BYTE * in_data, CK_ULONG in_data_len, CK_BYTE * signature,
                   CK_ULONG * sig_len, CK_BBOOL sign)
 {
-    struct cca_sha_ctx *cca_ctx = (struct cca_sha_ctx *) ctx->context;
+    struct cca_sha_ctx *cca_ctx;
     long keylen, return_code = 0, reason_code = 0, rule_array_count = 3;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     OBJECT *key = NULL;
@@ -2368,6 +2368,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
+    cca_ctx = (struct cca_sha_ctx *) ctx->context;
 
     if (sign && !sig_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
