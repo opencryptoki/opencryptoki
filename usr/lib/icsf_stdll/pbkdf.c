@@ -188,7 +188,7 @@ CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
     size_t ret;
 
     /* see if the file exists */
-    if ((stat(fname, &statbuf) < 0) && (errno = ENOENT)) {
+    if ((stat(fname, &statbuf) < 0) && (errno == ENOENT)) {
         TRACE_ERROR("stat() failed: File does not exist.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -263,7 +263,7 @@ CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
     UNUSED(mklen);
 
     /* see if the file exists ... */
-    if ((stat(RACFFILE, &statbuf) < 0) && (errno = ENOENT)) {
+    if ((stat(RACFFILE, &statbuf) < 0) && (errno == ENOENT)) {
         TRACE_ERROR("File does not exist.\n");
         return CKR_FUNCTION_FAILED;
     }
