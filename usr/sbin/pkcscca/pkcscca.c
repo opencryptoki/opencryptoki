@@ -1105,10 +1105,14 @@ int load_token_objects(unsigned char *data_store,
 cleanup:
         if (fp2)
             fclose(fp2);
-        if (buf)
+        if (buf) {
             free(buf);
-        if (new_cipher)
+            buf = NULL;
+        }
+        if (new_cipher) {
             free(new_cipher);
+            new_cipher = NULL;
+        }
 
         if (rc) {
             if (v_flag)
