@@ -183,7 +183,7 @@ int do_SessionPerformance(unsigned int count)
         rc = create_des_encrypt_context(&(t[i].hsess), &(t[i].hkey));
         if (rc == FALSE) {
             show_error("create_aes_encrypt_context", (CK_RV) 0);
-            return FALSE;
+            goto ret;
         }
     }
 
@@ -192,15 +192,13 @@ int do_SessionPerformance(unsigned int count)
     rc = encrypt_DATA(t[0].hsess, t[0].hkey, 16);
     if (rc == FALSE) {
         show_error("encrypt_DATA #1", (CK_RV) 0);
-        return FALSE;
-
+        goto ret;
     }
 
     rc = encrypt_DATA(t[count - 1].hsess, t[count - 1].hkey, 16);
     if (rc == FALSE) {
         show_error("encrypt_DATA #2", (CK_RV) 0);
-        return FALSE;
-
+        goto ret;
     }
     GetSystemTime(&t2);
     process_time(t1, t2);
@@ -209,11 +207,15 @@ int do_SessionPerformance(unsigned int count)
         rc = finalize_des_encrypt_context(t[i].hsess);
         if (rc == FALSE) {
             show_error("finalize_aes_encrypt_context", (CK_RV) 0);
-            return FALSE;
+            goto ret;
         }
     }
 
-    return TRUE;
+    rc = TRUE;
+ret:
+    if (t != NULL)
+        free(t);
+    return rc;
 }
 
 int main(int argc, char **argv)
