@@ -743,8 +743,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         rc = ckm_des_wrap_format(tokdata, length_only, &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_des_wrap_format failed.\n");
-            if (data)
+            if (data) {
+                OPENSSL_cleanse(data, data_len);
                 free(data);
+            }
             return rc;
         }
         break;
@@ -759,8 +761,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         rc = ckm_aes_wrap_format(tokdata, length_only, &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ckm_aes_wrap_format failed.\n");
-            if (data)
+            if (data) {
+                OPENSSL_cleanse(data, data_len);
                 free(data);
+            }
             return rc;
         }
         break;
@@ -781,12 +785,20 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        if (data) {
+            OPENSSL_cleanse(data, data_len);
+            free(data);
+        }
         return CKR_MECHANISM_INVALID;
     }
 
     ctx = (ENCR_DECR_CONTEXT *) malloc(sizeof(ENCR_DECR_CONTEXT));
     if (!ctx) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        if (data) {
+            OPENSSL_cleanse(data, data_len);
+            free(data);
+        }
         return CKR_HOST_MEMORY;
     }
     memset(ctx, 0x0, sizeof(ENCR_DECR_CONTEXT));
@@ -797,6 +809,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_DEVEL("encr_mgr_init failed.\n");
         free(ctx);
+        if (data) {
+            OPENSSL_cleanse(data, data_len);
+            free(data);
+        }
         return rc;
     }
     // do the encryption and clean up.  at this point, 'value' may or may not
