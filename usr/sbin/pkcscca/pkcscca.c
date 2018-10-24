@@ -1437,6 +1437,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
     new_key->opaque_attr = malloc(attrs[0].ulValueLen);
     if (!new_key->opaque_attr) {
         print_error("Malloc of %lu bytes failed!", attrs[0].ulValueLen);
+        free(new_key);
         return 2;
     }
     new_key->handle = handle;
@@ -1445,6 +1446,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
     new_key->label = malloc(attrs[2].ulValueLen + 1);
     if (!new_key->label) {
         print_error("Malloc of %lu bytes failed!", attrs[2].ulValueLen + 1);
+        free(new_key);
         return 2;
     }
 
