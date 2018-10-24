@@ -846,12 +846,14 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
         memcpy(ctx + z_len, &counter, sizeof(int));
         rc = ckm_kdf(tokdata, sess, kdf, ctx, ctx_len, hash, &h_len);
         if (rc != 0) {
+            free(ctx);
             return rc;
         }
         memcpy(key + i * kdf_digest_len, hash, kdf_digest_len);
         counter++;
     }
 
+    free(ctx);
     return CKR_OK;
 }
 
