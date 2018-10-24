@@ -1424,7 +1424,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                     &length,
                     in_data,
                     (long int *)out_data_len,
-                    out_data,
+                    local_out,
                     &opt_data_len,
                     NULL);
     } else {
@@ -1446,7 +1446,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                     &length,
                     in_data,
                     (long int *)out_data_len,
-                    out_data,
+                    local_out,
                     &opt_data_len,
                     NULL);
     }
