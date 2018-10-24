@@ -1500,6 +1500,7 @@ int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
                       CK_KEY_TYPE *key_type, struct key **keys)
 {
     CK_RV rv;
+    void *ptr;
     CK_OBJECT_HANDLE *handles = NULL, tmp;
     CK_ULONG ulObjectCount = 0, ulTotalCount = 0;
     CK_BBOOL true = TRUE;
@@ -1530,18 +1531,24 @@ int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
         if (rv != CKR_OK) {
             p11_error("C_FindObjects", rv);
             print_error("Error finding CCA key objects");
-            free(handles);
+            if (handles != NULL)
+                free(handles);
             return 1;
         }
 
         if (ulObjectCount == 0)
             break;
 
-        handles = realloc(handles, sizeof(CK_OBJECT_HANDLE) * (++ulTotalCount));
-        if (!handles) {
-            print_error("Malloc of %lu bytes failed!", ulTotalCount);
-            break;
+        ptr = realloc(handles, sizeof(CK_OBJECT_HANDLE) * (++ulTotalCount));
+        if (!ptr) {
+            print_error("Malloc of %lu bytes failed!",
+                        sizeof(CK_OBJECT_HANDLE) * ulTotalCount);
+            funcs->C_FindObjectsFinal(sess);
+            if (handles != NULL)
+                free(handles);
+            return 1;
         }
+        handles = ptr;
 
         handles[ulTotalCount - 1] = tmp;
     }
