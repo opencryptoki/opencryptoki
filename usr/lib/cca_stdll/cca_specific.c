@@ -3394,17 +3394,23 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
 
     /* Find private key data in template */
     rc = template_attribute_find(priv_templ, CKA_VALUE, &attr);
-    if (rc == TRUE) {
-        privlen = attr->ulValueLen;
-        privkey = attr->pValue;
+    if (rc == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+
+    privlen = attr->ulValueLen;
+    privkey = attr->pValue;
 
     /* Find public key data in template */
     rc = template_attribute_find(priv_templ, CKA_EC_POINT, &attr);
-    if (rc == TRUE) {
-        publen = attr->ulValueLen;
-        pubkey = attr->pValue;
+    if (rc == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+
+    publen = attr->ulValueLen;
+    pubkey = attr->pValue;
 
     /* Build key_value_structure */
     memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
@@ -3510,10 +3516,13 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 
     /* Find public key data in template */
     rc = template_attribute_find(pub_templ, CKA_EC_POINT, &attr);
-    if (rc == TRUE) {
-        publen = attr->ulValueLen;
-        pubkey = attr->pValue;
+    if (rc == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+
+    publen = attr->ulValueLen;
+    pubkey = attr->pValue;
 
     /* Build key_value_structure */
     memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
