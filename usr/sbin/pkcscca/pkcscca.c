@@ -1096,6 +1096,11 @@ int load_token_objects(unsigned char *data_store,
          * disk in its original file.
          */
         fp2 = fopen((char *) fname, "w");
+        if (fp2 == NULL) {
+            printf("Failed to open file %s: %s", fname, strerror(errno));
+            rc = CKR_FUNCTION_FAILED;
+            goto cleanup;
+        }
         size = sizeof(CK_ULONG_32) + sizeof(CK_BBOOL) + new_cipher_len;
         (void) fwrite(&size, sizeof(CK_ULONG_32), 1, fp2);
         (void) fwrite(&priv, sizeof(CK_BBOOL), 1, fp2);
