@@ -194,7 +194,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         if (local_attr)
             free(local_attr);
         if (keygenmech_attr)
-            free(local_attr);
+            free(keygenmech_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
