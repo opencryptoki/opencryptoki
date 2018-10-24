@@ -630,7 +630,7 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
     }
 
 
-    if (mech->ulParameterLen > 0) {
+    if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
