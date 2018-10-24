@@ -877,7 +877,6 @@ static CK_RV ssl3_md5_only(STDLL_TokData_t *tokdata,
 {
     DIGEST_CONTEXT digest_ctx;
     CK_MECHANISM digest_mech;
-    CK_BYTE hash[MD5_HASH_SIZE];
     CK_ULONG len;
     CK_RV rc;
 
@@ -920,12 +919,12 @@ static CK_RV ssl3_md5_only(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Digest Update failed.\n");
         return rc;
     }
-    len = sizeof(hash);
-    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash, &len);
+    len = MD5_HASH_SIZE;
+    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, outBuff,
+                                 &len);
 
-    if (rc == CKR_OK) {
+    if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Final failed.\n");
-        memcpy(outBuff, hash, len);
     }
 
     return rc;
