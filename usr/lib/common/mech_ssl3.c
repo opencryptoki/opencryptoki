@@ -1178,6 +1178,8 @@ error:
         free(always_sens_attr);
     if (extract_attr)
         free(extract_attr);
+    if (derived_key_obj)
+        object_free(derived_key_obj);
 
     return rc;
 }
