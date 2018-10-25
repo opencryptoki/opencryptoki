@@ -1,3 +1,6 @@
+['![Travis CI Build Status](https://travis-ci.org/opencryptoki/opencryptoki.svg?branch=master)'](https://travis-ci.org/opencryptoki/opencryptoki)
+['![Coverity Scan Build Status](https://img.shields.io/coverity/scan/16802.svg)'](https://scan.coverity.com/projects/opencryptoki-opencryptoki)
+
 # openCryptoki
 
 Package version 3.10.0
