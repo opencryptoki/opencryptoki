@@ -261,10 +261,33 @@ typedef struct ep11_card_version {
 
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
 static void free_card_versions(ep11_card_version_t *card_version);
-CK_BBOOL check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
-                            CK_VERSION *ep11_lib_version,
-                            CK_VERSION *firmware_version,
-                            CK_ULONG *firmware_API_version);
+static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                              const CK_VERSION *ep11_lib_version,
+                              const CK_VERSION *firmware_version,
+                              const CK_ULONG *firmware_API_version);
+
+typedef struct {
+    const CK_VERSION *min_lib_version;
+    const CK_VERSION *min_firmware_version;
+    const CK_ULONG *min_firmware_API_version;
+    CK_ULONG card_type;
+} version_req_t;
+
+static int check_required_versions(STDLL_TokData_t *tokdata,
+                                   const version_req_t req[],
+                                   CK_ULONG num_req);
+
+/* EP11 Firmware levels that contain the HMAC min/max keysize fix */
+static const CK_VERSION cex4p_hmac_fix = { .major = 4, .minor = 20 };
+static const CK_VERSION cex5p_hmac_fix = { .major = 6, .minor = 3 };
+static const CK_VERSION cex6p_hmac_fix = { .major = 6, .minor = 9 };
+
+static const version_req_t hmac_req_versions[] = {
+        { .card_type = 4, .min_firmware_version = &cex4p_hmac_fix },
+        { .card_type = 5, .min_firmware_version = &cex5p_hmac_fix },
+        { .card_type = 6, .min_firmware_version = &cex6p_hmac_fix }
+};
+#define NUM_HMAC_REQ sizeof(hmac_req_versions)/sizeof(version_req_t)
 
 /* Definitions for loading libica dynamically */
 
@@ -5896,6 +5919,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ULONG i;
+    int status;
 
     for (i = 0; i < banned_mech_list_len; i++) {
         if (type == ep11_banned_mech_list[i]) {
@@ -5912,6 +5936,38 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
+    switch(type) {
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA_1_HMAC_GENERAL:
+    case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
+    case CKM_SHA256_HMAC:
+    case CKM_SHA256_HMAC_GENERAL:
+    case CKM_SHA384_HMAC:
+    case CKM_SHA384_HMAC_GENERAL:
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_HMAC_GENERAL:
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_224_HMAC_GENERAL:
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA512_256_HMAC_GENERAL:
+        /*
+         * Older levels of the EP11 firmware report ulMinKeySize in bytes,
+         * but ulMaxKeySize in bits for HMAC mechanisms. Newer levels of the
+         * EP11 firmware report both ulMinKeySize and ulMaxKeySize in bytes.
+         * HMAC mechanisms are only supported when all configured EP11
+         * crypto adapters either have the fix, or all don't have the fix.
+         */
+        status = check_required_versions(tokdata, hmac_req_versions,
+                                         NUM_HMAC_REQ);
+        if (status == -1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                        __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+    }
+
     return CKR_OK;
 }
 
@@ -5921,6 +5977,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
+    int status;
 
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
@@ -5983,11 +6040,21 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
         /*
-         * EP11 currently reports ulMinKeySize in bytes, but ulMaxKeySize in
-         * bits for HMAC mechanisms. Adjust ulMinKeySize so that both are in
-         * its, as required by the PKCS#11 standard.
+         * Older levels of the EP11 firmware report ulMinKeySize in bytes,
+         * but ulMaxKeySize in bits for HMAC mechanisms. Adjust ulMinKeySize
+         * so that both are in bits, as required by the PKCS#11 standard.
+         * Newer levels of the EP11 firmware report both ulMinKeySize and
+         * ulMaxKeySize in bytes. Adjust both, so that both are in bits, as
+         * required by the PKCS#11 standard.
          */
+        status = check_required_versions(tokdata, hmac_req_versions,
+                                         NUM_HMAC_REQ);
+        if (status == -1)
+            return CKR_MECHANISM_INVALID;
+
         pInfo->ulMinKeySize *= 8;
+        if (status == 1)
+            pInfo->ulMaxKeySize *= 8;
         break;
 
     case CKM_DES3_ECB:
@@ -7732,7 +7799,7 @@ CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata)
 }
 
 /* return -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2 */
-static int compare_ck_version(CK_VERSION *v1, CK_VERSION *v2)
+static int compare_ck_version(const CK_VERSION *v1, const CK_VERSION *v2)
 {
 
     if (v1->major < v2->major)
@@ -7980,25 +8047,88 @@ void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
 }
 
 /**
- * returns TRUE if all APQNs of the specified card type are at least at the
- * specified versions, or no APQN of that card type is online.
+ * Returns 1 if all APQNs that are present are at least at the required
+ * versions. If non of the APQNs are at the required versions, 0 is returned.
+ * If the APQN versions are inconsistent, -1 is returned.
+ * Card types > the highest card type contained in the requirements array are
+ * assumed to fulfill the minimum version requirements.
+ */
+static int check_required_versions(STDLL_TokData_t *tokdata,
+                                   const version_req_t req[],
+                                   CK_ULONG num_req)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ULONG i, max_card_type = 0;
+    CK_BBOOL req_not_fullfilled = CK_FALSE;
+    CK_BBOOL req_fullfilled = CK_FALSE;
+    ep11_card_version_t *card_version;
+    int status;
+
+    for (i = 0; i < num_req; i++) {
+        status = check_card_version(tokdata, req[i].card_type,
+                                           req[i].min_lib_version,
+                                           req[i].min_firmware_version,
+                                           req[i].min_firmware_API_version);
+        if (status == 0)
+            req_not_fullfilled = CK_TRUE;
+        if (status == 1)
+            req_fullfilled = CK_TRUE;
+        max_card_type = MAX(max_card_type, req[i].card_type);
+    }
+
+    /* Are card types > max_card_type present? */
+    card_version = ep11_data->card_versions;
+    while (card_version != NULL) {
+        if (card_version->card_type > max_card_type) {
+            /*
+              * Card types > the highest card type contained in the requirements
+              * array are assumed to fulfill the minimum version requirements.
+              * So all others must also meet the version requirements or be
+              * not present.
+              */
+             if (req_not_fullfilled == CK_TRUE)
+                 return -1;
+             return 1;
+        }
+        card_version = card_version->next;
+    }
+
+     /* No newer cards then max_card_type are present */
+    if (req_not_fullfilled == CK_TRUE) {
+        /*
+         * At least one don't meet the requirements, so all other must not
+         * fulfill the requirements, too, or are not present.
+         */
+        if (req_fullfilled == CK_TRUE)
+                return -1;
+        return 0;
+    } else {
+        /* All of the cards that are present fulfill the requirements */
+        return 1;
+    }
+}
+
+/**
+ * returns 1 if all APQNs of the specified card type are at least at the
+ * specified versions, 0 otherwise. If no APQN of that card type is online,
+ * then -1 is returned.
  * Those parameters that are NULL are not checked.
  */
-CK_BBOOL check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
-                            CK_VERSION *ep11_lib_version,
-                            CK_VERSION *firmware_version,
-                            CK_ULONG *firmware_API_version)
+static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
+                              const CK_VERSION *ep11_lib_version,
+                              const CK_VERSION *firmware_version,
+                              const CK_ULONG *firmware_API_version)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_card_version_t *card_version;
 
-    TRACE_INFO("%s checking versions for CEX%luP cards.\n", __func__, card_type);
+    TRACE_DEBUG("%s checking versions for CEX%luP cards.\n", __func__, card_type);
 
     if (ep11_lib_version != NULL) {
         if (compare_ck_version(&ep11_data->ep11_lib_version,
                                ep11_lib_version) < 0) {
-            TRACE_INFO("%s ep11_lib_version is less than required\n", __func__);
-            return FALSE;
+            TRACE_DEBUG("%s ep11_lib_version is less than required\n", __func__);
+            return 0;
         }
     }
 
@@ -8010,23 +8140,23 @@ CK_BBOOL check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
     }
 
     if (card_version == NULL)
-        return TRUE;
+        return -1;
 
     if (firmware_version != NULL) {
         if (compare_ck_version(&card_version->firmware_version,
                                firmware_version) < 0) {
-            TRACE_INFO("%s firmware_version is less than required\n", __func__);
-            return FALSE;
+            TRACE_DEBUG("%s firmware_version is less than required\n", __func__);
+            return 0;
         }
     }
 
     if (firmware_API_version != NULL) {
         if (card_version->firmware_API_version < *firmware_API_version) {
-            TRACE_INFO("%s firmware_API_version is less than required\n",
+            TRACE_DEBUG("%s firmware_API_version is less than required\n",
                        __func__);
-            return FALSE;
+            return 0;
         }
     }
 
-    return TRUE;
+    return 1;
 }
