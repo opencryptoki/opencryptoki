@@ -354,28 +354,30 @@ typedef enum {
 
 #define CK_IBM_XCP_HOSTQ_IDX  0xff000000  /* host-only queries index, min. */
 typedef enum {
-    CK_IBM_XCPHQ_COUNT    = 0xff000000, /* number of host-query indexes   */
-                                        /* including this type itself     */
-    CK_IBM_XCPHQ_VERSION  = 0xff000001, /* host-specific package version  */
-                                        /* such as packaging library ID   */
-    CK_IBM_XCPHQ_VERSION_HASH = 0xff000002,
-                                        /* assumed-unique identifier of   */
-                                        /* host code, such as version-    */
-                                        /* identifying cryptographic hash */
-                                        /* (library signature field...)   */
-    CK_IBM_XCPHQ_DIAGS    = 0xff000003, /* host code diagnostic level     */
-                                        /* 0 if non-diagnostics host code */
-    CK_IBM_XCPHQ_HVERSION = 0xff000004, /* human-readable host version    */
-                                        /* identification (recommended:   */
-                                        /* UTF-8 string)                  */
-    CK_IBM_XCPHQ_TGT_MODE = 0xff000005, /* host targeting modes           */
-                                        /* returns supported target modes */
-                                        /* as bitmask                     */
-                                        /* if not available only compat   */
-                                        /* target mode is in use          */
-                                        /* See CK_IBM_XCPHQ_TGT_MODES_t   */
-                                        /**/
-    CK__IBM_XCPHQ_MAX = CK_IBM_XCPHQ_TGT_MODE
+    CK_IBM_XCPHQ_COUNT    = (int)0xff000000, /* number of host-query indexes */
+                                             /* including this type itself   */
+    CK_IBM_XCPHQ_VERSION  = (int)0xff000001, /* host-specific package version*/
+                                             /* such as packaging library ID */
+    CK_IBM_XCPHQ_VERSION_HASH
+                          = (int)0xff000002, /* Assumed-unique identifier of */
+                                             /* host code, such as version-  */
+                                             /* identifying cryptographic    */
+					     /* hash (library signature      */
+                                             /* field...)                    */
+    CK_IBM_XCPHQ_DIAGS    = (int)0xff000003, /* Host code diagnostic level.  */
+                                             /* 0 if non-diagnostics host    */
+					     /* code.                        */
+    CK_IBM_XCPHQ_HVERSION = (int)0xff000004, /* Human-readable host version  */
+                                             /* identification (recommended: */
+                                             /* UTF-8 string)                */
+    CK_IBM_XCPHQ_TGT_MODE = (int)0xff000005, /* Host targeting modes         */
+                                             /* returns supported target     */
+                                             /* modes as bitmask.            */
+                                             /* If not available only        */
+                                             /* compat target mode is in     */
+                                             /* use. See                     */
+                                             /* CK_IBM_XCPHQ_TGT_MODES_t.    */
+    CK_IBM_XCPHQ_MAX = CK_IBM_XCPHQ_TGT_MODE
 } CK_IBM_XCPHQUERY_t;
 
 typedef struct CK_IBM_XCPAPI_INFO {
