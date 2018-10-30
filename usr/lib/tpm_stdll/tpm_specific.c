@@ -1809,10 +1809,22 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = load_private_token_objects(tokdata);
+        if (rc != CKR_OK)
+            return rc;
 
-        XProcLock(tokdata);
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get process lock.\n");
+            return rc;
+        }
+
         tokdata->global_shm->priv_loaded = TRUE;
-        XProcUnLock(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            return rc;
+        }
     } else {
         /* SO path --
          */

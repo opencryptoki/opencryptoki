@@ -381,11 +381,11 @@ int main(int argc, char *argv[], char *envp[])
     }
 
     /* Get the global shared memory mutex */
-    XProcLock();
+    if (!XProcLock())
+        return 4;
 
     /* Populate the Shared Memory Region */
     if (!InitSharedMemory(shmp)) {
-
         XProcUnLock();
 
         DetachFromSharedMemory();
@@ -394,7 +394,8 @@ int main(int argc, char *argv[], char *envp[])
     }
 
     /* Release the global shared memory mutex */
-    XProcUnLock();
+    if (!XProcUnLock())
+        return 4;
 
     if ((socketfd = CreateListenerSocket()) < 0) {
         DestroyMutexes();

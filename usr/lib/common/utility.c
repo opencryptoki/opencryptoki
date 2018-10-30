@@ -738,7 +738,7 @@ CK_RV parity_is_odd(CK_BYTE b)
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
     int ret;
     char buf[PATH_MAX];
     LW_SHM_TYPE **shm = &tokdata->global_shm;
@@ -746,7 +746,9 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     if (token_specific.t_attach_shm != NULL)
         return token_specific.t_attach_shm(tokdata, slot_id);
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        goto err;
 
     /*
      * Attach to an existing shared memory region or create it if it doesn't
@@ -757,28 +759,34 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     if (ret < 0) {
         TRACE_DEVEL("sm_open failed.\n");
         rc = CKR_FUNCTION_FAILED;
-        goto done;
+        goto err;
     }
 
-done:
-    XProcUnLock(tokdata);
+    return XProcUnLock(tokdata);
 
+err:
+    XProcUnLock(tokdata);
     return rc;
 }
 
 CK_RV detach_shm(STDLL_TokData_t *tokdata)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        goto err;
 
     if (sm_close((void *) tokdata->global_shm, 0)) {
         TRACE_DEVEL("sm_close failed.\n");
         rc = CKR_FUNCTION_FAILED;
+        goto err;
     }
 
-    XProcUnLock(tokdata);
+    return XProcUnLock(tokdata);
 
+err:
+    XProcUnLock(tokdata);
     return rc;
 }
 

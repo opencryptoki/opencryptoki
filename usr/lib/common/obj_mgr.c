@@ -131,60 +131,62 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
+        }
+
+        // Determine if we have already reached our Max Token Objects
+        //
+        if (priv_obj) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+                rc = CKR_HOST_MEMORY;
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                XProcUnLock(tokdata);
+                goto done;
+            }
         } else {
-
-            // Determine if we have already reached our Max Token Objects
-            //
-            if (priv_obj) {
-                if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-                    rc = CKR_HOST_MEMORY;
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    XProcUnLock(tokdata);
-                    goto done;
-                }
-            } else {
-                if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-                    rc = CKR_HOST_MEMORY;
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    XProcUnLock(tokdata);
-                    goto done;
-                }
-            }
-
-            memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
-
-            o->session = NULL;
-            memcpy(&o->name, current, 8);
-
-            rc = compute_next_token_obj_name(current, next);
-            if (rc != CKR_OK) {
-                // TODO: handle error, check if rc is a valid per spec
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+                rc = CKR_HOST_MEMORY;
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 XProcUnLock(tokdata);
                 goto done;
             }
-            memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
+        }
 
-            rc = save_token_object(tokdata, o);
-            if (rc != CKR_OK) {
-                // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock(tokdata);
-                goto done;
-            }
-            // add the object identifier to the shared memory segment
-            //
-            object_mgr_add_to_shm(o, tokdata->global_shm);
+        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
 
-            // save_token_data has to lock the mutex itself because it's used
-            // elsewhere
-            rc = save_token_data(tokdata, sess->session_info.slotID);
-            if (rc != CKR_OK) {
-                // TODO: handle error, check if rc is a valid per spec
-                XProcUnLock(tokdata);
-                goto done;
-            }
+        o->session = NULL;
+        memcpy(&o->name, current, 8);
 
+        rc = compute_next_token_obj_name(current, next);
+        if (rc != CKR_OK) {
+            // TODO: handle error, check if rc is a valid per spec
             XProcUnLock(tokdata);
+            goto done;
+        }
+        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
 
+        rc = save_token_object(tokdata, o);
+        if (rc != CKR_OK) {
+            // TODO: handle error, check if rc is a valid per spec
+            XProcUnLock(tokdata);
+            goto done;
+        }
+        // add the object identifier to the shared memory segment
+        //
+        object_mgr_add_to_shm(o, tokdata->global_shm);
+
+        // save_token_data has to lock the mutex itself because it's used
+        // elsewhere
+        rc = save_token_data(tokdata, sess->session_info.slotID);
+        if (rc != CKR_OK) {
+            // TODO: handle error, check if rc is a valid per spec
+            XProcUnLock(tokdata);
+            goto done;
+        }
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            goto done;
         }
 
         // now, store the object in the appropriate btree
@@ -233,7 +235,11 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
             }
             object_mgr_del_from_shm(o, tokdata->global_shm);
 
-            XProcUnLock(tokdata);
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                goto done;
+            }
         }
     }
 
@@ -416,43 +422,46 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
-        } else {
-
-            // Determine if we have already reached our Max Token Objects
-            //
-            if (priv_obj) {
-                if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-                    XProcUnLock(tokdata);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    rc = CKR_HOST_MEMORY;
-                    goto done;
-                }
-            } else {
-                if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-                    XProcUnLock(tokdata);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    rc = CKR_HOST_MEMORY;
-                    goto done;
-                }
-            }
-            memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
-
-            new_obj->session = NULL;
-            memcpy(&new_obj->name, current, 8);
-
-            compute_next_token_obj_name(current, next);
-            memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
-
-            save_token_object(tokdata, new_obj);
-
-            // add the object identifier to the shared memory segment
-            //
-            object_mgr_add_to_shm(new_obj, tokdata->global_shm);
-
-            XProcUnLock(tokdata);
-
-            save_token_data(tokdata, sess->session_info.slotID);
         }
+
+        // Determine if we have already reached our Max Token Objects
+        //
+        if (priv_obj) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+                XProcUnLock(tokdata);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+                XProcUnLock(tokdata);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        }
+        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
+
+        new_obj->session = NULL;
+        memcpy(&new_obj->name, current, 8);
+
+        compute_next_token_obj_name(current, next);
+        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
+
+        save_token_object(tokdata, new_obj);
+
+        // add the object identifier to the shared memory segment
+        //
+        object_mgr_add_to_shm(new_obj, tokdata->global_shm);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            goto done;
+        }
+
+        save_token_data(tokdata, sess->session_info.slotID);
 
         // now, store the object in the token object btree
         //
@@ -504,7 +513,11 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
             }
             object_mgr_del_from_shm(new_obj, tokdata->global_shm);
 
-            XProcUnLock(tokdata);
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                goto done;
+            }
         }
     }
 
@@ -634,41 +647,44 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
             return rc;
-        } else {
-
-            // Determine if we have already reached our Max Token Objects
-            //
-            if (priv_obj) {
-                if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-                    XProcUnLock(tokdata);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-            } else {
-                if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-                    XProcUnLock(tokdata);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-            }
-            memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
-
-            obj->session = NULL;
-            memcpy(&obj->name, current, 8);
-
-            compute_next_token_obj_name(current, next);
-            memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
-
-            save_token_object(tokdata, obj);
-
-            // add the object identifier to the shared memory segment
-            //
-            object_mgr_add_to_shm(obj, tokdata->global_shm);
-
-            XProcUnLock(tokdata);
-
-            save_token_data(tokdata, sess->session_info.slotID);
         }
+
+        // Determine if we have already reached our Max Token Objects
+        //
+        if (priv_obj) {
+            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
+                XProcUnLock(tokdata);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                return CKR_HOST_MEMORY;
+            }
+        } else {
+            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
+                XProcUnLock(tokdata);
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                return CKR_HOST_MEMORY;
+            }
+        }
+        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
+
+        obj->session = NULL;
+        memcpy(&obj->name, current, 8);
+
+        compute_next_token_obj_name(current, next);
+        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
+
+        save_token_object(tokdata, obj);
+
+        // add the object identifier to the shared memory segment
+        //
+        object_mgr_add_to_shm(obj, tokdata->global_shm);
+
+        XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            return rc;
+        }
+
+        save_token_data(tokdata, sess->session_info.slotID);
 
         // now, store the object in the token object btree
         //
@@ -717,9 +733,14 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
                 TRACE_ERROR("Failed to get Process Lock.\n");
                 return rc;
             }
+
             object_mgr_del_from_shm(obj, tokdata->global_shm);
 
             XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                return rc;
+            }
         }
     }
 
@@ -760,7 +781,10 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
         object_mgr_del_from_shm(o, tokdata->global_shm);
         DUMP_SHM(tokdata->global_shm, "after");
 
-        XProcUnLock(tokdata);
+        if (XProcUnLock(tokdata)) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            goto done;
+        }
 
         if (map->is_private)
             bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
@@ -827,7 +851,10 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
 
         object_mgr_del_from_shm(o, tokdata->global_shm);
 
-        XProcUnLock(tokdata);
+        if (XProcUnLock(tokdata)) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            goto done;
+        }
 
         if (map->is_private)
             bt_node_free(&priv_token_obj_btree, map->obj_handle, call_free);
@@ -844,7 +871,6 @@ done:
 //
 CK_RV object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
 {
-    CK_BBOOL locked = FALSE;
     CK_RV rc;
 
     bt_for_each_node(tokdata, &object_map_btree, delete_token_obj_cb, NULL);
@@ -852,24 +878,26 @@ CK_RV object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata)
     // now we want to purge the token object list in shared memory
     //
     rc = XProcLock(tokdata);
-    if (rc == CKR_OK) {
-        locked = TRUE;
-
-        tokdata->global_shm->num_priv_tok_obj = 0;
-        tokdata->global_shm->num_publ_tok_obj = 0;
-
-        memset(&tokdata->global_shm->publ_tok_objs, 0x0,
-               MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY));
-        memset(&tokdata->global_shm->priv_tok_objs, 0x0,
-               MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY));
-    } else {
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get Process Lock.\n");
+        goto done;
     }
 
-    if (locked == TRUE) {
-        XProcUnLock(tokdata);
+    tokdata->global_shm->num_priv_tok_obj = 0;
+    tokdata->global_shm->num_publ_tok_obj = 0;
+
+    memset(&tokdata->global_shm->publ_tok_objs, 0x0,
+           MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY));
+    memset(&tokdata->global_shm->priv_tok_objs, 0x0,
+           MAX_TOK_OBJS * sizeof(TOK_OBJ_ENTRY));
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release Process Lock.\n");
+        goto done;
     }
 
+done:
     return rc;
 }
 
@@ -970,12 +998,22 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
      * Accounting is done in shm, so check shm to see if object still exists.
      */
     if (!object_is_session_object(obj)) {
-        XProcLock(tokdata);
-        rc = object_mgr_check_shm(tokdata, obj);
-        XProcUnLock(tokdata);
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get Process Lock.\n");
+            return rc;
+        }
 
+        rc = object_mgr_check_shm(tokdata, obj);
         if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_check_shm failed.\n");
+            XProcUnLock(tokdata);
+            return rc;
+        }
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
             return rc;
         }
     }
@@ -1021,6 +1059,7 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
                               OBJECT *obj, CK_OBJECT_HANDLE *handle)
 {
     struct find_args fa;
+    CK_RV rc;
 
     if (!obj || !handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -1044,9 +1083,19 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
 
     *handle = fa.map_handle;
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+        return rc;
+    }
+
     object_mgr_check_shm(tokdata, obj);
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release Process Lock.\n");
+        return rc;
+    }
 
     return CKR_OK;
 }
@@ -1127,6 +1176,7 @@ CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
 {
     struct find_build_list_args fa;
     CK_ULONG i;
+    CK_RV rc;
     // it is possible the pTemplate == NULL
     //
 
@@ -1158,10 +1208,19 @@ CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
     sess->find_count = 0;
     sess->find_idx = 0;
 
-//  --- need to grab the object lock here
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+        return rc;
+    }
+
     object_mgr_update_from_shm(tokdata);
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release Process Lock.\n");
+        return rc;
+    }
 
     fa.hw_feature = FALSE;
     fa.hidden_object = FALSE;
@@ -1441,7 +1500,11 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
                 }
             }
 
-            XProcLock(tokdata);
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to get Process Lock.\n");
+                return rc;
+            }
 
             if (priv) {
                 if (tokdata->global_shm->priv_loaded == FALSE) {
@@ -1463,7 +1526,11 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
                 }
             }
 
-            XProcUnLock(tokdata);
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                return rc;
+            }
         } else {
             TRACE_DEVEL("object_restore_withSize failed.\n");
         }
@@ -1604,7 +1671,11 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         entry->count_lo = obj->count_lo;
         entry->count_hi = obj->count_hi;
 
-        XProcUnLock(tokdata);
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            return rc;
+        }
     }
 
     return rc;

@@ -207,9 +207,15 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
      */
     load_public_token_objects(sltp->TokData);
 
-    XProcLock(sltp->TokData);
+    rc = XProcLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
+
     sltp->TokData->global_shm->publ_loaded = TRUE;
-    XProcUnLock(sltp->TokData);
+
+    rc = XProcUnLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
 
     init_slotInfo(&(sltp->TokData->slot_info));
 

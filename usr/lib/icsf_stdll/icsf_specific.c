@@ -278,7 +278,7 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
 CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                    char *conf_name)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
     struct slot_data *data;
 
     TRACE_INFO("icsf %s slot=%lu running\n", __func__, slot_id);
@@ -289,7 +289,9 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         return CKR_FUNCTION_FAILED;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     if (slot_data[slot_id] == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
@@ -303,7 +305,10 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     data->conf_name[sizeof(data->conf_name) - 1] = '\0';
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
 
     return rc;
 }
@@ -321,7 +326,9 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     if (slot_data[slot_id] == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
@@ -340,7 +347,8 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     conf_name = slot_data[slot_id]->conf_name;
     if (!conf_name || !conf_name[0]) {
         TRACE_ERROR("Missing config for slot %lu.\n", slot_id);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     TRACE_DEVEL("DEBUG: conf_name=\"%s\".\n", conf_name);
@@ -371,7 +379,10 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     slot_data[slot_id]->mech = config.mech;
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
 
     return rc;
 }
@@ -379,7 +390,7 @@ done:
 CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id, FILE * fh)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
     struct slot_data data;
 
     /* Check Slot ID */
@@ -393,7 +404,9 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     if (slot_data[slot_id] == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
@@ -404,7 +417,10 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
     memcpy(slot_data[slot_id], &data, sizeof(data));
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
 
     return rc;
 }
@@ -412,7 +428,7 @@ done:
 CK_RV token_specific_save_token_data(STDLL_TokData_t * tokdata,
                                      CK_SLOT_ID slot_id, FILE * fh)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
 
     /* Check Slot ID */
     if (slot_id >= NUMBER_SLOTS_MANAGED) {
@@ -420,7 +436,9 @@ CK_RV token_specific_save_token_data(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     if (slot_data[slot_id] == NULL) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
@@ -435,7 +453,10 @@ CK_RV token_specific_save_token_data(STDLL_TokData_t * tokdata,
     }
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
 
     return rc;
 }
@@ -447,7 +468,7 @@ done:
  */
 CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
     int ret;
     void *ptr;
     LW_SHM_TYPE **shm = &tokdata->global_shm;
@@ -466,7 +487,9 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     }
     TRACE_DEVEL("Attaching to shared memory \"%s\".\n", shm_id);
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     /*
      * Attach to an existing shared memory region or create it if it doesn't
@@ -485,7 +508,11 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
                                               + sizeof(**shm));
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
+
     if (shm_id)
         free(shm_id);
 
@@ -495,7 +522,7 @@ done:
 CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
             CK_BYTE * pin, CK_ULONG pin_len, const char *pass_file_type)
 {
-    CK_RV rc = CKR_OK;
+    CK_RV rc;
     struct slot_data data;
     LDAP *ldapd = NULL;
     int ret;
@@ -508,7 +535,11 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         return CKR_FUNCTION_FAILED;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        goto done;
+    }
 
     /* Check slot data */
     if (slot_data[slot_id] == NULL || !slot_data[slot_id]->initialized) {
@@ -518,7 +549,11 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
     }
     memcpy(&data, slot_data[slot_id], sizeof(data));
 
-    XProcUnLock(tokdata);
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        goto done;
+    }
 
     if (data.mech == ICSF_CFG_MECH_SIMPLE) {
         CK_BYTE mk[MAX_KEY_SIZE];
@@ -754,14 +789,20 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Process Lock Failed.\n");
+        TRACE_ERROR("Failed to get process lock.\n");
         return rc;
     }
+
     memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
     tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Process Lock Failed.\n");
+        return rc;
+    }
 
     return rc;
 }
@@ -825,11 +866,17 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_ERROR("Process Lock Failed.\n");
             return rc;
         }
+
         memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
                SHA1_HASH_SIZE);
         tokdata->nv_token_data->token_info.flags &=
             ~(CKF_USER_PIN_TO_BE_CHANGED);
-        XProcUnLock(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Process Lock Failed.\n");
+            return rc;
+        }
 
     } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
 
@@ -866,10 +913,16 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_ERROR("Process Lock Failed.\n");
             return rc;
         }
+
         memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
                SHA1_HASH_SIZE);
         tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
+
         XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Process Lock Failed.\n");
+            return rc;
+        }
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
         return CKR_SESSION_READ_ONLY;
@@ -1152,7 +1205,11 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Process Lock Failed.\n");
+        return rc;
+    }
 
     if (userType == CKU_USER) {
         /* check if pin initialized */
@@ -1208,7 +1265,10 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
      * when we call icsf_get_handles() in SC_Login().
      */
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK)
+        rc = XProcUnLock(tokdata);
+    else
+        XProcUnLock(tokdata);
 
     return rc;
 }
@@ -1411,10 +1471,20 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
 
     /* Copy token name from shared memory */
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        return rc;
+    }
+
     memcpy(token_name, tokdata->nv_token_data->token_info.label,
            sizeof(token_name));
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        return rc;
+    }
 
     /* Allocate structure to keep ICSF object information */
     if (!(mapping = malloc(sizeof(*mapping)))) {
@@ -1625,10 +1695,20 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Copy token name from shared memory */
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        goto done;
+    }
+
     memcpy(token_name, tokdata->nv_token_data->token_info.label,
            sizeof(token_name));
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        goto done;
+    }
 
     /* Allocate structure to keep ICSF objects information */
     if (!(pub_key_mapping = malloc(sizeof(*pub_key_mapping))) ||
@@ -1710,10 +1790,20 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
 
     /* Copy token name from shared memory */
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        goto done;
+    }
+
     memcpy(token_name, tokdata->nv_token_data->token_info.label,
            sizeof(token_name));
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        goto done;
+    }
 
     /* Allocate structure to keep ICSF object information */
     if (!(mapping = malloc(sizeof(*mapping)))) {
@@ -3047,10 +3137,20 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     /* Prepare to query ICSF for list objects
      * Copy token name from shared memory
      */
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        return rc;
+    }
+
     memcpy(token_name, tokdata->nv_token_data->token_info.label,
            sizeof(token_name));
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        return rc;
+    }
 
     /* Get session state */
     if (!(session_state = get_session_state(sess->handle))) {
@@ -4554,10 +4654,20 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
 
     /* Copy token name from shared memory */
-    XProcLock(tokdata);
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get process lock.\n");
+        return rc;
+    }
+
     memcpy(token_name, tokdata->nv_token_data->token_info.label,
            sizeof(token_name));
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        return rc;
+    }
 
     /* Allocate structure to keep ICSF object information */
     for (i = 0; i < sizeof(mappings) / sizeof(*mappings); i++) {
