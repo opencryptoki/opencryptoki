@@ -120,11 +120,13 @@ int InitializeMutexes(void)
 int DestroyMutexes(void)
 {
     /* Get the global shared memory mutex */
-    XProcLock();
+    if (XProcLock() != CKR_OK)
+        return FALSE;
 
     /* Give up the global shared memory mutex */
 
-    XProcUnLock();
+    if (XProcUnLock() != CKR_OK)
+        return FALSE;
 
     return TRUE;
 }

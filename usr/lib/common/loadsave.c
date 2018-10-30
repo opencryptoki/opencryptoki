@@ -410,8 +410,14 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
             /* init_token_data may call save_token_data, which
              * grabs the lock, so we must release it around this
              * call */
-            XProcUnLock(tokdata);
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                goto out_nolock;
+            }
+
             init_token_data(tokdata, slot_id);
+
             rc = XProcLock(tokdata);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to get Process Lock.\n");
@@ -452,7 +458,14 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     rc = CKR_OK;
 
 out_unlock:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK) {
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK)
+            TRACE_ERROR("Failed to release Process Lock.\n");
+    } else {
+        /* return error that occurred first */
+        XProcUnLock(tokdata);
+    }
 
 out_nolock:
     if (fp)
@@ -502,7 +515,14 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     rc = CKR_OK;
 
 done:
-    XProcUnLock(tokdata);
+    if (rc == CKR_OK) {
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK)
+            TRACE_ERROR("Failed to release Process Lock.\n");
+    } else {
+        /* return error that occurred first */
+        XProcUnLock(tokdata);
+    }
 
 out_nolock:
     if (fp)

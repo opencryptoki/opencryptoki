@@ -215,9 +215,15 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
      */
     load_public_token_objects(sltp->TokData);
 
-    XProcLock(sltp->TokData);
+    rc = XProcLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
+
     sltp->TokData->global_shm->publ_loaded = TRUE;
-    XProcUnLock(sltp->TokData);
+
+    rc = XProcUnLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
 
     init_slotInfo(&(sltp->TokData->slot_info));
 
@@ -555,22 +561,32 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
         goto done;
     }
+
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get process lock.\n");
         goto done;
     }
+
     memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
     tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
-    XProcUnLock(tokdata);
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release process lock.\n");
+        goto done;
+    }
+
     memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
+
     rc = save_token_data(tokdata, sess->session_info.slotID);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to save token data.\n");
         goto done;
     }
+
     rc = save_masterkey_user(tokdata);
     if (rc != CKR_OK)
         TRACE_DEVEL("Failed to save user's masterkey.\n");
@@ -656,17 +672,25 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             rc = CKR_PIN_INVALID;
             goto done;
         }
+
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get process lock.\n");
             goto done;
         }
+
         memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
                SHA1_HASH_SIZE);
         memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
         tokdata->nv_token_data->token_info.flags &=
             ~(CKF_USER_PIN_TO_BE_CHANGED);
-        XProcUnLock(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            goto done;
+        }
+
         rc = save_token_data(tokdata, sess->session_info.slotID);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to save token data.\n");
@@ -696,21 +720,30 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             rc = CKR_PIN_INVALID;
             goto done;
         }
+
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get process lock.\n");
             goto done;
         }
+
         memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
                SHA1_HASH_SIZE);
         memcpy(tokdata->so_pin_md5, hash_md5, MD5_HASH_SIZE);
         tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
-        XProcUnLock(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            goto done;
+        }
+
         rc = save_token_data(tokdata, sess->session_info.slotID);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to save token data.\n");
             goto done;
         }
+
         rc = save_masterkey_so(tokdata);
         if (rc != CKR_OK)
             TRACE_DEVEL("Failed to save SO's masterkey.\n");
@@ -1055,9 +1088,19 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          */
         load_private_token_objects(tokdata);
 
-        XProcLock(tokdata);
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get process lock.\n");
+            goto done;
+        }
+
         tokdata->global_shm->priv_loaded = TRUE;
-        XProcUnLock(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release process lock.\n");
+            goto done;
+        }
     } else {
         if (*flags & CKF_SO_PIN_LOCKED) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
