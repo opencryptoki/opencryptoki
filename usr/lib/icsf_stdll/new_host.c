@@ -202,14 +202,14 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         goto done;
     }
 
+    rc = XProcLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
+
     /* no need to return error here, we load the token data we can
      * and syslog the rest
      */
     load_public_token_objects(sltp->TokData);
-
-    rc = XProcLock(sltp->TokData);
-    if (rc != CKR_OK)
-        goto done;
 
     sltp->TokData->global_shm->publ_loaded = TRUE;
 

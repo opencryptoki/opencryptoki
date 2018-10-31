@@ -214,6 +214,12 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         } else {
             // we'll want to delete the token object file too!
             //
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to get Process Lock.\n");
+                goto done;
+            }
+
             delete_token_object(tokdata, o);
 
             if (priv_obj) {
@@ -228,11 +234,6 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                 bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
             }
 
-            rc = XProcLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to get Process Lock.\n");
-                goto done;
-            }
             object_mgr_del_from_shm(o, tokdata->global_shm);
 
             rc = XProcUnLock(tokdata);
@@ -492,6 +493,12 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         } else {
             // FIXME - need to destroy the token object file too
             //
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to get Process Lock.\n");
+                goto done;
+            }
+
             delete_token_object(tokdata, new_obj);
 
             if (priv_obj) {
@@ -506,11 +513,6 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
                 bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
             }
 
-            rc = XProcLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to get Process Lock.\n");
-                goto done;
-            }
             object_mgr_del_from_shm(new_obj, tokdata->global_shm);
 
             rc = XProcUnLock(tokdata);
@@ -714,6 +716,12 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
         } else {
             // FIXME - need to destroy the token object file too
             //
+            rc = XProcLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to get Process Lock.\n");
+                return rc;
+            }
+
             delete_token_object(tokdata, obj);
 
             if (priv_obj) {
@@ -726,12 +734,6 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
                 // but pass NULL here, so that obj (the binary tree node's value
                 // pointer) isn't touched. It is free'd below
                 bt_node_free(&publ_token_obj_btree, obj_handle, NULL);
-            }
-
-            rc = XProcLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to get Process Lock.\n");
-                return rc;
             }
 
             object_mgr_del_from_shm(obj, tokdata->global_shm);
@@ -768,8 +770,6 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
         if (!o)
             return;
 
-        delete_token_object(tokdata, o);
-
         /* Use the same calling convention as the old code, if XProcLock fails,
          * don't delete from shm and don't free the object in its other btree
          */
@@ -777,6 +777,9 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
         }
+
+        delete_token_object(tokdata, o);
+
         DUMP_SHM(tokdata->global_shm, "before");
         object_mgr_del_from_shm(o, tokdata->global_shm);
         DUMP_SHM(tokdata->global_shm, "after");
@@ -838,8 +841,6 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
         if (!o)
             goto done;
 
-        delete_token_object(tokdata, o);
-
         /* Use the same calling convention as the old code, if
          * XProcLock fails, don't delete from shm and don't free
          * the object in its other btree
@@ -848,6 +849,8 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
             TRACE_ERROR("Failed to get Process Lock.\n");
             goto done;
         }
+
+        delete_token_object(tokdata, o);
 
         object_mgr_del_from_shm(o, tokdata->global_shm);
 
@@ -1632,13 +1635,14 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         if (obj->count_lo == 0)
             obj->count_hi++;
 
-        save_token_object(tokdata, obj);
-
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
             return rc;
         }
+
+        save_token_object(tokdata, obj);
+
         if (priv_obj) {
             rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
                                                priv_tok_objs, 0,

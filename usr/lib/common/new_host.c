@@ -210,14 +210,14 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
         goto done;
     }
 
+    rc = XProcLock(sltp->TokData);
+    if (rc != CKR_OK)
+        goto done;
+
     /* no need to return error here, we load the token data we can
      * and syslog the rest
      */
     load_public_token_objects(sltp->TokData);
-
-    rc = XProcLock(sltp->TokData);
-    if (rc != CKR_OK)
-        goto done;
 
     sltp->TokData->global_shm->publ_loaded = TRUE;
 
@@ -1083,16 +1083,16 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             goto done;
         }
 
-        /* no need to return error here, we load the token data
-         * we can and syslog the rest
-         */
-        load_private_token_objects(tokdata);
-
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get process lock.\n");
             goto done;
         }
+
+        /* no need to return error here, we load the token data
+         * we can and syslog the rest
+         */
+        load_private_token_objects(tokdata);
 
         tokdata->global_shm->priv_loaded = TRUE;
 
