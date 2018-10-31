@@ -532,6 +532,7 @@ out_nolock:
 }
 
 //
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
@@ -582,6 +583,7 @@ CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
 // this is the same as the old version.  public token objects are stored in the
 // clear
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT * obj)
 {
@@ -629,6 +631,7 @@ error:
 }
 
 //
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
@@ -758,6 +761,7 @@ error:
 }
 
 //
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
 {
@@ -837,6 +841,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
 }
 
 //
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
 {
@@ -1499,6 +1504,7 @@ done:
 extern void set_perm(int);
 
 //
+// Note: The token lock (XProcLock) must be held when calling this function.
 //
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
