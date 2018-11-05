@@ -611,27 +611,29 @@ CK_RV do_FindObjects(void)
         goto destroy;
     }
 
-    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-        goto destroy;
-    }
+    do {
+        rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+        if (rc != CKR_OK) {
+            testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+            goto destroy;
+        }
 
-    /* step through list and find our object handle */
-    for (i = 0; i < find_count; i++) {
-        if (obj_list[i] == h_cert2)
-            got_it++;
+        /* step through list and find our object handle */
+        for (i = 0; i < find_count; i++) {
+            if (obj_list[i] == h_cert2)
+                got_it++;
+        }
+    } while (got_it == 0 && find_count != 0);
+
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
     }
 
     if (got_it == 0) {
         testcase_fail("could not find object handle");
         rc = -1;
-        goto destroy;
-    }
-
-    rc = funcs->C_FindObjectsFinal(h_session);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
         goto destroy;
     }
 
@@ -648,15 +650,15 @@ CK_RV do_FindObjects(void)
         goto destroy;
     }
 
-    if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
-        rc = -1;
-        goto destroy;
-    }
-
     rc = funcs->C_FindObjectsFinal(h_session);
     if (rc != CKR_OK) {
         testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+
+    if (find_count != 0) {
+        testcase_fail("found %ld objects when none where expected", find_count);
+        rc = -1;
         goto destroy;
     }
 
@@ -837,27 +839,29 @@ CK_RV do_CreateTokenObjects(void)
         goto destroy;
     }
 
-    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-        goto destroy;
-    }
+    do {
+        rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+        if (rc != CKR_OK) {
+            testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+            goto destroy;
+        }
 
-    /* step through list and find 2nd object's handle */
-    for (i = 0; i < find_count; i++) {
-        if (obj_list[i] == h_cert2)
-            got_it++;
+        /* step through list and find 2nd object's handle */
+        for (i = 0; i < find_count; i++) {
+            if (obj_list[i] == h_cert2)
+                got_it++;
+        }
+    } while (got_it == 0 && find_count != 0);
+
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
     }
 
     if (got_it == 0) {
         testcase_fail("could not find 2nd object's handle");
         rc = -1;
-        goto destroy;
-    }
-
-    rc = funcs->C_FindObjectsFinal(h_session);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
         goto destroy;
     }
 
@@ -874,15 +878,15 @@ CK_RV do_CreateTokenObjects(void)
         goto destroy;
     }
 
-    if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
-        rc = -1;
-        goto destroy;
-    }
-
     rc = funcs->C_FindObjectsFinal(h_session);
     if (rc != CKR_OK) {
         testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+
+    if (find_count != 0) {
+        testcase_fail("found %ld objects when none where expected", find_count);
+        rc = -1;
         goto destroy;
     }
 
@@ -914,27 +918,30 @@ CK_RV do_CreateTokenObjects(void)
         goto destroy;
     }
 
-    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-        goto destroy;
-    }
+    do {
+        rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+        if (rc != CKR_OK) {
+            testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+            goto destroy;
+        }
 
-    /* step through list and find 2nd object's handle */
-    for (i = 0; i < find_count; i++) {
-        if (obj_list[i] == h_cert2)
-            got_it++;
+        /* step through list and find 2nd object's handle */
+        got_it = 0;
+        for (i = 0; i < find_count; i++) {
+            if (obj_list[i] == h_cert2)
+                got_it++;
+        }
+    } while (got_it == 0 && find_count != 0);
+
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
     }
 
     if (got_it == 0) {
         testcase_fail("could not find 2nd object's handle in new session");
         rc = -1;
-        goto destroy;
-    }
-
-    rc = funcs->C_FindObjectsFinal(h_session);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
         goto destroy;
     }
 
@@ -1126,29 +1133,31 @@ CK_RV do_HWFeatureSearch(void)
         goto destroy;
     }
 
-    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
-        goto destroy;
-    }
-
-    got_it = 0;
-    /* Make sure we got the right ones */
-    for (i = 0; i < find_count; i++) {
-        if (obj_list[i] == h_clock) {
-            got_it++;
+    do {
+        rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+        if (rc != CKR_OK) {
+            testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+            goto destroy;
         }
+
+        got_it = 0;
+        /* Make sure we got the right ones */
+        for (i = 0; i < find_count; i++) {
+            if (obj_list[i] == h_clock) {
+                got_it++;
+            }
+        }
+    } while (got_it == 0 && find_count != 0);
+
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
     }
 
     if (got_it != 1) {
         testcase_fail("could not find the corect object handle");
         rc = -1;
         goto destroy;
-    }
-
-    rc = funcs->C_FindObjectsFinal(h_session);
-    if (rc != CKR_OK) {
-        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
     }
 
     testcase_pass("Looks okay...");
