@@ -1015,9 +1015,9 @@ CK_RV do_HWFeatureSearch(void)
     CK_BBOOL false = FALSE;
     CK_BBOOL true = TRUE;
 
-    CK_SESSION_HANDLE h_session;
-    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
-    CK_ULONG user_pin_len;
+    CK_SESSION_HANDLE h_session = 0;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN] = {0};
+    CK_ULONG user_pin_len = 0;
 
     /* A counter object */
     CK_OBJECT_CLASS counter1_class = CKO_HW_FEATURE;
@@ -1037,7 +1037,7 @@ CK_RV do_HWFeatureSearch(void)
     CK_OBJECT_CLASS clock_class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE clock_type = CKH_CLOCK;
     CK_UTF8CHAR clock_label[] = "Clock";
-    CK_CHAR clock_value[16];
+    CK_CHAR clock_value[16] = {0};
     CK_ATTRIBUTE clock_template[] = {
         {CKA_CLASS, &clock_class, sizeof(clock_class)},
         {CKA_HW_FEATURE_TYPE, &clock_type, sizeof(clock_type)},
@@ -1060,7 +1060,7 @@ CK_RV do_HWFeatureSearch(void)
     CK_OBJECT_CLASS obj2_class = CKO_SECRET_KEY;
     CK_KEY_TYPE obj2_type = CKK_AES;
     CK_UTF8CHAR obj2_label[] = "Object 2";
-    CK_BYTE obj2_data[AES_KEY_SIZE_128];
+    CK_BYTE obj2_data[AES_KEY_SIZE_128] = {0};
     CK_ATTRIBUTE obj2_template[] = {
         {CKA_CLASS, &obj2_class, sizeof(obj2_class)},
         {CKA_TOKEN, &true, sizeof(true)},
@@ -1069,7 +1069,8 @@ CK_RV do_HWFeatureSearch(void)
         {CKA_VALUE, obj2_data, sizeof(obj2_data)}
     };
 
-    CK_OBJECT_HANDLE h_counter1, h_clock, h_obj1, h_obj2, obj_list[10];
+    CK_OBJECT_HANDLE h_counter1 = 0, h_clock = 0, h_obj1 = 0, h_obj2 = 0,
+        obj_list[10] = {0};
     CK_ATTRIBUTE find_tmpl[] = {
         {CKA_CLASS, &counter1_class, sizeof(counter1_class)}
     };

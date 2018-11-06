@@ -54,9 +54,9 @@ CK_SESSION_HANDLE sess;
  */
 int do_HW_Feature_Search(void)
 {
-    unsigned int i;
-    CK_RV rc;
-    CK_ULONG find_count;
+    unsigned int i = 0;
+    CK_RV rc = 0;
+    CK_ULONG find_count = 0;
 
     CK_BBOOL false = FALSE;
     CK_BBOOL true = TRUE;
@@ -65,7 +65,7 @@ int do_HW_Feature_Search(void)
     CK_OBJECT_CLASS counter1_class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE feature1_type = CKH_MONOTONIC_COUNTER;
     CK_UTF8CHAR counter1_label[] = "Monotonic counter";
-    CK_CHAR counter1_value[16];
+    CK_CHAR counter1_value[16] = {0};
     CK_ATTRIBUTE counter1_template[] = {
         {CKA_CLASS, &counter1_class, sizeof(counter1_class)},
         {CKA_HW_FEATURE_TYPE, &feature1_type, sizeof(feature1_type)},
@@ -79,7 +79,7 @@ int do_HW_Feature_Search(void)
     CK_OBJECT_CLASS counter2_class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE feature2_type = CKH_MONOTONIC_COUNTER;
     CK_UTF8CHAR counter2_label[] = "Monotonic counter";
-    CK_CHAR counter2_value[16];
+    CK_CHAR counter2_value[16] = {0};
     CK_ATTRIBUTE counter2_template[] = {
         {CKA_CLASS, &counter2_class, sizeof(counter2_class)},
         {CKA_HW_FEATURE_TYPE, &feature2_type, sizeof(feature2_type)},
@@ -93,7 +93,7 @@ int do_HW_Feature_Search(void)
     CK_OBJECT_CLASS clock_class = CKO_HW_FEATURE;
     CK_HW_FEATURE_TYPE clock_type = CKH_CLOCK;
     CK_UTF8CHAR clock_label[] = "Clock";
-    CK_CHAR clock_value[16];
+    CK_CHAR clock_value[16] = {0};
     CK_ATTRIBUTE clock_template[] = {
         {CKA_CLASS, &clock_class, sizeof(clock_class)},
         {CKA_HW_FEATURE_TYPE, &clock_type, sizeof(clock_type)},
@@ -116,7 +116,7 @@ int do_HW_Feature_Search(void)
     CK_OBJECT_CLASS obj2_class = CKO_SECRET_KEY;
     CK_KEY_TYPE obj2_type = CKK_AES;
     CK_UTF8CHAR obj2_label[] = "Object 2";
-    CK_BYTE obj2_data[AES_KEY_SIZE_128];
+    CK_BYTE obj2_data[AES_KEY_SIZE_128] = {0};
     CK_ATTRIBUTE obj2_template[] = {
         {CKA_CLASS, &obj2_class, sizeof(obj2_class)},
         {CKA_TOKEN, &true, sizeof(true)},
@@ -125,8 +125,9 @@ int do_HW_Feature_Search(void)
         {CKA_VALUE, obj2_data, sizeof(obj2_data)}
     };
 
-    CK_OBJECT_HANDLE h_counter1,
-        h_counter2, h_clock, h_obj1, h_obj2, obj_list[10];
+    CK_OBJECT_HANDLE h_counter1 = 0,
+        h_counter2 = 0, h_clock = 0, h_obj1 = 0, h_obj2 = 0,
+        obj_list[10] = {0};
 
     CK_ATTRIBUTE find_tmpl[] = {
         {CKA_CLASS, &counter1_class, sizeof(counter1_class)}

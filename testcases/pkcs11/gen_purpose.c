@@ -211,13 +211,13 @@ testcase_cleanup:
 
 CK_RV do_GetMechanismList(void)
 {
-    CK_FLAGS flags;
-    CK_SESSION_HANDLE session;
+    CK_FLAGS flags = 0;
+    CK_SESSION_HANDLE session = 0;
     CK_RV rc = 0;
-    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
-    CK_ULONG user_pin_len;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN] = {0};
+    CK_ULONG user_pin_len = 0;
     CK_SLOT_ID slot_id = SLOT_ID;
-    CK_ULONG count;
+    CK_ULONG count = 0;
     CK_MECHANISM_TYPE *mech_list = NULL;
 
     testcase_begin("testing C_GetMechanismList");
@@ -245,7 +245,7 @@ CK_RV do_GetMechanismList(void)
         testcase_fail("C_GetMechanismList did not not return "
                       "mechanism count.");
 
-    mech_list = (CK_MECHANISM_TYPE *) malloc(count * sizeof(CK_MECHANISM_TYPE));
+    mech_list = (CK_MECHANISM_TYPE *) calloc(1, count * sizeof(CK_MECHANISM_TYPE));
     if (!mech_list) {
         testcase_fail();
         rc = CKR_HOST_MEMORY;
@@ -290,15 +290,17 @@ testcase_cleanup:
 
 CK_RV do_GetMechanismInfo(void)
 {
-    CK_FLAGS flags;
-    CK_SESSION_HANDLE session;
+    CK_FLAGS flags = 0;
+    CK_SESSION_HANDLE session = 0;
     CK_RV rc = 0;
-    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
-    CK_ULONG user_pin_len;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN] = {0};
+    CK_ULONG user_pin_len = 0;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_MECHANISM_INFO info;
-    CK_ULONG i, count;
+    CK_ULONG i = 0, count = 0;
     CK_MECHANISM_TYPE *mech_list = NULL;
+
+    memset(&info, 0, sizeof(info));
 
     testcase_begin("testing C_GetMechanismInfo");
     testcase_rw_session();
@@ -312,7 +314,7 @@ CK_RV do_GetMechanismInfo(void)
         return rc;
     }
 
-    mech_list = (CK_MECHANISM_TYPE *) malloc(count * sizeof(CK_MECHANISM_TYPE));
+    mech_list = (CK_MECHANISM_TYPE *) calloc(1, count * sizeof(CK_MECHANISM_TYPE));
     if (!mech_list) {
         rc = CKR_HOST_MEMORY;
         goto testcase_cleanup;
@@ -359,9 +361,9 @@ testcase_cleanup:
 
 CK_RV do_InitToken(void)
 {
-    CK_BYTE label[32];
-    int len;
-    CK_CHAR so_pin[PKCS11_MAX_PIN_LEN];
+    CK_BYTE label[32] = {0};
+    int len = 0;
+    CK_CHAR so_pin[PKCS11_MAX_PIN_LEN] = {0};
     CK_RV rc = 0;
 
     testcase_begin("testing C_InitToken");
