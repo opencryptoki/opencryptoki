@@ -1,12 +1,13 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_cca.la
 
 noinst_HEADERS +=							\
-	%D%/defs.h %D%/csulincl.h %D%/cca_stdll.h %D%/cca_func.h	\
-	%D%/tok_struct.h
+	usr/lib/cca_stdll/defs.h usr/lib/cca_stdll/csulincl.h		\
+	usr/lib/cca_stdll/cca_stdll.h usr/lib/cca_stdll/cca_func.h	\
+	usr/lib/cca_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
 	-DLINUX -DNOCDMF -DNODSA -DNODH -DNOECB				\
-	-I${srcdir}/%D% -I${srcdir}/usr/lib/common			\
+	-I${srcdir}/usr/lib/cca_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include -DSTDLL_NAME=\"ccatok\"
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared			\
@@ -32,7 +33,7 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES =				\
 	usr/lib/common/mech_des3.c usr/lib/common/mech_md5.c		\
 	usr/lib/common/mech_ssl3.c usr/lib/common/verify_mgr.c		\
 	usr/lib/common/p11util.c usr/lib/common/sw_crypt.c		\
-	usr/lib/common/shared_memory.c %D%/cca_specific.c
+	usr/lib/common/shared_memory.c usr/lib/cca_stdll/cca_specific.c
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES +=				\
 	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c

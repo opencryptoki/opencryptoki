@@ -1,6 +1,6 @@
 if ENABLE_DAEMON
-include %D%/include/include.mk
-include %D%/sbin/sbin.mk
+include usr/include/include.mk
+include usr/sbin/sbin.mk
 endif
 
-include %D%/lib/lib.mk
+include usr/lib/lib.mk

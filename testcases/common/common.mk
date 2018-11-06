@@ -1,5 +1,6 @@
-noinst_LTLIBRARIES += %D%/libcommon.la
+noinst_LTLIBRARIES += testcases/common/libcommon.la
 
-%C%_libcommon_la_LIBADD = -lc -ldl -lpthread
-%C%_libcommon_la_CFLAGS = -c ${testcases_inc}
-%C%_libcommon_la_SOURCES = usr/lib/common/p11util.c %D%/common.c
+testcases_common_libcommon_la_LIBADD = -lc -ldl -lpthread
+testcases_common_libcommon_la_CFLAGS = -c ${testcases_inc}
+testcases_common_libcommon_la_SOURCES =					\
+	usr/lib/common/p11util.c testcases/common/common.c
