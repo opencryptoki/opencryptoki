@@ -1572,20 +1572,27 @@ testcase_cleanup:
 CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
 {
     unsigned int i;
-    CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE];
-    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_BYTE wrapped_data[BIG_REQUEST + AES_BLOCK_SIZE] = {0};
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN] = {0};
     CK_BYTE pub_exp[] = { 0x01, 0x00, 0x01 };
     CK_MECHANISM mech, mech1, mech2;
     CK_MECHANISM_INFO mech_info;
-    CK_OBJECT_HANDLE publ_key, priv_key, w_key, uw_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE,
+        priv_key = CK_INVALID_HANDLE, w_key = CK_INVALID_HANDLE,
+        uw_key = CK_INVALID_HANDLE;
     CK_ULONG bits = 1024;
-    CK_ULONG wrapped_data_len, user_pin_len, key_size;
+    CK_ULONG wrapped_data_len = 0, user_pin_len = 0, key_size = 0;
     CK_RV rc = CKR_OK;
-    CK_FLAGS flags;
-    CK_SESSION_HANDLE session;
+    CK_FLAGS flags = 0;
+    CK_SESSION_HANDLE session = CK_INVALID_HANDLE;
     CK_OBJECT_CLASS keyclass = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keytype = CKK_RSA;
     CK_SLOT_ID slot_id = SLOT_ID;
+
+    memset(&mech, 0, sizeof(mech));
+    memset(&mech1, 0, sizeof(mech1));
+    memset(&mech2, 0, sizeof(mech2));
+    memset(&mech_info, 0, sizeof(mech_info));
 
     CK_ATTRIBUTE pub_tmpl[] = {
         {CKA_MODULUS_BITS, &bits, sizeof(bits)}

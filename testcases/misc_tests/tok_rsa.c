@@ -31,9 +31,9 @@ CK_FUNCTION_LIST *funcs;
 CK_RV do_Cleanup(CK_SESSION_HANDLE sess)
 {
     CK_RV rv;
-    CK_ULONG count;
-    CK_OBJECT_HANDLE handle;
-    CK_CHAR label[128];
+    CK_ULONG count = 0;
+    CK_OBJECT_HANDLE handle = 0;
+    CK_CHAR label[128] = {0};
     CK_ATTRIBUTE tlabel = { CKA_LABEL, label, sizeof(label) };
 
     rv = funcs->C_FindObjectsInit(sess, NULL, 0);
