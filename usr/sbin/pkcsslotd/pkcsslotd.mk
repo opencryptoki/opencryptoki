@@ -1,17 +1,22 @@
-sbin_PROGRAMS += %D%/pkcsslotd
+sbin_PROGRAMS += usr/sbin/pkcsslotd/pkcsslotd
 noinst_HEADERS +=							\
-	%D%/err.h %D%/garbage_linux.h %D%/log.h	%D%/pkcsslotd.h
+	usr/sbin/pkcsslotd/err.h usr/sbin/pkcsslotd/garbage_linux.h	\
+	usr/sbin/pkcsslotd/log.h usr/sbin/pkcsslotd/pkcsslotd.h
 
-BUILT_SOURCES += %D%/parser.h
-EXTRA_DIST += %D%/opencryptoki.conf
-CLEANFILES += %D%/parser.c %D%/parser.h %D%/parser.output %D%/lexer.c
+BUILT_SOURCES += usr/sbin/pkcsslotd/parser.h
+EXTRA_DIST += usr/sbin/pkcsslotd/opencryptoki.conf
+CLEANFILES += usr/sbin/pkcsslotd/parser.c usr/sbin/pkcsslotd/parser.h	\
+	usr/sbin/pkcsslotd/parser.output usr/sbin/pkcsslotd/lexer.c
 
-%C%_pkcsslotd_LDFLAGS = -lpthread -lcrypto
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto
 
-%C%_pkcsslotd_CFLAGS =							\
+usr_sbin_pkcsslotd_pkcsslotd_CFLAGS =							\
 	-DPROGRAM_NAME=\"$(@)\" -I${srcdir}/usr/include
 
-%C%_pkcsslotd_SOURCES =							\
-	%D%/slotmgr.c %D%/shmem.c %D%/signal.c %D%/mutex.c %D%/err.c	\
-	%D%/log.c %D%/daemon.c %D%/garbage_linux.c %D%/pkcsslotd_util.c	\
-	%D%/socket_server.c %D%/parser.y %D%/lexer.l
+usr_sbin_pkcsslotd_pkcsslotd_SOURCES =							\
+	usr/sbin/pkcsslotd/slotmgr.c usr/sbin/pkcsslotd/shmem.c				\
+	usr/sbin/pkcsslotd/signal.c usr/sbin/pkcsslotd/mutex.c usr/sbin/pkcsslotd/err.c	\
+	usr/sbin/pkcsslotd/log.c usr/sbin/pkcsslotd/daemon.c				\
+	usr/sbin/pkcsslotd/garbage_linux.c usr/sbin/pkcsslotd/pkcsslotd_util.c		\
+	usr/sbin/pkcsslotd/socket_server.c usr/sbin/pkcsslotd/parser.y			\
+	usr/sbin/pkcsslotd/lexer.l

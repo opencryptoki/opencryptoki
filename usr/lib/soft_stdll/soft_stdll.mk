@@ -1,10 +1,10 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_sw.la
 
-noinst_HEADERS += %D%/tok_struct.h
+noinst_HEADERS += usr/lib/soft_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_sw_la_CFLAGS =				\
 	-DDEV -D_THREAD_SAFE -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF	\
-	-DNOMD2 -DNODSA -DNORIPE -fPIC -I${srcdir}/%D%			\
+	-DNOMD2 -DNODSA -DNORIPE -fPIC -I${srcdir}/usr/lib/soft_stdll	\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"swtok\"
 
@@ -30,7 +30,7 @@ opencryptoki_stdll_libpkcs11_sw_la_SOURCES =				\
 	usr/lib/common/template.c usr/lib/common/p11util.c		\
 	usr/lib/common/utility.c usr/lib/common/verify_mgr.c		\
 	usr/lib/common/trace.c usr/lib/common/mech_list.c		\
-	usr/lib/common/shared_memory.c %D%/soft_specific.c
+	usr/lib/common/shared_memory.c usr/lib/soft_stdll/soft_specific.c
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_sw_la_SOURCES +=				\
 	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c

@@ -1,2 +1,3 @@
 noinst_HEADERS +=							\
-	%D%/mech_to_str.h %D%/regress.h	%D%/rsadump.h %D%/windows.h
+	testcases/include/mech_to_str.h testcases/include/regress.h	\
+	testcases/include/rsadump.h testcases/include/windows.h

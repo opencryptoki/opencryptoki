@@ -1,16 +1,20 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_icsf.la
 
 noinst_HEADERS +=							\
-	%D%/icsf.h %D%/pbkdf.h %D%/icsf_config.h %D%/icsf_specific.h	\
-	%D%/tok_struct.h
+	usr/lib/icsf_stdll/icsf.h usr/lib/icsf_stdll/pbkdf.h		\
+	usr/lib/icsf_stdll/icsf_config.h				\
+	usr/lib/icsf_stdll/icsf_specific.h				\
+	usr/lib/icsf_stdll/tok_struct.h
 
-BUILT_SOURCES += %D%/icsf_config_parse.h
+BUILT_SOURCES += usr/lib/icsf_stdll/icsf_config_parse.h
 CLEANFILES +=								\
-	%D%/icsf_config_lexer.c %D%/icsf_config_parse.c			\
-	%D%/icsf_config_parse.h	%D%/icsf_config_parse.output
+	usr/lib/icsf_stdll/icsf_config_lexer.c				\
+	usr/lib/icsf_stdll/icsf_config_parse.c				\
+	usr/lib/icsf_stdll/icsf_config_parse.h				\
+	usr/lib/icsf_stdll/icsf_config_parse.output
 
 opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
-	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/%D%			\
+	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll	\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"icsftok\"
 
@@ -37,9 +41,11 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES =				\
 	usr/lib/common/mech_des3.c usr/lib/common/mech_md5.c		\
 	usr/lib/common/mech_ssl3.c usr/lib/common/verify_mgr.c		\
 	usr/lib/common/mech_list.c usr/lib/common/shared_memory.c	\
-	usr/lib/common/attributes.c %D%/new_host.c			\
-	%D%/pbkdf.c %D%/icsf_specific.c %D%/icsf_config_parse.y		\
-	%D%/icsf_config_lexer.l	%D%/icsf.c
+	usr/lib/common/attributes.c usr/lib/icsf_stdll/new_host.c	\
+	usr/lib/icsf_stdll/pbkdf.c usr/lib/icsf_stdll/icsf_specific.c	\
+	usr/lib/icsf_stdll/icsf_config_parse.y				\
+	usr/lib/icsf_stdll/icsf_config_lexer.l				\
+	usr/lib/icsf_stdll/icsf.c
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
 	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c

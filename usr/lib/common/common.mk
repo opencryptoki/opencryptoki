@@ -1,5 +1,8 @@
 noinst_HEADERS +=							\
-	%D%/attributes.h %D%/ec_defs.h %D%/host_defs.h %D%/ock_syslog.h	\
-	%D%/shared_memory.h %D%/tok_spec_struct.h %D%/trace.h		\
-	%D%/h_extern.h %D%/sw_crypt.h %D%/defs.h %D%/p11util.h		\
-	%D%/list.h %D%/tok_specific.h
+	usr/lib/common/attributes.h usr/lib/common/ec_defs.h		\
+	usr/lib/common/host_defs.h usr/lib/common/ock_syslog.h		\
+	usr/lib/common/shared_memory.h usr/lib/common/tok_spec_struct.h	\
+	usr/lib/common/trace.h usr/lib/common/h_extern.h		\
+	usr/lib/common/sw_crypt.h usr/lib/common/defs.h			\
+	usr/lib/common/p11util.h					\
+	usr/lib/common/list.h usr/lib/common/tok_specific.h

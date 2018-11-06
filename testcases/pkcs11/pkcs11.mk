@@ -1,49 +1,55 @@
 noinst_PROGRAMS +=							\
-	%D%/hw_fn %D%/sess_mgmt_tests %D%/sess_bench %D%/sess_opstate	\
-	%D%/attribute %D%/findobjects %D%/destroyobjects		\
-	%D%/copyobjects	%D%/generate_keypair %D%/gen_purpose		\
-	%D%/getobjectsize
+	testcases/pkcs11/hw_fn testcases/pkcs11/sess_mgmt_tests		\
+	testcases/pkcs11/sess_bench testcases/pkcs11/sess_opstate	\
+	testcases/pkcs11/attribute testcases/pkcs11/findobjects		\
+	testcases/pkcs11/destroyobjects	testcases/pkcs11/copyobjects	\
+	testcases/pkcs11/generate_keypair testcases/pkcs11/gen_purpose	\
+	testcases/pkcs11/getobjectsize
 
-%C%_hw_fn_CFLAGS = ${testcases_inc}
-%C%_hw_fn_LDADD = testcases/common/libcommon.la
-%C%_hw_fn_SOURCES = %D%/hw_fn.c
+testcases_pkcs11_hw_fn_CFLAGS = ${testcases_inc}
+testcases_pkcs11_hw_fn_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_hw_fn_SOURCES = testcases/pkcs11/hw_fn.c
 
-%C%_sess_mgmt_tests_CFLAGS = ${testcases_inc}
-%C%_sess_mgmt_tests_LDADD = testcases/common/libcommon.la
-%C%_sess_mgmt_tests_SOURCES = %D%/sess_mgmt.c
+testcases_pkcs11_sess_mgmt_tests_CFLAGS = ${testcases_inc}
+testcases_pkcs11_sess_mgmt_tests_LDADD =				\
+	testcases/common/libcommon.la
+testcases_pkcs11_sess_mgmt_tests_SOURCES = testcases/pkcs11/sess_mgmt.c
 
-%C%_sess_bench_CFLAGS = ${testcases_inc}
-%C%_sess_bench_LDADD = testcases/common/libcommon.la
-%C%_sess_bench_SOURCES = %D%/sess_perf.c
+testcases_pkcs11_sess_bench_CFLAGS = ${testcases_inc}
+testcases_pkcs11_sess_bench_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_sess_bench_SOURCES = testcases/pkcs11/sess_perf.c
 
-%C%_sess_opstate_CFLAGS = ${testcases_inc}
-%C%_sess_opstate_LDADD = testcases/common/libcommon.la
-%C%_sess_opstate_SOURCES = %D%/sess_opstate.c
+testcases_pkcs11_sess_opstate_CFLAGS = ${testcases_inc}
+testcases_pkcs11_sess_opstate_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_sess_opstate_SOURCES = testcases/pkcs11/sess_opstate.c
 
-%C%_attribute_CFLAGS = ${testcases_inc}
-%C%_attribute_LDADD = testcases/common/libcommon.la
-%C%_attribute_SOURCES = %D%/attribute.c
+testcases_pkcs11_attribute_CFLAGS = ${testcases_inc}
+testcases_pkcs11_attribute_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_attribute_SOURCES = testcases/pkcs11/attribute.c
 
-%C%_findobjects_CFLAGS = ${testcases_inc}
-%C%_findobjects_LDADD = testcases/common/libcommon.la
-%C%_findobjects_SOURCES = %D%/findobjects.c
+testcases_pkcs11_findobjects_CFLAGS = ${testcases_inc}
+testcases_pkcs11_findobjects_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_findobjects_SOURCES = testcases/pkcs11/findobjects.c
 
-%C%_destroyobjects_CFLAGS = ${testcases_inc}
-%C%_destroyobjects_LDADD = testcases/common/libcommon.la
-%C%_destroyobjects_SOURCES = %D%/destroyobjects.c
+testcases_pkcs11_destroyobjects_CFLAGS = ${testcases_inc}
+testcases_pkcs11_destroyobjects_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_destroyobjects_SOURCES =				\
+	testcases/pkcs11/destroyobjects.c
 
-%C%_copyobjects_CFLAGS = ${testcases_inc}
-%C%_copyobjects_LDADD = testcases/common/libcommon.la
-%C%_copyobjects_SOURCES = %D%/copyobjects.c
+testcases_pkcs11_copyobjects_CFLAGS = ${testcases_inc}
+testcases_pkcs11_copyobjects_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_copyobjects_SOURCES = testcases/pkcs11/copyobjects.c
 
-%C%_generate_keypair_CFLAGS = ${testcases_inc}
-%C%_generate_keypair_LDADD = testcases/common/libcommon.la
-%C%_generate_keypair_SOURCES = %D%/generate_keypair.c
+testcases_pkcs11_generate_keypair_CFLAGS = ${testcases_inc}
+testcases_pkcs11_generate_keypair_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_generate_keypair_SOURCES =				\
+	testcases/pkcs11/generate_keypair.c
 
-%C%_gen_purpose_CFLAGS = ${testcases_inc}
-%C%_gen_purpose_LDADD = testcases/common/libcommon.la
-%C%_gen_purpose_SOURCES = %D%/gen_purpose.c
+testcases_pkcs11_gen_purpose_CFLAGS = ${testcases_inc}
+testcases_pkcs11_gen_purpose_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_gen_purpose_SOURCES = testcases/pkcs11/gen_purpose.c
 
-%C%_getobjectsize_CFLAGS = ${testcases_inc}
-%C%_getobjectsize_LDADD = testcases/common/libcommon.la
-%C%_getobjectsize_SOURCES = %D%/getobjectsize.c
+testcases_pkcs11_getobjectsize_CFLAGS = ${testcases_inc}
+testcases_pkcs11_getobjectsize_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_getobjectsize_SOURCES =				\
+	testcases/pkcs11/getobjectsize.c

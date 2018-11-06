@@ -1,12 +1,13 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_tpm.la
 
 noinst_HEADERS += 							\
-	%D%/defs.h %D%/tpm_specific.h %D%/tok_struct.h
+	usr/lib/tpm_stdll/defs.h usr/lib/tpm_stdll/tpm_specific.h	\
+	usr/lib/tpm_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS =				\
-	-DLINUX -DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/%D%		\
-	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
-	-DSTDLL_NAME=\"tpmtok\"
+	-DLINUX -DNOCDMF -DNODSA -DNODH	-DMMAP				\
+	-I${srcdir}/usr/lib/tpm_stdll -I${srcdir}/usr/lib/common	\
+	-I${srcdir}/usr/include	-DSTDLL_NAME=\"tpmtok\"
 
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lcrypto -ltspi -lpthread -lrt	\
@@ -30,8 +31,8 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES =				\
 	usr/lib/common/mech_des.c usr/lib/common/mech_des3.c		\
 	usr/lib/common/mech_md5.c usr/lib/common/mech_ssl3.c		\
 	usr/lib/common/verify_mgr.c usr/lib/common/mech_list.c		\
-	usr/lib/common/shared_memory.c %D%/tpm_specific.c		\
-	%D%/tpm_openssl.c %D%/tpm_util.c
+	usr/lib/common/shared_memory.c usr/lib/tpm_stdll/tpm_specific.c	\
+	usr/lib/tpm_stdll/tpm_openssl.c usr/lib/tpm_stdll/tpm_util.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES +=				\

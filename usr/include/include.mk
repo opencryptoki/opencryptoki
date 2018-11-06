@@ -1,8 +1,9 @@
 opencryptokiincludedir = ${includedir}/opencryptoki
 
 opencryptokiinclude_HEADERS =						\
-	%D%/apiclient.h	%D%/pkcs11types.h %D%/pkcs11.h
+	usr/include/apiclient.h	usr/include/pkcs11types.h		\
+	usr/include/pkcs11.h
 
 noinst_HEADERS +=							\
-	%D%/apictl.h %D%/local_types.h %D%/pkcs32.h %D%/slotmgr.h	\
-	%D%/stdll.h
+	usr/include/apictl.h usr/include/local_types.h			\
+	usr/include/pkcs32.h usr/include/slotmgr.h usr/include/stdll.h

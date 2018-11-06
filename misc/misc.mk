@@ -21,30 +21,30 @@ TOKENS += icsf
 endif
 
 EXTRA_DIST +=								\
-	%D%/pkcsslotd.in %D%/pkcsslotd.service.in %D%/tmpfiles.conf.in
+	misc/pkcsslotd.in misc/pkcsslotd.service.in misc/tmpfiles.conf.in
 
 if ENABLE_DAEMON
 if ENABLE_SYSTEMD
 servicedir = $(unitdir)
-service_DATA = %D%/pkcsslotd.service %D%/tmpfiles.conf
+service_DATA = misc/pkcsslotd.service misc/tmpfiles.conf
 
-CLEANFILES += %D%/pkcsslotd.service %D%/tmpfiles.conf
+CLEANFILES += misc/pkcsslotd.service misc/tmpfiles.conf
 
-${srcdir}/%D%/pkcsslotd.service: ${srcdir}/%D%/pkcsslotd.service.in
+${srcdir}/misc/pkcsslotd.service: ${srcdir}/misc/pkcsslotd.service.in
 	@SED@ -e s!\@sbindir\@!"@sbindir@"!g < $< > $@-t
 	mv $@-t $@
 
-${srcdir}/%D%/tmpfiles.conf: ${srcdir}/%D%/tmpfiles.conf.in
+${srcdir}/misc/tmpfiles.conf: ${srcdir}/misc/tmpfiles.conf.in
 	@SED@ -e s!\@lockdir\@!$(lockdir)!g < $< > $@-t
 	$(foreach TOK,$(TOKENS),\
 		echo "D $(lockdir)/$(TOK) 0770 root pkcs11 -" >> $@-t;)
 	mv $@-t $@
 else
 initddir = $(sysconfdir)/rc.d/init.d
-initd_SCRIPTS = %D%/pkcsslotd
+initd_SCRIPTS = misc/pkcsslotd
 
-CLEANFILES += %D%/pkcsslotd
-${srcdir}/%D%/pkcsslotd: ${srcdir}/%D%/pkcsslotd.in
+CLEANFILES += misc/pkcsslotd
+${srcdir}/misc/pkcsslotd: ${srcdir}/misc/pkcsslotd.in
 	@SED@ -e s!\@sbindir\@!"@sbindir@"!g < $< > $@-t
 	@CHMOD@ a+x $@-t
 	mv $@-t $@

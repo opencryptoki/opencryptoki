@@ -4,25 +4,25 @@ testcases_inc =								\
 	-I${srcdir}/testcases/login -I${srcdir}/testcases/crypto	\
 	-I${srcdir}/testcases/misc_tests -I${srcdir}/testcases/pkcs11
 
-include %D%/include/include.mk
-include %D%/common/common.mk
-include %D%/crypto/crypto.mk
-include %D%/login/login.mk
-include %D%/misc_tests/misc_tests.mk
-include %D%/pkcs11/pkcs11.mk
+include testcases/include/include.mk
+include testcases/common/common.mk
+include testcases/crypto/crypto.mk
+include testcases/login/login.mk
+include testcases/misc_tests/misc_tests.mk
+include testcases/pkcs11/pkcs11.mk
 
-noinst_SCRIPTS += %D%/ock_tests.sh %D%/init_token.sh
-CLEANFILES += %D%/ock_tests.sh %D%/init_token.sh
-EXTRA_DIST += %D%/ock_tests.sh.in %D%/init_token.sh.in
+noinst_SCRIPTS += testcases/ock_tests.sh testcases/init_token.sh
+CLEANFILES += testcases/ock_tests.sh testcases/init_token.sh
+EXTRA_DIST += testcases/ock_tests.sh.in testcases/init_token.sh.in
 
-%D%/ock_tests.sh: %D%/ock_tests.sh.in
+testcases/ock_tests.sh: testcases/ock_tests.sh.in
 	@SED@	-e s!\@sysconfdir\@!"@sysconfdir@"!g			\
 		-e s!\@sbindir\@!"@sbindir@"!g				\
 		-e s!\@libdir\@!"@libdir@"!g < $< > $@-t
 	@CHMOD@ a+x $@-t
 	mv $@-t $@
 
-%D%/init_token.sh: %D%/init_token.sh.in
+testcases/init_token.sh: testcases/init_token.sh.in
 	@SED@	-e s!\@localstatedir\@!"@localstatedir@"!g		\
 		-e s!\@sbindir\@!"@sbindir@"!g				\
 		-e s!\@libdir\@!"@libdir@"!g < $< > $@-t
