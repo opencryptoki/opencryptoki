@@ -269,6 +269,14 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp)
 
     session_mgr_close_all_sessions();
     object_mgr_purge_token_objects(tokdata);
+
+    /* Finally free the nodes on free list. */
+    bt_destroy(&sess_btree, NULL);
+    bt_destroy(&sess_obj_btree, NULL);
+    bt_destroy(&object_map_btree, NULL);
+    bt_destroy(&priv_token_obj_btree, NULL);
+    bt_destroy(&publ_token_obj_btree, NULL);
+
     detach_shm(tokdata);
     /* close spin lock file */
     CloseXProcLock(tokdata);
