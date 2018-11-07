@@ -804,7 +804,7 @@ TSS_RESULT tss_generate_key(TSS_FLAG initFlags, BYTE * passHash,
                             TSS_HKEY hParentKey, TSS_HKEY * phKey)
 {
     TSS_RESULT result;
-    TSS_HPOLICY hPolicy, hMigPolicy;
+    TSS_HPOLICY hPolicy, hMigPolicy = 0;
 
     result = Tspi_Context_CreateObject(tspContext, TSS_OBJECT_TYPE_RSAKEY,
                                        initFlags, phKey);
