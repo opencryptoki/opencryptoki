@@ -1474,7 +1474,7 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
 {
     OBJECT *obj = NULL;
     CK_BBOOL priv;
-    CK_RV rc;
+    CK_RV rc, tmp;
 
     if (!data) {
         TRACE_ERROR("Invalid function argument.\n");
@@ -1529,11 +1529,11 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
                 }
             }
 
-            rc = XProcUnLock(tokdata);
-            if (rc != CKR_OK) {
+            tmp = XProcUnLock(tokdata);
+            if (tmp != CKR_OK)
                 TRACE_ERROR("Failed to release Process Lock.\n");
-                return rc;
-            }
+            if (rc == CKR_OK)
+                rc = tmp;
         } else {
             TRACE_DEVEL("object_restore_withSize failed.\n");
         }
