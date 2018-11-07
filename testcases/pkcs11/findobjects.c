@@ -113,6 +113,8 @@ CK_RV do_FindObjects(void)
     }
 
     /* Testcase 1: Now find the the 2 des3 key objects */
+    testcase_new_assertion();
+
     rc = funcs->C_FindObjectsInit(session, search_des3_tmpl, 2);
     if (rc != CKR_OK) {
         testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
@@ -153,6 +155,8 @@ CK_RV do_FindObjects(void)
 
     /* Testcase 2: Now find 2 aes keys with aes_id. */
     /* Note in ICSF, all secret keys are marked private by default. */
+    testcase_new_assertion();
+
     not_found = 0;
     find_count = 0;
 
@@ -195,6 +199,8 @@ CK_RV do_FindObjects(void)
     testcase_pass("Found the 2 non-private objects.");
 
     /* Testcase 3: Find all the objects */
+    testcase_new_assertion();
+
     not_found = 0;
     find_count = 0;
 
