@@ -28,6 +28,14 @@ CK_ULONG t_errors = 0;          // number of errors
 #define DES_KEY_SIZE 8
 #define DES3_KEY_SIZE 24
 
+static void *pkcs11lib = NULL;
+
+static void unload_pkcslib(void)
+{
+    if (pkcs11lib != NULL) {
+        dlclose(pkcs11lib);
+    }
+}
 
 int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism)
 {
@@ -942,7 +950,6 @@ int do_GetFunctionList(void)
 {
     CK_RV rc;
     CK_RV(*pfoo) ();
-    void *d;
     char *e;
     char *f = "libopencryptoki.so";
 
@@ -951,23 +958,24 @@ int do_GetFunctionList(void)
         e = f;
         // return FALSE;
     }
-    d = dlopen(e, RTLD_NOW);
-    if (d == NULL) {
+    pkcs11lib = dlopen(e, RTLD_NOW);
+    if (pkcs11lib == NULL) {
         return FALSE;
     }
 
-    *(void **)(&pfoo) = dlsym(d, "C_GetFunctionList");
+    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
     if (pfoo == NULL) {
-        dlclose(d);
+        dlclose(pkcs11lib);
         return FALSE;
     }
     rc = pfoo(&funcs);
 
     if (rc != CKR_OK) {
         testcase_error("C_GetFunctionList rc=%s", p11_get_ckr(rc));
-        dlclose(d);
+        dlclose(pkcs11lib);
         return FALSE;
     }
 
+    atexit(unload_pkcslib);
     return TRUE;
 }
