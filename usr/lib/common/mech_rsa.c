@@ -2428,7 +2428,7 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
     while ((dbMask[ps_len] == 0x00) && (ps_len < dbMask_len))
         ps_len++;
 
-    if ((ps_len == dbMask_len) ||
+    if ((ps_len >= dbMask_len) ||
         (ps_len < dbMask_len && dbMask[ps_len] != 0x01) ||
         emData[0])
         error++;
