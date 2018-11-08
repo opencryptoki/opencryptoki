@@ -744,7 +744,7 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
     key_type_attr->type = CKA_KEY_TYPE;
     key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     key_type_attr->pValue = (CK_BYTE *) key_type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ATTRIBUTE_TYPE *) key_type_attr = CKK_GENERIC_SECRET;
+    *(CK_ATTRIBUTE_TYPE *) key_type_attr->pValue = CKK_GENERIC_SECRET;
 
     class_attr->type = CKA_CLASS;
     class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
