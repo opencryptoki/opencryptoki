@@ -902,6 +902,8 @@ CK_RV do_OperationState2(void)
 
     printf("Looks okay...\n");
 
+    free(op_state1);
+    free(op_state2);
     return rc;
 }
 
@@ -1160,6 +1162,7 @@ CK_RV do_OperationState3(void)
 
     printf("Looks okay...\n");
 
+    free(op_state2);
     return rc;
 }
 
