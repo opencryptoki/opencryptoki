@@ -3,13 +3,13 @@
 
 # openCryptoki
 
-Package version 3.10.0
+Package version 3.11.0
 
 Please see [ChangeLog](ChangeLog) for release specific information.
 
 ## OVERVIEW
 
-openCryptoki version 3.10.0 implements the PKCS#11 specification version 2.20.
+openCryptoki version 3.11.0 implements the PKCS#11 specification version 2.20.
 
 This package includes several cryptographic tokens:
 CCA, ICA, TPM , SWToken, ICSF and EP11.

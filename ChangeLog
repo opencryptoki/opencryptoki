@@ -1,3 +1,7 @@
+* opencryptoki 3.11.0
+- EP11 enhancements
+- A lot of bug fixes
+
 * opencryptoki 3.10.0
 - Add support to ECC on ICA token and to common code.
 - Add SHA224 support to SOFT token.
