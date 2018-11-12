@@ -443,6 +443,8 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 
     /* Load generic token data */
     if (!fread(&td, sizeof(TOKEN_DATA), 1, fp)) {
+        TRACE_ERROR("fread(%s): %s\n", fname,
+                    ferror(fp) ? strerror(errno) : "failed");
         rc = CKR_FUNCTION_FAILED;
         goto out_unlock;
     }
@@ -458,6 +460,9 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     rc = CKR_OK;
 
 out_unlock:
+    if (fp)
+        fclose(fp);
+
     if (rc == CKR_OK) {
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK)
@@ -468,9 +473,6 @@ out_unlock:
     }
 
 out_nolock:
-    if (fp)
-        fclose(fp);
-
     return rc;
 }
 
@@ -501,6 +503,8 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     /* Write generic token data */
     memcpy(&td, tokdata->nv_token_data, sizeof(TOKEN_DATA));
     if (!fwrite(&td, sizeof(TOKEN_DATA), 1, fp)) {
+        TRACE_ERROR("fwrite(%s): %s\n", fname,
+                    ferror(fp) ? strerror(errno) : "failed");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -515,6 +519,9 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     rc = CKR_OK;
 
 done:
+    if (fp)
+        fclose(fp);
+
     if (rc == CKR_OK) {
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK)
@@ -525,9 +532,6 @@ done:
     }
 
 out_nolock:
-    if (fp)
-        fclose(fp);
-
     return rc;
 }
 
