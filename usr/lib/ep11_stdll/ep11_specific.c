@@ -7247,7 +7247,7 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
-        TRACE_ERROR("%s Digest failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s Digest failed: 0x%lx\n", __func__, rc);
         return rc;
     }
 
@@ -7308,7 +7308,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
     rc = SC_CreateObject(tokdata, handle,
                          attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE), obj);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_CreateObject failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_CreateObject failed: 0x%lx\n", __func__, rc);
         return rc;
     }
 
@@ -7348,13 +7348,13 @@ static CK_RV get_vhsmpin(STDLL_TokData_t * tokdata,
                             vhsmpin_template,
                             sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lx\n", __func__, rc);
         goto out;
     }
 
     rc = SC_FindObjects(tokdata, &handle, obj_store, 16, &objs_found);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_FindObjects failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_FindObjects failed: 0x%lx\n", __func__, rc);
         goto out;
     }
 
@@ -7367,7 +7367,7 @@ static CK_RV get_vhsmpin(STDLL_TokData_t * tokdata,
     rc = SC_GetAttributeValue(tokdata, &handle, obj_store[0],
                               attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE));
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lx\n", __func__, rc);
         goto out;
     }
 
@@ -7407,7 +7407,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
                          pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
             goto strict_mode;
@@ -7446,7 +7446,7 @@ strict_mode:
                          pin_blob, &pin_blob_len, (uint64_t) & target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Login failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
             return CKR_OK;
@@ -7501,7 +7501,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
                           (uint64_t) & target);
         if (rc != CKR_OK)
             rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
         /* ignore any errors during m_logout */
     }
 
@@ -7513,10 +7513,11 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 
         rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
                           (uint64_t) & target);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Logout failed: 0x%lu\n", __func__, rc);
-        /* ignore any errors during m_logout */
+            TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
+            /* ignore any errors during m_logout */
+        }
     }
 
     return CKR_OK;
@@ -7578,7 +7579,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
 
     rc = generate_ep11_session_id(tokdata, session, ep11_session);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lu\n", __func__,
+        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lx\n", __func__,
                     rc);
         goto done;
     }
@@ -7591,7 +7592,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
     if (ep11_data->vhsm_mode) {
         rc = get_vhsmpin(tokdata, session, ep11_session);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s get_vhsmpin failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s get_vhsmpin failed: 0x%lx\n", __func__, rc);
             OCK_SYSLOG(LOG_ERR,
                        "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n",
                        __func__);
@@ -7602,7 +7603,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
     rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
         goto done;
     }
 
@@ -7618,7 +7619,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
                                 sizeof(ep11_session->session_pin_blob),
                                 &ep11_session->session_object);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s _create_ep11_object failed: 0x%lx\n", __func__, rc);
             goto done;
         }
     }
@@ -7635,7 +7636,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
                                 sizeof(ep11_session->vhsm_pin_blob),
                                 &ep11_session->vhsm_object);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s _create_ep11_object failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s _create_ep11_object failed: 0x%lx\n", __func__, rc);
             goto done;
         }
     }
@@ -7649,7 +7650,7 @@ done:
                                       ep11_data->target_list,
                                       ep11_logout_handler, ep11_session);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n",
+                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n",
                             __func__, rc2);
         }
 
@@ -7658,27 +7659,27 @@ done:
                 SC_DestroyObject(tokdata, &handle,
                                  ep11_session->session_object);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__,
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__,
                             rc2);
         }
 
         if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
             rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
             if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__,
+                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__,
                             rc2);
         }
 
         free(ep11_session);
         session->private_data = NULL;
 
-        TRACE_ERROR("%s: failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s: failed: 0x%lx\n", __func__, rc);
     }
 
     if (helper_session != CK_INVALID_HANDLE) {
         rc2 = ep11_close_helper_session(tokdata, &handle);
         if (rc2 != CKR_OK)
-            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n",
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
                         __func__, rc2);
     }
 
@@ -7702,7 +7703,7 @@ static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
     rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK)
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
 
     return CKR_OK;
 }
@@ -7749,17 +7750,17 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
     rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
                                ep11_logout_handler, ep11_session);
     if (rc != CKR_OK)
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
 
     if (ep11_session->session_object != CK_INVALID_HANDLE) {
         rc = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
         if (rc != CKR_OK)
-            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
     }
     if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
         rc = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
         if (rc != CKR_OK)
-            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lu\n", __func__, rc);
+            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
     }
 
     free(ep11_session);
@@ -7768,7 +7769,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
     if (helper_session != CK_INVALID_HANDLE) {
         rc2 = ep11_close_helper_session(tokdata, &handle);
         if (rc2 != CKR_OK)
-            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lu\n",
+            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
                         __func__, rc2);
     }
 
@@ -7824,7 +7825,7 @@ static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
                         CKF_RW_SESSION | CKF_SERIAL_SESSION |
                         CKF_EP11_HELPER_SESSION, phSession);
     if (rc != CKR_OK)
-        TRACE_ERROR("%s SC_OpenSession failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_OpenSession failed: 0x%lx\n", __func__, rc);
 
     return rc;
 }
@@ -7838,7 +7839,7 @@ static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
 
     rc = SC_CloseSession(tokdata, sSession);
     if (rc != CKR_OK)
-        TRACE_ERROR("%s SC_CloseSession failed: 0x%lu\n", __func__, rc);
+        TRACE_ERROR("%s SC_CloseSession failed: 0x%lx\n", __func__, rc);
 
     return rc;
 }
