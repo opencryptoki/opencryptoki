@@ -376,7 +376,7 @@ static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
     target.apqns[1] = domain;
 
     rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES, (uint64_t) &target);
-    if (rc != CKR_OK) {
+    if (rc != CKR_OK && rc != CKR_SESSION_CLOSED) {
         fprintf(stderr,
                 "WARNING: Logout failed for adapter %02X.%04X: 0x%lx [%s]\n",
                 adapter, domain, rc, p11_get_ckr(rc));
