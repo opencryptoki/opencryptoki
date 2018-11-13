@@ -7498,10 +7498,11 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 
         rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
                           (uint64_t) & target);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
-        /* ignore any errors during m_logout */
+          /* ignore any errors during m_logout */
+        }
     }
 
     if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
