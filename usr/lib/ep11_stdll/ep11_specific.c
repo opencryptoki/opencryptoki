@@ -1695,7 +1695,6 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 
 
     if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
                     __func__, ep11_data->raw2key_wrap_blob_l, rc);
     } else {
