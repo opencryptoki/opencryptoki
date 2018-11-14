@@ -3,7 +3,7 @@
 opencryptoki.conf \- Configuration file for pkcsslotd.
 
 .SH DESCRIPTION
-pkcsslotd uses a configuration file at "@sysconfdir@"/opencryptoki/opencryptoki.conf
+pkcsslotd uses a configuration file at /etc/opencryptoki/opencryptoki.conf
 
 This is a text file that contains information used to configure
 pkcs#11 slots. At startup, the pkcsslotd daemon parses this file to
