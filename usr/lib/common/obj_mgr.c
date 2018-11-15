@@ -1976,7 +1976,8 @@ void delete_objs_from_btree_cb(STDLL_TokData_t *tokdata, void *node,
         }
     }
 
-    /* didn't find it in SHM, delete it from its btree */
+    /* didn't find it in SHM, delete it from its btree and the object map */
+    bt_node_free(&object_map_btree, obj->map_handle, free);
     bt_node_free(ua->t, obj_handle, call_free);
 }
 
