@@ -7600,7 +7600,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
         }
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
@@ -7646,8 +7646,7 @@ done:
         if (ep11_session->flags &
             (EP11_SESS_PINBLOB_VALID | EP11_VHSM_PINBLOB_VALID)) {
             rc2 =
-                handle_all_ep11_cards((ep11_target_t *) &
-                                      ep11_data->target_list,
+                handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
                                       ep11_logout_handler, ep11_session);
             if (rc2 != CKR_OK)
                 TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n",
@@ -7700,7 +7699,7 @@ static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
                                ep11_login_handler, ep11_session);
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
@@ -7747,7 +7746,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
         return CKR_USER_NOT_LOGGED_IN;
     }
 
-    rc = handle_all_ep11_cards((ep11_target_t *) & ep11_data->target_list,
+    rc = handle_all_ep11_cards((ep11_target_t *)ep11_data->target_list,
                                ep11_logout_handler, ep11_session);
     if (rc != CKR_OK)
         TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
