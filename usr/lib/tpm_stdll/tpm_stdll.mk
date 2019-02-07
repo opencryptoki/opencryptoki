@@ -11,6 +11,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS =				\
 
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lcrypto -ltspi -lpthread -lrt	\
+	-l:libtss2-sys.a -l:libtss2-mu.a \
 	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES =				\

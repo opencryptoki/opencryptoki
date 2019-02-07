@@ -213,6 +213,12 @@ AC_ARG_WITH([tss],
 	[],
 	[with_tss=check])
 
+dnl --- TPM2-TSS development files
+AC_ARG_WITH([tss2],
+	AS_HELP_STRING([--with-tss2@<:@=DIR@:>@],[tpm2 tss development files location]),
+	[],
+	[with_tss2=check])
+
 dnl --- xcryptolinz development files (IBM CCA development files)
 AC_ARG_WITH([xcryptolinz],
 	AS_HELP_STRING([--with-xcryptolinz@<:@=DIR@:>@],[CCA library (xcryptolinz) location]),
@@ -392,6 +398,42 @@ fi
 AC_SUBST([TSS_CFLAGS])
 AC_SUBST([TSS_LIBS])
 
+dnl --- with_tss2
+TSS2_CFLAGS=
+TSS2_LIBS=
+if test "x$with_tss2" != "xno"; then
+	if test "x$with_tss2" != "xyes" -a "x$with_tss2" != "xcheck"; then
+		TSS2_CFLAGS="-I$with_tss2"
+		TSS2_LIBS="-L$with_tss2"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $TSS2_CFLAGS"
+	LIBS="$LIBS $TSS2_LIBS"
+	AC_CHECK_HEADER([tss2/tss2_sys.h], [], [
+		if test "x$with_tss2" != "xcheck"; then
+			AC_MSG_ERROR([Build with TPM2 TSS requested but TPM2 TSS headers couldn't be found])
+		fi
+		with_tss2=no
+	])
+	if test "x$with_tss2" != "xno"; then
+		dnl TODO(pdxjohnny) Seperate check for marshalling library
+		AC_CHECK_LIB([:libtss2-sys.a -l:libtss2-mu.a], [Tss2_Sys_Initialize],
+			[with_tss2=yes], [
+				if test "x$with_tss2" != "xcheck"; then
+					AC_MSG_ERROR([Build with TPM2 TSS requested but TPM2 TSS libraries couldn't be found])
+				fi
+				with_tss2=no
+		])
+	fi
+	if test "x$with_tss2" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([TSS2_CFLAGS])
+AC_SUBST([TSS2_LIBS])
+
 dnl --- with_xcryptolinz
 XCRYPTOLINZ_CFLAGS=
 XCRYPTOLINZ_LIBS=
@@ -540,11 +582,13 @@ AM_CONDITIONAL([ENABLE_ICSFTOK], [test "x$enable_icsftok" = "xyes"])
 dnl --- enable_tpmtok
 if test "x$enable_tpmtok" = "xyes"; then
 	if test "x$with_tss" != "xyes"; then
-		AC_MSG_ERROR([tpm token build requested but TSS development files not found])
-		enable_tpmtok=no
+		if test "x$with_tss2" != "xyes"; then
+			AC_MSG_ERROR([tpm token build requested but TSS development files not found])
+			enable_tpmtok=no
+		fi
 	fi
 fi
-if test "x$enable_tpmtok" != "xno" -a "x$with_tss" != "xno"; then
+if test "x$enable_tpmtok" != "xno" -a "x$with_tss" != "xno" -a "x$with_tss2" != "xno"; then
 	enable_tpmtok=yes
 else
 	enable_tpmtok=no
