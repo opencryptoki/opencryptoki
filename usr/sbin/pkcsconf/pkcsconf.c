@@ -22,6 +22,8 @@
 #include <memory.h>
 #include <string.h>
 #include <strings.h>
+#include <pwd.h>
+#include <grp.h>
 #include <openssl/crypto.h>
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
@@ -505,6 +507,52 @@ int echo(int bool)
         return -1;
 
     return 0;
+}
+
+CK_RV check_user_and_group(void)
+{
+    int i;
+    uid_t uid, euid;
+    struct passwd *pw, *epw;
+    struct group *grp;
+
+    /*
+     * Check for root user or Group PKCS#11 Membershp.
+     * Only these are allowed.
+     */
+    uid = getuid();
+    euid = geteuid();
+
+    /* Root or effective Root is ok */
+    if (uid == 0 || euid == 0)
+        return CKR_OK;
+
+    /*
+     * Check for member of group. SAB get login seems to not work
+     * with some instances of application invocations (particularly
+     * when forked). So we need to get the group information.
+     * Really need to take the uid and map it to a name.
+     */
+    grp = getgrnam("pkcs11");
+    if (grp == NULL) {
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
+        return CKR_OK;
+
+    /* Check if user or effective user is member of pkcs11 group */
+    pw = getpwuid(uid);
+    epw = getpwuid(euid);
+    for (i = 0; grp->gr_mem[i]; i++) {
+        if ((pw && (strncmp(pw->pw_name, grp->gr_mem[i],
+                            strlen(pw->pw_name)) == 0)) ||
+            (epw && (strncmp(epw->pw_name, grp->gr_mem[i],
+                             strlen(epw->pw_name)) == 0)))
+            return CKR_OK;
+    }
+
+    return CKR_FUNCTION_FAILED;
 }
 
 CK_RV display_pkcs11_info(void)
@@ -1072,6 +1120,14 @@ CK_RV init(void)
     if (rc != CKR_OK) {
         printf("Error initializing the PKCS11 library: 0x%lX (%s)\n", rc,
                p11_get_ckr(rc));
+
+        if (check_user_and_group() != CKR_OK) {
+            printf("Note: all non-root users that require access to PKCS#11 "
+                   "tokens using opencryptoki must be assigned to the pkcs11 "
+                   "group to be able to communicate with the pkcsslotd "
+		   "daemon.\n");
+        }
+
         fflush(stdout);
         cleanup();
     }
