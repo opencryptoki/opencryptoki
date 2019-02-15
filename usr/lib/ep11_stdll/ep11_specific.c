@@ -560,6 +560,74 @@ cleanup:
     return rc;
 }
 
+static CK_RV override_key_attributes(STDLL_TokData_t *tokdata,
+                                     CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
+                                     CK_ATTRIBUTE_PTR attrs,
+                                     CK_ULONG attrs_len)
+{
+    CK_ULONG i;
+    CK_BBOOL cktrue = TRUE;
+    CK_ULONG override_types_public_key[] =
+        { CKA_VERIFY, CKA_ENCRYPT };
+    CK_ULONG *override_types = NULL;
+    CK_BBOOL *override_values[] = { &cktrue, &cktrue };
+    CK_ULONG attr_cnt = 0;
+
+    UNUSED(tokdata);
+
+    switch (kc) {
+    case CKO_PUBLIC_KEY:
+        /*
+         * EP11 does not allow to restrict public RSA/DSA/EC keys with
+         * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
+         * technically enforce the restrictions. Therefore override these
+         * attributes for the EP11 library, but keep the original attribute
+         * values in the object.
+         */
+        if (kt != CKK_EC && kt != CKK_RSA && kt != CKK_DSA)
+            return CKR_OK;
+
+        override_types = &override_types_public_key[0];
+        attr_cnt = sizeof(override_types_public_key) /
+                            sizeof(override_types_public_key[0]);
+        break;
+
+    default:
+        return CKR_OK;
+    }
+
+    for (i = 0; i < attr_cnt; i++, override_types++) {
+        CK_ATTRIBUTE_PTR attr = get_attribute_by_type(attrs,
+                                                      attrs_len,
+                                                      *override_types);
+        if (attr != NULL)
+            *(CK_BBOOL *)(attr->pValue) = *override_values[i];
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV check_key_restriction(OBJECT *key_obj, CK_ATTRIBUTE_TYPE type)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL flag;
+
+    rc = template_attribute_find(key_obj->template, type, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find attribute 0x%lx for the key.\n", type);
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    flag = *(CK_BBOOL *) attr->pValue;
+    if (flag != TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE ** data,
                                      CK_ULONG * data_len, CK_ATTRIBUTE * modulus,
                                      CK_ATTRIBUTE * publ_exp)
@@ -3741,6 +3809,10 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
+    CK_ATTRIBUTE_PTR dh_pPublicKeyTemplate = NULL;
+    CK_ULONG dh_ulPublicKeyAttributeCount = 0;
+    CK_ATTRIBUTE_PTR dh_pPrivateKeyTemplate = NULL;
+    CK_ULONG dh_ulPrivateKeyAttributeCount = 0;
     size_t p_len = 0, g_len = 0;
     int new_public_attr;
     CK_ULONG i;
@@ -3860,6 +3932,44 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
            &(pgs[0]), sizeof(CK_ATTRIBUTE));
 
+    rc = check_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
+                              pPublicKeyTemplate_new, new_public_attr + 1,
+                              &dh_pPublicKeyTemplate,
+                              &dh_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
+                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                              &dh_pPrivateKeyTemplate,
+                              &dh_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = override_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
+                                 dh_pPublicKeyTemplate,
+                                 dh_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH override public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = override_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
+                                 dh_pPrivateKeyTemplate,
+                                 dh_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH override private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
                        (pPublicKeyTemplate, ulPublicKeyAttributeCount)
@@ -3868,9 +3978,10 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKeyPair(pMechanism, pPublicKeyTemplate_new,
-                                   new_public_attr + 1, pPrivateKeyTemplate,
-                                   ulPrivateKeyAttributeCount, ep11_pin_blob,
+        rc = dll_m_GenerateKeyPair(pMechanism, dh_pPublicKeyTemplate,
+                                   dh_ulPublicKeyAttributeCount,
+                                   dh_pPrivateKeyTemplate,
+                                   dh_ulPrivateKeyAttributeCount, ep11_pin_blob,
                                    ep11_pin_blob_len, privblob, &privblobsize,
                                    publblob, &publblobsize,
                                    (uint64_t) ep11_data->target_list);
@@ -3964,6 +4075,12 @@ dh_generate_keypair_end:
     free(pPublicKeyTemplate_new);
     if (dh_pgs.pg != NULL)
         free(dh_pgs.pg);
+    if (dh_pPublicKeyTemplate)
+         free_attribute_array(dh_pPublicKeyTemplate,
+                              dh_ulPublicKeyAttributeCount);
+     if (dh_pPrivateKeyTemplate)
+         free_attribute_array(dh_pPrivateKeyTemplate,
+                              dh_ulPrivateKeyAttributeCount);
     return rc;
 }
 
@@ -4151,6 +4268,24 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         return rc;
     }
 
+    rc = override_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
+                                 dsa_pPublicKeyTemplate,
+                                 dsa_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC override public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = override_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
+                                 dsa_pPrivateKeyTemplate,
+                                 dsa_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC override private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
                        (pPublicKeyTemplate, ulPublicKeyAttributeCount)
@@ -4316,6 +4451,24 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                               &new_ulPrivateKeyAttributeCount);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = override_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
+                                 new_pPublicKeyTemplate,
+                                 new_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC override public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = override_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
+                                 new_pPrivateKeyTemplate,
+                                 new_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s RSA/EC override private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
         goto error;
     }
@@ -4975,8 +5128,6 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
     CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
 
-    UNUSED(recover_mode);
-
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -4985,6 +5136,18 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    /*
+     * Enforce key usage restrictions. EP11 does not allow to restrict
+     * public keys with CKA_VERIFY=FALSE. Thus we need to enforce the
+     * restriction here.
+     */
+    rc = check_key_restriction(key_obj,
+                               recover_mode ? CKA_VERIFY_RECOVER : CKA_VERIFY);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
@@ -5101,6 +5264,17 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    /*
+     * Enforce key usage restrictions. EP11 does not allow to restrict
+     * public keys with CKA_VERIFY=FALSE. Thus we need to enforce the
+     * restriction here.
+     */
+    rc = check_key_restriction(key_obj, CKA_VERIFY);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
         return rc;
     }
 
@@ -5336,6 +5510,17 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         return rc;
     }
 
+    /*
+     * Enforce key usage restrictions. EP11 does not allow to restrict
+     * public keys with CKA_ENCRYPT=FALSE. Thus we need to enforce the
+     * restriction here.
+     */
+    rc = check_key_restriction(key_obj, CKA_ENCRYPT);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
     RETRY_START
     rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
                              input_data_len, output_data, p_output_data_len,
@@ -5396,6 +5581,18 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
     } else {
         ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+
+        /*
+         * Enforce key usage restrictions. EP11 does not allow to restrict
+         * public keys with CKA_ENCRYPT=FALSE. Thus we need to enforce the
+         * restriction here.
+         */
+        rc = check_key_restriction(key_obj, CKA_ENCRYPT);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
         RETRY_START
             rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, blob,
                                    blob_len, (uint64_t) ep11_data->target_list);
