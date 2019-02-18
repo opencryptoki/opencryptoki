@@ -3908,7 +3908,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     dh_pgs.pg = malloc(p_len * 2);
     if (!dh_pgs.pg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto dh_generate_keypair_end;
     }
     memset(dh_pgs.pg, 0, p_len * 2);
     memcpy(dh_pgs.pg, prime_attr->pValue, p_len);     /* copy CKA_PRIME value */
@@ -4168,8 +4169,10 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         }
     }
 
-    if (prime_attr == NULL || sub_prime_attr == NULL || base_attr == NULL)
-        return CKR_TEMPLATE_INCOMPLETE;
+    if (prime_attr == NULL || sub_prime_attr == NULL || base_attr == NULL) {
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto dsa_generate_keypair_end;
+    }
 
     /* copy CKA_PRIME/CKA_BASE/CKA_SUBPRIME to private template */
     rc = build_attribute(CKA_PRIME, prime_attr->pValue,
@@ -4221,7 +4224,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     dsa_pqgs.pqg = malloc(p_len * 3);
     if (!dsa_pqgs.pqg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto dsa_generate_keypair_end;
     }
     memset(dsa_pqgs.pqg, 0, p_len * 3);
     memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
@@ -4255,7 +4259,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto dsa_generate_keypair_end;
     }
 
     rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
@@ -4265,7 +4269,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto dsa_generate_keypair_end;
     }
 
     rc = override_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
