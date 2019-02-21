@@ -51,15 +51,12 @@ extern API_Proc_Struct_t *Anchor;
 
 CK_RV CreateProcLock(void)
 {
-    struct stat statbuf;
-
     if (xplfd == -1) {
 
         /* The slot mgr daemon should have already created lock,
          * so just open it so we can get a lock...
          */
-        if (stat(OCK_API_LOCK_FILE, &statbuf) == 0)
-            xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
+        xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
 
         if (xplfd == -1) {
             OCK_SYSLOG(LOG_ERR, "Could not open %s\n", OCK_API_LOCK_FILE);
