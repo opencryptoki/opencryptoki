@@ -252,8 +252,302 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
             goto error;
         }
-
     }
+
+    goto testcase_cleanup;
+error:
+    loc_rc = funcs->C_DestroyObject(session, publ_key);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(loc_rc));
+    }
+
+    loc_rc = funcs->C_DestroyObject(session, priv_key);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(loc_rc));
+    }
+
+testcase_cleanup:
+    testcase_user_logout();
+    loc_rc = funcs->C_CloseAllSessions(slot_id);
+    if (loc_rc != CKR_OK) {
+        testcase_error("C_CloseAllSessions, rc=%s", p11_get_ckr(loc_rc));
+    }
+
+    return rc;
+}
+
+/**
+ * Note: do_EncryptDecryptImportRSA fails if we don't manually
+ * remove padding from decrypted values. This might be a bug.
+ **/
+
+
+/* This function should test:
+ * RSA Key Import
+ * RSA Encryption, mechanism chosen by caller
+ * RSA Decryption, mechanism chosen by caller
+ *
+ * 1. Import RSA Key Pair
+ * 2. Generate plaintext
+ * 3. Encrypt plaintext
+ * 4. Decrypt encrypted data
+ * 5. Compare plaintext with decrypted data
+ *
+ */
+CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
+{
+    unsigned int i, j;
+    CK_BYTE original[BIG_REQUEST];
+    CK_ULONG original_len;
+    CK_BYTE crypt[BIG_REQUEST];
+    CK_ULONG crypt_len;
+    CK_BYTE decrypt[BIG_REQUEST];
+    CK_ULONG decrypt_len;
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_SESSION_HANDLE session;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc, loc_rc;
+
+    char *s;
+
+    // begin testsuite
+    testsuite_begin("%s Encrypt Decrypt Import.", tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    // skip tests if the slot doesn't support this mechanism
+    if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
+        testsuite_skip(tsuite->tvcount,
+                       "Slot %u doesn't support %s (%u)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+    // iterate over test vectors
+    for (i = 0; i < tsuite->tvcount; i++) {
+
+        // get public exponent from test vector
+        if (p11_ahex_dump(&s, tsuite->tv[i].pub_exp,
+                          tsuite->tv[i].pubexp_len) == NULL) {
+            testcase_error("p11_ahex_dump() failed");
+            rc = -1;
+            goto testcase_cleanup;
+        }
+        // begin testcase
+        testcase_begin("%s Encrypt and Decrypt Import with test vector %d."
+                       "\npubl_exp='%s', modbits=%ld, publ_exp_len=%ld.",
+                       tsuite->name, i, s,
+                       tsuite->tv[i].mod_len * 8,
+                       tsuite->tv[i].pubexp_len);
+
+        rc = CKR_OK;            // set rc
+
+        if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+                               tsuite->tv[i].mod_len * 8)) {
+            testcase_skip("Token in slot %ld cannot be used with "
+                          "modbits.='%ld'", SLOT_ID, tsuite->tv[i].mod_len * 8);
+            continue;
+        }
+
+        if (is_ep11_token(slot_id)) {
+            if (!is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("EP11 Token cannot "
+                              "be used with publ_exp.='%s'", s);
+                continue;
+            }
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                (((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg != CKM_SHA_1 ||
+                 ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "other than SHA-1");
+                continue;
+            }
+            // modulus length must be multiple of 128 byte
+            // skip test if modulus length has unsuported size
+            if ((tsuite->tv[i].mod_len % 128) != 0) {
+                testcase_skip("EP11 Token cannot be used with "
+                              "this test vector.");
+                continue;
+            }
+        }
+
+        // special case for ica
+        // prime1, prime2, exp1, exp2, coef
+        // must be size mod_len/2 or smaller
+        // skip test if prime1, or prime2, or exp1,
+        // or exp2 or coef are too long
+        if (is_ica_token(slot_id)) {
+            // check sizes
+            if ((tsuite->tv[i].prime1_len >
+                 (tsuite->tv[i].mod_len / 2)) ||
+                (tsuite->tv[i].prime2_len >
+                 (tsuite->tv[i].mod_len / 2)) ||
+                (tsuite->tv[i].exp1_len >
+                 (tsuite->tv[i].mod_len / 2)) ||
+                (tsuite->tv[i].exp2_len >
+                 (tsuite->tv[i].mod_len / 2)) ||
+                (tsuite->tv[i].coef_len > (tsuite->tv[i].mod_len / 2))) {
+                testcase_skip("ICA Token cannot be used with "
+                              "this test vector.");
+                continue;
+            }
+
+        }
+
+        // cca special cases:
+        // cca token can only use the following public exponents
+        // 0x03 or 0x010001 (65537)
+        // so skip test if invalid public exponent is used
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
+                                     tsuite->tv[i].pubexp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp.='%s'", s);
+                continue;
+            }
+        }
+        // tpm special cases:
+        // tpm token can only use public exponent 0x010001 (65537)
+        // so skip test if invalid public exponent is used
+        if (is_tpm_token(slot_id)) {
+            if ((!is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len))
+                || (!is_valid_tpm_modbits(tsuite->tv[i].mod_len * 8))) {
+                testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'",
+                              s);
+                continue;
+            }
+        }
+
+        if (is_icsf_token(slot_id)) {
+            if (!is_valid_icsf_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len) ||
+                (tsuite->tv[i].mod_len * 8 < 1024)) {
+                testcase_skip("ICSF Token cannot be used with "
+                              "publ_exp='%s'.", s);
+                continue;
+            }
+        }
+
+        free(s);
+
+        // clear buffers
+        memset(original, 0, BIG_REQUEST);
+        memset(crypt, 0, BIG_REQUEST);
+        memset(decrypt, 0, BIG_REQUEST);
+
+        original_len = 10;
+
+        // create (private) key handle
+        rc = create_RSAPrivateKey(session,
+                                  tsuite->tv[i].mod,
+                                  tsuite->tv[i].pub_exp,
+                                  tsuite->tv[i].priv_exp,
+                                  tsuite->tv[i].prime1,
+                                  tsuite->tv[i].prime2,
+                                  tsuite->tv[i].exp1,
+                                  tsuite->tv[i].exp2,
+                                  tsuite->tv[i].coef,
+                                  tsuite->tv[i].mod_len,
+                                  tsuite->tv[i].pubexp_len,
+                                  tsuite->tv[i].privexp_len,
+                                  tsuite->tv[i].prime1_len,
+                                  tsuite->tv[i].prime2_len,
+                                  tsuite->tv[i].exp1_len,
+                                  tsuite->tv[i].exp2_len,
+                                  tsuite->tv[i].coef_len, &priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // create (public) key handle
+        rc = create_RSAPublicKey(session,
+                                 tsuite->tv[i].mod,
+                                 tsuite->tv[i].pub_exp,
+                                 tsuite->tv[i].mod_len,
+                                 tsuite->tv[i].pubexp_len, &publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("create_RSAPublicKey(), rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        // generate plaintext
+        for (j = 0; j < original_len; j++) {
+            original[j] = (j + 1) % 255;
+        }
+
+        // set cipher buffer length
+        crypt_len = BIG_REQUEST;
+        decrypt_len = BIG_REQUEST;
+
+        // get mech
+        mech = tsuite->mech;
+        // initialize (public key) encryption
+        rc = funcs->C_EncryptInit(session, &mech, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        // do (public key) encryption
+        rc = funcs->C_Encrypt(session,
+                              original, original_len, crypt, &crypt_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        // initialize (private key) decryption
+        rc = funcs->C_DecryptInit(session, &mech, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DecryptInit, rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        // do (private key) decryption
+        rc = funcs->C_Decrypt(session, crypt, crypt_len, decrypt, &decrypt_len);
+        if (rc != CKR_OK) {
+            testcase_error("C_Decrypt, rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+        // FIXME: there shouldn't be any padding here
+        // remove padding if mech is CKM_RSA_X_509
+        if (mech.mechanism == CKM_RSA_X_509) {
+            memmove(decrypt,
+                    decrypt + decrypt_len - original_len, original_len);
+            decrypt_len = original_len;
+        }
+        // check results
+        testcase_new_assertion();
+
+        if (decrypt_len != original_len) {
+            testcase_fail("decrypted length does not match"
+                          "original data length.\n expected length = %ld,"
+                          "but found length=%ld.\n", original_len, decrypt_len);
+        } else if (memcmp(decrypt, original, original_len)) {
+            testcase_fail("decrypted data does not match " "original data.");
+        } else {
+            testcase_pass("C_Encrypt and C_Decrypt.");
+        }
+
+        // clean up
+        rc = funcs->C_DestroyObject(session, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+            goto error;
+        }
+
+        rc = funcs->C_DestroyObject(session, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+            goto error;
+        }
+    }
+
     goto testcase_cleanup;
 error:
     loc_rc = funcs->C_DestroyObject(session, publ_key);
@@ -1432,6 +1726,13 @@ CK_RV rsa_funcs()
     // generated keywrap tests
     for (i = 0; i < NUM_OF_GENERATED_KEYWRAP_TESTSUITES; i++) {
         rv = do_WrapUnwrapRSA(&generated_keywrap_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    // key import tests
+    for (i = 0; i < NUM_OF_ENCDEC_IMPORT_TESTSUITES; i++) {
+        rv = do_EncryptDecryptImportRSA(&rsa_encdec_import_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
