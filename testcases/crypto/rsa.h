@@ -8736,7 +8736,28 @@ struct PUBLISHED_TEST_SUITE_INFO published_test_suites[] = {
      .tv = rsa_sha512_pkcs_sigver_published_tv,
      .mech = {CKM_SHA512_RSA_PKCS, 0, 0},
      }
+};
 
+CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha1 = {CKM_SHA_1, CKG_MGF1_SHA1, CKZ_DATA_SPECIFIED, NULL, 0};
 
-
+#define NUM_OF_ENCDEC_IMPORT_TESTSUITES 3
+struct PUBLISHED_TEST_SUITE_INFO rsa_encdec_import_test_suites[] = {
+    {
+        .name = "RSA PKCS",
+        .tvcount = 45,
+        .tv = rsa_sha1_pkcs_sigver_published_tv,
+        .mech = {CKM_RSA_PKCS, 0, 0},
+    },
+    {
+        .name = "RSA PKCS OAEP",
+        .tvcount = 45,
+        .tv = rsa_sha1_pkcs_sigver_published_tv,
+        .mech = {CKM_RSA_PKCS_OAEP, &oaep_params_sha1, sizeof(oaep_params_sha1)},
+    },
+    {
+        .name = "RSA X.509",
+        .tvcount = 45,
+        .tv = rsa_sha1_pkcs_sigver_published_tv,
+        .mech = {CKM_RSA_X_509, 0, 0},
+    },
 };
