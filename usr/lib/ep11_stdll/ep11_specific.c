@@ -2043,6 +2043,120 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
     return CKR_OK;
 }
 
+/*
+ * Makes a public key blob which is a MACed SPKI of the public key.
+ */
+static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
+                             OBJECT *pub_key_obj,
+                             CK_BYTE *spki, CK_ULONG spki_len,
+                             CK_BYTE *maced_spki, CK_ULONG *maced_spki_len)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_MECHANISM mech = { CKM_IBM_TRANSPORTKEY, 0, 0 };
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR attr;
+    CK_BBOOL bool_value;
+    DL_NODE *node;
+    CK_BYTE csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_KEY_TYPE keytype;
+    CK_RV rc;
+
+    rc = template_attribute_find(pub_key_obj->template, CKA_KEY_TYPE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+    keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+    /*
+     * m_UnwrapKey with CKM_IBM_TRANSPORTKEY allows boolean attributes only to
+     * be added to MACed-SPKIs
+     */
+    node = pub_key_obj->template->attribute_list;
+    while (node != NULL) {
+        attr = node->data;
+
+        switch (attr->type) {
+        case CKA_ENCRYPT:
+        case CKA_VERIFY:
+        case CKA_VERIFY_RECOVER:
+            /*
+             * EP11 does not allow to restrict public RSA/DSA/EC keys with
+             * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
+             * technically enforce the restrictions. Therefore override these
+             * attributes for the EP11 library, but keep the original attribute
+             * values in the object.
+             */
+            if (keytype == CKK_EC || keytype == CKK_RSA || keytype == CKK_DSA)
+                bool_value = CK_TRUE;
+            else
+                bool_value = *(CK_BBOOL *)attr->pValue;
+            rc = add_to_attribute_array(&p_attrs, &attrs_len, attr->type,
+                                        &bool_value, sizeof(bool_value));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, attr->type, rc);
+                goto make_maced_spki_end;
+            }
+            break;
+
+        case CKA_EXTRACTABLE:
+        //case CKA_NEVER_EXTRACTABLE:
+        //case CKA_MODIFIABLE:
+        case CKA_DERIVE:
+        case CKA_WRAP:
+        //case CKA_LOCAL:
+        case CKA_TRUSTED:
+        case CKA_IBM_RESTRICTABLE:
+        case CKA_IBM_NEVER_MODIFIABLE:
+        case CKA_IBM_ATTRBOUND:
+        case CKA_IBM_USE_AS_DATA:
+            rc = add_to_attribute_array(&p_attrs, &attrs_len, attr->type,
+                                        attr->pValue, attr->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, attr->type, rc);
+                goto make_maced_spki_end;
+            }
+            break;
+
+        default:
+            break;
+        }
+        node = node->next;
+    }
+
+    ep11_get_pin_blob(ep11_session, object_is_session_object(pub_key_obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    RETRY_START
+        rc = dll_m_UnwrapKey(spki, spki_len, NULL, 0, NULL, 0,
+                             ep11_pin_blob, ep11_pin_blob_len, &mech,
+                             p_attrs, attrs_len, maced_spki, maced_spki_len,
+                             csum, &cslen,
+                             (uint64_t) ep11_data->target_list);
+    RETRY_END(rc, tokdata, sess)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s unwrapping SPKI rc=0x%lx spki_len=0x%zx maced_spki_len=0x%zx\n",
+                    __func__, rc, spki_len, *maced_spki_len);
+    } else {
+        TRACE_INFO("%s unwrapping SPKI rc=0x%lx spki_len=0x%zx maced_spki_len=0x%zx\n",
+                   __func__, rc, spki_len, *maced_spki_len);
+    }
+
+make_maced_spki_end:
+    if (p_attrs != NULL)
+            cleanse_and_free_attribute_array(p_attrs, attrs_len);
+
+    return rc;
+}
 
 /*
  * makes blobs for private imported RSA keys and
@@ -2140,10 +2254,15 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* save the SPKI as blob although it is not a blob.
-         * The card expects SPKIs as public keys.
+         * The card expects MACed-SPKIs as public keys.
          */
-        memcpy(blob, data, data_len);
-        *blob_size = data_len;
+        rc = make_maced_spki(tokdata, sess, rsa_key_obj, data, data_len,
+                             blob, blob_size);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto import_RSA_key_end;
+        }
 
     } else {
 
@@ -2331,10 +2450,15 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* save the SPKI as blob although it is not a blob.
-         * The card expects SPKIs as public keys.
+         * The card expects MACed-SPKIs as public keys.
          */
-        memcpy(blob, data, data_len);
-        *blob_size = data_len;
+        rc = make_maced_spki(tokdata, sess, ec_key_obj, data, data_len,
+                             blob, blob_size);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto import_EC_key_end;
+        }
 
     } else {
 
@@ -2531,10 +2655,15 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* save the SPKI as blob although it is not a blob.
-         * The card expects SPKIs as public keys.
+         * The card expects MACed-SPKIs as public keys.
          */
-        memcpy(blob, data, data_len);
-        *blob_size = data_len;
+        rc = make_maced_spki(tokdata, sess, dsa_key_obj, data, data_len,
+                             blob, blob_size);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto import_DSA_key_end;
+        }
 
     } else {
 
@@ -2723,10 +2852,15 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* save the SPKI as blob although it is not a blob.
-         * The card expects SPKIs as public keys.
+         * The card expects MACed-SPKIs as public keys.
          */
-        memcpy(blob, data, data_len);
-        *blob_size = data_len;
+        rc = make_maced_spki(tokdata, sess, dh_key_obj, data, data_len,
+                             blob, blob_size);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto import_DH_key_end;
+        }
 
     } else {
 
