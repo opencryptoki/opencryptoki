@@ -2751,6 +2751,16 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
         return CKR_MECHANISM_INVALID;
     }
 
+	/* 
+	   Check if signature is NULL to allow multipart signing without segfault 
+	   C_signFinal must be called twice, one time to know the size and allocate the memory, one another to perform the signature
+	*/
+	if (signature == NULL) 
+	{
+		*sig_len = (CK_ULONG)mac_len;
+		return CKR_OK;
+	}
+	
     mdctx = (EVP_MD_CTX *) ctx->context;
 
     rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);
