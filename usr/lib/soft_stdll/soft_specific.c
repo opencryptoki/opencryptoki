@@ -2751,18 +2751,15 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
         return CKR_MECHANISM_INVALID;
     }
 
-
-if (signature == NULL) 
-	{	
-    	if (sign) {
-      	  if (general)
-            *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
-     	  else
-            *sig_len = (CK_ULONG)mac_len;
-	
-	 return CKR_OK;
+    if (signature == NULL) {
+        if (sign) {
+      	    if (general)
+                *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
+            else
+                *sig_len = (CK_ULONG)mac_len;	
+	    return CKR_OK;
 	}
-	}
+    }
 	
     mdctx = (EVP_MD_CTX *) ctx->context;
 
