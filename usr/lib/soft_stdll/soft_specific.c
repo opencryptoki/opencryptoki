@@ -2756,7 +2756,7 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
             if (general)
                 *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
             else
-                *sig_len = (CK_ULONG)mac_len;
+                *sig_len = (CK_ULONG) mac_len;
             return CKR_OK;
         }
     }
