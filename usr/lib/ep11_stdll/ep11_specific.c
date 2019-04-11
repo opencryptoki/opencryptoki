@@ -6612,19 +6612,24 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                ep11_data->optimize_single_ops = 1;
             } else if (strncmp(token, "DIGEST_LIBICA", 13) == 0) {
                 i = 5;
+            } else if (strncmp(token, "USE_PRANDOM", 11) == 0) {
+               i = 0;
+               token_specific.t_rng = NULL;
             } else {
                 /* syntax error */
                 TRACE_ERROR("%s Expected APQN_WHITELIST,"
                             " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                             " STRICT_MODE, VHSM_MODE, "
-                            " OPTIMIZE_SINGLE_PART_OPERATIONS, or DIGEST_LIBICA"
-                            " keyword, found '%s' in config file '%s'\n", __func__,
+                            " OPTIMIZE_SINGLE_PART_OPERATIONS, DIGEST_LIBICA, "
+                            "or USE_PRANDOM keyword, found '%s' in config file "
+                            "'%s'\n", __func__,
                             token, fname);
                 OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                            " STRICT_MODE, VHSM_MODE,"
-                           " OPTIMIZE_SINGLE_PART_OPERATIONS, or DIGEST_LIBICA"
-                           " keyword, found '%s' in config file '%s'\n",
+                           " OPTIMIZE_SINGLE_PART_OPERATIONS, DIGEST_LIBICA, "
+                           "or USE_PRANDOM keyword, found '%s' in config file "
+                           "'%s'\n",
                            __func__, token, fname);
                 rc = APQN_FILE_SYNTAX_ERROR_0;
                 break;
