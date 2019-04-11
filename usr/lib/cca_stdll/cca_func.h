@@ -305,6 +305,18 @@ typedef void (*CSNBRNG_t) (long *return_code,
                            unsigned char *exit_data,
                            unsigned char *form, unsigned char *random_number);
 
+/* Random Number Generate Long */
+typedef void (*CSNBRNGL_t) (long *return_code,
+                           long *reason_code,
+                           long *exit_data_length,
+                           unsigned char *exit_data,
+                           long *rule_array_count,
+                           unsigned char *rule_array,
+                           long *seed_length,
+                           unsigned char *seed,
+                           long *random_number_length,
+                           unsigned char *random_number);
+
 typedef void (*CSNBSAE_t) (long *return_code,
                            long *reason_code,
                            long *exit_data_length,
