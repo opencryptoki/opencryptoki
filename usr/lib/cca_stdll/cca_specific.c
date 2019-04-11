@@ -99,6 +99,7 @@ static CSNBKYTX_t dll_CSNBKYTX;
 static CSNBKTC_t dll_CSNBKTC;
 static CSNBKTR_t dll_CSNBKTR;
 static CSNBRNG_t dll_CSNBRNG;
+static CSNBRNGL_t dll_CSNBRNGL;
 static CSNBSAE_t dll_CSNBSAE;
 static CSNBSAD_t dll_CSNBSAD;
 static CSNBDEC_t dll_CSNBDEC;
@@ -235,33 +236,35 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                          CK_ULONG bytes)
 {
     long return_code, reason_code;
-    unsigned char form[CCA_KEYWORD_SIZE], random_number[CCA_RNG_SIZE];
-    CK_ULONG bytes_so_far = 0, bytes_left;
+    unsigned char rule_array[CCA_KEYWORD_SIZE];
+    CK_ULONG bytes_so_far = 0, num_bytes;
+    long rule_array_count = 1, zero = 0;
     CK_RV rv;
 
     UNUSED(tokdata);
 
-    memcpy(form, "RANDOM  ", (size_t) CCA_KEYWORD_SIZE);
+    memcpy(rule_array, "RANDOM  ", (size_t) CCA_KEYWORD_SIZE);
 
     while (bytes_so_far < bytes) {
-        dll_CSNBRNG(&return_code,
-                    &reason_code, NULL, NULL, form, random_number);
+        num_bytes = bytes - bytes_so_far;
+        if (num_bytes > 8192)
+            num_bytes = 8192;
+
+        dll_CSNBRNGL(&return_code,
+                     &reason_code,
+                     NULL, NULL,
+                     &rule_array_count, rule_array,
+                     &zero, NULL,
+                     (long *)&num_bytes, output + bytes_so_far);
 
         if (return_code != CCA_SUCCESS) {
-            TRACE_ERROR("CSNBRNG failed. return:%ld, reason:%ld\n",
+            TRACE_ERROR("CSNBRNGL failed. return:%ld, reason:%ld\n",
                         return_code, reason_code);
             rv = CKR_FUNCTION_FAILED;
             return rv;
         }
 
-        if (bytes_so_far + CCA_RNG_SIZE > bytes) {
-            bytes_left = bytes - bytes_so_far;
-            memcpy(&output[bytes_so_far], random_number, (size_t) bytes_left);
-            bytes_so_far += bytes_left;
-        } else {
-            memcpy(&output[bytes_so_far], random_number, (size_t) CCA_RNG_SIZE);
-            bytes_so_far += CCA_RNG_SIZE;
-        }
+        bytes_so_far += num_bytes;
     }
 
     return CKR_OK;
@@ -301,6 +304,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     *(void **)(&dll_CSNBKTC) = dlsym(hdl, "CSNBKTC");
     *(void **)(&dll_CSNBKTR) = dlsym(hdl, "CSNBKTR");
     *(void **)(&dll_CSNBRNG) = dlsym(hdl, "CSNBRNG");
+    *(void **)(&dll_CSNBRNGL) = dlsym(hdl, "CSNBRNGL");
     *(void **)(&dll_CSNBSAE) = dlsym(hdl, "CSNBSAE");
     *(void **)(&dll_CSNBSAD) = dlsym(hdl, "CSNBSAD");
     *(void **)(&dll_CSNBDEC) = dlsym(hdl, "CSNBDEC");
