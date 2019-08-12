@@ -200,6 +200,8 @@ typedef CK_RV (*m_admin_t) (unsigned char *response1, size_t * r1len,
 typedef int (*m_add_backend_t) (const char *name, unsigned int port);
 typedef int (*m_init_t) (void);
 typedef int (*m_shutdown_t) (void);
+typedef int (*m_add_module_t) (XCP_Module_t module, target_t *target);
+typedef int (*m_rm_module_t) (XCP_Module_t module, target_t target);
 
 #ifndef XCP_SERIALNR_CHARS
 #define XCP_SERIALNR_CHARS        8

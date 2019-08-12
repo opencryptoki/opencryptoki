@@ -122,6 +122,8 @@ static m_admin_t dll_m_admin;
 static m_add_backend_t dll_m_add_backend;
 static m_init_t dll_m_init;
 static m_shutdown_t dll_m_shutdown;
+static m_add_module_t dll_m_add_module;
+static m_rm_module_t dll_m_rm_module;
 
 static xcpa_queryblock_t dll_xcpa_queryblock;
 static xcpa_internal_rv_t dll_xcpa_internal_rv;
@@ -390,6 +392,13 @@ typedef struct {
     ep11_card_version_t *card_versions;
     CK_CHAR serialNumber[16];
 } ep11_private_data_t;
+
+static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata);
+
+static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
+                                      target_t *target);
+static void free_ep11_target_for_apqn(target_t target);
+
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
@@ -1844,6 +1853,18 @@ static CK_RV ep11_resolve_lib_sym(void *hdl)
         return CKR_FUNCTION_FAILED;
     }
 
+    /*
+     * The following are only available since EP11 host library version 2.
+     * Ignore if they fail to load, the code will fall back to the old target
+     * handling in this case.
+     */
+    *(void **)(&dll_m_add_module) = dlsym(hdl, "m_add_module");
+    *(void **)(&dll_m_rm_module) = dlsym(hdl, "m_rm_module");
+    if (dll_m_add_module == NULL || dll_m_rm_module == NULL) {
+        dll_m_add_module = NULL;
+        dll_m_rm_module = NULL;
+    }
+
     return CKR_OK;
 }
 
@@ -1961,6 +1982,10 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 #endif
 
+    rc = ep11tok_setup_target(tokdata);
+    if (rc != CKR_OK)
+        goto error;
+
     rc = ep11tok_get_ep11_version(tokdata);
     if (rc != CKR_OK)
         goto error;
@@ -2026,6 +2051,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
     TRACE_INFO("ep11 %s running\n", __func__);
 
     if (ep11_data != NULL) {
+        if (dll_m_rm_module != NULL)
+            dll_m_rm_module(NULL, ep11_data->target);
         free_cp_config(ep11_data->cp_config);
         free_card_versions(ep11_data->card_versions);
         free(ep11_data);
@@ -6789,8 +6816,6 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
         }
     }
 
-    ep11_data->target = (target_t)&ep11_data->target_list;
-
     /* read CP-filter config file */
     if (rc == 0) {
         cfg_dir = dirname(fname);
@@ -7302,31 +7327,31 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     size_t rlen, clen;
     long rc;
     CK_RV rv = 0;
-    ep11_target_t target;
+    target_t target;
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
 
-    memset(&target, 0, sizeof(target));
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    if (rc != CKR_OK)
+        return rc;
 
     memset(cmd, 0, sizeof(cmd));
     rc = dll_xcpa_queryblock(cmd, sizeof(cmd), XCP_ADMQ_DOM_CTRLPOINTS,
                              (uint64_t) adapter << 32 | domain, NULL, 0);
     if (rc < 0) {
         TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n", __func__, rc);
-        return CKR_DEVICE_ERROR;
+        rc = CKR_DEVICE_ERROR;
+        goto out;
     }
     clen = rc;
 
     memset(rsp, 0, sizeof(rsp));
     rlen = sizeof(rsp);
-    rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0,
-                     (uint64_t) & target);
+    rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0, target);
     if (rc < 0) {
         TRACE_ERROR("%s m_admin rc=%ld\n", __func__, rc);
-        return CKR_DEVICE_ERROR;
+        rc = CKR_DEVICE_ERROR;
+        goto out;
     }
 
     memset(&rb, 0, sizeof(rb));
@@ -7334,30 +7359,35 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     if (rc < 0 || rv != 0) {
         TRACE_ERROR("%s xcpa_internal_rv failed: rc=%ld rv=%ld\n",
                     __func__, rc, rv);
-        return CKR_DEVICE_ERROR;
+        rc = CKR_DEVICE_ERROR;
+        goto out;
     }
 
     if (*cp_len < rb.pllen) {
         TRACE_ERROR("%s Cp_len is too small. cp_len=%lu required=%lu\n",
                     __func__, *cp_len, rb.pllen);
         *cp_len = rb.pllen;
-        return CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
+        goto out;
     }
 
     memcpy(cp, rb.payload, rb.pllen);
     *cp_len = rb.pllen;
 
     rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
-                           (uint64_t)&target);
+                            target);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to query xcp info from adapter %02X.%04X\n",
                     __func__, adapter, domain);
-        return CKR_DEVICE_ERROR;
+        rc = CKR_DEVICE_ERROR;
+        goto out;
     }
 
     *max_cp_index = xcp_info.controlPoints;
 
-    return CKR_OK;
+out:
+    free_ep11_target_for_apqn(target);
+    return rc;
 }
 
 typedef struct cp_handler_data {
@@ -7680,7 +7710,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
                                 void *handler_data)
 {
     ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
-    ep11_target_t target;
+    target_t target;
     CK_RV rc;
     CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
     CK_ULONG pin_blob_len = XCP_PINBLOB_BYTES;
@@ -7691,18 +7721,16 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
 
     TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
 
-    memset(&target, 0, sizeof(target));
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    if (rc != CKR_OK)
+        return rc;
 
     if (ep11_session->flags & EP11_VHSM_MODE) {
         pin = ep11_session->vhsm_pin;
         pin_len = sizeof(ep11_session->vhsm_pin);
 
-        rc = dll_m_Login(pin, pin_len,
-                         nonce, nonce_len,
-                         pin_blob, &pin_blob_len, (uint64_t) & target);
+        rc = dll_m_Login(pin, pin_len, nonce, nonce_len,
+                         pin_blob, &pin_blob_len, target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
@@ -7725,7 +7753,8 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
                            "%s: Error: VHSM-Pin blob of adapter %02X.%04X is "
                            "not equal to other adapters for same session\n",
                            __func__, adapter, domain);
-                return CKR_DEVICE_ERROR;
+                rc = CKR_DEVICE_ERROR;
+                goto out;
             }
         } else {
             memcpy(ep11_session->vhsm_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
@@ -7739,15 +7768,15 @@ strict_mode:
         nonce_len = sizeof(ep11_session->session_id);
         /* pin is already set to default pin or vhsm pin (if VHSM mode) */
 
-        rc = dll_m_Login(pin, pin_len,
-                         nonce, nonce_len,
-                         pin_blob, &pin_blob_len, (uint64_t) & target);
+        rc = dll_m_Login(pin, pin_len, nonce, nonce_len,
+                         pin_blob, &pin_blob_len, target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
-            return CKR_OK;
+            rc = CKR_OK;
+            goto out;
         }
 #ifdef DEBUG
         TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
@@ -7764,7 +7793,8 @@ strict_mode:
                            "%s: Error: Pin blob of adapter %02X.%04X is not "
                            "equal to other adapters for same session\n",
                            __func__, adapter, domain);
-                return CKR_DEVICE_ERROR;
+                rc = CKR_DEVICE_ERROR;
+                goto out;
             }
         } else {
             memcpy(ep11_session->session_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
@@ -7772,22 +7802,23 @@ strict_mode:
         }
     }
 
-    return CKR_OK;
+out:
+    free_ep11_target_for_apqn(target);
+    return rc;
 }
 
 static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
                                  void *handler_data)
 {
     ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
-    ep11_target_t target;
+    target_t target;
     CK_RV rc;
 
     TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
 
-    memset(&target, 0, sizeof(target));
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    if (rc != CKR_OK)
+        return rc;
 
     if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
 #ifdef DEBUG
@@ -7796,7 +7827,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 #endif
 
         rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
-                          (uint64_t) & target);
+                          target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
@@ -7811,7 +7842,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 #endif
 
         rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
-                          (uint64_t) & target);
+                          target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
@@ -7819,6 +7850,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
         }
     }
 
+    free_ep11_target_for_apqn(target);
     return CKR_OK;
 }
 
@@ -8194,22 +8226,22 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
     CK_RV rc;
-    ep11_target_t target;
+    target_t target;
     CK_ULONG card_type;
     ep11_card_version_t *card_version;
 
-    memset(&target, 0, sizeof(target));
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    if (rc != CKR_OK)
+        return rc;
 
     rc = dll_m_get_xcp_info(&xcp_info, &xcp_info_len, CK_IBM_XCPQ_MODULE, 0,
-                           (uint64_t)&target);
+                            target);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to query module version from adapter %02X.%04X\n",
                            __func__, adapter, domain);
        /* card may no longer be online, so ignore this error situation */
-        return CKR_OK;
+        rc = CKR_OK;
+        goto out;
     }
 
     rc = get_card_type(adapter, &card_type);
@@ -8217,7 +8249,8 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
         TRACE_ERROR("%s Failed to get card type for adapter %02X.%04X\n",
                    __func__, adapter, domain);
         /* card may no longer be online, so ignore this error situation */
-        return CKR_OK;
+        rc = CKR_OK;
+        goto out;
     }
 
     /* Try to find existing version info for this card type */
@@ -8237,7 +8270,8 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
         if (card_version == NULL) {
             TRACE_ERROR("%s Memory allocation failed\n", __func__);
             qv->error = TRUE;
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto out;
         }
 
         card_version->card_type = card_type;
@@ -8262,7 +8296,8 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                        adapter, domain, card_version->card_type,
                        xcp_info.firmwareApi);
             qv->error = TRUE;
-            return CKR_OK;
+            rc = CKR_OK;
+            goto out;
         }
 
         if (compare_ck_version(&card_version->firmware_version,
@@ -8279,7 +8314,8 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                        xcp_info.firmwareVersion.major,
                        xcp_info.firmwareVersion.minor);
             qv->error = TRUE;
-            return CKR_OK;
+            rc = CKR_OK;
+            goto out;
         }
     }
 
@@ -8288,7 +8324,9 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
                sizeof(qv->serialNumber));
     qv->first = FALSE;
 
-    return CKR_OK;
+out:
+    free_ep11_target_for_apqn(target);
+    return rc;
 }
 
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
@@ -8511,3 +8549,102 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
 
     return 1;
 }
+
+static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct XCP_Module module;
+    CK_RV rc;
+    short i;
+
+    if (dll_m_add_module == NULL) {
+        TRACE_WARNING("%s Function dll_m_add_module is not available, falling "
+                      "back to old target handling\n", __func__);
+
+        ep11_data->target = (target_t)&ep11_data->target_list;
+        return CKR_OK;
+    }
+
+    ep11_data->target = XCP_TGT_INIT;
+    memset(&module, 0, sizeof(module));
+    module.version = XCP_MOD_VERSION;
+    module.flags = XCP_MFL_VIRTUAL | XCP_MFL_MODULE;
+
+    if (ep11_data->target_list.length == 0) {
+        /* APQN_ANY: Create an empty module group */
+        rc = dll_m_add_module(&module, &ep11_data->target);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s dll_m_add_module (ANY) failed: rc=%ld\n",
+                        __func__, rc);
+            return CKR_FUNCTION_FAILED;
+        }
+        return CKR_OK;
+    }
+
+    for (i = 0; i < ep11_data->target_list.length; i++) {
+        module.module_nr = ep11_data->target_list.apqns[2 * i];
+        memset(module.domainmask, 0, sizeof(module.domainmask));
+        XCPTGTMASK_SET_DOM(module.domainmask,
+                           ep11_data->target_list.apqns[2 * i + 1]);
+
+        rc = dll_m_add_module(&module, &ep11_data->target);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s dll_m_add_module (%02x.%04x) failed: rc=%ld\n",
+                    __func__, ep11_data->target_list.apqns[2 * i],
+                    ep11_data->target_list.apqns[2 * i + 1], rc);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    return CKR_OK;
+}
+static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
+                                      target_t *target)
+{
+    ep11_target_t *target_list;
+    struct XCP_Module module;
+    CK_RV rc;
+
+    *target = XCP_TGT_INIT;
+
+    if (dll_m_add_module != NULL) {
+        memset(&module, 0, sizeof(module));
+        module.version = XCP_MOD_VERSION;
+        module.flags = XCP_MFL_MODULE;
+        module.module_nr = adapter;
+        XCPTGTMASK_SET_DOM(module.domainmask, domain);
+        rc = dll_m_add_module(&module, target);
+        if (rc != 0) {
+            TRACE_ERROR("%s dll_m_add_module (%02x.%04x) failed: rc=%ld\n",
+                                __func__, adapter, domain, rc);
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        /* Fall back to old target handling */
+        target_list = (ep11_target_t *)calloc(1, sizeof(ep11_target_t));
+        if (target_list == NULL)
+            return CKR_HOST_MEMORY;
+        target_list->length = 1;
+        target_list->apqns[0] = adapter;
+        target_list->apqns[1] = domain;
+        *target = (target_t)target_list;
+    }
+
+    return CKR_OK;
+}
+
+static void free_ep11_target_for_apqn(target_t target)
+{
+    CK_RV rc;
+
+    if (dll_m_rm_module != NULL) {
+        rc = dll_m_rm_module(NULL, target);
+        if (rc != 0) {
+            TRACE_DEBUG("%s dll_m_rm_module failed: rc=%ld\n", __func__, rc);
+        }
+    } else {
+        /* With the old target handling, target is a pointer to ep11_target_t */
+        free((ep11_target_t *)target);
+    }
+}
+

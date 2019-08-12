@@ -38,23 +38,27 @@ CK_LONG domain = -1;
 CK_OBJECT_HANDLE key_store[4096];
 
 typedef int (*m_get_ep11_info_t) (CK_VOID_PTR, CK_ULONG_PTR,
-                                  unsigned int, unsigned int, uint64_t);
+                                  unsigned int, unsigned int, target_t);
 typedef unsigned long int (*m_admin_t) (unsigned char *, size_t *,
                                         unsigned char *,
                                         size_t *, const unsigned char *,
                                         size_t, const unsigned char *,
-                                        size_t, uint64_t);
+                                        size_t, target_t);
 typedef long (*ep11a_cmdblock_t) (unsigned char *, size_t, unsigned int,
                                   const struct ep11_admresp *,
                                   const unsigned char *,
                                   const unsigned char *, size_t);
 typedef long (*ep11a_internal_rv_t) (const unsigned char *, size_t,
                                      struct ep11_admresp *, CK_RV *);
+typedef int (*m_add_module_t) (XCP_Module_t, target_t *);
+typedef int (*m_rm_module_t) (XCP_Module_t, target_t);
 
 m_get_ep11_info_t _m_get_ep11_info;
 m_admin_t _m_admin;
 ep11a_cmdblock_t _ep11a_cmdblock;
 ep11a_internal_rv_t _ep11a_internal_rv;
+m_add_module_t _m_add_module;
+m_rm_module_t _m_rm_module;
 
 
 typedef struct {
@@ -80,7 +84,9 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
     size_t resp_len;
     struct ep11_admresp rb;
     struct ep11_admresp lrb;
-    ep11_target_t target;
+    ep11_target_t target_list;
+    struct XCP_Module module;
+    target_t target = XCP_TGT_INIT;
     CK_RV rc;
     CK_BYTE name[256];
 
@@ -111,10 +117,25 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
     memset(&rb, 0, sizeof(rb));
     memset(&lrb, 0, sizeof(lrb));
     memset(&target, 0, sizeof(target));
-    target.length = 1;
 
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    if (_m_add_module != NULL) {
+        memset(&module, 0, sizeof(module));
+        module.version = XCP_MOD_VERSION;
+        module.flags = XCP_MFL_MODULE;
+        module.module_nr = adapter;
+        XCPTGTMASK_SET_DOM(module.domainmask, domain);
+        rc = _m_add_module(&module, &target);
+        if (rc != 0)
+            return CKR_FUNCTION_FAILED;
+    } else {
+        /* Fall back to old target handling */
+        memset(&target_list, 0, sizeof(ep11_target_t));
+        target_list.length = 1;
+        target_list.apqns[0] = adapter;
+        target_list.apqns[1] = domain;
+        target = (target_t)&target_list;
+    }
+
     rb.domain = domain;
     lrb.domain = domain;
 
@@ -127,26 +148,30 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
 
     if (req_len < 0) {
         fprintf(stderr, "reencrypt cmd block construction failed\n");
-        return -2;
+        rc = -2;
+        goto out;
     }
 
     rc = _m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
-                  (unsigned long long) &target);
+                  target);
 
     if (rc != CKR_OK || resp_len == 0) {
         fprintf(stderr, "reencryption failed %lx %ld\n", rc, req_len);
-        return -3;
+        rc = -3;
+        goto out;
     }
 
     if (_ep11a_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
         fprintf(stderr, "reencryption response malformed %lx\n", rc);
-        return -4;
+        rc = -4;
+        goto out;
     }
 
     if (op_old->blob_size != lrb.pllen) {
         fprintf(stderr, "reencryption blob size changed %lx %lx %lx %lx\n",
                 op_old->blob_size, lrb.pllen, resp_len, req_len);
-        return -5;
+        rc = -5;
+        goto out;
     }
 
     memset(&op_new, 0, sizeof(op_new));
@@ -160,18 +185,25 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
         fprintf(stderr,
                 "reencryption C_SetAttributeValue failed obj %lx %s rc %lx\n",
                 obj, name, rc);
-        return -6;
+        rc = -6;
+        goto out;
     }
 
     fprintf(stderr, "reencryption success obj %lx %s\n", obj, name);
-    return 0;
+
+out:
+    if (_m_rm_module != NULL)
+        _m_rm_module(&module, target);
+    return rc;
 }
 
 
 static int check_card_status()
 {
     CK_RV rc;
-    ep11_target_t target;
+    ep11_target_t target_list;
+    struct XCP_Module module;
+    target_t target = XCP_TGT_INIT;
     CK_IBM_DOMAIN_INFO dinf;
     CK_ULONG dinf_len = sizeof(dinf);
 
@@ -180,18 +212,32 @@ static int check_card_status()
         return -1;
     }
 
-    target.format = 0;
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    if (_m_add_module != NULL) {
+        memset(&module, 0, sizeof(module));
+        module.version = XCP_MOD_VERSION;
+        module.flags = XCP_MFL_MODULE;
+        module.module_nr = adapter;
+        XCPTGTMASK_SET_DOM(module.domainmask, domain);
+        rc = _m_add_module(&module, &target);
+        if (rc != 0)
+            return CKR_FUNCTION_FAILED;
+    } else {
+        /* Fall back to old target handling */
+        memset(&target_list, 0, sizeof(ep11_target_t));
+        target_list.length = 1;
+        target_list.apqns[0] = adapter;
+        target_list.apqns[1] = domain;
+        target = (target_t)&target_list;
+    }
 
     rc = _m_get_ep11_info((CK_VOID_PTR) &dinf, &dinf_len,
-                          CK_IBM_EP11Q_DOMAIN, 0, (unsigned long long) &target);
+                          CK_IBM_EP11Q_DOMAIN, 0, target);
 
     if (rc != CKR_OK) {
         fprintf(stderr, "m_get_ep11_info rc 0x%lx, valid apapter/domain "
                 "0x%02lx/%ld?.\n", rc, adapter, domain);
-        return -1;
+        rc = -1;
+        goto out;
     }
 
     if (CK_IBM_DOM_COMMITTED_NWK & dinf.flags) {
@@ -201,11 +247,15 @@ static int check_card_status()
         fprintf(stderr,
                 "Card ID 0x%02lx, domain ID %ld has no committed pending WK\n",
                 adapter, domain);
-        return -1;
+        rc = -1;
+        goto out;
     }
 
-    return 0;
+out:
+    if (_m_rm_module != NULL)
+         _m_rm_module(&module, target);
 
+    return rc;
 }
 
 
@@ -424,6 +474,18 @@ int main(int argc, char **argv)
         fprintf(stderr, "ERROR getting function pointer from shared lib '%s'",
                 EP11SHAREDLIB);
         return CKR_FUNCTION_FAILED;
+    }
+
+    /*
+     * The following are only available since EP11 host library version 2.
+     * Ignore if they fail to load, the code will fall back to the old target
+     * handling in this case.
+     */
+    *(void **)(&_m_add_module) = dlsym(lib_ep11, "m_add_module");
+    *(void **)(&_m_rm_module) = dlsym(lib_ep11, "m_rm_module");
+    if (_m_add_module == NULL || _m_rm_module == NULL) {
+        _m_add_module = NULL;
+        _m_rm_module = NULL;
     }
 
     printf("Using slot #%lu...\n\n", SLOT_ID);
