@@ -53,7 +53,9 @@
 #define UNUSED(var)            ((void)(var))
 
 typedef unsigned int (*m_Logout_t) (const unsigned char *pin, size_t len,
-                                    uint64_t target);
+                                    target_t target);
+typedef int (*m_add_module_t) (XCP_Module_t module, target_t *target);
+typedef int (*m_rm_module_t) (XCP_Module_t module, target_t target);
 
 #define SHA256_HASH_SIZE        32
 #define EP11_SESSION_ID_SIZE    16
@@ -78,6 +80,8 @@ typedef CK_RV (*adapter_handler_t) (uint_32 adapter, uint_32 domain,
 
 CK_FUNCTION_LIST *funcs;
 m_Logout_t dll_m_Logout;
+m_add_module_t dll_m_add_module;
+m_rm_module_t dll_m_rm_module;
 CK_SLOT_ID SLOT_ID = -1;
 int action = 0;
 int force = 0;
@@ -367,21 +371,39 @@ static int is_process_running(pid_t pid)
 
 static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 {
-    ep11_target_t target;
+    ep11_target_t target_list;
+    struct XCP_Module module;
+    target_t target = XCP_TGT_INIT;
     CK_RV rc;
 
-    memset(&target, 0, sizeof(target));
-    target.length = 1;
-    target.apqns[0] = adapter;
-    target.apqns[1] = domain;
+    if (dll_m_add_module != NULL) {
+        memset(&module, 0, sizeof(module));
+        module.version = XCP_MOD_VERSION;
+        module.flags = XCP_MFL_MODULE;
+        module.module_nr = adapter;
+        XCPTGTMASK_SET_DOM(module.domainmask, domain);
+        rc = dll_m_add_module(&module, &target);
+        if (rc != 0)
+            return CKR_FUNCTION_FAILED;
+    } else {
+        /* Fall back to old target handling */
+        memset(&target_list, 0, sizeof(ep11_target_t));
+        target_list.length = 1;
+        target_list.apqns[0] = adapter;
+        target_list.apqns[1] = domain;
+        target = (target_t)&target_list;
+    }
 
-    rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES, (uint64_t) &target);
+    rc = dll_m_Logout(handler_data, XCP_PINBLOB_BYTES, target);
     if (rc != CKR_OK && rc != CKR_SESSION_CLOSED) {
         fprintf(stderr,
                 "WARNING: Logout failed for adapter %02X.%04X: 0x%lx [%s]\n",
                 adapter, domain, rc, p11_get_ckr(rc));
         error = rc;
     }
+
+    if (dll_m_rm_module != NULL)
+        dll_m_rm_module(&module, target);
 
     return CKR_OK;
 }
@@ -946,6 +968,17 @@ int main(int argc, char **argv)
         fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
                 EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
+    }
+    /*
+     * The following are only available since EP11 host library version 2.
+     * Ignore if they fail to load, the code will fall back to the old target
+     * handling in this case.
+     */
+    *(void **)(&dll_m_add_module) = dlsym(lib_ep11, "m_add_module");
+    *(void **)(&dll_m_rm_module) = dlsym(lib_ep11, "m_rm_module");
+    if (dll_m_add_module == NULL || dll_m_rm_module == NULL) {
+        dll_m_add_module = NULL;
+        dll_m_rm_module = NULL;
     }
 
     printf("Using slot #%lu...\n\n", SLOT_ID);

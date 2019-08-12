@@ -228,9 +228,50 @@ CK_RV m_admin(unsigned char *response1, size_t * r1len,
 /*--------------------------------------------------------------------------
  *  Module management.
  */
+
+typedef struct XCP_ModuleSocket {
+    char host[256 + 1];
+    uint32_t port;
+} *XCP_ModuleSocket_t;
+
+typedef struct XCP_DomainPerf {
+    unsigned int lastperf[256];
+} *XCP_DomainPerf_t;
+
+typedef struct XCP_Module {
+    uint32_t version;
+    uint64_t flags;
+    uint32_t domains;
+    unsigned char domainmask[256 /8];
+    struct XCP_ModuleSocket socket;
+    uint32_t module_nr;
+    void *mhandle;
+    struct XCP_DomainPerf perf;
+} *XCP_Module_t ;
+
+typedef enum {
+    XCP_MFL_SOCKET       =    1,
+    XCP_MFL_MODULE       =    2,
+    XCP_MFL_MHANDLE      =    4,
+    XCP_MFL_PERF         =    8,
+    XCP_MFL_VIRTUAL      = 0x10,
+    XCP_MFL_STRICT       = 0x20,
+    XCP_MFL_PROBE        = 0x40,
+    XCP_MFL_ALW_TGT_ADD  = 0x80,
+    XCP_MFL_MAX          = 0xff
+} XCP_Module_Flags;
+
+#define XCP_MOD_VERSION     1
+#define XCP_TGT_INIT        ~0UL
+
+#define XCPTGTMASK_SET_DOM(mask, domain)      \
+                           mask[((domain)/8)] |=   (1 << (7-(domain)%8))
+
 int m_add_backend(const char *name, unsigned int port);
 int m_init(void);
 int m_shutdown(void);
+int m_add_module(XCP_Module_t module, target_t *target);
+int m_rm_module(XCP_Module_t module, target_t target);
 
 
 #endif                          /* n defined(__EP11_H__) */
