@@ -58,7 +58,7 @@
 #include "ep11_specific.h"
 
 #define EP11SHAREDLIB "libep11.so"
-#define ICASHAREDLIB  "libica.so"
+#define ICASHAREDLIB  "libica.so.3"
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR mlist,
