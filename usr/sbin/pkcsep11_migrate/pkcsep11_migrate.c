@@ -28,6 +28,9 @@
 #include <termios.h>
 #include <errno.h>
 
+#define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
+#define EP11SHAREDLIB_V2 "libep11.so.2"
+#define EP11SHAREDLIB_V1 "libep11.so.1"
 #define EP11SHAREDLIB "libep11.so"
 #define PKCS11_MAX_PIN_LEN 128
 
@@ -438,6 +441,49 @@ static int do_ParseArgs(int argc, char **argv)
     return 1;
 }
 
+static void *ep11_load_host_lib()
+{
+    void *lib_ep11;
+    char *ep11_lib_name;
+    char *errstr;
+
+    ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
+    if (ep11_lib_name != NULL) {
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+        if (lib_ep11 == NULL) {
+            errstr = dlerror();
+            fprintf(stderr, "Error loading shared library '%s' [%s]\n",
+                    ep11_lib_name, errstr);
+            return NULL;
+        }
+        return lib_ep11;
+    }
+
+    ep11_lib_name = EP11SHAREDLIB_V2;
+    lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+    if (lib_ep11 == NULL) {
+        /* Try version 1 instead */
+        ep11_lib_name = EP11SHAREDLIB_V1;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
+
+    if (lib_ep11 == NULL) {
+        /* Try unversioned library instead */
+        ep11_lib_name = EP11SHAREDLIB;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
+
+    if (lib_ep11 == NULL) {
+        errstr = dlerror();
+        fprintf(stderr, "Error loading shared library '%s[.2|.1]' [%s]\n",
+                EP11SHAREDLIB, errstr);
+        return NULL;
+    }
+
+    return lib_ep11;
+}
 
 int main(int argc, char **argv)
 {
@@ -457,12 +503,9 @@ int main(int argc, char **argv)
     }
 
     /* dynamically load in the ep11 shared library */
-    lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
-    if (!lib_ep11) {
-        fprintf(stderr, "ERROR loading shared lib '%s' [%s]", EP11SHAREDLIB,
-                dlerror());
+    lib_ep11 = ep11_load_host_lib();
+    if (!lib_ep11)
         return CKR_FUNCTION_FAILED;
-    }
 
     *(void **)(&_m_get_ep11_info) = dlsym(lib_ep11, "m_get_ep11_info");
     *(void **)(&_ep11a_cmdblock) = dlsym(lib_ep11, "ep11a_cmdblock");
