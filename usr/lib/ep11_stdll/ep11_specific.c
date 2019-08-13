@@ -57,6 +57,9 @@
 #include "ep11_func.h"
 #include "ep11_specific.h"
 
+#define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
+#define EP11SHAREDLIB_V2 "libep11.so.2"
+#define EP11SHAREDLIB_V1 "libep11.so.1"
 #define EP11SHAREDLIB "libep11.so"
 #define ICASHAREDLIB  "libica.so.3"
 
@@ -1781,6 +1784,60 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     return rc;
 }
 
+static void *ep11_load_host_lib()
+{
+    void *lib_ep11;
+    char *ep11_lib_name;
+    char *errstr;
+
+    ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
+    if (ep11_lib_name != NULL) {
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+        if (lib_ep11 == NULL) {
+            errstr = dlerror();
+            OCK_SYSLOG(LOG_ERR,
+                       "%s: Error loading shared library '%s' [%s]\n",
+                       __func__, ep11_lib_name, errstr);
+            TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
+                        __func__, ep11_lib_name, errstr);
+            return NULL;
+        }
+        return lib_ep11;
+    }
+
+    ep11_lib_name = EP11SHAREDLIB_V2;
+    lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+    if (lib_ep11 == NULL) {
+        TRACE_DEVEL("%s Error loading shared library '%s', trying '%s'\n",
+                    __func__, EP11SHAREDLIB_V2, EP11SHAREDLIB_V1);
+        /* Try version 1 instead */
+        ep11_lib_name = EP11SHAREDLIB_V1;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
+
+    if (lib_ep11 == NULL) {
+        TRACE_DEVEL("%s Error loading shared library '%s', trying '%s'\n",
+                    __func__, EP11SHAREDLIB_V1, EP11SHAREDLIB);
+        /* Try unversioned library instead */
+        ep11_lib_name = EP11SHAREDLIB;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
+
+    if (lib_ep11 == NULL) {
+        errstr = dlerror();
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error loading shared library '%s[.2|.1]' [%s]\n",
+                   __func__, EP11SHAREDLIB, errstr);
+        TRACE_ERROR("%s Error loading shared library '%s[.2|.1]' [%s]\n",
+                    __func__, EP11SHAREDLIB, errstr);
+        return NULL;
+    }
+
+    return lib_ep11;
+}
+
 static CK_RV ep11_resolve_lib_sym(void *hdl)
 {
     char *error = NULL;
@@ -1955,13 +2012,8 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     /* dynamically load in the ep11 shared library */
-    lib_ep11 = dlopen(EP11SHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
-    if (!lib_ep11) {
-        OCK_SYSLOG(LOG_ERR,
-                   "%s: Error loading shared library '%s' [%s]\n",
-                   __func__, EP11SHAREDLIB, dlerror());
-        TRACE_ERROR("%s Error loading shared library '%s' [%s]\n",
-                    __func__, EP11SHAREDLIB, dlerror());
+    lib_ep11 = ep11_load_host_lib();
+    if (lib_ep11 == NULL) {
         rc = CKR_FUNCTION_FAILED;
         goto error;
     }
