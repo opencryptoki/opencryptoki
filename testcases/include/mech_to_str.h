@@ -125,6 +125,10 @@ static inline const char *mech_to_str(CK_ULONG mech)
         return "CKM_DES3_MAC_GENERAL";
     if (mech == CKM_DES3_CBC_PAD)
         return "CKM_DES3_CBC_PAD";
+    if (mech == CKM_DES3_CMAC_GENERAL)
+        return "CKM_DES3_CMAC_GENERAL";
+    if (mech == CKM_DES3_CMAC)
+        return "CKM_DES3_CMAC";
     if (mech == CKM_CDMF_KEY_GEN)
         return "CKM_CDMF_KEY_GEN";
     if (mech == CKM_CDMF_ECB)
@@ -459,6 +463,10 @@ static inline const char *mech_to_str(CK_ULONG mech)
         return "CKM_AES_CFB64";
     if (mech == CKM_AES_CFB8)
         return "CKM_AES_CFB8";
+    if (mech == CKM_AES_CMAC_GENERAL)
+        return "CKM_AES_CMAC_GENERAL";
+    if (mech == CKM_AES_CMAC)
+        return "CKM_AES_CMAC";
     if (mech == CKM_DSA_PARAMETER_GEN)
         return "CKM_DSA_PARAMETER_GEN";
     if (mech == CKM_DH_PKCS_PARAMETER_GEN)
