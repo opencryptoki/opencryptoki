@@ -608,6 +608,59 @@ CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
+CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE keytype;
+    CK_BYTE key_value[3 * DES_KEY_SIZE];
+
+    UNUSED(tokdata);
+    UNUSED(ctx);
+
+    // get the key type
+    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (keytype == CKK_DES2) {
+        memcpy(key_value, attr->pValue, 2 * DES_KEY_SIZE);
+        memcpy(key_value + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+    } else {
+        memcpy(key_value, attr->pValue, 3 * DES_KEY_SIZE);
+    }
+
+    if (first && last) {
+        rc = ica_3des_cmac(message, (unsigned long) message_len,
+                           mac, DES_BLOCK_SIZE,
+                           key_value, ICA_ENCRYPT);
+    } else if (!last) {
+        rc = ica_3des_cmac_intermediate(message, (unsigned long) message_len,
+                                        key_value, mac);
+    } else {
+        rc = ica_3des_cmac_last(message, (unsigned long) message_len,
+                                mac, DES_BLOCK_SIZE,
+                                key_value, mac, ICA_ENCRYPT);
+    }
+
+    if (rc != 0) {
+        TRACE_ERROR("%s: rc: %lu\n", ock_err(ERR_FUNCTION_FAILED), rc);
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+    return rc;
+}
+
 /*
  * Init SHA data structures
  */
@@ -3117,6 +3170,46 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                              CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                              CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(tokdata);
+    UNUSED(ctx);
+
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (first && last) {
+        rc = ica_aes_cmac(message, (unsigned long) message_len,
+                          mac, AES_BLOCK_SIZE,
+                          attr->pValue, (unsigned int) attr->ulValueLen,
+                          ICA_ENCRYPT);
+    } else if (!last) {
+        rc = ica_aes_cmac_intermediate(message, (unsigned long) message_len,
+                                       attr->pValue,
+                                       (unsigned int) attr->ulValueLen,
+                                       mac);
+    } else {
+        rc = ica_aes_cmac_last(message, (unsigned long) message_len,
+                               mac, AES_BLOCK_SIZE,
+                               attr->pValue, (unsigned int) attr->ulValueLen,
+                               mac, ICA_ENCRYPT);
+    }
+
+    if (rc != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+    return rc;
+}
+
 #endif
 
 typedef struct _REF_MECH_LIST_ELEMENT {
@@ -3183,6 +3276,8 @@ static REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     },
     {49, CKM_DES3_MAC, {24, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {49, CKM_DES3_MAC_GENERAL, {24, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {49, CKM_DES3_CMAC, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {49, CKM_DES3_CMAC_GENERAL, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {24, CKM_DES_CFB8, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {44, CKM_DES_OFB64, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {45, CKM_DES_CFB64, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
@@ -3239,6 +3334,8 @@ static REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {70, CKM_AES_GCM, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {68, CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {68, CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {68, CKM_AES_CMAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {68, CKM_AES_CMAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
 #endif
     {80, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
 #ifndef NO_EC
@@ -3283,6 +3380,10 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_MD5, {0, 0, CKF_DIGEST}},
     {CKM_MD5_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
     {CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {0, {0, 0, 0}},
+    {0, {0, 0, 0}},
+    {0, {0, 0, 0}},
+    {0, {0, 0, 0}},
     {0, {0, 0, 0}},
     {0, {0, 0, 0}},
     {0, {0, 0, 0}},
