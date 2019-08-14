@@ -56,6 +56,7 @@ struct token_specific_struct token_specific = {
     NULL,                       // tdes_ofb
     NULL,                       // tdes_cfb
     NULL,                       // tdes_mac
+    NULL,                       // tdes_cmac
     // RSA
     &token_specific_rsa_decrypt,
     &token_specific_rsa_encrypt,
@@ -106,6 +107,7 @@ struct token_specific_struct token_specific = {
     NULL,                       // aes_ofb
     NULL,                       // aes_cfb
     NULL,                       // aes_mac
+    NULL,                       // aes_cmac
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign

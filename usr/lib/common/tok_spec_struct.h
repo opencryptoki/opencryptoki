@@ -102,6 +102,9 @@ struct token_specific_struct {
     CK_RV(*t_tdes_mac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
                         CK_BYTE *);
 
+    CK_RV(*t_tdes_cmac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
+                         CK_BYTE *,CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
+
     CK_RV(*t_rsa_decrypt) (STDLL_TokData_t *, CK_BYTE *,
                            CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *);
 
@@ -240,6 +243,9 @@ struct token_specific_struct {
 
     CK_RV(*t_aes_mac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
                        CK_BYTE *);
+
+    CK_RV(*t_aes_cmac) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG, OBJECT *,
+                        CK_BYTE *, CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
 
     // Token Specific DSA functions
     CK_RV(*t_dsa_generate_keypair) (STDLL_TokData_t *, TEMPLATE *, TEMPLATE *);

@@ -77,6 +77,10 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *,
 CK_RV token_specific_tdes_mac(STDLL_TokData_t *,
                               CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *);
 
+CK_RV token_specific_tdes_cmac(STDLL_TokData_t *,
+                               CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
+                               CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
+
 CK_RV token_specific_tdes_ofb(STDLL_TokData_t *,
                               CK_BYTE *,
                               CK_BYTE *,
@@ -277,6 +281,10 @@ CK_RV token_specific_aes_cfb(STDLL_TokData_t *,
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *,
                              CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *);
+
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *,
+                              CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
+                              CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
 
 #endif
 
