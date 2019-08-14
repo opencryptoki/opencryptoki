@@ -2171,6 +2171,342 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata,
     return CKR_SIGNATURE_INVALID;
 }
 
+CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata,
+                     SESSION *sess,
+                     CK_BBOOL length_only,
+                     SIGN_VERIFY_CONTEXT *ctx,
+                     CK_BYTE *in_data,
+                     CK_ULONG in_data_len,
+                     CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_ULONG rc;
+    OBJECT *key_obj = NULL;
+    CK_ULONG mac_len;
+
+    if (!sess || !ctx || !in_data || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ctx->mech.pParameter)
+        mac_len = *(CK_MAC_GENERAL_PARAMS *) ctx->mech.pParameter;
+    else
+        mac_len = DES_BLOCK_SIZE;
+
+    if (length_only == TRUE) {
+        *out_data_len = mac_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < mac_len) {
+        *out_data_len = mac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+    rc = token_specific.t_tdes_cmac(tokdata, in_data, in_data_len, key_obj,
+                                    ((DES_CMAC_CONTEXT *)ctx->context)->iv,
+                                    CK_TRUE, CK_TRUE,
+                                    &((DES_CMAC_CONTEXT *)ctx->context)->ctx);
+
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific des3 cmac failed.\n");
+
+    memcpy(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv, mac_len);
+
+    *out_data_len = mac_len;
+
+    return rc;
+}
+
+CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
+                            SESSION *sess,
+                            SIGN_VERIFY_CONTEXT *ctx,
+                            CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+    CK_ULONG rc;
+    OBJECT *key_obj = NULL;
+    DES_CMAC_CONTEXT *context = NULL;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG total, remain, out_len;
+
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    context = (DES_CMAC_CONTEXT *) ctx->context;
+
+    total = (context->len + in_data_len);
+
+    if (total <= DES_BLOCK_SIZE) {
+        memcpy(context->data + context->len, in_data, in_data_len);
+        context->len += in_data_len;
+        return CKR_OK;
+    } else {
+        // we have at least 1 block
+        remain = (total % DES_BLOCK_SIZE);
+        if (remain == 0)
+            remain = DES_BLOCK_SIZE; /* Keep last block in context */
+        out_len = total - remain;
+
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to find specified object.\n");
+            return rc;
+        }
+
+        cipher = (CK_BYTE *) malloc(out_len);
+        if (!cipher) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        // copy any data left over from the previous signUpdate operation first
+        memcpy(cipher, context->data, context->len);
+        memcpy(cipher + context->len, in_data, out_len - context->len);
+
+        rc = token_specific.t_tdes_cmac(tokdata, cipher, out_len, key_obj,
+                                        context->iv,
+                                        !context->initialized, CK_FALSE,
+                                        &context->ctx);
+
+        if (rc == CKR_OK) {
+            // copy the remaining 'new' input data to the context buffer
+            if (remain != 0)
+                memcpy(context->data, in_data + (in_data_len - remain), remain);
+            context->len = remain;
+
+            context->initialized = CK_TRUE;
+        } else {
+            TRACE_DEVEL("Token specific des3 cmac failed.\n");
+        }
+
+        free(cipher);
+
+        return rc;
+    }
+}
+
+CK_RV des3_cmac_sign_final(STDLL_TokData_t *tokdata,
+                           SESSION *sess,
+                           CK_BBOOL length_only,
+                           SIGN_VERIFY_CONTEXT *ctx,
+                           CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_ULONG rc = CKR_OK;
+    OBJECT *key_obj = NULL;
+    CK_ULONG mac_len;
+    DES_CMAC_CONTEXT *context = NULL;
+
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    context = (DES_CMAC_CONTEXT *) ctx->context;
+
+    if (ctx->mech.pParameter)
+        mac_len = *(CK_MAC_GENERAL_PARAMS *) ctx->mech.pParameter;
+    else
+        mac_len = DES_BLOCK_SIZE;
+
+    if (length_only == TRUE) {
+        *out_data_len = mac_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < mac_len) {
+        *out_data_len = mac_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+    rc = token_specific.t_tdes_cmac(tokdata, context->data, context->len,
+                                    key_obj, context->iv,
+                                    !context->initialized, CK_TRUE,
+                                    &context->ctx);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific des3 cmac failed.\n");
+        return rc;
+    }
+
+    memcpy(out_data, context->iv, mac_len);
+
+    *out_data_len = mac_len;
+
+    return rc;
+}
+
+CK_RV des3_cmac_verify(STDLL_TokData_t *tokdata,
+                       SESSION *sess,
+                       SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data,
+                       CK_ULONG in_data_len,
+                       CK_BYTE *out_data, CK_ULONG out_data_len)
+{
+    CK_ULONG rc;
+    OBJECT *key_obj = NULL;
+    CK_ULONG mac_len;
+
+    if (!sess || !ctx || !in_data || !out_data) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ctx->mech.pParameter)
+        mac_len = *(CK_MAC_GENERAL_PARAMS *) ctx->mech.pParameter;
+    else
+        mac_len = DES_BLOCK_SIZE;
+
+    if (out_data_len != mac_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        return CKR_SIGNATURE_LEN_RANGE;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_tdes_cmac(tokdata, in_data, in_data_len, key_obj,
+                                    ((DES_CMAC_CONTEXT *)ctx->context)->iv,
+                                    CK_TRUE, CK_TRUE,
+                                    &((DES_CMAC_CONTEXT *)ctx->context)->ctx);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific des3 cmac failed.\n");
+
+    if (CRYPTO_memcmp(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv,
+                      out_data_len) == 0) {
+        return CKR_OK;
+    }
+    return CKR_SIGNATURE_INVALID;
+}
+
+CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
+                              SESSION *sess,
+                              SIGN_VERIFY_CONTEXT *ctx,
+                              CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+    CK_ULONG rc;
+    OBJECT *key_obj = NULL;
+    DES_CMAC_CONTEXT *context = NULL;
+    CK_BYTE *cipher = NULL;
+    CK_ULONG total, remain, out_len;
+
+    if (!sess || !ctx) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    context = (DES_CMAC_CONTEXT *) ctx->context;
+
+    total = (context->len + in_data_len);
+
+    if (total <= DES_BLOCK_SIZE) {
+        memcpy(context->data + context->len, in_data, in_data_len);
+        context->len += in_data_len;
+        return CKR_OK;
+    } else {
+        // we have at least 1 block
+        remain = (total % DES_BLOCK_SIZE);
+        if (remain == 0)
+            remain = DES_BLOCK_SIZE; /* Keep last block in context */
+        out_len = total - remain;
+
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to find specified object.\n");
+            return rc;
+        }
+
+        cipher = (CK_BYTE *) malloc(out_len);
+        if (!cipher) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        // copy any data left over from the previous signUpdate operation first
+        memcpy(cipher, context->data, context->len);
+        memcpy(cipher + context->len, in_data, out_len - context->len);
+
+        rc = token_specific.t_tdes_cmac(tokdata, cipher, out_len, key_obj,
+                                        context->iv,
+                                        !context->initialized, CK_FALSE,
+                                        &context->ctx);
+        if (rc == CKR_OK) {
+            // copy the remaining 'new' input data to the context buffer
+            if (remain != 0)
+                memcpy(context->data, in_data + (in_data_len - remain), remain);
+            context->len = remain;
+
+            context->initialized = CK_TRUE;
+        } else {
+            TRACE_DEVEL("Token specific des3 cmac failed.\n");
+        }
+
+        free(cipher);
+        return rc;
+    }
+}
+
+CK_RV des3_cmac_verify_final(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
+                             SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *signature, CK_ULONG signature_len)
+{
+    CK_ULONG rc;
+    OBJECT *key_obj = NULL;
+    CK_ULONG mac_len;
+    DES_CMAC_CONTEXT *context = NULL;
+
+    if (!sess || !ctx || !signature) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    context = (DES_CMAC_CONTEXT *) ctx->context;
+
+    if (ctx->mech.pParameter)
+        mac_len = *(CK_MAC_GENERAL_PARAMS *) ctx->mech.pParameter;
+    else
+        mac_len = DES_BLOCK_SIZE;
+
+    if (signature_len != mac_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
+        return CKR_SIGNATURE_LEN_RANGE;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    rc = token_specific.t_tdes_cmac(tokdata, context->data, context->len,
+                                    key_obj, context->iv,
+                                    !context->initialized, CK_TRUE,
+                                    &context->ctx);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Token specific des3 cmac failed.\n");
+        return rc;
+    }
+
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0)
+        return CKR_OK;
+
+    return CKR_SIGNATURE_INVALID;
+}
+
 //
 // mechanisms
 //

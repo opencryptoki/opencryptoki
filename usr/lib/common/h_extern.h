@@ -1140,6 +1140,31 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
                             SIGN_VERIFY_CONTEXT *ctx,
                             CK_BYTE *signature, CK_ULONG signature_len);
 
+CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                     CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                     CK_BYTE *in_data, CK_ULONG in_data_len,
+                     CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                            SIGN_VERIFY_CONTEXT *ctx,
+                            CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV des3_cmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                           CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV des3_cmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                       SIGN_VERIFY_CONTEXT *ctx,
+                       CK_BYTE *in_data, CK_ULONG in_data_len,
+                       CK_BYTE *out_data, CK_ULONG out_data_len);
+
+CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                              SIGN_VERIFY_CONTEXT *ctx,
+                              CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV des3_cmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                             SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *signature, CK_ULONG signature_len);
 
 
 // DES3 mechanisms
@@ -1376,6 +1401,31 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
                            SIGN_VERIFY_CONTEXT *ctx,
                            CK_BYTE *signature, CK_ULONG signature_len);
 
+CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                    CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                    CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                           SIGN_VERIFY_CONTEXT *ctx,
+                           CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                          CK_BBOOL length_only, SIGN_VERIFY_CONTEXT *ctx,
+                          CK_BYTE *out_data, CK_ULONG *out_data_len);
+
+CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                      SIGN_VERIFY_CONTEXT *ctx,
+                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG out_data_len);
+
+CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                             SIGN_VERIFY_CONTEXT *ctx,
+                             CK_BYTE *in_data, CK_ULONG in_data_len);
+
+CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                            SIGN_VERIFY_CONTEXT *ctx,
+                            CK_BYTE *signature, CK_ULONG signature_len);
 
 
 // AES mechanisms

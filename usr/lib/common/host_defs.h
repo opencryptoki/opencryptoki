@@ -143,6 +143,21 @@ typedef struct _MD5_CONTEXT {
 
 } MD5_CONTEXT;
 
+typedef struct _DES_CMAC_CONTEXT {
+    CK_BYTE data[DES_BLOCK_SIZE];
+    CK_ULONG len;
+    CK_BYTE iv[DES_BLOCK_SIZE];
+    CK_BBOOL initialized;
+    CK_VOID_PTR ctx;
+} DES_CMAC_CONTEXT;
+
+typedef struct _AES_CMAC_CONTEXT {
+    CK_BYTE data[AES_BLOCK_SIZE];
+    CK_ULONG len;
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_BBOOL initialized;
+    CK_VOID_PTR ctx;
+} AES_CMAC_CONTEXT;
 
 // linux
 typedef pthread_mutex_t MUTEX;

@@ -592,6 +592,38 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(DES_DATA_CONTEXT));
         break;
+    case CKM_DES3_CMAC:
+    case CKM_DES3_CMAC_GENERAL:
+        if (mech->pParameter) {
+
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            CK_MAC_GENERAL_PARAMS *param =
+                (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
+
+            if (mech->mechanism == CKM_DES3_CMAC_GENERAL) {
+                if (*param < 1 || *param > DES_BLOCK_SIZE) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                    return CKR_MECHANISM_PARAM_INVALID;
+                }
+            } else {
+                /* CKM_DES3_CMAC should not have params */
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+        }
+
+        ctx->context = (CK_BYTE *) malloc(sizeof(DES_CMAC_CONTEXT));
+        ctx->context_len = sizeof(DES_CMAC_CONTEXT);
+
+        if (!ctx->context) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        memset(ctx->context, 0x0, sizeof(DES_CMAC_CONTEXT));
+        break;
     case CKM_AES_MAC:
     case CKM_AES_MAC_GENERAL:
         if (mech->pParameter) {
@@ -623,6 +655,38 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             return CKR_HOST_MEMORY;
         }
         memset(ctx->context, 0x0, sizeof(AES_DATA_CONTEXT));
+        break;
+    case CKM_AES_CMAC:
+    case CKM_AES_CMAC_GENERAL:
+        if (mech->pParameter) {
+
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            CK_MAC_GENERAL_PARAMS *param =
+                (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
+
+            if (mech->mechanism == CKM_AES_CMAC_GENERAL) {
+                if (*param < 1 || *param > AES_BLOCK_SIZE) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                    return CKR_MECHANISM_PARAM_INVALID;
+                }
+            } else {
+                /* CKM_AES_CMAC should not have params */
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+        }
+
+        ctx->context = (CK_BYTE *) malloc(sizeof(AES_CMAC_CONTEXT));
+        ctx->context_len = sizeof(AES_CMAC_CONTEXT);
+
+        if (!ctx->context) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        memset(ctx->context, 0x0, sizeof(AES_CMAC_CONTEXT));
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -808,10 +872,18 @@ CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
     case CKM_DES3_MAC_GENERAL:
         return des3_mac_sign(tokdata, sess, length_only, ctx, in_data,
                              in_data_len, out_data, out_data_len);
+    case CKM_DES3_CMAC:
+    case CKM_DES3_CMAC_GENERAL:
+        return des3_cmac_sign(tokdata, sess, length_only, ctx, in_data,
+                              in_data_len, out_data, out_data_len);
     case CKM_AES_MAC:
     case CKM_AES_MAC_GENERAL:
         return aes_mac_sign(tokdata, sess, length_only, ctx, in_data,
                             in_data_len, out_data, out_data_len);
+    case CKM_AES_CMAC:
+    case CKM_AES_CMAC_GENERAL:
+        return aes_cmac_sign(tokdata, sess, length_only, ctx, in_data,
+                             in_data_len, out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -876,9 +948,15 @@ CK_RV sign_mgr_sign_update(STDLL_TokData_t *tokdata,
     case CKM_DES3_MAC:
     case CKM_DES3_MAC_GENERAL:
         return des3_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
+    case CKM_DES3_CMAC:
+    case CKM_DES3_CMAC_GENERAL:
+        return des3_cmac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
     case CKM_AES_MAC:
     case CKM_AES_MAC_GENERAL:
         return aes_mac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
+    case CKM_AES_CMAC:
+    case CKM_AES_CMAC_GENERAL:
+        return aes_cmac_sign_update(tokdata, sess, ctx, in_data, in_data_len);
     case CKM_ECDSA_SHA1:
     case CKM_ECDSA_SHA224:
     case CKM_ECDSA_SHA256:
@@ -967,10 +1045,18 @@ CK_RV sign_mgr_sign_final(STDLL_TokData_t *tokdata,
     case CKM_DES3_MAC_GENERAL:
         return des3_mac_sign_final(tokdata, sess, length_only, ctx,
                                    signature, sig_len);
+    case CKM_DES3_CMAC:
+    case CKM_DES3_CMAC_GENERAL:
+        return des3_cmac_sign_final(tokdata, sess, length_only, ctx,
+                                    signature, sig_len);
     case CKM_AES_MAC:
     case CKM_AES_MAC_GENERAL:
         return aes_mac_sign_final(tokdata, sess, length_only, ctx, signature,
                                   sig_len);
+    case CKM_AES_CMAC:
+    case CKM_AES_CMAC_GENERAL:
+        return aes_cmac_sign_final(tokdata, sess, length_only, ctx, signature,
+                                   sig_len);
     case CKM_ECDSA_SHA1:
     case CKM_ECDSA_SHA224:
     case CKM_ECDSA_SHA256:
