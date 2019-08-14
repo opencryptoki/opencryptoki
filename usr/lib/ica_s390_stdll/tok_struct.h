@@ -61,7 +61,7 @@ token_spec_t token_specific = {
     &token_specific_tdes_ofb,
     &token_specific_tdes_cfb,
     &token_specific_tdes_mac,
-    NULL,                       // tdes_cmac
+    &token_specific_tdes_cmac,
     // RSA
     &token_specific_rsa_decrypt,
     &token_specific_rsa_encrypt,
@@ -120,7 +120,7 @@ token_spec_t token_specific = {
     &token_specific_aes_ofb,
     &token_specific_aes_cfb,
     &token_specific_aes_mac,
-    NULL,                       // aes_cmac
+    &token_specific_aes_cmac,
 #else
     NULL,                       // aes_key_gen,
     NULL,                       // aes_ecb,
