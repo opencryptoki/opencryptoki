@@ -1100,6 +1100,179 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
+{
+    unsigned int i;
+    int k;
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE h_key;
+    CK_FLAGS flags;
+    CK_RV rc = CKR_OK;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_ULONG user_pin_len;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_MAC_GENERAL_PARAMS mac_param;
+    CK_ULONG ofs;
+    CK_BYTE actual[MAX_KEY_SIZE];
+    CK_ULONG actual_len;
+
+    testsuite_begin("%s Sign/Verify CMAC.", tsuite->name);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /** skip tests if the slot doesn't support this mechanism **/
+    if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support %s (%u)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    if (is_ica_token(slot_id) &&  tsuite->key_type == CKK_DES2) {
+        testsuite_skip(3,
+                       "ICA token in slot %u doesn't support DES2 keys when "
+                       "compiled in FIPS mode", (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < tsuite->tvcount; i++) {
+        testcase_begin("%s Sign/Verify CMAC with published test vector %d.",
+                               tsuite->name, i);
+
+        /** create key handle **/
+        if (tsuite->key_type == CKK_DES2)
+            rc = create_DES2Key(session,
+                                tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+        else if (tsuite->key_type == CKK_DES3)
+            rc = create_DES3Key(session,
+                                tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+        else
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+        if (rc != CKR_OK) {
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** get mech **/
+        mech = tsuite->mech;
+        if (mech.mechanism == CKM_DES3_CMAC_GENERAL) {
+            mac_param = tsuite->tv[i].tlen;
+            mech.pParameter = &mac_param;
+            mech.ulParameterLen = sizeof(mac_param);
+        }
+
+        /** initialize signing **/
+        rc = funcs->C_SignInit(session, &mech, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        actual_len = sizeof(actual);
+        memset(actual, 0, sizeof(actual));
+
+        if (tsuite->tv[i].num_chunks_message > 0) {
+            ofs = 0;
+            for (k = 0; k < tsuite->tv[i].num_chunks_message; k++) {
+                rc = funcs->C_SignUpdate(session, tsuite->tv[i].msg + ofs,
+                                         tsuite->tv[i].chunks_msg[k]);
+                if (rc != CKR_OK) {
+                    testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
+                    goto error;
+                }
+                ofs += tsuite->tv[i].chunks_msg[k];
+            }
+
+            rc = funcs->C_SignFinal(session, actual, &actual_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_SignFinal rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+        } else {
+            rc = funcs->C_Sign(session, tsuite->tv[i].msg,tsuite->tv[i].mlen,
+                               actual, &actual_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        /** initilaize verification **/
+        rc = funcs->C_VerifyInit(session, &mech, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+            goto error;
+        }
+
+        /** do verification **/
+        if (tsuite->tv[i].num_chunks_message > 0) {
+            ofs = 0;
+            for (k = 0; k < tsuite->tv[i].num_chunks_message; k++) {
+                rc = funcs->C_VerifyUpdate(session, tsuite->tv[i].msg + ofs,
+                                         tsuite->tv[i].chunks_msg[k]);
+                if (rc != CKR_OK) {
+                    testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+                    goto error;
+                }
+                ofs += tsuite->tv[i].chunks_msg[k];
+            }
+
+            rc = funcs->C_VerifyFinal(session, actual, actual_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_VerifyFinal rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+        } else {
+            rc = funcs->C_Verify(session, tsuite->tv[i].msg,tsuite->tv[i].mlen,
+                                 actual, actual_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
+        }
+
+        /** compare sign/verify results with expected results **/
+        testcase_new_assertion();
+
+        if (mech.mechanism == CKM_DES3_CMAC_GENERAL &&
+            actual_len != tsuite->tv[i].tlen) {
+            testcase_fail("signature length does not match test vector's "
+                          "signature length\nexpected length=%d, found "
+                          "length=%ld", tsuite->tv[i].tlen, actual_len);
+        } else if (mech.mechanism != CKM_DES3_CMAC_GENERAL &&
+                   actual_len != DES3_BLOCK_SIZE) {
+            testcase_fail("signature length does not match test vector's "
+                          "signature length\nexpected length=%d, found "
+                          "length=%ld", DES3_BLOCK_SIZE, actual_len);
+        } else if (memcmp(actual, tsuite->tv[i].mac, tsuite->tv[i].tlen)) {
+            testcase_fail("signature does not match test vector's signature");
+        } else {
+            testcase_pass("%s Sign/Verify CMAC with test vector %d "
+                          "passed.", tsuite->name, i);
+        }
+
+        rc = funcs->C_DestroyObject(session, h_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+    goto testcase_cleanup;
+
+error:
+    rc = funcs->C_DestroyObject(session, h_key);
+    if (rc != CKR_OK)
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+testcase_cleanup:
+    testcase_close_session();
+
+    return rc;
+}
+
 CK_RV des3_funcs()
 {
     int i;
@@ -1134,6 +1307,13 @@ CK_RV des3_funcs()
             break;
 
         do_EncryptDecryptUpdateDES3(&generated_test_suites[i]);
+        if (rv != CKR_OK && (!no_stop))
+            break;
+    }
+
+    /* CMAC test cases */
+    for (i = 0; i < NUM_OF_PUBLISHED_CMAC_TESTSUITES; i++) {
+        rv = do_SignVerifyCMAC(&published_cmac_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }

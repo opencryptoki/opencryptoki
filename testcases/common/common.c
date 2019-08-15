@@ -185,6 +185,35 @@ int create_DESKey(CK_SESSION_HANDLE session,
     return rc;
 }
 
+/** Create DES2 key handle with given value **/
+int create_DES2Key(CK_SESSION_HANDLE session,
+                   unsigned char key[], unsigned char klen,
+                   CK_OBJECT_HANDLE * h_key)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+    CK_KEY_TYPE keyType = CKK_DES2;
+    CK_BYTE value[2 * DES_KEY_SIZE];
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_ATTRIBUTE keyTemplate[] = {
+        {CKA_CLASS, &keyClass, sizeof(keyClass)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_ENCRYPT, &true, sizeof(true)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_VALUE, value, klen}
+    };
+
+    memset(value, 0, sizeof(value));
+    memcpy(value, key, klen);
+    rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
 /** Create DES3 key handle with given value **/
 int create_DES3Key(CK_SESSION_HANDLE session,
                    unsigned char key[], unsigned char klen,
