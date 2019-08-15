@@ -46,6 +46,7 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <openssl/crypto.h>
+#include <openssl/cmac.h>
 
 /*
  * In order to make opencryptoki compatible with
@@ -2039,6 +2040,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_DES3_CBC, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
+    {CKM_DES3_CMAC_GENERAL, {16, 24, CKF_SIGN | CKF_VERIFY}},
 #if !(NOSHA1)
     {CKM_SHA_1, {0, 0, CKF_DIGEST}},
     {CKM_SHA_1_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
@@ -2079,6 +2082,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_AES_CBC, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC_PAD,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
 #endif
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}}
 };
@@ -2861,4 +2866,169 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed.\n");
 
     return rc;
+}
+
+CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    int rc;
+    CK_RV rv = CKR_OK;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE keytype;
+    CMAC_CTX *cmac_ctx;
+    const EVP_CIPHER *cipher;
+    size_t maclen;
+
+    UNUSED(tokdata);
+
+    if (first) {
+        // get the key type
+        rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+        // get the key value
+        if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        switch (keytype) {
+        case CKK_DES2:
+            cipher = EVP_des_ede_cbc();
+            break;
+        case CKK_DES3:
+            cipher = EVP_des_ede3_cbc();
+            break;
+        default:
+            TRACE_ERROR("Invalid key type: %lu\n", keytype);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        if (cipher == NULL) {
+            TRACE_ERROR("Failed to allocate cipher\n");
+            return CKR_HOST_MEMORY;
+        }
+
+        cmac_ctx = CMAC_CTX_new();
+        if (cmac_ctx == NULL) {
+            TRACE_ERROR("Failed to allocate CMAC context\n");
+            return CKR_HOST_MEMORY;
+        }
+
+        rc = CMAC_Init(cmac_ctx, attr->pValue, attr->ulValueLen, cipher, NULL);
+        if (rc != 1) {
+            TRACE_ERROR("CMAC_Init failed\n");
+            CMAC_CTX_free(cmac_ctx);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        *ctx = cmac_ctx;
+    }
+
+    cmac_ctx = (CMAC_CTX *)*ctx;
+
+    rc = CMAC_Update(cmac_ctx, message, message_len);
+    if (rc != 1) {
+        TRACE_ERROR("CMAC_Update failed\n");
+        rv =  CKR_FUNCTION_FAILED;
+    }
+
+    if (last) {
+        maclen = AES_BLOCK_SIZE;
+        rc = CMAC_Final(cmac_ctx, mac, &maclen);
+        if (rc != 1) {
+            TRACE_ERROR("CMAC_Final failed\n");
+            rv = CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (last || (first && rv != CKR_OK)) {
+        CMAC_CTX_free(cmac_ctx);
+        *ctx = NULL;
+    }
+
+    return rv;
+}
+
+
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                              CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                              CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    int rc;
+    CK_RV rv = CKR_OK;
+    CK_ATTRIBUTE *attr = NULL;
+    CMAC_CTX *cmac_ctx;
+    const EVP_CIPHER *cipher;
+    size_t maclen;
+
+    UNUSED(tokdata);
+
+    if (first) {
+        if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        switch (attr->ulValueLen * 8) {
+        case 128:
+            cipher = EVP_aes_128_cbc();
+            break;
+        case 192:
+            cipher = EVP_aes_192_cbc();
+            break;
+        case 256:
+            cipher = EVP_aes_256_cbc();
+            break;
+        default:
+            TRACE_ERROR("Invalid key size: %lu\n", attr->ulValueLen);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        if (cipher == NULL) {
+            TRACE_ERROR("Failed to allocate cipher\n");
+            return CKR_HOST_MEMORY;
+        }
+
+        cmac_ctx = CMAC_CTX_new();
+        if (cmac_ctx == NULL) {
+            TRACE_ERROR("Failed to allocate CMAC context\n");
+            return CKR_HOST_MEMORY;
+        }
+
+        rc = CMAC_Init(cmac_ctx, attr->pValue, attr->ulValueLen, cipher, NULL);
+        if (rc != 1) {
+            TRACE_ERROR("CMAC_Init failed\n");
+            CMAC_CTX_free(cmac_ctx);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        *ctx = cmac_ctx;
+    }
+
+    cmac_ctx = (CMAC_CTX *)*ctx;
+
+    rc = CMAC_Update(cmac_ctx, message, message_len);
+    if (rc != 1) {
+        TRACE_ERROR("CMAC_Update failed\n");
+        rv =  CKR_FUNCTION_FAILED;
+    }
+
+    if (last) {
+        maclen = AES_BLOCK_SIZE;
+        rc = CMAC_Final(cmac_ctx, mac, &maclen);
+        if (rc != 1) {
+            TRACE_ERROR("CMAC_Final failed\n");
+            rv = CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (last || (first && rv != CKR_OK)) {
+        CMAC_CTX_free(cmac_ctx);
+        *ctx = NULL;
+    }
+
+    return rv;
 }
