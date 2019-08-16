@@ -26,84 +26,26 @@
 #include "tok_specific.h"
 #include "ec_defs.h"
 
-const CK_BYTE brainpoolP160r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x01
-};
-
-const CK_BYTE brainpoolP160t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x02
-};
-
-const CK_BYTE brainpoolP192r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x03
-};
-
-const CK_BYTE brainpoolP192t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x04
-};
-
-const CK_BYTE brainpoolP224r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x05
-};
-
-const CK_BYTE brainpoolP224t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x06
-};
-
-const CK_BYTE brainpoolP256r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x07
-};
-
-const CK_BYTE brainpoolP256t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x08
-};
-
-const CK_BYTE brainpoolP320r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x09
-};
-
-const CK_BYTE brainpoolP320t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x0A
-};
-
-const CK_BYTE brainpoolP384r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x0B
-};
-
-const CK_BYTE brainpoolP384t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x0C
-};
-
-const CK_BYTE brainpoolP512r1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x0D
-};
-
-const CK_BYTE brainpoolP512t1[] = {
-    0x06, 0x09, 0x2B, 0x24, 0x03, 0x03,
-    0x02, 0x08, 0x01, 0x01, 0x0E
-};
-
-const CK_BYTE prime192[] =
-    { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x01 };
-const CK_BYTE secp224[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x21 };
-const CK_BYTE prime256[] =
-    { 0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07 };
-const CK_BYTE secp384[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22 };
-const CK_BYTE secp521[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23 };
-const CK_BYTE secp256k1[] = { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A };
+const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
+const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
+const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
+const CK_BYTE brainpoolP192t1[] = OCK_BRAINPOOL_P192T1;
+const CK_BYTE brainpoolP224r1[] = OCK_BRAINPOOL_P224R1;
+const CK_BYTE brainpoolP224t1[] = OCK_BRAINPOOL_P224T1;
+const CK_BYTE brainpoolP256r1[] = OCK_BRAINPOOL_P256R1;
+const CK_BYTE brainpoolP256t1[] = OCK_BRAINPOOL_P256T1;
+const CK_BYTE brainpoolP320r1[] = OCK_BRAINPOOL_P320R1;
+const CK_BYTE brainpoolP320t1[] = OCK_BRAINPOOL_P320T1;
+const CK_BYTE brainpoolP384r1[] = OCK_BRAINPOOL_P384R1;
+const CK_BYTE brainpoolP384t1[] = OCK_BRAINPOOL_P384T1;
+const CK_BYTE brainpoolP512r1[] = OCK_BRAINPOOL_P512R1;
+const CK_BYTE brainpoolP512t1[] = OCK_BRAINPOOL_P512T1;
+const CK_BYTE prime192v1[] = OCK_PRIME192V1;
+const CK_BYTE secp224r1[] = OCK_SECP224R1;
+const CK_BYTE prime256v1[] = OCK_PRIME256V1;
+const CK_BYTE secp384r1[] = OCK_SECP384R1;
+const CK_BYTE secp521r1[] = OCK_SECP521R1;
+const CK_BYTE secp256k1[] = OCK_SECP256K1;
 
 const struct _ec der_ec_supported[NUMEC] = {
     {BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160r1), &brainpoolP160r1},
@@ -120,11 +62,11 @@ const struct _ec der_ec_supported[NUMEC] = {
     {BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384t1), &brainpoolP384t1},
     {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512r1), &brainpoolP512r1},
     {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512t1), &brainpoolP512t1},
-    {PRIME_CURVE, CURVE192, sizeof(prime192), &prime192},
-    {PRIME_CURVE, CURVE224, sizeof(secp224), &secp224},
-    {PRIME_CURVE, CURVE256, sizeof(prime256), &prime256},
-    {PRIME_CURVE, CURVE384, sizeof(secp384), &secp384},
-    {PRIME_CURVE, CURVE521, sizeof(secp521), &secp521},
+    {PRIME_CURVE, CURVE192, sizeof(prime192v1), &prime192v1},
+    {PRIME_CURVE, CURVE224, sizeof(secp224r1), &secp224r1},
+    {PRIME_CURVE, CURVE256, sizeof(prime256v1), &prime256v1},
+    {PRIME_CURVE, CURVE384, sizeof(secp384r1), &secp384r1},
+    {PRIME_CURVE, CURVE521, sizeof(secp521r1), &secp521r1},
     {PRIME_CURVE, CURVE256, sizeof(secp256k1), &secp256k1},
 };
 
