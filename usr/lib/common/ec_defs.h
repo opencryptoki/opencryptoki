@@ -11,6 +11,7 @@
 #ifndef _EC_DEFS
 #define _EC_DEFS
 
+#include "ec_curves.h"
 
 // Elliptic Curve type
 //
@@ -44,11 +45,11 @@ extern const CK_BYTE brainpoolP384r1[];
 extern const CK_BYTE brainpoolP384t1[];
 extern const CK_BYTE brainpoolP512r1[];
 extern const CK_BYTE brainpoolP512t1[];
-extern const CK_BYTE prime192[];
-extern const CK_BYTE secp224[];
-extern const CK_BYTE prime256[];
-extern const CK_BYTE secp384[];
-extern const CK_BYTE secp521[];
+extern const CK_BYTE prime192v1[];
+extern const CK_BYTE secp224r1[];
+extern const CK_BYTE prime256v1[];
+extern const CK_BYTE secp384r1[];
+extern const CK_BYTE secp521r1[];
 extern const CK_BYTE secp256k1[];
 
 
