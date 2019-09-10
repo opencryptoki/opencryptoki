@@ -890,15 +890,18 @@ CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
 CK_RV compute_md5(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash)
 {
-    MD5_CONTEXT ctx;
+    DIGEST_CONTEXT ctx;
+    CK_ULONG hash_len = MD5_HASH_SIZE;
+
+    UNUSED(tokdata);
 
     memset(&ctx, 0x0, sizeof(ctx));
 
-    ckm_md5_init(tokdata, &ctx);
-    ckm_md5_update(tokdata, &ctx, data, len);
-    ckm_md5_final(tokdata, &ctx, hash, MD5_HASH_SIZE);
+    sw_md5_init(&ctx);
+    if (ctx.context == NULL)
+        return CKR_HOST_MEMORY;
 
-    return CKR_OK;
+    return sw_md5_hash(&ctx, data, len, hash, &hash_len);
 }
 
 CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,

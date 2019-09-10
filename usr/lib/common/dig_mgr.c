@@ -82,15 +82,14 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             return CKR_MECHANISM_PARAM_INVALID;
-        }
-        ctx->context_len = sizeof(MD5_CONTEXT);
-        ctx->context = (CK_BYTE *) malloc(sizeof(MD5_CONTEXT));
-        if (!ctx->context) {
-            digest_mgr_cleanup(ctx);    // to de-initialize context above
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
-        }
-        ckm_md5_init(tokdata, (MD5_CONTEXT *) ctx->context);
+          }
+          ctx->context = NULL;
+          rc = md5_init(tokdata, sess, ctx, mech);
+          if (rc != CKR_OK) {
+              digest_mgr_cleanup(ctx);    // to de-initialize context above
+              TRACE_ERROR("Failed to init md5 context.\n");
+              return rc;
+          }
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
