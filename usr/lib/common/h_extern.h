@@ -1682,16 +1682,14 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata,
                       CK_ULONG in_data_len,
                       CK_BYTE *signature, CK_ULONG sig_len);
 
-void ckm_md5_init(STDLL_TokData_t *tokdata, MD5_CONTEXT *context);
+void sw_md5_init(DIGEST_CONTEXT *ctx);
 
-CK_RV ckm_md5_update(STDLL_TokData_t *tokdata, MD5_CONTEXT *context,
-                     CK_BYTE *in_data, CK_ULONG in_data_len);
+CK_RV sw_md5_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                  CK_ULONG in_data_len, CK_BYTE *out_data,
+                  CK_ULONG *out_data_len);
 
-CK_RV ckm_md5_final(STDLL_TokData_t *tokdata, MD5_CONTEXT *context,
-                    CK_BYTE *out_data, CK_ULONG out_data_len);
-
-void ckm_md5_transform(STDLL_TokData_t *tokdata, CK_ULONG *buf,
-                       CK_ULONG *in);
+CK_RV md5_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
+               CK_MECHANISM *mech);
 
 //Elliptic curve (EC) mechanisms
 //
