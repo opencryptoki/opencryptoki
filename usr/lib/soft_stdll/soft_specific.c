@@ -45,6 +45,7 @@
 #include <openssl/aes.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#include <openssl/crypto.h>
 
 /*
  * In order to make opencryptoki compatible with
@@ -1150,7 +1151,7 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_SIGNATURE_INVALID;
     }
 
-    if (memcmp(in_data, out_data, out_data_len) != 0) {
+    if (CRYPTO_memcmp(in_data, out_data, out_data_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         return CKR_SIGNATURE_INVALID;
     }
@@ -1486,7 +1487,7 @@ CK_RV token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata,
         }
         len = in_data_len - pos1;
 
-        if (memcmp(&in_data[pos1], &out[pos2], len) != 0) {
+        if (CRYPTO_memcmp(&in_data[pos1], &out[pos2], len) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
             return CKR_SIGNATURE_INVALID;
         }
@@ -2620,7 +2621,7 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
         else
             len = mac_len;
 
-        if (memcmp(signature, mac, len) != 0) {
+        if (CRYPTO_memcmp(signature, mac, len) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
             rv = CKR_SIGNATURE_INVALID;
         }
@@ -2784,7 +2785,7 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
         else
             len = mac_len;
 
-        if (memcmp(signature, mac, len) != 0) {
+        if (CRYPTO_memcmp(signature, mac, len) != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
             rv = CKR_SIGNATURE_INVALID;
         }

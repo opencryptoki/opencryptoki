@@ -27,6 +27,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 CK_RV rsa_get_key_info(OBJECT *key_obj, CK_ULONG *mod_bytes,
                        CK_OBJECT_CLASS *keyclass)
@@ -2637,7 +2638,7 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
         goto done;
 
     /* pkcs1v2.2, Step 14: H == H'. */
-    if (memcmp(hash, H, hlen))
+    if (CRYPTO_memcmp(hash, H, hlen))
         rc = CKR_SIGNATURE_INVALID;
     else
         rc = CKR_OK;

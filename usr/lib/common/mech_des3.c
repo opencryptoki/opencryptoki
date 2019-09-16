@@ -23,6 +23,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 //
 //
@@ -2043,10 +2044,10 @@ CK_RV des3_mac_verify(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 mac failed.\n");
 
-        if (memcmp(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv,
-                   out_data_len) == 0) {
+        if (CRYPTO_memcmp(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv,
+                          out_data_len) == 0)
             return CKR_OK;
-        }
+
         return CKR_SIGNATURE_INVALID;
     }
 }
@@ -2164,9 +2165,8 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata,
         }
     }
 
-    if (memcmp(signature, context->iv, signature_len) == 0) {
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) 
         return CKR_OK;
-    }
 
     return CKR_SIGNATURE_INVALID;
 }

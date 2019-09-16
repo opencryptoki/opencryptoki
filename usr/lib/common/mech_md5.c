@@ -21,6 +21,7 @@
 #include "trace.h"
 
 #include <openssl/md5.h>
+#include <openssl/crypto.h>
 
 //
 // Software MD5 implementation (OpenSSL based)
@@ -401,7 +402,7 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
