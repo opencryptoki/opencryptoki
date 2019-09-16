@@ -20,6 +20,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 // Permutation of 0..255 constructed from the digits of pi. It gives a
 // "random" nonlinear byte substitution operation.
@@ -373,7 +374,7 @@ CK_RV md2_hmac_verify(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
         return CKR_SIGNATURE_LEN_RANGE;
     }
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         return CKR_SIGNATURE_INVALID;
     }

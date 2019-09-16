@@ -39,6 +39,7 @@
 #include "trace.h"
 
 #include <openssl/sha.h>
+#include <openssl/crypto.h>
 
 //
 // Software SHA-1 implementation (OpenSSL based)
@@ -1238,7 +1239,7 @@ CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
@@ -1297,7 +1298,7 @@ CK_RV sha224_hmac_verify(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
@@ -1356,7 +1357,7 @@ CK_RV sha256_hmac_verify(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
@@ -1413,7 +1414,7 @@ CK_RV sha384_hmac_verify(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
@@ -1473,7 +1474,7 @@ CK_RV sha512_hmac_verify(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if (memcmp(hmac, signature, hmac_len) != 0) {
+    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }

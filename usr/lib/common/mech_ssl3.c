@@ -25,6 +25,8 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
+
 CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
                                 SESSION *sess,
                                 CK_ATTRIBUTE *pTemplate,
@@ -457,7 +459,7 @@ CK_RV ssl3_mac_verify(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    if (memcmp(mac, signature, mac_len) != 0) {
+    if (CRYPTO_memcmp(mac, signature, mac_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
     }
@@ -666,7 +668,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     if ((mac_len != sig_len) || (mac_len > hash_len)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
         rc = CKR_SIGNATURE_INVALID;
-    } else if (memcmp(signature, hash, sig_len) != 0) {
+    } else if (CRYPTO_memcmp(signature, hash, sig_len) != 0) {
         rc = CKR_SIGNATURE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
     }
