@@ -475,7 +475,6 @@ typedef struct const_info {
 #define CKM_EP11_SHA512_256_HMAC_GENERAL    0x000002C2  // 0x0000004E in PKCS#11
 
 /* Vendor specific mechanisms unknown by ock, but known by EP11 */
-#define CKM_IBM_CMAC                       CKM_VENDOR_DEFINED + 0x00010007
 #define CKM_IBM_ECDSA_SHA224               CKM_VENDOR_DEFINED + 0x00010008
 #define CKM_IBM_ECDSA_SHA256               CKM_VENDOR_DEFINED + 0x00010009
 #define CKM_IBM_ECDSA_SHA384               CKM_VENDOR_DEFINED + 0x0001000A
@@ -6260,7 +6259,6 @@ static const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
     CKM_EP11_SHA512_256_HMAC_GENERAL,
 
     /* Vendor specific */
-    CKM_IBM_CMAC,
     CKM_IBM_ECDSA_SHA224,
     CKM_IBM_ECDSA_SHA256,
     CKM_IBM_ECDSA_SHA384,

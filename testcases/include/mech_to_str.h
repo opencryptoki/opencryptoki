@@ -491,6 +491,8 @@ static inline const char *mech_to_str(CK_ULONG mech)
         return "CKM_IBM_SHA3_384_HMAC";
     if (mech == CKM_IBM_SHA3_512_HMAC)
         return "CKM_IBM_SHA3_512_HMAC";
+    if (mech == CKM_IBM_CMAC)
+        return "CKM_IBM_CMAC";
 
     return "(unknown mech)";
 }
