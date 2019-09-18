@@ -304,6 +304,13 @@ static const version_req_t ibm_sha3_req_versions[] = {
 };
 #define NUM_IBM_SHA3_REQ sizeof(ibm_sha3_req_versions)/sizeof(version_req_t)
 
+static const CK_VERSION cex7p_cmac_support = { .major = 7, .minor = 11 };
+
+static const version_req_t cmac_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &cex7p_cmac_support }
+};
+#define NUM_CMAC_REQ sizeof(cmac_req_versions)/sizeof(version_req_t)
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -1353,6 +1360,8 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_DES3_CBC),
     CONSTINFO(CKM_DES3_MAC),
     CONSTINFO(CKM_DES3_MAC_GENERAL),
+    CONSTINFO(CKM_DES3_CMAC),
+    CONSTINFO(CKM_DES3_CMAC_GENERAL),
     CONSTINFO(CKM_DES3_CBC_PAD),
     CONSTINFO(CKM_CDMF_KEY_GEN),
     CONSTINFO(CKM_CDMF_ECB),
@@ -1498,6 +1507,8 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_AES_MAC_GENERAL),
     CONSTINFO(CKM_AES_CBC_PAD),
     CONSTINFO(CKM_AES_CTR),
+    CONSTINFO(CKM_AES_CMAC),
+    CONSTINFO(CKM_AES_CMAC_GENERAL),
     CONSTINFO(CKM_DSA_PARAMETER_GEN),
     CONSTINFO(CKM_DH_PKCS_PARAMETER_GEN),
     CONSTINFO(CKM_X9_42_DH_PARAMETER_GEN),
@@ -6499,6 +6510,18 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             return CKR_MECHANISM_INVALID;
         }
         break;
+
+    case CKM_DES3_CMAC:
+    case CKM_DES3_CMAC_GENERAL:
+    case CKM_AES_CMAC:
+    case CKM_AES_CMAC_GENERAL:
+        status = check_required_versions(tokdata, cmac_req_versions,
+                                         NUM_CMAC_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
     }
 
     return CKR_OK;
