@@ -297,6 +297,13 @@ static const version_req_t hmac_req_versions[] = {
 };
 #define NUM_HMAC_REQ sizeof(hmac_req_versions)/sizeof(version_req_t)
 
+static const CK_VERSION cex7p_ibm_sha3_support = { .major = 7, .minor = 11 };
+
+static const version_req_t ibm_sha3_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &cex7p_ibm_sha3_support }
+};
+#define NUM_IBM_SHA3_REQ sizeof(ibm_sha3_req_versions)/sizeof(version_req_t)
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -341,6 +348,32 @@ typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
                                          sha512_context_t *sha_context,
                                          unsigned char *output_data);
 
+#ifdef SHA3_224
+typedef unsigned int (*ica_sha3_224_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_224_context_t *sha3_224_context,
+                                       unsigned char *output_data);
+
+typedef unsigned int (*ica_sha3_256_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_256_context_t *sha3_256_context,
+                                       unsigned char *output_data);
+
+typedef unsigned int (*ica_sha3_384_t)(unsigned int message_part,
+                                       uint64_t input_length,
+                                       unsigned char *input_data,
+                                       sha3_384_context_t *sha3_384_context,
+                                       unsigned char *output_data);
+
+typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
+                                       uint64_t input_length,
+                                       unsigned char *input_data,
+                                       sha3_512_context_t *sha3_512_context,
+                                       unsigned char *output_data);
+#endif
+
 typedef struct {
     CK_BYTE buffer[MAX_SHA_BLOCK_SIZE];
     CK_ULONG block_size;
@@ -350,6 +383,12 @@ typedef struct {
         sha_context_t sha1;
         sha256_context_t sha256;
         sha512_context_t sha512;
+#ifdef SHA3_224
+        sha3_224_context_t sha3_224;
+        sha3_256_context_t sha3_256;
+        sha3_384_context_t sha3_384;
+        sha3_512_context_t sha3_512;
+#endif
     } ctx;
 } libica_sha_context_t;
 
@@ -362,6 +401,12 @@ typedef struct {
     ica_sha512_t ica_sha512;
     ica_sha512_224_t ica_sha512_224;
     ica_sha512_256_t ica_sha512_256;
+#ifdef SHA3_224
+    ica_sha3_224_t ica_sha3_224;
+    ica_sha3_256_t ica_sha3_256;
+    ica_sha3_384_t ica_sha3_384;
+    ica_sha3_512_t ica_sha3_512;
+#endif
 } libica_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -1503,6 +1548,14 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_IBM_ECDH1_DERIVE_RAW),
     CONSTINFO(CKM_IBM_WIRETEST),
     CONSTINFO(CKM_IBM_RETAINKEY),
+    CONSTINFO(CKM_IBM_SHA3_224),
+    CONSTINFO(CKM_IBM_SHA3_256),
+    CONSTINFO(CKM_IBM_SHA3_384),
+    CONSTINFO(CKM_IBM_SHA3_512),
+    CONSTINFO(CKM_IBM_SHA3_224_HMAC),
+    CONSTINFO(CKM_IBM_SHA3_256_HMAC),
+    CONSTINFO(CKM_IBM_SHA3_384_HMAC),
+    CONSTINFO(CKM_IBM_SHA3_512_HMAC),
 };
 
 #define UNKNOWN_MECHANISM   0xFFFFFFFF
@@ -1962,6 +2015,12 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
         dlsym(libica->library, "ica_sha512_224");
     *(void **)(&libica->ica_sha512_256) =
         dlsym(libica->library, "ica_sha512_256");
+#ifdef SHA3_224
+    *(void **)(&libica->ica_sha3_224) = dlsym(libica->library, "ica_sha3_224");
+    *(void **)(&libica->ica_sha3_256) = dlsym(libica->library, "ica_sha3_256");
+    *(void **)(&libica->ica_sha3_384) = dlsym(libica->library, "ica_sha3_384");
+    *(void **)(&libica->ica_sha3_512) = dlsym(libica->library, "ica_sha3_512");
+#endif
     /* No error checking, each of the libica functions is allowed to be NULL */
 
     TRACE_DEVEL("%s: Loaded libica from '%s'\n", __func__,
@@ -3243,6 +3302,20 @@ static CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
     case CKM_SHA512_256:
         use_libica = ep11_data->libica.ica_sha512_256 != NULL;
         break;
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        use_libica = ep11_data->libica.ica_sha3_224 != NULL;
+        break;
+    case CKM_IBM_SHA3_256:
+        use_libica = ep11_data->libica.ica_sha3_256 != NULL;
+        break;
+    case CKM_IBM_SHA3_384:
+        use_libica = ep11_data->libica.ica_sha3_384 != NULL;
+        break;
+    case CKM_IBM_SHA3_512:
+        use_libica = ep11_data->libica.ica_sha3_512 != NULL;
+        break;
+#endif
     default:
         use_libica = 0;
     }
@@ -3299,6 +3372,22 @@ static CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
 
     case CKM_SHA512_256:
         *digest_mech = CKM_SHA512_256;
+        break;
+
+    case CKM_IBM_SHA3_224:
+        *digest_mech = CKM_IBM_SHA3_224;
+        break;
+
+    case CKM_IBM_SHA3_256:
+        *digest_mech = CKM_IBM_SHA3_256;
+        break;
+
+    case CKM_IBM_SHA3_384:
+        *digest_mech = CKM_IBM_SHA3_384;
+        break;
+
+    case CKM_IBM_SHA3_512:
+        *digest_mech = CKM_IBM_SHA3_512;
         break;
 
     default:
@@ -3413,6 +3502,24 @@ static CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
         rc = ep11_data->libica.ica_sha512_256(message_part, in_data_len, in_data,
                                               &ctx->ctx.sha512, out_data);
         break;
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        rc = ep11_data->libica.ica_sha3_224(message_part, in_data_len, in_data,
+                                            &ctx->ctx.sha3_224, out_data);
+        break;
+    case CKM_IBM_SHA3_256:
+        rc = ep11_data->libica.ica_sha3_256(message_part, in_data_len, in_data,
+                                            &ctx->ctx.sha3_256, out_data);
+        break;
+    case CKM_IBM_SHA3_384:
+        rc = ep11_data->libica.ica_sha3_384(message_part, in_data_len, in_data,
+                                            &ctx->ctx.sha3_384, out_data);
+        break;
+    case CKM_IBM_SHA3_512:
+        rc = ep11_data->libica.ica_sha3_512(message_part, in_data_len, in_data,
+                                            &ctx->ctx.sha3_512, out_data);
+        break;
+#endif
     default:
         TRACE_ERROR("%s Invalid mechanism: mech=%s\n", __func__,
                     ep11_get_ckm(mech));
@@ -6377,6 +6484,23 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver1_3) <= 0)
             return CKR_MECHANISM_INVALID;
         break;
+
+    case CKM_IBM_SHA3_224:
+    case CKM_IBM_SHA3_256:
+    case CKM_IBM_SHA3_384:
+    case CKM_IBM_SHA3_512:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
+        status = check_required_versions(tokdata, ibm_sha3_req_versions,
+                                         NUM_IBM_SHA3_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
     }
 
     return CKR_OK;
@@ -6450,6 +6574,10 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
         /*
          * Older levels of the EP11 firmware report ulMinKeySize in bytes,
          * but ulMaxKeySize in bits for HMAC mechanisms. Adjust ulMinKeySize
