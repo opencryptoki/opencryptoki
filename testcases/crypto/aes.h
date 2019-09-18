@@ -1783,7 +1783,7 @@ struct generated_test_suite_info generated_err_test_suites[] = {
     }
 };
 
-#define NUM_OF_PUBLISHED_CMAC_TESTSUITES 6
+#define NUM_OF_PUBLISHED_CMAC_TESTSUITES 9
 
 struct published_cmac_test_suite_info published_cmac_test_suites[] = {
     {
@@ -1816,5 +1816,20 @@ struct published_cmac_test_suite_info published_cmac_test_suites[] = {
         .tvcount = 14,
         .tv = aes256_cmac_tv,
         .mech = {CKM_AES_CMAC, 0, 0},
+    }, {
+        .name = "IBM-CMAC (128)",
+        .tvcount = 22,
+        .tv = aes128_cmac_tv,
+        .mech = {CKM_IBM_CMAC, 0, 0},
+    }, {
+        .name = "IBM-CMAC (192)",
+        .tvcount = 20,
+        .tv = aes192_cmac_tv,
+        .mech = {CKM_IBM_CMAC, 0, 0},
+    }, {
+        .name = "IBM-CMAC (256)",
+        .tvcount = 14,
+        .tv = aes256_cmac_tv,
+        .mech = {CKM_IBM_CMAC, 0, 0},
     }
 };
