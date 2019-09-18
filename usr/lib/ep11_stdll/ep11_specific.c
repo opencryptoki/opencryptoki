@@ -58,6 +58,7 @@
 #include "ep11_specific.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
+#define EP11SHAREDLIB_V3 "libep11.so.3"
 #define EP11SHAREDLIB_V2 "libep11.so.2"
 #define EP11SHAREDLIB_V1 "libep11.so.1"
 #define EP11SHAREDLIB "libep11.so"
@@ -1869,8 +1870,16 @@ static void *ep11_load_host_lib()
         return lib_ep11;
     }
 
-    ep11_lib_name = EP11SHAREDLIB_V2;
+    ep11_lib_name = EP11SHAREDLIB_V3;
     lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+    if (lib_ep11 == NULL) {
+        TRACE_DEVEL("%s Error loading shared library '%s', trying '%s'\n",
+                    __func__, EP11SHAREDLIB_V3, EP11SHAREDLIB_V2);
+        /* Try version 2 instead */
+        ep11_lib_name = EP11SHAREDLIB_V2;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
 
     if (lib_ep11 == NULL) {
         TRACE_DEVEL("%s Error loading shared library '%s', trying '%s'\n",
@@ -1891,9 +1900,9 @@ static void *ep11_load_host_lib()
     if (lib_ep11 == NULL) {
         errstr = dlerror();
         OCK_SYSLOG(LOG_ERR,
-                   "%s: Error loading shared library '%s[.2|.1]' [%s]\n",
+                   "%s: Error loading shared library '%s[.3|.2|.1]' [%s]\n",
                    __func__, EP11SHAREDLIB, errstr);
-        TRACE_ERROR("%s Error loading shared library '%s[.2|.1]' [%s]\n",
+        TRACE_ERROR("%s Error loading shared library '%s[.3|.2|.1]' [%s]\n",
                     __func__, EP11SHAREDLIB, errstr);
         return NULL;
     }
