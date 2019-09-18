@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
+#define EP11SHAREDLIB_V3 "libep11.so.3"
 #define EP11SHAREDLIB_V2 "libep11.so.2"
 #define EP11SHAREDLIB_V1 "libep11.so.1"
 #define EP11SHAREDLIB "libep11.so"
@@ -460,8 +461,14 @@ static void *ep11_load_host_lib()
         return lib_ep11;
     }
 
-    ep11_lib_name = EP11SHAREDLIB_V2;
+    ep11_lib_name = EP11SHAREDLIB_V3;
     lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+
+    if (lib_ep11 == NULL) {
+        /* Try version 2 instead */
+        ep11_lib_name = EP11SHAREDLIB_V2;
+        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    }
 
     if (lib_ep11 == NULL) {
         /* Try version 1 instead */
@@ -477,7 +484,7 @@ static void *ep11_load_host_lib()
 
     if (lib_ep11 == NULL) {
         errstr = dlerror();
-        fprintf(stderr, "Error loading shared library '%s[.2|.1]' [%s]\n",
+        fprintf(stderr, "Error loading shared library '%s[.3|.2|.1]' [%s]\n",
                 EP11SHAREDLIB, errstr);
         return NULL;
     }
