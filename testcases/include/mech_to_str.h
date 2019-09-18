@@ -475,6 +475,22 @@ static inline const char *mech_to_str(CK_ULONG mech)
         return "CKM_X9_42_DH_PARAMETER_GEN";
     if (mech == CKM_VENDOR_DEFINED)
         return "CKM_VENDOR_DEFINED";
+    if (mech == CKM_IBM_SHA3_224)
+        return "CKM_IBM_SHA3_224";
+    if (mech == CKM_IBM_SHA3_256)
+        return "CKM_IBM_SHA3_256";
+    if (mech == CKM_IBM_SHA3_384)
+        return "CKM_IBM_SHA3_384";
+    if (mech == CKM_IBM_SHA3_512)
+        return "CKM_IBM_SHA3_512";
+    if (mech == CKM_IBM_SHA3_224_HMAC)
+        return "CKM_IBM_SHA3_224_HMAC";
+    if (mech == CKM_IBM_SHA3_256_HMAC)
+        return "CKM_IBM_SHA3_256_HMAC";
+    if (mech == CKM_IBM_SHA3_384_HMAC)
+        return "CKM_IBM_SHA3_384_HMAC";
+    if (mech == CKM_IBM_SHA3_512_HMAC)
+        return "CKM_IBM_SHA3_512_HMAC";
 
     return "(unknown mech)";
 }

@@ -810,6 +810,18 @@ CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
     case CKM_SHA512:
         *hsize = SHA512_HASH_SIZE;
         break;
+    case CKM_IBM_SHA3_224:
+        *hsize = SHA3_224_HASH_SIZE;
+        break;
+    case CKM_IBM_SHA3_256:
+        *hsize = SHA3_256_HASH_SIZE;
+        break;
+    case CKM_IBM_SHA3_384:
+        *hsize = SHA3_384_HASH_SIZE;
+        break;
+    case CKM_IBM_SHA3_512:
+        *hsize = SHA3_512_HASH_SIZE;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -835,6 +847,18 @@ CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
     case CKM_SHA512_224:
     case CKM_SHA512_256:
         *bsize = SHA512_BLOCK_SIZE;
+        break;
+    case CKM_IBM_SHA3_224:
+        *bsize = SHA3_224_BLOCK_SIZE;
+        break;
+    case CKM_IBM_SHA3_256:
+        *bsize = SHA3_256_BLOCK_SIZE;
+        break;
+    case CKM_IBM_SHA3_384:
+        *bsize = SHA3_384_BLOCK_SIZE;
+        break;
+    case CKM_IBM_SHA3_512:
+        *bsize = SHA3_512_BLOCK_SIZE;
         break;
     default:
         return CKR_MECHANISM_INVALID;
