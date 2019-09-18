@@ -1376,7 +1376,7 @@ static struct generated_test_suite_info generated_test_suites[] = {
     }
 };
 
-#define NUM_OF_PUBLISHED_CMAC_TESTSUITES 4
+#define NUM_OF_PUBLISHED_CMAC_TESTSUITES 5
 
 struct published_cmac_test_suite_info published_cmac_test_suites[] = {
     {
@@ -1402,6 +1402,12 @@ struct published_cmac_test_suite_info published_cmac_test_suites[] = {
         .tvcount = 14,
         .tv = des3_cmac_tv,
         .mech = {CKM_DES3_CMAC, 0, 0},
+        .key_type = CKK_DES3,
+    }, {
+        .name = "IBM-CMAC",
+        .tvcount = 14,
+        .tv = des3_cmac_tv,
+        .mech = {CKM_IBM_CMAC, 0, 0},
         .key_type = CKK_DES3,
     }
 };
