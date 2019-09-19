@@ -247,6 +247,9 @@ typedef struct XCP_Module {
     uint32_t module_nr;
     void *mhandle;
     struct XCP_DomainPerf perf;
+    /* -----  end of v1 fields  ----- */
+    uint32_t api;
+    /* -----  end of v2 fields  ----- */
 } *XCP_Module_t ;
 
 typedef enum {
@@ -261,7 +264,8 @@ typedef enum {
     XCP_MFL_MAX          = 0xff
 } XCP_Module_Flags;
 
-#define XCP_MOD_VERSION     1
+#define XCP_MOD_VERSION_1   1
+#define XCP_MOD_VERSION_2   2
 #define XCP_TGT_INIT        ~0UL
 
 #define XCPTGTMASK_SET_DOM(mask, domain)      \

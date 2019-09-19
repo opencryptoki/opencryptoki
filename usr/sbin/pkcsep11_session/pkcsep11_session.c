@@ -54,12 +54,17 @@
 #define  XCP_MAX_PINBYTES         16
 #endif
 
+#define CK_IBM_XCPHQ_VERSION    0xff000001
+
 #define UNUSED(var)            ((void)(var))
 
 typedef unsigned int (*m_Logout_t) (const unsigned char *pin, size_t len,
                                     target_t target);
 typedef int (*m_add_module_t) (XCP_Module_t module, target_t *target);
 typedef int (*m_rm_module_t) (XCP_Module_t module, target_t target);
+typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
+                                unsigned int query, unsigned int subquery,
+                                target_t target);
 
 #define SHA256_HASH_SIZE        32
 #define EP11_SESSION_ID_SIZE    16
@@ -86,6 +91,7 @@ CK_FUNCTION_LIST *funcs;
 m_Logout_t dll_m_Logout;
 m_add_module_t dll_m_add_module;
 m_rm_module_t dll_m_rm_module;
+m_get_xcp_info_t dll_m_get_xcp_info;
 CK_SLOT_ID SLOT_ID = -1;
 int action = 0;
 int force = 0;
@@ -95,6 +101,7 @@ char filter_sess_id[EP11_SESSION_ID_SIZE];
 int filter_sess_id_set = 0;
 unsigned long count = 0;
 CK_RV error = CKR_OK;
+CK_VERSION lib_version;
 
 #define ACTION_SHOW     1
 #define ACTION_LOGOUT   2
@@ -372,6 +379,31 @@ static int is_process_running(pid_t pid)
     return TRUE;
 }
 
+static CK_RV get_ep11_library_version(CK_VERSION *lib_version)
+{
+    unsigned int host_version;
+    CK_ULONG version_len = sizeof(host_version);
+    CK_RV rc;
+
+    rc = dll_m_get_xcp_info(&host_version, &version_len,
+                            CK_IBM_XCPHQ_VERSION, 0, 0);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "dll_m_get_xcp_info (HOST) failed: rc=0x%lx\n", rc);
+        return rc;
+    }
+    lib_version->major = (host_version & 0x00FF0000) >> 16;
+    lib_version->minor = host_version & 0x000000FF0000;
+    /*
+     * EP11 host library < v2.0 returns an invalid version (i.e. 0x100). This
+     * can safely be treated as version 1.0
+     */
+    if (lib_version->major == 0) {
+        lib_version->major = 1;
+        lib_version->minor = 0;
+    }
+
+    return CKR_OK;
+}
 
 static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 {
@@ -382,7 +414,8 @@ static CK_RV logout_handler(uint_32 adapter, uint_32 domain, void *handler_data)
 
     if (dll_m_add_module != NULL) {
         memset(&module, 0, sizeof(module));
-        module.version = XCP_MOD_VERSION;
+        module.version = lib_version.major >= 3 ? XCP_MOD_VERSION_2
+                                                : XCP_MOD_VERSION_1;
         module.flags = XCP_MFL_MODULE;
         module.module_nr = adapter;
         XCPTGTMASK_SET_DOM(module.domainmask, domain);
@@ -1016,7 +1049,8 @@ int main(int argc, char **argv)
         return CKR_FUNCTION_FAILED;
 
     *(void **)(&dll_m_Logout) = dlsym(lib_ep11, "m_Logout");
-    if (dll_m_Logout == NULL) {
+    *(void **)(&dll_m_get_xcp_info) = dlsym(lib_ep11, "m_get_xcp_info");
+    if (dll_m_Logout == NULL || dll_m_get_xcp_info == NULL) {
         fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
                 EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
@@ -1032,6 +1066,10 @@ int main(int argc, char **argv)
         dll_m_add_module = NULL;
         dll_m_rm_module = NULL;
     }
+
+    rc = get_ep11_library_version(&lib_version);
+    if (rc != CKR_OK)
+        return rc;
 
     printf("Using slot #%lu...\n\n", SLOT_ID);
 
