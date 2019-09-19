@@ -267,6 +267,7 @@ typedef struct ep11_card_version {
     CK_ULONG firmware_API_version;
 } ep11_card_version_t;
 
+static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version);
 static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
 static void free_card_versions(ep11_card_version_t *card_version);
 static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
@@ -446,6 +447,7 @@ typedef struct {
     libica_t libica;
     CK_VERSION ep11_lib_version;
     ep11_card_version_t *card_versions;
+    CK_ULONG used_firmware_API_version;
     CK_CHAR serialNumber[16];
 } ep11_private_data_t;
 
@@ -2112,11 +2114,11 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 #endif
 
-    rc = ep11tok_setup_target(tokdata);
+    rc = ep11tok_get_ep11_version(tokdata);
     if (rc != CKR_OK)
         goto error;
 
-    rc = ep11tok_get_ep11_version(tokdata);
+    rc = ep11tok_setup_target(tokdata);
     if (rc != CKR_OK)
         goto error;
 
@@ -8587,11 +8589,8 @@ out:
     return rc;
 }
 
-static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
+static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_card_version_t *card_version;
-    query_version_t qv;
     unsigned int host_version;
     CK_ULONG version_len = sizeof(host_version);
     CK_RV rc;
@@ -8609,16 +8608,30 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
                     rc);
         return rc;
     }
-    ep11_data->ep11_lib_version.major = (host_version & 0x00FF0000) >> 16;
-    ep11_data->ep11_lib_version.minor = host_version & 0x000000FF0000;
+    lib_version->major = (host_version & 0x00FF0000) >> 16;
+    lib_version->minor = host_version & 0x000000FF0000;
     /*
      * EP11 host library < v2.0 returns an invalid version (i.e. 0x100). This
      * can safely be treated as version 1.0
      */
-    if (ep11_data->ep11_lib_version.major == 0) {
-        ep11_data->ep11_lib_version.major = 1;
-        ep11_data->ep11_lib_version.minor = 0;
+    if (lib_version->major == 0) {
+        lib_version->major = 1;
+        lib_version->minor = 0;
     }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_card_version_t *card_version;
+    query_version_t qv;
+    CK_RV rc;
+
+    rc = ep11tok_get_ep11_library_version(&ep11_data->ep11_lib_version);
+    if (rc != CKR_OK)
+        return rc;
 
     TRACE_INFO("%s Host library version: %d.%d\n", __func__,
                ep11_data->ep11_lib_version.major,
@@ -8649,6 +8662,12 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
 
     TRACE_INFO("%s Serial number: %.16s\n", __func__, ep11_data->serialNumber);
 
+    /* EP11 host lib version <= 2 only support API version 2 */
+    if (ep11_data->ep11_lib_version.major <= 2)
+        ep11_data->used_firmware_API_version = 2;
+    else
+        ep11_data->used_firmware_API_version = 0;
+
     card_version = ep11_data->card_versions;
     while (card_version != NULL) {
         TRACE_INFO("%s Card type: CEX%luP\n", __func__,
@@ -8658,8 +8677,20 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
         TRACE_INFO("%s   Firmware Version: %d.%d\n", __func__,
                 card_version->firmware_version.major,
                 card_version->firmware_version.minor);
+
+        if (ep11_data->used_firmware_API_version == 0)
+            ep11_data->used_firmware_API_version =
+                                card_version->firmware_API_version;
+        else
+            ep11_data->used_firmware_API_version =
+                                MIN(ep11_data->used_firmware_API_version,
+                                    card_version->firmware_API_version);
+
         card_version = card_version->next;
     }
+
+    TRACE_INFO("%s Used Firmware API: %lu\n", __func__,
+               ep11_data->used_firmware_API_version);
 
     return CKR_OK;
 }
@@ -8828,14 +8859,31 @@ static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata)
         TRACE_WARNING("%s Function dll_m_add_module is not available, falling "
                       "back to old target handling\n", __func__);
 
+        if (ep11_data->used_firmware_API_version > 2) {
+            TRACE_ERROR("%s selecting an API version is not possible with old "
+                        "target handling\n", __func__);
+            return CKR_FUNCTION_FAILED;
+        }
+
         ep11_data->target = (target_t)&ep11_data->target_list;
         return CKR_OK;
     }
 
+    if (ep11_data->used_firmware_API_version > 2 &&
+        ep11_data->ep11_lib_version.major < 3) {
+        TRACE_ERROR("%s selecting an API version is not possible with an EP11"
+                    " host library version < 3.0\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
     ep11_data->target = XCP_TGT_INIT;
     memset(&module, 0, sizeof(module));
-    module.version = XCP_MOD_VERSION;
+    module.version = ep11_data->ep11_lib_version.major >= 3 ? XCP_MOD_VERSION_2
+                                                            : XCP_MOD_VERSION_1;
     module.flags = XCP_MFL_VIRTUAL | XCP_MFL_MODULE;
+    module.api = ep11_data->used_firmware_API_version;
+
+    TRACE_DEVEL("%s XCP_MOD_VERSION: %u\n", __func__, module.version);
 
     if (ep11_data->target_list.length == 0) {
         /* APQN_ANY: Create an empty module group */
@@ -8870,13 +8918,19 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
 {
     ep11_target_t *target_list;
     struct XCP_Module module;
+    CK_VERSION lib_version;
     CK_RV rc;
 
     *target = XCP_TGT_INIT;
 
+    rc = ep11tok_get_ep11_library_version(&lib_version);
+    if (rc != CKR_OK)
+        return rc;
+
     if (dll_m_add_module != NULL) {
         memset(&module, 0, sizeof(module));
-        module.version = XCP_MOD_VERSION;
+        module.version = lib_version.major >= 3 ? XCP_MOD_VERSION_2
+                                                : XCP_MOD_VERSION_1;
         module.flags = XCP_MFL_MODULE;
         module.module_nr = adapter;
         XCPTGTMASK_SET_DOM(module.domainmask, domain);
