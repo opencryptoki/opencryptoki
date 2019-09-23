@@ -461,22 +461,13 @@ CK_RV run_DeriveECDHKey()
                 CK_ULONG secret_tmpl_len =
                     sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
-                for (m=0; m<NUM_SHARED_DATA; m++) {
+                for (m=0; m < (kdfs[j] == CKD_NULL ? 1 : NUM_SHARED_DATA); m++) {
 
                     testcase_new_assertion();
                     testcase_begin("Starting with ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu", i,j,k,m);
 
                     // Now, derive a generic secret key using party A's private
                     // key and B's public key
-
-                    if (is_ep11_token(SLOT_ID)) {
-                        /* ep11token does not support KDFs nor shared data */
-                        if (kdfs[j] != CKD_NULL || shared_data[m].length > 0) {
-                            testcase_skip("EP11 does not support KDFs and shared data\n");
-                            continue;
-                        }
-                    }
-
                     ecdh_parmA.kdf = kdfs[j];
                     ecdh_parmA.pPublicData = extr2_tmpl->pValue;
                     ecdh_parmA.ulPublicDataLen = extr2_tmpl->ulValueLen;
@@ -498,6 +489,16 @@ CK_RV run_DeriveECDHKey()
                                             priv_keyA, derive_tmpl,
                                             secret_tmpl_len, &secret_keyA);
                     if (rc != CKR_OK) {
+                        if (is_ep11_token(SLOT_ID) &&
+                            rc == CKR_MECHANISM_PARAM_INVALID &&
+                            (kdfs[j] != CKD_NULL ||
+                             shared_data[m].length > 0)) {
+                            testcase_skip("EP11 does not support KDFs and "
+                                          "shared data with older firmware "
+                                          "versions\n");
+                            continue;
+                        }
+
                         testcase_fail("C_DeriveKey #1: rc = %s",
                                       p11_get_ckr(rc));
                         goto testcase_cleanup;
@@ -505,15 +506,6 @@ CK_RV run_DeriveECDHKey()
 
                     // Now, derive a generic secret key using B's private key
                     // and A's public key
-
-                    if (is_ep11_token(SLOT_ID)) {
-                        /* ep11token does not support KDFs nor shared data */
-                        if (kdfs[j] != CKD_NULL || shared_data[m].length > 0) {
-                            testcase_skip("EP11 does not support KDFs and shared data\n");
-                            continue;
-                        }
-                    }
-
                     ecdh_parmB.kdf = kdfs[j];
                     ecdh_parmB.pPublicData = extr1_tmpl->pValue;
                     ecdh_parmB.ulPublicDataLen = extr1_tmpl->ulValueLen;
@@ -535,6 +527,18 @@ CK_RV run_DeriveECDHKey()
                                             priv_keyB, derive_tmpl,
                                             secret_tmpl_len, &secret_keyB);
                     if (rc != CKR_OK) {
+                        if (is_ep11_token(SLOT_ID) &&
+                            rc == CKR_MECHANISM_PARAM_INVALID &&
+                            (kdfs[j] != CKD_NULL ||
+                             shared_data[m].length > 0)) {
+                            testcase_skip("EP11 does not support KDFs and "
+                                          "shared data with older firmware "
+                                          "versions\n");
+                            if (secret_keyA != CK_INVALID_HANDLE)
+                                funcs->C_DestroyObject(session, secret_keyA);
+                            continue;
+                        }
+
                         testcase_fail("C_DeriveKey #2: rc = %s",
                                       p11_get_ckr(rc));
                         goto testcase_cleanup;
@@ -657,9 +661,10 @@ CK_RV run_DeriveECDHKeyKAT()
         goto testcase_cleanup;
     }
 
-    if (is_ep11_token(SLOT_ID)) {
-        testcase_skip("This testcase uses KDFs, currently not "
-                      "supported by ep11token.\n");
+    if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
+        testcase_skip("Slot %u is a secure key token, can not run known answer "
+                      "tests with CKM_ECDH1_DERIVE on it\n",
+                      (unsigned int) SLOT_ID);
         goto testcase_cleanup;
     }
 
@@ -736,15 +741,6 @@ CK_RV run_DeriveECDHKeyKAT()
 
         // Now, derive a generic secret key using party A's private key
         // and B's public key
-
-        if (is_ep11_token(SLOT_ID)) {
-            /* ep11token does not support KDFs nor shared data */
-            if (ecdh_tv[i].kdf != CKD_NULL || ecdh_tv[i].shared_data_len > 0) {
-                testcase_skip("EP11 does not support KDFs and shared data\n");
-                continue;
-            }
-        }
-
         ecdh_parmA.kdf = ecdh_tv[i].kdf;
         ecdh_parmA.pPublicData = ecdh_tv[i].pubkeyB;
         ecdh_parmA.ulPublicDataLen = ecdh_tv[i].pubkey_len;
@@ -766,21 +762,29 @@ CK_RV run_DeriveECDHKeyKAT()
                                 priv_keyA, derive_tmpl,
                                 derive_tmpl_len, &secret_keyA);
         if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                (ecdh_tv[i].kdf != CKD_NULL ||
+                 ecdh_tv[i].shared_data_len > 0)) {
+                testcase_skip("EP11 does not support KDFs and shared data with "
+                              "older firmware versions\n");
+                if (priv_keyA != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, priv_keyA);
+                if (publ_keyA != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, publ_keyA);
+                if (priv_keyB != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, priv_keyB);
+                if (publ_keyB != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, publ_keyB);
+                continue;
+            }
+
             testcase_fail("C_DeriveKey #1: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
         // Now, derive a generic secret key using B's private key and
         // A's public key
-
-        if (is_ep11_token(SLOT_ID)) {
-            /* ep11token does not support KDFs nor shared data */
-            if (ecdh_tv[i].kdf != CKD_NULL || ecdh_tv[i].shared_data_len > 0) {
-                testcase_skip("EP11 does not support KDFs and shared data\n");
-                continue;
-            }
-        }
-
         ecdh_parmB.kdf = ecdh_tv[i].kdf;
         ecdh_parmB.pPublicData = ecdh_tv[i].pubkeyA;
         ecdh_parmB.ulPublicDataLen = ecdh_tv[i].pubkey_len;
@@ -802,6 +806,25 @@ CK_RV run_DeriveECDHKeyKAT()
                                 priv_keyB, derive_tmpl,
                                 derive_tmpl_len, &secret_keyB);
         if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_MECHANISM_PARAM_INVALID &&
+                (ecdh_tv[i].kdf != CKD_NULL ||
+                 ecdh_tv[i].shared_data_len > 0)) {
+                testcase_skip("EP11 does not support KDFs and shared data with "
+                              "older firmware versions\n");
+                if (secret_keyA != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, secret_keyA);
+                if (priv_keyA != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, priv_keyA);
+                if (publ_keyA != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, publ_keyA);
+                if (priv_keyB != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, priv_keyB);
+                if (publ_keyB != CK_INVALID_HANDLE)
+                    funcs->C_DestroyObject(session, publ_keyB);
+                continue;
+            }
+
             testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
