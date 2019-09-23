@@ -26,6 +26,59 @@
 #include "tok_specific.h"
 #include "ec_defs.h"
 
+#include "openssl/obj_mac.h"
+#include <openssl/ec.h>
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+/*
+ * Older OpenSLL versions do not have BN_bn2binpad, so implement it here
+ */
+static int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen)
+{
+    int len, pad;
+    unsigned char *buf;
+
+    len = BN_num_bytes(a);
+    buf = (unsigned char *)malloc(len);
+    if (buf == NULL)
+        return -1;
+    BN_bn2bin(a, buf);
+
+    if (len >= tolen) {
+        memcpy(to, buf, tolen);
+    } else {
+        pad = tolen - len;
+        memset(to, 0, pad);
+        memcpy(to + pad, buf, len);
+    }
+
+    free(buf);
+    return tolen;
+}
+#endif
+
+#ifndef NID_brainpoolP160r1
+/*
+ * Older OpenSLL versions may not have the brainpool NIDs defined, define them
+ * here
+ */
+#define NID_brainpoolP160r1             921
+#define NID_brainpoolP160t1             922
+#define NID_brainpoolP192r1             923
+#define NID_brainpoolP192t1             924
+#define NID_brainpoolP224r1             925
+#define NID_brainpoolP224t1             926
+#define NID_brainpoolP256r1             927
+#define NID_brainpoolP256t1             928
+#define NID_brainpoolP320r1             929
+#define NID_brainpoolP320t1             930
+#define NID_brainpoolP384r1             931
+#define NID_brainpoolP384t1             932
+#define NID_brainpoolP512r1             933
+#define NID_brainpoolP512t1             934
+
+#endif
+
 const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
 const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
 const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
@@ -48,26 +101,42 @@ const CK_BYTE secp521r1[] = OCK_SECP521R1;
 const CK_BYTE secp256k1[] = OCK_SECP256K1;
 
 const struct _ec der_ec_supported[NUMEC] = {
-    {BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160r1), &brainpoolP160r1},
-    {BRAINPOOL_CURVE, CURVE160, sizeof(brainpoolP160t1), &brainpoolP160t1},
-    {BRAINPOOL_CURVE, CURVE192, sizeof(brainpoolP192r1), &brainpoolP192r1},
-    {BRAINPOOL_CURVE, CURVE192, sizeof(brainpoolP192t1), &brainpoolP192t1},
-    {BRAINPOOL_CURVE, CURVE224, sizeof(brainpoolP224r1), &brainpoolP224r1},
-    {BRAINPOOL_CURVE, CURVE224, sizeof(brainpoolP224t1), &brainpoolP224t1},
-    {BRAINPOOL_CURVE, CURVE256, sizeof(brainpoolP256r1), &brainpoolP256r1},
-    {BRAINPOOL_CURVE, CURVE256, sizeof(brainpoolP256t1), &brainpoolP256t1},
-    {BRAINPOOL_CURVE, CURVE320, sizeof(brainpoolP320r1), &brainpoolP320r1},
-    {BRAINPOOL_CURVE, CURVE320, sizeof(brainpoolP320t1), &brainpoolP320t1},
-    {BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384r1), &brainpoolP384r1},
-    {BRAINPOOL_CURVE, CURVE384, sizeof(brainpoolP384t1), &brainpoolP384t1},
-    {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512r1), &brainpoolP512r1},
-    {BRAINPOOL_CURVE, CURVE512, sizeof(brainpoolP512t1), &brainpoolP512t1},
-    {PRIME_CURVE, CURVE192, sizeof(prime192v1), &prime192v1},
-    {PRIME_CURVE, CURVE224, sizeof(secp224r1), &secp224r1},
-    {PRIME_CURVE, CURVE256, sizeof(prime256v1), &prime256v1},
-    {PRIME_CURVE, CURVE384, sizeof(secp384r1), &secp384r1},
-    {PRIME_CURVE, CURVE521, sizeof(secp521r1), &secp521r1},
-    {PRIME_CURVE, CURVE256, sizeof(secp256k1), &secp256k1},
+    {BRAINPOOL_CURVE, CURVE160, NID_brainpoolP160r1,
+            sizeof(brainpoolP160r1), &brainpoolP160r1},
+    {BRAINPOOL_CURVE, CURVE160, NID_brainpoolP160t1,
+            sizeof(brainpoolP160t1), &brainpoolP160t1},
+    {BRAINPOOL_CURVE, CURVE192, NID_brainpoolP192r1,
+            sizeof(brainpoolP192r1), &brainpoolP192r1},
+    {BRAINPOOL_CURVE, CURVE192, NID_brainpoolP192t1,
+            sizeof(brainpoolP192t1), &brainpoolP192t1},
+    {BRAINPOOL_CURVE, CURVE224, NID_brainpoolP224r1,
+            sizeof(brainpoolP224r1), &brainpoolP224r1},
+    {BRAINPOOL_CURVE, CURVE224, NID_brainpoolP224t1,
+            sizeof(brainpoolP224t1), &brainpoolP224t1},
+    {BRAINPOOL_CURVE, CURVE256, NID_brainpoolP256r1,
+            sizeof(brainpoolP256r1), &brainpoolP256r1},
+    {BRAINPOOL_CURVE, CURVE256, NID_brainpoolP256t1,
+            sizeof(brainpoolP256t1), &brainpoolP256t1},
+    {BRAINPOOL_CURVE, CURVE320, NID_brainpoolP320r1,
+            sizeof(brainpoolP320r1), &brainpoolP320r1},
+    {BRAINPOOL_CURVE, CURVE320, NID_brainpoolP320t1,
+            sizeof(brainpoolP320t1), &brainpoolP320t1},
+    {BRAINPOOL_CURVE, CURVE384, NID_brainpoolP384r1,
+            sizeof(brainpoolP384r1), &brainpoolP384r1},
+    {BRAINPOOL_CURVE, CURVE384, NID_brainpoolP384t1,
+            sizeof(brainpoolP384t1), &brainpoolP384t1},
+    {BRAINPOOL_CURVE, CURVE512, NID_brainpoolP512r1,
+            sizeof(brainpoolP512r1), &brainpoolP512r1},
+    {BRAINPOOL_CURVE, CURVE512, NID_brainpoolP512t1,
+            sizeof(brainpoolP512t1), &brainpoolP512t1},
+    {PRIME_CURVE, CURVE192, NID_X9_62_prime192v1,
+            sizeof(prime192v1), &prime192v1},
+    {PRIME_CURVE, CURVE224, NID_secp224r1, sizeof(secp224r1), &secp224r1},
+    {PRIME_CURVE, CURVE256, NID_X9_62_prime256v1,
+            sizeof(prime256v1), &prime256v1},
+    {PRIME_CURVE, CURVE384, NID_secp384r1, sizeof(secp384r1), &secp384r1},
+    {PRIME_CURVE, CURVE521, NID_secp521r1, sizeof(secp521r1), &secp521r1},
+    {PRIME_CURVE, CURVE256, NID_secp256k1, sizeof(secp256k1), &secp256k1},
 };
 
 
@@ -1110,6 +1179,136 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
 end:
     free(derived_key);
+
+    return rc;
+}
+
+static int ec_nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
+{
+    int i;
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == oid_length &&
+            memcmp(der_ec_supported[i].data, oid, oid_length) == 0)
+            return der_ec_supported[i].nid;
+    }
+
+    return -1;
+}
+
+/*
+ * Uncompress a compressed EC public key. EC public keys can be un-compressed,
+ * compressed, or hybrid. The fist byte of an EC public key determines if it
+ * is compressed or not:
+ * POINT_CONVERSION_COMPRESSED = 0x02
+ * POINT_CONVERSION_UNCOMPRESSED = 0x04
+ * POINT_CONVERSION_HYBRID = 0x06
+ * Bit 0x01 determines if it is odd or even
+ * The out_pubkey buffer size must be at least 1+2*privkey_len.
+ */
+CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
+                               CK_BYTE *pubkey, CK_ULONG pubkey_len,
+                               CK_ULONG privkey_len,
+                               CK_BYTE *out_pubkey, CK_ULONG *out_len)
+{
+    EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
+    CK_ULONG pad_len = 0;
+    BIGNUM *bn_x = NULL;
+    BIGNUM *bn_y = NULL;
+    BN_CTX *ctx = NULL;
+    CK_RV rc;
+    int y_bit = 0;
+    CK_BYTE *x;
+    int nid;
+
+    if (*out_len < 1 + 2 * privkey_len)
+        return CKR_BUFFER_TOO_SMALL;
+
+    *out_len = 1 + 2 * privkey_len;
+
+    if (pubkey_len == 1 + privkey_len &&
+        (pubkey[0] == POINT_CONVERSION_COMPRESSED ||
+         pubkey[0] == POINT_CONVERSION_COMPRESSED + 1)) {
+        /* Compressed form */
+        x = pubkey + 1;
+        y_bit = pubkey[0] & 0x01;
+    } else if (pubkey_len == 1 + 2 * privkey_len &&
+               pubkey[0] == POINT_CONVERSION_UNCOMPRESSED) {
+        /* Uncompressed form */
+        memcpy(out_pubkey, pubkey, pubkey_len);
+        return CKR_OK;
+    } else if (pubkey_len == 1 + 2 * privkey_len &&
+            (pubkey[0] == POINT_CONVERSION_HYBRID ||
+             pubkey[0] == POINT_CONVERSION_HYBRID + 1)) {
+        /* Hybrid form */
+        out_pubkey[0] = POINT_CONVERSION_UNCOMPRESSED;
+        memcpy(out_pubkey + 1, pubkey + 1, pubkey_len - 1);
+        return CKR_OK;
+    } else if (pubkey_len <= 2 * privkey_len) {
+        /* Without format byte (and leading zeros), treat as uncompressed */
+        pad_len = 2 * privkey_len - pubkey_len;
+        out_pubkey[0] = POINT_CONVERSION_UNCOMPRESSED;
+        memset(out_pubkey + 1, 0, pad_len);
+        memcpy(out_pubkey + 1 + pad_len, pubkey, pubkey_len);
+        return CKR_OK;
+    } else {
+        return CKR_KEY_SIZE_RANGE;
+    }
+
+    nid = ec_nid_from_oid(curve, curve_len);
+    if (nid == -1)
+        return CKR_CURVE_NOT_SUPPORTED;
+
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL) {
+        TRACE_ERROR("Curve %d is not supported by openssl. Cannot decompress "
+                    "public key\n", nid);
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    point = EC_POINT_new(group);
+    if (point == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    bn_x = BN_bin2bn(x, privkey_len, NULL);
+    bn_y = BN_new();
+    ctx = BN_CTX_new();
+
+    if (!EC_POINT_set_compressed_coordinates_GFp(group,
+                                                 point, bn_x, y_bit, ctx)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    if (!EC_POINT_is_on_curve(group, point, ctx)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    if (!EC_POINT_get_affine_coordinates_GFp(group, point, bn_x, bn_y, ctx)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto end;
+    }
+
+    out_pubkey[0] = POINT_CONVERSION_UNCOMPRESSED;
+    memcpy(out_pubkey + 1, x, privkey_len);
+    BN_bn2binpad(bn_y, out_pubkey + 1 + privkey_len, privkey_len);
+    rc = CKR_OK;
+
+end:
+    if (ctx)
+        BN_CTX_free(ctx);
+    if (point)
+        EC_POINT_free(point);
+    if (group)
+        EC_GROUP_free(group);
+    if (bn_x)
+        BN_free(bn_x);
+    if (bn_y)
+        BN_free(bn_y);
 
     return rc;
 }

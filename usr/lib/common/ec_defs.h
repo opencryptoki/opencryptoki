@@ -58,6 +58,7 @@ extern const CK_BYTE secp256k1[];
 struct _ec {
     uint8_t curve_type;         /* uint8_t - prime or brainpool curve */
     uint16_t len_bits;          /* uint16_t - len in bits */
+    int nid;
     CK_ULONG data_size;
     void const *data;
 } __attribute__ ((__packed__));

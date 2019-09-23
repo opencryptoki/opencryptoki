@@ -1811,6 +1811,10 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
                            SIGN_VERIFY_CONTEXT *ctx,
                            CK_BYTE *signature, CK_ULONG sig_len);
 
+CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
+                               CK_BYTE *pubkey, CK_ULONG pubkey_len,
+                               CK_ULONG privkey_len,
+                               CK_BYTE *out_pubkey, CK_ULONG *out_len);
 
 // linked-list routines
 //

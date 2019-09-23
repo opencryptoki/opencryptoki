@@ -2526,6 +2526,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_ULONG privkey_len, pubkey_len;
+    CK_BYTE *pubkey = NULL;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -2567,6 +2569,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         CK_ATTRIBUTE *ec_params;
         CK_ATTRIBUTE *ec_point;
+        CK_ATTRIBUTE ec_point_uncompr;
 
         if (!template_attribute_find(ec_key_obj->template,
                                      CKA_EC_PARAMS, &ec_params)) {
@@ -2579,16 +2582,38 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_EC_key_end;
         }
 
+        /* Uncompress the public key (EC_POINT) */
+        rc = get_ecsiglen(ec_key_obj, &privkey_len);
+        if (rc != CKR_OK)
+            goto import_EC_key_end;
+        privkey_len /= 2; /* Public key is half the size of an EC signature */
+
+        pubkey = (CK_BYTE *)malloc(1 + 2 * privkey_len);
+        if (pubkey == NULL) {
+            rc = CKR_HOST_MEMORY;
+            goto import_EC_key_end;
+        }
+
+        rc = ec_uncompress_public_key(ec_params->pValue, ec_params->ulValueLen,
+                                      ec_point->pValue, ec_point->ulValueLen,
+                                      privkey_len, pubkey, &pubkey_len);
+        if (rc != CKR_OK)
+            goto import_EC_key_end;
+
+        ec_point_uncompr.type = ec_point->type;
+        ec_point_uncompr.pValue = pubkey;
+        ec_point_uncompr.ulValueLen = pubkey_len;
+
         /*
          * Builds the DER encoding (ansi_x962) SPKI.
          * (get the length first)
          */
         rc = ber_encode_ECPublicKey(TRUE, &data, &data_len,
-                                    ec_params, ec_point);
+                                    ec_params, &ec_point_uncompr);
         data = malloc(data_len);
 
         rc = ber_encode_ECPublicKey(FALSE, &data, &data_len,
-                                    ec_params, ec_point);
+                                    ec_params, &ec_point_uncompr);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                         "data_len=0x%lx\n", __func__, class, rc, data_len);
@@ -2678,6 +2703,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
 import_EC_key_end:
+    if (pubkey)
+        free(pubkey);
     if (data) {
         OPENSSL_cleanse(data, data_len);
         free(data);
