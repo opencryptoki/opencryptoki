@@ -434,6 +434,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_DECRYPT, &true, sizeof(true)},
         {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
         {CKA_EC_PARAMS, params, params_len},
         {CKA_EC_POINT, pubkey, pubkey_len},
         {CKA_VALUE, privatekey, privatekey_len}
@@ -469,6 +470,7 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
         {CKA_LABEL, label, sizeof(label)},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
         {CKA_EC_PARAMS, params, params_len},
         {CKA_EC_POINT, pointq, pointq_len}
     };
