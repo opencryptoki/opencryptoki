@@ -8253,6 +8253,7 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
     char fname[PATH_MAX];
     char buf[250];
     CK_RV rc;
+    CK_ULONG hwtype, rawtype;
 
     sprintf(fname, "%scard%02x/type", SYSFS_DEVICES_AP, adapter);
     rc = file_fgets(fname, buf, sizeof(buf));
@@ -8260,6 +8261,28 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
         return rc;
     if (sscanf(buf, "CEX%luP", type) != 1)
         return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%scard%02x/hwtype", SYSFS_DEVICES_AP, adapter);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return rc;
+    if (sscanf(buf, "%lu", &hwtype) != 1)
+        return CKR_FUNCTION_FAILED;
+
+    sprintf(fname, "%scard%02x/raw_hwtype", SYSFS_DEVICES_AP, adapter);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return rc;
+    if (sscanf(buf, "%lu", &rawtype) != 1)
+        return CKR_FUNCTION_FAILED;
+
+    if (rawtype > hwtype) {
+        TRACE_DEVEL("%s adapter: %u hwtype: %lu raw_hwtype: %lu\n",
+                    __func__, adapter, hwtype, rawtype);
+        /* Tolerated new card level: report calculated type */
+        *type += (rawtype - hwtype);
+    }
+
     return CKR_OK;
 }
 
