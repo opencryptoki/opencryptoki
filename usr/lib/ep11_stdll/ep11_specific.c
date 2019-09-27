@@ -3987,10 +3987,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
      * param, not via CK_ECDH1_DERIVE_PARAMS. It also does not support KDFs and
      * shared data.
      *
-     * ATTENTION: Once the EP11 library supports CKM_ECDH1_DERIVE in PKCS#11
-     * way, the following if block needs to be adapted.
+     * Newer EP11 crypto cards that support API version 3 support this mechanism
+     * in the PKCS#11 c2.11 way. If the used API version is > 2, then we
+     * can pass the mechanism parameters as-is, otherwise we still need to
+     * use the old way.
      */
-    if (mech->mechanism == CKM_ECDH1_DERIVE) {
+    if (mech->mechanism == CKM_ECDH1_DERIVE &&
+        ep11_data->used_firmware_API_version <= 2) {
         if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
             TRACE_ERROR("%s Param len for CKM_ECDH1_DERIVE wrong: %lu\n",
                         __func__, mech->ulParameterLen);
