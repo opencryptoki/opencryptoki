@@ -8547,7 +8547,7 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
                                    CK_ULONG num_req)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ULONG i, max_card_type = 0;
+    CK_ULONG i, max_card_type = 0, min_card_type = 0xFFFFFFFF;
     CK_BBOOL req_not_fullfilled = CK_FALSE;
     CK_BBOOL req_fullfilled = CK_FALSE;
     ep11_card_version_t *card_version;
@@ -8563,7 +8563,16 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
         if (status == 1)
             req_fullfilled = CK_TRUE;
         max_card_type = MAX(max_card_type, req[i].card_type);
+        min_card_type = MIN(min_card_type, req[i].card_type);
     }
+
+    /* Are card types < min_card_type present? */
+    card_version = ep11_data->card_versions;
+    while (card_version != NULL) {
+         if (card_version->card_type < min_card_type)
+             req_not_fullfilled = CK_TRUE;
+         card_version = card_version->next;
+     }
 
     /* Are card types > max_card_type present? */
     card_version = ep11_data->card_versions;
