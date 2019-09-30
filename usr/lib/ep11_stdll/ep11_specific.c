@@ -6214,20 +6214,33 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * for this we need to know what the card provides
          */
         counter = *pulCount;
-        mlist =
-            (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-        if (!mlist) {
-            TRACE_ERROR("%s Memory allocation failed\n", __func__);
-            return CKR_HOST_MEMORY;
-        }
-        rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
-                        __func__, rc);
-            free(mlist);
-            return rc;
-        }
+
+        /*
+         * For mixed card levels, the size query call and the call to obtain the
+         * list may run on different cards. When the size query call runs on a
+         * card with less mechanisms than the second call, return code
+         * CKR_BUFFER_TOO_SMALL may be encountered, when the card where the
+         * second call runs supports more mechanisms than the one where the
+         * size query was run. Repeat the call to obtain the list with the
+         * larger list.
+         */
+        do {
+            mlist = (CK_MECHANISM_TYPE *) malloc(
+                                    sizeof(CK_MECHANISM_TYPE) * counter);
+            if (!mlist) {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                return CKR_HOST_MEMORY;
+            }
+            rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
+            if (rc != CKR_OK) {
+                rc = ep11_error_to_pkcs11_error(rc, NULL);
+                TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
+                            __func__, rc);
+                free(mlist);
+                if (rc != CKR_BUFFER_TOO_SMALL)
+                    return rc;
+            }
+        } while (rc == CKR_BUFFER_TOO_SMALL);
 
         for (i = 0; i < counter; i++) {
             if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) != CKR_OK) {
@@ -6253,21 +6266,33 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             return rc;
         }
 
-        mlist =
-            (CK_MECHANISM_TYPE *) malloc(sizeof(CK_MECHANISM_TYPE) * counter);
-        if (!mlist) {
-            TRACE_ERROR("%s Memory allocation failed\n", __func__);
-            return CKR_HOST_MEMORY;
-        }
-        /* all the card has */
-        rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
-                        __func__, rc);
-            free(mlist);
-            return rc;
-        }
+        /*
+         * For mixed card levels, the size query call and the call to obtain the
+         * list may run on different cards. When the size query call runs on a
+         * card with less mechanisms than the second call, return code
+         * CKR_BUFFER_TOO_SMALL may be encountered, when the card where the
+         * second call runs supports more mechanisms than the one where the
+         * size query was run. Repeat the call to obtain the list with the
+         * larger list.
+         */
+        do {
+            mlist = (CK_MECHANISM_TYPE *) malloc(
+                                    sizeof(CK_MECHANISM_TYPE) * counter);
+            if (!mlist) {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                return CKR_HOST_MEMORY;
+            }
+            /* all the card has */
+            rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
+            if (rc != CKR_OK) {
+                rc = ep11_error_to_pkcs11_error(rc, NULL);
+                TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
+                            __func__, rc);
+                free(mlist);
+                if (rc != CKR_BUFFER_TOO_SMALL)
+                    return rc;
+            }
+        } while (rc == CKR_BUFFER_TOO_SMALL);
 
         for (i = 0; i < counter; i++)
             TRACE_INFO("%s raw mech list entry '%s'\n",
