@@ -224,6 +224,7 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
 {
     struct btnode *node;
     int lock = 1;
+    void *value;
 
     if (pthread_rwlock_wrlock(&btree_rwlock))
         lock = 0;
@@ -231,8 +232,7 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
     node = bt_get_node(t, node_num);
 
     if (node) {
-        if (delete_func)
-            (*delete_func) (node->value);
+        value = node->value;
 
         node->flags |= BT_FLAG_FREE;
 
@@ -243,6 +243,9 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
         node->value = t->free_list;
         t->free_list = node;
         t->free_nodes++;
+
+        if (delete_func)
+            (*delete_func) (value);
     }
 
     if (lock)
@@ -257,6 +260,7 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
                                                   void *))
 {
     struct btnode *node;
+    void *value;
 
     if (pthread_rwlock_wrlock(&btree_rwlock)) {
         TRACE_ERROR("Write Lock failed.\n");
@@ -266,8 +270,7 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
     node = bt_get_node(t, node_num);
 
     if (node) {
-        if (delete_func)
-            (*delete_func) (tokdata, node->value);
+        value = node->value;
 
         node->flags |= BT_FLAG_FREE;
 
@@ -278,6 +281,9 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
         node->value = t->free_list;
         t->free_list = node;
         t->free_nodes++;
+
+        if (delete_func)
+            (*delete_func) (tokdata, value);
     }
 
     pthread_rwlock_unlock(&btree_rwlock);

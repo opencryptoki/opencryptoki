@@ -197,10 +197,10 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
                             void (*delete_func) (void *))
 {
     struct btnode *node = bt_get_node(t, node_num);
+    void  *value;
 
     if (node) {
-        if (delete_func)
-            (*delete_func) (node->value);
+        value = node->value;
 
         __transaction_atomic {  /* start transaction */
             node->flags |= BT_FLAG_FREE;
@@ -213,6 +213,9 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
             t->free_list = node;
             t->free_nodes++;
         }                       /* end transaction */
+
+        if (delete_func)
+            (*delete_func) (value);
     }
 
     return node;
@@ -224,10 +227,10 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
                                                   void *))
 {
     struct btnode *node = bt_get_node(t, node_num);
+    void *value;
 
     if (node) {
-        if (delete_func)
-            (*delete_func) (tokdata, node->value);
+        value = node->value;
 
         __transaction_atomic {  /* start transaction */
             node->flags |= BT_FLAG_FREE;
@@ -240,6 +243,9 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
             t->free_list = node;
             t->free_nodes++;
         }                       /* end transaction */
+
+        if (delete_func)
+            (*delete_func) (tokdata, value);
     }
 
     return node;
