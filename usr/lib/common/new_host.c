@@ -164,7 +164,11 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     }
 
     /* Initialize Lock */
-    XProcLock_Init(sltp->TokData);
+    if (XProcLock_Init(sltp->TokData) != CKR_OK) {
+        TRACE_ERROR("Thread lock failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 
     /* Create lockfile */
     if (CreateXProcLock(sinfp->tokname, sltp->TokData) != CKR_OK) {

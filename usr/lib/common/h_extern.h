@@ -1845,8 +1845,10 @@ CK_RV check_user_and_group();
 //lock and unlock routines
 CK_RV XProcLock(STDLL_TokData_t *tokdata);
 CK_RV XProcUnLock(STDLL_TokData_t *tokdata);
+CK_RV XThreadLock(STDLL_TokData_t *tokdata);
+CK_RV XThreadUnLock(STDLL_TokData_t *tokdata);
 CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata);
-void XProcLock_Init(STDLL_TokData_t *tokdata);
+CK_RV XProcLock_Init(STDLL_TokData_t *tokdata);
 void CloseXProcLock(STDLL_TokData_t *tokdata);
 
 //list mechanisms

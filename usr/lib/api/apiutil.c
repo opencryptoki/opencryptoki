@@ -23,6 +23,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <sys/syslog.h>
+#include <pthread.h>
 
 #include <sys/ipc.h>
 
@@ -38,6 +39,7 @@
 #include <sys/file.h>
 
 static int xplfd = -1;
+pthread_rwlock_t xplfd_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
 #include <libgen.h>
 
@@ -69,20 +71,34 @@ CK_RV CreateProcLock(void)
 
 CK_RV ProcLock(void)
 {
-    if (xplfd != -1)
+    if (pthread_rwlock_wrlock(&xplfd_rwlock)) {
+        TRACE_ERROR("Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    if (xplfd != -1) {
         flock(xplfd, LOCK_EX);
-    else
+    } else {
         TRACE_DEVEL("No file descriptor to lock with.\n");
+        return CKR_CANT_LOCK;
+    }
 
     return CKR_OK;
 }
 
 CK_RV ProcUnLock(void)
 {
-    if (xplfd != -1)
+    if (xplfd != -1) {
         flock(xplfd, LOCK_UN);
-    else
+    } else {
         TRACE_DEVEL("No file descriptor to unlock with.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    if (pthread_rwlock_unlock(&xplfd_rwlock)) {
+        TRACE_ERROR("Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
 
     return CKR_OK;
 }

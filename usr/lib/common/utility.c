@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <grp.h>
+#include <pthread.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -388,10 +389,34 @@ void CloseXProcLock(STDLL_TokData_t *tokdata)
 {
     if (tokdata->spinxplfd != -1)
         close(tokdata->spinxplfd);
+    pthread_mutex_destroy(&tokdata->spinxplfd_mutex);
+}
+
+CK_RV XThreadLock(STDLL_TokData_t *tokdata)
+{
+    if (pthread_mutex_lock(&tokdata->spinxplfd_mutex)) {
+        TRACE_ERROR("Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV XThreadUnLock(STDLL_TokData_t *tokdata)
+{
+    if (pthread_mutex_unlock(&tokdata->spinxplfd_mutex)) {
+        TRACE_ERROR("Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
 }
 
 CK_RV XProcLock(STDLL_TokData_t *tokdata)
 {
+    if (XThreadLock(tokdata) != CKR_OK)
+        return CKR_CANT_LOCK;
+
     if (tokdata->spinxplfd != -1) {
         flock(tokdata->spinxplfd, LOCK_EX);
     } else {
@@ -411,12 +436,32 @@ CK_RV XProcUnLock(STDLL_TokData_t *tokdata)
         return CKR_CANT_LOCK;
     }
 
+    if (XThreadUnLock(tokdata) != CKR_OK)
+        return CKR_CANT_LOCK;
+
     return CKR_OK;
 }
 
-void XProcLock_Init(STDLL_TokData_t *tokdata)
+CK_RV XProcLock_Init(STDLL_TokData_t *tokdata)
 {
+    pthread_mutexattr_t attr;
+
     tokdata->spinxplfd = -1;
+
+    if (pthread_mutexattr_init(&attr)) {
+        TRACE_ERROR("Mutex attribute init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
+        TRACE_ERROR("Mutex attribute set failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutex_init(&tokdata->spinxplfd_mutex, &attr)) {
+        TRACE_ERROR("Mutex init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
 }
 
 //
