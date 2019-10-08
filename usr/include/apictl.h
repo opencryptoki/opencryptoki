@@ -47,12 +47,9 @@ struct API_Slot {
 //
 typedef struct {
     pid_t Pid;
-    pthread_mutex_t ProcMutex;  // Mutex for the process level should this
-                                // be necessary
     key_t shm_tok;
 
     struct btree sess_btree;
-    pthread_mutex_t SessListMutex;      /*used to lock around btree accesses */
     void *SharedMemP;
     Slot_Mgr_Socket_t SocketDataP;
     uint16 MgrProcIndex;  // Index into shared memory for This process ctl block
