@@ -13,6 +13,7 @@
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>
+#include <pthread.h>
 
 #include "local_types.h"
 
@@ -38,6 +39,7 @@ struct API_Slot {
     DLL_Load_t *dll_information;
     void (*pSTfini) ();         // Addition of Final function.
     CK_RV(*pSTcloseall) ();    // Addition of close all for leeds code
+    pthread_mutex_t api_mutex; /* lock API calls against other threads */
 };
 
 
