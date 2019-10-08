@@ -113,6 +113,26 @@ CK_RV ProcClose(void)
     return CKR_OK;
 }
 
+CK_RV APILock(API_Slot_t *sltp)
+{
+    if (pthread_mutex_lock(&sltp->api_mutex)) {
+        TRACE_ERROR("Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV APIUnLock(API_Slot_t *sltp)
+{
+    if (pthread_mutex_unlock(&sltp->api_mutex)) {
+        TRACE_ERROR("Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
 unsigned long AddToSessionList(ST_SESSION_T *pSess)
 {
     unsigned long handle;
@@ -163,9 +183,12 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
  * Once all the nodes are closed, we check to see if the tree is empty and if
  * so, destroy it
  */
-void CloseAllSessions(CK_SLOT_ID slot_id)
+CK_RV CloseAllSessions(CK_SLOT_ID slot_id)
 {
     API_Slot_t *sltp = &(Anchor->SltList[slot_id]);
+
+    if (APILock(sltp) != CKR_OK)
+        return CKR_CANT_LOCK;
 
     /* for every node in the API-level session tree, call CloseMe on it */
     bt_for_each_node(sltp->TokData, &(Anchor->sess_btree), CloseMe,
@@ -173,6 +196,11 @@ void CloseAllSessions(CK_SLOT_ID slot_id)
 
     if (bt_is_empty(&(Anchor->sess_btree)))
         bt_destroy(&(Anchor->sess_btree), NULL);
+
+    if (APIUnLock(sltp) != CKR_OK)
+        return CKR_CANT_LOCK;
+
+    return CKR_OK;
 }
 
 int Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T *rSession)
@@ -556,6 +584,8 @@ void DL_Unload(API_Slot_t *sltp)
     sltp->dlop_p = NULL;
     sltp->pSTfini = NULL;
     sltp->pSTcloseall = NULL;
+
+    pthread_mutex_destroy(&sltp->api_mutex);
 }
 
 int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
@@ -572,6 +602,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     CK_RV rv;
     int dll_len, dl_index;
     DLL_Load_t *dllload;
+    pthread_mutexattr_t attr;
 
     // Get pointer to shared memory from the anchor block
     //
@@ -612,6 +643,23 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
         DL_Unload(sltp);
         return FALSE;
     }
+
+    if (pthread_mutexattr_init(&attr)) {
+        TRACE_ERROR("Mutex attribute init failed.\n");
+        DL_Unload(sltp);
+        return FALSE;
+    }
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE)) {
+        TRACE_ERROR("Mutex attribute set failed.\n");
+        DL_Unload(sltp);
+        return FALSE;
+    }
+    if (pthread_mutex_init(&sltp->api_mutex, &attr)) {
+        TRACE_ERROR("Mutex init failed.\n");
+        DL_Unload(sltp);
+        return FALSE;
+    }
+
     // Returns true or false
     rv = pSTinit(sltp, slotID, sinfp, trace);
     TRACE_DEBUG("return from STDDLL Init = %lx\n", rv);
