@@ -2646,10 +2646,6 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
     memset((char *) Anchor, 0, sizeof(API_Proc_Struct_t));
-    // This is not shared across apps.
-    pthread_mutex_init(&(Anchor->ProcMutex), NULL);
-    // This is not shared across apps.
-    pthread_mutex_init(&(Anchor->SessListMutex), NULL);
     pthread_mutex_init(&GlobMutex, NULL);
     pthread_mutex_lock(&GlobMutex);
     Anchor->Pid = getpid();
