@@ -5646,14 +5646,6 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                __func__, rc, keyblobsize, mech->mechanism);
 
-    /* card provides length in csum bytes 4 - 7, big endian */
-    len =
-        csum[6] + 256 * csum[5] + 256 * 256 * csum[4] +
-        256 * 256 * 256 * csum[3];
-    len = len / 8;              /* comes in bits */
-    TRACE_INFO("%s m_UnwrapKey length 0x%hhx 0x%hhx 0x%hhx 0x%hhx 0x%lx\n",
-               __func__, csum[3], csum[4], csum[5], csum[6], len);
-
     /* Get the keytype to use when creating the key object */
     rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
@@ -5683,38 +5675,54 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) & len, sizeof(CK_ULONG),
-                         &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
+    switch (*(CK_KEY_TYPE *) cla_attr->pValue) {
+    case CKO_SECRET_KEY:
+        /* card provides bit length in csum last 4 bytes big endian */
+        if (cslen < 4) {
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("%s Invalid csum length cslen=%lu\n", __func__, cslen);
+            goto error;
+        }
 
-    rc = template_update_attribute(key_obj->template, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
+        len = csum[cslen - 1] + 256 * csum[cslen - 2] +
+              256 * 256 * csum[cslen - 3] +  256 * 256 * 256 * csum[cslen - 4];
+        len = len / 8;              /* comes in bits */
+        TRACE_INFO("%s m_UnwrapKey length %lu 0x%lx\n", __func__, len, len);
 
-    /*
-     * In case of unwrapping a private key (CKA_CLASS == CKO_PRIVATE_KEY),
-     * the public key attributes needs to be added to the new template.
-     */
-    if (*(CK_OBJECT_CLASS *) cla_attr->pValue == CKO_PRIVATE_KEY) {
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&len, sizeof(CK_ULONG),
+                             &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        break;
+
+    case CKO_PRIVATE_KEY:
+        /*
+         * In case of unwrapping a private key (CKA_CLASS == CKO_PRIVATE_KEY),
+         * the public key attributes needs to be added to the new template.
+         */
         switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
-            case CKK_EC:
-                rc = ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
-                break;
-            case CKK_RSA:
-                rc = rsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
-                break;
-            case CKK_DSA:
-                rc = dsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
-                break;
-            case CKK_DH:
-                rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
-                break;
+        case CKK_EC:
+            rc = ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            break;
+        case CKK_RSA:
+            rc = rsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            break;
+        case CKK_DSA:
+            rc = dsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            break;
+        case CKK_DH:
+            rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            break;
         }
 
         if (rc != 0) {
@@ -5722,6 +5730,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                         __func__, rc);
             goto error;
         }
+        break;
     }
 
     /* key should be fully constructed.
