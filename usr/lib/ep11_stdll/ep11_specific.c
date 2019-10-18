@@ -5698,15 +5698,30 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /*
-     * In case of unwrapping an EC private key
-     * (CKA_CLASS == CKO_PRIVATE_KEY, CKA_KEY_TYPE == CKK_EC),
-     * the following attributes needs to be added to the new template.
-     * CKA_EC_PARAMS (curve's algorithm id)
-     * CKA_EC_POINT (public key information)
+     * In case of unwrapping a private key (CKA_CLASS == CKO_PRIVATE_KEY),
+     * the public key attributes needs to be added to the new template.
      */
-    if ((*(CK_OBJECT_CLASS *) cla_attr->pValue == CKO_PRIVATE_KEY) &&
-        (*(CK_KEY_TYPE *) keytype_attr->pValue == CKK_EC)) {
-        ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+    if (*(CK_OBJECT_CLASS *) cla_attr->pValue == CKO_PRIVATE_KEY) {
+        switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
+            case CKK_EC:
+                rc = ecdsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+                break;
+            case CKK_RSA:
+                rc = rsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+                break;
+            case CKK_DSA:
+                rc = dsa_priv_unwrap_get_data(key_obj->template, csum, cslen);
+                break;
+            case CKK_DH:
+                rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
+                break;
+        }
+
+        if (rc != 0) {
+            TRACE_ERROR("%s xxx_priv_unwrap_get_data rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
     }
 
     /* key should be fully constructed.
