@@ -2413,32 +2413,7 @@ cleanup:
  */
 //
 //
-CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
-                                 CK_BYTE *data, CK_ULONG total_length)
-{
-    CK_ATTRIBUTE *params = NULL;
-    CK_ATTRIBUTE *point = NULL;
-    CK_RV rc;
 
-    rc = der_decode_ECPublicKey(data, total_length, &params, &point);
-
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_ECPrivateKey failed\n");
-        return rc;
-    }
-
-    p11_attribute_trim(params);
-    p11_attribute_trim(point);
-
-    rc = template_update_attribute(tmpl, params);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_EC_PARAMS) failed\n");
-    rc = template_update_attribute(tmpl, point);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_EC_POINT) failed\n");
-
-    return CKR_OK;
-}
 
 
 //
