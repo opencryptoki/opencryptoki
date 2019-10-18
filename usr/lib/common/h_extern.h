@@ -2423,6 +2423,8 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
 CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len,
                       CK_BBOOL isopaque);
+CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length);
 
 // dsa routines
 //
@@ -2438,6 +2440,8 @@ CK_RV dsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 CK_RV dsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
 CK_RV dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
+CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length);
 
 // ecdsa routines
 //
@@ -2471,6 +2475,8 @@ CK_RV dh_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 CK_RV dh_priv_wrap_get_data(TEMPLATE *tmpl,
                             CK_BBOOL length_only, CK_BYTE **data,
                             CK_ULONG *data_len);
+CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length);
 CK_RV dh_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
 // KEA routines

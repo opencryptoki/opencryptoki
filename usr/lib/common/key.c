@@ -1632,6 +1632,34 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+
+CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length)
+{
+    CK_ATTRIBUTE *modulus = NULL;
+    CK_ATTRIBUTE *publ_exp = NULL;
+    CK_RV rc;
+
+    rc = ber_decode_RSAPublicKey(data, total_length, &modulus, &publ_exp);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_RSAPrivateKey failed\n");
+        return rc;
+    }
+
+    p11_attribute_trim(modulus);
+    p11_attribute_trim(publ_exp);
+
+    rc = template_update_attribute(tmpl, modulus);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_MODULUS) failed\n");
+    rc = template_update_attribute(tmpl, publ_exp);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_PUBLIC_EXPONENT) failed\n");
+
+    return CKR_OK;
+}
+
 // dsa_publ_check_required_attributes()
 //
 CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
@@ -2071,6 +2099,44 @@ CK_RV dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     template_update_attribute(tmpl, subprime);
     template_update_attribute(tmpl, base);
     template_update_attribute(tmpl, value);
+
+    return CKR_OK;
+}
+
+CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length)
+{
+    CK_ATTRIBUTE *prime = NULL;
+    CK_ATTRIBUTE *subprime = NULL;
+    CK_ATTRIBUTE *base = NULL;
+    CK_ATTRIBUTE *value = NULL;
+    CK_RV rc;
+
+    rc = ber_decode_DSAPublicKey(data, total_length, &prime, &subprime,
+                                 &base, &value);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_DSAPrivateKey failed\n");
+        return rc;
+    }
+
+    p11_attribute_trim(prime);
+    p11_attribute_trim(subprime);
+    p11_attribute_trim(base);
+    p11_attribute_trim(value);
+
+    rc = template_update_attribute(tmpl, prime);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_PRIME) failed\n");
+    rc = template_update_attribute(tmpl, subprime);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_SUBPRIME) failed\n");
+    rc = template_update_attribute(tmpl, base);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_BASE) failed\n");
+    rc = template_update_attribute(tmpl, value);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
 
     return CKR_OK;
 }
@@ -2704,6 +2770,38 @@ CK_RV dh_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     template_update_attribute(tmpl, prime);
     template_update_attribute(tmpl, base);
     template_update_attribute(tmpl, value);
+
+    return CKR_OK;
+}
+
+CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
+                              CK_BYTE *data, CK_ULONG total_length)
+{
+    CK_ATTRIBUTE *prime = NULL;
+    CK_ATTRIBUTE *base = NULL;
+    CK_ATTRIBUTE *value = NULL;
+    CK_RV rc;
+
+    rc = ber_decode_DHPublicKey(data, total_length, &prime, &base, &value);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_DCPrivateKey failed\n");
+        return rc;
+    }
+
+    p11_attribute_trim(prime);
+    p11_attribute_trim(base);
+    p11_attribute_trim(value);
+
+    rc = template_update_attribute(tmpl, prime);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_PRIME) failed\n");
+    rc = template_update_attribute(tmpl, base);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_BASE) failed\n");
+    rc = template_update_attribute(tmpl, value);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
 
     return CKR_OK;
 }
