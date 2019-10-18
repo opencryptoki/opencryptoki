@@ -2665,7 +2665,6 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *point_attr = NULL;
 
-    CK_BYTE *inner_seq = NULL;
     CK_BYTE *algid = NULL;
     CK_ULONG algid_len;
     CK_BYTE *algid_ECBase = NULL;
@@ -2673,24 +2672,17 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_ULONG param_len;
     CK_BYTE *point = NULL;
     CK_ULONG point_len;
-    CK_ULONG offset = 0;
     CK_ULONG field_len, len;
     CK_RV rc;
 
     UNUSED(data_len); // XXX can this parameter be removed ?
 
-    rc = ber_decode_SEQUENCE(data, &inner_seq, &len, &field_len);
+    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+                         &point, &point_len);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
-        return rc;
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
     }
-
-    rc = ber_decode_SEQUENCE(inner_seq, &algid, &algid_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-        return rc;
-    }
-    offset += field_len;
 
     /*
      * Make sure we're dealing with an EC key.
@@ -2708,18 +2700,6 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
         return CKR_FUNCTION_FAILED;
     }
 
-    /* skip the generic EC publ key ID and
-     * point to the curve specific parameter
-     */
-    param = algid + algid[1] + 2;
-    param_len = algid_len - algid[1] - 2;
-
-    rc = ber_decode_BIT_STRING(inner_seq + offset, &point, &point_len,
-                               &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-        goto cleanup;
-    }
     // build ec-parameter attribute
     rc = build_attribute(CKA_EC_PARAMS, param, param_len, &params_attr);
     if (rc != CKR_OK) {
