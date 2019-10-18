@@ -1701,6 +1701,100 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     return rc;
 }
 
+CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **modulus,
+                              CK_ATTRIBUTE **publ_exp)
+{
+    CK_ATTRIBUTE *modulus_attr = NULL;
+    CK_ATTRIBUTE *publ_exp_attr = NULL;
+
+    CK_BYTE *algid_RSABase = NULL;
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *val = NULL;
+    CK_ULONG val_len;
+    CK_BYTE *seq;
+    CK_ULONG seq_len;
+    CK_BYTE *mod;
+    CK_ULONG mod_len;
+    CK_BYTE *exp;
+    CK_ULONG exp_len;
+    CK_ULONG field_len, offset, len;
+    CK_RV rc;
+
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
+    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+                         &val, &val_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    /*
+     * Make sure we're dealing with an DH key.
+     */
+    rc = ber_decode_SEQUENCE(ber_AlgIdRSAEncryption, &algid_RSABase, &len,
+                             &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    if (memcmp(algid, algid_RSABase, len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ber_decode_SEQUENCE(val, &seq, &seq_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    rc = ber_decode_INTEGER(seq, &mod, &mod_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    offset = field_len;
+    rc = ber_decode_INTEGER(seq + offset, &exp, &exp_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    // build modulus attribute
+    rc = build_attribute(CKA_MODULUS, mod, mod_len, &modulus_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build base attribute
+    rc = build_attribute(CKA_PUBLIC_EXPONENT, exp, exp_len, &publ_exp_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *modulus = modulus_attr;
+    *publ_exp = publ_exp_attr;
+    return CKR_OK;
+
+cleanup:
+    if (modulus_attr)
+        free(modulus_attr);
+    if (publ_exp_attr)
+        free(publ_exp_attr);
+
+    return rc;
+}
+
+
 // DSA is a little different from RSA
 //
 // DSAPrivateKey ::= INTEGER
@@ -2196,6 +2290,123 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     return rc;
 }
+
+CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **prime,
+                              CK_ATTRIBUTE **subprime,
+                              CK_ATTRIBUTE **base,
+                              CK_ATTRIBUTE **value)
+{
+    CK_ATTRIBUTE *prime_attr = NULL;
+    CK_ATTRIBUTE *subprime_attr = NULL;
+    CK_ATTRIBUTE *base_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *val = NULL;
+    CK_ULONG val_len;
+    CK_BYTE *seq;
+    CK_ULONG seq_len;
+    CK_BYTE *p;
+    CK_ULONG p_len;
+    CK_BYTE *sp;
+    CK_ULONG sp_len;
+    CK_BYTE *b;
+    CK_ULONG b_len;
+    CK_ULONG field_len, offset;
+    CK_RV rc;
+
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
+    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+                         &val, &val_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    /*
+     * Make sure we're dealing with an DSA key.
+     */
+    if (memcmp(algid, ber_idDSA, ber_idDSALen) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ber_decode_SEQUENCE(param, &seq, &seq_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    rc = ber_decode_INTEGER(seq, &p, &p_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    offset = field_len;
+    rc = ber_decode_INTEGER(seq + offset, &sp, &sp_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    offset += field_len;
+    rc = ber_decode_INTEGER(seq + offset, &b, &b_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    // build prime attribute
+    rc = build_attribute(CKA_PRIME, p, p_len, &prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build subprime attribute
+    rc = build_attribute(CKA_SUBPRIME, sp, sp_len, &subprime_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build base attribute
+    rc = build_attribute(CKA_BASE, b, b_len, &base_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build value attribute
+    rc = build_attribute(CKA_VALUE, val, val_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *prime = prime_attr;
+    *subprime = subprime_attr;
+    *base = base_attr;
+    *value = value_attr;
+    return CKR_OK;
+
+cleanup:
+    if (prime_attr)
+        free(prime_attr);
+    if (subprime_attr)
+        free(subprime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
+
 
 /*
  * ECC Functions
@@ -3144,3 +3355,99 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     return rc;
 }
 
+
+CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
+                             CK_ULONG data_len,
+                             CK_ATTRIBUTE **prime,
+                             CK_ATTRIBUTE **base,
+                             CK_ATTRIBUTE **value)
+{
+    CK_ATTRIBUTE *prime_attr = NULL;
+    CK_ATTRIBUTE *base_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *val = NULL;
+    CK_ULONG val_len;
+    CK_BYTE *seq;
+    CK_ULONG seq_len;
+    CK_BYTE *p;
+    CK_ULONG p_len;
+    CK_BYTE *b;
+    CK_ULONG b_len;
+    CK_ULONG field_len, offset;
+    CK_RV rc;
+
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
+    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+                         &val, &val_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    /*
+     * Make sure we're dealing with an DH key.
+     */
+    if (memcmp(algid, ber_idDH, ber_idDHLen) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ber_decode_SEQUENCE(param, &seq, &seq_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    rc = ber_decode_INTEGER(seq, &p, &p_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    offset = field_len;
+    rc = ber_decode_INTEGER(seq + offset, &b, &b_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    // build prime attribute
+    rc = build_attribute(CKA_PRIME, p, p_len, &prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build base attribute
+    rc = build_attribute(CKA_BASE, b, b_len, &base_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+    // build value attribute
+    rc = build_attribute(CKA_VALUE, val, val_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *prime = prime_attr;
+    *base = base_attr;
+    *value = value_attr;
+    return CKR_OK;
+
+cleanup:
+    if (prime_attr)
+        free(prime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}

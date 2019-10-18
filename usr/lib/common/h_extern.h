@@ -2688,6 +2688,11 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
                               CK_ATTRIBUTE *publ_exp);
 
+CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **modulus,
+                              CK_ATTRIBUTE **publ_exp);
+
 CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
@@ -2728,6 +2733,13 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base,
                               CK_ATTRIBUTE *value);
 
+CK_RV ber_decode_DSAPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **prime,
+                              CK_ATTRIBUTE **subprime,
+                              CK_ATTRIBUTE **base,
+                              CK_ATTRIBUTE **value);
+
 CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
@@ -2742,6 +2754,12 @@ CK_RV ber_decode_DHPrivateKey(CK_BYTE *data,
 CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *prime,
                              CK_ATTRIBUTE *base, CK_ATTRIBUTE *value);
+
+CK_RV ber_decode_DHPublicKey(CK_BYTE *data,
+                             CK_ULONG data_len,
+                             CK_ATTRIBUTE **prime,
+                             CK_ATTRIBUTE **base,
+                             CK_ATTRIBUTE **value);
 
 CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
                                 CK_ULONG data_len,
