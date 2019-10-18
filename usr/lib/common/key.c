@@ -1632,72 +1632,6 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
     return CKR_OK;
 }
 
-/*
- * create the ASN.1 encoding for the private key for wrapping as defined
- * in PKCS #8
- *
- * ASN.1 type PrivateKeyInfo ::= SEQUENCE {
- *    version Version
- *    privateKeyAlgorithm  PrivateKeyAlgorithmIdentifier
- *    privateKey PrivateKey
- *    attributes OPTIONAL
- * }
- *
- * Where PrivateKey is defined as follows for EC:
- *
- * ASN.1 type RSAPrivateKey
- *
- * ECPrivateKey ::= SEQUENCE {
- *   version Version
- *   privateKey OCTET STRING
- *   parameters [0] ECParameters (OPTIONAL)
- *   publicKey  [1] BIT STRING (OPTIONAL)
- * }
- */
-CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
-                               CK_BBOOL length_only,
-                               CK_BYTE **data, CK_ULONG *data_len)
-{
-    CK_ATTRIBUTE *params = NULL;
-    CK_ATTRIBUTE *point = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
-    CK_ATTRIBUTE *pubkey = NULL;
-    CK_RV rc;
-
-
-    // compute the total length of the BER-encoded data
-    //
-    if (template_attribute_find(tmpl, CKA_EC_PARAMS, &params) == FALSE) {
-        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
-        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    // CKA_IBM_OPAQUE is used for secure key, if it is not available, then
-    // assume using clear key and get rest of attributes required for clear key.
-
-    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
-        if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
-            TRACE_ERROR("Could not find EC Point for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-    }
-
-    /* check if optional public-key part was defined */
-    template_attribute_find(tmpl, CKA_EC_POINT, &pubkey);
-
-    rc = der_encode_ECPrivateKey(length_only, data, data_len, params,
-                                 point, opaque, pubkey);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("der_encode_ECPrivateKey failed\n");
-    }
-
-    return rc;
-}
-
-
 // dsa_publ_check_required_attributes()
 //
 CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
@@ -2366,6 +2300,98 @@ CK_BBOOL ecdsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
     }
 
     return TRUE;
+}
+
+/*
+ * create the ASN.1 encoding for the private key for wrapping as defined
+ * in PKCS #8
+ *
+ * ASN.1 type PrivateKeyInfo ::= SEQUENCE {
+ *    version Version
+ *    privateKeyAlgorithm  PrivateKeyAlgorithmIdentifier
+ *    privateKey PrivateKey
+ *    attributes OPTIONAL
+ * }
+ *
+ * Where PrivateKey is defined as follows for EC:
+ *
+ * ASN.1 type RSAPrivateKey
+ *
+ * ECPrivateKey ::= SEQUENCE {
+ *   version Version
+ *   privateKey OCTET STRING
+ *   parameters [0] ECParameters (OPTIONAL)
+ *   publicKey  [1] BIT STRING (OPTIONAL)
+ * }
+ */
+CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
+                               CK_BBOOL length_only,
+                               CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *params = NULL;
+    CK_ATTRIBUTE *point = NULL;
+    CK_ATTRIBUTE *opaque = NULL;
+    CK_ATTRIBUTE *pubkey = NULL;
+    CK_RV rc;
+
+
+    // compute the total length of the BER-encoded data
+    //
+    if (template_attribute_find(tmpl, CKA_EC_PARAMS, &params) == FALSE) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
+        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    // CKA_IBM_OPAQUE is used for secure key, if it is not available, then
+    // assume using clear key and get rest of attributes required for clear key.
+
+    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
+        if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
+            TRACE_ERROR("Could not find EC Point for the key.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    /* check if optional public-key part was defined */
+    template_attribute_find(tmpl, CKA_EC_POINT, &pubkey);
+
+    rc = der_encode_ECPrivateKey(length_only, data, data_len, params,
+                                 point, opaque, pubkey);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("der_encode_ECPrivateKey failed\n");
+    }
+
+    return rc;
+}
+
+CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
+                                 CK_BYTE *data, CK_ULONG total_length)
+{
+    CK_ATTRIBUTE *params = NULL;
+    CK_ATTRIBUTE *point = NULL;
+    CK_RV rc;
+
+    rc = der_decode_ECPublicKey(data, total_length, &params, &point);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_ECPrivateKey failed\n");
+        return rc;
+    }
+
+    p11_attribute_trim(params);
+    p11_attribute_trim(point);
+
+    rc = template_update_attribute(tmpl, params);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_EC_PARAMS) failed\n");
+    rc = template_update_attribute(tmpl, point);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("template_update_attribute(CKA_EC_POINT) failed\n");
+
+    return CKR_OK;
 }
 
 
