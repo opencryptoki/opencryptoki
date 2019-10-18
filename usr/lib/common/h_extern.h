@@ -2680,6 +2680,10 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **coeff,
                                CK_ATTRIBUTE **opaque, CK_BBOOL isopaque);
 
+CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
+                              CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
+                              CK_ATTRIBUTE *publ_exp);
+
 CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
@@ -2693,6 +2697,10 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ATTRIBUTE **pub_key,
                               CK_ATTRIBUTE **priv_key,
                               CK_ATTRIBUTE **opaque_key, CK_BBOOL isOpaque);
+
+CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
+                             CK_ULONG *data_len, CK_ATTRIBUTE *params,
+                             CK_ATTRIBUTE *point);
 
 CK_RV der_decode_ECPublicKey(CK_BYTE *data,
                              CK_ULONG data_len,
@@ -2711,6 +2719,11 @@ CK_RV ber_decode_DSAPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **subprime,
                                CK_ATTRIBUTE **base, CK_ATTRIBUTE **priv_key);
 
+CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
+                              CK_ULONG *data_len, CK_ATTRIBUTE *prime,
+                              CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base,
+                              CK_ATTRIBUTE *value);
+
 CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
                               CK_BYTE **data,
                               CK_ULONG *data_len,
@@ -2721,6 +2734,10 @@ CK_RV ber_decode_DHPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **prime,
                               CK_ATTRIBUTE **base, CK_ATTRIBUTE **priv_key);
+
+CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
+                             CK_ULONG *data_len, CK_ATTRIBUTE *prime,
+                             CK_ATTRIBUTE *base, CK_ATTRIBUTE *value);
 
 CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
                                 CK_ULONG data_len,
