@@ -947,6 +947,68 @@ CK_RV ber_decode_PrivateKeyInfo(CK_BYTE *data,
     return rc;
 }
 
+/*Extract data from an SPKI
+ *   SubjectPublicKeyInfo ::= SEQUENCE {
+ *     algorithm         AlgorithmIdentifier,
+ *     subjectPublicKey  BIT STRING
+ *   }
+ *
+ *   AlgorithmIdentifier ::= SEQUENCE {
+ *     algorithm   OBJECT IDENTIFIER,
+ *     parameters  ANY DEFINED BY algorithm OPTIONAL
+ *   }
+ */
+CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_BYTE **alg_oid, CK_ULONG *alg_oid_len,
+                      CK_BYTE **param, CK_ULONG *param_len,
+                      CK_BYTE **key, CK_ULONG *key_len)
+{
+    CK_BYTE *out_seq, *id_seq, *bit_str;
+    CK_BYTE *data;
+    CK_ULONG data_len;
+    CK_ULONG field_len;
+    CK_RV rc;
+
+    *alg_oid_len = 0;
+    *param_len = 0;
+    *key_len = 0;
+    out_seq = spki;
+    rc = ber_decode_SEQUENCE(out_seq, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    id_seq = out_seq + field_len - data_len;
+    /* get id seq */
+    rc = ber_decode_SEQUENCE(id_seq, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    *alg_oid = data;
+    *alg_oid_len = data[1] + 2;
+
+    *param = data + *alg_oid_len;
+    *param_len = data_len - *alg_oid_len;
+
+    bit_str = id_seq + field_len;
+    /* get bitstring */
+    rc = ber_decode_BIT_STRING(bit_str, key, key_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_BIT_STRING failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    (*key_len)--; /* remove 'unused bits' byte from length */
+    (*key)++;
+
+    return CKR_OK;
+}
+
 
 // RSAPrivateKey ::= SEQUENCE {
 //    version  Version  -- always '0' for now

@@ -2656,6 +2656,10 @@ CK_RV ber_decode_PrivateKeyInfo(CK_BYTE *data,
                                 CK_BYTE **algorithm_id,
                                 CK_ULONG *alg_len, CK_BYTE **priv_key);
 
+CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_BYTE **alg_oid, CK_ULONG *alg_oid_len,
+                      CK_BYTE **param, CK_ULONG *param_len,
+                      CK_BYTE **key, CK_ULONG *key_len);
+
 CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
                                CK_BYTE **data,
                                CK_ULONG *data_len,

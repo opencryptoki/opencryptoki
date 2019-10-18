@@ -695,94 +695,6 @@ static CK_RV check_key_restriction(OBJECT *key_obj, CK_ATTRIBUTE_TYPE type)
     return CKR_OK;
 }
 
-
-
-/* get the public key from a SPKI
- *   SubjectPublicKeyInfo ::= SEQUENCE {
- *     algorithm         AlgorithmIdentifier,
- *     subjectPublicKey  BIT STRING
- *   }
- *
- *   AlgorithmIdentifier ::= SEQUENCE {
- *     algorithm   OBJECT IDENTIFIER,
- *     parameters  ANY DEFINED BY algorithm OPTIONAL
- *   }
- */
-static CK_RV ep11_spki_key(CK_BYTE * spki, CK_BYTE ** key, CK_ULONG * bit_str_len)
-{
-    CK_BYTE *out_seq, *id_seq, *bit_str;
-    CK_BYTE *data;
-    CK_ULONG data_len;
-    CK_ULONG field_len;
-    CK_ULONG key_len_bytes;
-    CK_RV rc;
-    CK_ULONG length_octets = 0;
-    CK_ULONG len = 0;
-
-    *bit_str_len = 0;
-    out_seq = spki;
-    rc = ber_decode_SEQUENCE(out_seq, &data, &data_len, &field_len);
-
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_decode_SEQUENCE #1 failed rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
-    id_seq = out_seq + field_len - data_len;
-    /* get id seq length */
-    rc = ber_decode_SEQUENCE(id_seq, &data, &data_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s ber_decode_SEQUENCE #2 failed rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
-    }
-
-    bit_str = id_seq + field_len;
-    /* we should be at a bistring */
-    if (bit_str[0] != 0x03) {
-        TRACE_ERROR("%s ber_decode no BITSTRING\n", __func__);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if ((bit_str[1] & 0x80) == 0) {
-        key_len_bytes = 1;
-        *bit_str_len = bit_str[1] & 0x7F;
-    } else {
-        key_len_bytes = 1 + (bit_str[1] & 0x7F);
-    }
-
-    *key = bit_str + key_len_bytes + 2; /* one 'unused bits' byte */
-
-    if (*bit_str_len == 0) {
-        length_octets = bit_str[1] & 0x7F;
-
-        if (length_octets == 1) {
-            len = bit_str[2];
-        }
-
-        if (length_octets == 2) {
-            len = bit_str[2];
-            len = len << 8;
-            len |= bit_str[3];
-        }
-
-        if (length_octets == 3) {
-            len = bit_str[2];
-            len = len << 8;
-            len |= bit_str[3];
-            len = len << 8;
-            len |= bit_str[4];
-        }
-        *bit_str_len = len;
-    }
-
-    (*bit_str_len)--; /* remove 'unused bits' byte from length */
-
-    return CKR_OK;
-}
-
-
 static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
                               CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
 {
@@ -3687,8 +3599,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG data_len;
     CK_ULONG field_len;
     CK_BYTE *data;
-    CK_BYTE *y_start;
-    CK_ULONG bit_str_len;
+    CK_BYTE *y_start, *oid, *parm;
+    CK_ULONG bit_str_len, oid_len, parm_len;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
@@ -3896,7 +3808,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
 #endif
 
     /* CKA_VALUE of the public key must hold 'y' */
-    rc = ep11_spki_key(publblob, &y_start, &bit_str_len);
+    rc = ber_decode_SPKI(publblob, &oid, &oid_len, &parm, &parm_len,
+                         &y_start, &bit_str_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s ber_decode SKPI failed rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
@@ -3979,8 +3892,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG i;
     CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
     CK_BYTE *key;
-    CK_BYTE *data;
-    CK_ULONG data_len, field_len, bit_str_len;
+    CK_BYTE *data, *oid, *parm;
+    CK_ULONG data_len, field_len, bit_str_len, oid_len, parm_len;
     CK_ATTRIBUTE_PTR dsa_pPublicKeyTemplate = NULL;
     CK_ULONG dsa_ulPublicKeyAttributeCount = 0;
     CK_ATTRIBUTE_PTR dsa_pPrivateKeyTemplate = NULL;
@@ -4213,7 +4126,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     /* set CKA_VALUE of the public key, first get key from SPKI */
-    rc = ep11_spki_key(publblob, &key, &bit_str_len);
+    rc = ber_decode_SPKI(publblob, &oid, &oid_len, &parm, &parm_len,
+                         &key, &bit_str_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s reading DSA SPKI failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
@@ -4281,8 +4195,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG i;
     CK_ULONG bit_str_len;
     CK_BYTE *key;
-    CK_BYTE *data;
-    CK_ULONG data_len;
+    CK_BYTE *data, *oid, *parm;
+    CK_ULONG data_len, oid_len, parm_len;
     CK_ULONG field_len;
     CK_ATTRIBUTE_PTR new_pPublicKeyTemplate = NULL;
     CK_ULONG new_ulPublicKeyAttributeCount = 0;
@@ -4427,7 +4341,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_DEBUG("%s ec_generate_keypair spki:\n", __func__);
         TRACE_DEBUG_DUMP(spki, spki_len);
 #endif
-        rc = ep11_spki_key(spki, &key, &bit_str_len);
+        rc = ber_decode_SPKI(spki, &oid, &oid_len, &parm, &parm_len,
+                             &key, &bit_str_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
                         __func__, rc);
@@ -4509,7 +4424,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
          */
         CK_BYTE *modulus, *publ_exp;
 
-        rc = ep11_spki_key(spki, &key, &bit_str_len);
+        rc = ber_decode_SPKI(spki, &oid, &oid_len, &parm, &parm_len,
+                             &key, &bit_str_len);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n",
                         __func__, rc);
