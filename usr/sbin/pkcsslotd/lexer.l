@@ -49,6 +49,18 @@ extern void yyerror(const char *s);
 			  return EOL;
 			}
 
+[0-9]+"."[0-9]+		{ /* version */
+			  unsigned long major, minor;
+			  char *dot = strchr(yytext, '.');
+
+			  *dot = '\0';
+			  major = strtoul(yytext, NULL, 10);
+			  minor = strtoul(dot + 1, NULL, 10);
+
+			  yylval.num = (uint32_t)major << 16 | (uint32_t)minor;
+			  return TOKVERSION;
+			}
+
 [0-9]+			{ /* number */
 			  yylval.num = strtoul(yytext, NULL, 10);
 			  return INTEGER;

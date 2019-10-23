@@ -6,6 +6,7 @@ noinst_HEADERS +=							\
 opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS =				\
 	-DDEV -D_THREAD_SAFE -DSHALLOW=0 -DEPSWTOK=1 -DLITE=0 -DNOCDMF	\
 	-DNOMD2	-DNORIPE -fPIC -DDEFENSIVE_MECHLIST			\
+	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-DSTDLL_NAME=\"ep11tok\"					\
 	-I${srcdir}/usr/lib/ep11_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include

@@ -5,6 +5,7 @@ noinst_HEADERS += usr/lib/ica_s390_stdll/tok_struct.h
 opencryptoki_stdll_libpkcs11_ica_la_CFLAGS =				\
 	-DDEV -D_THREAD_SAFE -fPIC -DSHALLOW=0 -DSWTOK=0 -DLITE=1	\
 	-DNODH -DNOCDMF -DNOMD2 -DNODSA -DSTDLL_NAME=\"icatok\"		\
+	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	$(ICA_INC_DIRS) -I${srcdir}/usr/lib/ica_s390_stdll		\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include
 

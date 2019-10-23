@@ -50,6 +50,18 @@ extern CK_BYTE master_key[MAX_KEY_SIZE];
 extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
 extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 
+#define SO_PIN_DEFAULT			"87654321"
+#define SO_KDF_LOGIN_IT			100000ULL
+#define SO_KDF_LOGIN_PURPOSE		"so_login_purpose________________"
+#define SO_KDF_WRAP_IT			100000ULL
+#define SO_KDF_WRAP_PURPOSE		"so_wrap_purpose_________________"
+
+#define USER_PIN_DEFAULT		"12345678"
+#define USER_KDF_LOGIN_IT		100000ULL
+#define USER_KDF_LOGIN_PURPOSE		"user_login_purpose______________"
+#define USER_KDF_WRAP_IT		100000ULL
+#define USER_KDF_WRAP_PURPOSE		"user_wrap_purpose_______________"
+
 extern CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
 extern CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
@@ -443,8 +455,8 @@ CK_RV communicate(CK_ULONG cmd_id,
 CK_RV compute_next_token_obj_name(CK_BYTE *current, CK_BYTE *next);
 
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
-CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
+CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 
 CK_RV load_public_token_objects(STDLL_TokData_t *tokdata);
 CK_RV load_private_token_objects(STDLL_TokData_t *tokdata);
@@ -452,7 +464,10 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata);
 CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 
 CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
-                                   CK_BYTE *data, CK_ULONG len, OBJECT *pObj);
+                                   CK_BYTE *header,
+                                   CK_BYTE *data, CK_ULONG len,
+                                   CK_BYTE *footer,
+                                   OBJECT *pObj);
 
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *ptr);
 CK_RV delete_token_data(STDLL_TokData_t *tokdata);

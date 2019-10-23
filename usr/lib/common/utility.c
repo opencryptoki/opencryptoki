@@ -22,6 +22,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <pthread.h>
+#include <openssl/evp.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -549,18 +550,81 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
 CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 {
     CK_RV rc;
+    TOKEN_DATA_VERSION *dat = &tokdata->nv_token_data->dat;
 
     memset((char *) tokdata->nv_token_data, 0, sizeof(TOKEN_DATA));
 
     // the normal USER pin is not set when the token is initialized
     //
-    memcpy(tokdata->nv_token_data->user_pin_sha, "00000000000000000000",
-           SHA1_HASH_SIZE);
-    memcpy(tokdata->nv_token_data->so_pin_sha, default_so_pin_sha,
-           SHA1_HASH_SIZE);
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        memcpy(tokdata->nv_token_data->user_pin_sha, "00000000000000000000",
+               SHA1_HASH_SIZE);
+        memcpy(tokdata->nv_token_data->so_pin_sha, default_so_pin_sha,
+               SHA1_HASH_SIZE);
 
-    memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
-    memcpy(tokdata->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
+        memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
+        memcpy(tokdata->so_pin_md5, default_so_pin_md5, MD5_HASH_SIZE);
+    } else {
+        int rv;
+
+        dat->version = tokdata->version;
+
+        /* SO login key */
+        dat->so_login_it = SO_KDF_LOGIN_IT;
+        memcpy(dat->so_login_salt, SO_KDF_LOGIN_PURPOSE, 32);
+        rng_generate(tokdata, dat->so_login_salt + 32, 32);
+
+        rv = PKCS5_PBKDF2_HMAC(SO_PIN_DEFAULT, strlen(SO_PIN_DEFAULT),
+	                       dat->so_login_salt, 64,
+                               dat->so_login_it, EVP_sha512(),
+                               256 / 8, dat->so_login_key);
+        if (rv != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* SO wrap key */
+        dat->so_wrap_it = SO_KDF_WRAP_IT;
+        memcpy(dat->so_wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
+        rng_generate(tokdata, dat->so_wrap_salt + 32, 32);
+
+        rv = PKCS5_PBKDF2_HMAC(SO_PIN_DEFAULT, strlen(SO_PIN_DEFAULT),
+	                       dat->so_wrap_salt, 64,
+                               dat->so_wrap_it, EVP_sha512(),
+                               256 / 8, tokdata->so_wrap_key);
+        if (rv != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* User login key */
+        dat->user_login_it = USER_KDF_LOGIN_IT;
+        memcpy(dat->user_login_salt, USER_KDF_LOGIN_PURPOSE, 32);
+        rng_generate(tokdata, dat->user_login_salt + 32, 32);
+
+        rv = PKCS5_PBKDF2_HMAC(USER_PIN_DEFAULT, strlen(USER_PIN_DEFAULT),
+	                       dat->user_login_salt, 64,
+                               dat->user_login_it, EVP_sha512(),
+                               256 / 8, dat->user_login_key);
+        if (rv != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* User wrap key */
+        dat->user_wrap_it = USER_KDF_WRAP_IT;
+        memcpy(dat->user_wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
+        rng_generate(tokdata, dat->user_wrap_salt + 32, 32);
+
+        rv = PKCS5_PBKDF2_HMAC(USER_PIN_DEFAULT, strlen(USER_PIN_DEFAULT),
+	                       dat->user_wrap_salt, 64,
+                               dat->user_wrap_it, EVP_sha512(),
+                               256 / 8, tokdata->user_wrap_key);
+        if (rv != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    }
 
     memcpy(tokdata->nv_token_data->next_token_object_name, "00000000", 8);
 

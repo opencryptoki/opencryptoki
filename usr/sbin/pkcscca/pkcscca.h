@@ -15,9 +15,10 @@
  *
  */
 
-
 #ifndef __PKCSCCA_H_
 #define __PKCSCCA_H_
+
+#include <stdint.h>
 
 #define CCA_LIBRARY "libcsulcca.so"
 #define TOK_DATASTORE   CONFIG_PATH "/ccatok"
@@ -118,6 +119,25 @@ typedef struct _TWEAK_VEC {
     int netscape_mods;
 } TWEAK_VEC;
 
+typedef struct _TOKEN_DATA_VERSION {
+    uint32_t version; /* major<<16|minor */
+    /* --- PBKDF2 --- */
+    /* SO login */
+    uint64_t so_login_it;
+    unsigned char so_login_salt[64];
+    unsigned char so_login_key[32];
+    /* User login */
+    uint64_t user_login_it;
+    unsigned char user_login_salt[64];
+    unsigned char user_login_key[32];
+    /* SO MK wrap */
+    uint64_t so_wrap_it;
+    unsigned char so_wrap_salt[64];
+    /* User MK wrap */
+    uint64_t user_wrap_it;
+    unsigned char user_wrap_salt[64];
+} TOKEN_DATA_VERSION;
+
 typedef struct _TOKEN_DATA {
     CK_TOKEN_INFO_32 token_info;
 
@@ -125,7 +145,19 @@ typedef struct _TOKEN_DATA {
     CK_BYTE so_pin_sha[3 * DES_BLOCK_SIZE];
     CK_BYTE next_token_object_name[8];
     TWEAK_VEC tweak_vector;
+
+    /* new for tokversion >= 3.12 */
+    TOKEN_DATA_VERSION dat;
 } TOKEN_DATA;
+
+typedef struct _TOKEN_DATA_OLD {
+    CK_TOKEN_INFO_32 token_info;
+
+    CK_BYTE user_pin_sha[3 * DES_BLOCK_SIZE];
+    CK_BYTE so_pin_sha[3 * DES_BLOCK_SIZE];
+    CK_BYTE next_token_object_name[8];
+    TWEAK_VEC tweak_vector;
+} TOKEN_DATA_OLD;
 
 struct key {
     CK_OBJECT_HANDLE handle;

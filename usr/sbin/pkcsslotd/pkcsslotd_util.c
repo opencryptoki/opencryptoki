@@ -104,6 +104,8 @@ void PopulateSlotInfo(Slot_Info_t_64 *slot_info, unsigned int *processed)
                    &sinfo[id].pk_slot.firmwareVersion,
                    sizeof(sinfo[id].pk_slot.firmwareVersion));
 
+            slot_info[id].version = sinfo[id].version;
+
             slot_count++;
         }
     }
