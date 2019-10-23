@@ -228,10 +228,42 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
             goto done;
         }
     } else if ((size_t)stat_buf.st_size != real_len) {
-        rc = -1;
-        TRACE_ERROR("Error: shared memory \"%s\" exists and does not "
-                    "match the expected size.\n", name);
-        goto done;
+        int ref;
+
+        /* get ref count */
+        addr = mmap(NULL, sizeof(*ctx), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (addr == NULL) {
+            rc = -errno;
+            SYS_ERROR(errno, "Failed to map \"%s\" to memory.\n", name);
+            goto done;
+        }
+        ctx = addr;
+        ref = ctx->ref;
+        if (munmap(addr, sizeof(*ctx))) {
+            rc = -errno;
+            SYS_ERROR(errno, "Failed to unmap \"%s\" (%p).\n", name, (void *)ctx);
+            goto done;;
+        }
+
+        /*
+         * Too big real_len indicates the new token data format is used.
+         * If no application is attached to the shm (ref==1) it can be
+         * safely expanded/recreated. Otherwise, fail.
+         */
+        if (ref <= 1 && real_len > (size_t)stat_buf.st_size) {
+            created = 1;
+            TRACE_DEVEL("Truncating \"%s\".\n", name);
+            if (ftruncate(fd, real_len) < 0) {
+                rc = -errno;
+                SYS_ERROR(errno, "Cannot truncate \"%s\".\n", name);
+                goto done;
+            }
+        } else {
+            rc = -1;
+            TRACE_ERROR("Error: shared memory \"%s\" exists and does not "
+                        "match the expected size.\n", name);
+            goto done;
+        }
     }
 
     addr = mmap(NULL, real_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -303,7 +335,7 @@ int sm_close(void *addr, int destroy)
     ref = --ctx->ref;
     TRACE_DEVEL("close: ref = %d\n", ref);
     if (ref == 0 && destroy) {
-        strncpy(name, ctx->name, SM_NAME_LEN);
+        strncpy(name, ctx->name, SM_NAME_LEN + 1);
         name[SM_NAME_LEN] = '\0';
     }
 

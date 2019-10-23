@@ -6293,7 +6293,7 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
         }
     } else {
         if (conf_name && strlen(conf_name) > 0) {
-            strncpy(fname, conf_name, sizeof(fname));
+            strncpy(fname, conf_name, sizeof(fname) - 1);
             fname[sizeof(fname) - 1] = '\0';
             ap_fp = fopen(fname, "r");
             if (!ap_fp) {
@@ -6642,9 +6642,8 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                 strcpy(cfgname + strlen(cfg_dir) + 1,
                        ep11_data->cp_filter_config_filename);
             }
-
-            strncpy(ep11_data->cp_filter_config_filename, cfgname,
-                    sizeof(ep11_data->cp_filter_config_filename));
+            if (strlen(cfgname) < sizeof(ep11_data->cp_filter_config_filename))
+                strcpy(ep11_data->cp_filter_config_filename, cfgname);
             ep11_data->cp_filter_config_filename[
                 sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
         }

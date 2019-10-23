@@ -64,6 +64,9 @@ For example, tokname=ep11tok01
 
 Note: This key-value pair is optional: If only one token per token type is used,
 you don't need that entry. In that case the default directory name is used.
+.TP
+.BR tokversion
+Version number of the slot's token of the form <major>.<minor>.
 
 .SH Notes
 The pound sign ('#') is used to indicate a comment.

@@ -22,6 +22,8 @@
 #include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
 
 #include "pkcs11types.h"
 #include "stdll.h"
@@ -154,6 +156,11 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
     } else {
         init_data_store((char *) PK_DIR, sltp->TokData->data_store);
     }
+
+    sltp->TokData->version = sinfp->version;
+    TRACE_DEVEL("Token version: %u.%u\n",
+                (unsigned int)(sltp->TokData->version >> 16),
+                (unsigned int)(sltp->TokData->version & 0xffff));
 
     /* Initialize lock */
     if (XProcLock_Init(sltp->TokData) != CKR_OK) {
@@ -429,6 +436,8 @@ CK_RV SC_InitToken(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 {
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
+    unsigned char login_key[32];
+    TOKEN_DATA_VERSION *dat;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -447,12 +456,30 @@ CK_RV SC_InitToken(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
         goto done;
     }
 
-    rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-    if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE) !=
-        0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-        rc = CKR_PIN_INCORRECT;
-        goto done;
+    dat = &tokdata->nv_token_data->dat;
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+        if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE)
+            != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            rc = CKR_PIN_INCORRECT;
+            goto done;
+        }
+    } else {
+        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+                               dat->so_login_salt, 64,
+                               dat->so_login_it, EVP_sha512(),
+                               256 / 8, login_key);
+        if (rc != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+        if (CRYPTO_memcmp(dat->so_login_key, login_key, 32) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+            rc = CKR_PIN_INCORRECT;
+            goto done;
+        }
     }
 
     /* Before we reconstruct all the data, we should delete the
@@ -463,7 +490,11 @@ CK_RV SC_InitToken(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 
     load_token_data(tokdata, sid);
     init_slotInfo(&(tokdata->slot_info));
-    memcpy(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        memcpy(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE);
+    } else {
+        memcpy(dat->so_login_key, login_key, 32);
+    }
     tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
     memcpy(tokdata->nv_token_data->token_info.label, pLabel, 32);
 
@@ -487,6 +518,9 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_BYTE hash_md5[MD5_HASH_SIZE];
     CK_RV rc = CKR_OK;
+    TOKEN_DATA_VERSION *dat;
+    unsigned char login_key[32], wrap_key[32], login_salt[64], wrap_salt[64];
+    uint64_t login_it, wrap_it;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -521,12 +555,45 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         rc = CKR_PIN_LEN_RANGE;
         goto done;
     }
-    /* compute the SHA and MD5 hashes of the user pin */
-    rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-    rc |= compute_md5(tokdata, pPin, ulPinLen, hash_md5);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
-        goto done;
+
+
+    dat = &tokdata->nv_token_data->dat;
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        /* compute the SHA and MD5 hashes of the user pin */
+        rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+        rc |= compute_md5(tokdata, pPin, ulPinLen, hash_md5);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to compute sha or md5 for user pin.\n");
+            goto done;
+        }
+    } else {
+        login_it = USER_KDF_LOGIN_IT;
+        memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
+        rng_generate(tokdata, login_salt + 32, 32);
+
+        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+                               login_salt, 64,
+                               login_it, EVP_sha512(),
+                               256 / 8, login_key);
+        if (rc != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        wrap_it = USER_KDF_WRAP_IT;
+        memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
+        rng_generate(tokdata, wrap_salt + 32, 32);
+
+        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+                               wrap_salt, 64,
+                               wrap_it, EVP_sha512(),
+                               256 / 8, wrap_key);
+        if (rc != 1) {
+            TRACE_DEVEL("PBKDF2 failed.\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     rc = XProcLock(tokdata);
@@ -535,7 +602,14 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        memcpy(tokdata->nv_token_data->user_pin_sha, hash_sha, SHA1_HASH_SIZE);
+    } else {
+        memcpy(dat->user_login_key, login_key, 256 / 8);
+        memcpy(dat->user_login_salt, login_salt, 64);
+        dat->user_login_it = login_it;
+    }
+
     tokdata->nv_token_data->token_info.flags |= CKF_USER_PIN_INITIALIZED;
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_TO_BE_CHANGED);
     tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_LOCKED);
@@ -546,7 +620,14 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
+    } else {
+        memcpy(tokdata->user_wrap_key, wrap_key, 256 / 8);
+        memcpy(dat->user_wrap_salt, wrap_salt, 64);
+        dat->user_wrap_it = wrap_it;
+    }
+
     rc = save_token_data(tokdata, sess->session_info.slotID);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to save token data.\n");
@@ -572,6 +653,10 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     CK_BYTE new_hash_sha[SHA1_HASH_SIZE];
     CK_BYTE hash_md5[MD5_HASH_SIZE];
     CK_RV rc = CKR_OK;
+    TOKEN_DATA_VERSION *dat;
+    unsigned char old_login_key[32], new_login_key[32], new_wrap_key[32],
+                  new_login_key_old_salt[32], login_salt[64], wrap_salt[64];
+    uint64_t login_it, wrap_it;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -600,11 +685,16 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         rc = CKR_PIN_LEN_RANGE;
         goto done;
     }
-    rc = compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to compute sha for old pin.\n");
-        goto done;
+
+    dat = &tokdata->nv_token_data->dat;
+    if (tokdata->version < TOK_NEW_DATA_STORE) {
+        rc = compute_sha1(tokdata, pOldPin, ulOldLen, old_hash_sha);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to compute sha for old pin.\n");
+            goto done;
+        }
     }
+
     /* From the PKCS#11 2.20 spec: "C_SetPIN modifies the PIN of
      * the user that is currently logged in, or the CKU_USER PIN
      * if the session is not logged in."  A non R/W session fails
@@ -612,26 +702,92 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
      */
     if ((sess->session_info.state == CKS_RW_USER_FUNCTIONS) ||
         (sess->session_info.state == CKS_RW_PUBLIC_SESSION)) {
-        if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            rc = CKR_PIN_INCORRECT;
-            goto done;
-        }
-        rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
-        rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to compute hash for new pin.\n");
-            goto done;
-        }
-        /* The old PIN matches, now make sure its different
-         * than the new and is not the default. */
-        if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
-            (memcmp(new_hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)
-             == 0)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
-            rc = CKR_PIN_INVALID;
-            goto done;
+
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            if (memcmp(tokdata->nv_token_data->user_pin_sha, old_hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
+            rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to compute hash for new pin.\n");
+                goto done;
+            }
+            /* The old PIN matches, now make sure its different
+             * than the new and is not the default. */
+            if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
+                (memcmp(new_hash_sha, default_user_pin_sha, SHA1_HASH_SIZE)
+                 == 0)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+        } else {
+            login_it = USER_KDF_LOGIN_IT;
+            memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
+            rng_generate(tokdata, login_salt + 32, 32);
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           login_salt, 64,
+                                   login_it, EVP_sha512(),
+                                   256 / 8, new_login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            wrap_it = USER_KDF_WRAP_IT;
+            memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
+            rng_generate(tokdata, wrap_salt + 32, 32);
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           wrap_salt, 64,
+                                   wrap_it, EVP_sha512(),
+                                   256 / 8, new_wrap_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pOldPin, ulOldLen,
+	                           dat->user_login_salt, 64,
+                                   dat->user_login_it, EVP_sha512(),
+                                   256 / 8, old_login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           dat->user_login_salt, 64,
+                                   dat->user_login_it, EVP_sha512(),
+                                   256 / 8, new_login_key_old_salt);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(dat->user_login_key,
+                              old_login_key, 256 / 8) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+            /* The old PIN matches, now make sure its different
+             * than the new and is not the default. */
+            if (CRYPTO_memcmp(old_login_key,
+                              new_login_key_old_salt, 256 / 8) == 0)
+            {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
         }
 
         rc = XProcLock(tokdata);
@@ -640,9 +796,19 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
             goto done;
         }
 
-        memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
-               SHA1_HASH_SIZE);
-        memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            memcpy(tokdata->nv_token_data->user_pin_sha, new_hash_sha,
+                   SHA1_HASH_SIZE);
+            memcpy(tokdata->user_pin_md5, hash_md5, MD5_HASH_SIZE);
+        } else {
+            memcpy(dat->user_login_key, new_login_key, 256 / 8);
+            memcpy(dat->user_login_salt, login_salt, 64);
+            dat->user_login_it = login_it;
+            memcpy(tokdata->user_wrap_key, new_wrap_key, 256 / 8);
+            memcpy(dat->user_wrap_salt, wrap_salt, 64);
+            dat->user_wrap_it = wrap_it;
+        }
+
         tokdata->nv_token_data->token_info.flags &=
             ~(CKF_USER_PIN_TO_BE_CHANGED);
 
@@ -659,27 +825,93 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         }
         rc = save_masterkey_user(tokdata);
     } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-        if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            rc = CKR_PIN_INCORRECT;
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            goto done;
-        }
-        rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
-        rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to compute hash for new pin.\n");
-            goto done;
-        }
-        /* The old PIN matches, now make sure its different
-         * than the new and is not the default.
-         */
-        if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
-            (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE)
-             == 0)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
-            rc = CKR_PIN_INVALID;
-            goto done;
+
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            if (memcmp(tokdata->nv_token_data->so_pin_sha, old_hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                rc = CKR_PIN_INCORRECT;
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                goto done;
+            }
+            rc = compute_sha1(tokdata, pNewPin, ulNewLen, new_hash_sha);
+            rc |= compute_md5(tokdata, pNewPin, ulNewLen, hash_md5);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to compute hash for new pin.\n");
+                goto done;
+            }
+            /* The old PIN matches, now make sure its different
+             * than the new and is not the default.
+             */
+            if ((memcmp(old_hash_sha, new_hash_sha, SHA1_HASH_SIZE) == 0) ||
+                (memcmp(new_hash_sha, default_so_pin_sha, SHA1_HASH_SIZE)
+                 == 0)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+        } else {
+            login_it = SO_KDF_LOGIN_IT;
+            memcpy(login_salt, SO_KDF_LOGIN_PURPOSE, 32);
+            rng_generate(tokdata, login_salt + 32, 32);
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           login_salt, 64,
+                                   login_it, EVP_sha512(),
+                                   256 / 8, new_login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            wrap_it = SO_KDF_WRAP_IT;
+            memcpy(wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
+            rng_generate(tokdata, wrap_salt + 32, 32);
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           wrap_salt, 64,
+                                   wrap_it, EVP_sha512(),
+                                   256 / 8, new_wrap_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            rc = PKCS5_PBKDF2_HMAC((char *)pOldPin, ulOldLen,
+	                           dat->so_login_salt, 64,
+                                   dat->so_login_it, EVP_sha512(),
+                                   256 / 8, old_login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
+	                           dat->so_login_salt, 64,
+                                   dat->so_login_it, EVP_sha512(),
+                                   256 / 8, new_login_key_old_salt);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(dat->so_login_key,
+                              old_login_key, 256 / 8) != 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
+            /* The old PIN matches, now make sure its different
+             * than the new and is not the default. */
+            if (CRYPTO_memcmp(new_login_key_old_salt,
+                              old_login_key, 256 / 8) == 0)
+            {
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INVALID));
+                rc = CKR_PIN_INVALID;
+                goto done;
+            }
         }
 
         rc = XProcLock(tokdata);
@@ -688,9 +920,19 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
             goto done;
         }
 
-        memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
-               SHA1_HASH_SIZE);
-        memcpy(tokdata->so_pin_md5, hash_md5, MD5_HASH_SIZE);
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            memcpy(tokdata->nv_token_data->so_pin_sha, new_hash_sha,
+                   SHA1_HASH_SIZE);
+            memcpy(tokdata->so_pin_md5, hash_md5, MD5_HASH_SIZE);
+        } else {
+            memcpy(dat->so_login_key, new_login_key, 256 / 8);
+            memcpy(dat->so_login_salt, login_salt, 64);
+            dat->so_login_it = login_it;
+            memcpy(tokdata->so_wrap_key, new_wrap_key, 256 / 8);
+            memcpy(dat->so_wrap_salt, wrap_salt, 64);
+            dat->so_wrap_it = wrap_it;
+        }
+
         tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
         rc = XProcUnLock(tokdata);
@@ -972,6 +1214,8 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     CK_FLAGS_32 *flags = NULL;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     CK_RV rc = CKR_OK;
+    unsigned char login_key[32], wrap_key[32];
+    TOKEN_DATA_VERSION *dat;
 
     /* In v2.11, logins should be exclusive, since token
      * specific flags may need to be set for a bad login. - KEY
@@ -1035,6 +1279,7 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
+    dat = &tokdata->nv_token_data->dat;
 
     if (userType == CKU_USER) {
         if (*flags & CKF_USER_PIN_LOCKED) {
@@ -1043,27 +1288,63 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
             goto done;
         }
 
-        if (memcmp(tokdata->nv_token_data->user_pin_sha,
-                   "00000000000000000000", SHA1_HASH_SIZE) == 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
-            rc = CKR_USER_PIN_NOT_INITIALIZED;
-            goto done;
-        }
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            if (memcmp(tokdata->nv_token_data->user_pin_sha,
+                       "00000000000000000000", SHA1_HASH_SIZE) == 0) {
+                TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+                rc = CKR_USER_PIN_NOT_INITIALIZED;
+                goto done;
+            }
 
-        rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-        if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            set_login_flags(userType, flags);
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            rc = CKR_PIN_INCORRECT;
-            goto done;
-        }
-        /* Successful login, clear flags */
-        *flags &= ~(CKF_USER_PIN_LOCKED |
-                    CKF_USER_PIN_FINAL_TRY | CKF_USER_PIN_COUNT_LOW);
+            rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
+                       SHA1_HASH_SIZE) != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_USER_PIN_LOCKED |
+                        CKF_USER_PIN_FINAL_TRY | CKF_USER_PIN_COUNT_LOW);
 
-        compute_md5(tokdata, pPin, ulPinLen, tokdata->user_pin_md5);
-        memset(tokdata->so_pin_md5, 0x0, MD5_HASH_SIZE);
+            compute_md5(tokdata, pPin, ulPinLen, tokdata->user_pin_md5);
+            memset(tokdata->so_pin_md5, 0x0, MD5_HASH_SIZE);
+        } else {
+            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+	                           dat->user_login_salt, 64,
+                                   dat->user_login_it, EVP_sha512(),
+                                   256 / 8, login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+	                           dat->user_wrap_salt, 64,
+                                   dat->user_wrap_it, EVP_sha512(),
+                                   256 / 8, wrap_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(dat->user_login_key,
+                              login_key, 256 / 8) != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_USER_PIN_LOCKED |
+                        CKF_USER_PIN_FINAL_TRY | CKF_USER_PIN_COUNT_LOW);
+
+            memcpy(tokdata->user_wrap_key, wrap_key, 256 / 8);
+            memset(tokdata->so_wrap_key, 0, 256 / 8);
+        }
 
         rc = load_masterkey_user(tokdata);
         if (rc != CKR_OK) {
@@ -1096,20 +1377,56 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
             goto done;
         }
 
-        rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
-        if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
-                   SHA1_HASH_SIZE) != 0) {
-            set_login_flags(userType, flags);
-            TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
-            rc = CKR_PIN_INCORRECT;
-            goto done;
-        }
-        /* Successful login, clear flags */
-        *flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
-                    CKF_SO_PIN_COUNT_LOW);
+        if (tokdata->version < TOK_NEW_DATA_STORE) {
+            rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE)
+                != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
+                        CKF_SO_PIN_COUNT_LOW);
 
-        compute_md5(tokdata, pPin, ulPinLen, tokdata->so_pin_md5);
-        memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
+            compute_md5(tokdata, pPin, ulPinLen, tokdata->so_pin_md5);
+            memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
+        } else {
+            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+	                           dat->so_login_salt, 64,
+                                   dat->so_login_it, EVP_sha512(),
+                                   256 / 8, login_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
+	                           dat->so_wrap_salt, 64,
+                                   dat->so_wrap_it, EVP_sha512(),
+                                   256 / 8, wrap_key);
+            if (rc != 1) {
+                TRACE_DEVEL("PBKDF2 failed.\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(dat->so_login_key,
+                              login_key, 256 / 8) != 0) {
+                set_login_flags(userType, flags);
+                TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
+                rc = CKR_PIN_INCORRECT;
+                goto done;
+            }
+
+            /* Successful login, clear flags */
+            *flags &= ~(CKF_SO_PIN_LOCKED | CKF_SO_PIN_FINAL_TRY |
+                        CKF_SO_PIN_COUNT_LOW);
+
+            memcpy(tokdata->so_wrap_key, wrap_key, 256 / 8);
+            memset(tokdata->user_wrap_key, 0, 256 / 8);
+        }
 
         rc = load_masterkey_so(tokdata);
         if (rc != CKR_OK)

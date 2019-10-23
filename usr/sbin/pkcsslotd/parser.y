@@ -47,6 +47,7 @@ typedef enum {
 	KW_FWVERSION,
 	KW_CONFNAME,
 	KW_TOKNAME,
+	KW_TOKVERSION,
 	KW_MAX
 } keyword_token;
 
@@ -62,7 +63,8 @@ static const struct ock_key ock_keywords[] = {
 	{"hwversion",		KW_HWVERSION},
 	{"firmwareversion",	KW_FWVERSION},
 	{"confname",		KW_CONFNAME},
-	{"tokname",		KW_TOKNAME}
+	{"tokname",		KW_TOKNAME},
+	{"tokversion",		KW_TOKVERSION}
 };
 
 void set_init(void);
@@ -78,11 +80,11 @@ int do_vers(CK_VERSION *slotinfo, char *kw, char *val);
 	unsigned int num;
 }
 
-%token EQUAL SLOT EOL OCKVERSION BEGIN_DEF END_DEF
+%token EQUAL DOT SLOT EOL OCKVERSION BEGIN_DEF END_DEF
 %token <str> STRING
 %token <str> KEYWORD
 %token <num> INTEGER
-
+%token <num> TOKVERSION
 
 %%
 
@@ -114,7 +116,22 @@ sections:
 	;
 
 keyword_defs:
-	STRING EQUAL STRING EOL keyword_defs
+	STRING EQUAL TOKVERSION EOL keyword_defs
+	{
+		int kw;
+
+		kw = lookup_keyword($1);
+
+		switch (kw) {
+		case KW_TOKVERSION:
+			sinfo_struct.version = $3;
+			break;
+		default:
+			yyerror("unknown config keyword");
+			break;
+		}
+	}
+	| STRING EQUAL STRING EOL keyword_defs
 	{
 		int kw;
 

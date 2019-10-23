@@ -16,7 +16,8 @@ CLEANFILES +=								\
 opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
 	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll	\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
-	-DSTDLL_NAME=\"icsftok\"
+	-DSTDLL_NAME=\"icsftok\"					\
+	-DTOK_NEW_DATA_STORE=0xffffffff
 
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS =				\
 	-shared	-Wl,-z,defs,-Bsymbolic -lcrypto	-lldap -lpthread	\
