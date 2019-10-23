@@ -3885,9 +3885,11 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
     ICA_EC_KEY *eckey;
-    CK_BYTE q_array[ICATOK_EC_MAX_Q_LEN];
+    CK_BYTE q_array[1 + ICATOK_EC_MAX_Q_LEN];
     CK_BYTE d_array[ICATOK_EC_MAX_D_LEN];
     unsigned int privlen, q_len, d_len;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
     int rc, nid;
 
     UNUSED(tokdata);
@@ -3924,15 +3926,25 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto end;
     }
 
-    /* Return public key (X,Y) via CKA_EC_POINT */
-    rc = p_ica_ec_key_get_public_key(eckey, (unsigned char *) &q_array, &q_len);
+    /* Return public key (X,Y) via CKA_EC_POINT as OCTET STRING */
+    rc = p_ica_ec_key_get_public_key(eckey, (unsigned char *)&q_array[1],
+                                     &q_len);
     if (rc != 0) {
         TRACE_ERROR("ica_ec_key_get_public_key() failed with rc=%d.\n", rc);
         ret = CKR_FUNCTION_FAILED;
         goto end;
     }
 
-    ret = build_update_attribute(publ_tmpl, CKA_EC_POINT, q_array, q_len);
+    q_array[0] = POINT_CONVERSION_UNCOMPRESSED;
+    q_len++;
+
+    rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q_array, q_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+        goto end;
+    }
+
+    ret = build_update_attribute(publ_tmpl, CKA_EC_POINT, ecpoint, ecpoint_len);
     if (ret != 0) {
         TRACE_ERROR("build_update_attribute for (X,Y) failed rc=0x%lx\n", ret);
         goto end;
@@ -3966,6 +3978,8 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
 
 end:
     p_ica_ec_key_free(eckey);
+    if (ecpoint != NULL)
+        free(ecpoint);
 
     return ret;
 }
@@ -4205,6 +4219,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
     int rc, nid;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -4240,6 +4256,15 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
         goto end;
     }
 
+    /* CKA_EC_POINT contains the EC point as OCTET STRING */
+    ret = ber_decode_OCTET_STRING(attr2->pValue, &ecpoint, &ecpoint_len,
+                                  &field_len);
+    if (ret != CKR_OK || field_len != attr2->ulValueLen) {
+        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto end;
+    }
+
     /* Signature length ok? */
     if (signature_len != 2 * privlen) {
         TRACE_ERROR("Supplied signature length mismatch: "
@@ -4250,9 +4275,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     }
 
     /* Provide (X,Y), decompress key if necessary */
-    ret = set_pubkey_coordinates(nid,
-                                 (unsigned char *) attr2->pValue,
-                                 attr2->ulValueLen, privlen, x_array, y_array);
+    ret = set_pubkey_coordinates(nid, ecpoint, ecpoint_len,
+                                 privlen, x_array, y_array);
     if (ret != 0) {
         TRACE_ERROR("Cannot determine public key coordinates from "
                     "given public key\n");
@@ -4312,6 +4336,8 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
     int rc, nid;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
 
     UNUSED(tokdata);
 
@@ -4336,8 +4362,23 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
+    /* As per PKCS#11, a token MUST be able to accept this value encoded
+     * as a raw octet string (as per section A.5.2 of [ANSI X9.62]).
+     * A token MAY, in addition, support accepting this value as a
+     * DER-encoded ECPoint (as per section E.6 of [ANSI X9.62]) i.e.
+     * the same as a CKA_EC_POINT encoding.
+     */
+    ret = ber_decode_OCTET_STRING(pub_bytes, &ecpoint, &ecpoint_len,
+                                  &field_len);
+    if (ret != CKR_OK || field_len != pub_length ||
+        ecpoint_len > pub_length - 2) {
+        /* no valid BER OCTET STRING encoding, assume raw octet string */
+        ecpoint = pub_bytes;
+        ecpoint_len = pub_length;
+    }
+
     /* Provide (X,Y), decompress key if necessary */
-    ret = set_pubkey_coordinates(nid, pub_bytes, pub_length,
+    ret = set_pubkey_coordinates(nid, ecpoint, ecpoint_len,
                                  privlen, x_array, y_array);
     if (ret != 0) {
         TRACE_ERROR("Cannot determine public key coordinates\n");
