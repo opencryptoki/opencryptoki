@@ -2431,6 +2431,8 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     CK_BYTE version[] = { 1 };  // ecPrivkeyVer1
     CK_BYTE der_AlgIdEC[der_AlgIdECBaseLen + params->ulValueLen];
     CK_ULONG der_AlgIdECLen = sizeof(der_AlgIdEC);
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
     BerElement *ber;
     BerValue *val;
     CK_RV rc = 0;
@@ -2460,9 +2462,15 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     }
     // public key bit string
     if (pubkey && pubkey->pValue) {
+        rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
+                                     &field_len);
+        if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
+            TRACE_DEVEL("ber decoding of public key failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
         ber = ber_alloc_t(LBER_USE_DER);
-        rc = ber_put_bitstring(ber, pubkey->pValue,
-                               pubkey->ulValueLen * 8, 0x03);
+        rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
         rc = ber_flatten(ber, &val);
 
         ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
@@ -2538,9 +2546,15 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
 
     /* generate optional bit-string of public key */
     if (pubkey && pubkey->pValue) {
+        rc = ber_decode_OCTET_STRING(pubkey->pValue, &ecpoint, &ecpoint_len,
+                                     &field_len);
+        if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
+            TRACE_DEVEL("ber decoding of public key failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
         ber = ber_alloc_t(LBER_USE_DER);
-        rc = ber_put_bitstring(ber, pubkey->pValue,
-                               pubkey->ulValueLen * 8, 0x03);
+        rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
         rc = ber_flatten(ber, &val);
 
         ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
@@ -2612,6 +2626,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     CK_ULONG version_len, alg_len, priv_len, pub_len, parm_len, buf_len;
     CK_ULONG buf_offset, field_len, offset, choice_len, option;
     CK_ULONG pubkey_available = 0;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
     CK_RV rc;
 
 
@@ -2700,9 +2716,16 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
         goto cleanup;
     }
 
-    /* Build attr for public key */
+    /* Build attr for public key as BER encoded OCTET STRING */
     if (pubkey_available) {
-        rc = build_attribute(CKA_EC_POINT, pub_buf, pub_len, &pub_attr);
+        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                     pub_buf, pub_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto cleanup;
+        }
+
+        rc = build_attribute(CKA_EC_POINT, ecpoint, ecpoint_len, &pub_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for public key failed\n");
             goto cleanup;
@@ -2728,6 +2751,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     *priv_key = priv_attr;      // may be NULL if key is opaque
     *opaque_key = opaque_attr;
     *params = parm_attr;
+    if (ecpoint)
+        free(ecpoint);
 
     return CKR_OK;
 
@@ -2740,6 +2765,8 @@ cleanup:
         free(opaque_attr);
     if (parm_attr)
         free(parm_attr);
+    if (ecpoint)
+        free(ecpoint);
 
     return rc;
 }
@@ -2754,6 +2781,16 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_BYTE *buf = NULL;
     BerValue *val;
     BerElement *ber;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
+
+    /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)point->pValue, &ecpoint,
+                                 &ecpoint_len, &field_len);
+    if (rc != CKR_OK || point->ulValueLen != field_len) {
+        TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
 
     /* Calculate the BER container length
      *
@@ -2774,8 +2811,7 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* public key */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)point->pValue,
-                           point->ulValueLen * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
     rc = ber_flatten(ber, &val);
 
     rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
@@ -2804,8 +2840,7 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* generate bitstring */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)point->pValue,
-                           point->ulValueLen * 8, 0x03);
+    rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
     rc = ber_flatten(ber, &val);
 
     memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
@@ -2858,6 +2893,8 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
     CK_ULONG param_len;
     CK_BYTE *point = NULL;
     CK_ULONG point_len;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
     CK_ULONG field_len, len;
     CK_RV rc;
 
@@ -2892,13 +2929,20 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
     }
-    // build ec-point attribute
-    rc = build_attribute(CKA_EC_POINT, point, point_len, &point_attr);
+    /* build ec-point attribute as BER encoded OCTET STRING */
+    rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                 point, point_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_EC_POINT, ecpoint, ecpoint_len, &point_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
     }
 
+    free(ecpoint);
     *ec_params = params_attr;
     *ec_point = point_attr;
     return CKR_OK;
@@ -2908,6 +2952,8 @@ cleanup:
         free(params_attr);
     if (point_attr)
         free(point_attr);
+    if (ecpoint)
+        free(ecpoint);
 
     return rc;
 }
