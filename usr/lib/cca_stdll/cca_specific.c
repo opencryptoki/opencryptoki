@@ -1650,6 +1650,8 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     CK_BYTE q[CCATOK_EC_MAX_Q_LEN];
     CK_RV rv;
     CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
 
     /*
      * The token includes the header section first,
@@ -1681,10 +1683,19 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     q_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_OFFSET;
     memcpy(q, &tok[q_offset], (size_t) q_len);
 
-    if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT, q, q_len))) {
-        TRACE_DEVEL("build_update_attribute for q failed rv=0x%lx\n", rv);
+    rv = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
         return rv;
     }
+
+    if ((rv = build_update_attribute(publ_tmpl, CKA_EC_POINT,
+                                     ecpoint, ecpoint_len))) {
+        TRACE_DEVEL("build_update_attribute for q failed rv=0x%lx\n", rv);
+        free(ecpoint);
+        return rv;
+    }
+    free(ecpoint);
 
     /* Add ec params to private key */
     if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
@@ -3387,7 +3398,7 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     CK_RV rc;
     uint8_t curve_type;
     uint16_t curve_bitlen;
-
+    CK_ULONG field_len;
 
     /* Check if curve supported and determine curve type and bitlen */
     rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
@@ -3406,15 +3417,19 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     privlen = attr->ulValueLen;
     privkey = attr->pValue;
 
-    /* Find public key data in template */
+    /* Find public key data as BER encoded OCTET STRING in template */
     rc = template_attribute_find(priv_templ, CKA_EC_POINT, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    publen = attr->ulValueLen;
-    pubkey = attr->pValue;
+    rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
+                                 &field_len);
+    if (rc != CKR_OK || attr->ulValueLen != field_len) {
+        TRACE_DEVEL("ber decoding of public key failed\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
 
     /* Build key_value_structure */
     memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
@@ -3509,7 +3524,7 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
     CK_BYTE *pubkey = NULL;
     CK_ULONG publen = 0;
     CK_ATTRIBUTE *attr = NULL;
-
+    CK_ULONG field_len;
 
     /* Check if curve supported and determine curve type and bitlen */
     rc = curve_supported(pub_templ, &curve_type, &curve_bitlen);
@@ -3518,15 +3533,19 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
         return rc;
     }
 
-    /* Find public key data in template */
+    /* Find public key data as BER encoded OCTET STRING in template */
     rc = template_attribute_find(pub_templ, CKA_EC_POINT, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    publen = attr->ulValueLen;
-    pubkey = attr->pValue;
+    rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
+                                 &field_len);
+    if (rc != CKR_OK || attr->ulValueLen != field_len) {
+        TRACE_DEVEL("ber decoding of public key failed\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
 
     /* Build key_value_structure */
     memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
