@@ -2005,8 +2005,10 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* an imported public EC key, we need a SPKI for it. */
 
         CK_ATTRIBUTE *ec_params;
-        CK_ATTRIBUTE *ec_point;
+        CK_ATTRIBUTE *ec_point_attr;
         CK_ATTRIBUTE ec_point_uncompr;
+        CK_BYTE *ecpoint;
+        CK_ULONG ecpoint_len, field_len;
 
         if (!template_attribute_find(ec_key_obj->template,
                                      CKA_EC_PARAMS, &ec_params)) {
@@ -2014,8 +2016,17 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_EC_key_end;
         }
         if (!template_attribute_find(ec_key_obj->template,
-                                     CKA_EC_POINT, &ec_point)) {
+                                     CKA_EC_POINT, &ec_point_attr)) {
             rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_EC_key_end;
+        }
+
+        /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+        rc = ber_decode_OCTET_STRING((CK_BYTE *)ec_point_attr->pValue, &ecpoint,
+                                     &ecpoint_len, &field_len);
+        if (rc != CKR_OK || ec_point_attr->ulValueLen != field_len) {
+            TRACE_DEVEL("%s ber_decode_OCTET_STRING failed\n", __func__);
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
             goto import_EC_key_end;
         }
 
@@ -2032,14 +2043,22 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = ec_uncompress_public_key(ec_params->pValue, ec_params->ulValueLen,
-                                      ec_point->pValue, ec_point->ulValueLen,
+                                      ecpoint, ecpoint_len,
                                       privkey_len, pubkey, &pubkey_len);
         if (rc != CKR_OK)
             goto import_EC_key_end;
 
-        ec_point_uncompr.type = ec_point->type;
-        ec_point_uncompr.pValue = pubkey;
-        ec_point_uncompr.ulValueLen = pubkey_len;
+        /* build ec-point attribute as BER encoded OCTET STRING */
+        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len,
+                                     pubkey, pubkey_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto import_EC_key_end;
+        }
+
+        ec_point_uncompr.type = ec_point_attr->type;
+        ec_point_uncompr.pValue = ecpoint;
+        ec_point_uncompr.ulValueLen = ecpoint_len;
 
         /*
          * Builds the DER encoding (ansi_x962) SPKI.
@@ -2051,6 +2070,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         rc = ber_encode_ECPublicKey(FALSE, &data, &data_len,
                                     ec_params, &ec_point_uncompr);
+        free(ecpoint);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                         "data_len=0x%lx\n", __func__, class, rc, data_len);
@@ -3441,23 +3461,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_ECDH1_DERIVE_PARAMS *ecdh1_parms;
-    CK_MECHANISM ecdh1_mech;
+    CK_ECDH1_DERIVE_PARAMS ecdh1_parms2;
+    CK_MECHANISM ecdh1_mech, ecdh1_mech2;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
 
     memset(newblob, 0, sizeof(newblob));
 
-    /*
-     * EP11 supports CKM_ECDH1_DERIVE slightly different than specified in
-     * PKCS#11 v2.11 or later. It expects the public data directly as mechanism
-     * param, not via CK_ECDH1_DERIVE_PARAMS. It also does not support KDFs and
-     * shared data.
-     *
-     * Newer EP11 crypto cards that support API version 3 support this mechanism
-     * in the PKCS#11 c2.11 way. If the used API version is > 2, then we
-     * can pass the mechanism parameters as-is, otherwise we still need to
-     * use the old way.
-     */
-    if (mech->mechanism == CKM_ECDH1_DERIVE &&
-        ep11_data->used_firmware_API_version <= 2) {
+    if (mech->mechanism == CKM_ECDH1_DERIVE) {
         if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
             TRACE_ERROR("%s Param len for CKM_ECDH1_DERIVE wrong: %lu\n",
                         __func__, mech->ulParameterLen);
@@ -3465,23 +3476,70 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
         ecdh1_parms = mech->pParameter;
 
-        if (ecdh1_parms->kdf != CKD_NULL) {
-            TRACE_ERROR("%s KDF for CKM_ECDH1_DERIVE not supported: %lu\n",
-                        __func__, ecdh1_parms->kdf);
-            return CKR_MECHANISM_PARAM_INVALID;
+        /* As per PKCS#11, a token MUST be able to accept this value encoded
+         * as a raw octet string (as per section A.5.2 of [ANSI X9.62]).
+         * A token MAY, in addition, support accepting this value as a
+         * DER-encoded ECPoint (as per section E.6 of [ANSI X9.62]) i.e.
+         * the same as a CKA_EC_POINT encoding.
+         * The EP11 host library only accepts the raw form, thus convert
+         * it to the raw format if the caller specified it in the DER-encoded
+         * form.
+         */
+        if (ecdh1_parms->pPublicData != NULL &&
+            ecdh1_parms->ulPublicDataLen > 0) {
+
+            ecdh1_parms2 = *ecdh1_parms;
+
+            rc = ber_decode_OCTET_STRING(ecdh1_parms->pPublicData, &ecpoint,
+                                         &ecpoint_len, &field_len);
+            if (rc != CKR_OK || field_len != ecdh1_parms->ulPublicDataLen ||
+                ecpoint_len > ecdh1_parms->ulPublicDataLen - 2) {
+                /* no valid BER OCTET STRING encoding, assume raw octet string */
+                ecpoint = ecdh1_parms->pPublicData;
+                ecpoint_len = ecdh1_parms->ulPublicDataLen;
+            }
+
+            ecdh1_parms2.pPublicData = ecpoint;
+            ecdh1_parms2.ulPublicDataLen = ecpoint_len;
+
+            ecdh1_mech2.mechanism = CKM_ECDH1_DERIVE;
+            ecdh1_mech2.pParameter = &ecdh1_parms2;
+            ecdh1_mech2.ulParameterLen = sizeof(ecdh1_parms2);
+
+            mech = &ecdh1_mech2;
+            ecdh1_parms = mech->pParameter;
         }
 
-        if (ecdh1_parms->pSharedData != NULL ||
-            ecdh1_parms->ulSharedDataLen > 0) {
-            TRACE_ERROR("%s Shared data for CKM_ECDH1_DERIVE not supported\n",
-                        __func__);
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
+        /*
+         * EP11 supports CKM_ECDH1_DERIVE slightly different than specified in
+         * PKCS#11 v2.11 or later. It expects the public data directly as
+         * mechanism param, not via CK_ECDH1_DERIVE_PARAMS. It also does not
+         * support KDFs and shared data.
+         *
+         * Newer EP11 crypto cards that support API version 3 support this
+         * mechanism in the PKCS#11 c2.11 way. If the used API version is > 2,
+         * then we can pass the mechanism parameters as-is, otherwise we still
+         * need to use the old way.
+         */
+        if (ep11_data->used_firmware_API_version <= 2) {
+            if (ecdh1_parms->kdf != CKD_NULL) {
+                TRACE_ERROR("%s KDF for CKM_ECDH1_DERIVE not supported: %lu\n",
+                            __func__, ecdh1_parms->kdf);
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
 
-        ecdh1_mech.mechanism = CKM_ECDH1_DERIVE;
-        ecdh1_mech.pParameter = ecdh1_parms->pPublicData;
-        ecdh1_mech.ulParameterLen = ecdh1_parms->ulPublicDataLen;
-        mech = &ecdh1_mech;
+            if (ecdh1_parms->pSharedData != NULL ||
+                ecdh1_parms->ulSharedDataLen > 0) {
+                TRACE_ERROR("%s Shared data for CKM_ECDH1_DERIVE not "
+                            "supported\n", __func__);
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            ecdh1_mech.mechanism = CKM_ECDH1_DERIVE;
+            ecdh1_mech.pParameter = ecdh1_parms->pPublicData;
+            ecdh1_mech.ulParameterLen = ecdh1_parms->ulPublicDataLen;
+            mech = &ecdh1_mech;
+        }
     }
 
     rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
@@ -4369,8 +4427,16 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
-        /* build and add CKA_EC_POINT */
+        /* build and add CKA_EC_POINT as BER encoded OCTET STRING */
+        rc = ber_encode_OCTET_STRING(FALSE, &data, &data_len,
+                                     key, bit_str_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto error;
+        }
+
         rc = build_attribute(CKA_EC_POINT, data, data_len, &attr);
+        free(data);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
                         __func__, rc);
