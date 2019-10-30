@@ -86,7 +86,7 @@ CK_RV valid_mech(STDLL_TokData_t *tokdata, CK_MECHANISM_PTR m)
     CK_RV rc;
 
     if (m) {
-        rc = ep11tok_is_mechanism_supported(tokdata, m->mechanism);
+        rc = ep11tok_is_mechanism_supported_ex(tokdata, m);
         if (rc != CKR_OK)
             return rc;
     }
