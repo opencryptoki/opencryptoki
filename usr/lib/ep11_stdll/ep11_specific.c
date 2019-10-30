@@ -5391,8 +5391,9 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t blob_len = 0;
     OBJECT *key_obj = NULL;
     size_t ep11_state_l = MAX_CRYPT_STATE_BYTES;
-    CK_BYTE *ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
+    CK_BYTE *ep11_state;
 
+    ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -5401,7 +5402,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto error;
     }
 
     if (op == DECRYPT) {
@@ -5435,7 +5436,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         rc = check_key_restriction(key_obj, CKA_ENCRYPT);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
-            return rc;
+            goto error;
         }
 
         RETRY_START
@@ -5458,6 +5459,11 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    return rc;
+
+error:
+    if (ep11_state != NULL)
+        free(ep11_state);
     return rc;
 }
 
