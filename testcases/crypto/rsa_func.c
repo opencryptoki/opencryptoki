@@ -114,13 +114,6 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                               "be used with publ_exp.='%s'", s);
                 continue;
             }
-            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
-                (tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
-                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1)) {
-                testcase_skip("EP11 Token does not support RSA OAEP with hash "
-                              "other than SHA-1");
-                continue;
-            }
         }
         // cca special cases:
         // cca token can only use the following public exponents
@@ -198,6 +191,16 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         // initialize (public key) encryption
         rc = funcs->C_EncryptInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_ep11_token(slot_id) &&
+                (oaep_params.hashAlg != CKM_SHA_1 ||
+                 oaep_params.mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1");
+                goto tv_cleanup;
+            }
+
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -241,6 +244,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         }
 
         // clean up
+tv_cleanup:
         rc = funcs->C_DestroyObject(session, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
@@ -359,13 +363,6 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                       tsuite->tv[i].pubexp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
-                continue;
-            }
-            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
-                (((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->hashAlg != CKM_SHA_1 ||
-                 ((CK_RSA_PKCS_OAEP_PARAMS *)tsuite->mech.pParameter)->mgf != CKG_MGF1_SHA1)) {
-                testcase_skip("EP11 Token does not support RSA OAEP with hash "
-                              "other than SHA-1");
                 continue;
             }
             // modulus length must be multiple of 128 byte
@@ -492,6 +489,18 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         // initialize (public key) encryption
         rc = funcs->C_EncryptInit(session, &mech, publ_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                 mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                 is_ep11_token(slot_id) &&
+                 (((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->hashAlg !=
+                                                              CKM_SHA_1 ||
+                  ((CK_RSA_PKCS_OAEP_PARAMS *)mech.pParameter)->mgf !=
+                                                              CKG_MGF1_SHA1)) {
+                 testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                               "and/or MGF other than SHA-1");
+                 goto tv_cleanup;
+             }
+
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -535,6 +544,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
         }
 
         // clean up
+tv_cleanup:
         rc = funcs->C_DestroyObject(session, publ_key);
         if (rc != CKR_OK) {
             testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
@@ -1118,13 +1128,6 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                               "be used with publ_exp.='%s'", s);
                 continue;
             }
-            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
-                (tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 ||
-                 tsuite->tv[i].oaep_params.mgf != CKG_MGF1_SHA1)) {
-                testcase_skip("EP11 Token does not support RSA OAEP with hash "
-                              "other than SHA-1");
-                continue;
-            }
         }
         // begin test
         testcase_begin("%s Wrap Unwrap with test vector %d, "
@@ -1233,6 +1236,16 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         rc = funcs->C_WrapKey(session, &wrap_mech, publ_key, secret_key,
                               NULL, &wrapped_keylen);
         if (rc != CKR_OK) {
+            if (rc == CKR_MECHANISM_PARAM_INVALID &&
+                wrap_mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                is_ep11_token(slot_id) &&
+                (oaep_params.hashAlg != CKM_SHA_1 ||
+                 oaep_params.mgf != CKG_MGF1_SHA1)) {
+                testcase_skip("EP11 Token does not support RSA OAEP with hash "
+                              "and/or MGF other than SHA-1");
+                goto tv_cleanup;
+            }
+
             testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
             goto error;
         }
@@ -1307,6 +1320,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             }
         }
         // clean up
+tv_cleanup:
         if (wrapped_key) {
             free(wrapped_key);
             wrapped_key = NULL;
