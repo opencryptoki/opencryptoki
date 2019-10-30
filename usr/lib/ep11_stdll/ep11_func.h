@@ -316,10 +316,15 @@ typedef struct XCPadmresp {
                                       // MAC and attributes
 #define XCP_CPB_ALG_DH             46 // Diffie-Hellman use (private keys)
 #define XCP_CPB_DERIVE             47 // allow key derivation (symmetric+EC/DH)
+#define XCP_CPB_ALG_EC_25519       55 // enable support of curve25519, c41417,
+                                      // c448 and related algorithms incl. EdDSA
 #define XCP_CPB_ALG_NBSI2017       61 // allow non-BSI algorithms (as of 2017)
                                       // including non-BSI keysizes
+#define XCP_CPB_CPACF_PK           64 // support data key generation and import
+                                      // for protected key
+#define XCP_CPB_ALG_PQC_DILITHIUM  65 // enable support for Dilithium algorithm
 
-#define XCP_CPBITS_MAX             XCP_CPB_ALG_NBSI2017 // marks last used CPB
+#define XCP_CPBITS_MAX             XCP_CPB_ALG_PQC_DILITHIUM // marks last used CPB
 
 #define  XCP_CPBLOCK_BITS          128 // handle CPs in this granularity
 #define  XCP_CPCOUNT                \
