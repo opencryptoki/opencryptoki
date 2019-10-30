@@ -72,6 +72,8 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_INFO_PTR pInfo);
 CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_TYPE type);
+CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
+                                        CK_MECHANISM_PTR mech);
 
 static m_GenerateRandom_t dll_m_GenerateRandom;
 static m_SeedRandom_t dll_m_SeedRandom;
@@ -312,6 +314,13 @@ static const version_req_t cmac_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &cex7p_cmac_support }
 };
 #define NUM_CMAC_REQ sizeof(cmac_req_versions)/sizeof(version_req_t)
+
+static const CK_VERSION cex7p_oaep_sha2_support = { .major = 7, .minor = 13 };
+
+static const version_req_t oaep_sha2_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &cex7p_oaep_sha2_support }
+};
+#define NUM_OAEP_SHA2_REQ sizeof(oaep_sha2_req_versions)/sizeof(version_req_t)
 
 /* Definitions for loading libica dynamically */
 
@@ -6109,6 +6118,44 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
     }
 
+    return CKR_OK;
+}
+
+CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
+                                        CK_MECHANISM_PTR mech)
+{
+    CK_RSA_PKCS_OAEP_PARAMS *params;
+    int status;
+    CK_RV rc;
+
+    rc = ep11tok_is_mechanism_supported(tokdata, mech->mechanism);
+    if (rc != CKR_OK)
+        return rc;
+
+    switch (mech->mechanism) {
+    case  CKM_RSA_PKCS_OAEP:
+        if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS) ||
+            mech->pParameter == NULL)
+            return CKR_MECHANISM_PARAM_INVALID;
+
+        params = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
+
+        status = check_required_versions(tokdata, oaep_sha2_req_versions,
+                                         NUM_OAEP_SHA2_REQ);
+        if (status == 1)
+            return CKR_OK;
+
+        /*
+         * Not all APQNs have the required firmware level, restrict to SHA1
+         * for hashing algorithm and MGF.
+         */
+        if (params->hashAlg == CKM_SHA_1 && params->mgf == CKG_MGF1_SHA1)
+            return CKR_OK;
+
+        TRACE_INFO("%s RSA-OAEP supports SHA1 only due to mixed firmware "
+                   "  versions\n", __func__);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
     return CKR_OK;
 }
 
