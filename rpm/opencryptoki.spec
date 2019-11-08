@@ -10,7 +10,7 @@ URL:			https://github.com/opencryptoki/opencryptoki
 Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 Requires(pre):		coreutils
-BuildRequires:		openssl-devel
+BuildRequires:		openssl-devel >= 1.0.2
 BuildRequires:		trousers-devel
 BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool
