@@ -1,3 +1,16 @@
++ openCryptoki 3.12.0
+- Update token pin and data store encryption for soft,ica,cca and ep11
+- EP11: Allow importing of compressed EC public keys
+- EP11: Add support for the CMAC mechanisms
+- EP11: Add support for the IBM-SHA3 mechanisms
+- SOFT: Add AES-CMAC and 3DES-CMAC support to the soft token
+- ICA: Add AES-CMAC and 3DES-CMAC support to the ICA token
+- EP11: Add config option USE_PRANDOM
+- CCA: Use Random Number Generate Long for token_specific_rng()
+- Common rng function: Prefer /dev/prandom over /dev/urandom
+- ICA: add SHA*_RSA_PKCS_PSS mechanisms
+- Bug fixes
+
 + openCryptoki 3.11.1
 - Bug fixes
 
