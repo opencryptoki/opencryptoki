@@ -1291,7 +1291,10 @@ int verify_pins(char *data_store, char *sopin, unsigned long sopinlen,
     char fname[PATH_MAX];
     char pin_sha[SHA1_HASH_SIZE];
     FILE *fp = NULL;
-    int ret;
+    int ret, tdnew;
+    struct stat stbuf;
+    size_t tdlen;
+    int fd;
 
     /* read the NVTOK.DAT */
     snprintf(fname, PATH_MAX, "%s/NVTOK.DAT", data_store);
@@ -1301,44 +1304,107 @@ int verify_pins(char *data_store, char *sopin, unsigned long sopinlen,
         return -1;
     }
 
-    ret = fread(&td, sizeof(TOKEN_DATA), 1, fp);
+    fd = fileno(fp);
+    if ((fstat(fd, &stbuf) != 0) || (!S_ISREG(stbuf.st_mode))) {
+        ret = -1;
+        goto done;
+    }
+
+    if (stbuf.st_size == sizeof(TOKEN_DATA_OLD)) {
+        /* old data store/pin format */
+        tdnew = 0;
+        tdlen = sizeof(TOKEN_DATA_OLD);
+    } else if (stbuf.st_size == sizeof(TOKEN_DATA)) {
+        /* new data store/pin format */
+        tdnew = 1;
+        tdlen = sizeof(TOKEN_DATA);
+    } else {
+        print_error("%s: invalid size.\n", fname);
+        ret = -1;
+        goto done;
+    }
+
+    ret = fread(&td, tdlen, 1, fp);
     if (ret != 1) {
         print_error("Could not read %s: %s\n", fname, strerror(errno));
         ret = -1;
         goto done;
     }
 
-    /* Now compute the SHAs for the SO and USER pins entered.
-     * Compare with the SHAs for SO and USER PINs saved in
-     * NVTOK.DAT to verify.
-     */
+    if (tdnew == 0) {
+        /* Now compute the SHAs for the SO and USER pins entered.
+         * Compare with the SHAs for SO and USER PINs saved in
+         * NVTOK.DAT to verify.
+         */
 
-    if (sopin != NULL) {
-        ret = compute_sha1(sopin, sopinlen, pin_sha);
-        if (ret) {
-            print_error("Failed to compute sha for SO.\n");
-            goto done;
+        if (sopin != NULL) {
+            ret = compute_sha1(sopin, sopinlen, pin_sha);
+            if (ret) {
+                print_error("Failed to compute sha for SO.\n");
+                goto done;
+            }
+
+            if (memcmp(td.so_pin_sha, pin_sha, SHA1_HASH_SIZE) != 0) {
+                print_error("SO PIN is incorrect.\n");
+                ret = -1;
+                goto done;
+            }
         }
 
-        if (memcmp(td.so_pin_sha, pin_sha, SHA1_HASH_SIZE) != 0) {
-            print_error("SO PIN is incorrect.\n");
-            ret = -1;
-            goto done;
-        }
-    }
+        if (userpin != NULL) {
+            ret = compute_sha1(userpin, userpinlen, pin_sha);
+            if (ret) {
+                print_error("Failed to compute sha for USER.\n");
+                goto done;
+            }
 
-    if (userpin != NULL) {
-        ret = compute_sha1(userpin, userpinlen, pin_sha);
-        if (ret) {
-            print_error("Failed to compute sha for USER.\n");
-            goto done;
+            if (memcmp(td.user_pin_sha, pin_sha, SHA1_HASH_SIZE) != 0) {
+                print_error("USER PIN is incorrect.\n");
+                ret = -1;
+                goto done;
+            }
         }
+    } else if (tdnew == 1) {
+        if (sopin != NULL) {
+            unsigned char so_login_key[32];
 
-        if (memcmp(td.user_pin_sha, pin_sha, SHA1_HASH_SIZE) != 0) {
-            print_error("USER PIN is incorrect.\n");
-            ret = -1;
-            goto done;
+            ret = PKCS5_PBKDF2_HMAC(sopin, sopinlen,
+	                            td.dat.so_login_salt, 64,
+                                    td.dat.so_login_it, EVP_sha512(),
+                                    256 / 8, so_login_key);
+            if (ret != 1) {
+                print_error("PBKDF2 failed.\n");
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(td.dat.so_login_key, so_login_key, 32) != 0) {
+                print_error("USER PIN is incorrect.\n");
+                ret = -1;
+                goto done;
+            }
         }
+        if (userpin != NULL) {
+            unsigned char user_login_key[32];
+
+            ret = PKCS5_PBKDF2_HMAC(userpin, userpinlen,
+	                            td.dat.user_login_salt, 64,
+                                    td.dat.user_login_it, EVP_sha512(),
+                                    256 / 8, user_login_key);
+            if (ret != 1) {
+                print_error("PBKDF2 failed.\n");
+                goto done;
+            }
+
+            if (CRYPTO_memcmp(td.dat.user_login_key, user_login_key, 32) != 0) {
+                print_error("USER PIN is incorrect.\n");
+                ret = -1;
+                goto done;
+            }
+        }
+    } else {
+        print_error("Unknown format.\n");
+        ret = -1;
+        goto done;
     }
     ret = 0;
 
