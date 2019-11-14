@@ -1,11 +1,15 @@
 sudo: required
-dist: xenial
+dist: bionic
 
 language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev
+    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget
+    - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
+    - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
+    - sudo dpkg -i libica3_3.4.0-0ubuntu1_s390x.deb || true    # icatok needs libica >= 3.3
+    - sudo dpkg -i libica-dev_3.4.0-0ubuntu1_s390x.deb || true #  but install otherwise fails for non-s390x
 
 matrix:
     include:
@@ -13,19 +17,39 @@ matrix:
         - name: "linux-x86-clang-locks"
           os: linux
           compiler: clang
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-x86-gcc-tm"
           os: linux
           compiler: gcc
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-clang-locks"
           os: linux-ppc64le
           compiler: clang
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-gcc-tm"
           os: linux-ppc64le
           compiler: gcc
-          env: CONFIG_OPTS="--enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
+        - name: "linux-s390x-clang-locks"
+          os: linux
+          arch: s390x
+          compiler: clang
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
+        - name: "linux-s390x-gcc-tm"
+          os: linux
+          arch: s390x
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror"
+        - name: "linux-arm64-clang-locks"
+          os: linux
+          arch: arm64
+          compiler: clang
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror"
+        - name: "linux-arm64-gcc-tm"
+          os: linux
+          arch: arm64
+          compiler: gcc
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
 
 before_script:
     - sudo groupadd pkcs11
