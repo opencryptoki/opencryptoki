@@ -19,7 +19,7 @@ For a more in-depth overview of openCryptoki, please refer to the
 
 ## REQUIREMENTS:
 
-- IBM ICA - requires libica library version 2.3.0 or higher for accessing ICA
+- IBM ICA - requires libica library version 3.3.0 or higher for accessing ICA
 hardware crypto on IBM zSeries.
 
 - IBM CCA - requires IBM XCrypto CEX3C card (or higher) and the CEX3C host
@@ -27,7 +27,7 @@ libraries and tools version 4.1 (or higher).
 
 - TPM     - requires a TPM, TPM tools, and TCG software stack.
 
-- SWToken - The software token uses OpenSSL version 0.9.7 or higher.
+- SWToken - The software token uses OpenSSL version 1.0.2 or higher.
 
 - ICSF    - The Integrated Cryptographic Service Facility (ICSF) token requires
 openldap and openldap client software version 2.4.23 or higher. Lex and Yacc are

@@ -18,7 +18,7 @@ BuildRequires:		bison flex
 BuildRequires:		systemd
 BuildRequires:		libitm-devel
 %ifarch s390 s390x
-BuildRequires:		libica-devel >= 2.3
+BuildRequires:		libica-devel >= 3.3
 %endif
 Requires(pre):		%{name}-libs%{?_isa} = %{version}-%{release}
 Requires:		%{name}-libs%{?_isa} = %{version}-%{release}
@@ -320,6 +320,8 @@ exit 0
 
 
 %changelog
+* Fri Nov 15 2019 Patrick Steuer <patrick.steuer@de.ibm.com> 3.12.0
+- Update build time requirements
 * Thu Oct 26 2017 Eduardo Barretto <ebarretto@linux.vnet.ibm.com> 3.8.0
 - Update URL and source
 - Remove unnecessary steps from spec file
