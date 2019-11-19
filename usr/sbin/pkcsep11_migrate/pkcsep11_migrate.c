@@ -41,32 +41,29 @@ CK_LONG adapter = -1;
 CK_LONG domain = -1;
 CK_OBJECT_HANDLE key_store[4096];
 
-typedef int (*m_get_ep11_info_t) (CK_VOID_PTR, CK_ULONG_PTR,
-                                  unsigned int, unsigned int, target_t);
 typedef unsigned long int (*m_admin_t) (unsigned char *, size_t *,
                                         unsigned char *,
                                         size_t *, const unsigned char *,
                                         size_t, const unsigned char *,
                                         size_t, target_t);
-typedef long (*ep11a_cmdblock_t) (unsigned char *, size_t, unsigned int,
-                                  const struct ep11_admresp *,
-                                  const unsigned char *,
-                                  const unsigned char *, size_t);
-typedef long (*ep11a_internal_rv_t) (const unsigned char *, size_t,
-                                     struct ep11_admresp *, CK_RV *);
+typedef long (*xcpa_cmdblock_t) (unsigned char *, size_t, unsigned int,
+                                 const struct XCPadmresp *,
+                                 const unsigned char *,
+                                 const unsigned char *, size_t);
+typedef long (*xcpa_internal_rv_t) (const unsigned char *, size_t,
+                                    struct XCPadmresp *, CK_RV *);
 typedef int (*m_add_module_t) (XCP_Module_t, target_t *);
 typedef int (*m_rm_module_t) (XCP_Module_t, target_t);
 typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
                                 unsigned int query, unsigned int subquery,
                                 target_t target);
 
-m_get_ep11_info_t _m_get_ep11_info;
+m_get_xcp_info_t _m_get_xcp_info;
 m_admin_t _m_admin;
-ep11a_cmdblock_t _ep11a_cmdblock;
-ep11a_internal_rv_t _ep11a_internal_rv;
+xcpa_cmdblock_t _xcpa_cmdblock;
+xcpa_internal_rv_t _xcpa_internal_rv;
 m_add_module_t _m_add_module;
 m_rm_module_t _m_rm_module;
-m_get_xcp_info_t dll_m_get_xcp_info;
 
 CK_VERSION lib_version;
 
@@ -90,8 +87,8 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
     CK_BYTE resp[BLOBSIZE];
     CK_LONG req_len;
     size_t resp_len;
-    struct ep11_admresp rb;
-    struct ep11_admresp lrb;
+    struct XCPadmresp rb;
+    struct XCPadmresp lrb;
     ep11_target_t target_list;
     struct XCP_Module module;
     target_t target = XCP_TGT_INIT;
@@ -149,7 +146,7 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
             old_len, name);
     resp_len = BLOBSIZE;
 
-    req_len = _ep11a_cmdblock(req, BLOBSIZE, EP11_ADM_REENCRYPT, &rb,
+    req_len = _xcpa_cmdblock(req, BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
                               NULL, old, old_len);
 
     if (req_len < 0) {
@@ -167,7 +164,7 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
         goto out;
     }
 
-    if (_ep11a_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
+    if (_xcpa_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
         fprintf(stderr, "reencryption response malformed: %lx\n", rc);
         rc = -4;
         goto out;
@@ -215,10 +212,10 @@ static CK_RV get_ep11_library_version(CK_VERSION *lib_version)
     CK_ULONG version_len = sizeof(host_version);
     CK_RV rc;
 
-    rc = dll_m_get_xcp_info(&host_version, &version_len,
-                            CK_IBM_XCPHQ_VERSION, 0, 0);
+    rc = _m_get_xcp_info(&host_version, &version_len,
+                         CK_IBM_XCPHQ_VERSION, 0, 0);
     if (rc != CKR_OK) {
-        fprintf(stderr, "dll_m_get_xcp_info (HOST) failed: rc=0x%lx\n", rc);
+        fprintf(stderr, "_m_get_xcp_info (HOST) failed: rc=0x%lx\n", rc);
         return rc;
     }
     lib_version->major = (host_version & 0x00FF0000) >> 16;
@@ -269,11 +266,11 @@ static int check_card_status()
         target = (target_t)&target_list;
     }
 
-    rc = _m_get_ep11_info((CK_VOID_PTR) &dinf, &dinf_len,
-                          CK_IBM_EP11Q_DOMAIN, 0, target);
+    rc = _m_get_xcp_info((CK_VOID_PTR) &dinf, &dinf_len,
+                         CK_IBM_XCPQ_DOMAIN, 0, target);
 
     if (rc != CKR_OK) {
-        fprintf(stderr, "m_get_ep11_info rc 0x%lx, valid apapter/domain "
+        fprintf(stderr, "m_get_xcp_info rc 0x%lx, valid apapter/domain "
                 "0x%02lx/%ld?.\n", rc, adapter, domain);
         rc = -1;
         goto out;
@@ -549,14 +546,19 @@ int main(int argc, char **argv)
     if (!lib_ep11)
         return CKR_FUNCTION_FAILED;
 
-    *(void **)(&_m_get_ep11_info) = dlsym(lib_ep11, "m_get_ep11_info");
-    *(void **)(&_ep11a_cmdblock) = dlsym(lib_ep11, "ep11a_cmdblock");
+    *(void **)(&_xcpa_cmdblock) = dlsym(lib_ep11, "xcpa_cmdblock");
+    if (_xcpa_cmdblock == NULL)
+        *(void **)(&_xcpa_cmdblock) = dlsym(lib_ep11, "ep11a_cmdblock");
     *(void **)(&_m_admin) = dlsym(lib_ep11, "m_admin");
-    *(void **)(&_ep11a_internal_rv) = dlsym(lib_ep11, "ep11a_internal_rv");
-    *(void **)(&dll_m_get_xcp_info) = dlsym(lib_ep11, "m_get_xcp_info");
+    *(void **)(&_xcpa_internal_rv) = dlsym(lib_ep11, "xcpa_internal_rv");
+    if (_xcpa_internal_rv == NULL)
+        *(void **)(&_xcpa_internal_rv) = dlsym(lib_ep11, "ep11a_internal_rv");
+    *(void **)(&_m_get_xcp_info) = dlsym(lib_ep11, "m_get_xcp_info");
+    if (_m_get_xcp_info == NULL)
+        *(void **)(&_m_get_xcp_info) = dlsym(lib_ep11, "m_get_ep11_info");
 
-    if (!_m_get_ep11_info || !_ep11a_cmdblock ||
-        !_m_admin || !_ep11a_internal_rv || !dll_m_get_xcp_info) {
+    if (!_m_get_xcp_info || !_xcpa_cmdblock ||
+        !_m_admin || !_xcpa_internal_rv) {
         fprintf(stderr, "ERROR getting function pointer from shared lib '%s'",
                 EP11SHAREDLIB);
         return CKR_FUNCTION_FAILED;
