@@ -79,18 +79,15 @@ typedef struct {
 } __attribute__ ((packed)) ep11_target_t;
 
 
-#define blobsize 2048*4
+#define BLOBSIZE         2048*4
 
-typedef struct {
-    size_t blob_size;
-    size_t blob_id;
-    unsigned char blob[blobsize];
-} ep11_opaque;
 
-static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
+
+static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
+                     CK_ULONG old_len)
 {
-    CK_BYTE req[blobsize];
-    CK_BYTE resp[blobsize];
+    CK_BYTE req[BLOBSIZE];
+    CK_BYTE resp[BLOBSIZE];
     CK_LONG req_len;
     size_t resp_len;
     struct ep11_admresp rb;
@@ -100,13 +97,11 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
     target_t target = XCP_TGT_INIT;
     CK_RV rc;
     CK_BYTE name[256];
-
-    ep11_opaque *op_old = (ep11_opaque *) old;
-    ep11_opaque op_new;
-
+    unsigned char blob[BLOBSIZE];
+    CK_ULONG blob_len;
 
     CK_ATTRIBUTE opaque_template[] = {
-        {CKA_IBM_OPAQUE, &op_new, sizeof(op_new)}
+        { CKA_IBM_OPAQUE, blob, BLOBSIZE }
     };
 
     CK_ATTRIBUTE name_template[] = {
@@ -127,7 +122,6 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
 
     memset(&rb, 0, sizeof(rb));
     memset(&lrb, 0, sizeof(lrb));
-    memset(&target, 0, sizeof(target));
 
     if (_m_add_module != NULL) {
         memset(&module, 0, sizeof(module));
@@ -151,12 +145,12 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
     rb.domain = domain;
     lrb.domain = domain;
 
-    fprintf(stderr, "going to reencrpyt key %lx with blob len %lx %s\n", obj,
-            op_old->blob_size, name);
-    resp_len = blobsize;
+    fprintf(stderr, "going to reencrpyt key %lx with blob len %lx: '%s'\n", obj,
+            old_len, name);
+    resp_len = BLOBSIZE;
 
-    req_len = _ep11a_cmdblock(req, blobsize, EP11_ADM_REENCRYPT, &rb,
-                              NULL, op_old->blob, op_old->blob_size);
+    req_len = _ep11a_cmdblock(req, BLOBSIZE, EP11_ADM_REENCRYPT, &rb,
+                              NULL, old, old_len);
 
     if (req_len < 0) {
         fprintf(stderr, "reencrypt cmd block construction failed\n");
@@ -168,40 +162,46 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old)
                   target);
 
     if (rc != CKR_OK || resp_len == 0) {
-        fprintf(stderr, "reencryption failed %lx %ld\n", rc, req_len);
+        fprintf(stderr, "reencryption failed: %lx %ld\n", rc, req_len);
         rc = -3;
         goto out;
     }
 
     if (_ep11a_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
-        fprintf(stderr, "reencryption response malformed %lx\n", rc);
+        fprintf(stderr, "reencryption response malformed: %lx\n", rc);
         rc = -4;
         goto out;
     }
 
-    if (op_old->blob_size != lrb.pllen) {
-        fprintf(stderr, "reencryption blob size changed %lx %lx %lx %lx\n",
-                op_old->blob_size, lrb.pllen, resp_len, req_len);
+    if (rc != 0) {
+        fprintf(stderr, "reencryption failed: %lx\n", rc);
+        rc = -7;
+        goto out;
+    }
+
+    if (old_len != lrb.pllen) {
+        fprintf(stderr, "reencryption blob size changed: %lx %lx %lx %lx\n",
+                old_len, lrb.pllen, resp_len, req_len);
         rc = -5;
         goto out;
     }
 
-    memset(&op_new, 0, sizeof(op_new));
-    op_new.blob_id = op_old->blob_id;
-    op_new.blob_size = op_old->blob_size;
-    memcpy(op_new.blob, lrb.payload, op_new.blob_size);
+    memset(blob, 0, sizeof(blob));
+    blob_len = old_len;
+    memcpy(blob, lrb.payload, blob_len);
+    opaque_template[0].ulValueLen = blob_len;
 
     rc = funcs->C_SetAttributeValue(session, key_store[obj], opaque_template,
                                     1);
     if (rc != CKR_OK) {
         fprintf(stderr,
-                "reencryption C_SetAttributeValue failed obj %lx %s rc %lx\n",
+                "reencryption C_SetAttributeValue failed: obj %lx '%s' rc: %lx\n",
                 obj, name, rc);
         rc = -6;
         goto out;
     }
 
-    fprintf(stderr, "reencryption success obj %lx %s\n", obj, name);
+    fprintf(stderr, "reencryption success obj: %lx '%s:\n", obj, name);
 
 out:
     if (_m_rm_module != NULL)
@@ -677,7 +677,8 @@ int main(int argc, char **argv)
                     return rc;
                 } else {
                     if (reencrypt(session, obj,
-                                  (CK_BYTE *) opaque_template[0].pValue) != 0) {
+                                  (CK_BYTE *) opaque_template[0].pValue,
+                                  opaque_template[0].ulValueLen) != 0) {
                         /* reencrypt failed */
                         return -1;
                     }
