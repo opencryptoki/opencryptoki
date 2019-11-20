@@ -1277,6 +1277,14 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, CKM_RSA_PKCS)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support %s (%u)",
+                       (unsigned int) slot_id,
+                       mech_to_str(CKM_RSA_PKCS),
+                       (unsigned int) CKM_RSA_PKCS);
+        goto testcase_cleanup;
+    }
 
     for (i = 0; i < 3; i++) {
 
