@@ -1,3 +1,6 @@
++ openCryptoki 3.12.1
+- Fix pkcsep11_migrate tool
+
 + openCryptoki 3.12.0
 - Update token pin and data store encryption for soft,ica,cca and ep11
 - EP11: Allow importing of compressed EC public keys
