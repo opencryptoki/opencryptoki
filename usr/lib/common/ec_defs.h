@@ -17,6 +17,8 @@
 //
 #define PRIME_CURVE         0x00
 #define BRAINPOOL_CURVE     0x01
+#define MONTGOMERY_CURVE    0x02
+#define EDWARDS_CURVE       0x03
 
 // Elliptic Curve length in bits
 //
@@ -26,11 +28,12 @@
 #define CURVE256        0x0100
 #define CURVE320        0x0140
 #define CURVE384        0x0180
+#define CURVE456        0x01C8
 #define CURVE512        0x0200
 #define CURVE521        0x0209
 
 /* Supported Elliptic Curves */
-#define NUMEC           20      /* number of supported curves */
+#define NUMEC           24      /* number of supported curves */
 extern const CK_BYTE brainpoolP160r1[];
 extern const CK_BYTE brainpoolP160t1[];
 extern const CK_BYTE brainpoolP192r1[];
@@ -51,6 +54,10 @@ extern const CK_BYTE prime256v1[];
 extern const CK_BYTE secp384r1[];
 extern const CK_BYTE secp521r1[];
 extern const CK_BYTE secp256k1[];
+extern const CK_BYTE curve25519[];
+extern const CK_BYTE curve448[];
+extern const CK_BYTE ed25519[];
+extern const CK_BYTE ed448[];
 
 
 // structure of supported Elliptic Curves

@@ -79,6 +79,15 @@ static int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen)
 
 #endif
 
+#ifndef NID_X25519
+#define NID_X25519                      1034
+#define NID_X448                        1035
+#endif
+#ifndef NID_ED25519
+#define NID_ED25519                     1087
+#define NID_ED448                       1088
+#endif
+
 const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
 const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
 const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
@@ -99,6 +108,10 @@ const CK_BYTE prime256v1[] = OCK_PRIME256V1;
 const CK_BYTE secp384r1[] = OCK_SECP384R1;
 const CK_BYTE secp521r1[] = OCK_SECP521R1;
 const CK_BYTE secp256k1[] = OCK_SECP256K1;
+const CK_BYTE curve25519[] = OCK_CURVE25519;
+const CK_BYTE curve448[] = OCK_CURVE448;
+const CK_BYTE ed25519[] = OCK_ED25519;
+const CK_BYTE ed448[] = OCK_ED448;
 
 const struct _ec der_ec_supported[NUMEC] = {
     {BRAINPOOL_CURVE, CURVE160, NID_brainpoolP160r1,
@@ -137,6 +150,10 @@ const struct _ec der_ec_supported[NUMEC] = {
     {PRIME_CURVE, CURVE384, NID_secp384r1, sizeof(secp384r1), &secp384r1},
     {PRIME_CURVE, CURVE521, NID_secp521r1, sizeof(secp521r1), &secp521r1},
     {PRIME_CURVE, CURVE256, NID_secp256k1, sizeof(secp256k1), &secp256k1},
+    {MONTGOMERY_CURVE, CURVE256, NID_X25519, sizeof(curve25519), &curve25519},
+    {MONTGOMERY_CURVE, CURVE456, NID_X448, sizeof(curve448), &curve448},
+    {EDWARDS_CURVE, CURVE256, NID_ED25519, sizeof(ed25519), &ed25519},
+    {EDWARDS_CURVE, CURVE456, NID_ED448, sizeof(ed448), &ed448},
 };
 
 
