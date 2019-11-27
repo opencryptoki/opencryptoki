@@ -92,5 +92,16 @@
 /* secp256k1:  1.3.132.0.10 */
 #define OCK_SECP256K1           { 0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x0A }
 
+/* Curve25519 (also called X25519): 1.3.101.110 */
+#define OCK_CURVE25519          { 0x06, 0x03, 0x2B, 0x65, 0x6E }
+
+/* Curve448 (also called X448):1.3.101.111 */
+#define OCK_CURVE448            { 0x06, 0x03, 0x2B, 0x65, 0x6F }
+
+/* Ed25519: 1.3.101.112 */
+#define OCK_ED25519             { 0x06, 0x03, 0x2B, 0x65, 0x70 }
+
+/* Ed448: 1.3.101.113 */
+#define OCK_ED448               { 0x06, 0x03, 0x2B, 0x65, 0x71 }
 
 #endif                          // _EC_CURVES_H_
