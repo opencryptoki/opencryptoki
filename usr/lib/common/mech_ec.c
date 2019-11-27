@@ -1213,6 +1213,19 @@ static int ec_nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
     return -1;
 }
 
+static int ec_curve_type_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
+{
+    int i;
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == oid_length &&
+            memcmp(der_ec_supported[i].data, oid, oid_length) == 0)
+            return der_ec_supported[i].curve_type;
+    }
+
+    return -1;
+}
+
 /*
  * Uncompress a compressed EC public key. EC public keys can be un-compressed,
  * compressed, or hybrid. The fist byte of an EC public key determines if it
@@ -1237,10 +1250,24 @@ CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
     CK_RV rc;
     int y_bit = 0;
     CK_BYTE *x;
-    int nid;
+    int nid, type;
 
     if (*out_len < 1 + 2 * privkey_len)
         return CKR_BUFFER_TOO_SMALL;
+
+    type = ec_curve_type_from_oid(curve, curve_len);
+    if (type == -1)
+        return CKR_CURVE_NOT_SUPPORTED;
+
+    if (type == MONTGOMERY_CURVE || type == EDWARDS_CURVE) {
+        /*
+         * Public keys of Montgomery and Edwards curves are always compressed
+         * and are not uncompressed.
+         */
+        memcpy(out_pubkey, pubkey, pubkey_len);
+        *out_len = pubkey_len;
+        return CKR_OK;
+    }
 
     *out_len = 1 + 2 * privkey_len;
 
