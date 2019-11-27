@@ -322,6 +322,13 @@ static const version_req_t oaep_sha2_req_versions[] = {
 };
 #define NUM_OAEP_SHA2_REQ sizeof(oaep_sha2_req_versions)/sizeof(version_req_t)
 
+static const CK_VERSION cex7p_edwards_support = { .major = 7, .minor = 15 };
+
+static const version_req_t edwards_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &cex7p_edwards_support }
+};
+#define NUM_EDWARDS_REQ sizeof(edwards_req_versions)/sizeof(version_req_t)
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -506,10 +513,7 @@ typedef struct const_info {
 #define CKM_IBM_SHA512_224_HMAC            CKM_VENDOR_DEFINED + 0x00010015
 #define CKM_IBM_SHA512_256_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010016
 #define CKM_IBM_SHA512_224_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010017
-#define CKM_IBM_EC_C25519                  CKM_VENDOR_DEFINED + 0x0001001B
-#define CKM_IBM_EDDSA_SHA512               CKM_VENDOR_DEFINED + 0x0001001C
 #define CKM_IBM_EDDSA_PH_SHA512            CKM_VENDOR_DEFINED + 0x0001001D
-#define CKM_IBM_EC_C448                    CKM_VENDOR_DEFINED + 0x0001001E
 #define CKM_IBM_SIPHASH                    CKM_VENDOR_DEFINED + 0x00010021
 #define CKM_IBM_CLEARKEY_TRANSPORT         CKM_VENDOR_DEFINED + 0x00020001
 #define CKM_IBM_ATTRIBUTEBOUND_WRAP        CKM_VENDOR_DEFINED + 0x00020004
@@ -999,6 +1003,7 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_IBM_EDDSA_SHA512),
     CONSTINFO(CKM_IBM_EDDSA_PH_SHA512),
     CONSTINFO(CKM_IBM_EC_C448),
+    CONSTINFO(CKM_IBM_ED448_SHA3),
     CONSTINFO(CKM_IBM_SIPHASH),
     CONSTINFO(CKM_IBM_CLEARKEY_TRANSPORT),
     CONSTINFO(CKM_IBM_ATTRIBUTEBOUND_WRAP),
@@ -3484,10 +3489,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     memset(newblob, 0, sizeof(newblob));
 
-    if (mech->mechanism == CKM_ECDH1_DERIVE) {
+    if (mech->mechanism == CKM_ECDH1_DERIVE ||
+        mech->mechanism == CKM_IBM_EC_C25519 ||
+        mech->mechanism == CKM_IBM_EC_C448) {
         if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
-            TRACE_ERROR("%s Param len for CKM_ECDH1_DERIVE wrong: %lu\n",
-                        __func__, mech->ulParameterLen);
+            TRACE_ERROR("%s Param len for %s wrong: %lu\n",
+                        __func__, ep11_get_ckm(mech->mechanism ),
+                        mech->ulParameterLen);
             return CKR_MECHANISM_PARAM_INVALID;
         }
         ecdh1_parms = mech->pParameter;
@@ -3518,7 +3526,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
             ecdh1_parms2.pPublicData = ecpoint;
             ecdh1_parms2.ulPublicDataLen = ecpoint_len;
 
-            ecdh1_mech2.mechanism = CKM_ECDH1_DERIVE;
+            ecdh1_mech2.mechanism = mech->mechanism;
             ecdh1_mech2.pParameter = &ecdh1_parms2;
             ecdh1_mech2.ulParameterLen = sizeof(ecdh1_parms2);
 
@@ -3527,10 +3535,10 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
 
         /*
-         * EP11 supports CKM_ECDH1_DERIVE slightly different than specified in
-         * PKCS#11 v2.11 or later. It expects the public data directly as
-         * mechanism param, not via CK_ECDH1_DERIVE_PARAMS. It also does not
-         * support KDFs and shared data.
+         * EP11 supports CKM_ECDH1_DERIVE (and CKM_IBM_EC_C*) slightly different
+         * than specified in PKCS#11 v2.11 or later. It expects the public data
+         * directly as mechanism param, not via CK_ECDH1_DERIVE_PARAMS. It also
+         * does not support KDFs and shared data.
          *
          * Newer EP11 crypto cards that support API version 3 support this
          * mechanism in the PKCS#11 c2.11 way. If the used API version is > 2,
@@ -3551,7 +3559,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                 return CKR_MECHANISM_PARAM_INVALID;
             }
 
-            ecdh1_mech.mechanism = CKM_ECDH1_DERIVE;
+            ecdh1_mech.mechanism = mech->mechanism;
             ecdh1_mech.pParameter = ecdh1_parms->pPublicData;
             ecdh1_mech.ulParameterLen = ecdh1_parms->ulPublicDataLen;
             mech = &ecdh1_mech;
@@ -5876,10 +5884,7 @@ static const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
     CKM_IBM_SHA512_224_HMAC,
     CKM_IBM_SHA512_256_KEY_DERIVATION,
     CKM_IBM_SHA512_224_KEY_DERIVATION,
-    CKM_IBM_EC_C25519,
-    CKM_IBM_EDDSA_SHA512,
     CKM_IBM_EDDSA_PH_SHA512,
-    CKM_IBM_EC_C448,
     CKM_IBM_SIPHASH,
     CKM_IBM_CLEARKEY_TRANSPORT,
     CKM_IBM_ATTRIBUTEBOUND_WRAP,
@@ -6032,6 +6037,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
+    CK_VERSION ver3 = { .major = 3, .minor = 0 };
     CK_ULONG i;
     int status;
 
@@ -6116,6 +6122,26 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                     __func__, ep11_get_ckm(type));
             return CKR_MECHANISM_INVALID;
         }
+        break;
+
+    case CKM_IBM_EC_C25519:
+    case CKM_IBM_EDDSA_SHA512:
+    case CKM_IBM_EC_C448:
+    case CKM_IBM_ED448_SHA3:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+
+        status = check_required_versions(tokdata, edwards_req_versions,
+                                         NUM_EDWARDS_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
     }
 
     return CKR_OK;
