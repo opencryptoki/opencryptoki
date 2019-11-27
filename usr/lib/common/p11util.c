@@ -407,6 +407,19 @@ char *p11_get_ckm(CK_ULONG mechanism)
         _sym2str(CKM_DH_PKCS_PARAMETER_GEN);
         _sym2str(CKM_X9_42_DH_PARAMETER_GEN);
         _sym2str(CKM_VENDOR_DEFINED);
+        _sym2str(CKM_IBM_SHA3_224);
+        _sym2str(CKM_IBM_SHA3_256);
+        _sym2str(CKM_IBM_SHA3_384);
+        _sym2str(CKM_IBM_SHA3_512);
+        _sym2str(CKM_IBM_CMAC);
+        _sym2str(CKM_IBM_SHA3_224_HMAC);
+        _sym2str(CKM_IBM_SHA3_256_HMAC);
+        _sym2str(CKM_IBM_SHA3_384_HMAC);
+        _sym2str(CKM_IBM_SHA3_512_HMAC);
+        _sym2str(CKM_IBM_EC_C25519);
+        _sym2str(CKM_IBM_EDDSA_SHA512);
+        _sym2str(CKM_IBM_EC_C448);
+        _sym2str(CKM_IBM_ED448_SHA3);
     default:
         return "UNKNOWN";
     }
