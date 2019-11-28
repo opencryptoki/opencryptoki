@@ -86,6 +86,18 @@
  * secp256k1
  *		1.3.132.0.10
  *		2B8104000A
+ * curve25519
+ *      1.3.101.110
+ *      06032B656E
+ * curve448[]
+ *      1.3.101.111
+ *      06032B656F
+ * ed25519[]
+ *      1.3.101.112
+ *      06032B6570
+ * ed448
+ *      1.3.101.113
+ *      06032B6571
  */
 
 CK_ULONG total_assertions = 65;
@@ -94,10 +106,13 @@ typedef struct ec_struct {
     void const *curve;
     CK_ULONG size;
     CK_BBOOL twisted;
+    enum curve_type type;
+    CK_ULONG bit_len;
+    char *name;
 } _ec_struct;
 
 /* Supported Elliptic Curves */
-#define NUMEC		20
+#define NUMEC		24
 const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
 const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
 const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
@@ -118,28 +133,60 @@ const CK_BYTE prime256v1[] = OCK_PRIME256V1;
 const CK_BYTE secp384r1[] = OCK_SECP384R1;
 const CK_BYTE secp521r1[] = OCK_SECP521R1;
 const CK_BYTE secp256k1[] = OCK_SECP256K1;
+const CK_BYTE curve25519[] = OCK_CURVE25519;
+const CK_BYTE curve448[] = OCK_CURVE448;
+const CK_BYTE ed25519[] = OCK_ED25519;
+const CK_BYTE ed448[] = OCK_ED448;
 
 const _ec_struct der_ec_supported[NUMEC] = {
-    {&brainpoolP160r1, sizeof(brainpoolP160r1), CK_FALSE},
-    {&brainpoolP160t1, sizeof(brainpoolP160t1), CK_TRUE},
-    {&brainpoolP192r1, sizeof(brainpoolP192r1), CK_FALSE},
-    {&brainpoolP192t1, sizeof(brainpoolP192t1), CK_TRUE},
-    {&brainpoolP224r1, sizeof(brainpoolP224r1), CK_FALSE},
-    {&brainpoolP224t1, sizeof(brainpoolP224t1), CK_TRUE},
-    {&brainpoolP256r1, sizeof(brainpoolP256r1), CK_FALSE},
-    {&brainpoolP256t1, sizeof(brainpoolP256t1), CK_TRUE},
-    {&brainpoolP320r1, sizeof(brainpoolP320r1), CK_FALSE},
-    {&brainpoolP320t1, sizeof(brainpoolP320t1), CK_TRUE},
-    {&brainpoolP384r1, sizeof(brainpoolP384r1), CK_FALSE},
-    {&brainpoolP384t1, sizeof(brainpoolP384t1), CK_TRUE},
-    {&brainpoolP512r1, sizeof(brainpoolP512r1), CK_FALSE},
-    {&brainpoolP512t1, sizeof(brainpoolP512t1), CK_TRUE},
-    {&prime192v1, sizeof(prime192v1), CK_FALSE},
-    {&secp224r1, sizeof(secp224r1), CK_FALSE},
-    {&prime256v1, sizeof(prime256v1), CK_FALSE},
-    {&secp384r1, sizeof(secp384r1), CK_FALSE},
-    {&secp521r1, sizeof(secp521r1), CK_FALSE},
-    {&secp256k1, sizeof(secp256k1), CK_FALSE}
+    {&brainpoolP160r1, sizeof(brainpoolP160r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE160_LENGTH, "brainpoolP160r1"},
+    {&brainpoolP160t1, sizeof(brainpoolP160t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE160_LENGTH, "brainpoolP160t1"},
+    {&brainpoolP192r1, sizeof(brainpoolP192r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE192_LENGTH, "brainpoolP192r1"},
+    {&brainpoolP192t1, sizeof(brainpoolP192t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE192_LENGTH, "brainpoolP192t1"},
+    {&brainpoolP224r1, sizeof(brainpoolP224r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE224_LENGTH, "brainpoolP224r1"},
+    {&brainpoolP224t1, sizeof(brainpoolP224t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE224_LENGTH, "brainpoolP224t1"},
+    {&brainpoolP256r1, sizeof(brainpoolP256r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "brainpoolP256r1"},
+    {&brainpoolP256t1, sizeof(brainpoolP256t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "brainpoolP256t1"},
+    {&brainpoolP320r1, sizeof(brainpoolP320r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE320_LENGTH, "brainpoolP320r1"},
+    {&brainpoolP320t1, sizeof(brainpoolP320t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE320_LENGTH, "brainpoolP320t1"},
+    {&brainpoolP384r1, sizeof(brainpoolP384r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE384_LENGTH, "brainpoolP384r1"},
+    {&brainpoolP384t1, sizeof(brainpoolP384t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE384_LENGTH, "brainpoolP384t1"},
+    {&brainpoolP512r1, sizeof(brainpoolP512r1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE512_LENGTH, "brainpoolP512r1"},
+    {&brainpoolP512t1, sizeof(brainpoolP512t1), CK_TRUE, CURVE_BRAINPOOL,
+     CURVE512_LENGTH, "brainpoolP512t1"},
+    {&prime192v1, sizeof(prime192v1), CK_FALSE, CURVE_PRIME,
+     CURVE192_LENGTH, "prime192v1"},
+    {&secp224r1, sizeof(secp224r1), CK_FALSE, CURVE_PRIME,
+     CURVE224_LENGTH , "secp224r1"},
+    {&prime256v1, sizeof(prime256v1), CK_FALSE, CURVE_PRIME,
+     CURVE256_LENGTH, "prime256v1"},
+    {&secp384r1, sizeof(secp384r1), CK_FALSE, CURVE_PRIME,
+     CURVE384_LENGTH, "secp384r1"},
+    {&secp521r1, sizeof(secp521r1), CK_FALSE, CURVE_PRIME,
+     CURVE521_LENGTH + 8, "secp521r1"},
+    {&secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+     CURVE256_LENGTH, "secp256k1"},
+    {&curve25519, sizeof(curve25519), CK_FALSE, CURVE_MONTGOMERY,
+     CURVE256_LENGTH, "curve25519"},
+    {&curve448, sizeof(curve448), CK_FALSE, CURVE_MONTGOMERY,
+     CURVE456_LENGTH, "curve448"},
+    {&ed25519, sizeof(ed25519), CK_FALSE, CURVE_EDWARDS,
+     CURVE256_LENGTH, "ed25519"},
+    {&ed448, sizeof(ed448), CK_FALSE, CURVE_EDWARDS,
+     CURVE456_LENGTH, "ed448"},
 };
 
 /* Invalid curves */
@@ -154,10 +201,14 @@ const CK_BYTE invalidOIDfield[] =
     { 0x05, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x01 };
 
 const _ec_struct der_ec_notsupported[NUMECINVAL] = {
-    {&invalidCurve, sizeof(invalidCurve), CK_FALSE},
-    {&invalidLen1, sizeof(invalidLen1), CK_FALSE},
-    {&invalidLen2, sizeof(invalidLen2), CK_FALSE},
-    {&invalidOIDfield, sizeof(invalidOIDfield), CK_FALSE}
+    {&invalidCurve, sizeof(invalidCurve), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "invalidCurve"},
+    {&invalidLen1, sizeof(invalidLen1), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "invalidLen1"},
+    {&invalidLen2, sizeof(invalidLen2), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "invalidLen2"},
+    {&invalidOIDfield, sizeof(invalidOIDfield), CK_FALSE, CURVE_BRAINPOOL,
+     CURVE256_LENGTH, "invalidOIDfield"}
 };
 
 typedef struct signVerifyParam {
@@ -184,7 +235,9 @@ _signVerifyParam signVerifyInput[] = {
     {CKM_ECDSA_SHA384, 100, 0},
     {CKM_ECDSA_SHA384, 100, 4},
     {CKM_ECDSA_SHA512, 100, 0},
-    {CKM_ECDSA_SHA512, 100, 4}
+    {CKM_ECDSA_SHA512, 100, 4},
+    {CKM_IBM_EDDSA_SHA512, 100, 0},
+    {CKM_IBM_ED448_SHA3, 100, 0},
 };
 
 #define NUM_KDFS sizeof(kdfs)/sizeof(CK_EC_KDF_TYPE)
@@ -197,45 +250,32 @@ static CK_EC_KDF_TYPE kdfs[] = {
     CKD_SHA512_KDF,
 };
 
+static const char *p11_get_ckd(CK_EC_KDF_TYPE kdf)
+{
+    switch (kdf) {
+    case CKD_NULL:
+        return "CKD_NULL";
+    case CKD_SHA1_KDF:
+        return "CKD_SHA1_KDF";
+    case CKD_SHA224_KDF:
+        return "CKD_SHA224_KDF";
+    case CKD_SHA256_KDF:
+        return "CKD_SHA256_KDF";
+    case CKD_SHA384_KDF:
+        return "CKD_SHA384_KDF";
+    case CKD_SHA512_KDF:
+        return "CKD_SHA512_KDF";
+    default:
+        return "UNKNOWN";
+    }
+}
+
 static unsigned int curve_len(int index)
 {
-    switch (index) {
-    case 0:
-    case 1:
-        return CURVE160_LENGTH/8;
-    case 2:
-    case 3:
-        return CURVE192_LENGTH/8;
-    case 4:
-    case 5:
-        return CURVE224_LENGTH/8;
-    case 6:
-    case 7:
-        return CURVE256_LENGTH/8;
-    case 8:
-    case 9:
-        return CURVE320_LENGTH/8;
-    case 10:
-    case 11:
-        return CURVE384_LENGTH/8;
-    case 12:
-    case 13:
-        return CURVE512_LENGTH/8;
-    case 14:
-        return CURVE192_LENGTH/8;
-    case 15:
-        return CURVE224_LENGTH/8;
-    case 16:
-        return CURVE256_LENGTH/8;
-    case 17:
-        return CURVE384_LENGTH/8;
-    case 18:
-        return CURVE521_LENGTH/8+1;
-    case 19:
-        return CURVE256_LENGTH/8;
-    }
+    if (index >= NUMEC)
+        return 0;
 
-    return 0;
+    return der_ec_supported[index].bit_len / 8;
 }
 
 static CK_RV curve_supported(const char *name)
@@ -246,26 +286,6 @@ static CK_RV curve_supported(const char *name)
     return 0;
 }
 
-/**
- * A test is skipped for the ep11token, when the derived key length
- * shall be bigger than the shared secret (z-value). The ep11token is
- * currently based on PKCS#11 v2.20 where no KDF is considered.
- * This restriction comes from the ep11 host library.
- */
-static unsigned int too_many_key_bytes_requested_ep11(unsigned int curve,
-                                                      unsigned int kdf,
-                                                      unsigned int keylen)
-{
-    UNUSED(kdf);
-
-    if (!is_ep11_token(SLOT_ID))
-        return 0;
-
-    if (keylen <= curve_len(curve))
-        return 0;
-
-    return 1;
-}
 
 /**
  * A test is skipped, when no KDF is used and the derived key length
@@ -310,6 +330,7 @@ CK_RV run_DeriveECDHKey()
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
     CK_ULONG i, j, k, m;
+    CK_MECHANISM_TYPE derive_mech_type;
 
     testcase_begin("starting run_DeriveECDHKey...");
     testcase_rw_session();
@@ -317,11 +338,6 @@ CK_RV run_DeriveECDHKey()
 
     if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
         testcase_skip("Slot %u doesn't support CKM_EC_KEY_PAIR_GEN\n",
-                      (unsigned int) SLOT_ID);
-        goto testcase_cleanup;
-    }
-    if (!mech_supported(SLOT_ID, CKM_ECDH1_DERIVE)) {
-        testcase_skip("Slot %u doesn't support CKM_ECDH1_DERIVE\n",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
     }
@@ -352,17 +368,41 @@ CK_RV run_DeriveECDHKey()
         };
         CK_ULONG extr2_tmpl_len = sizeof(extr2_tmpl)/sizeof(CK_ATTRIBUTE);
 
+        if (der_ec_supported[i].type == CURVE_EDWARDS) {
+            testcase_skip("Edwards curves can not be used for ECDH derive");
+            continue;
+        }
+
         if (!is_ep11_token(SLOT_ID)) {
             if (der_ec_supported[i].twisted) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
             if (der_ec_supported[i].curve == secp256k1) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
+            if (der_ec_supported[i].type != CURVE_BRAINPOOL &&
+                der_ec_supported[i].type != CURVE_PRIME ) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
+                continue;
+            }
+        }
+
+        derive_mech_type = CKM_ECDH1_DERIVE;
+        if (der_ec_supported[i].type == CURVE_MONTGOMERY) {
+            if (der_ec_supported[i].curve == curve25519)
+                derive_mech_type = CKM_IBM_EC_C25519;
+            if (der_ec_supported[i].curve == curve448)
+                derive_mech_type = CKM_IBM_EC_C448;
+        }
+        if (!mech_supported(SLOT_ID, derive_mech_type)) {
+            testcase_skip("Slot %u doesn't support %s\n",
+                          (unsigned int) SLOT_ID, p11_get_ckm(derive_mech_type));
+            goto testcase_cleanup;
         }
 
         // Testcase #1 - Generate 2 EC key pairs.
@@ -379,12 +419,13 @@ CK_RV run_DeriveECDHKey()
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
                 rc == CKR_ATTRIBUTE_VALUE_INVALID) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
-            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu, "
-                          "rc=%s", i, p11_get_ckr(rc));
+            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu "
+                          "(%s), rc=%s", i, der_ec_supported[i].name,
+                          p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
@@ -406,8 +447,9 @@ CK_RV run_DeriveECDHKey()
                                       prv_attr, prv_attr_len,
                                       &publ_keyB, &priv_keyB);
         if (rc != CKR_OK) {
-            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu, "
-                          "rc=%s", i, p11_get_ckr(rc));
+            testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu "
+                          "(%s), rc=%s", i, der_ec_supported[i].name,
+                          p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
@@ -432,11 +474,16 @@ CK_RV run_DeriveECDHKey()
 
             for (k=0; k<NUM_SECRET_KEY_LENGTHS; k++) {
 
-                if (too_many_key_bytes_requested(i, j, secret_key_len[k]) ||
-                    too_many_key_bytes_requested_ep11(i, j,
-                                                      secret_key_len[k])) {
-                    testcase_skip("Cannot provide %lu key bytes with curve %lu"
-                                  " without a kdf.\n", secret_key_len[k], i);
+                if (too_many_key_bytes_requested(i, j, secret_key_len[k])) {
+                    testcase_skip("Cannot provide %lu key bytes with curve %s"
+                                  " without a kdf.\n", secret_key_len[k],
+                                  der_ec_supported[i].name);
+                    continue;
+                }
+                if (is_ep11_token(SLOT_ID) && k > 8) {
+                    testcase_skip("EP11 cannot provide %lu key bytes with "
+                                  "curve %s\n", secret_key_len[k],
+                                  der_ec_supported[i].name);
                     continue;
                 }
 
@@ -464,7 +511,12 @@ CK_RV run_DeriveECDHKey()
                 for (m=0; m < (kdfs[j] == CKD_NULL ? 1 : NUM_SHARED_DATA); m++) {
 
                     testcase_new_assertion();
-                    testcase_begin("Starting with ec=%lu, kdf=%lu, keylen=%lu, shared_data=%lu", i,j,k,m);
+                    testcase_begin("Starting with curve=%s, kdf=%s, keylen=%lu, "
+                                  "shared_data=%u, mech=%s",
+                                  der_ec_supported[i].name,
+                                  p11_get_ckd(kdfs[j]), secret_key_len[k],
+                                  shared_data[m].length,
+                                  p11_get_ckm(derive_mech_type));
 
                     // Now, derive a generic secret key using party A's private
                     // key and B's public key
@@ -481,7 +533,7 @@ CK_RV run_DeriveECDHKey()
                         ecdh_parmA.ulSharedDataLen = 0;
                     }
 
-                    mech.mechanism = CKM_ECDH1_DERIVE;
+                    mech.mechanism = derive_mech_type;
                     mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
                     mech.pParameter = &ecdh_parmA;
 
@@ -519,7 +571,7 @@ CK_RV run_DeriveECDHKey()
                         ecdh_parmB.ulSharedDataLen = 0;
                     }
 
-                    mech.mechanism = CKM_ECDH1_DERIVE;
+                    mech.mechanism = derive_mech_type;
                     mech.ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS);
                     mech.pParameter = &ecdh_parmB;
 
@@ -567,7 +619,7 @@ CK_RV run_DeriveECDHKey()
                     // Compare lengths of derived secrets from key object
                     if (secretA_tmpl[0].ulValueLen !=
                         secretB_tmpl[0].ulValueLen) {
-                        testcase_fail("ERROR:derived key #1 length = %ld, "
+                        testcase_fail("ERROR: derived key #1 length = %ld, "
                                       "derived key #2 length = %ld",
                                       secretA_tmpl[0].ulValueLen,
                                       secretB_tmpl[0].ulValueLen);
@@ -578,15 +630,20 @@ CK_RV run_DeriveECDHKey()
                     if (memcmp(secretA_tmpl[0].pValue,
                                secretB_tmpl[0].pValue,
                                secretA_tmpl[0].ulValueLen) != 0) {
-                        testcase_fail("ERROR:derived key mismatch, ec=%lu, "
-                                      "kdf=%lu, keylen=%lu, shared_data=%lu",
-                                      i, j, k, m);
+                        testcase_fail("ERROR: derived key mismatch, curve=%s, "
+                                      "kdf=%s, keylen=%lu, shared_data=%u",
+                                      der_ec_supported[i].name,
+                                      p11_get_ckd(kdfs[j]), secret_key_len[k],
+                                      shared_data[m].length);
                         goto testcase_cleanup;
                     }
 
-                    testcase_pass("*Derive shared secret ec=%lu, kdf=%lu, "
-                                  "keylen=%lu, shared_data=%lu passed.",
-                                  i, j, k, m);
+                    testcase_pass("*Derive shared secret curve=%s, kdf=%s, "
+                                  "keylen=%lu, shared_data=%u, mech=%s passed.",
+                                  der_ec_supported[i].name,
+                                  p11_get_ckd(kdfs[j]), secret_key_len[k],
+                                  shared_data[m].length,
+                                  p11_get_ckm(derive_mech_type));
 
                     if (secret_keyA != CK_INVALID_HANDLE)
                         funcs->C_DestroyObject(session, secret_keyA);
@@ -917,7 +974,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
                                 CK_ULONG inputlen,
                                 CK_ULONG parts,
                                 CK_OBJECT_HANDLE priv_key,
-                                CK_OBJECT_HANDLE publ_key)
+                                CK_OBJECT_HANDLE publ_key,
+                                enum curve_type curve_type)
 {
     CK_MECHANISM mech2;
     CK_BYTE_PTR data = NULL, signature = NULL;
@@ -943,6 +1001,24 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         } else {
             testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+
+    if ((mechType == CKM_IBM_EDDSA_SHA512 || mechType == CKM_IBM_ED448_SHA3)) {
+        if (curve_type != CURVE_EDWARDS) {
+            /* Mechanism does not match to curve type, skip */
+            testcase_skip("Mechanism %s can only be used with Edwards curves",
+                          p11_get_ckm(mechType));
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+    } else {
+        if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
+            /* Mechanism does not match to curve type, skip */
+            testcase_skip("Mechanism %s can not be used with Edwards/Montogmery curves",
+                          p11_get_ckm(mechType));
+            rc = CKR_OK;
             goto testcase_cleanup;
         }
     }
@@ -1121,15 +1197,26 @@ CK_RV run_GenerateECCKeyPairSignVerify()
 
     for (i = 0; i < NUMEC; i++) {
 
+        if (der_ec_supported[i].type == CURVE_MONTGOMERY) {
+            testcase_skip("Montgomery curves can not be used for sign/verify");
+            continue;
+        }
+
         if (!is_ep11_token(SLOT_ID)) {
             if (der_ec_supported[i].twisted) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
             if (der_ec_supported[i].curve == secp256k1) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
+                continue;
+            }
+            if (der_ec_supported[i].type != CURVE_BRAINPOOL &&
+                der_ec_supported[i].type != CURVE_PRIME ) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID,der_ec_supported[i].name);
                 continue;
             }
         }
@@ -1145,13 +1232,13 @@ CK_RV run_GenerateECCKeyPairSignVerify()
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
                 rc == CKR_ATTRIBUTE_VALUE_INVALID) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int) SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
             }
             testcase_fail
-                ("C_GenerateKeyPair with valid input failed at i=%lu, rc=%s", i,
-                 p11_get_ckr(rc));
+                ("C_GenerateKeyPair with valid input failed at i=%lu (%s), "
+                 "rc=%s", i, der_ec_supported[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
         testcase_pass("*Generate supported key pair index=%lu passed.", i);
@@ -1163,7 +1250,8 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                                            signVerifyInput[j].mechtype,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
-                                           priv_key, publ_key);
+                                           priv_key, publ_key,
+                                           der_ec_supported[i].type);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
@@ -1183,10 +1271,12 @@ CK_RV run_GenerateECCKeyPairSignVerify()
         testcase_new_assertion();
         if (rc == CKR_OK) {
             testcase_fail
-                ("C_GenerateKeyPair with invalid input failed at i=%lu", i);
+                ("C_GenerateKeyPair with invalid input failed at i=%lu (%s)",
+                 i, der_ec_supported[i].name);
             goto testcase_cleanup;
         }
-        testcase_pass("*Generate unsupported key pair index=%lu passed.", i);
+        testcase_pass("*Generate unsupported key pair curve=%s passed.",
+                      der_ec_supported[i].name);
     }
 
     rc = CKR_OK;
@@ -1239,12 +1329,11 @@ CK_RV run_ImportECCKeyPairSignVerify()
     for (i = 0; i < EC_TV_NUM; i++) {
         if ((is_ica_token(SLOT_ID) || is_cca_token(SLOT_ID))) {
             if (!curve_supported((char *)ec_tv[i].name)) {
-                testcase_skip("Slot %u doesn't support this curve",
-                              (unsigned int)SLOT_ID);
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int)SLOT_ID,ec_tv[i].name);
                 continue;
             }
         }
-
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
@@ -1253,8 +1342,18 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, "
-                          "rc=%s", i, p11_get_ckr(rc));
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_ENCRYPTED_DATA_INVALID &&
+                (ec_tv[i].curve_type == CURVE_EDWARDS ||
+                 ec_tv[i].curve_type == CURVE_MONTGOMERY)) {
+                testcase_skip("Slot %u doesn't support this curve %s with "
+                              "older firmware versions",
+                              (unsigned int)SLOT_ID, ec_tv[i].name);
+                continue;
+            }
+
+            testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu "
+                          "(%s), rc=%s", i, ec_tv[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
         testcase_pass("*Import EC private key (%s) index=%lu passed.",
@@ -1266,8 +1365,19 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, "
-                          "rc=%s", i, p11_get_ckr(rc));
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_ENCRYPTED_DATA_INVALID &&
+                (ec_tv[i].curve_type == CURVE_EDWARDS ||
+                 ec_tv[i].curve_type == CURVE_MONTGOMERY)) {
+                testcase_skip("Slot %u doesn't support this curve %s with "
+                              "older firmware versions",
+                              (unsigned int)SLOT_ID, ec_tv[i].name);
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
+            testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu "
+                          "(%s), rc=%s", i, ec_tv[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
         testcase_pass("*Import EC public key (%s) index=%lu passed.",
@@ -1281,7 +1391,8 @@ CK_RV run_ImportECCKeyPairSignVerify()
                                            signVerifyInput[j].mechtype,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
-                                           priv_key, publ_key);
+                                           priv_key, publ_key,
+                                           ec_tv[i].curve_type);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
@@ -1363,6 +1474,12 @@ CK_RV run_TransferECCKeyPairSignVerify()
                               (unsigned int)SLOT_ID, ec_tv[i].name);
                 continue;
             }
+            if (ec_tv[i].curve_type == CURVE_EDWARDS ||
+                ec_tv[i].curve_type == CURVE_MONTGOMERY) {
+                testcase_skip("Slot %u doesn't support curve %s",
+                              (unsigned int)SLOT_ID, ec_tv[i].name);
+                continue;
+            }
         }
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
@@ -1372,6 +1489,16 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_ENCRYPTED_DATA_INVALID &&
+                (ec_tv[i].curve_type == CURVE_EDWARDS ||
+                 ec_tv[i].curve_type == CURVE_MONTGOMERY)) {
+                testcase_skip("Slot %u doesn't support this curve %s with "
+                              "older firmware versions",
+                              (unsigned int)SLOT_ID, ec_tv[i].name);
+                continue;
+            }
+
             testcase_fail
                 ("C_CreateObject (EC Private Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
@@ -1386,6 +1513,17 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (is_ep11_token(SLOT_ID) &&
+                rc == CKR_ENCRYPTED_DATA_INVALID &&
+                (ec_tv[i].curve_type == CURVE_EDWARDS ||
+                 ec_tv[i].curve_type == CURVE_MONTGOMERY)) {
+                testcase_skip("Slot %u doesn't support this curve %s with "
+                              "older firmware versions",
+                              (unsigned int)SLOT_ID, ec_tv[i].name);
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
             testcase_fail
                 ("C_CreateObject (EC Public Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
@@ -1490,7 +1628,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
                                            signVerifyInput[j].mechtype,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
-                                           unwrapped_key, publ_key);
+                                           unwrapped_key, publ_key,
+                                           ec_tv[i].curve_type);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;

@@ -444,10 +444,6 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
     rc = funcs->C_CreateObject(session, template,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                priv_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
-    }
-
     return rc;
 }
 
@@ -479,10 +475,6 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
     rc = funcs->C_CreateObject(session, template,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                publ_key);
-    if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
-    }
-
     return rc;
 }
 
