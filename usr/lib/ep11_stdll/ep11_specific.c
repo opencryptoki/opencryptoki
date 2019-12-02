@@ -1287,6 +1287,12 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     return rc;
 }
 
+#ifdef EP11_HSMSIM
+#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW | RTLD_DEEPBIND
+#else
+#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW
+#endif
+
 static void *ep11_load_host_lib()
 {
     void *lib_ep11;
@@ -1295,7 +1301,7 @@ static void *ep11_load_host_lib()
 
     ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
     if (ep11_lib_name != NULL) {
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 
         if (lib_ep11 == NULL) {
             errstr = dlerror();
@@ -1310,14 +1316,14 @@ static void *ep11_load_host_lib()
     }
 
     ep11_lib_name = EP11SHAREDLIB_V3;
-    lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 
     if (lib_ep11 == NULL) {
         TRACE_DEVEL("%s Error loading shared library '%s', trying '%s'\n",
                     __func__, EP11SHAREDLIB_V3, EP11SHAREDLIB_V2);
         /* Try version 2 instead */
         ep11_lib_name = EP11SHAREDLIB_V2;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
@@ -1325,7 +1331,7 @@ static void *ep11_load_host_lib()
                     __func__, EP11SHAREDLIB_V2, EP11SHAREDLIB_V1);
         /* Try version 1 instead */
         ep11_lib_name = EP11SHAREDLIB_V1;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
@@ -1333,7 +1339,7 @@ static void *ep11_load_host_lib()
                     __func__, EP11SHAREDLIB_V1, EP11SHAREDLIB);
         /* Try unversioned library instead */
         ep11_lib_name = EP11SHAREDLIB;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
@@ -6984,6 +6990,10 @@ static CK_RV is_card_ep11_and_online(const char *name)
     CK_RV rc;
     unsigned long val;
 
+#ifdef EP11_HSMSIM
+    return CKR_OK;
+#endif
+
     sprintf(fname, "%s%s/online", SYSFS_DEVICES_AP, name);
     rc = file_fgets(fname, buf, sizeof(buf));
     if (rc != CKR_OK)
@@ -7013,6 +7023,10 @@ static CK_RV scan_for_card_domains(const char *name, adapter_handler_t handler,
     struct dirent *de;
     char *tok;
     uint_32 adapter, domain;
+
+#ifdef EP11_HSMSIM
+    return handler(0, 0, handler_data);
+#endif
 
     if (regcomp(&reg_buf, REGEX_SUB_CARD_PATTERN, REG_EXTENDED) != 0) {
         TRACE_ERROR("Failed to compile regular expression '%s'\n",
@@ -7067,6 +7081,10 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler, void *handler_data)
 
     if (handler == NULL)
         return CKR_ARGUMENTS_BAD;
+
+#ifdef EP11_HSMSIM
+    return handler(0, 0, handler_data);
+#endif
 
     if (regcomp(&reg_buf, REGEX_CARD_PATTERN, REG_EXTENDED) != 0) {
         TRACE_ERROR("Failed to compile regular expression '%s'\n",
@@ -8005,6 +8023,15 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
     char buf[250];
     CK_RV rc;
     CK_ULONG hwtype, rawtype;
+
+#ifdef EP11_HSMSIM
+#ifdef EP11_HSMSIM_CARD_TYPE
+    *type = EP11_HSMSIM_CARD_TYPE;
+#else
+    *type = 7;
+#endif
+    return CKR_OK;
+#endif
 
     sprintf(fname, "%scard%02x/type", SYSFS_DEVICES_AP, adapter);
     rc = file_fgets(fname, buf, sizeof(buf));

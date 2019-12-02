@@ -474,6 +474,12 @@ static int do_ParseArgs(int argc, char **argv)
     return 1;
 }
 
+#ifdef EP11_HSMSIM
+#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW | RTLD_DEEPBIND
+#else
+#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW
+#endif
+
 static void *ep11_load_host_lib()
 {
     void *lib_ep11;
@@ -482,7 +488,7 @@ static void *ep11_load_host_lib()
 
     ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
     if (ep11_lib_name != NULL) {
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 
         if (lib_ep11 == NULL) {
             errstr = dlerror();
@@ -494,24 +500,24 @@ static void *ep11_load_host_lib()
     }
 
     ep11_lib_name = EP11SHAREDLIB_V3;
-    lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+    lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 
     if (lib_ep11 == NULL) {
         /* Try version 2 instead */
         ep11_lib_name = EP11SHAREDLIB_V2;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
         /* Try version 1 instead */
         ep11_lib_name = EP11SHAREDLIB_V1;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
         /* Try unversioned library instead */
         ep11_lib_name = EP11SHAREDLIB;
-        lib_ep11 = dlopen(ep11_lib_name, RTLD_GLOBAL | RTLD_NOW);
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
     }
 
     if (lib_ep11 == NULL) {
