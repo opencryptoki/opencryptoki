@@ -2034,9 +2034,10 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = get_ecsiglen(ec_key_obj, &privkey_len);
         if (rc != CKR_OK)
             goto import_EC_key_end;
-        privkey_len /= 2; /* Public key is half the size of an EC signature */
+        privkey_len /= 2; /* private key is half the size of an EC signature */
 
-        pubkey = (CK_BYTE *)malloc(1 + 2 * privkey_len);
+        pubkey_len = 1 + 2 * privkey_len;
+        pubkey = (CK_BYTE *)malloc(pubkey_len);
         if (pubkey == NULL) {
             rc = CKR_HOST_MEMORY;
             goto import_EC_key_end;
