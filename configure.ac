@@ -518,6 +518,9 @@ if test "x$enable_ep11tok" = "xyes"; then
 fi
 if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
         enable_ep11tok=yes
+	AC_CHECK_HEADER([ica_api.h], [], [
+		enable_ep11tok=no
+	])
 else
         enable_ep11tok=no
 fi
