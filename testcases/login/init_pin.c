@@ -21,7 +21,6 @@
 #include "regress.h"
 #include "common.c"
 
-CK_FUNCTION_LIST *funcs;
 int do_GetFunctionList(void);
 
 int do_InitPIN(CK_FUNCTION_LIST * funcs, CK_SLOT_ID slot_id, char *sologinpass,

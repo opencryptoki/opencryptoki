@@ -26,8 +26,6 @@
 
 int do_GetFunctionList(void);
 
-CK_FUNCTION_LIST *funcs;
-
 CK_RV do_Cleanup(CK_SESSION_HANDLE sess)
 {
     CK_RV rv;

@@ -34,7 +34,6 @@ int do_GetFunctionList(void);
 int clean_up(void);
 
 CK_SLOT_ID slot_id;
-CK_FUNCTION_LIST *funcs;
 CK_SESSION_HANDLE sess;
 
 /*

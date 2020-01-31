@@ -35,10 +35,6 @@ void init_coprocessor(void);
 
 CK_RV _C_GetFunctionList(CK_FUNCTION_LIST **);
 
-CK_FUNCTION_LIST *funcs;
-
-CK_SLOT_ID SLOT_ID;
-
 CK_RV open_session_and_login(void)
 {
     CK_FLAGS flags;

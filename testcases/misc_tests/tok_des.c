@@ -27,9 +27,6 @@
 
 int do_GetFunctionList(void);
 
-CK_FUNCTION_LIST *funcs;
-CK_SLOT_ID SLOT_ID;
-
 CK_RV do_VerifyTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE * label)
 {
     CK_OBJECT_HANDLE obj_handles[20];

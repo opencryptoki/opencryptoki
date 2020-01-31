@@ -16,6 +16,14 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+CK_FUNCTION_LIST *funcs;
+CK_SLOT_ID SLOT_ID;
+
+CK_BBOOL skip_token_obj;
+CK_BBOOL no_stop;
+CK_BBOOL no_init;
+CK_BBOOL securekey;
+
 CK_ULONG t_total = 0;           // total test assertions
 CK_ULONG t_ran = 0;             // number of assertions ran
 CK_ULONG t_passed = 0;          // number of assertions passed

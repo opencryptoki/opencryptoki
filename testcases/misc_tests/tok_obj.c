@@ -29,10 +29,6 @@ void init_coprocessor(void);
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);
 
-CK_FUNCTION_LIST *funcs;
-
-CK_SLOT_ID SLOT_ID;
-
 // do_create_token_object()
 int do_create_token_object(void)
 {

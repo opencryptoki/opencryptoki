@@ -24,13 +24,10 @@
 #include "regress.h"
 #include "common.c"
 
-CK_FUNCTION_LIST *funcs;
 int do_GetInfo(void);
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);
 int do_GetFunctionList(void);
-
-CK_SLOT_ID SLOT_ID;
 
 int do_inittoken(CK_FUNCTION_LIST * funcs, CK_BYTE * sopass)
 {
