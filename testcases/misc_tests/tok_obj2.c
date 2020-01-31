@@ -28,10 +28,6 @@ void init_coprocessor(void);
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);
 
-CK_FUNCTION_LIST *funcs;
-
-CK_SLOT_ID SLOT_ID;
-
 void show_error(CK_BYTE * str, CK_RV rc)
 {
     printf("%s returned:  %ld - %s\n", str, rc, p11_get_ckr(rc));

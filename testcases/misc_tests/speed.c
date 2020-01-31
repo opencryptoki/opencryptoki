@@ -67,9 +67,6 @@ static inline unsigned long delta_time_us(struct timeval *t1,
 
 int do_GetFunctionList(void);
 
-CK_FUNCTION_LIST *funcs;
-CK_SLOT_ID SLOT_ID;
-
 // keylength: 512, 1024, 2048, 4096
 int do_RSA_PKCS_EncryptDecrypt(int keylength)
 {
