@@ -530,12 +530,10 @@ typedef struct const_info {
 static CK_RV cleanse_attribute(TEMPLATE *template,
                                CK_ATTRIBUTE_TYPE attr_type)
 {
-    CK_RV rc;
     CK_ATTRIBUTE *attr;
 
-    rc = template_attribute_find(template, attr_type, &attr);
-    if (rc != CKR_OK)
-        return rc;
+    if (!template_attribute_find(template, attr_type, &attr))
+        return CKR_FUNCTION_FAILED;
 
     OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
 
