@@ -3,7 +3,8 @@ noinst_PROGRAMS +=							\
 	testcases/crypto/des3_tests testcases/crypto/digest_tests	\
 	testcases/crypto/dsa_tests testcases/crypto/rsa_tests		\
 	testcases/crypto/dh_tests testcases/crypto/ssl3_tests		\
-	testcases/crypto/ec_tests testcases/crypto/rsaupdate_tests
+	testcases/crypto/ec_tests testcases/crypto/rsaupdate_tests  \
+	testcases/crypto/dilithium_tests
 noinst_HEADERS +=							\
 	testcases/crypto/aes.h testcases/crypto/des.h			\
 	testcases/crypto/des3.h testcases/crypto/digest.h		\
@@ -45,6 +46,11 @@ testcases_crypto_ssl3_tests_SOURCES = testcases/crypto/ssl3_func.c
 testcases_crypto_ec_tests_CFLAGS = ${testcases_inc}
 testcases_crypto_ec_tests_LDADD = testcases/common/libcommon.la
 testcases_crypto_ec_tests_SOURCES = testcases/crypto/ec_func.c
+
+testcases_crypto_dilithium_tests_CFLAGS = ${testcases_inc}
+testcases_crypto_dilithium_tests_LDADD = testcases/common/libcommon.la
+testcases_crypto_dilithium_tests_SOURCES = testcases/crypto/dilithium_func.c
+testcases_crypto_dilithium_tests_LDFLAGS = -lcrypto
 
 testcases_crypto_rsaupdate_tests_CFLAGS = ${testcases_inc}
 testcases_crypto_rsaupdate_tests_LDADD = testcases/common/libcommon.la
