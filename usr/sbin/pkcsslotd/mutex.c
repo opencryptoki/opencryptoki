@@ -65,6 +65,11 @@ error:
     return FALSE;
 }
 
+void DestroyXProcLock(void)
+{
+    close(xplfd);
+}
+
 int XProcLock(void)
 {
     if (xplfd != -1)
@@ -113,14 +118,6 @@ int InitializeMutexes(void)
 
 int DestroyMutexes(void)
 {
-    /* Get the global shared memory mutex */
-    if (XProcLock() != CKR_OK)
-        return FALSE;
-
-    /* Give up the global shared memory mutex */
-
-    if (XProcUnLock() != CKR_OK)
-        return FALSE;
-
+    DestroyXProcLock();
     return TRUE;
 }
