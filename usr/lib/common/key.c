@@ -3185,6 +3185,289 @@ CK_BBOOL kea_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
     return TRUE;
 }
 
+//  ibm_dilithium_publ_set_default_attributes()
+//
+CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *seed_attr = NULL;
+    CK_ATTRIBUTE *t1_attr = NULL;
+    CK_ATTRIBUTE *keyform_attr = NULL;
+
+    publ_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    keyform_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+    seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !seed_attr || !t1_attr || !keyform_attr) {
+        if (type_attr)
+            free(type_attr);
+        if (seed_attr)
+            free(seed_attr);
+        if (t1_attr)
+            free(t1_attr);
+        if (keyform_attr)
+            free(keyform_attr);
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+
+        return CKR_HOST_MEMORY;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
+
+    keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
+    keyform_attr->ulValueLen = sizeof(CK_ULONG);
+    keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_ULONG *) keyform_attr->pValue = 1;
+
+    seed_attr->type = CKA_IBM_DILITHIUM_SEED;
+    seed_attr->ulValueLen = 0;
+    seed_attr->pValue = NULL;
+
+    t1_attr->type = CKA_IBM_DILITHIUM_T1;
+    t1_attr->ulValueLen = 0;
+    t1_attr->pValue = NULL;
+
+    template_update_attribute(tmpl, type_attr);
+    template_update_attribute(tmpl, seed_attr);
+    template_update_attribute(tmpl, t1_attr);
+    template_update_attribute(tmpl, keyform_attr);
+
+    return CKR_OK;
+}
+
+//  ibm_dilithium_priv_set_default_attributes()
+//
+CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *rho_attr = NULL;
+    CK_ATTRIBUTE *seed_attr = NULL;
+    CK_ATTRIBUTE *tr_attr = NULL;
+    CK_ATTRIBUTE *s1_attr = NULL;
+    CK_ATTRIBUTE *s2_attr = NULL;
+    CK_ATTRIBUTE *t0_attr = NULL;
+    CK_ATTRIBUTE *t1_attr = NULL;
+    CK_ATTRIBUTE *keyform_attr = NULL;
+
+    priv_key_set_default_attributes(tmpl, mode);
+
+    type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+    keyform_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+    rho_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    tr_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    s1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    s2_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    t0_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+
+    if (!type_attr || !rho_attr || !seed_attr || !tr_attr || !s1_attr
+        || !s2_attr || !t0_attr || !t1_attr || !keyform_attr) {
+        if (type_attr)
+            free(type_attr);
+        if (rho_attr)
+            free(rho_attr);
+        if (seed_attr)
+            free(seed_attr);
+        if (tr_attr)
+            free(tr_attr);
+        if (s1_attr)
+            free(s1_attr);
+        if (s2_attr)
+            free(s2_attr);
+        if (t0_attr)
+            free(t0_attr);
+        if (t1_attr)
+            free(t1_attr);
+        if (keyform_attr)
+            free(keyform_attr);
+
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
+
+    keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
+    keyform_attr->ulValueLen = sizeof(CK_ULONG);
+    keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_ULONG *) keyform_attr->pValue = 1;
+
+    rho_attr->type = CKA_IBM_DILITHIUM_RHO;
+    rho_attr->ulValueLen = 0;
+    rho_attr->pValue = NULL;
+
+    seed_attr->type = CKA_IBM_DILITHIUM_SEED;
+    seed_attr->ulValueLen = 0;
+    seed_attr->pValue = NULL;
+
+    tr_attr->type = CKA_IBM_DILITHIUM_TR;
+    tr_attr->ulValueLen = 0;
+    tr_attr->pValue = NULL;
+
+    s1_attr->type = CKA_IBM_DILITHIUM_S1;
+    s1_attr->ulValueLen = 0;
+    s1_attr->pValue = NULL;
+
+    s2_attr->type = CKA_IBM_DILITHIUM_S2;
+    s2_attr->ulValueLen = 0;
+    s2_attr->pValue = NULL;
+
+    t0_attr->type = CKA_IBM_DILITHIUM_T0;
+    t0_attr->ulValueLen = 0;
+    t0_attr->pValue = NULL;
+
+    t1_attr->type = CKA_IBM_DILITHIUM_T1;
+    t1_attr->ulValueLen = 0;
+    t1_attr->pValue = NULL;
+
+    template_update_attribute(tmpl, type_attr);
+    template_update_attribute(tmpl, keyform_attr);
+    template_update_attribute(tmpl, rho_attr);
+    template_update_attribute(tmpl, seed_attr);
+    template_update_attribute(tmpl, tr_attr);
+    template_update_attribute(tmpl, s1_attr);
+    template_update_attribute(tmpl, s2_attr);
+    template_update_attribute(tmpl, t0_attr);
+    template_update_attribute(tmpl, t1_attr);
+
+    return CKR_OK;
+}
+
+// ibm_dilithium_publ_check_required_attributes()
+//
+CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    static CK_ULONG req_attrs[] = {
+        CKA_IBM_DILITHIUM_KEYFORM,
+        CKA_IBM_DILITHIUM_SEED,
+        CKA_IBM_DILITHIUM_T1,
+    };
+    CK_ULONG i;
+
+    /* MODE_KEYGEN: attrs are added during keygen */
+    if (mode == MODE_KEYGEN)
+        return publ_key_check_required_attributes(tmpl, mode);
+
+    /* MODE_CREATE (key import) or MODE_COPY: check if all attrs present */
+    for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
+        if (!(template_attribute_find(tmpl, req_attrs[i], &attr))) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+    }
+
+    /* All required attrs found, check them */
+    return publ_key_check_required_attributes(tmpl, mode);
+}
+
+// ibm_dilithium_priv_check_required_attributes()
+//
+CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    static CK_ULONG req_attrs[] = {
+        CKA_IBM_DILITHIUM_KEYFORM,
+        CKA_IBM_DILITHIUM_RHO,
+        CKA_IBM_DILITHIUM_SEED,
+        CKA_IBM_DILITHIUM_TR,
+        CKA_IBM_DILITHIUM_S1,
+        CKA_IBM_DILITHIUM_S2,
+        CKA_IBM_DILITHIUM_T0,
+        CKA_IBM_DILITHIUM_T1,
+    };
+    CK_ULONG i;
+
+    /* MODE_KEYGEN: attrs are added during keygen */
+    if (mode == MODE_KEYGEN)
+        return priv_key_check_required_attributes(tmpl, mode);
+
+    /* MODE_CREATE (key import) or MODE_COPY: check if all attrs present */
+    for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
+        if (!(template_attribute_find(tmpl, req_attrs[i], &attr))) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+    }
+
+    /* All required attrs found, check them */
+    return priv_key_check_required_attributes(tmpl, mode);
+}
+
+// ibm_dilithium_publ_validate_attribute()
+//
+CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
+                                            TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                            CK_ULONG mode)
+{
+    switch (attr->type) {
+    case CKA_IBM_DILITHIUM_SEED:
+    case CKA_IBM_DILITHIUM_T1:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_DILITHIUM_KEYFORM:
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            switch ((CK_ULONG)attr->pValue) {
+            case IBM_DILITHIUM_KEYFORM_ROUND2:
+                return CKR_OK;
+            default:
+                TRACE_ERROR("%s\n", ock_err(CKR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return publ_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+// ibm_dilithium_priv_validate_attribute()
+//
+CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
+                                            TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                            CK_ULONG mode)
+{
+    switch (attr->type) {
+    case CKA_IBM_DILITHIUM_RHO:
+    case CKA_IBM_DILITHIUM_SEED:
+    case CKA_IBM_DILITHIUM_TR:
+    case CKA_IBM_DILITHIUM_S1:
+    case CKA_IBM_DILITHIUM_S2:
+    case CKA_IBM_DILITHIUM_T0:
+    case CKA_IBM_DILITHIUM_T1:
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_DILITHIUM_KEYFORM:
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            switch ((CK_ULONG)attr->pValue) {
+            case IBM_DILITHIUM_KEYFORM_ROUND2:
+                return CKR_OK;
+            default:
+                TRACE_ERROR("%s\n", ock_err(CKR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return priv_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
 
 // generic_secret_check_required_attributes()
 //

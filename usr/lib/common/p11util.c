@@ -191,6 +191,14 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_IBM_STRUCT_PARAMS:
     case CKA_IBM_STD_COMPLIANCE1:
     case CKA_NSS_MOZILLA_CA_POLICY:
+    case CKA_IBM_DILITHIUM_KEYFORM:
+    case CKA_IBM_DILITHIUM_RHO:
+    case CKA_IBM_DILITHIUM_SEED:
+    case CKA_IBM_DILITHIUM_TR:
+    case CKA_IBM_DILITHIUM_S1:
+    case CKA_IBM_DILITHIUM_S2:
+    case CKA_IBM_DILITHIUM_T0:
+    case CKA_IBM_DILITHIUM_T1:
         return TRUE;
     }
 
@@ -420,6 +428,7 @@ char *p11_get_ckm(CK_ULONG mechanism)
         _sym2str(CKM_IBM_EDDSA_SHA512);
         _sym2str(CKM_IBM_EC_C448);
         _sym2str(CKM_IBM_ED448_SHA3);
+        _sym2str(CKM_IBM_DILITHIUM);
     default:
         return "UNKNOWN";
     }

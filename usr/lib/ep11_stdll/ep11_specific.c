@@ -329,6 +329,13 @@ static const version_req_t edwards_req_versions[] = {
 };
 #define NUM_EDWARDS_REQ sizeof(edwards_req_versions)/sizeof(version_req_t)
 
+static const CK_VERSION ibm_cex7p_dilithium_support = { .major = 7, .minor = 15 };
+
+static const version_req_t ibm_dilithium_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &ibm_cex7p_dilithium_support }
+};
+#define NUM_DILITHIUM_REQ (sizeof(ibm_dilithium_req_versions)/sizeof(version_req_t))
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -601,7 +608,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
         }
         /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
-           and CKM_DH_PKCS_PARAMETER_GEN */
+           and CKM_DH_PKCS_PARAMETER_GEN and CKK_IBM_PQC_DILITHIUM */
         break;
     case CKO_PRIVATE_KEY:
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
@@ -614,6 +621,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             check_types = &check_types_derive[0];
             attr_cnt = sizeof(check_types_derive) / sizeof(CK_ULONG);
         }
+        /* Do nothing for CKK_IBM_PQC_DILITHIUM */
         break;
     default:
         return CKR_OK;
@@ -757,6 +765,9 @@ static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
         break;
     case CKM_DH_PKCS_KEY_PAIR_GEN:
         *type = CKK_DH;
+        break;
+    case CKM_IBM_DILITHIUM:
+        *type = CKK_IBM_PQC_DILITHIUM;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -4601,6 +4612,232 @@ error:
     return rc;
 }
 
+static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
+                                     SESSION * sess,
+                                     CK_MECHANISM_PTR pMechanism,
+                                     TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
+                                     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                                     CK_ULONG ulPublicKeyAttributeCount,
+                                     CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                                     CK_ULONG ulPrivateKeyAttributeCount,
+                                     CK_SESSION_HANDLE h)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE privkey_blob[MAX_BLOBSIZE];
+    size_t privkey_blob_len = sizeof(privkey_blob);
+    unsigned char spki[MAX_BLOBSIZE];
+    size_t spki_len = sizeof(spki);
+    CK_ULONG i;
+    CK_ULONG bit_str_len;
+    CK_BYTE *key;
+    CK_BYTE *data, *oid, *parm;
+    CK_ULONG data_len, oid_len, parm_len;
+    CK_ULONG field_len;
+    CK_ATTRIBUTE_PTR new_pPublicKeyTemplate = NULL;
+    CK_ULONG new_ulPublicKeyAttributeCount = 0;
+    CK_ATTRIBUTE_PTR new_pPrivateKeyTemplate = NULL;
+    CK_ULONG new_ulPrivateKeyAttributeCount = 0;
+    CK_ULONG ktype = CKK_IBM_PQC_DILITHIUM;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *seed, *t1;
+
+    UNUSED(h);
+
+    if (pMechanism->mechanism != CKM_IBM_DILITHIUM) {
+        TRACE_ERROR("Invalid mechanism provided for %s\n ", __func__);
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
+                              pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                              &new_pPublicKeyTemplate,
+                              &new_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Dilithium check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
+                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                              &new_pPrivateKeyTemplate,
+                              &new_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Dilithium check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = override_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
+                                 new_pPublicKeyTemplate,
+                                 new_ulPublicKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Dilithium override public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = override_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
+                                 new_pPrivateKeyTemplate,
+                                 new_ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Dilithium override private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    /* debug */
+    for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
+        TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
+                   __func__, new_pPrivateKeyTemplate[i].type,
+                   new_pPrivateKeyTemplate[i].ulValueLen,
+                   new_ulPrivateKeyAttributeCount);
+    }
+
+    ep11_get_pin_blob(ep11_session,
+                      (ep11_is_session_object
+                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
+                       || ep11_is_session_object(pPrivateKeyTemplate,
+                                                 ulPrivateKeyAttributeCount)),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    RETRY_START
+        rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
+                                   new_ulPublicKeyAttributeCount,
+                                   new_pPrivateKeyTemplate,
+                                   new_ulPrivateKeyAttributeCount,
+                                   ep11_pin_blob, ep11_pin_blob_len,
+                                   privkey_blob, &privkey_blob_len, spki,
+                                   &spki_len, ep11_data->target);
+    RETRY_END(rc, tokdata, sess)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+                    "privkey_blob_len=0x%zx mech='%s'\n",
+                    __func__, rc, spki_len, privkey_blob_len,
+                    ep11_get_ckm(pMechanism->mechanism));
+        goto error;
+    }
+    TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
+               "privkey_blob_len=0x%zx mech='%s'\n",
+               __func__, rc, spki_len, privkey_blob_len,
+               ep11_get_ckm(pMechanism->mechanism));
+
+    if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
+        TRACE_ERROR("%s blobsize error\n", __func__);
+        rc = CKR_KEY_INDIGESTIBLE;
+        goto error;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE, privkey_blob, privkey_blob_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    /* Decode SPKI */
+    rc = ber_decode_SPKI(spki, &oid, &oid_len, &parm, &parm_len, &key,
+            &bit_str_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n", __func__,
+                rc);
+        goto error;
+    }
+
+    /* Public key must be a sequence holding two bit-strings: (seed, t1) */
+    rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s read sequence failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    /* Decode seed */
+    seed = key + field_len - data_len;
+    rc = ber_decode_BIT_STRING(seed, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s read seed failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    /* Remove leading unused-bits byte, returned by ber_decode_BIT_STRING */
+    data++;
+    data_len--;
+#ifdef DEBUG
+    TRACE_DEBUG("%s dilithium_generate_keypair (seed):\n", __func__);
+    TRACE_DEBUG_DUMP(data, data_len);
+#endif
+
+    /* build and add CKA_IBM_DILITHIUM_SEED */
+    rc = build_attribute(CKA_IBM_DILITHIUM_SEED, data, data_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                __func__, rc);
+        goto error;
+    }
+
+    /* Decode t1 */
+    t1 = seed + field_len;
+    rc = ber_decode_BIT_STRING(t1, &data, &data_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s read t failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    /* Remove leading unused-bits byte, returned by ber_decode_BIT_STRING */
+    data++;
+    data_len--;
+#ifdef DEBUG
+    TRACE_DEBUG("%s dilithium_generate_keypair (t1):\n", __func__);
+    TRACE_DEBUG_DUMP(data, data_len);
+#endif
+
+    /* build and add CKA_IBM_DILITHIUM_T1 */
+    rc = build_attribute(CKA_IBM_DILITHIUM_T1, data, data_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                __func__, rc);
+        goto error;
+    }
+
+error:
+    if (new_pPrivateKeyTemplate)
+        free_attribute_array(new_pPrivateKeyTemplate,
+                             new_ulPrivateKeyAttributeCount);
+    if (new_pPublicKeyTemplate)
+        free_attribute_array(new_pPublicKeyTemplate,
+                             new_ulPublicKeyAttributeCount);
+    return rc;
+}
 
 /* generic function to generate RSA,DH,EC and DSA key pairs */
 CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
@@ -4682,6 +4919,16 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                   ulPublicKeyAttributeCount,
                                   pPrivateKeyTemplate,
                                   ulPrivateKeyAttributeCount, sess->handle);
+        break;
+    case CKM_IBM_DILITHIUM:
+        rc = ibm_dilithium_generate_keypair(tokdata, sess, pMechanism,
+                                            public_key_obj->template,
+                                            private_key_obj->template,
+                                            pPublicKeyTemplate,
+                                            ulPublicKeyAttributeCount,
+                                            pPrivateKeyTemplate,
+                                            ulPrivateKeyAttributeCount,
+                                            sess->handle);
         break;
     default:
         TRACE_ERROR("%s invalid mech %s\n", __func__,
@@ -5902,7 +6149,6 @@ static const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
     CKM_IBM_RETAINKEY,
     CKM_IBM_CPACF_WRAP,
     CKM_IBM_SM3,
-    CKM_IBM_DILITHIUM,
 #endif
 };
 
@@ -6145,6 +6391,21 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 
         status = check_required_versions(tokdata, edwards_req_versions,
                                          NUM_EDWARDS_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+
+    case CKM_IBM_DILITHIUM:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                                     __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        status = check_required_versions(tokdata, ibm_dilithium_req_versions,
+                                         NUM_DILITHIUM_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));

@@ -2478,6 +2478,17 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
 CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
                      CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isOpaque);
 
+// Dilithium routines
+//
+CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                            CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                            CK_ATTRIBUTE *attr, CK_ULONG mode);
+
 // diffie-hellman routines
 //
 CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2648,6 +2659,10 @@ CK_ULONG ber_encode_INTEGER(CK_BBOOL length_only,
 CK_RV ber_decode_INTEGER(CK_BYTE *ber_int,
                          CK_BYTE **data,
                          CK_ULONG *data_len, CK_ULONG *field_len);
+
+CK_RV ber_decode_BIT_STRING(CK_BYTE *str,
+                            CK_BYTE **data,
+                            CK_ULONG *data_len, CK_ULONG *field_len);
 
 CK_RV ber_encode_OCTET_STRING(CK_BBOOL length_only,
                               CK_BYTE **str,
