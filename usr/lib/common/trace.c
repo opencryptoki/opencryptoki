@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <sys/file.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -28,6 +29,10 @@
 #include "h_extern.h"
 #include "trace.h"
 #include "ock_syslog.h"
+
+#ifdef SYS_gettid
+#define __gettid() syscall(SYS_gettid)
+#endif
 
 pthread_mutex_t tlmtx = PTHREAD_MUTEX_INITIALIZER;
 struct trace_handle_t trace;
@@ -217,6 +222,9 @@ void ock_traceit(trace_level_t level, const char *file, int line,
     char buf[1024];
     char *pbuf;
     int buflen, len;
+#ifdef __gettid
+    pid_t tid;
+#endif
 
     if (trace.fd < 0)
         return;
@@ -233,6 +241,14 @@ void ock_traceit(trace_level_t level, const char *file, int line,
     len = strftime(pbuf, buflen, "%m/%d/%Y %H:%M:%S ", tm);
     pbuf += len;
     buflen -= len;
+
+#ifdef __gettid
+    /* add thread id */
+    tid = __gettid();
+    len = snprintf(pbuf, buflen, "%u ", (unsigned int) tid);
+    pbuf += len;
+    buflen -= len;
+#endif
 
     /* add file line and stdll name */
     switch (level) {
