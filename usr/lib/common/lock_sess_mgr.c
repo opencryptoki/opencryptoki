@@ -24,10 +24,11 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-pthread_rwlock_t sess_list_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+static pthread_mutex_t sess_list_lock = PTHREAD_MUTEX_INITIALIZER;
+
 // session_mgr_find()
 //
-// search for the specified session.  returning a pointer to the session
+// search for the specified session. returning a pointer to the session
 // might be dangerous, but performs well
 //
 // Returns:  SESSION * or NULL
@@ -74,8 +75,7 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
 
     memset(new_session, 0x0, sizeof(SESSION));
 
-    // find an unused session handle.  session handles will wrap
-    // automatically...
+    // find an unused session handle. session handles will wrap automatically...
     //
     new_session->session_info.slotID = slot_id;
     new_session->session_info.flags = flags;
@@ -85,6 +85,7 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
     // determine the login/logout status of the new session. PKCS 11 requires
     // that all sessions belonging to a process have the same login/logout
     // status
+    //
     so_session = session_mgr_so_session_exists();
     user_session = session_mgr_user_session_exists();
 
@@ -135,14 +136,14 @@ CK_BBOOL session_mgr_so_session_exists(void)
 {
     CK_BBOOL result;
 
-    /* we must acquire sess_list_rwlock in order to inspect
+    /* we must acquire sess_list_lock in order to inspect
      * global_login_state */
-    if (pthread_rwlock_rdlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
     result = (global_login_state == CKS_RW_SO_FUNCTIONS);
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
 
     return result;
 }
@@ -158,16 +159,16 @@ CK_BBOOL session_mgr_user_session_exists(void)
 {
     CK_BBOOL result;
 
-    /* we must acquire sess_list_rwlock in order to inspect
+    /* we must acquire sess_list_lock in order to inspect
      * glogal_login_state */
-    if (pthread_rwlock_rdlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
     result = ((global_login_state == CKS_RO_USER_FUNCTIONS) ||
               (global_login_state == CKS_RW_USER_FUNCTIONS));
 
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
 
     return result;
 }
@@ -183,16 +184,16 @@ CK_BBOOL session_mgr_public_session_exists(void)
 {
     CK_BBOOL result;
 
-    /* we must acquire sess_list_rwlock in order to inspect
+    /* we must acquire sess_list_lock in order to inspect
      * global_login_state */
-    if (pthread_rwlock_rdlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
     result = ((global_login_state == CKS_RO_PUBLIC_SESSION) ||
               (global_login_state == CKS_RW_PUBLIC_SESSION));
 
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
 
     return result;
 }
@@ -207,15 +208,15 @@ CK_BBOOL session_mgr_readonly_session_exists(void)
 {
     CK_BBOOL result;
 
-    /* we must acquire sess_list_rwlock in order to inspect ro_session_count */
-    if (pthread_rwlock_rdlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    /* we must acquire sess_list_lock in order to inspect ro_session_count */
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
 
     result = (ro_session_count > 0);
 
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
 
     return result;
 }
@@ -242,8 +243,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         return CKR_SESSION_HANDLE_INVALID;
     }
 
-    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
 
@@ -254,7 +255,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         ro_session_count--;
     }
 
-    /* Make sure this address is now invalid */
+    // Make sure this address is now invalid
     sess->handle = CK_INVALID_HANDLE;
 
     if (sess->find_list)
@@ -293,15 +294,16 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     bt_node_free(&sess_btree, handle, free);
 
     // XXX XXX  Not having this is a problem
-    // for IHS.  The spec states that there is an implicit logout
-    // when the last session is closed.  Cannonicaly this is what other
-    // implementaitons do.  however on linux for some reason IHS can't seem
-    // to keep the session open, which means that they go through the login
-    // path EVERY time, which of course causes a reload of the private
-    // objects EVERY time.   If we are logged out, we MUST purge the private
-    // objects from this process..
+    //  for IHS.  The spec states that there is an implicit logout
+    //  when the last session is closed.  Cannonicaly this is what other
+    //  implementaitons do.  however on linux for some reason IHS can't seem
+    //  to keep the session open, which means that they go through the login
+    //  path EVERY time, which of course causes a reload of the private
+    //  objects EVERY time.   If we are logged out, we MUST purge the private
+    //  objects from this process..
+    //
     if (bt_is_empty(&sess_btree)) {
-        // SAB  XXX  if all sessions are closed. Is this effectivly logging out
+        // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
         if (token_specific.t_logout) {
             rc = token_specific.t_logout();
         }
@@ -314,7 +316,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         object_mgr_purge_map(tokdata, (SESSION *) 0xFFFF, PRIVATE);
     }
 
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
     return rc;
 }
 
@@ -322,8 +324,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
  *
  * Callback used to free an individual SESSION object
  */
-void
-session_free(STDLL_TokData_t *tokdata, void *node_value,
+void session_free(STDLL_TokData_t *tokdata, void *node_value,
              unsigned long node_idx, void *p3)
 {
     SESSION *sess = (SESSION *) node_value;
@@ -378,15 +379,15 @@ CK_RV session_mgr_close_all_sessions(void)
 {
     bt_for_each_node(NULL, &sess_btree, session_free, NULL);
 
-    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
+    if (pthread_mutex_lock(&sess_list_lock)) {
+        TRACE_ERROR("Lock failed.\n");
         return FALSE;
     }
 
     global_login_state = CKS_RO_PUBLIC_SESSION;
     ro_session_count = 0;
 
-    pthread_rwlock_unlock(&sess_list_rwlock);
+    pthread_mutex_unlock(&sess_list_lock);
 
     return CKR_OK;
 }
