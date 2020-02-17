@@ -213,8 +213,8 @@ void tree_dump(struct btnode *n, int depth)
 /*
  * bt_node_free
  *
- * Move @node_num in tree @t to the free list, calling @delete_func on its 
- * value first.
+ * Move @node_num in tree @t to the free list, calling @delete_func on its value
+ * first.
  *
  * Note that bt_get_node will return NULL if the node is already on the free
  * list, so no double freeing can occur
@@ -339,10 +339,9 @@ unsigned long bt_nodes_in_use(struct btree *t)
  *  p2 is the node's handle
  *  p3 is passed through this function for the caller
  */
-void
-bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t,
-                 void (*func) (STDLL_TokData_t *tokdata, void *p1,
-                               unsigned long p2, void *p3), void *p3)
+void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
+                       (STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
+                        void *p3), void *p3)
 {
     unsigned int i;
     struct btnode *node;
