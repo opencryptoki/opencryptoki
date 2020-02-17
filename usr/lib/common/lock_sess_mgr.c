@@ -27,7 +27,7 @@
 pthread_rwlock_t sess_list_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 // session_mgr_find()
 //
-// search for the specified session.  returning a pointer to the session
+// search for the specified session. returning a pointer to the session
 // might be dangerous, but performs well
 //
 // Returns:  SESSION * or NULL
@@ -74,8 +74,7 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
 
     memset(new_session, 0x0, sizeof(SESSION));
 
-    // find an unused session handle.  session handles will wrap
-    // automatically...
+    // find an unused session handle. session handles will wrap automatically...
     //
     new_session->session_info.slotID = slot_id;
     new_session->session_info.flags = flags;
@@ -85,6 +84,7 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
     // determine the login/logout status of the new session. PKCS 11 requires
     // that all sessions belonging to a process have the same login/logout
     // status
+    //
     so_session = session_mgr_so_session_exists();
     user_session = session_mgr_user_session_exists();
 
@@ -254,7 +254,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         ro_session_count--;
     }
 
-    /* Make sure this address is now invalid */
+    // Make sure this address is now invalid
     sess->handle = CK_INVALID_HANDLE;
 
     if (sess->find_list)
@@ -293,15 +293,16 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     bt_node_free(&sess_btree, handle, free);
 
     // XXX XXX  Not having this is a problem
-    // for IHS.  The spec states that there is an implicit logout
-    // when the last session is closed.  Cannonicaly this is what other
-    // implementaitons do.  however on linux for some reason IHS can't seem
-    // to keep the session open, which means that they go through the login
-    // path EVERY time, which of course causes a reload of the private
-    // objects EVERY time.   If we are logged out, we MUST purge the private
-    // objects from this process..
+    //  for IHS.  The spec states that there is an implicit logout
+    //  when the last session is closed.  Cannonicaly this is what other
+    //  implementaitons do.  however on linux for some reason IHS can't seem
+    //  to keep the session open, which means that they go through the login
+    //  path EVERY time, which of course causes a reload of the private
+    //  objects EVERY time.   If we are logged out, we MUST purge the private
+    //  objects from this process..
+    //
     if (bt_is_empty(&sess_btree)) {
-        // SAB  XXX  if all sessions are closed. Is this effectivly logging out
+        // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
         if (token_specific.t_logout) {
             rc = token_specific.t_logout();
         }
@@ -322,9 +323,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
  *
  * Callback used to free an individual SESSION object
  */
-void
-session_free(STDLL_TokData_t *tokdata, void *node_value,
-             unsigned long node_idx, void *p3)
+void session_free(STDLL_TokData_t *tokdata, void *node_value,
+                  unsigned long node_idx, void *p3)
 {
     SESSION *sess = (SESSION *) node_value;
 
@@ -933,8 +933,7 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
     return CKR_OK;
 }
 
-// Return TRUE if the session we're in has its PIN
-// expired.
+// Return TRUE if the session we're in has its PIN expired.
 CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
 {
     // If this is an SO session
@@ -948,8 +947,7 @@ CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
              (si->state == CKS_RW_USER_FUNCTIONS)));
 }
 
-// Return TRUE if the session we're in has its PIN
-// locked.
+// Return TRUE if the session we're in has its PIN locked.
 CK_BBOOL pin_locked(CK_SESSION_INFO *si, CK_FLAGS flags)
 {
     // If this is an SO session
