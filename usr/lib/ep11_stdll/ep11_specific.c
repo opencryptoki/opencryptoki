@@ -299,42 +299,42 @@ static const version_req_t hmac_req_versions[] = {
         { .card_type = 5, .min_firmware_version = &cex5p_hmac_fix },
         { .card_type = 6, .min_firmware_version = &cex6p_hmac_fix }
 };
-#define NUM_HMAC_REQ sizeof(hmac_req_versions)/sizeof(version_req_t)
+#define NUM_HMAC_REQ (sizeof(hmac_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION cex7p_ibm_sha3_support = { .major = 7, .minor = 11 };
 
 static const version_req_t ibm_sha3_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &cex7p_ibm_sha3_support }
 };
-#define NUM_IBM_SHA3_REQ sizeof(ibm_sha3_req_versions)/sizeof(version_req_t)
+#define NUM_IBM_SHA3_REQ (sizeof(ibm_sha3_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION cex7p_cmac_support = { .major = 7, .minor = 11 };
 
 static const version_req_t cmac_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &cex7p_cmac_support }
 };
-#define NUM_CMAC_REQ sizeof(cmac_req_versions)/sizeof(version_req_t)
+#define NUM_CMAC_REQ (sizeof(cmac_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION cex7p_oaep_sha2_support = { .major = 7, .minor = 13 };
 
 static const version_req_t oaep_sha2_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &cex7p_oaep_sha2_support }
 };
-#define NUM_OAEP_SHA2_REQ sizeof(oaep_sha2_req_versions)/sizeof(version_req_t)
+#define NUM_OAEP_SHA2_REQ (sizeof(oaep_sha2_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION cex7p_edwards_support = { .major = 7, .minor = 15 };
 
 static const version_req_t edwards_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &cex7p_edwards_support }
 };
-#define NUM_EDWARDS_REQ sizeof(edwards_req_versions)/sizeof(version_req_t)
+#define NUM_EDWARDS_REQ (sizeof(edwards_req_versions) / sizeof(version_req_t))
 
 static const CK_VERSION ibm_cex7p_dilithium_support = { .major = 7, .minor = 15 };
 
 static const version_req_t ibm_dilithium_req_versions[] = {
         { .card_type = 7, .min_firmware_version = &ibm_cex7p_dilithium_support }
 };
-#define NUM_DILITHIUM_REQ (sizeof(ibm_dilithium_req_versions)/sizeof(version_req_t))
+#define NUM_DILITHIUM_REQ (sizeof(ibm_dilithium_req_versions) / sizeof(version_req_t))
 
 /* Definitions for loading libica dynamically */
 
@@ -4287,10 +4287,6 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
-    CK_BYTE publblob[MAX_BLOBSIZE];
-    size_t publblobsize = sizeof(publblob);
-    CK_BYTE privblob[MAX_BLOBSIZE];
-    size_t privblobsize = sizeof(privblob);
     CK_ULONG i;
     CK_ULONG bit_str_len;
     CK_BYTE *key;
@@ -4400,16 +4396,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         goto error;
     }
 
-    memset(publblob, 0, sizeof(publblob));
-    memset(privblob, 0, sizeof(privblob));
-
-    memcpy(publblob, spki, spki_len);
-    publblobsize = spki_len;
-
-    memcpy(privblob, privkey_blob, privkey_blob_len);
-    privblobsize = privkey_blob_len;
-
-    rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &attr);
+    rc = build_attribute(CKA_IBM_OPAQUE, spki, spki_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -4421,7 +4408,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         goto error;
     }
 
-    rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &attr);
+    rc = build_attribute(CKA_IBM_OPAQUE, privkey_blob, privkey_blob_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto error;
