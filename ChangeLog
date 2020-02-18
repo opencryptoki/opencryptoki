@@ -1,3 +1,8 @@
++ openCryptoki 3.13.0
+- EP11: Dilithium support
+- EP11: EdDSA support
+- EP11: support RSA-OAEP with non-SHA1 hash and MGF
+
 + openCryptoki 3.12.1
 - Fix pkcsep11_migrate tool
 
