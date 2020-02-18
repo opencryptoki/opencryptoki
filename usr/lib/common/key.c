@@ -1643,7 +1643,7 @@ CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     rc = ber_decode_RSAPublicKey(data, total_length, &modulus, &publ_exp);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_RSAPrivateKey failed\n");
+        TRACE_DEVEL("ber_decode_RSAPublicKey failed\n");
         return rc;
     }
 
@@ -2067,7 +2067,7 @@ CK_RV dsa_priv_wrap_get_data(TEMPLATE *tmpl,
     rc = ber_encode_DSAPrivateKey(length_only, data, data_len,
                                   prime, subprime, base, value);
     if (rc != CKR_OK)
-        TRACE_DEVEL("ber_encode_DSAPrivateKe failed\n");
+        TRACE_DEVEL("ber_encode_DSAPrivateKey failed\n");
 
     return rc;
 }
@@ -2116,7 +2116,7 @@ CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
                                  &base, &value);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_DSAPrivateKey failed\n");
+        TRACE_DEVEL("ber_decode_DSAPublicKey failed\n");
         return rc;
     }
 
@@ -2443,7 +2443,7 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     rc = der_decode_ECPublicKey(data, total_length, &params, &point);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_ECPrivateKey failed\n");
+        TRACE_DEVEL("der_decode_ECPublicKey failed\n");
         return rc;
     }
 
@@ -2785,7 +2785,7 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     rc = ber_decode_DHPublicKey(data, total_length, &prime, &base, &value);
 
     if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_DCPrivateKey failed\n");
+        TRACE_DEVEL("ber_decode_DHPublicKey failed\n");
         return rc;
     }
 
@@ -2888,7 +2888,7 @@ CK_RV dh_priv_wrap_get_data(TEMPLATE *tmpl,
     rc = ber_encode_DHPrivateKey(length_only, data, data_len,
                                  prime, base, value);
     if (rc != CKR_OK)
-        TRACE_DEVEL("ber_encode_DSAPrivateKe failed\n");
+        TRACE_DEVEL("ber_encode_DHPrivateKey failed\n");
 
     return rc;
 }
