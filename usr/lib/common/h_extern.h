@@ -111,14 +111,6 @@ extern const CK_BYTE des_possibly_weak_keys[48][8];
 
 extern struct ST_FCN_LIST function_list;
 
-// VACPP C runtime initialization/cleanup entry points
-//
-int _CRT_init(void);
-int _CRT_term(void);
-
-
-CK_RV DummyFunction(CK_SLOT_ID slot_id, int arg);
-
 // General-purpose functions
 //
 CK_RV C_Initialize(CK_VOID_PTR pInitArgs);
