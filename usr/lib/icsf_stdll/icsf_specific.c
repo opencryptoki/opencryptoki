@@ -1031,8 +1031,7 @@ CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
      * pkcs#11v2.2 states that all sessions within a process have
      * same login state.
      */
-    if (global_login_state == CKS_RW_USER_FUNCTIONS ||
-        global_login_state == CKS_RO_USER_FUNCTIONS) {
+    if (session_mgr_user_session_exists()) {
         ld = getLDAPhandle(tokdata, sess->session_info.slotID);
         if (ld == NULL) {
             TRACE_DEVEL("Failed to get LDAP handle for session.\n");
