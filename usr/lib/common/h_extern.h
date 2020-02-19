@@ -34,7 +34,7 @@ extern CK_ULONG mech_list_len;
 
 extern pthread_mutex_t native_mutex;
 
-extern MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
+extern MUTEX pkcs_mutex, obj_list_mutex, login_mutex;
 
 extern struct btree sess_btree;
 extern struct btree sess_obj_btree;
