@@ -815,8 +815,8 @@ CK_RV ber_decode_CHOICE(CK_BYTE *choice,
 CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
                                 CK_BYTE **data,
                                 CK_ULONG *data_len,
-                                CK_BYTE *algorithm_id,
-                                CK_ULONG algorithm_id_len,
+                                const CK_BYTE *algorithm_id,
+                                const CK_ULONG algorithm_id_len,
                                 CK_BYTE *priv_key, CK_ULONG priv_key_len)
 {
     CK_BYTE *buf = NULL;
@@ -1737,8 +1737,8 @@ CK_RV ber_decode_RSAPublicKey(CK_BYTE *data,
     /*
      * Make sure we're dealing with an DH key.
      */
-    rc = ber_decode_SEQUENCE(ber_AlgIdRSAEncryption, &algid_RSABase, &len,
-                             &field_len);
+    rc = ber_decode_SEQUENCE((CK_BYTE *)ber_AlgIdRSAEncryption, &algid_RSABase,
+                             &len, &field_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
         return rc;
@@ -2912,7 +2912,8 @@ CK_RV der_decode_ECPublicKey(CK_BYTE *data,
      * Extract base alg-id of DER encoded EC byte string
      * and compare against the decoded alg-id from the inner sequence
      */
-    rc = ber_decode_SEQUENCE(der_AlgIdECBase, &algid_ECBase, &len, &field_len);
+    rc = ber_decode_SEQUENCE((CK_BYTE *)der_AlgIdECBase, &algid_ECBase, &len,
+                             &field_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
         return rc;

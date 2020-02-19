@@ -62,9 +62,9 @@ extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 #define USER_KDF_WRAP_IT		100000ULL
 #define USER_KDF_WRAP_PURPOSE		"user_wrap_purpose_______________"
 
-extern CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
-extern CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
-extern CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
+extern const CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
+extern const CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
+extern const CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
 
 extern LW_SHM_TYPE *global_shm;
 
@@ -79,48 +79,48 @@ extern CK_ULONG ro_session_count;
 extern CK_STATE global_login_state;
 
 
-extern CK_BYTE ber_AlgIdRSAEncryption[];
-extern CK_ULONG ber_AlgIdRSAEncryptionLen;
-extern CK_BYTE ber_rsaEncryption[];
-extern CK_ULONG ber_rsaEncryptionLen;
-extern CK_BYTE der_AlgIdECBase[];
-extern CK_ULONG der_AlgIdECBaseLen;
-extern CK_BYTE ber_idDSA[];
-extern CK_ULONG ber_idDSALen;
-extern CK_BYTE ber_idDH[];
-extern CK_ULONG ber_idDHLen;
-extern CK_BYTE ber_idEC[];
-extern CK_ULONG ber_idECLen;
+extern const CK_BYTE ber_AlgIdRSAEncryption[];
+extern const CK_ULONG ber_AlgIdRSAEncryptionLen;
+extern const CK_BYTE ber_rsaEncryption[];
+extern const CK_ULONG ber_rsaEncryptionLen;
+extern const CK_BYTE der_AlgIdECBase[];
+extern const CK_ULONG der_AlgIdECBaseLen;
+extern const CK_BYTE ber_idDSA[];
+extern const CK_ULONG ber_idDSALen;
+extern const CK_BYTE ber_idDH[];
+extern const CK_ULONG ber_idDHLen;
+extern const CK_BYTE ber_idEC[];
+extern const CK_ULONG ber_idECLen;
 
-extern CK_BYTE ber_md2WithRSAEncryption[];
-extern CK_ULONG ber_md2WithRSAEncryptionLen;
-extern CK_BYTE ber_md4WithRSAEncryption[];
-extern CK_ULONG ber_md4WithRSAEncryptionLen;
-extern CK_BYTE ber_md5WithRSAEncryption[];
-extern CK_ULONG ber_md5WithRSAEncryptionLen;
-extern CK_BYTE ber_sha1WithRSAEncryption[];
-extern CK_ULONG ber_sha1WithRSAEncryptionLen;
-extern CK_BYTE ber_AlgMd2[];
-extern CK_ULONG ber_AlgMd2Len;
-extern CK_BYTE ber_AlgMd5[];
-extern CK_ULONG ber_AlgMd5Len;
-extern CK_BYTE ber_AlgSha1[];
-extern CK_ULONG ber_AlgSha1Len;
-extern CK_BYTE ber_AlgSha224[];
-extern CK_ULONG ber_AlgSha224Len;
-extern CK_BYTE ber_AlgSha256[];
-extern CK_ULONG ber_AlgSha256Len;
-extern CK_BYTE ber_AlgSha384[];
-extern CK_ULONG ber_AlgSha384Len;
-extern CK_BYTE ber_AlgSha512[];
-extern CK_ULONG ber_AlgSha512Len;
+extern const CK_BYTE ber_md2WithRSAEncryption[];
+extern const CK_ULONG ber_md2WithRSAEncryptionLen;
+extern const CK_BYTE ber_md4WithRSAEncryption[];
+extern const CK_ULONG ber_md4WithRSAEncryptionLen;
+extern const CK_BYTE ber_md5WithRSAEncryption[];
+extern const CK_ULONG ber_md5WithRSAEncryptionLen;
+extern const CK_BYTE ber_sha1WithRSAEncryption[];
+extern const CK_ULONG ber_sha1WithRSAEncryptionLen;
+extern const CK_BYTE ber_AlgMd2[];
+extern const CK_ULONG ber_AlgMd2Len;
+extern const CK_BYTE ber_AlgMd5[];
+extern const CK_ULONG ber_AlgMd5Len;
+extern const CK_BYTE ber_AlgSha1[];
+extern const CK_ULONG ber_AlgSha1Len;
+extern const CK_BYTE ber_AlgSha224[];
+extern const CK_ULONG ber_AlgSha224Len;
+extern const CK_BYTE ber_AlgSha256[];
+extern const CK_ULONG ber_AlgSha256Len;
+extern const CK_BYTE ber_AlgSha384[];
+extern const CK_ULONG ber_AlgSha384Len;
+extern const CK_BYTE ber_AlgSha512[];
+extern const CK_ULONG ber_AlgSha512Len;
 
-extern CK_ULONG des_weak_count;
-extern CK_ULONG des_semi_weak_count;
-extern CK_ULONG des_possibly_weak_count;
-extern CK_BYTE des_weak_keys[4][8];
-extern CK_BYTE des_semi_weak_keys[12][8];
-extern CK_BYTE des_possibly_weak_keys[48][8];
+extern const CK_ULONG des_weak_count;
+extern const CK_ULONG des_semi_weak_count;
+extern const CK_ULONG des_possibly_weak_count;
+extern const CK_BYTE des_weak_keys[4][8];
+extern const CK_BYTE des_semi_weak_keys[12][8];
+extern const CK_BYTE des_possibly_weak_keys[48][8];
 
 extern struct ST_FCN_LIST function_list;
 
@@ -2685,8 +2685,8 @@ CK_RV ber_decode_SEQUENCE(CK_BYTE *seq,
 CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
                                 CK_BYTE **data,
                                 CK_ULONG *data_len,
-                                CK_BYTE *algorithm_id,
-                                CK_ULONG algorithm_id_len,
+                                const CK_BYTE *algorithm_id,
+                                const CK_ULONG algorithm_id_len,
                                 CK_BYTE *priv_key, CK_ULONG priv_key_len);
 
 CK_RV ber_decode_PrivateKeyInfo(CK_BYTE *data,

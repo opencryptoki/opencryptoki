@@ -1616,7 +1616,7 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
 {
     CK_BYTE *ber_data = NULL;
     CK_BYTE *octet_str = NULL;
-    CK_BYTE *oid = NULL;
+    const CK_BYTE *oid = NULL;
     CK_BYTE *tmp = NULL;
 
     CK_ULONG buf1[16];          // 64 bytes is more than enough
@@ -1796,7 +1796,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
 {
     CK_BYTE *ber_data = NULL;
     CK_BYTE *octet_str = NULL;
-    CK_BYTE *oid = NULL;
+    const CK_BYTE *oid = NULL;
     CK_BYTE *tmp = NULL;
 
     CK_ULONG buf1[16];          // 64 bytes is more than enough
@@ -1971,7 +1971,7 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
 {
     CK_BYTE *ber_data = NULL;
     CK_BYTE *octet_str = NULL;
-    CK_BYTE *oid = NULL;
+    const CK_BYTE *oid = NULL;
     CK_BYTE *tmp = NULL;
 
     CK_ULONG buf1[16];          // 64 bytes is more than enough
@@ -2081,7 +2081,7 @@ CK_RV rsa_hash_pkcs_verify_final(STDLL_TokData_t *tokdata,
 {
     CK_BYTE *ber_data = NULL;
     CK_BYTE *octet_str = NULL;
-    CK_BYTE *oid = NULL;
+    const CK_BYTE *oid = NULL;
     CK_BYTE *tmp = NULL;
 
     CK_ULONG buf1[16];          // 64 bytes is more than enough
