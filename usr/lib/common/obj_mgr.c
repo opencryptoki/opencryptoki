@@ -2048,10 +2048,8 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
 
     // SAB XXX don't bother doing this call if we are not in the correct
     // login state
-    if (!(global_login_state == CKS_RW_USER_FUNCTIONS ||
-          global_login_state == CKS_RO_USER_FUNCTIONS)) {
+    if (!session_mgr_user_session_exists())
         return CKR_OK;
-    }
 
     ua.entries = tokdata->global_shm->priv_tok_objs;
     ua.num_entries = &(tokdata->global_shm->num_priv_tok_obj);
