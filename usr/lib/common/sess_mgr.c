@@ -90,21 +90,23 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
     // we don't have to worry about having a user and SO session at the same
     // time. that is prevented in the login routine
     //
-    if (user_session) {
-        if (new_session->session_info.flags & CKF_RW_SESSION) {
-            new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
+    __transaction_atomic {      /* start transaction */
+        if (user_session) {
+            if (new_session->session_info.flags & CKF_RW_SESSION) {
+                new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
+            } else {
+                new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
+                ro_session_count++;
+            }
+        } else if (so_session) {
+            new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
         } else {
-            new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
-            ro_session_count++;
-        }
-    } else if (so_session) {
-        new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
-    } else {
-        if (new_session->session_info.flags & CKF_RW_SESSION) {
-            new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
-        } else {
-            new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
-            ro_session_count++;
+            if (new_session->session_info.flags & CKF_RW_SESSION) {
+                new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
+            } else {
+                new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
+                ro_session_count++;
+            }
         }
     }
 
@@ -386,7 +388,9 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
             s->session_info.state = CKS_RO_USER_FUNCTIONS;
     }
 
-    global_login_state = s->session_info.state; // SAB
+    __transaction_atomic {      /* start transaction */
+        global_login_state = s->session_info.state; // SAB
+    }                           /* end transaction */
 }
 
 // session_mgr_login_all()
@@ -424,7 +428,9 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
     else
         s->session_info.state = CKS_RO_PUBLIC_SESSION;
 
-    global_login_state = s->session_info.state; // SAB
+    __transaction_atomic {      /* start transaction */
+        global_login_state = s->session_info.state; // SAB
+    }                           /* end transaction */
 }
 
 // session_mgr_logout_all()

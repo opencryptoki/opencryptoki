@@ -88,6 +88,12 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
     so_session = session_mgr_so_session_exists();
     user_session = session_mgr_user_session_exists();
 
+    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto done;
+    }
+
     // we don't have to worry about having a user and SO session at the same
     // time. that is prevented in the login routine
     //
@@ -108,6 +114,8 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
             ro_session_count++;
         }
     }
+
+    pthread_rwlock_unlock(&sess_list_rwlock);
 
     *phSession = bt_node_add(&sess_btree, new_session);
     if (*phSession == 0) {
@@ -243,8 +251,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     }
 
     if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
-        return FALSE;
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
     }
 
     object_mgr_purge_session_objects(tokdata, sess, ALL);
@@ -379,8 +387,8 @@ CK_RV session_mgr_close_all_sessions(void)
     bt_for_each_node(NULL, &sess_btree, session_free, NULL);
 
     if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
-        TRACE_ERROR("Read Lock failed.\n");
-        return FALSE;
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
     }
 
     global_login_state = CKS_RO_PUBLIC_SESSION;
@@ -426,7 +434,14 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type)
 {
+    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
     bt_for_each_node(tokdata, &sess_btree, session_login, (void *) &user_type);
+
+    pthread_rwlock_unlock(&sess_list_rwlock);
 
     return CKR_OK;
 }
@@ -462,7 +477,14 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata)
 {
+    if (pthread_rwlock_wrlock(&sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
     bt_for_each_node(tokdata, &sess_btree, session_logout, NULL);
+
+    pthread_rwlock_unlock(&sess_list_rwlock);
 
     return CKR_OK;
 }
