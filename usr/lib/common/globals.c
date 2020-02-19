@@ -28,17 +28,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
-MUTEX pkcs_mutex, obj_list_mutex, login_mutex;
-
-struct btree sess_btree = { NULL, NULL, 0UL, 0UL };
-struct btree sess_obj_btree = { NULL, NULL, 0UL, 0UL };
-struct btree publ_token_obj_btree = { NULL, NULL, 0UL, 0UL };
-struct btree priv_token_obj_btree = { NULL, NULL, 0UL, 0UL };
-struct btree object_map_btree = { NULL, NULL, 0UL, 0UL };
-
-CK_ULONG ro_session_count = 0;
-
-CK_STATE global_login_state = CKS_RO_PUBLIC_SESSION;
+MUTEX obj_list_mutex, login_mutex;
 
 struct ST_FCN_LIST function_list;
 

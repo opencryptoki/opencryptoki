@@ -45,7 +45,6 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
 static void _ep11tok_logout_session(STDLL_TokData_t * tokdata, void *node_value,
                                     unsigned long node_idx, void *p3);
 
-CK_ULONG usage_count = 0;       /* track DLL usage */
 
 /* verify that the mech specified is in the
  * mech list for this token...
@@ -84,7 +83,6 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         return CKR_CRYPTOKI_ALREADY_INITIALIZED;
     }
 
-    MY_CreateMutex(&pkcs_mutex);
     MY_CreateMutex(&obj_list_mutex);
     MY_CreateMutex(&login_mutex);
 
@@ -96,6 +94,12 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         TRACE_ERROR("Allocating host memory failed.\n");
         return CKR_HOST_MEMORY;
     }
+
+    sltp->TokData->ro_session_count = 0;
+    sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
+#ifdef ENABLE_LOCKS
+    pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
+#endif
 
     if (strlen(sinfp->tokname)) {
         sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
@@ -178,7 +182,6 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
 
     init_slotInfo(&(sltp->TokData->slot_info));
 
-    usage_count++;
     (sltp->FcnList) = &function_list;
 
 done:
@@ -215,34 +218,27 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-#ifdef ENABLE_LOCKS
-    MY_LockMutex(&pkcs_mutex);
-#else
-    __transaction_atomic {      /* start transaction */
-#endif
-        usage_count--;
-        if (usage_count == 0) {
-            tokdata->initialized = FALSE;
-        }
-#ifdef ENABLE_LOCKS
-        MY_UnlockMutex(&pkcs_mutex);
-#else
-    }                           /* end transaction */
-#endif
+    tokdata->initialized = FALSE;
 
-    if (session_mgr_so_session_exists() || session_mgr_user_session_exists()) {
-        bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
+    if (session_mgr_so_session_exists(tokdata) ||
+        session_mgr_user_session_exists(tokdata)) {
+        bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_logout_session,
+                         NULL);
     }
 
-    session_mgr_close_all_sessions();
+    session_mgr_close_all_sessions(tokdata);
     object_mgr_purge_token_objects(tokdata);
 
     /* Finally free the nodes on free list. */
-    bt_destroy(&sess_btree, NULL);
-    bt_destroy(&sess_obj_btree, NULL);
-    bt_destroy(&object_map_btree, NULL);
-    bt_destroy(&priv_token_obj_btree, NULL);
-    bt_destroy(&publ_token_obj_btree, NULL);
+    bt_destroy(&tokdata->sess_btree, NULL);
+    bt_destroy(&tokdata->object_map_btree, NULL);
+    bt_destroy(&tokdata->sess_obj_btree, NULL);
+    bt_destroy(&tokdata->priv_token_obj_btree, NULL);
+    bt_destroy(&tokdata->publ_token_obj_btree, NULL);
+
+#ifdef ENABLE_LOCKS
+    pthread_rwlock_destroy(&tokdata->sess_list_rwlock);
+#endif
 
     detach_shm(tokdata, in_fork_initializer);
     /* close spin lock file */
@@ -490,7 +486,7 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -621,7 +617,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
         goto done;
     }
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -938,18 +934,18 @@ CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
     }
     flags |= CKF_SERIAL_SESSION;
     if ((flags & CKF_RW_SESSION) == 0) {
-        if (session_mgr_so_session_exists()) {
+        if (session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_WRITE_SO_EXISTS));
             return CKR_SESSION_READ_WRITE_SO_EXISTS;
         }
     }
-    rc = session_mgr_new(flags, sid, phSession);
+    rc = session_mgr_new(tokdata, flags, sid, phSession);
     if (rc != CKR_OK) {
         TRACE_DEVEL("session_mgr_new() failed\n");
         return rc;
     }
 
-    sess = session_mgr_find(*phSession);
+    sess = session_mgr_find(tokdata, *phSession);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
@@ -957,7 +953,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
 
     sess->handle = *phSession;
 
-    if (session_mgr_so_session_exists() || session_mgr_user_session_exists()) {
+    if (session_mgr_so_session_exists(tokdata) || session_mgr_user_session_exists(tokdata)) {
         rc = ep11tok_login_session(tokdata, sess);
     }
 
@@ -1000,8 +996,9 @@ CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
         goto done;
     }
 
-    if (session_mgr_so_session_exists() || session_mgr_user_session_exists()) {
-        sess = session_mgr_find(sSession->sessionh);
+    if (session_mgr_so_session_exists(tokdata) ||
+        session_mgr_user_session_exists(tokdata)) {
+        sess = session_mgr_find(tokdata, sSession->sessionh);
         if (!sess) {
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
             rc = CKR_SESSION_HANDLE_INVALID;
@@ -1034,11 +1031,12 @@ CK_RV SC_CloseAllSessions(STDLL_TokData_t * tokdata, CK_SLOT_ID sid)
         goto done;
     }
 
-    if (session_mgr_so_session_exists() || session_mgr_user_session_exists()) {
-        bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
+    if (session_mgr_so_session_exists(tokdata) ||
+        session_mgr_user_session_exists(tokdata)) {
+        bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_logout_session, NULL);
     }
 
-    rc = session_mgr_close_all_sessions();
+    rc = session_mgr_close_all_sessions(tokdata);
     if (rc != CKR_OK)
         TRACE_DEVEL("session_mgr_close_all_sessions() failed.\n");
 done:
@@ -1065,7 +1063,7 @@ CK_RV SC_GetSessionInfo(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1104,7 +1102,7 @@ CK_RV SC_GetOperationState(STDLL_TokData_t * tokdata,
     if (!pOperationState)
         length_only = TRUE;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1145,7 +1143,7 @@ CK_RV SC_SetOperationState(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1190,7 +1188,7 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1209,24 +1207,24 @@ CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
      * --> all sessions are public, all are SO or all are USER
      */
     if (userType == CKU_USER) {
-        if (session_mgr_so_session_exists()) {
+        if (session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
         }
-        if (session_mgr_user_session_exists()) {
+        if (session_mgr_user_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ALREADY_LOGGED_IN;
         }
     } else if (userType == CKU_SO) {
-        if (session_mgr_user_session_exists()) {
+        if (session_mgr_user_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ANOTHER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ANOTHER_ALREADY_LOGGED_IN;
         }
-        if (session_mgr_so_session_exists()) {
+        if (session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_ALREADY_LOGGED_IN));
             rc = CKR_USER_ALREADY_LOGGED_IN;
         }
-        if (session_mgr_readonly_session_exists()) {
+        if (session_mgr_readonly_session_exists(tokdata)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY_EXISTS));
             rc = CKR_SESSION_READ_ONLY_EXISTS;
         }
@@ -1398,7 +1396,8 @@ done:
     }
 
     if (rc == CKR_OK) {
-        bt_for_each_node(tokdata, &sess_btree, _ep11tok_login_session, &rc);
+        bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_login_session,
+                         &rc);
         if (rc != CKR_OK)
             TRACE_DEVEL("_ep11tok_login_session failed.\n");
     }
@@ -1423,7 +1422,7 @@ CK_RV SC_Logout(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1431,13 +1430,14 @@ CK_RV SC_Logout(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
     }
 
     /* all sessions have the same state so we just have to check one */
-    if (session_mgr_public_session_exists()) {
+    if (session_mgr_public_session_exists(tokdata)) {
         TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
         rc = CKR_USER_NOT_LOGGED_IN;
         goto done;
     }
 
-    bt_for_each_node(tokdata, &sess_btree, _ep11tok_logout_session, NULL);
+    bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_logout_session,
+                     NULL);
 
     rc = session_mgr_logout_all(tokdata);
     if (rc != CKR_OK)
@@ -1468,7 +1468,7 @@ CK_RV SC_CreateObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1519,7 +1519,7 @@ CK_RV SC_CopyObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1558,7 +1558,7 @@ CK_RV SC_DestroyObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1594,7 +1594,7 @@ CK_RV SC_GetObjectSize(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1626,7 +1626,7 @@ CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1678,7 +1678,7 @@ CK_RV SC_SetAttributeValue(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1727,7 +1727,7 @@ CK_RV SC_FindObjectsInit(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1793,7 +1793,7 @@ CK_RV SC_FindObjects(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1840,7 +1840,7 @@ CK_RV SC_FindObjectsFinal(STDLL_TokData_t * tokdata,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1892,7 +1892,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -1959,7 +1959,7 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2033,7 +2033,7 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2106,7 +2106,7 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2185,7 +2185,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2252,7 +2252,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2326,7 +2326,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2399,7 +2399,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2476,7 +2476,7 @@ CK_RV SC_DigestInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2523,7 +2523,7 @@ CK_RV SC_Digest(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2564,7 +2564,7 @@ CK_RV SC_DigestUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2622,7 +2622,7 @@ CK_RV SC_DigestFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2669,7 +2669,7 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2755,7 +2755,7 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2834,7 +2834,7 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -2913,7 +2913,7 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3032,7 +3032,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3114,7 +3114,7 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3189,7 +3189,7 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3267,7 +3267,7 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3473,7 +3473,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3552,7 +3552,7 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3648,7 +3648,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3702,7 +3702,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3777,7 +3777,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (rc != CKR_OK)
         goto done;
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -3884,7 +3884,7 @@ CK_RV SC_GenerateRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    sess = session_mgr_find(sSession->sessionh);
+    sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
