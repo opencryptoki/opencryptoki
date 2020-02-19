@@ -25,7 +25,7 @@
 // Permutation of 0..255 constructed from the digits of pi. It gives a
 // "random" nonlinear byte substitution operation.
 //
-static CK_BYTE S[256] = {
+static const CK_BYTE S[256] = {
     41, 46, 67, 201, 162, 216, 124, 1, 61, 54, 84, 161, 236, 240, 6,
     19, 98, 167, 5, 243, 192, 199, 115, 140, 152, 147, 43, 217, 188,
     76, 130, 202, 30, 155, 87, 60, 253, 212, 224, 22, 103, 66, 111, 24,
@@ -46,7 +46,7 @@ static CK_BYTE S[256] = {
     31, 26, 219, 153, 141, 51, 159, 17, 131, 20
 };
 
-static CK_BYTE *padding[] = {
+static const CK_BYTE *padding[] = {
     (CK_BYTE *) "",
     (CK_BYTE *) "\x01",
     (CK_BYTE *) "\x02\x02",
@@ -447,7 +447,7 @@ CK_RV ckm_md2_final(STDLL_TokData_t *tokdata,
     //
     index = context->count;
     padLen = 16 - index;
-    ckm_md2_update(tokdata, context, padding[padLen], padLen);
+    ckm_md2_update(tokdata, context, (CK_BYTE *)padding[padLen], padLen);
 
     // Add checksum
     //
