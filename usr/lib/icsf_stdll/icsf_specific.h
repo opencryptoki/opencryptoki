@@ -18,6 +18,8 @@
 
 #include "pkcs11types.h"
 
+extern pthread_mutex_t sess_list_mutex;
+
 CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                    char *conf_name);
 

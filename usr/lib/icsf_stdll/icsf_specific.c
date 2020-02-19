@@ -123,7 +123,7 @@ CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
  * or removing a session to or from the list.
  */
 list_t sessions = LIST_INIT();
-extern pthread_mutex_t sess_list_mutex;
+pthread_mutex_t sess_list_mutex;
 
 /* Each element of the list sessions should have this type: */
 struct session_state {
@@ -137,12 +137,8 @@ struct session_state {
 /*
  * This binary tree keeps the mapping between ICSF object handles and PKCS#11
  * object handles. The tree index is used as the PKCS#11 handle.
- *
- * Any insertion or deletion in this tree should be protected by
- * obj_list_rw_mutex.
  */
 struct btree objects;
-extern pthread_rwlock_t obj_list_rw_mutex;
 
 /* Each element of the btree objects should have this type: */
 struct icsf_object_mapping {

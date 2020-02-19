@@ -32,7 +32,7 @@
 // is attached, it gets destroyed when the DLL is detached
 //
 pthread_mutex_t native_mutex;
-MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
+MUTEX pkcs_mutex, obj_list_mutex, login_mutex;
 
 struct btree sess_btree = { NULL, NULL, 0UL, 0UL };
 struct btree sess_obj_btree = { NULL, NULL, 0UL, 0UL };

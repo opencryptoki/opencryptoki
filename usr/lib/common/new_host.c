@@ -145,7 +145,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 
     MY_CreateMutex(&pkcs_mutex);
     MY_CreateMutex(&obj_list_mutex);
-    MY_CreateMutex(&sess_list_mutex);
     MY_CreateMutex(&login_mutex);
 
     /*
