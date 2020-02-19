@@ -32,13 +32,7 @@ extern char *pk_dir;
 extern MECH_LIST_ELEMENT mech_list[];
 extern CK_ULONG mech_list_len;
 
-extern MUTEX pkcs_mutex, obj_list_mutex, login_mutex;
-
-extern struct btree sess_btree;
-extern struct btree sess_obj_btree;
-extern struct btree priv_token_obj_btree;
-extern struct btree publ_token_obj_btree;
-extern struct btree object_map_btree;
+extern MUTEX obj_list_mutex, login_mutex;
 
 #define SO_PIN_DEFAULT			"87654321"
 #define SO_KDF_LOGIN_IT			100000ULL
@@ -55,14 +49,6 @@ extern struct btree object_map_btree;
 extern const CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
 extern const CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
 extern const CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
-
-// extern CK_ULONG next_object_handle;
-// extern CK_ULONG next_session_handle;
-
-extern CK_ULONG ro_session_count;
-
-extern CK_STATE global_login_state;
-
 
 extern const CK_BYTE ber_AlgIdRSAEncryption[];
 extern const CK_ULONG ber_AlgIdRSAEncryptionLen;
@@ -2076,18 +2062,18 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
 
 // session manager routines
 //
-CK_RV session_mgr_close_all_sessions(void);
+CK_RV session_mgr_close_all_sessions(STDLL_TokData_t *tokdata);
 CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE);
-CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
-                      CK_SESSION_HANDLE_PTR phSession);
-SESSION *session_mgr_find(CK_SESSION_HANDLE handle);
+CK_RV session_mgr_new(STDLL_TokData_t *tokdata, CK_ULONG flags,
+                      CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession);
+SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle);
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type);
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata);
 
-CK_BBOOL session_mgr_readonly_session_exists(void);
-CK_BBOOL session_mgr_so_session_exists(void);
-CK_BBOOL session_mgr_user_session_exists(void);
-CK_BBOOL session_mgr_public_session_exists(void);
+CK_BBOOL session_mgr_readonly_session_exists(STDLL_TokData_t *tokdata);
+CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata);
+CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata);
+CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata);
 
 CK_RV session_mgr_get_op_state(SESSION *sess, CK_BBOOL length_only,
                                CK_BYTE *data, CK_ULONG *data_len);
@@ -2149,7 +2135,8 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
 
 CK_RV object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata);
 
-CK_RV object_mgr_find_in_map_nocache(CK_OBJECT_HANDLE handle, OBJECT **ptr);
+CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
+                                     CK_OBJECT_HANDLE handle, OBJECT **ptr);
 
 CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
                               CK_OBJECT_HANDLE handle, OBJECT **ptr);

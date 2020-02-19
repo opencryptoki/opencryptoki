@@ -31,7 +31,7 @@
 //
 // Returns:  SESSION * or NULL
 //
-SESSION *session_mgr_find(CK_SESSION_HANDLE handle)
+SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle)
 {
     SESSION *result = NULL;
 
@@ -39,7 +39,7 @@ SESSION *session_mgr_find(CK_SESSION_HANDLE handle)
         return NULL;
     }
 
-    result = bt_get_node_value(&sess_btree, handle);
+    result = bt_get_node_value(&tokdata->sess_btree, handle);
 
     return result;
 }
@@ -55,8 +55,8 @@ SESSION *session_mgr_find(CK_SESSION_HANDLE handle)
 //
 // Returns:  CK_RV
 //
-CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
-                      CK_SESSION_HANDLE_PTR phSession)
+CK_RV session_mgr_new(STDLL_TokData_t *tokdata, CK_ULONG flags,
+                      CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession)
 {
     SESSION *new_session = NULL;
     CK_BBOOL user_session = FALSE;
@@ -84,8 +84,8 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
     // that all sessions belonging to a process have the same login/logout
     // status
     //
-    so_session = session_mgr_so_session_exists();
-    user_session = session_mgr_user_session_exists();
+    so_session = session_mgr_so_session_exists(tokdata);
+    user_session = session_mgr_user_session_exists(tokdata);
 
     // we don't have to worry about having a user and SO session at the same
     // time. that is prevented in the login routine
@@ -96,7 +96,7 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
                 new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
             } else {
                 new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
-                ro_session_count++;
+                tokdata->ro_session_count++;
             }
         } else if (so_session) {
             new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
@@ -105,12 +105,12 @@ CK_RV session_mgr_new(CK_ULONG flags, CK_SLOT_ID slot_id,
                 new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
             } else {
                 new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
-                ro_session_count++;
+                tokdata->ro_session_count++;
             }
         }
     }
 
-    *phSession = bt_node_add(&sess_btree, new_session);
+    *phSession = bt_node_add(&tokdata->sess_btree, new_session);
     if (*phSession == 0) {
         rc = CKR_HOST_MEMORY;
         /* new_session will be free'd below */
@@ -132,12 +132,12 @@ done:
 //
 // Returns:  TRUE or FALSE
 //
-CK_BBOOL session_mgr_so_session_exists(void)
+CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata)
 {
     __transaction_atomic {      /* start transaction */
         CK_BBOOL result;
 
-        result = (global_login_state == CKS_RW_SO_FUNCTIONS);
+        result = (tokdata->global_login_state == CKS_RW_SO_FUNCTIONS);
 
         return result;
     }                           /* end transaction */
@@ -150,13 +150,13 @@ CK_BBOOL session_mgr_so_session_exists(void)
 //
 // Returns:  TRUE or FALSE
 //
-CK_BBOOL session_mgr_user_session_exists(void)
+CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata)
 {
     __transaction_atomic {      /* start transaction */
         CK_BBOOL result;
 
-        result = ((global_login_state == CKS_RO_USER_FUNCTIONS) ||
-                  (global_login_state == CKS_RW_USER_FUNCTIONS));
+        result = ((tokdata->global_login_state == CKS_RO_USER_FUNCTIONS) ||
+                  (tokdata->global_login_state == CKS_RW_USER_FUNCTIONS));
 
         return result;
     }                           /* end transaction */
@@ -169,13 +169,13 @@ CK_BBOOL session_mgr_user_session_exists(void)
 //
 // Returns:  TRUE or FALSE
 //
-CK_BBOOL session_mgr_public_session_exists(void)
+CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata)
 {
     __transaction_atomic {      /* start transaction */
         CK_BBOOL result;
 
-        result = ((global_login_state == CKS_RO_PUBLIC_SESSION) ||
-                  (global_login_state == CKS_RW_PUBLIC_SESSION));
+        result = ((tokdata->global_login_state == CKS_RO_PUBLIC_SESSION) ||
+                  (tokdata->global_login_state == CKS_RW_PUBLIC_SESSION));
 
         return result;
     }                           /* end transaction */
@@ -187,12 +187,12 @@ CK_BBOOL session_mgr_public_session_exists(void)
 // determines whether the specified process owns any read-only sessions. this is
 // useful because the SO cannot log in if a read-only session exists.
 //
-CK_BBOOL session_mgr_readonly_session_exists(void)
+CK_BBOOL session_mgr_readonly_session_exists(STDLL_TokData_t *tokdata)
 {
     __transaction_atomic {      /* start transaction */
         CK_BBOOL result;
 
-        result = (ro_session_count > 0);
+        result = (tokdata->ro_session_count > 0);
 
         return result;
     }                           /* end transaction */
@@ -214,7 +214,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     SESSION *sess;
     CK_RV rc = CKR_OK;
 
-    sess = bt_get_node_value(&sess_btree, handle);
+    sess = bt_get_node_value(&tokdata->sess_btree, handle);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
@@ -226,7 +226,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     __transaction_atomic {      /* start transaction */
         if ((sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
             (sess->session_info.state == CKS_RO_USER_FUNCTIONS)) {
-            ro_session_count--;
+            tokdata->ro_session_count--;
         }
     }                           /* end transaction */
 
@@ -266,7 +266,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (sess->verify_ctx.mech.pParameter)
         free(sess->verify_ctx.mech.pParameter);
 
-    bt_node_free(&sess_btree, handle, free);
+    bt_node_free(&tokdata->sess_btree, handle, free);
 
     // XXX XXX  Not having this is a problem
     //  for IHS.  The spec states that there is an implicit logout
@@ -277,7 +277,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     //  objects EVERY time.   If we are logged out, we MUST purge the private
     //  objects from this process..
     //
-    if (bt_is_empty(&sess_btree)) {
+    if (bt_is_empty(&tokdata->sess_btree)) {
         // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
         if (token_specific.t_logout) {
             rc = token_specific.t_logout();
@@ -285,7 +285,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         object_mgr_purge_private_token_objects(tokdata);
 
         __transaction_atomic {  /* start transaction */
-            global_login_state = CKS_RO_PUBLIC_SESSION;
+            tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
         }                       /* end transaction */
         // The objects really need to be purged .. but this impacts the
         // performance under linux.   So we need to make sure that the
@@ -345,20 +345,20 @@ void session_free(STDLL_TokData_t *tokdata, void *node_value,
         free(sess->verify_ctx.mech.pParameter);
 
     /* NB: any access to sess or @node_value after this returns will segfault */
-    bt_node_free(&sess_btree, node_idx, free);
+    bt_node_free(&tokdata->sess_btree, node_idx, free);
 }
 
 // session_mgr_close_all_sessions()
 //
 // removes all sessions from the specified process
 //
-CK_RV session_mgr_close_all_sessions(void)
+CK_RV session_mgr_close_all_sessions(STDLL_TokData_t *tokdata)
 {
-    bt_for_each_node(NULL, &sess_btree, session_free, NULL);
+    bt_for_each_node(tokdata, &tokdata->sess_btree, session_free, NULL);
 
     __transaction_atomic {      /* start transaction */
-        global_login_state = CKS_RO_PUBLIC_SESSION;
-        ro_session_count = 0;
+        tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
+        tokdata->ro_session_count = 0;
     }                           /* end transaction */
 
     return CKR_OK;
@@ -389,7 +389,7 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
     }
 
     __transaction_atomic {      /* start transaction */
-        global_login_state = s->session_info.state; // SAB
+        tokdata->global_login_state = s->session_info.state; // SAB
     }                           /* end transaction */
 }
 
@@ -401,7 +401,8 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type)
 {
-    bt_for_each_node(tokdata, &sess_btree, session_login, (void *) &user_type);
+    bt_for_each_node(tokdata, &tokdata->sess_btree, session_login,
+                     (void *)&user_type);
 
     return CKR_OK;
 }
@@ -429,7 +430,7 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
         s->session_info.state = CKS_RO_PUBLIC_SESSION;
 
     __transaction_atomic {      /* start transaction */
-        global_login_state = s->session_info.state; // SAB
+        tokdata->global_login_state = s->session_info.state; // SAB
     }                           /* end transaction */
 }
 
@@ -439,7 +440,7 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata)
 {
-    bt_for_each_node(tokdata, &sess_btree, session_logout, NULL);
+    bt_for_each_node(tokdata, &tokdata->sess_btree, session_logout, NULL);
 
     return CKR_OK;
 }

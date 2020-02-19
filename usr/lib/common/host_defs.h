@@ -340,6 +340,14 @@ struct _STDLL_TokData_t {
     uint32_t version; /* major<<16|minor */
     unsigned char so_wrap_key[32];
     unsigned char user_wrap_key[32];
+    struct btree sess_btree;
+#ifdef ENABLE_LOCKS
+    pthread_rwlock_t sess_list_rwlock;
+#endif
+    struct btree object_map_btree;
+    struct btree sess_obj_btree;
+    struct btree publ_token_obj_btree;
+    struct btree priv_token_obj_btree;
 };
 
 // These are the same for both AIX and Linux...

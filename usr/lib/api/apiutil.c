@@ -354,7 +354,7 @@ int API_Register()
             // before the slot manager garbage collection can performed.
             // To eliminate the race condition between garbage collection
             // the lock should protect us.
-            // This should be a VERY rare (if ever) occurance, given the
+            // This should be a VERY rare (if ever) occurrence, given the
             // way AIX deals with re-allocation of PID;s, however if this
             // ever gets ported over to another platform we want to deal
             // with this accordingly since it may re-use pids differently
@@ -378,7 +378,7 @@ int API_Register()
         return FALSE;
     }
     // check if we are reusing a control block or taking the first free.
-    // Since th mutex is helt, we don;t have to worry about some other
+    // Since the mutex is held, we don;t have to worry about some other
     // process grabbing the slot...  Garbage collection from
     // the slotd should not affect this since it will grab the mutex
     // before doing its thing.

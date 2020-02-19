@@ -2848,7 +2848,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* At least we have 1 block */
     /* find key object */
-    rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2960,7 +2960,7 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
     UNUSED(sess);
 
     /* find key object */
-    rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;

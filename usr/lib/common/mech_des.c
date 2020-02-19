@@ -379,7 +379,7 @@ CK_RV des_ecb_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -456,7 +456,7 @@ CK_RV des_ecb_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -533,7 +533,7 @@ CK_RV des_cbc_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -617,7 +617,7 @@ CK_RV des_cbc_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -711,7 +711,7 @@ CK_RV des_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         //    1) remain != 0
         //    2) out_len != 0
         //
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -806,7 +806,7 @@ CK_RV des_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         //    1) remain != 0
         //    2) out_len != 0
         //
-        rc = object_mgr_find_in_map_nocache(ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
