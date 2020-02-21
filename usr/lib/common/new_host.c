@@ -273,7 +273,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp)
 #endif
         usage_count--;
         if (usage_count == 0) {
-            initialized = FALSE;
+            tokdata->initialized = FALSE;
         }
 #ifdef ENABLE_LOCKS
         MY_UnlockMutex(&pkcs_mutex);

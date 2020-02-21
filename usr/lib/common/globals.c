@@ -28,9 +28,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
-CK_SLOT_INFO slot_info;
-CK_BBOOL initialized = FALSE;
-
 // native_mutex is used to protect C_Initialize.  It gets created when the DLL
 // is attached, it gets destroyed when the DLL is detached
 //
@@ -46,13 +43,6 @@ struct btree object_map_btree = { NULL, NULL, 0UL, 0UL };
 CK_ULONG ro_session_count = 0;
 
 CK_STATE global_login_state = CKS_RO_PUBLIC_SESSION;
-
-LW_SHM_TYPE *global_shm;
-
-//CK_ULONG next_session_handle = 1;
-//CK_ULONG next_object_handle = 1;
-
-TOKEN_DATA *nv_token_data = NULL;
 
 struct ST_FCN_LIST function_list;
 extern CK_RV LW_Initialize();
@@ -309,6 +299,3 @@ const CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE] = {
     0x80, 0x63, 0x7c, 0x0d
 };
 
-CK_BYTE user_pin_md5[MD5_HASH_SIZE];
-CK_BYTE so_pin_md5[MD5_HASH_SIZE];
-CK_BYTE master_key[MAX_KEY_SIZE];

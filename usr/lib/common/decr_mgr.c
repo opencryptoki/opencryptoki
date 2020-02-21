@@ -24,8 +24,6 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-CK_AES_CTR_PARAMS aesctr;
-
 //
 //
 CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
