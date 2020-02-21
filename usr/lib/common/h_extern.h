@@ -28,9 +28,6 @@
 extern char *pk_dir;
 // global variables
 //
-extern CK_BBOOL initialized;
-extern char *card_function_names[];
-extern char *total_function_names[];
 
 extern MECH_LIST_ELEMENT mech_list[];
 extern CK_ULONG mech_list_len;
@@ -44,11 +41,6 @@ extern struct btree sess_obj_btree;
 extern struct btree priv_token_obj_btree;
 extern struct btree publ_token_obj_btree;
 extern struct btree object_map_btree;
-
-extern CK_BYTE master_key[MAX_KEY_SIZE];
-
-extern CK_BYTE so_pin_md5[MD5_HASH_SIZE];
-extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 
 #define SO_PIN_DEFAULT			"87654321"
 #define SO_KDF_LOGIN_IT			100000ULL
@@ -65,11 +57,6 @@ extern CK_BYTE user_pin_md5[MD5_HASH_SIZE];
 extern const CK_BYTE default_user_pin_sha[SHA1_HASH_SIZE];
 extern const CK_BYTE default_so_pin_sha[SHA1_HASH_SIZE];
 extern const CK_BYTE default_so_pin_md5[MD5_HASH_SIZE];
-
-extern LW_SHM_TYPE *global_shm;
-
-extern TOKEN_DATA *nv_token_data;
-extern CK_SLOT_INFO slot_info;
 
 // extern CK_ULONG next_object_handle;
 // extern CK_ULONG next_session_handle;
@@ -123,8 +110,6 @@ extern const CK_BYTE des_semi_weak_keys[12][8];
 extern const CK_BYTE des_possibly_weak_keys[48][8];
 
 extern struct ST_FCN_LIST function_list;
-
-extern CK_C_INITIALIZE_ARGS cinit_args;
 
 // VACPP C runtime initialization/cleanup entry points
 //
