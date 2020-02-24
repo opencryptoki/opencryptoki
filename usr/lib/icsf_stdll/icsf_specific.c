@@ -36,6 +36,7 @@
 #include "tok_specific.h"
 #include "tok_struct.h"
 #include "icsf_config.h"
+#include "icsf_specific.h"
 #include "pbkdf.h"
 #include "list.h"
 #include "attributes.h"
@@ -112,19 +113,6 @@ MECH_LIST_ELEMENT mech_list[] = {
 
 CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
 
-/*
- * This list contains one element to each session and it's used to keep
- * session specific data. Any insertion or deletion in this list should
- * be protected by sess_list_mutex.
- *
- * This lock is intended to protect the linked list, not the content of each
- * element. Since PKCS#11 applications should not use the same session for
- * different threads, the only concurrency that we have to deal is when adding
- * or removing a session to or from the list.
- */
-list_t sessions = LIST_INIT();
-pthread_mutex_t sess_list_mutex;
-
 /* Each element of the list sessions should have this type: */
 struct session_state {
     CK_SESSION_HANDLE session_id;
@@ -134,11 +122,6 @@ struct session_state {
     list_entry_t sessions;
 };
 
-/*
- * This binary tree keeps the mapping between ICSF object handles and PKCS#11
- * object handles. The tree index is used as the PKCS#11 handle.
- */
-struct btree objects;
 
 /* Each element of the btree objects should have this type: */
 struct icsf_object_mapping {
@@ -160,18 +143,20 @@ struct icsf_multi_part_context {
 /*
  * Get the session specific structure.
  */
-static struct session_state *get_session_state(CK_SESSION_HANDLE session_id)
+static struct session_state *get_session_state(STDLL_TokData_t * tokdata,
+                                               CK_SESSION_HANDLE session_id)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *found = NULL;
     struct session_state *s;
 
     /* Lock sessions list */
-    if (pthread_mutex_lock(&sess_list_mutex)) {
+    if (pthread_mutex_lock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Failed to lock mutex.\n");
         return NULL;
     }
 
-    for_each_list_entry(&sessions, struct session_state, s, sessions) {
+    for_each_list_entry(&icsf_data->sessions, struct session_state, s, sessions) {
         if (s->session_id == session_id) {
             found = s;
             goto done;
@@ -180,7 +165,7 @@ static struct session_state *get_session_state(CK_SESSION_HANDLE session_id)
 
 done:
     /* Unlock */
-    if (pthread_mutex_unlock(&sess_list_mutex)) {
+    if (pthread_mutex_unlock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Mutex Unlock failed.\n");
         return NULL;
     }
@@ -191,9 +176,11 @@ done:
 /*
  * Remove all mapped objects.
  */
-static CK_RV purge_object_mapping()
+static CK_RV purge_object_mapping(STDLL_TokData_t * tokdata)
 {
-    bt_destroy(&objects, free);
+    icsf_private_data_t *icsf_data = tokdata->private_data;
+
+    bt_destroy(&icsf_data->objects, free);
 
     return CKR_OK;
 }
@@ -276,6 +263,7 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 {
     CK_RV rc;
     struct slot_data *data;
+    icsf_private_data_t *icsf_data;
 
     TRACE_INFO("icsf %s slot=%lu running\n", __func__, slot_id);
 
@@ -284,6 +272,13 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
+
+    icsf_data = calloc(1, sizeof(icsf_private_data_t));
+    if (icsf_data == NULL)
+        return CKR_HOST_MEMORY;
+    list_init(&icsf_data->sessions);
+    MY_CreateMutex(&icsf_data->sess_list_mutex);
+    tokdata->private_data = icsf_data;
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
@@ -740,7 +735,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         goto done;
 
     /* purge the object btree */
-    if (purge_object_mapping()) {
+    if (purge_object_mapping(tokdata)) {
         TRACE_DEVEL("Failed to purge objects.\n");
         rc = CKR_FUNCTION_FAILED;
     }
@@ -979,21 +974,23 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 
 CK_RV icsf_get_handles(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *s;
 
     /* Any prior sessions without an ldap descriptor, can now get one. */
     /* Lock sessions list */
-    if (pthread_mutex_lock(&sess_list_mutex)) {
+    if (pthread_mutex_lock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Failed to lock mutex.\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    for_each_list_entry(&sessions, struct session_state, s, sessions) {
+    for_each_list_entry(&icsf_data->sessions, struct session_state, s,
+                        sessions) {
         if (s->ld == NULL)
             s->ld = getLDAPhandle(tokdata, slot_id);
     }
 
-    if (pthread_mutex_unlock(&sess_list_mutex)) {
+    if (pthread_mutex_unlock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Mutex Unlock failed.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -1003,6 +1000,7 @@ CK_RV icsf_get_handles(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
 
 CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     LDAP *ld;
     struct session_state *session_state;
@@ -1022,7 +1020,7 @@ CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
     session_state->session_id = sess->handle;
     session_state->ld = NULL;
 
-    if (pthread_mutex_lock(&sess_list_mutex)) {
+    if (pthread_mutex_lock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Failed to lock mutex.\n");
         free(session_state);
         return CKR_FUNCTION_FAILED;
@@ -1043,11 +1041,11 @@ CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess)
     }
 
     /* put new session_state into the list */
-    list_insert_head(&sessions, &session_state->sessions);
+    list_insert_head(&icsf_data->sessions, &session_state->sessions);
 
 done:
     /* Unlock */
-    if (pthread_mutex_unlock(&sess_list_mutex)) {
+    if (pthread_mutex_unlock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Mutex Unlock Failed.\n");
         rc = CKR_FUNCTION_FAILED;
     }
@@ -1066,18 +1064,17 @@ done:
 static CK_RV close_session(STDLL_TokData_t * tokdata,
                            struct session_state *session_state)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     unsigned long i;
     int reason = 0;
 
-    UNUSED(tokdata);
-
     /* Remove each session object */
-    for (i = 1; i <= objects.size; i++) {
+    for (i = 1; i <= icsf_data->objects.size; i++) {
         struct icsf_object_mapping *mapping;
 
         /* Skip missing ids */
-        if (!(mapping = bt_get_node_value(&objects, i)))
+        if (!(mapping = bt_get_node_value(&icsf_data->objects, i)))
             continue;
 
         /* Skip object from other sessions */
@@ -1099,7 +1096,7 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
         }
 
         /* Remove object from object list */
-        bt_node_free(&objects, i, &free);
+        bt_node_free(&icsf_data->objects, i, &free);
     }
     if (rc)
         return rc;
@@ -1115,8 +1112,8 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
 
     /* Remove session */
     list_remove(&session_state->sessions);
-    if (list_is_empty(&sessions)) {
-        if (purge_object_mapping()) {
+    if (list_is_empty(&icsf_data->sessions)) {
+        if (purge_object_mapping(tokdata)) {
             TRACE_DEVEL("Failed to purge objects.\n");
             rc = CKR_FUNCTION_FAILED;
         }
@@ -1136,7 +1133,7 @@ CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session)
 
     /* Get the related session_state */
     if (session == NULL
-        || !(session_state = get_session_state(session->handle))) {
+        || !(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -1150,28 +1147,35 @@ CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session)
 /*
  * Called during C_Finalize and C_CloseAllSessions
  */
-CK_RV icsftok_close_all_sessions(STDLL_TokData_t * tokdata)
+CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
     list_entry_t *e;
 
     /* Lock to add a new session in the list */
-    if (pthread_mutex_lock(&sess_list_mutex)) {
+    if (pthread_mutex_lock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Failed to lock mutex.\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    for_each_list_entry_safe(&sessions, struct session_state, session_state,
-                             sessions, e) {
+    for_each_list_entry_safe(&icsf_data->sessions, struct session_state,
+                             session_state, sessions, e) {
         if ((rc = close_session(tokdata, session_state)))
             break;
     }
 
     /* Unlock */
-    if (pthread_mutex_unlock(&sess_list_mutex)) {
+    if (pthread_mutex_unlock(&icsf_data->sess_list_mutex)) {
         TRACE_ERROR("Mutex Unlock Failed.\n");
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (finalize) {
+        MY_DestroyMutex(&icsf_data->sess_list_mutex);
+        free(icsf_data);
+        tokdata->private_data = NULL;
     }
 
     return rc;
@@ -1337,10 +1341,12 @@ done:
 /*
  * Copy an existing object.
  */
-CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
+CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
+                          SESSION * session, CK_ATTRIBUTE_PTR attrs,
                           CK_ULONG attrs_len, CK_OBJECT_HANDLE src,
                           CK_OBJECT_HANDLE_PTR dst)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping_dst = NULL;
@@ -1362,7 +1368,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
     CK_ATTRIBUTE_PTR temp_attrs;
 
     /* Get session state */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -1382,7 +1388,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
         goto done;
     }
 
-    mapping_src = bt_get_node_value(&objects, src);
+    mapping_src = bt_get_node_value(&icsf_data->objects, src);
     if (!mapping_src) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_OBJECT_HANDLE_INVALID;
@@ -1429,7 +1435,7 @@ CK_RV icsftok_copy_object(SESSION * session, CK_ATTRIBUTE_PTR attrs,
     }
 
     /* Add info about object into session */
-    if (!(node_number = bt_node_add(&objects, mapping_dst))) {
+    if (!(node_number = bt_node_add(&icsf_data->objects, mapping_dst))) {
         TRACE_ERROR("Failed to add object to binary tree.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1453,6 +1459,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
                             CK_OBJECT_HANDLE_PTR handle)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping;
@@ -1490,7 +1497,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     mapping->session_id = session->handle;
 
     /* Get session state */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -1512,7 +1519,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Add info about object into session */
-    if (!(node_number = bt_node_add(&objects, mapping))) {
+    if (!(node_number = bt_node_add(&icsf_data->objects, mapping))) {
         TRACE_ERROR("Failed to add object to binary tree.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1636,6 +1643,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
                                 CK_OBJECT_HANDLE_PTR p_pub_key,
                                 CK_OBJECT_HANDLE_PTR p_priv_key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
     struct session_state *session_state;
@@ -1676,7 +1684,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
 
     /* Get session state */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -1725,8 +1733,8 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Add info about objects into session */
-    if (!(pub_node_number = bt_node_add(&objects, pub_key_mapping)) ||
-        !(priv_node_number = bt_node_add(&objects, priv_key_mapping))) {
+    if (!(pub_node_number = bt_node_add(&icsf_data->objects, pub_key_mapping)) ||
+        !(priv_node_number = bt_node_add(&icsf_data->objects, priv_key_mapping))) {
         TRACE_ERROR("Failed to add object to binary tree.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1756,6 +1764,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                            CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
@@ -1809,7 +1818,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     mapping->session_id = session->handle;
 
     /* Get session state */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -1832,7 +1841,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Add info about object into session */
-    if (!(node_number = bt_node_add(&objects, mapping))) {
+    if (!(node_number = bt_node_add(&icsf_data->objects, mapping))) {
         TRACE_ERROR("Failed to add object to binary tree.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1957,9 +1966,11 @@ static CK_RV validate_mech_parameters(CK_MECHANISM_PTR mech)
 /*
  * Initialize an encryption operation.
  */
-CK_RV icsftok_encrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
+                           SESSION * session, CK_MECHANISM_PTR mech,
                            CK_OBJECT_HANDLE key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
@@ -1967,7 +1978,7 @@ CK_RV icsftok_encrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
     int symmetric = 0;
 
     /* Check session */
-    if (!get_session_state(session->handle)) {
+    if (!get_session_state(tokdata, session->handle)) {
         rc = CKR_SESSION_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         goto done;
@@ -1978,7 +1989,7 @@ CK_RV icsftok_encrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
         goto done;
 
     /* Check if key exists */
-    if (!bt_get_node_value(&objects, key)) {
+    if (!bt_get_node_value(&icsf_data->objects, key)) {
         rc = CKR_KEY_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
     }
@@ -2056,10 +2067,12 @@ done:
 /*
  * Encrypt data and finalize an encryption operation.
  */
-CK_RV icsftok_encrypt(SESSION * session, CK_BYTE_PTR input_data,
+CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
+                      SESSION * session, CK_BYTE_PTR input_data,
                       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
                       CK_ULONG_PTR p_output_data_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_data == NULL);
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -2082,7 +2095,7 @@ CK_RV icsftok_encrypt(SESSION * session, CK_BYTE_PTR input_data,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2096,7 +2109,7 @@ CK_RV icsftok_encrypt(SESSION * session, CK_BYTE_PTR input_data,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, encr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
     }
@@ -2148,10 +2161,12 @@ done:
 /*
  * Multi-part encryption.
  */
-CK_RV icsftok_encrypt_update(SESSION * session, CK_BYTE_PTR input_part,
+CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
+                             SESSION * session, CK_BYTE_PTR input_part,
                              CK_ULONG input_part_len, CK_BYTE_PTR output_part,
                              CK_ULONG_PTR p_output_part_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_part == NULL);
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -2176,7 +2191,7 @@ CK_RV icsftok_encrypt_update(SESSION * session, CK_BYTE_PTR input_part,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2190,7 +2205,7 @@ CK_RV icsftok_encrypt_update(SESSION * session, CK_BYTE_PTR input_part,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, encr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -2324,9 +2339,11 @@ done:
 /*
  * Finalize a multi-part encryption.
  */
-CK_RV icsftok_encrypt_final(SESSION * session, CK_BYTE_PTR output_part,
+CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
+                            SESSION * session, CK_BYTE_PTR output_part,
                             CK_ULONG_PTR p_output_part_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_part == NULL);
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
@@ -2349,7 +2366,7 @@ CK_RV icsftok_encrypt_final(SESSION * session, CK_BYTE_PTR output_part,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2363,7 +2380,7 @@ CK_RV icsftok_encrypt_final(SESSION * session, CK_BYTE_PTR output_part,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, encr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, encr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -2437,9 +2454,11 @@ done:
 /*
  * Initialize a decryption operation.
  */
-CK_RV icsftok_decrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
+                           SESSION * session, CK_MECHANISM_PTR mech,
                            CK_OBJECT_HANDLE key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
@@ -2447,7 +2466,7 @@ CK_RV icsftok_decrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
     int symmetric = 0;
 
     /* Check session */
-    if (!get_session_state(session->handle)) {
+    if (!get_session_state(tokdata, session->handle)) {
         rc = CKR_SESSION_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         goto done;
@@ -2458,7 +2477,7 @@ CK_RV icsftok_decrypt_init(SESSION * session, CK_MECHANISM_PTR mech,
         goto done;
 
     /* Check if key exists */
-    if (!bt_get_node_value(&objects, key)) {
+    if (!bt_get_node_value(&icsf_data->objects, key)) {
         rc = CKR_KEY_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         goto done;
@@ -2535,10 +2554,12 @@ done:
 /*
  * Decrypt data and finalize a decryption operation.
  */
-CK_RV icsftok_decrypt(SESSION * session, CK_BYTE_PTR input_data,
+CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
+                      SESSION * session, CK_BYTE_PTR input_data,
                       CK_ULONG input_data_len, CK_BYTE_PTR output_data,
                       CK_ULONG_PTR p_output_data_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_data == NULL);
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -2561,7 +2582,7 @@ CK_RV icsftok_decrypt(SESSION * session, CK_BYTE_PTR input_data,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2575,7 +2596,7 @@ CK_RV icsftok_decrypt(SESSION * session, CK_BYTE_PTR input_data,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, decr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -2626,10 +2647,12 @@ done:
 /*
  * Multi-part decryption.
  */
-CK_RV icsftok_decrypt_update(SESSION * session, CK_BYTE_PTR input_part,
+CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
+                             SESSION * session, CK_BYTE_PTR input_part,
                              CK_ULONG input_part_len, CK_BYTE_PTR output_part,
                              CK_ULONG_PTR p_output_part_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_part == NULL);
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -2655,7 +2678,7 @@ CK_RV icsftok_decrypt_update(SESSION * session, CK_BYTE_PTR input_part,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2669,7 +2692,7 @@ CK_RV icsftok_decrypt_update(SESSION * session, CK_BYTE_PTR input_part,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, decr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -2818,9 +2841,11 @@ done:
 /*
  * Finalize a multi-part decryption.
  */
-CK_RV icsftok_decrypt_final(SESSION * session, CK_BYTE_PTR output_part,
+CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
+                            SESSION * session, CK_BYTE_PTR output_part,
                             CK_ULONG_PTR p_output_part_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL is_length_only = (output_part == NULL);
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
@@ -2843,7 +2868,7 @@ CK_RV icsftok_decrypt_final(SESSION * session, CK_BYTE_PTR output_part,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -2857,7 +2882,7 @@ CK_RV icsftok_decrypt_final(SESSION * session, CK_BYTE_PTR output_part,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, decr_ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, decr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -2931,10 +2956,12 @@ done:
 /*
  * Get the attribute values for a list of attributes.
  */
-CK_RV icsftok_get_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
+CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
+                                  SESSION * sess, CK_OBJECT_HANDLE handle,
                                   CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount,
                                   CK_ULONG * obj_size)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BBOOL priv_obj;
     struct session_state *session_state;
@@ -2947,7 +2974,7 @@ CK_RV icsftok_get_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
     };
 
     /* Get session state */
-    if (!(session_state = get_session_state(sess->handle))) {
+    if (!(session_state = get_session_state(tokdata, sess->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -2959,7 +2986,7 @@ CK_RV icsftok_get_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
     }
 
     /* get the object handle */
-    mapping = bt_get_node_value(&objects, handle);
+    mapping = bt_get_node_value(&icsf_data->objects, handle);
 
     if (!mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
@@ -3012,9 +3039,11 @@ done:
 /*
  * Set attribute values for a list of attributes.
  */
-CK_RV icsftok_set_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
+CK_RV icsftok_set_attribute_value(STDLL_TokData_t * tokdata,
+                                  SESSION * sess, CK_OBJECT_HANDLE handle,
                                   CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     CK_BBOOL is_priv;
@@ -3030,7 +3059,7 @@ CK_RV icsftok_set_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
     };
 
     /* Get session state */
-    if (!(session_state = get_session_state(sess->handle))) {
+    if (!(session_state = get_session_state(tokdata, sess->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -3042,7 +3071,7 @@ CK_RV icsftok_set_attribute_value(SESSION * sess, CK_OBJECT_HANDLE handle,
     }
 
     /* get the object handle */
-    mapping = bt_get_node_value(&objects, handle);
+    mapping = bt_get_node_value(&icsf_data->objects, handle);
 
     if (!mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
@@ -3088,6 +3117,7 @@ done:
 CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
     struct session_state *session_state;
     struct icsf_object_record records[MAX_RECORDS];
@@ -3148,7 +3178,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
     /* Get session state */
-    if (!(session_state = get_session_state(sess->handle))) {
+    if (!(session_state = get_session_state(tokdata, sess->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -3185,11 +3215,11 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
             /* mark not found */
             node_number = 0;
 
-            for (j = 1; j <= objects.size; j++) {
+            for (j = 1; j <= icsf_data->objects.size; j++) {
                 struct icsf_object_mapping *mapping = NULL;
 
                 /* skip missing ids */
-                mapping = bt_get_node_value(&objects, j);
+                mapping = bt_get_node_value(&icsf_data->objects, j);
                 if (mapping) {
                     if (memcmp(&records[i],
                                &mapping->icsf_object,
@@ -3215,7 +3245,8 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                 new_mapping->session_id = sess->handle;
                 new_mapping->icsf_object = records[i];
 
-                if (!(node_number = bt_node_add(&objects, new_mapping))) {
+                if (!(node_number = bt_node_add(&icsf_data->objects,
+                                                new_mapping))) {
                     TRACE_ERROR("Failed to add object to " "binary tree.\n");
                     rv = CKR_FUNCTION_FAILED;
                     goto done;
@@ -3259,15 +3290,15 @@ done:
 CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
                              CK_OBJECT_HANDLE handle)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     int reason;
     CK_RV rc = CKR_OK;
 
-    UNUSED(tokdata);
 
     /* Get session state */
-    if (!(session_state = get_session_state(sess->handle))) {
+    if (!(session_state = get_session_state(tokdata, sess->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;;
     }
@@ -3279,7 +3310,7 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
     /* get the object handle */
-    mapping = bt_get_node_value(&objects, handle);
+    mapping = bt_get_node_value(&icsf_data->objects, handle);
 
     if (!mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
@@ -3296,7 +3327,7 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
     /* Now remove the object from the object btree */
-    bt_node_free(&objects, handle, free);
+    bt_node_free(&icsf_data->objects, handle, free);
 
 done:
     return rc;
@@ -3348,9 +3379,11 @@ int get_signverify_len(CK_MECHANISM mech)
     return -1;
 }
 
-CK_RV icsftok_sign_init(SESSION * session, CK_MECHANISM * mech,
+CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
+                        SESSION * session, CK_MECHANISM * mech,
                         CK_OBJECT_HANDLE key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
@@ -3361,13 +3394,13 @@ CK_RV icsftok_sign_init(SESSION * session, CK_MECHANISM * mech,
     CK_MAC_GENERAL_PARAMS *param;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         return rc;
@@ -3508,9 +3541,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
+CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
+                   SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
                    CK_BYTE * signature, CK_ULONG * sig_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -3527,7 +3562,7 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -3541,7 +3576,7 @@ CK_RV icsftok_sign(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -3632,9 +3667,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
+CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
+                          SESSION * session, CK_BYTE * in_data,
                           CK_ULONG in_data_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -3648,7 +3685,7 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
     char *buffer = NULL;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -3662,7 +3699,7 @@ CK_RV icsftok_sign_update(SESSION * session, CK_BYTE * in_data,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -3786,9 +3823,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
+CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
+                         SESSION * session, CK_BYTE * signature,
                          CK_ULONG * sig_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -3801,7 +3840,7 @@ CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
     CK_BBOOL length_only = (signature == NULL);
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -3815,7 +3854,7 @@ CK_RV icsftok_sign_final(SESSION * session, CK_BYTE * signature,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -3912,9 +3951,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_verify_init(SESSION * session, CK_MECHANISM * mech,
+CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
+                          SESSION * session, CK_MECHANISM * mech,
                           CK_OBJECT_HANDLE key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_multi_part_context *multi_part_ctx = NULL;
@@ -3925,13 +3966,13 @@ CK_RV icsftok_verify_init(SESSION * session, CK_MECHANISM * mech,
     CK_MAC_GENERAL_PARAMS *param;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         return rc;
@@ -4071,9 +4112,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
+CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
+                     SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
                      CK_BYTE * signature, CK_ULONG sig_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -4089,7 +4132,7 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -4103,7 +4146,7 @@ CK_RV icsftok_verify(SESSION * session, CK_BYTE * in_data, CK_ULONG in_data_len,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -4163,9 +4206,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
+CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
+                            SESSION * session, CK_BYTE * in_data,
                             CK_ULONG in_data_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -4178,7 +4223,7 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
     char *buffer = NULL;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -4192,7 +4237,7 @@ CK_RV icsftok_verify_update(SESSION * session, CK_BYTE * in_data,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -4315,9 +4360,11 @@ done:
     return rc;
 }
 
-CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
+CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
+                           SESSION * session, CK_BYTE * signature,
                            CK_ULONG sig_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     struct session_state *session_state;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     struct icsf_object_mapping *mapping = NULL;
@@ -4335,7 +4382,7 @@ CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
     }
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -4349,7 +4396,7 @@ CK_RV icsftok_verify_final(SESSION * session, CK_BYTE * signature,
     }
 
     /* Check if key exists */
-    if (!(mapping = bt_get_node_value(&objects, ctx->key))) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -4428,10 +4475,12 @@ done:
 /*
  * Wrap a key and return it as binary data.
  */
-CK_RV icsftok_wrap_key(SESSION * session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
+                       SESSION * session, CK_MECHANISM_PTR mech,
                        CK_OBJECT_HANDLE wrapping_key, CK_OBJECT_HANDLE key,
                        CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     int rc;
     int reason = 0;
     struct session_state *session_state;
@@ -4440,7 +4489,7 @@ CK_RV icsftok_wrap_key(SESSION * session, CK_MECHANISM_PTR mech,
     size_t expected_block_size = 0;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -4452,8 +4501,8 @@ CK_RV icsftok_wrap_key(SESSION * session, CK_MECHANISM_PTR mech,
     }
 
     /* Check if keys exist */
-    wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
-    key_mapping = bt_get_node_value(&objects, key);
+    wrapping_key_mapping = bt_get_node_value(&icsf_data->objects, wrapping_key);
+    key_mapping = bt_get_node_value(&icsf_data->objects, key);
     if (!wrapping_key_mapping || !key_mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         return CKR_KEY_HANDLE_INVALID;
@@ -4504,12 +4553,14 @@ CK_RV icsftok_wrap_key(SESSION * session, CK_MECHANISM_PTR mech,
 /*
  * Unwrap a key from binary data and create a new key object.
  */
-CK_RV icsftok_unwrap_key(SESSION * session, CK_MECHANISM_PTR mech,
+CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
+                         SESSION * session, CK_MECHANISM_PTR mech,
                          CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
                          CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_key_len,
                          CK_OBJECT_HANDLE wrapping_key,
                          CK_OBJECT_HANDLE_PTR p_key)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     int rc;
     int reason = 0;
     struct session_state *session_state;
@@ -4519,7 +4570,7 @@ CK_RV icsftok_unwrap_key(SESSION * session, CK_MECHANISM_PTR mech,
     size_t expected_block_size = 0;
 
     /* Check session */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
@@ -4531,7 +4582,7 @@ CK_RV icsftok_unwrap_key(SESSION * session, CK_MECHANISM_PTR mech,
     }
 
     /* Check if key exists */
-    wrapping_key_mapping = bt_get_node_value(&objects, wrapping_key);
+    wrapping_key_mapping = bt_get_node_value(&icsf_data->objects, wrapping_key);
     if (!wrapping_key_mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         return CKR_KEY_HANDLE_INVALID;
@@ -4591,7 +4642,7 @@ CK_RV icsftok_unwrap_key(SESSION * session, CK_MECHANISM_PTR mech,
     }
 
     /* Add info about object into session */
-    if (!(node_number = bt_node_add(&objects, key_mapping))) {
+    if (!(node_number = bt_node_add(&icsf_data->objects, key_mapping))) {
         TRACE_ERROR("Failed to add object to binary tree.\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -4616,6 +4667,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
                          CK_ULONG attrs_len)
 {
+    icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
     struct icsf_object_mapping *base_key_mapping;
@@ -4680,7 +4732,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Get session state */
-    if (!(session_state = get_session_state(session->handle))) {
+    if (!(session_state = get_session_state(tokdata, session->handle))) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         rc = CKR_SESSION_HANDLE_INVALID;
         goto done;
@@ -4694,7 +4746,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Convert the OCK_CK_OBJECT_HANDLE_PTR to ICSF */
-    base_key_mapping = bt_get_node_value(&objects, hBaseKey);
+    base_key_mapping = bt_get_node_value(&icsf_data->objects, hBaseKey);
     if (!base_key_mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
@@ -4723,7 +4775,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     for (i = 0; i < sizeof(mappings) / sizeof(*mappings); i++) {
         /* Add info about object into session */
-        if (!(node_number = bt_node_add(&objects, mappings[i]))) {
+        if (!(node_number = bt_node_add(&icsf_data->objects, mappings[i]))) {
             TRACE_ERROR("Failed to add object to binary tree.\n");
             rc = CKR_FUNCTION_FAILED;
             goto done;
