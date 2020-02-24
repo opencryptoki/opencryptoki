@@ -3190,7 +3190,7 @@ CK_BBOOL kea_priv_check_exportability(CK_ATTRIBUTE_TYPE type)
 CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *type_attr = NULL;
-    CK_ATTRIBUTE *seed_attr = NULL;
+    CK_ATTRIBUTE *rho_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
     CK_ATTRIBUTE *keyform_attr = NULL;
 
@@ -3198,14 +3198,14 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
     keyform_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
-    seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    rho_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
-    if (!type_attr || !seed_attr || !t1_attr || !keyform_attr) {
+    if (!type_attr || !rho_attr || !t1_attr || !keyform_attr) {
         if (type_attr)
             free(type_attr);
-        if (seed_attr)
-            free(seed_attr);
+        if (rho_attr)
+            free(rho_attr);
         if (t1_attr)
             free(t1_attr);
         if (keyform_attr)
@@ -3225,16 +3225,16 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
     *(CK_ULONG *) keyform_attr->pValue = 1;
 
-    seed_attr->type = CKA_IBM_DILITHIUM_SEED;
-    seed_attr->ulValueLen = 0;
-    seed_attr->pValue = NULL;
+    rho_attr->type = CKA_IBM_DILITHIUM_RHO;
+    rho_attr->ulValueLen = 0;
+    rho_attr->pValue = NULL;
 
     t1_attr->type = CKA_IBM_DILITHIUM_T1;
     t1_attr->ulValueLen = 0;
     t1_attr->pValue = NULL;
 
     template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, seed_attr);
+    template_update_attribute(tmpl, rho_attr);
     template_update_attribute(tmpl, t1_attr);
     template_update_attribute(tmpl, keyform_attr);
 
@@ -3350,7 +3350,7 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
     CK_ATTRIBUTE *attr = NULL;
     static CK_ULONG req_attrs[] = {
         CKA_IBM_DILITHIUM_KEYFORM,
-        CKA_IBM_DILITHIUM_SEED,
+        CKA_IBM_DILITHIUM_RHO,
         CKA_IBM_DILITHIUM_T1,
     };
     CK_ULONG i;
@@ -3411,7 +3411,7 @@ CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
                                             CK_ULONG mode)
 {
     switch (attr->type) {
-    case CKA_IBM_DILITHIUM_SEED:
+    case CKA_IBM_DILITHIUM_RHO:
     case CKA_IBM_DILITHIUM_T1:
         if (mode == MODE_CREATE)
             return CKR_OK;

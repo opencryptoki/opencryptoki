@@ -4630,7 +4630,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
-    CK_BYTE *seed, *t1;
+    CK_BYTE *rho, *t1;
 
     UNUSED(h);
 
@@ -4753,30 +4753,30 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
         goto error;
     }
 
-    /* Public key must be a sequence holding two bit-strings: (seed, t1) */
+    /* Public key must be a sequence holding two bit-strings: (rho, t1) */
     rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s read sequence failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
 
-    /* Decode seed */
-    seed = key + field_len - data_len;
-    rc = ber_decode_BIT_STRING(seed, &data, &data_len, &field_len);
+    /* Decode rho */
+    rho = key + field_len - data_len;
+    rc = ber_decode_BIT_STRING(rho, &data, &data_len, &field_len);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s read seed failed with rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s read rho failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
     /* Remove leading unused-bits byte, returned by ber_decode_BIT_STRING */
     data++;
     data_len--;
 #ifdef DEBUG
-    TRACE_DEBUG("%s dilithium_generate_keypair (seed):\n", __func__);
+    TRACE_DEBUG("%s dilithium_generate_keypair (rho):\n", __func__);
     TRACE_DEBUG_DUMP(data, data_len);
 #endif
 
-    /* build and add CKA_IBM_DILITHIUM_SEED */
-    rc = build_attribute(CKA_IBM_DILITHIUM_SEED, data, data_len, &attr);
+    /* build and add CKA_IBM_DILITHIUM_RHO */
+    rc = build_attribute(CKA_IBM_DILITHIUM_RHO, data, data_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -4789,7 +4789,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     /* Decode t1 */
-    t1 = seed + field_len;
+    t1 = rho + field_len;
     rc = ber_decode_BIT_STRING(t1, &data, &data_len, &field_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s read t failed with rc=0x%lx\n", __func__, rc);
