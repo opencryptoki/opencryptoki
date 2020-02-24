@@ -45,8 +45,10 @@
 #endif
 #include <openssl/crypto.h>
 
-// declare the adapter open handle localy
-static ica_adapter_handle_t adapter_handle;
+typedef struct {
+    ica_adapter_handle_t adapter_handle;
+    int ica_ec_support_available;
+} ica_private_data_t;
 
 // Linux really does not need these so we just dummy them up
 // so the common code across platforms is usable...
@@ -63,7 +65,10 @@ const char label[] = "IBM ICA  PKCS #11";
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
 #define LIBICA_SHARED_LIB "libica.so.3"
-#define BIND(dso, sym)  (*(void **)(&p_##sym) = dlsym(dso, #sym))
+#define BIND(dso, sym)  do {                                             \
+                            if (p_##sym == NULL)                         \
+                                *(void **)(&p_##sym) = dlsym(dso, #sym); \
+                        } while (0)
 
 #ifndef NO_EC
 typedef ICA_EC_KEY *(*ica_ec_key_new_t) (unsigned int nid,
@@ -118,8 +123,6 @@ static CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
 #define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
 #define ICATOK_EC_MAX_SIG_LEN   ICATOK_EC_MAX_Q_LEN
 #define ICATOK_EC_MAX_Z_LEN     ICATOK_EC_MAX_D_LEN
-
-static int ica_ec_support_available = 0;
 
 static CK_RV ecc_support_in_libica_available(void)
 {
@@ -217,38 +220,56 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
 CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
+    ica_private_data_t *ica_data;
     CK_ULONG rc = CKR_OK;
 
-    UNUSED(tokdata);
     UNUSED(conf_name);
+
+    ica_data = (ica_private_data_t *)calloc(1, sizeof(ica_private_data_t));
+    tokdata->private_data = ica_data;
 
     rc = load_libica();
     if (rc != CKR_OK)
-        return rc;
+        goto out;
 
 #ifndef NO_EC
-    ica_ec_support_available = ecc_support_in_libica_available();
+    ica_data->ica_ec_support_available = ecc_support_in_libica_available();
 #endif
 
     rc = mech_list_ica_initialize();
     if (rc != CKR_OK) {
         TRACE_ERROR("mech_list_ica_initialize failed\n");
-        return rc;
+        goto out;
     }
 
     TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
 
-    return ica_open_adapter(&adapter_handle);
+    rc =  ica_open_adapter(&ica_data->adapter_handle);
+    if (rc != 0) {
+        TRACE_ERROR("ica_open_adapter failed\n");
+        goto out;
+    }
+
+out:
+    if (rc != CKR_OK) {
+        free(ica_data);
+        tokdata->private_data = NULL;
+    }
+    return rc;
 }
 
 CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                            CK_BBOOL in_fork_initializer)
 {
-    UNUSED(tokdata);
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+
     UNUSED(in_fork_initializer);
 
     TRACE_INFO("ica %s running\n", __func__);
-    ica_close_adapter(adapter_handle);
+    ica_close_adapter(ica_data->adapter_handle);
+
+    free(ica_data);
+    tokdata->private_data = NULL;
 
     return CKR_OK;
 }
@@ -1359,8 +1380,10 @@ err_crtkey:
 
 
 //
-static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
+                                    TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *publ_exp = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
@@ -1495,7 +1518,7 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         goto privkey_cleanup;
     }
 
-    rc = ica_rsa_key_generate_crt(adapter_handle,
+    rc = ica_rsa_key_generate_crt(ica_data->adapter_handle,
                                   (unsigned int) mod_bits, publKey, privKey);
 
 
@@ -1659,7 +1682,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 
     UNUSED(tokdata);
 
-    rc = os_specific_rsa_keygen(publ_tmpl, priv_tmpl);
+    rc = os_specific_rsa_keygen(tokdata, publ_tmpl, priv_tmpl);
     if (rc != CKR_OK)
         TRACE_DEVEL("os_specific_rsa_keygen failed\n");
 
@@ -1669,10 +1692,12 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 
 //
 //
-static CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
+static CK_RV os_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
+                                     CK_BYTE *in_data,
                                      CK_ULONG in_data_len,
                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
     CK_ATTRIBUTE *mod_bits = NULL;
@@ -1700,7 +1725,7 @@ static CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
         rc = CKR_DATA_LEN_RANGE;
         goto cleanup_pubkey;
     }
-    rc = ica_rsa_mod_expo(adapter_handle, in_data, publKey, out_data);
+    rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, publKey, out_data);
     if (rc != 0) {
         if (rc == EINVAL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -1725,10 +1750,12 @@ done:
 
 //
 //
-static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
+static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
+                                     CK_BYTE *in_data,
                                      CK_ULONG in_data_len,
                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *prime1 = NULL;
     CK_ATTRIBUTE *prime2 = NULL;
@@ -1781,7 +1808,7 @@ static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
             goto crt_cleanup;
         }
 
-        rc = ica_rsa_crt(adapter_handle, in_data, crtKey, out_data);
+        rc = ica_rsa_crt(ica_data->adapter_handle, in_data, crtKey, out_data);
 
         if (rc != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -1810,7 +1837,8 @@ static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
             goto modexpo_cleanup;
         }
 
-        rc = ica_rsa_mod_expo(adapter_handle, in_data, modexpoKey, out_data);
+        rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, modexpoKey,
+                              out_data);
 
         if (rc != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
@@ -1871,7 +1899,7 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
         return rc;
     }
 
-    rc = os_specific_rsa_encrypt(clear, modulus_bytes, cipher, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, clear, modulus_bytes, cipher, key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, cipher, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -1892,7 +1920,7 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 
     UNUSED(tokdata);
 
-    rc = os_specific_rsa_decrypt(in_data, in_data_len, out, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, in_data, in_data_len, out, key_obj);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
@@ -1947,7 +1975,7 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* signing is a private key operation --> decrypt  */
-    rc = os_specific_rsa_decrypt(data, modulus_bytes, sig, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, data, modulus_bytes, sig, key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, sig, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -1982,7 +2010,8 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         modulus_bytes = attr->ulValueLen;
     }
 
-    rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
+                                 key_obj);
     if (rc != CKR_OK) {
         /*
          * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD
@@ -2040,7 +2069,8 @@ CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
         modulus_bytes = attr->ulValueLen;
     }
 
-    rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
+                                 key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
         return rc;
@@ -2083,7 +2113,7 @@ CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     memset(clear, 0x0, modulus_bytes - in_data_len);
     memcpy(&clear[modulus_bytes - in_data_len], in_data, in_data_len);
 
-    rc = os_specific_rsa_encrypt(clear, modulus_bytes, cipher, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, clear, modulus_bytes, cipher, key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, cipher, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -2116,7 +2146,7 @@ CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
         modulus_bytes = attr->ulValueLen;
     }
 
-    rc = os_specific_rsa_decrypt(in_data, modulus_bytes, out, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, in_data, modulus_bytes, out, key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, out, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -2152,7 +2182,7 @@ CK_RV token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     memset(data, 0x0, modulus_bytes - in_data_len);
     memcpy(&data[modulus_bytes - in_data_len], in_data, in_data_len);
 
-    rc = os_specific_rsa_decrypt(data, modulus_bytes, sig, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, data, modulus_bytes, sig, key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, sig, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -2186,7 +2216,8 @@ CK_RV token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata,
         modulus_bytes = attr->ulValueLen;
     }
 
-    rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
+                                 key_obj);
     if (rc == CKR_OK) {
         CK_ULONG pos1, pos2, len;
 
@@ -2248,7 +2279,8 @@ CK_RV token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
         modulus_bytes = attr->ulValueLen;
     }
 
-    rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
+                                 key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, out, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -2310,7 +2342,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = os_specific_rsa_encrypt(em_data, modulus_bytes, cipher, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, em_data, modulus_bytes, cipher,
+                                 key_obj);
     if (rc == CKR_OK) {
         memcpy(out_data, cipher, modulus_bytes);
         *out_data_len = modulus_bytes;
@@ -2366,7 +2399,8 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
         return CKR_HOST_MEMORY;
     }
 
-    rc = os_specific_rsa_decrypt(in_data, in_data_len, decr_data, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, in_data, in_data_len, decr_data,
+                                 key_obj);
     if (rc != CKR_OK)
         return rc;
 
@@ -2438,7 +2472,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
 
     /* signing is a private key operation --> decrypt  */
-    rc = os_specific_rsa_decrypt(emdata, modbytes, sig, key_obj);
+    rc = os_specific_rsa_decrypt(tokdata, emdata, modbytes, sig, key_obj);
     if (rc == CKR_OK)
         *sig_len = modbytes;
     else
@@ -2488,7 +2522,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* verify is a public key operation ... encrypt */
-    rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
+    rc = os_specific_rsa_encrypt(tokdata, signature, sig_len, out, key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
         return rc;
@@ -3222,7 +3256,7 @@ typedef struct _REF_MECH_LIST_ELEMENT {
     CK_MECHANISM_INFO mech_info;
 } REF_MECH_LIST_ELEMENT;
 
-static REF_MECH_LIST_ELEMENT ref_mech_list[] = {
+static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {92, CKM_RSA_PKCS_KEY_PAIR_GEN,
      {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}
     },
@@ -3369,7 +3403,7 @@ static REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 
 };
 
-static CK_ULONG ref_mech_list_len =
+static const CK_ULONG ref_mech_list_len =
     (sizeof(ref_mech_list) / sizeof(REF_MECH_LIST_ELEMENT));
 
 /**
@@ -3626,8 +3660,8 @@ static CK_RV mech_list_ica_initialize(void)
 
     /*
      * grab the mechanism of the corresponding ID returned by libICA
-     * from the internel reference list put the mechanism ID and the
-     * HW support indication into an internel ica_mech_list and get
+     * from the internal reference list put the mechanism ID and the
+     * HW support indication into an internal ica_mech_list and get
      * additional flag information from the reference list
      */
     ulPreDefMechCtr = mech_list_len;
@@ -3884,6 +3918,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                          TEMPLATE *publ_tmpl,
                                          TEMPLATE *priv_tmpl)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
     ICA_EC_KEY *eckey;
@@ -3894,9 +3929,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG ecpoint_len;
     int rc, nid;
 
-    UNUSED(tokdata);
-
-    if (!ica_ec_support_available) {
+    if (!ica_data->ica_ec_support_available) {
         TRACE_ERROR("ECC support is not available in Libica\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
@@ -3921,7 +3954,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     }
 
     /* Generate key data for this key object */
-    rc = p_ica_ec_key_generate(adapter_handle, eckey);
+    rc = p_ica_ec_key_generate(ica_data->adapter_handle, eckey);
     if (rc != 0) {
         TRACE_ERROR("ica_ec_key_generate() failed with rc=%d.\n", rc);
         ret = CKR_FUNCTION_FAILED;
@@ -3991,18 +4024,18 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
     unsigned int privlen;
     int rc, nid;
 
-    UNUSED(tokdata);
     UNUSED(sess);
 
     *out_data_len = 0;
 
-    if (!ica_ec_support_available) {
+    if (!ica_data->ica_ec_support_available) {
         TRACE_ERROR("ECC support is not available in Libica\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
@@ -4052,7 +4085,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     }
 
     /* Create signature */
-    rc = p_ica_ecdsa_sign(adapter_handle, eckey,
+    rc = p_ica_ecdsa_sign(ica_data->adapter_handle, eckey,
                           (unsigned char *) in_data,
                           (unsigned int) in_data_len,
                           (unsigned char *) out_data, 2 * privlen);
@@ -4214,6 +4247,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
                                CK_BYTE *signature,
                                CK_ULONG signature_len, OBJECT *key_obj)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
     CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
@@ -4224,10 +4258,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
 
-    UNUSED(tokdata);
     UNUSED(sess);
 
-    if (!ica_ec_support_available) {
+    if (!ica_data->ica_ec_support_available) {
         TRACE_ERROR("ECC support is not available in Libica\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
@@ -4295,7 +4328,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     }
 
     /* Verify signature */
-    rc = p_ica_ecdsa_verify(adapter_handle,
+    rc = p_ica_ecdsa_verify(ica_data->adapter_handle,
                             eckey,
                             (unsigned char *) in_data,
                             (unsigned int) in_data_len,
@@ -4331,6 +4364,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                       CK_ULONG *secret_value_len,
                                       CK_BYTE *oid, CK_ULONG oid_length)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
     ICA_EC_KEY *pubkey = NULL, *privkey = NULL;
     unsigned int n, privlen, i;
@@ -4345,7 +4379,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     *secret_value_len = 0;
 
-    if (!ica_ec_support_available) {
+    if (!ica_data->ica_ec_support_available) {
         TRACE_ERROR("ECC support is not available in Libica\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
@@ -4420,7 +4454,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     }
 
     /* Calculate shared secret z */
-    rc = p_ica_ecdh_derive_secret(adapter_handle, privkey,
+    rc = p_ica_ecdh_derive_secret(ica_data->adapter_handle, privkey,
                                   pubkey, secret_value, privlen);
     if (rc != 0) {
         TRACE_ERROR("ica_ecdh_derive_secret() failed with rc = %d. \n", rc);
