@@ -35,9 +35,7 @@
 
 #include "tpm_specific.h"
 
-extern TSS_HCONTEXT tspContext;
-
-static struct {
+static const struct {
     TSS_FLAG mode;
     const char *str;
 } tss_modes[] = {
@@ -164,8 +162,8 @@ CK_ULONG util_check_public_exponent(TEMPLATE * tmpl)
     return rc;
 }
 
-TSS_RESULT util_set_public_modulus(TSS_HKEY hKey, unsigned long size_n,
-                                   unsigned char *n)
+TSS_RESULT util_set_public_modulus(TSS_HCONTEXT tspContext, TSS_HKEY hKey,
+                                   unsigned long size_n, unsigned char *n)
 {
     UINT64 offset;
     UINT32 blob_size;

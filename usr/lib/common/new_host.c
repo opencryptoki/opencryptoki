@@ -1474,7 +1474,7 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
      * to default behaviour.
      */
     if (token_specific.t_logout) {
-        rc = token_specific.t_logout();
+        rc = token_specific.t_logout(tokdata);
         goto done;
     }
 

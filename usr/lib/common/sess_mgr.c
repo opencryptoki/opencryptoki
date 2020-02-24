@@ -280,7 +280,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (bt_is_empty(&tokdata->sess_btree)) {
         // SAB  XXX  if all sessions are closed.  Is this effectivly logging out
         if (token_specific.t_logout) {
-            rc = token_specific.t_logout();
+            rc = token_specific.t_logout(tokdata);
         }
         object_mgr_purge_private_token_objects(tokdata);
 
