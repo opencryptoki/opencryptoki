@@ -43,7 +43,7 @@ CK_RV token_specific_init_token(STDLL_TokData_t *, CK_SLOT_ID, CK_CHAR_PTR,
                                 CK_ULONG, CK_CHAR_PTR);
 CK_RV token_specific_login(STDLL_TokData_t *, SESSION *, CK_USER_TYPE,
                            CK_CHAR_PTR, CK_ULONG);
-CK_RV token_specific_logout();
+CK_RV token_specific_logout(STDLL_TokData_t *);
 CK_RV token_specific_init_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
                               CK_ULONG);
 CK_RV token_specific_set_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
