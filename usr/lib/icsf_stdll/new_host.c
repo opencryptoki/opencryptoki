@@ -83,8 +83,6 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
     MY_CreateMutex(&obj_list_mutex);
     MY_CreateMutex(&login_mutex);
 
-    MY_CreateMutex(&sess_list_mutex);
-
     /*
      * Create separate memory area for each token specific data
      */
@@ -238,7 +236,7 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp,
     /* close spin lock file */
     CloseXProcLock(tokdata);
 
-    rc = icsftok_close_all_sessions();
+    rc = icsftok_final(tokdata, TRUE);
     if (rc != CKR_OK) {
         TRACE_ERROR("Token specific final call failed.\n");
         return rc;
@@ -595,7 +593,7 @@ CK_RV SC_CloseAllSessions(STDLL_TokData_t * tokdata, CK_SLOT_ID sid)
         goto done;
     }
 
-    rc = icsftok_close_all_sessions();
+    rc = icsftok_final(tokdata, FALSE);
     if (rc != CKR_OK)
         TRACE_DEVEL("Failed to remove icsf specific session_states.\n");
 
@@ -972,7 +970,8 @@ CK_RV SC_CopyObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_copy_object(sess, pTemplate, ulCount, hObject, phNewObject);
+    rc = icsftok_copy_object(tokdata, sess, pTemplate, ulCount, hObject,
+                             phNewObject);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_copy_object() failed\n");
 
@@ -1054,7 +1053,7 @@ CK_RV SC_GetObjectSize(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     //set the handle into the session.
     sess->handle = sSession->sessionh;
 
-    rc = icsftok_get_attribute_value(sess, hObject, pTemplate,
+    rc = icsftok_get_attribute_value(tokdata, sess, hObject, pTemplate,
                                      ulCount, pulSize);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_get_attribute_value() failed.\n");
@@ -1090,7 +1089,8 @@ CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
     //set the handle into the session.
     sess->handle = sSession->sessionh;
 
-    rc = icsftok_get_attribute_value(sess, hObject, pTemplate, ulCount, NULL);
+    rc = icsftok_get_attribute_value(tokdata, sess, hObject, pTemplate, ulCount,
+                                     NULL);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_get_attribute_value() failed.\n");
 
@@ -1143,7 +1143,7 @@ CK_RV SC_SetAttributeValue(STDLL_TokData_t * tokdata,
     //set the handle into the session.
     sess->handle = sSession->sessionh;
 
-    rc = icsftok_set_attribute_value(sess, hObject, pTemplate, ulCount);
+    rc = icsftok_set_attribute_value(tokdata, sess, hObject, pTemplate, ulCount);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_set_attribute_values() failed.\n");
 
@@ -1377,7 +1377,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_encrypt_init(sess, pMechanism, hKey);
+    rc = icsftok_encrypt_init(tokdata, sess, pMechanism, hKey);
 
 done:
     TRACE_INFO("C_EncryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
@@ -1426,7 +1426,7 @@ CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pEncryptedData)
         length_only = TRUE;
 
-    rc = icsftok_encrypt(sess, pData, ulDataLen, pEncryptedData,
+    rc = icsftok_encrypt(tokdata, sess, pData, ulDataLen, pEncryptedData,
                          pulEncryptedDataLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_encrypt() failed.\n");
@@ -1479,7 +1479,7 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_encrypt_update(sess, pPart, ulPartLen, pEncryptedPart,
+    rc = icsftok_encrypt_update(tokdata, sess, pPart, ulPartLen, pEncryptedPart,
                                 pulEncryptedPartLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_encrypt_update() failed.\n");
@@ -1535,7 +1535,7 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pLastEncryptedPart)
         length_only = TRUE;
 
-    rc = icsftok_encrypt_final(sess, pLastEncryptedPart,
+    rc = icsftok_encrypt_final(tokdata, sess, pLastEncryptedPart,
                                pulLastEncryptedPartLen);
     if (rc != CKR_OK)
         TRACE_ERROR("icsftok_encrypt_final() failed.\n");
@@ -1597,7 +1597,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_decrypt_init(sess, pMechanism, hKey);
+    rc = icsftok_decrypt_init(tokdata, sess, pMechanism, hKey);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_init() failed.\n");
 
@@ -1648,8 +1648,8 @@ CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pData)
         length_only = TRUE;
 
-    rc = icsftok_decrypt(sess, pEncryptedData, ulEncryptedDataLen, pData,
-                         pulDataLen);
+    rc = icsftok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
+                         pData, pulDataLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt() failed.\n");
 
@@ -1701,8 +1701,8 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_decrypt_update(sess, pEncryptedPart, ulEncryptedPartLen,
-                                pPart, pulPartLen);
+    rc = icsftok_decrypt_update(tokdata, sess, pEncryptedPart,
+                                ulEncryptedPartLen, pPart, pulPartLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_update() failed.\n");
 
@@ -1757,7 +1757,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     if (!pLastPart)
         length_only = TRUE;
 
-    rc = icsftok_decrypt_final(sess, pLastPart, pulLastPartLen);
+    rc = icsftok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_final() failed.\n");
 done:
@@ -2044,7 +2044,7 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_sign_init(sess, pMechanism, hKey);
+    rc = icsftok_sign_init(tokdata, sess, pMechanism, hKey);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_sign_init() failed.\n");
 
@@ -2091,7 +2091,8 @@ CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_sign(sess, pData, ulDataLen, pSignature, pulSignatureLen);
+    rc = icsftok_sign(tokdata, sess, pData, ulDataLen, pSignature,
+                      pulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_sign() failed.\n");
 
@@ -2139,7 +2140,7 @@ CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_sign_update(sess, pPart, ulPartLen);
+    rc = icsftok_sign_update(tokdata, sess, pPart, ulPartLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_sign_update() failed.\n");
 done:
@@ -2186,7 +2187,7 @@ CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_sign_final(sess, pSignature, pulSignatureLen);
+    rc = icsftok_sign_final(tokdata, sess, pSignature, pulSignatureLen);
     if (rc != CKR_OK)
         TRACE_ERROR("icsftok_sign_final() failed.\n");
 
@@ -2284,7 +2285,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_verify_init(sess, pMechanism, hKey);
+    rc = icsftok_verify_init(tokdata, sess, pMechanism, hKey);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_verify_init() failed.\n");
 
@@ -2331,7 +2332,8 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_verify(sess, pData, ulDataLen, pSignature, ulSignatureLen);
+    rc = icsftok_verify(tokdata, sess, pData, ulDataLen, pSignature,
+                        ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_verify() failed.\n");
 
@@ -2378,7 +2380,7 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_verify_update(sess, pPart, ulPartLen);
+    rc = icsftok_verify_update(tokdata, sess, pPart, ulPartLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_verify_update() failed.\n");
 
@@ -2426,7 +2428,7 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_verify_final(sess, pSignature, ulSignatureLen);
+    rc = icsftok_verify_final(tokdata, sess, pSignature, ulSignatureLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_verify_final() failed.\n");
 
@@ -2787,8 +2789,8 @@ CK_RV SC_WrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_wrap_key(sess, pMechanism, hWrappingKey, hKey, pWrappedKey,
-                          pulWrappedKeyLen);
+    rc = icsftok_wrap_key(tokdata, sess, pMechanism, hWrappingKey, hKey,
+                          pWrappedKey, pulWrappedKeyLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("*_wrap_key() failed.\n");
 
@@ -2843,7 +2845,7 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         goto done;
     }
 
-    rc = icsftok_unwrap_key(sess, pMechanism, pTemplate, ulCount,
+    rc = icsftok_unwrap_key(tokdata, sess, pMechanism, pTemplate, ulCount,
                             pWrappedKey, ulWrappedKeyLen, hUnwrappingKey,
                             phKey);
     if (rc != CKR_OK)
