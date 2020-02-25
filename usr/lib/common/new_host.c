@@ -113,9 +113,11 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     if (strlen(sinfp->tokname)) {
         sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
         TRACE_DEVEL("Token directory: %s\n", abs_tokdir_name);
-        init_data_store((char *) abs_tokdir_name, sltp->TokData->data_store);
+        init_data_store(sltp->TokData, (char *) abs_tokdir_name,
+                        sltp->TokData->data_store);
     } else {
-        init_data_store((char *) PK_DIR, sltp->TokData->data_store);
+        init_data_store(sltp->TokData, (char *) PK_DIR,
+                        sltp->TokData->data_store);
     }
 
     sltp->TokData->version = sinfp->version;
@@ -255,10 +257,11 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
         }
     }
 
+    final_data_store(tokdata);
+
     if (tokdata)
         free(tokdata);
 
-    final_data_store();
     return rc;
 }
 

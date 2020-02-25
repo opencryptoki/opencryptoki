@@ -864,7 +864,7 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
      * exists. When it's created (ret=0) the region is initialized with
      * zeros.
      */
-    ret = sm_open(get_pk_dir(buf), 0666, (void **) shm, sizeof(**shm), 0);
+    ret = sm_open(get_pk_dir(tokdata, buf), 0666, (void **) shm, sizeof(**shm), 0);
     if (ret < 0) {
         TRACE_DEVEL("sm_open failed.\n");
         rc = CKR_FUNCTION_FAILED;

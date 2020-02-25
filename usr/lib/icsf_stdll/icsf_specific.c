@@ -559,7 +559,7 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         char fname[PATH_MAX];
 
         /* Load master key */
-        sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+        sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
         if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
@@ -610,12 +610,12 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 
     /* Remove user's masterkey */
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-        sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+        sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
         if (unlink(fname) && errno == ENOENT)
             TRACE_WARNING("Failed to remove \"%s\".\n", fname);
 
         /* Load master key */
-        sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+        sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
         if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
@@ -772,7 +772,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
      * racf passwd.
      */
     if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
-        sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+        sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
 
         rc = secure_masterkey(tokdata->master_key,
                               AES_KEY_SIZE_256, pPin, ulPinLen, fname);
@@ -846,7 +846,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
         /* if using simple auth, encrypt masterkey with new pin */
         if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
-            sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+            sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
             rc = secure_masterkey(tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
@@ -893,7 +893,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             /*
              * if using simle auth, encrypt masterkey with new pin
              */
-            sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+            sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
             rc = secure_masterkey(tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
@@ -1233,7 +1233,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* now load the master key */
         if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-            sprintf(fname, "%s/MK_USER", get_pk_dir(pk_dir_buf));
+            sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
             rc = get_masterkey(pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {
@@ -1254,7 +1254,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
         if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
             /* now load the master key */
-            sprintf(fname, "%s/MK_SO", get_pk_dir(pk_dir_buf));
+            sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
             rc = get_masterkey(pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {

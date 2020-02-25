@@ -119,7 +119,8 @@ regen_rsa_key:
     return rsa;
 }
 
-int openssl_write_key(RSA * rsa, char *filename, CK_BYTE * pPin)
+int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
+                      CK_BYTE * pPin)
 {
     BIO *b = NULL;
     char loc[PATH_MAX];
@@ -131,7 +132,7 @@ int openssl_write_key(RSA * rsa, char *filename, CK_BYTE * pPin)
         return -1;
     }
 
-    sprintf(loc, "%s/%s/%s", pk_dir, pw->pw_name, filename);
+    sprintf(loc, "%s/%s/%s", tokdata->pk_dir, pw->pw_name, filename);
 
     b = BIO_new_file(loc, "w");
     if (!b) {
@@ -156,7 +157,8 @@ int openssl_write_key(RSA * rsa, char *filename, CK_BYTE * pPin)
     return 0;
 }
 
-CK_RV openssl_read_key(char *filename, CK_BYTE * pPin, RSA ** ret)
+CK_RV openssl_read_key(STDLL_TokData_t * tokdata, char *filename,
+                       CK_BYTE * pPin, RSA ** ret)
 {
     BIO *b = NULL;
     RSA *rsa = NULL;
@@ -170,7 +172,7 @@ CK_RV openssl_read_key(char *filename, CK_BYTE * pPin, RSA ** ret)
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf(loc, "%s/%s/%s", pk_dir, pw->pw_name, filename);
+    sprintf(loc, "%s/%s/%s", tokdata->pk_dir, pw->pw_name, filename);
 
     /* we can't allow a pin of NULL here, since openssl will try to prompt
      * for a password in PEM_read_bio_RSAPrivateKey */

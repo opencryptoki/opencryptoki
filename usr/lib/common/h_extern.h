@@ -25,7 +25,6 @@
 
 #include <stdio.h>
 
-extern char *pk_dir;
 // global variables
 //
 
@@ -430,7 +429,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *ptr);
 CK_RV delete_token_data(STDLL_TokData_t *tokdata);
 
-char *get_pk_dir(char *);
+char *get_pk_dir(STDLL_TokData_t *tokdata, char *);
 
 CK_RV init_token_data(STDLL_TokData_t *, CK_SLOT_ID);
 CK_RV load_token_data(STDLL_TokData_t *, CK_SLOT_ID);
@@ -443,8 +442,9 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata);
 
 CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key);
 
-void init_data_store(char *directory, char *data_store);
-void final_data_store(void);
+void init_data_store(STDLL_TokData_t *tokdata, char *directory,
+                     char *data_store);
+void final_data_store(STDLL_TokData_t * tokdata);
 
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data);
