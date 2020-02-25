@@ -78,3 +78,18 @@ tok_des
 
 tok_rsa
 	TODO: To be tested.
+
+fork
+	This testcase forks off a client process in various situations, e.g
+	before and after initialization, before and after session creation,
+	and ensures that the forked client process finds an uninitialized
+	Opencryptoki environment and does not have access to any of the
+	parent's sessions or objects. Also the parents sessions and objects
+	must still be available and functional in the parent process after the 
+	fork.
+
+	As per PKCS#11 standard, a forked child process is no PKCS#11 
+	application after the fork, and must initialize Opencryptoki using
+	C_Initialize() in order to use Opencryptoki.
+
+	Usage: fork -slot <slotid>

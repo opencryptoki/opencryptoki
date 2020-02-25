@@ -3,7 +3,8 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/obj_mgmt_lock_tests			\
 	testcases/misc_tests/speed testcases/misc_tests/threadmkobj	\
 	testcases/misc_tests/tok_obj testcases/misc_tests/tok_rsa	\
-	testcases/misc_tests/tok_des
+	testcases/misc_tests/tok_des					\
+	testcases/misc_tests/fork
 
 testcases_misc_tests_obj_mgmt_tests_CFLAGS = ${testcases_inc}
 testcases_misc_tests_obj_mgmt_tests_LDADD =				\
@@ -39,3 +40,7 @@ testcases_misc_tests_tok_rsa_SOURCES = testcases/misc_tests/tok_rsa.c
 testcases_misc_tests_tok_des_CFLAGS = ${testcases_inc}
 testcases_misc_tests_tok_des_LDADD = testcases/common/libcommon.la
 testcases_misc_tests_tok_des_SOURCES = testcases/misc_tests/tok_des.c
+
+testcases_misc_tests_fork_CFLAGS = ${testcases_inc}
+testcases_misc_tests_fork_LDADD = testcases/common/libcommon.la
+testcases_misc_tests_fork_SOURCES = testcases/misc_tests/fork.c
