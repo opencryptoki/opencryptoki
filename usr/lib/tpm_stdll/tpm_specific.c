@@ -195,7 +195,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     tokdata->mech_list_len = tpm_mech_list_len;
 
     // if the user specific directory doesn't exist, create it
-    sprintf(path_buf, "%s", get_pk_dir(fname));
+    sprintf(path_buf, "%s", get_pk_dir(tokdata, fname));
     if (stat(path_buf, &statbuf) < 0) {
         if (mkdir(path_buf, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
             TRACE_ERROR("mkdir(%s): %s\n", path_buf, strerror(errno));
@@ -1368,7 +1368,7 @@ CK_RV token_create_private_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
         return rc;
     }
 
-    if (openssl_write_key(rsa, TPMTOK_PRIV_ROOT_KEY_FILE, pPin)) {
+    if (openssl_write_key(tokdata, rsa, TPMTOK_PRIV_ROOT_KEY_FILE, pPin)) {
         TRACE_DEVEL("openssl_write_key failed.\n");
         RSA_free(rsa);
         return CKR_FUNCTION_FAILED;
@@ -1446,7 +1446,7 @@ CK_RV token_create_public_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
         return rc;
     }
 
-    if (openssl_write_key(rsa, TPMTOK_PUB_ROOT_KEY_FILE, pPin)) {
+    if (openssl_write_key(tokdata, rsa, TPMTOK_PUB_ROOT_KEY_FILE, pPin)) {
         TRACE_DEVEL("openssl_write_key\n");
         RSA_free(rsa);
         return CKR_FUNCTION_FAILED;
@@ -1525,7 +1525,7 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
     }
 
     /* read the backup key with the old pin */
-    if ((rc = openssl_read_key(backup_loc, pin, &rsa))) {
+    if ((rc = openssl_read_key(tokdata, backup_loc, pin, &rsa))) {
         if (rc == CKR_FILE_NOT_FOUND)
             rc = CKR_FUNCTION_FAILED;
         TRACE_DEVEL("openssl_read_key failed\n");
@@ -1614,7 +1614,7 @@ CK_RV save_masterkey_private(STDLL_TokData_t * tokdata)
         return CKR_FUNCTION_FAILED;
     }
     //fp = fopen("/etc/pkcs11/tpm/MK_PRIVATE", "r");
-    sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name,
+    sprintf(fname, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
             TPMTOK_MASTERKEY_PRIVATE);
 
     /* if file exists, assume its been written correctly before */
@@ -1699,7 +1699,7 @@ CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf(fname, "%s/%s/%s", pk_dir, pw->pw_name,
+    sprintf(fname, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
             TPMTOK_MASTERKEY_PRIVATE);
 
     /* if file exists, check its size */
@@ -2181,7 +2181,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* read the backup key with the old pin */
-        rc = openssl_read_key(TPMTOK_PRIV_ROOT_KEY_FILE, pOldPin, &rsa_root);
+        rc = openssl_read_key(tokdata, TPMTOK_PRIV_ROOT_KEY_FILE, pOldPin,
+                              &rsa_root);
         if (rc != CKR_OK) {
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
@@ -2194,7 +2195,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* write it out using the new pin */
-        rc = openssl_write_key(rsa_root, TPMTOK_PRIV_ROOT_KEY_FILE, pNewPin);
+        rc = openssl_write_key(tokdata, rsa_root, TPMTOK_PRIV_ROOT_KEY_FILE,
+                               pNewPin);
         if (rc != CKR_OK) {
             RSA_free(rsa_root);
             TRACE_DEVEL("openssl_write_key failed\n");
@@ -2251,7 +2253,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* change auth on the public root key's openssl backup */
-        rc = openssl_read_key(TPMTOK_PUB_ROOT_KEY_FILE, pOldPin, &rsa_root);
+        rc = openssl_read_key(tokdata, TPMTOK_PUB_ROOT_KEY_FILE, pOldPin,
+                              &rsa_root);
         if (rc != CKR_OK) {
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
@@ -2264,7 +2267,8 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* write it out using the new pin */
-        rc = openssl_write_key(rsa_root, TPMTOK_PUB_ROOT_KEY_FILE, pNewPin);
+        rc = openssl_write_key(tokdata, rsa_root, TPMTOK_PUB_ROOT_KEY_FILE,
+                               pNewPin);
         if (rc != CKR_OK) {
             RSA_free(rsa_root);
             TRACE_DEVEL("openssl_write_key failed\n");
@@ -2279,7 +2283,7 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     return rc;
 }
 
-static CK_RV delete_tpm_data()
+static CK_RV delete_tpm_data(STDLL_TokData_t * tokdata)
 {
     char *cmd = NULL;
     struct passwd *pw = NULL;
@@ -2291,7 +2295,7 @@ static CK_RV delete_tpm_data()
     }
     // delete the TOK_OBJ data files
     if (asprintf(&cmd, "%s %s/%s/%s/* > /dev/null 2>&1", DEL_CMD,
-                 pk_dir, pw->pw_name, PK_LITE_OBJ_DIR) < 0) {
+                 tokdata->pk_dir, pw->pw_name, PK_LITE_OBJ_DIR) < 0) {
         return CKR_HOST_MEMORY;
     }
     if (system(cmd) == -1)
@@ -2301,7 +2305,7 @@ static CK_RV delete_tpm_data()
 
     // delete the OpenSSL backup keys
     if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 pk_dir, pw->pw_name, TPMTOK_PUB_ROOT_KEY_FILE) < 0) {
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_PUB_ROOT_KEY_FILE) < 0) {
         return CKR_HOST_MEMORY;
     }
     if (system(cmd) == -1)
@@ -2310,7 +2314,7 @@ static CK_RV delete_tpm_data()
     free(cmd);
 
     if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 pk_dir, pw->pw_name, TPMTOK_PRIV_ROOT_KEY_FILE) < 0) {
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_PRIV_ROOT_KEY_FILE) < 0) {
         return CKR_HOST_MEMORY;
     }
     if (system(cmd) == -1)
@@ -2320,7 +2324,7 @@ static CK_RV delete_tpm_data()
 
     // delete the masterkey
     if (asprintf(&cmd, "%s %s/%s/%s > /dev/null 2>&1", DEL_CMD,
-                 pk_dir, pw->pw_name, TPMTOK_MASTERKEY_PRIVATE) < 0) {
+                 tokdata->pk_dir, pw->pw_name, TPMTOK_MASTERKEY_PRIVATE) < 0) {
         return CKR_HOST_MEMORY;
     }
     if (system(cmd) == -1)
@@ -2399,7 +2403,7 @@ done:
     // Before we reconstruct all the data, we should delete the
     // token objects from the filesystem.
     object_mgr_destroy_token_objects(tokdata);
-    rc = delete_tpm_data();
+    rc = delete_tpm_data(tokdata);
     if (rc != CKR_OK)
         return rc;
 

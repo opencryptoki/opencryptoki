@@ -57,8 +57,8 @@
 #define KEYGEN_RETRY    5
 
 RSA *openssl_gen_key();
-int openssl_write_key(RSA *, char *, CK_BYTE *);
-CK_RV openssl_read_key(char *, CK_BYTE *, RSA **);
+int openssl_write_key(STDLL_TokData_t *, RSA *, char *, CK_BYTE *);
+CK_RV openssl_read_key(STDLL_TokData_t *, char *, CK_BYTE *, RSA **);
 int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *,
                                   unsigned int *, unsigned char *);
 int util_set_file_mode(char *, mode_t);

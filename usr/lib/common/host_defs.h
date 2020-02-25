@@ -329,6 +329,7 @@ struct _STDLL_TokData_t {
     CK_SLOT_INFO slot_info;
     int spinxplfd;              // token specific lock
     pthread_mutex_t spinxplfd_mutex; // token specific pthread lock
+    char *pk_dir;
     char data_store[256];       // path information of the token directory
     CK_BYTE user_pin_md5[MD5_HASH_SIZE];
     CK_BYTE so_pin_md5[MD5_HASH_SIZE];

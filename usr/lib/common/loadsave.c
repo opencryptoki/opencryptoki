@@ -50,16 +50,14 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata);
 
-char *pk_dir;
-
-char *get_pk_dir(char *fname)
+char *get_pk_dir(STDLL_TokData_t *tokdata, char *fname)
 {
     struct passwd *pw = NULL;
 
     if (token_specific.data_store.per_user && (pw = getpwuid(getuid())) != NULL)
-        sprintf(fname, "%s/%s", pk_dir, pw->pw_name);
+        sprintf(fname, "%s/%s", tokdata->pk_dir, pw->pw_name);
     else
-        sprintf(fname, "%s", pk_dir);
+        sprintf(fname, "%s", tokdata->pk_dir);
 
     return fname;
 }
@@ -240,42 +238,43 @@ done:
     return rc;
 }
 
-void init_data_store(char *directory, char *data_store)
+void init_data_store(STDLL_TokData_t *tokdata, char *directory,
+                     char *data_store)
 {
     char *pkdir;
 
-    if (pk_dir != NULL) {
-        free(pk_dir);
-        pk_dir = NULL;
+    if (tokdata->pk_dir != NULL) {
+        free(tokdata->pk_dir);
+        tokdata->pk_dir = NULL;
     }
 
     if ((pkdir = getenv("PKCS_APP_STORE")) != NULL) {
-        pk_dir = (char *) malloc(strlen(pkdir) + 1024);
-        memset(pk_dir, 0, strlen(pkdir) + 1024);
-        sprintf(pk_dir, "%s/%s", pkdir, SUB_DIR);
-        get_pk_dir(data_store);
+        tokdata->pk_dir = (char *) malloc(strlen(pkdir) + 1024);
+        memset(tokdata->pk_dir, 0, strlen(pkdir) + 1024);
+        sprintf(tokdata->pk_dir, "%s/%s", pkdir, SUB_DIR);
+        get_pk_dir(tokdata, data_store);
         return;
     }
 
     if (directory) {
-        pk_dir = (char *) malloc(strlen(directory) + 25);
-        memset(pk_dir, 0, strlen(directory) + 25);
-        sprintf(pk_dir, "%s", directory);
+        tokdata->pk_dir = (char *) malloc(strlen(directory) + 25);
+        memset(tokdata->pk_dir, 0, strlen(directory) + 25);
+        sprintf(tokdata->pk_dir, "%s", directory);
     } else {
-        pk_dir = (char *) malloc(strlen(PK_DIR) + 25);
-        memset(pk_dir, 0, strlen(PK_DIR) + 25);
-        sprintf(pk_dir, "%s", PK_DIR);
+        tokdata->pk_dir = (char *) malloc(strlen(PK_DIR) + 25);
+        memset(tokdata->pk_dir, 0, strlen(PK_DIR) + 25);
+        sprintf(tokdata->pk_dir, "%s", PK_DIR);
     }
-    get_pk_dir(data_store);
+    get_pk_dir(tokdata, data_store);
 
     return;
 }
 
-void final_data_store(void)
+void final_data_store(STDLL_TokData_t * tokdata)
 {
-    if (pk_dir != NULL) {
-        free(pk_dir);
-        pk_dir = NULL;
+    if (tokdata->pk_dir != NULL) {
+        free(tokdata->pk_dir);
+        tokdata->pk_dir = NULL;
     }
 }
 
