@@ -18,90 +18,41 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-void mech_array_to_list(struct mech_list_item *head,
-                        MECH_LIST_ELEMENT mech_list_arr[], int list_len)
-{
-    int i;
-    struct mech_list_item *current;
-    current = head;
-    for (i = 0; i < list_len; i++) {
-        current->next = malloc(sizeof(struct mech_list_item));
-        current = current->next;
-        memcpy(&current->element, &mech_list_arr[i], sizeof(MECH_LIST_ELEMENT));
-    }
-}
 
-struct mech_list_item *find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
-                                                    struct mech_list_item *head)
-{
-    struct mech_list_item *res;
-    res = head->next;
-    while (res) {
-        if (res->element.mech_type == type) {
-            goto out;
-        }
-        res = res->next;
-    }
-
-out:
-    return res;
-}
-
-void free_mech_list(struct mech_list_item *head)
-{
-    struct mech_list_item *walker;
-    walker = head->next;
-    while (walker) {
-        struct mech_list_item *next;
-        next = walker->next;
-        free(walker);
-        walker = next;
-    }
-}
-
-/**
- * If a type exists in the source that is not in the target, copy it
- * over. If a type exists in both the source and the target, overwrite
- * the target.
- */
-void merge_mech_lists(struct mech_list_item *head_of_target,
-                      struct mech_list_item *head_of_source)
-{
-    UNUSED(head_of_target);
-    UNUSED(head_of_source);
-}
-
-CK_RV ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
+                                     CK_MECHANISM_TYPE_PTR pMechanismList,
                                      CK_ULONG_PTR pulCount)
 {
     int rc = CKR_OK;
     unsigned int i;
     if (pMechanismList == NULL) {
-        (*pulCount) = mech_list_len;
+        (*pulCount) = tokdata->mech_list_len;
         goto out;
     }
-    if ((*pulCount) < mech_list_len) {
-        (*pulCount) = mech_list_len;
+    if ((*pulCount) < tokdata->mech_list_len) {
+        (*pulCount) = tokdata->mech_list_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
         rc = CKR_BUFFER_TOO_SMALL;
         goto out;
     }
-    for (i = 0; i < mech_list_len; i++)
-        pMechanismList[i] = mech_list[i].mech_type;
-    (*pulCount) = mech_list_len;
+    for (i = 0; i < tokdata->mech_list_len; i++)
+        pMechanismList[i] = tokdata->mech_list[i].mech_type;
+    (*pulCount) = tokdata->mech_list_len;
 
 out:
     return rc;
 }
 
-CK_RV ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
+                                     CK_MECHANISM_TYPE type,
                                      CK_MECHANISM_INFO_PTR pInfo)
 {
     int rc = CKR_OK;
     unsigned int i;
-    for (i = 0; i < mech_list_len; i++) {
-        if (mech_list[i].mech_type == type) {
-            memcpy(pInfo, &mech_list[i].mech_info, sizeof(CK_MECHANISM_INFO));
+    for (i = 0; i < tokdata->mech_list_len; i++) {
+        if (tokdata->mech_list[i].mech_type == type) {
+            memcpy(pInfo, &tokdata->mech_list[i].mech_info,
+                   sizeof(CK_MECHANISM_INFO));
             goto out;
         }
     }

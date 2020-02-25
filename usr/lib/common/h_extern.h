@@ -29,9 +29,6 @@ extern char *pk_dir;
 // global variables
 //
 
-extern MECH_LIST_ELEMENT mech_list[];
-extern CK_ULONG mech_list_len;
-
 extern MUTEX obj_list_mutex, login_mutex;
 
 #define SO_PIN_DEFAULT			"87654321"

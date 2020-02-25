@@ -52,7 +52,7 @@ const char descr[] = "IBM PKCS#11 ICSF token";
 const char label[] = "IBM OS PKCS#11   ";
 
 /* mechanisms provided by this token */
-MECH_LIST_ELEMENT mech_list[] = {
+static const MECH_LIST_ELEMENT icsf_mech_list[] = {
     {CKM_DES_KEY_GEN, {8, 8, CKF_HW | CKF_GENERATE}},
     {CKM_DES_ECB, {0, 0, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_DES_CBC, {0, 0, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
@@ -111,7 +111,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
 };
 
-CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+static const CK_ULONG icsf_mech_list_len =
+                (sizeof(icsf_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 /* Each element of the list sessions should have this type: */
 struct session_state {
@@ -272,6 +273,9 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         TRACE_ERROR("Invalid slot ID: %lu\n", slot_id);
         return CKR_FUNCTION_FAILED;
     }
+
+    tokdata->mech_list = (MECH_LIST_ELEMENT *)icsf_mech_list;
+    tokdata->mech_list_len = icsf_mech_list_len;
 
     icsf_data = calloc(1, sizeof(icsf_private_data_t));
     if (icsf_data == NULL)

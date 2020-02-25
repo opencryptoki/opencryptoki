@@ -167,7 +167,7 @@ static CSNBHMG_t dll_CSNBHMG;
 static CSNBHMV_t dll_CSNBHMV;
 
 /* mechanisms provided by this token */
-MECH_LIST_ELEMENT mech_list[] = {
+static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_DES_KEY_GEN, {8, 8, CKF_HW | CKF_GENERATE}},
     {CKM_DES3_KEY_GEN, {24, 24, CKF_HW | CKF_GENERATE}},
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}},
@@ -230,7 +230,8 @@ MECH_LIST_ELEMENT mech_list[] = {
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}}
 };
 
-CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+static const CK_ULONG cca_mech_list_len =
+                        (sizeof(cca_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                          CK_ULONG bytes)
@@ -387,10 +388,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     void *lib_csulcca;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(conf_name);
 
     TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
+
+    tokdata->mech_list = (MECH_LIST_ELEMENT *)cca_mech_list;
+    tokdata->mech_list_len = cca_mech_list_len;
 
     lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
     if (lib_csulcca == NULL) {
@@ -1509,46 +1512,14 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE * pMechanismList,
                                         CK_ULONG * pulCount)
 {
-    CK_ULONG i;
-
-    UNUSED(tokdata);
-
-    if (pMechanismList == NULL) {
-        (*pulCount) = mech_list_len;
-        return CKR_OK;
-    }
-
-    if ((*pulCount) < mech_list_len) {
-        (*pulCount) = mech_list_len;
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
-    }
-
-    for (i = 0; i < mech_list_len; i++)
-        pMechanismList[i] = mech_list[i].mech_type;
-    (*pulCount) = mech_list_len;
-
-    return CKR_OK;
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount);
 }
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO * pInfo)
 {
-    CK_ULONG i;
-
-    UNUSED(tokdata);
-
-    for (i = 0; i < mech_list_len; i++) {
-        if (mech_list[i].mech_type == type) {
-            memcpy(pInfo, &mech_list[i].mech_info, sizeof(CK_MECHANISM_INFO));
-            return CKR_OK;
-        }
-    }
-
-    TRACE_DEBUG("%s\n", ock_err(ERR_MECHANISM_INVALID));
-
-    return CKR_MECHANISM_INVALID;
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
 
 CK_RV build_update_attribute(TEMPLATE * tmpl,

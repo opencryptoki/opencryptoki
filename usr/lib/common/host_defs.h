@@ -299,11 +299,13 @@ struct mech_list_item *find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
                                                     *head);
 
 /* mech_list.c */
-CK_RV ock_generic_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
+CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
+                                     CK_MECHANISM_TYPE_PTR pMechanismList,
                                      CK_ULONG_PTR pulCount);
 
 /* mech_list.c */
-CK_RV ock_generic_get_mechanism_info(CK_MECHANISM_TYPE type,
+CK_RV ock_generic_get_mechanism_info(STDLL_TokData_t * tokdata,
+                                     CK_MECHANISM_TYPE type,
                                      CK_MECHANISM_INFO_PTR pInfo);
 
 typedef struct _TOK_OBJ_ENTRY {
@@ -348,6 +350,8 @@ struct _STDLL_TokData_t {
     struct btree sess_obj_btree;
     struct btree publ_token_obj_btree;
     struct btree priv_token_obj_btree;
+    MECH_LIST_ELEMENT *mech_list;
+    CK_ULONG mech_list_len;
 };
 
 // These are the same for both AIX and Linux...

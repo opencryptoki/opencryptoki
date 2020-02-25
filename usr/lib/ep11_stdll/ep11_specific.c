@@ -485,13 +485,6 @@ static void free_ep11_target_for_apqn(target_t target);
    crypto algorithms are implemented in software then (no secure key) */
 
 
-/* mechanisms provided by this token will be generated from the underlaying
- * crypto adapter. Anyway to be conform to the generic mech_list handling
- * we need to define these dummies */
-MECH_LIST_ELEMENT mech_list[] = {{0, {0, 0, 0}}};
-
-CK_ULONG mech_list_len = 0;
-
 typedef struct const_info {
     unsigned const int code;
     const char *name;

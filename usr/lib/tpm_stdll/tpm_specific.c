@@ -98,7 +98,7 @@ const char model[] = "TPM v1.1 Token";
 const char descr[] = "Token for the Trusted Platform Module";
 const char label[] = "IBM PKCS#11 TPM Token";
 
-MECH_LIST_ELEMENT mech_list[] = {
+static const MECH_LIST_ELEMENT tpm_mech_list[] = {
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
     {CKM_DES_KEY_GEN, {0, 0, CKF_GENERATE}},
     {CKM_DES3_KEY_GEN, {0, 0, CKF_GENERATE}},
@@ -133,7 +133,8 @@ MECH_LIST_ELEMENT mech_list[] = {
                        CKF_UNWRAP}},
 };
 
-CK_ULONG mech_list_len = (sizeof(mech_list) / sizeof(MECH_LIST_ELEMENT));
+static const CK_ULONG tpm_mech_list_len =
+                    (sizeof(tpm_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
 static void clear_internal_structures(STDLL_TokData_t * tokdata)
 {
@@ -186,10 +187,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     char path_buf[PATH_MAX], fname[PATH_MAX];
     struct stat statbuf;
 
-    UNUSED(tokdata);
     UNUSED(conf_name);
 
     TRACE_INFO("tpm %s slot=%lu running\n", __func__, SlotNumber);
+
+    tokdata->mech_list = (MECH_LIST_ELEMENT *)tpm_mech_list;
+    tokdata->mech_list_len = tpm_mech_list_len;
 
     // if the user specific directory doesn't exist, create it
     sprintf(path_buf, "%s", get_pk_dir(fname));
@@ -3500,28 +3503,14 @@ CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    int rc;
-
-    UNUSED(tokdata);
-
-    /* common/mech_list.c */
-    rc = ock_generic_get_mechanism_list(pMechanismList, pulCount);
-
-    return rc;
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount);
 }
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
-    int rc;
-
-    UNUSED(tokdata);
-
-    /* common/mech_list.c */
-    rc = ock_generic_get_mechanism_info(type, pInfo);
-
-    return rc;
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
 
 int token_specific_creatlock(void)

@@ -45,9 +45,13 @@
 #endif
 #include <openssl/crypto.h>
 
+#define ICA_MAX_MECH_LIST_ENTRIES       84
+
 typedef struct {
     ica_adapter_handle_t adapter_handle;
     int ica_ec_support_available;
+    MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
+    CK_ULONG mech_list_len;
 } ica_private_data_t;
 
 // Linux really does not need these so we just dummy them up
@@ -113,11 +117,7 @@ static ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
 static ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
 static ica_ec_key_free_t               p_ica_ec_key_free;
 
-static CK_RV mech_list_ica_initialize(void);
-static CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-                                             CK_ULONG_PTR pulCount);
-static CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-                                             CK_MECHANISM_INFO_PTR pInfo);
+static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
 #define ICATOK_EC_MAX_D_LEN     66      /* secp521 */
 #define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
@@ -236,11 +236,14 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     ica_data->ica_ec_support_available = ecc_support_in_libica_available();
 #endif
 
-    rc = mech_list_ica_initialize();
+    rc = mech_list_ica_initialize(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("mech_list_ica_initialize failed\n");
         goto out;
     }
+
+    tokdata->mech_list = ica_data->mech_list;
+    tokdata->mech_list_len = ica_data->mech_list_len;
 
     TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -3406,173 +3409,19 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
 static const CK_ULONG ref_mech_list_len =
     (sizeof(ref_mech_list) / sizeof(REF_MECH_LIST_ELEMENT));
 
-/**
- * new ica-token mechanism table
- * this list will be initialized the first time
- * when ica_get_functionlist (from libica) is called.
- * (preinitialized with software only supported mechanisms)
- */
-MECH_LIST_ELEMENT mech_list[] = {
-    {CKM_MD5, {0, 0, CKF_DIGEST}},
-    {CKM_MD5_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
-    {CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0, 0, 0}},
-    {0, {0 ,0, 0}}, 
-    {0, {0, 0, 0}}
-};
-
-CK_ULONG mech_list_len = 3;
-
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_TYPE_PTR pMechanismList,
                                         CK_ULONG_PTR pulCount)
 {
-    UNUSED(tokdata);
-
-    return ica_specific_get_mechanism_list(pMechanismList, pulCount);
+    return ock_generic_get_mechanism_list(tokdata, pMechanismList, pulCount);
 }
 
-static CK_RV ica_specific_get_mechanism_list(CK_MECHANISM_TYPE_PTR pMechanismList,
-                                             CK_ULONG_PTR pulCount)
-{
-    unsigned int i;
-
-    if (pulCount == NULL) {
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    if (pMechanismList == NULL) {
-        *pulCount = mech_list_len;
-        return CKR_OK;
-    }
-
-    if ((*pulCount) < mech_list_len) {
-        (*pulCount) = mech_list_len;
-        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
-    }
-
-    /* copy mechanisms from the internal mech_ica_list */
-    for (i = 0; i < mech_list_len; i++) {
-        pMechanismList[i] = mech_list[i].mech_type;
-    }
-    (*pulCount) = mech_list_len;
-
-    return CKR_OK;
-}
 
 CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
                                         CK_MECHANISM_TYPE type,
                                         CK_MECHANISM_INFO_PTR pInfo)
 {
-    CK_ULONG rc = CKR_OK;
-
-    UNUSED(tokdata);
-
-    rc = ica_specific_get_mechanism_info(type, pInfo);
-
-    return rc;
-}
-
-static CK_RV ica_specific_get_mechanism_info(CK_MECHANISM_TYPE type,
-                                             CK_MECHANISM_INFO_PTR pInfo)
-{
-    unsigned int i;
-
-    /*
-     * find the requested mechanism and grab additional
-     * mechanism specific information (mech_info) from mech_list_ica
-     */
-    for (i = 0; i < mech_list_len; i++) {
-        if (mech_list[i].mech_type == type) {
-            pInfo->flags = mech_list[i].mech_info.flags;
-            pInfo->ulMinKeySize = mech_list[i].mech_info.ulMinKeySize;
-            pInfo->ulMaxKeySize = mech_list[i].mech_info.ulMaxKeySize;
-            return CKR_OK;
-        }
-    }
-
-    TRACE_DEBUG("%s\n", ock_err(ERR_MECHANISM_INVALID));
-
-    return CKR_MECHANISM_INVALID;
+    return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
 
 static CK_RV getRefListIdxfromId(CK_ULONG ica_idx, CK_ULONG_PTR pRefIdx)
@@ -3602,35 +3451,43 @@ static CK_RV getRefListIdxfromMech(CK_ULONG mech, CK_ULONG_PTR pRefIdx)
     return CKR_MECHANISM_INVALID;
 }
 
-static CK_BBOOL isMechanismAvailable(CK_ULONG mechanism)
+static CK_BBOOL isMechanismAvailable(STDLL_TokData_t *tokdata,
+                                     CK_ULONG mechanism)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     unsigned int i;
 
-    for (i = 0; i < mech_list_len; i++) {
-        if (mech_list[i].mech_type == mechanism)
+    for (i = 0; i < ica_data->mech_list_len; i++) {
+        if (ica_data->mech_list[i].mech_type == mechanism)
             return TRUE;
     }
 
     return FALSE;
 }
 
-static CK_RV addMechanismToList(CK_ULONG mechanism)
+static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ULONG ret;
     CK_ULONG refIdx = 0;
+
+    if (ica_data->mech_list_len >= ICA_MAX_MECH_LIST_ENTRIES) {
+        TRACE_ERROR("Not enough slots available to add mechanism\n");
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
     ret = getRefListIdxfromMech(mechanism, &refIdx);
     if (ret != CKR_OK) {
         return CKR_FUNCTION_FAILED;
     }
-    mech_list[mech_list_len].mech_type = ref_mech_list[refIdx].mech_type;
-    mech_list[mech_list_len].mech_info.flags =
+    ica_data->mech_list[ica_data->mech_list_len].mech_type = ref_mech_list[refIdx].mech_type;
+    ica_data->mech_list[ica_data->mech_list_len].mech_info.flags =
         (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
-    mech_list[mech_list_len].mech_info.ulMinKeySize =
+    ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMinKeySize =
         ref_mech_list[refIdx].mech_info.ulMinKeySize;
-    mech_list[mech_list_len].mech_info.ulMaxKeySize =
+    ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
         ref_mech_list[refIdx].mech_info.ulMaxKeySize;
-    mech_list_len++;
+    ica_data->mech_list_len++;
 
     return CKR_OK;
 }
@@ -3639,12 +3496,21 @@ static CK_RV addMechanismToList(CK_ULONG mechanism)
  * call libica to receive list of supported mechanisms
  * This method is called once per opencryptoki instance (application context)
  */
-static CK_RV mech_list_ica_initialize(void)
+static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ULONG ret, rc = CKR_OK;
     unsigned int i, n;
     unsigned int ica_specific_mech_list_len;
     CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
+
+    ica_data->mech_list[0].mech_type = CKF_DIGEST;
+    ica_data->mech_list[0].mech_info.flags = CKF_DIGEST;
+    ica_data->mech_list[1].mech_type = CKM_MD5_HMAC;
+    ica_data->mech_list[1].mech_info.flags = CKF_SIGN | CKF_VERIFY;
+    ica_data->mech_list[2].mech_type = CKM_MD5_HMAC_GENERAL;
+    ica_data->mech_list[2].mech_info.flags = CKF_SIGN | CKF_VERIFY;
+    ica_data->mech_list_len = 3;
 
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
@@ -3664,7 +3530,7 @@ static CK_RV mech_list_ica_initialize(void)
      * HW support indication into an internal ica_mech_list and get
      * additional flag information from the reference list
      */
-    ulPreDefMechCtr = mech_list_len;
+    ulPreDefMechCtr = ica_data->mech_list_len;
     for (i = 0; i < ica_specific_mech_list_len; i++) {
 
         if (libica_func_list[i].flags == 0)
@@ -3686,28 +3552,33 @@ static CK_RV mech_list_ica_initialize(void)
              * mechanism.
              */
             for (n = 0; n < ulPreDefMechCtr; n++) {
-                if (mech_list[n].mech_type == ref_mech_list[refIdx].mech_type) {
+                if (ica_data->mech_list[n].mech_type ==
+                                        ref_mech_list[refIdx].mech_type) {
                     ulActMechCtr = n;
                     break;
                 }
             }
             if (ulActMechCtr == (CK_ULONG)(-1)) {
                 /* add a new entry */
-                mech_list[mech_list_len].mech_type =
+                if (ica_data->mech_list_len >= ICA_MAX_MECH_LIST_ENTRIES) {
+                    TRACE_ERROR("Not enough slots available to add mechanism\n");
+                    return CKR_BUFFER_TOO_SMALL;
+                }
+                ica_data->mech_list[ica_data->mech_list_len].mech_type =
                     ref_mech_list[refIdx].mech_type;
-                mech_list[mech_list_len].mech_info.flags =
+                ica_data->mech_list[ica_data->mech_list_len].mech_info.flags =
                     (libica_func_list[i].flags & 0x01) |
                     (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
-                mech_list[mech_list_len].mech_info.ulMinKeySize =
+                ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMinKeySize =
                     ref_mech_list[refIdx].mech_info.ulMinKeySize;
-                mech_list[mech_list_len].mech_info.ulMaxKeySize =
+                ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
                     ref_mech_list[refIdx].mech_info.ulMaxKeySize;
-                mech_list_len++;
+                ica_data->mech_list_len++;
             } else {
                 /* replace existing entry */
-                mech_list[ulActMechCtr].mech_info.flags =
+                ica_data->mech_list[ulActMechCtr].mech_info.flags =
                     (libica_func_list[i].flags & 0x01) |
-                    mech_list[ulActMechCtr].mech_info.flags;
+                    ica_data->mech_list[ulActMechCtr].mech_info.flags;
             }
             refIdx++;
         }
@@ -3720,42 +3591,49 @@ static CK_RV mech_list_ica_initialize(void)
      * if MD2 and RSA is available    -> insert CKM_MD2_RSA_PKCS
      * if MD5 and RSA is available    -> insert CKM_MD5_RSA_PKCS
      */
-    if (isMechanismAvailable(CKM_SHA_1) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_SHA1_RSA_PKCS);
-    if (isMechanismAvailable(CKM_SHA224) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_SHA224_RSA_PKCS);
-    if (isMechanismAvailable(CKM_SHA256) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_SHA256_RSA_PKCS);
-    if (isMechanismAvailable(CKM_SHA384) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_SHA384_RSA_PKCS);
-    if (isMechanismAvailable(CKM_SHA512) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_SHA512_RSA_PKCS);
-    if (isMechanismAvailable(CKM_MD2) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_MD2_RSA_PKCS);
-    if (isMechanismAvailable(CKM_MD5) && isMechanismAvailable(CKM_RSA_PKCS))
-        addMechanismToList(CKM_MD5_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_SHA224) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_SHA256) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_SHA384) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_SHA512) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_MD2) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_MD2_RSA_PKCS);
+    if (isMechanismAvailable(tokdata, CKM_MD5) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS))
+        addMechanismToList(tokdata, CKM_MD5_RSA_PKCS);
 
     /* sort the mech_list_ica by mechanism ID's (bubble sort)  */
-    for (i = 0; i < mech_list_len; i++) {
-        for (n = i; n < mech_list_len; n++) {
-            if (mech_list[i].mech_type > mech_list[n].mech_type) {
-                tmp = mech_list[i].mech_type;
-                mech_list[i].mech_type = mech_list[n].mech_type;
-                mech_list[n].mech_type = tmp;
+    for (i = 0; i < ica_data->mech_list_len; i++) {
+        for (n = i; n < ica_data->mech_list_len; n++) {
+            if (ica_data->mech_list[i].mech_type > ica_data->mech_list[n].mech_type) {
+                tmp = ica_data->mech_list[i].mech_type;
+                ica_data->mech_list[i].mech_type = ica_data->mech_list[n].mech_type;
+                ica_data->mech_list[n].mech_type = tmp;
 
-                tmp = mech_list[i].mech_info.ulMinKeySize;
-                mech_list[i].mech_info.ulMinKeySize =
-                    mech_list[n].mech_info.ulMinKeySize;
-                mech_list[n].mech_info.ulMinKeySize = tmp;
+                tmp = ica_data->mech_list[i].mech_info.ulMinKeySize;
+                ica_data->mech_list[i].mech_info.ulMinKeySize =
+                        ica_data->mech_list[n].mech_info.ulMinKeySize;
+                ica_data->mech_list[n].mech_info.ulMinKeySize = tmp;
 
-                tmp = mech_list[i].mech_info.ulMaxKeySize;
-                mech_list[i].mech_info.ulMaxKeySize =
-                    mech_list[n].mech_info.ulMaxKeySize;
-                mech_list[n].mech_info.ulMaxKeySize = tmp;
+                tmp = ica_data->mech_list[i].mech_info.ulMaxKeySize;
+                ica_data->mech_list[i].mech_info.ulMaxKeySize =
+                        ica_data->mech_list[n].mech_info.ulMaxKeySize;
+                ica_data->mech_list[n].mech_info.ulMaxKeySize = tmp;
 
-                tmp = mech_list[i].mech_info.flags;
-                mech_list[i].mech_info.flags = mech_list[n].mech_info.flags;
-                mech_list[n].mech_info.flags = tmp;
+                tmp = ica_data->mech_list[i].mech_info.flags;
+                ica_data->mech_list[i].mech_info.flags = ica_data->mech_list[n].mech_info.flags;
+                ica_data->mech_list[n].mech_info.flags = tmp;
             }
         }
     }
