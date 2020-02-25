@@ -93,3 +93,14 @@ fork
 	C_Initialize() in order to use Opencryptoki.
 
 	Usage: fork -slot <slotid>
+
+multi_instance
+	This testcase open sessions on two different tokens within one process.
+	It ensures that both tokens operate independently, and that sessions of
+	objects opened with one token can not be used with the other one.
+
+	To test multi-instance support of a token, the Opencryptoi configuration
+	must be set up that way that 2 tokens of the same type (e.g. 2 EP11
+	tokens) exist.
+
+	Usage: multi_instance -slot1 <slotid1> -slot2 <slotid2>
