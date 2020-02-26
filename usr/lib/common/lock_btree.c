@@ -85,9 +85,25 @@ struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 
 void *bt_get_node_value(struct btree *t, unsigned long node_num)
 {
-    struct btnode *n = bt_get_node(t, node_num);
+    struct btnode *n;
+    void *v;
 
-    return ((n) ? n->value : NULL);
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
+    }
+
+    /*
+     * Get the value within the locked block, to ensure that the node
+     * is not deleted after it was obtained via bt_get_node, but before the
+     * value is obtained from the node. For a deleted node, the node->value
+     * points to another node in the free list.
+     */
+    n = __bt_get_node(t, node_num);
+    v = ((n) ? n->value : NULL);
+
+    pthread_mutex_unlock(&t->mutex);
+    return v;
 }
 
 /* create a new node and set @parent_ptr to its location */
@@ -243,6 +259,11 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
     node = __bt_get_node(t, node_num);
 
     if (node) {
+        /*
+         * Need to get the node value within the locked block,
+         * otherwise the node might be deleted concurrently before the
+         * value was obtained from the node.
+         */
         value = node->value;
 
         node->flags |= BT_FLAG_FREE;
@@ -316,13 +337,20 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
                         void *p3), void *p3)
 {
     unsigned int i;
-    struct btnode *node;
+    void *value;
 
     for (i = 1; i < t->size + 1; i++) {
-        node = bt_get_node(t, i);
+        /*
+         * Get the node value, not the node itself. This ensures that we either
+         * get the value from a valid node, or NULL in case of a deleted node.
+         * If we would get the node and then get the value from it without
+         * being in the locked block, the node could have been deleted after
+         * the node was obtained, but before the value was obtained.
+         */
+        value = bt_get_node_value(t, i);
 
-        if (node) {
-            (*func) (tokdata, node->value, i, p3);
+        if (value) {
+            (*func) (tokdata, value, i, p3);
         }
     }
 }
