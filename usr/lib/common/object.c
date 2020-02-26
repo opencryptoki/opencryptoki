@@ -310,11 +310,11 @@ void object_free(OBJECT * obj)
     }
 }
 
-//call_free()
+//call_object_free()
 //This function is added to silence the compiler during implicit void (*)(void*)
 //function pointer casting in call back functions.
 //
-void call_free(void *ptr)
+void call_object_free(void *ptr)
 {
     if (ptr)
         object_free((OBJECT *) ptr);

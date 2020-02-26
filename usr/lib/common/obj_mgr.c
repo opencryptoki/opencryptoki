@@ -766,7 +766,8 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
     }
 
     if (map->is_session_obj) {
-        bt_node_free(&tokdata->sess_obj_btree, map->obj_handle, call_free);
+        bt_node_free(&tokdata->sess_obj_btree, map->obj_handle,
+                     call_object_free);
     } else {
         if (map->is_private)
             o = bt_get_node_value(&tokdata->priv_token_obj_btree,
@@ -803,10 +804,10 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
 
         if (map->is_private)
             bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle,
-                         call_free);
+                         call_object_free);
         else
             bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle,
-                         call_free);
+                         call_object_free);
     }
 
 done:
@@ -857,10 +858,10 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
 
         if (map->is_private)
             bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle,
-                         call_free);
+                         call_object_free);
         else
             bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle,
-                         call_free);
+                         call_object_free);
     }
 
 done:
@@ -1390,7 +1391,7 @@ void purge_session_obj_cb(STDLL_TokData_t *tokdata, void *node,
             if (obj->map_handle)
                 bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
 
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, call_free);
+            bt_node_free(&tokdata->sess_obj_btree, obj_handle, call_object_free);
         }
     }
 }
@@ -1434,7 +1435,7 @@ void purge_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
     if (obj->map_handle)
         bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
 
-    bt_node_free(t, obj_handle, call_free);
+    bt_node_free(t, obj_handle, call_object_free);
 }
 
 // this routine cleans up the list of token objects. in general, we don't
@@ -1980,7 +1981,7 @@ void delete_objs_from_btree_cb(STDLL_TokData_t *tokdata, void *node,
 
     /* didn't find it in SHM, delete it from its btree and the object map */
     bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
-    bt_node_free(ua->t, obj_handle, call_free);
+    bt_node_free(ua->t, obj_handle, call_object_free);
 }
 
 void find_by_name_cb(STDLL_TokData_t *tokdata, void *node,

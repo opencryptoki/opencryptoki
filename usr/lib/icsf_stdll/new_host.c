@@ -222,11 +222,11 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp,
     object_mgr_purge_token_objects(tokdata);
 
     /* Finally free the nodes on free list. */
-    bt_destroy(&tokdata->sess_btree, NULL);
-    bt_destroy(&tokdata->object_map_btree, NULL);
-    bt_destroy(&tokdata->sess_obj_btree, NULL);
-    bt_destroy(&tokdata->priv_token_obj_btree, NULL);
-    bt_destroy(&tokdata->publ_token_obj_btree, NULL);
+    bt_destroy(&tokdata->sess_btree, free);
+    bt_destroy(&tokdata->object_map_btree, free);
+    bt_destroy(&tokdata->sess_obj_btree, call_object_free);
+    bt_destroy(&tokdata->priv_token_obj_btree, call_object_free);
+    bt_destroy(&tokdata->publ_token_obj_btree, call_object_free);
 
 #ifdef ENABLE_LOCKS
     pthread_rwlock_destroy(&tokdata->sess_list_rwlock);

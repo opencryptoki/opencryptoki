@@ -1100,7 +1100,7 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
         }
 
         /* Remove object from object list */
-        bt_node_free(&icsf_data->objects, i, &free);
+        bt_node_free(&icsf_data->objects, i, free);
     }
     if (rc)
         return rc;

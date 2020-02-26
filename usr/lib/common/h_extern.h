@@ -2230,7 +2230,7 @@ CK_RV object_flatten(OBJECT *obj, CK_BYTE **data, CK_ULONG *len);
 
 void object_free(OBJECT *obj);
 
-void call_free(void *ptr);
+void call_object_free(void *ptr);
 
 CK_RV object_get_attribute_values(OBJECT *obj,
                                   CK_ATTRIBUTE *pTemplate, CK_ULONG count);
