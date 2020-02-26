@@ -28,6 +28,39 @@
 #define TREE_DUMP(t)  tree_dump((t)->top, 0)
 
 /*
+ * __bt_get_node() - Low level function, needs proper locking before invocation.
+ */
+static struct btnode *__bt_get_node(struct btree *t, unsigned long node_num)
+{
+    struct btnode *temp;
+    unsigned long i;
+
+    temp = t->top;
+
+    if (!node_num || node_num > t->size)
+        return NULL;
+
+    if (node_num == 1) {
+        temp = t->top;
+    return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
+    }
+
+    i = node_num;
+    while (i != 1) {
+        if (i & 1) {
+            /* If the bit is 1, traverse right */
+            temp = temp->right;
+        } else {
+            /* If the bit is 0, traverse left */
+            temp = temp->left;
+        }
+        i >>= 1;
+    }
+
+    return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
+}
+
+/*
  * bt_get_node
  *
  * Return a node of the tree @t with position @node_num. If the node has been
@@ -36,37 +69,24 @@
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 {
     __transaction_atomic {      /* start transaction */
-        struct btnode *temp = t->top;
-        unsigned long i;
-
-        if (!node_num || node_num > t->size)
-            return NULL;
-        if (node_num == 1) {
-            temp = t->top;
-            goto done;
-        }
-
-        i = node_num;
-        while (i != 1) {
-            if (i & 1) {
-                /* If the bit is 1, traverse right */
-                temp = temp->right;
-            } else {
-                /* If the bit is 0, traverse left */
-                temp = temp->left;
-            }
-            i >>= 1;
-        }
-done:
-        return ((temp->flags & BT_FLAG_FREE) ? NULL : temp);
+        return __bt_get_node(t, node_num);
     }                           /* end transaction */
 }
 
 void *bt_get_node_value(struct btree *t, unsigned long node_num)
 {
-    struct btnode *n = bt_get_node(t, node_num);
+    struct btnode *n;
 
-    return ((n) ? n->value : NULL);
+    __transaction_atomic {      /* start transaction */
+        /*
+         * Get the value within the transaction block, to ensure that the node
+         * is not deleted after it was obtained via bt_get_node, but before the
+         * value is obtained from the node. For a deleted node, the node->value
+         * points to another node in the free list.
+         */
+        n = __bt_get_node(t, node_num);
+        return ((n) ? n->value : NULL);
+    }                           /* end transaction */
 }
 
 /* create a new node and set @parent_ptr to its location */
@@ -199,13 +219,20 @@ void tree_dump(struct btnode *n, int depth)
 void *bt_node_free(struct btree *t, unsigned long node_num,
                    void (*delete_func)(void *))
 {
-    struct btnode *node = bt_get_node(t, node_num);
-    void  *value = NULL;
+    struct btnode *node;
+    void *value = NULL;
 
-    if (node) {
-        value = node->value;
+    __transaction_atomic {  /* start transaction */
+        node = __bt_get_node(t, node_num);
 
-        __transaction_atomic {  /* start transaction */
+        if (node) {
+            /*
+             * Need to get the node value within the transaction block,
+             * otherwise the node might be deleted concurrently before the
+             * value was obtained from the node.
+             */
+            value = node->value;
+
             node->flags |= BT_FLAG_FREE;
 
             /* add node to the free list,
@@ -215,11 +242,11 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
             node->value = t->free_list;
             t->free_list = node;
             t->free_nodes++;
-        }                       /* end transaction */
+        }
+    }                       /* end transaction */
 
-        if (delete_func)
-            delete_func(value);
-    }
+    if (value && delete_func)
+        (*delete_func)(value);
 
     return value;
 }
@@ -260,13 +287,20 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
                         void *p3), void *p3)
 {
     unsigned int i;
-    struct btnode *node;
+    void *value;
 
     for (i = 1; i < t->size + 1; i++) {
-        node = bt_get_node(t, i);
+        /*
+         * Get the node value, not the node itself. This ensures that we either
+         * get the value from a valid node, or NULL in case of a deleted node.
+         * If we would get the node and then get the value from it without
+         * being in the transaction block, the node could have been deleted after
+         * the node was obtained, but before the value was obtained.
+         */
+        value = bt_get_node_value(t, i);
 
-        if (node) {
-            (*func) (tokdata, node->value, i, p3);
+        if (value) {
+            (*func) (tokdata, value, i, p3);
         }
     }
 }
@@ -303,6 +337,12 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
          * to the next node element in free_list and it shouldn't be
          * freed here because the loop will iterate through each node,
          * freed or not.
+         * ATTENTION:
+         * This might not be 100% thread save when using __transaction_atomic,
+         * since the node might get deleted concurrently while we are outside
+         * of the transaction block. It is assumed that bt_destroy is called
+         * during final cleanup, and thus is not used concurrently with
+         * bt_node_free() or bt_destroy() in other threads.
          */
         if (delete_func && !(temp->flags & BT_FLAG_FREE))
             delete_func(temp->value);
