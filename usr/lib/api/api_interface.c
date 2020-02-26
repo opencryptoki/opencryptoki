@@ -2797,6 +2797,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
     memset((char *) Anchor, 0, sizeof(API_Proc_Struct_t));
+    bt_init(&Anchor->sess_btree);
     Anchor->Pid = getpid();
 
     // Get shared memory
@@ -2849,6 +2850,8 @@ error_shm:
     detach_shared_memory(Anchor->SharedMemP);
 
 error:
+    bt_destroy(&Anchor->sess_btree, NULL);
+
     free((void *) Anchor);
     Anchor = NULL;
 

@@ -320,3 +320,15 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
         t->free_nodes = 0;
     }                           /* end transaction */
 }
+
+/* bt_init
+ *
+ * Initialize a btree.
+ */
+void bt_init(struct btree *t)
+{
+    t->free_list = NULL;
+    t->top = NULL;
+    t->size = 0;
+    t->free_nodes = 0;
+}
