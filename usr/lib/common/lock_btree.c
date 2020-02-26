@@ -28,8 +28,6 @@
 #define GET_NODE_HANDLE(n) get_node_handle(n, 1)
 #define TREE_DUMP(t)  tree_dump((t)->top, 0)
 
-static pthread_rwlock_t btree_rwlock = PTHREAD_RWLOCK_INITIALIZER;
-
 /*
  * __bt_get_node() - Low level function, needs proper locking before invocation.
  */
@@ -72,15 +70,15 @@ static struct btnode *__bt_get_node(struct btree *t, unsigned long node_num)
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 {
     struct btnode *temp;
-    int lock = 1;
 
-    if (pthread_rwlock_rdlock(&btree_rwlock))
-        lock = 0;
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
+    }
 
     temp = __bt_get_node(t, node_num);
 
-    if (lock)
-        pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
 
     return temp;
 }
@@ -133,8 +131,8 @@ unsigned long bt_node_add(struct btree *t, void *value)
     struct btnode *temp;
     unsigned long new_node_index;
 
-    if (pthread_rwlock_wrlock(&btree_rwlock)) {
-        TRACE_ERROR("Write Lock failed.\n");
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
         return 0;
     }
 
@@ -143,11 +141,11 @@ unsigned long bt_node_add(struct btree *t, void *value)
     if (!temp) {                /* no root node yet exists, create it */
         t->size = 1;
         if (!node_create(&t->top, NULL, value)) {
-            pthread_rwlock_unlock(&btree_rwlock);
+            pthread_mutex_unlock(&t->mutex);
             return 0;
         }
 
-        pthread_rwlock_unlock(&btree_rwlock);
+        pthread_mutex_unlock(&t->mutex);
         return 1;
     } else if (t->free_list) {
         /* there's a node on the free list,
@@ -159,7 +157,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
         temp->flags &= (~BT_FLAG_FREE);
         t->free_nodes--;
         new_node_index = GET_NODE_HANDLE(temp);
-        pthread_rwlock_unlock(&btree_rwlock);
+        pthread_mutex_unlock(&t->mutex);
         return new_node_index;
     }
 
@@ -169,7 +167,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
         if (new_node_index & 1) {
             if (!temp->right) {
                 if (!(node_create(&temp->right, temp, value))) {
-                    pthread_rwlock_unlock(&btree_rwlock);
+                    pthread_mutex_unlock(&t->mutex);
                     return 0;
                 }
                 break;
@@ -180,7 +178,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
         } else {
             if (!temp->left) {
                 if (!(node_create(&temp->left, temp, value))) {
-                    pthread_rwlock_unlock(&btree_rwlock);
+                    pthread_mutex_unlock(&t->mutex);
                     return 0;
                 }
                 break;
@@ -196,7 +194,7 @@ unsigned long bt_node_add(struct btree *t, void *value)
     t->size++;
     new_node_index = t->size;
 
-    pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
     return new_node_index;
 }
 
@@ -235,11 +233,12 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
                    void (*delete_func)(void *))
 {
     struct btnode *node;
-    int lock = 1;
     void *value = NULL;
 
-    if (pthread_rwlock_wrlock(&btree_rwlock))
-        lock = 0;
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
+    }
 
     node = __bt_get_node(t, node_num);
 
@@ -257,8 +256,7 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
         t->free_nodes++;
     }
 
-    if (lock)
-        pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
 
     if (value && delete_func)
         delete_func(value);
@@ -273,15 +271,13 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
 int bt_is_empty(struct btree *t)
 {
     CK_RV rc;
-    int lock = 1;
 
-    if (pthread_rwlock_rdlock(&btree_rwlock))
-        lock = 0;
+    if (pthread_mutex_lock(&t->mutex))
+        return 0;
 
     rc = (t->free_nodes == t->size);
 
-    if (lock)
-        pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
 
     return rc;
 }
@@ -294,14 +290,14 @@ unsigned long bt_nodes_in_use(struct btree *t)
 {
     CK_RV rc;
 
-    if (pthread_rwlock_rdlock(&btree_rwlock)) {
-        TRACE_ERROR("Write Lock failed.\n");
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
         return -1;
     }
 
     rc = (t->size - t->free_nodes);
 
-    pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
 
     return rc;
 }
@@ -342,8 +338,8 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
     unsigned long i;
     struct btnode *temp;
 
-    if (pthread_rwlock_wrlock(&btree_rwlock)) {
-        TRACE_ERROR("Write Lock failed.\n");
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
         return;
     }
 
@@ -379,5 +375,28 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
     t->free_list = NULL;
     t->free_nodes = 0;
 
-    pthread_rwlock_unlock(&btree_rwlock);
+    pthread_mutex_unlock(&t->mutex);
+    pthread_mutex_destroy(&t->mutex);
+}
+
+/* bt_init
+ *
+ * Initialize a btree.
+ */
+void bt_init(struct btree *t)
+{
+    pthread_mutexattr_t attr;
+
+    t->free_list = NULL;
+    t->top = NULL;
+    t->size = 0;
+    t->free_nodes = 0;
+
+    /*
+     * Need a recursive mutex, because btree callback functions may call
+     * btree functions again
+     */
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&t->mutex, &attr);
 }

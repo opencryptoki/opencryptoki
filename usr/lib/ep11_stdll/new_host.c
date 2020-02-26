@@ -99,6 +99,12 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
 #endif
     pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
 
+    bt_init(&sltp->TokData->sess_btree);
+    bt_init(&sltp->TokData->object_map_btree);
+    bt_init(&sltp->TokData->sess_obj_btree);
+    bt_init(&sltp->TokData->priv_token_obj_btree);
+    bt_init(&sltp->TokData->publ_token_obj_btree);
+
     if (strlen(sinfp->tokname)) {
         sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
         TRACE_DEVEL("Token directory: %s\n", abs_tokdir_name);

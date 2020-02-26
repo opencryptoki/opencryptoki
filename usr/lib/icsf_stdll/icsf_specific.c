@@ -174,6 +174,18 @@ done:
     return found;
 }
 
+static void purge_object_mapping_cb(STDLL_TokData_t * tokdata, void *value,
+                                    unsigned long node_num, void *p3)
+{
+    icsf_private_data_t *icsf_data = tokdata->private_data;
+
+    UNUSED(value);
+    UNUSED(p3);
+
+    /* Remove the object */
+    bt_node_free(&icsf_data->objects, node_num, free);
+}
+
 /*
  * Remove all mapped objects.
  */
@@ -181,7 +193,8 @@ static CK_RV purge_object_mapping(STDLL_TokData_t * tokdata)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
 
-    bt_destroy(&icsf_data->objects, free);
+    bt_for_each_node(tokdata, &icsf_data->objects, purge_object_mapping_cb,
+                     NULL);
 
     return CKR_OK;
 }
@@ -282,6 +295,7 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         return CKR_HOST_MEMORY;
     list_init(&icsf_data->sessions);
     pthread_mutex_init(&icsf_data->sess_list_mutex, NULL);
+    bt_init(&icsf_data->objects);
     tokdata->private_data = icsf_data;
 
     rc = XProcLock(tokdata);
@@ -1177,6 +1191,7 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
     }
 
     if (finalize) {
+        bt_destroy(&icsf_data->objects, free);
         pthread_mutex_destroy(&icsf_data->sess_list_mutex);
         free(icsf_data);
         tokdata->private_data = NULL;
