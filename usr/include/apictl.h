@@ -37,8 +37,9 @@ struct API_Slot {
     STDLL_FcnList_t *FcnList;   // Function list pointer for the STDLL
     STDLL_TokData_t *TokData;   // Pointer to Token specific data
     DLL_Load_t *dll_information;
-    void (*pSTfini) ();         // Addition of Final function.
-    CK_RV(*pSTcloseall) ();    // Addition of close all for leeds code
+    CK_RV (*pSTfini)(STDLL_TokData_t *, CK_SLOT_ID, SLOT_INFO *,
+                     struct trace_handle_t *, CK_BBOOL);
+    CK_RV(*pSTcloseall)(STDLL_TokData_t *, CK_SLOT_ID);
     pthread_mutex_t api_mutex; /* lock API calls against other threads */
 };
 

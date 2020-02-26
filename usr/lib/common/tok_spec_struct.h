@@ -71,7 +71,7 @@ struct token_specific_struct {
     CK_RV(*t_rng) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG);
 
     // any specific final code
-    CK_RV(*t_final) ();
+    CK_RV(*t_final) (STDLL_TokData_t *, CK_BBOOL);
 
     CK_RV(*t_init_token) (STDLL_TokData_t *, CK_SLOT_ID, CK_CHAR_PTR,
                           CK_ULONG, CK_CHAR_PTR);

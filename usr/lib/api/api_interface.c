@@ -56,22 +56,42 @@ void api_init();
 
 API_Proc_Struct_t *Anchor = NULL;       // Initialized to NULL
 unsigned int Initialized = 0;   // Initialized flag
-pthread_mutex_t GlobMutex;      // Global Mutex
+pthread_mutex_t GlobMutex = PTHREAD_MUTEX_INITIALIZER; // Global Mutex
 CK_FUNCTION_LIST FuncList;
 
 int slot_loaded[NUMBER_SLOTS_MANAGED];  // Array of flags to indicate
                                        // if the STDLL loaded
 
-// For linux only at this time... if it works out we can get rid
-// of the stupid pid tracking.... Linux we kind of have to do this
-// since new threads are processes also, and we will be hosed
+CK_BBOOL in_child_fork_initializer = FALSE;
+
 void child_fork_initializer()
 {
-    if (Anchor) {
-        free(Anchor);
-        Anchor = NULL;
-    }
-}
+    /*
+     * Reinitialize trace so that the trace output appears under the new
+     * process's trace file, and not in the parent process's once.
+     * C_Finalize will pass the new trace handle to the tokens, so that their
+     * finalization code will also trace into the new trace file.
+     */
+    trace_finalize();
+    trace_initialize();
+    /*
+     * Terminate all slots by calling C_Finalize(). This will also free the
+     * Anchor and set it to NULL.
+     * A forked child is no PKCS11 application after fork. Thus it needs to
+     * call C_Initialize again to become a PKC11 application and be able to
+     * use Opencryptoki.
+     * Indicate that we are in the fork initializer.
+     * A forked child process has the same mapped memory as the parent, but
+     * since client is no PKCS11 application after fork, it must not update
+     * (i.e decrease) the reference count during C_Finalize.
+     * If the client calls C_Initialize to become a PKCS11 application, it
+     * will then increase the reference count.
+     */
+    in_child_fork_initializer = TRUE;
+    if (Anchor != NULL)
+        C_Finalize(NULL);
+    in_child_fork_initializer = FALSE;
+ }
 
 //------------------------------------------------------------------------
 // API function C_CancelFunction
@@ -1367,47 +1387,40 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     CK_SLOT_ID slotID;
     Slot_Mgr_Socket_t *shData;
     SLOT_INFO *sinfp;
-
-    TRACE_INFO("C_Finalize\n");
-    if (API_Initialized() == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    shData = &(Anchor->SocketDataP);
+    CK_RV rc = CKR_OK;
 
     if (pReserved != NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         return CKR_ARGUMENTS_BAD;
     }
 
+    /*
+     * Lock so that only one thread can run C_Initialize or C_Finalize at
+     * a time
+     */
     pthread_mutex_lock(&GlobMutex);     // Grab Process level Global MUTEX
 
-    Terminate_All_Process_Sessions();   // Terminate the sessions
+    TRACE_INFO("C_Finalize\n");
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    shData = &(Anchor->SocketDataP);
 
     // unload all the STDLL's from the application
     // This is in case the APP decides to do the re-initialize and
     // continue on
-    // //
-
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
-        if (sltp->pSTcloseall) {
-#if 0
-            (void) sltp->pSTcloseall(slotID);   // call the terminate function..
-#else
-            /* pSTcloseall is just a pointer to the STDLL's
-             * SC_CloseAllSessions() function, so calling it won't clean up
-             * shared memory, or the API layer's session btree. Instead, call
-             * CloseAllSessions, which will clean everything up */
+        if (slot_loaded[slotID]) {
             CloseAllSessions(slotID);
-#endif
-        }
-        if (sltp->pSTfini) {
-            sinfp = &(shData->slot_info[slotID]);
-            if (slot_loaded[slotID]) {
+            if (sltp->pSTfini) {
+                sinfp = &(shData->slot_info[slotID]);
                 // call the terminate function..
-                sltp->pSTfini(sltp->TokData, slotID, sinfp);
+                sltp->pSTfini(sltp->TokData, slotID, sinfp, &trace,
+                              in_child_fork_initializer);
             }
         }
 
@@ -1417,19 +1430,22 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     // Un register from Slot D
     API_UnRegister();
 
+    bt_destroy(&Anchor->sess_btree, NULL);
+
     detach_shared_memory(Anchor->SharedMemP);
     free(Anchor);               // Free API Proc Struct
     Anchor = NULL;
-
-    // Unlock
-    pthread_mutex_unlock(&GlobMutex);
 
     trace_finalize();
 
     //close the lock file descriptor here to avoid memory leak
     ProcClose();
 
-    return CKR_OK;
+done:
+    // Unlock
+    pthread_mutex_unlock(&GlobMutex);
+
+    return rc;
 }                               // end of C_Finalize
 
 //------------------------------------------------------------------------
@@ -2650,28 +2666,30 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 {
     CK_C_INITIALIZE_ARGS *pArg;
     char fcnmap = 0;
+    CK_RV rc = CKR_OK;
+
+    /*
+     * Lock so that only one thread can run C_Initialize or C_Finalize at
+     * a time
+     */
+    pthread_mutex_lock(&GlobMutex);
 
     trace_initialize();
 
     TRACE_INFO("C_Initialize\n");
-    //if ( API_Proc_Struct NOT allocated )
-    //       allocate Structure
-    //    if ( allocation fails )
-    //       return CKR_HOST_MEMORY
-    //else
-    //    if ( API_Proc_Struct owned by current process )
-    //        process has called C_Initialize twice Fail routine
-    //        return CKR_FUNCTION_FAILED
+
     if (!Anchor) {
         Anchor = (API_Proc_Struct_t *) malloc(sizeof(API_Proc_Struct_t));
         if (Anchor == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
     } else {
         // Linux the atfork routines handle this
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_ALREADY_INITIALIZED));
-        return CKR_CRYPTOKI_ALREADY_INITIALIZED;
+        rc = CKR_CRYPTOKI_ALREADY_INITIALIZED;
+        goto done;
     }
 
     // Clear out the load list
@@ -2693,10 +2711,9 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
         // Check for a pReserved set
         if (pArg->pReserved != NULL) {
-            free(Anchor);
-            Anchor = NULL;
             TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-            return CKR_ARGUMENTS_BAD;
+            rc = CKR_ARGUMENTS_BAD;
+            goto error;
         }
         // Set up a bit map indicating the presense of the functions.
         fcnmap = (pArg->CreateMutex ? 0x01 << 0 : 0);
@@ -2707,12 +2724,11 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         // Verify that all or none of the functions are set
         if (fcnmap != 0) {
             if (fcnmap != 0x0f) {
-                free(Anchor);
-                Anchor = NULL;
                 OCK_SYSLOG(LOG_ERR, "C_Initialize: Invalid "
                            "number of functions passed in "
                            "argument structure.\n");
-                return CKR_ARGUMENTS_BAD;
+                rc = CKR_ARGUMENTS_BAD;
+                goto error;
             }
         }
         // If we EVER need to create threads from this library we must
@@ -2741,14 +2757,13 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
                 // Case 3  Flag Not set and pointers supplied. Can't handle this
                 // one.
                 if (!(pArg->flags & CKF_OS_LOCKING_OK) && fcnmap) {
-                    free(Anchor);
-                    Anchor = NULL;
                     OCK_SYSLOG(LOG_ERR, "C_Initialize: "
                                "Application specified that "
                                "OS locking is invalid. "
                                "PKCS11 Module requires OS " "locking.\n");
                     // Only support Native OS locking.
-                    return CKR_CANT_LOCK;
+                    rc = CKR_CANT_LOCK;
+                    goto error;
                 } else {
                     // Case 4  Flag set and fcn pointers set
                     if ((pArg->flags & CKF_OS_LOCKING_OK) && fcnmap) {
@@ -2756,10 +2771,9 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
                     } else {
                         // Were really hosed here since this should not have
                         // occured
-                        free(Anchor);
-                        Anchor = NULL;
                         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-                        return CKR_GENERAL_ERROR;
+                        rc = CKR_GENERAL_ERROR;
+                        goto error;
                     }
                 }
             }
@@ -2773,10 +2787,9 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
     // Create the shared memory lock.
     if (CreateProcLock() != CKR_OK) {
-        free((void *) Anchor);
-        Anchor = NULL;
         TRACE_ERROR("Process Lock Failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
     //Zero out API_Proc_Struct
     //Map Shared Memory Region
@@ -2784,20 +2797,16 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
     memset((char *) Anchor, 0, sizeof(API_Proc_Struct_t));
-    pthread_mutex_init(&GlobMutex, NULL);
-    pthread_mutex_lock(&GlobMutex);
     Anchor->Pid = getpid();
 
     // Get shared memory
     if ((Anchor->SharedMemP = attach_shared_memory()) == NULL) {
-        free((void *) Anchor);
-        Anchor = NULL;
-        pthread_mutex_unlock(&GlobMutex);
         OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to attach to "
                    "shared memory. Verify that the slot management "
                    "daemon is running, errno=%d\n", errno);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
     TRACE_DEBUG("Shared memory %p \n", Anchor->SharedMemP);
 
@@ -2806,11 +2815,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
                    "socket. Verify that the slot management daemon is "
                    "running.\n");
         TRACE_ERROR("Cannot attach to socket.\n");
-        detach_shared_memory(Anchor->SharedMemP);
-        free((void *) Anchor);
-        Anchor = NULL;
-        pthread_mutex_unlock(&GlobMutex);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error_shm;
     }
     // Initialize structure values
 
@@ -2819,12 +2825,9 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         //   free memory allocated
         //   return CKR_FUNCTION_FAILED
         //   return CKR_FUNCTION_NOT_SUPPORTED;
-        detach_shared_memory(Anchor->SharedMemP);
-        free((void *) Anchor);
-        Anchor = NULL;
-        pthread_mutex_unlock(&GlobMutex);
         TRACE_ERROR("Failed to register process with pkcsslotd.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error_shm;
     }
     //
     // load all the slot DLL's here
@@ -2838,13 +2841,21 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         }
 
     }
-    // Attempt to force C_Finalize to be called
-    // This causes Netscape to core dump since it unloads the module
-    //atexit(*Call_Finalize);
 
     pthread_mutex_unlock(&GlobMutex);
+    return CKR_OK;
 
-    return CKR_OK;              // Good return code.
+error_shm:
+    detach_shared_memory(Anchor->SharedMemP);
+
+error:
+    free((void *) Anchor);
+    Anchor = NULL;
+
+done:
+    pthread_mutex_unlock(&GlobMutex);
+
+    return rc;
 }                               // end of C_Initialize
 
 //------------------------------------------------------------------------

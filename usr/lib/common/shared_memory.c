@@ -284,6 +284,7 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
         strcpy(ctx->name, name);
         ctx->data_len = len;
         memset(ctx->data, 0, ctx->data_len);
+        ctx->ref = 0;
     }
     ctx->ref += 1;
 
@@ -301,7 +302,7 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
         rc = -errno;
         SYS_ERROR(errno, "Failed to sync shared memory \"%s\".\n", name);
         if (created)
-            sm_close(addr, 1);
+            sm_close(addr, 1, 0);
         goto done;
     }
     TRACE_DEVEL("open: ref = %d\n", ctx->ref);
@@ -318,8 +319,10 @@ done:
 /*
  * Close (unmap) a shared memory region. `destroy` indicates if the shared
  * memory should be destroyed if no other processes are using it.
+ * 'ignore_ref_count' indicates that the reference count in the shared memory
+ * should not be decremented (used during termination after a fork).
  */
-int sm_close(void *addr, int destroy)
+int sm_close(void *addr, int destroy, int ignore_ref_count)
 {
     int rc;
     int ref;
@@ -332,7 +335,10 @@ int sm_close(void *addr, int destroy)
         return -EINVAL;
     }
 
-    ref = --ctx->ref;
+    if (!ignore_ref_count)
+        ctx->ref--;
+    ref = ctx->ref;
+
     TRACE_DEVEL("close: ref = %d\n", ref);
     if (ref == 0 && destroy) {
         strncpy(name, ctx->name, SM_NAME_LEN + 1);

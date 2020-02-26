@@ -37,41 +37,10 @@
 #include "../api/apiproto.h"
 
 void SC_SetFunctionList(void);
+CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
+                  struct trace_handle_t *t, CK_BBOOL in_fork_initializer);
 
 CK_ULONG usage_count = 0;       /* track DLL usage */
-
-void Fork_Initializer(void)
-{
-
-
-    /* Force logout.  This cleans out the private session and list
-     * and cleans out the private object map
-     */
-    session_mgr_logout_all(NULL);
-
-    /* Clean out the public object map
-     * First parm is no longer used..
-     */
-    object_mgr_purge_map(NULL, (SESSION *) 0xFFFF, PUBLIC);
-    object_mgr_purge_map(NULL, (SESSION *) 0xFFFF, PRIVATE);
-
-    /* This should clear the entire session list out */
-    session_mgr_close_all_sessions();
-
-    /* Clean out the global login state variable
-     * When implemented...  Although logout_all should clear this up.
-     */
-
-    bt_destroy(&priv_token_obj_btree, call_free);
-    bt_destroy(&publ_token_obj_btree, call_free);
-
-    /* Need to do something to prevent the shared memory from
-     * having the objects loaded again.... The most likely place
-     * is in the obj_mgr file where the object is added to shared
-     * memory (object_mgr_add_to_shm) a query should be done to
-     * the appropriate object list....
-     */
-}
 
 /* verify that the mech specified is in the
  * mech list for this token...
@@ -105,33 +74,13 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
     if ((rc = check_user_and_group()) != CKR_OK)
         return rc;
 
-    /* assume that the upper API prevents multiple calls of initialize
-     * since that only happens on C_Initialize and that is the
-     * resonsibility of the upper layer..
-     */
-
-    /* If we're not already initialized, grab the mutex and do the
-     * initialization.  Check to see if another thread did so while we
-     * were waiting...
-     *
-     * One of the things we do during initialization is create the mutex
-     * for PKCS#11 operations; until we do so, we have to use the native
-     * mutex...
-     */
-    if (pthread_mutex_lock(&native_mutex)) {
-        rc = CKR_FUNCTION_FAILED;
-        TRACE_ERROR("Failed to lock mutex.\n");
-    }
-
-    /* SAB need to call Fork_Initializer here
-     * instead of at the end of the loop...
-     * it may also need to call destroy of the following 3 mutexes..
-     * it may not matter...
-     */
-    Fork_Initializer();
-
     /* set trace info */
     set_trace(t);
+
+    if (sltp->TokData != NULL) {
+        TRACE_ERROR("Already initialized.\n");
+        return CKR_CRYPTOKI_ALREADY_INITIALIZED;
+    }
 
     MY_CreateMutex(&pkcs_mutex);
     MY_CreateMutex(&obj_list_mutex);
@@ -145,7 +94,7 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
     sltp->TokData = (STDLL_TokData_t *) calloc(1, sizeof(STDLL_TokData_t));
     if (!sltp->TokData) {
         TRACE_ERROR("Allocating host memory failed.\n");
-        goto done;
+        return CKR_HOST_MEMORY;
     }
 
     if (strlen(sinfp->tokname)) {
@@ -156,7 +105,12 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         init_data_store((char *) PK_DIR, sltp->TokData->data_store);
     }
 
-    /* Initialize lock */
+    sltp->TokData->version = sinfp->version;
+    TRACE_DEVEL("Token version: %u.%u\n",
+                (unsigned int)(sinfp->version >> 16),
+                (unsigned int)(sinfp->version & 0xffff));
+
+    /* Initialize Lock */
     if (XProcLock_Init(sltp->TokData) != CKR_OK) {
         TRACE_ERROR("Thread lock failed.\n");
         rc = CKR_FUNCTION_FAILED;
@@ -188,6 +142,7 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         rc = icsftok_init(sltp->TokData, SlotNumber, sinfp->confname);
         if (rc != 0) {
             sltp->FcnList = NULL;
+            detach_shm(sltp->TokData, 0);
             if (sltp->TokData)
                 free(sltp->TokData);
             sltp->TokData = NULL;
@@ -228,9 +183,14 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
     (sltp->FcnList) = &function_list;
 
 done:
-    if (pthread_mutex_unlock(&native_mutex)) {
-        TRACE_ERROR("Failed to unlock mutex.\n");
-        rc = CKR_FUNCTION_FAILED;
+    if (rc != CKR_OK && sltp->TokData != NULL) {
+        if (sltp->TokData->initialized) {
+            SC_Finalize(sltp->TokData, SlotNumber, sinfp, NULL, 0);
+        } else {
+            CloseXProcLock(sltp->TokData);
+            free(sltp->TokData);
+            sltp->TokData = NULL;
+        }
     }
 
     return rc;
@@ -240,19 +200,17 @@ done:
  * need to close the adapters that are opened, and clear the other
  * stuff
  */
-CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp)
+CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp,
+                  struct trace_handle_t *t, CK_BBOOL in_fork_initializer)
 {
-    CK_RV rc;
+    CK_RV rc = CKR_OK;
 
     UNUSED(sid);
     UNUSED(sinfp);
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
+    if (t != NULL)
+        set_trace(*t);
 
-    /* If somebody else has taken care of things, leave... */
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -282,7 +240,7 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp)
     bt_destroy(&priv_token_obj_btree, NULL);
     bt_destroy(&publ_token_obj_btree, NULL);
 
-    detach_shm(tokdata);
+    detach_shm(tokdata, in_fork_initializer);
     /* close spin lock file */
     CloseXProcLock(tokdata);
 

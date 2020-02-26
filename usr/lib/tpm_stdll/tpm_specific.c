@@ -2352,16 +2352,25 @@ done:
     return CKR_OK;
 }
 
-CK_RV token_specific_final()
+CK_RV token_specific_final(STDLL_TokData_t *tokdata,
+                           CK_BBOOL in_fork_initializer)
 {
     TSS_RESULT result;
 
+    UNUSED(tokdata);
+
     TRACE_INFO("tpm %s running\n", __func__);
 
-    result = Tspi_Context_Close(tspContext);
-    if (result) {
-        TRACE_ERROR("Tspi_Context_Close failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
+    /*
+     * Only close the context if not in in_fork_initializer. If we close the
+     * context in a forked child process, this also closes the parent's context.
+     */
+    if (!in_fork_initializer) {
+        result = Tspi_Context_Close(tspContext);
+        if (result) {
+            TRACE_ERROR("Tspi_Context_Close failed. rc=0x%x\n", result);
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     clear_internal_structures();

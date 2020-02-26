@@ -32,8 +32,6 @@ extern char *pk_dir;
 extern MECH_LIST_ELEMENT mech_list[];
 extern CK_ULONG mech_list_len;
 
-extern pthread_mutex_t native_mutex;
-
 extern MUTEX pkcs_mutex, obj_list_mutex, login_mutex;
 
 extern struct btree sess_btree;
@@ -1827,7 +1825,7 @@ CK_RV _LockMutex(MUTEX *mutex);
 CK_RV _UnlockMutex(MUTEX *mutex);
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id);
-CK_RV detach_shm(STDLL_TokData_t *tokdata);
+CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);
 
 //get keytype
 CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,

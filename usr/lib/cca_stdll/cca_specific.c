@@ -433,8 +433,12 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     return CKR_OK;
 }
 
-CK_RV token_specific_final()
+CK_RV token_specific_final(STDLL_TokData_t *tokdata,
+                           CK_BBOOL in_fork_initializer)
 {
+    UNUSED(tokdata);
+    UNUSED(in_fork_initializer);
+
     TRACE_INFO("cca %s running\n", __func__);
 
     return CKR_OK;

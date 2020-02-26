@@ -75,8 +75,12 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     return CKR_OK;
 }
 
-CK_RV token_specific_final()
+CK_RV token_specific_final(STDLL_TokData_t *tokdata,
+                           CK_BBOOL token_specific_final)
 {
+    UNUSED(tokdata);
+    UNUSED(token_specific_final);
+
     TRACE_INFO("soft %s running\n", __func__);
 
     return CKR_OK;
