@@ -197,7 +197,7 @@ void tree_dump(struct btnode *n, int depth)
  * list, so no double freeing can occur
  */
 void *bt_node_free(struct btree *t, unsigned long node_num,
-                   void (*delete_func) (void *))
+                   void (*delete_func)(void *))
 {
     struct btnode *node = bt_get_node(t, node_num);
     void  *value = NULL;
@@ -218,37 +218,7 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
         }                       /* end transaction */
 
         if (delete_func)
-            (*delete_func) (value);
-    }
-
-    return value;
-}
-
-void *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
-                    unsigned long node_num,
-                    void (*delete_func) (STDLL_TokData_t *tokdata,
-                                                  void *))
-{
-    struct btnode *node = bt_get_node(t, node_num);
-    void *value = NULL;
-
-    if (node) {
-        value = node->value;
-
-        __transaction_atomic {  /* start transaction */
-            node->flags |= BT_FLAG_FREE;
-
-            /* add node to the free list,
-             * which is chained by using
-             * the value pointer
-             */
-            node->value = t->free_list;
-            t->free_list = node;
-            t->free_nodes++;
-        }                       /* end transaction */
-
-        if (delete_func)
-            (*delete_func) (tokdata, value);
+            delete_func(value);
     }
 
     return value;
@@ -307,7 +277,7 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
  * along the way.
  * Call @func on node->value before freeing the node.
  */
-void bt_destroy(struct btree *t, void (*func) (void *))
+void bt_destroy(struct btree *t, void (*delete_func)(void *))
 {
     unsigned long i;
     struct btnode *temp;
@@ -334,8 +304,8 @@ void bt_destroy(struct btree *t, void (*func) (void *))
          * freed here because the loop will iterate through each node,
          * freed or not.
          */
-        if (func && !(temp->flags & BT_FLAG_FREE))
-            (*func) (temp->value);
+        if (delete_func && !(temp->flags & BT_FLAG_FREE))
+            delete_func(temp->value);
 
         __transaction_atomic {  /* start transaction */
             free(temp);

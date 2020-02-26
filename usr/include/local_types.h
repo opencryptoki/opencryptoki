@@ -55,10 +55,7 @@ void bt_for_each_node(STDLL_TokData_t *, struct btree *t,
 unsigned long bt_nodes_in_use(struct btree *t);
 unsigned long bt_node_add(struct btree *t, void *value);
 void *bt_node_free(struct btree *t, unsigned long node_num,
-                   void (*delete_func) (void *));
-void *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
-                    unsigned long node_num,
-                    void (*delete_func) (STDLL_TokData_t *, void *));
-void bt_destroy(struct btree *t, void (*func) (void *));
+                   void (*delete_func)(void *));
+void bt_destroy(struct btree *t, void (*func)(void *));
 
 #endif
