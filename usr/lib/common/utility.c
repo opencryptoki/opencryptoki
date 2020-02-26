@@ -878,7 +878,7 @@ err:
     return rc;
 }
 
-CK_RV detach_shm(STDLL_TokData_t *tokdata)
+CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count)
 {
     CK_RV rc;
 
@@ -886,7 +886,7 @@ CK_RV detach_shm(STDLL_TokData_t *tokdata)
     if (rc != CKR_OK)
         goto err;
 
-    if (sm_close((void *) tokdata->global_shm, 0)) {
+    if (sm_close((void *) tokdata->global_shm, 0, ignore_ref_count)) {
         TRACE_DEVEL("sm_close failed.\n");
         rc = CKR_FUNCTION_FAILED;
         goto err;

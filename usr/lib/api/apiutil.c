@@ -194,9 +194,6 @@ CK_RV CloseAllSessions(CK_SLOT_ID slot_id)
     bt_for_each_node(sltp->TokData, &(Anchor->sess_btree), CloseMe,
                      (void *) &slot_id);
 
-    if (bt_is_empty(&(Anchor->sess_btree)))
-        bt_destroy(&(Anchor->sess_btree), NULL);
-
     if (APIUnLock(sltp) != CKR_OK)
         return CKR_CANT_LOCK;
 
@@ -319,34 +316,6 @@ int sessions_exist(CK_SLOT_ID slotID)
     ProcUnLock();
 
     return numSessions != 0;
-}
-
-// Terminates all sessions associated with a given process
-// this cleans up any lingering sessions with the process
-// and does not
-//
-// It is only called from the C_Finalize routine
-void Terminate_All_Process_Sessions()
-{
-    CK_SLOT_ID id;
-    CK_RV rv;
-
-    TRACE_DEBUG("Terminate_All_Process_Sessions\n");
-    for (id = 0; id < NUMBER_SLOTS_MANAGED; id++) {
-        // Check if the slot is present in the slot manager
-        // if not just skip it...
-        if (slot_present(id) == TRUE) {
-            rv = C_CloseAllSessions(id);
-        } else {
-            continue;
-        }
-        // If the return code is not OK, we are really hosed
-        // since we are terminating the session.
-        // For now we will just log it
-        if (rv != CKR_OK) {
-            TRACE_DEBUG("Terminate_All_Process_Sessions RV %lx\n", rv);
-        }
-    }
 }
 
 // Register the process with PKCSSLOTD in the shared memory.
@@ -596,9 +565,8 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 #else
     Slot_Info_t *sinfp;
 #endif
-
-    int (*pSTinit) ();
-    void (*pSTfini) ();
+    CK_RV (*pSTinit)(API_Slot_t *, CK_SLOT_ID, SLOT_INFO *,
+                     struct trace_handle_t);
     CK_RV rv;
     int dll_len, dl_index;
     DLL_Load_t *dllload;
@@ -672,9 +640,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     } else {
         sltp->DLLoaded = TRUE;
         // Check if a SC_Finalize function has been exported
-        *(void **)(&pSTfini) = dlsym(sltp->dlop_p, "SC_Finalize");
-        sltp->pSTfini = pSTfini;
-
+        *(void **)(&sltp->pSTfini) = dlsym(sltp->dlop_p, "SC_Finalize");
         *(void **)(&sltp->pSTcloseall) =
             dlsym(sltp->dlop_p, "SC_CloseAllSessions");
         return TRUE;

@@ -38,7 +38,7 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t *, CK_SLOT_ID slot_id,
 CK_RV token_specific_save_token_data(STDLL_TokData_t *, CK_SLOT_ID slot_id,
                                      FILE *fh);
 
-CK_RV token_specific_final(void);
+CK_RV token_specific_final(STDLL_TokData_t *, CK_BBOOL);
 CK_RV token_specific_init_token(STDLL_TokData_t *, CK_SLOT_ID, CK_CHAR_PTR,
                                 CK_ULONG, CK_CHAR_PTR);
 CK_RV token_specific_login(STDLL_TokData_t *, SESSION *, CK_USER_TYPE,
