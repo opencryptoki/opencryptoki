@@ -1353,7 +1353,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         modbytes = attr->ulValueLen;
     }
@@ -1361,7 +1362,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     emdata = (CK_BYTE *) malloc(modbytes);
     if (emdata == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     rc = emsa_pss_encode(tokdata, pssParms, in_data, in_data_len, emdata,
@@ -1379,6 +1381,9 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
 done:
     if (emdata)
         free(emdata);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1423,13 +1428,14 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-        return rc;
+        goto done;
     }
 
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         modbytes = attr->ulValueLen;
     }
@@ -1437,6 +1443,10 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     /* call the pss verify scheme */
     rc = emsa_pss_verify(tokdata, pssParms, in_data, in_data_len, out,
                          modbytes);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1680,7 +1690,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     modulus_bytes = attr->ulValueLen;
@@ -1691,7 +1702,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     em_data = (CK_BYTE *) malloc(modulus_bytes * sizeof(CK_BYTE));
     if (em_data == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     rc = encode_eme_oaep(tokdata, in_data, in_data_len, em_data,
@@ -1712,6 +1724,9 @@ done:
         OPENSSL_cleanse(em_data, modulus_bytes * sizeof(CK_BYTE));
         free(em_data);
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1746,7 +1761,8 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
 
     *out_data_len = attr->ulValueLen;
@@ -1754,7 +1770,8 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     decr_data = (CK_BYTE *) malloc(in_data_len);
     if (decr_data == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     rc = os_specific_rsa_decrypt(in_data, in_data_len, decr_data, key_obj);
@@ -1772,6 +1789,9 @@ error:
         OPENSSL_cleanse(decr_data, in_data_len);
         free(decr_data);
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2458,14 +2478,16 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
 
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, attr->pValue,
                                 attr->ulValueLen);
     if (pkey == NULL) {
         TRACE_ERROR("EVP_PKEY_new_mac_key() failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     mdctx = EVP_MD_CTX_create();
@@ -2515,7 +2537,11 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
 
     rc = CKR_OK;
 done:
-    EVP_PKEY_free(pkey);
+if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+
+    object_put(tokdata, key);
+    key = NULL;
     return rc;
 }
 

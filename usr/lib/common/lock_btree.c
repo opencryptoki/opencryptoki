@@ -43,7 +43,7 @@ static struct btnode *__bt_get_node(struct btree *t, unsigned long node_num)
 
     if (node_num == 1) {
         temp = t->top;
-	return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
+        return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
     }
 
     i = node_num;
@@ -83,6 +83,12 @@ struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
     return temp;
 }
 
+/*
+ * Get the value of the specified node. Returns NULL if the node has been
+ * deleted. Increases the value's reference counter to prevent it from being
+ * freed while in use. The caller needs to call bt_put_node_value() to
+ * decrease the reference counter when the value is no longer used.
+ */
 void *bt_get_node_value(struct btree *t, unsigned long node_num)
 {
     struct btnode *n;
@@ -102,8 +108,57 @@ void *bt_get_node_value(struct btree *t, unsigned long node_num)
     n = __bt_get_node(t, node_num);
     v = ((n) ? n->value : NULL);
 
+    if (v != NULL) {
+        ((struct bt_ref_hdr *)v)->ref++;
+
+        TRACE_DEBUG("bt_get_node_value: Btree: %p Value: %p Ref: %lu\n",
+                    (void *)t, v, ((struct bt_ref_hdr *)v)->ref);
+    }
+
     pthread_mutex_unlock(&t->mutex);
     return v;
+}
+
+/*
+ * Decrease the node values reference counter.
+ * If the reference counter reaches zero, then the btree's delete callback
+ * function is called to delete the value.
+ * Returns 1 of the value has been deleted, 0 otherwise.
+ */
+int bt_put_node_value(struct btree *t, void *value)
+{
+    int rc = 0;
+    unsigned long ref;
+
+    if (value == NULL)
+        return 0;
+
+    if (pthread_mutex_lock(&t->mutex)) {
+         TRACE_ERROR("BTree Lock failed.\n");
+         return 0;
+     }
+
+    if (((struct bt_ref_hdr *)value)->ref > 0) {
+        ref = --((struct bt_ref_hdr *)value)->ref;
+
+        TRACE_DEBUG("bt_put_node_value: Btree: %p Value: %p Ref: %lu\n",
+                    (void *)t, value, ((struct bt_ref_hdr *)value)->ref);
+    } else {
+        TRACE_WARNING("bt_put_node_value: BTree: %p Value %p Ref already 0.\n",
+                      (void *)t, value);
+        ref = 0;
+    }
+
+    pthread_mutex_unlock(&t->mutex);
+
+    if (ref == 0 && t->delete_func) {
+         TRACE_DEBUG("delete_func: Btree: %p Value: %p\n", (void *)t, value);
+
+         t->delete_func(value);
+         rc = 1;
+    }
+
+    return rc;
 }
 
 /* create a new node and set @parent_ptr to its location */
@@ -141,7 +196,11 @@ static unsigned long get_node_handle(struct btnode *node,
         return get_node_handle(node->parent, (handle_so_far << 1) + 1);
 }
 
-/* return node number (handle) of newly created node, or 0 for failure */
+/*
+ * Return node number (handle) of newly created node, or 0 for failure.
+ * Value must start with struct bt_ref_hdr to maintain the reference counter.
+ * The reference counter is initialized to 1.
+ */
 unsigned long bt_node_add(struct btree *t, void *value)
 {
     struct btnode *temp;
@@ -151,6 +210,11 @@ unsigned long bt_node_add(struct btree *t, void *value)
         TRACE_ERROR("BTree Lock failed.\n");
         return 0;
     }
+
+    ((struct bt_ref_hdr *)value)->ref = 1;
+
+    TRACE_DEBUG("bt_node_add: Btree: %p Value: %p Ref: %lu\n", (void *)t, value,
+                ((struct bt_ref_hdr *)value)->ref);
 
     temp = t->top;
 
@@ -236,8 +300,9 @@ void tree_dump(struct btnode *n, int depth)
 /*
  * bt_node_free
  *
- * Move @node_num in tree @t to the free list, calling the dbtree's delete
- * callback on its value first.
+ * Move @node_num in tree @t to the free list, decrease the value's reference
+ * counter, and if the reference counter reaches zero, calls the dbtree's
+ * delete callback on its value.
  * Return the deleted value. Note that if the callback routine frees
  * the value, then the returned value might have already been freed. You still
  * can use it as indication that it found the node_num in the tree and moved
@@ -247,7 +312,7 @@ void tree_dump(struct btnode *n, int depth)
  * list, so no double freeing can occur
  */
 void *bt_node_free(struct btree *t, unsigned long node_num,
-                   int call_delete_func)
+                   int put_value)
 {
     struct btnode *node;
     void *value = NULL;
@@ -276,12 +341,15 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
         node->value = t->free_list;
         t->free_list = node;
         t->free_nodes++;
+
+        TRACE_DEBUG("bt_node_free: Btree: %p Value: %p Ref: %lu\n", (void *)t,
+                    value, ((struct bt_ref_hdr *)value)->ref);
     }
 
     pthread_mutex_unlock(&t->mutex);
 
-    if (value && t->delete_func && call_delete_func)
-        t->delete_func(value);
+    if (value && put_value)
+        bt_put_node_value(t, value);
 
     return value;
 }
@@ -334,8 +402,8 @@ unsigned long bt_nodes_in_use(struct btree *t)
  *  p3 is passed through this function for the caller
  */
 void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
-                       (STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
-                        void *p3), void *p3)
+                      (STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
+                      void *p3), void *p3)
 {
     unsigned int i;
     void *value;
@@ -352,6 +420,9 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
 
         if (value) {
             (*func) (tokdata, value, i, p3);
+
+            bt_put_node_value(t, value);
+            value = NULL;
         }
     }
 }
@@ -392,8 +463,13 @@ void bt_destroy(struct btree *t)
          * freed here because the loop will iterate through each node,
          * freed or not.
          */
-        if (t->delete_func && !(temp->flags & BT_FLAG_FREE))
+        if (t->delete_func && !(temp->flags & BT_FLAG_FREE)) {
+
+            TRACE_DEBUG("bt_destroy: Btree: %p Value: %p Ref: %lu\n", (void *)t,
+                        temp->value, ((struct bt_ref_hdr *)temp->value)->ref);
+
             t->delete_func(temp->value);
+        }
 
         free(temp);
         t->size--;

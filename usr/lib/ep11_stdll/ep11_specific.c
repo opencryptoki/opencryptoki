@@ -2950,8 +2950,13 @@ static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
     if (!template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
         TRACE_ERROR("%s Could not find CKA_ECDSA_PARAMS for the key.\n",
                    __func__);
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
         return CK_FALSE;
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     for (i = 0; i < NUMEC; i++) {
         if ((memcmp(attr->pValue, der_ec_supported[i].data,
@@ -3360,6 +3365,9 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -3395,6 +3403,9 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -3483,6 +3494,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
     CK_ATTRIBUTE *opaque_attr = NULL;
+    OBJECT *base_key_obj = NULL;
     OBJECT *key_obj = NULL;
     CK_ULONG ktype;
     CK_ULONG class;
@@ -3576,7 +3588,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &key_obj);
+    rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize, &base_key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
         return rc;
@@ -3594,7 +3606,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Check key attributes for derived key failed with "
                     "rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto error;
     }
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
@@ -3610,7 +3622,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                     __func__, hBaseKey, rc, *handle, newblobsize);
-        return rc;
+        goto error;
     }
     TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                __func__, hBaseKey, rc, *handle, newblobsize);
@@ -3646,6 +3658,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
+
     return rc;
 
 error:
@@ -3654,6 +3669,10 @@ error:
     *handle = 0;
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
+
     return rc;
 }
 
@@ -5032,6 +5051,7 @@ static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 
 /* Returns a blob for a key handle.
  * The blob is created if none was build yet.
+ * The caller must put the returned kobj when no longer needed.
  */
 static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
                              CK_BYTE **blob, size_t *blobsize, OBJECT **kobj)
@@ -5050,8 +5070,12 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
 
     rc = obj_opaque_2_blob(tokdata, key_obj, blob, blobsize);
 
-    if (rc == CKR_OK)
+    if (rc == CKR_OK) {
         *kobj = key_obj;
+    } else {
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+    }
 
     return rc;
 }
@@ -5104,6 +5128,9 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
                    __func__, rc, keyblobsize, key, mech->mechanism);
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5218,6 +5245,9 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5255,7 +5285,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                                recover_mode ? CKA_VERIFY_RECOVER : CKA_VERIFY);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto done;
     }
 
     RETRY_START
@@ -5278,6 +5308,10 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
                    rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5380,7 +5414,7 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     rc = check_key_restriction(key_obj, CKA_VERIFY);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto done;
     }
 
     RETRY_START
@@ -5393,6 +5427,10 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5509,6 +5547,9 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5620,7 +5661,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     rc = check_key_restriction(key_obj, CKA_ENCRYPT);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto done;
     }
 
     RETRY_START
@@ -5634,6 +5675,10 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5716,11 +5761,17 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 
 error:
     if (ep11_state != NULL)
         free(ep11_state);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
     return rc;
 }
 
@@ -5775,8 +5826,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     CK_BYTE *wrap_target_blob;
     size_t wrap_target_blob_len;
-    int size_querry = 0;
-    OBJECT *key_obj = NULL;
+    int size_query = 0;
+    OBJECT *key_obj = NULL, *wrap_key_obj = NULL;
     CK_ATTRIBUTE *attr;
 
     /* ep11 weakness:
@@ -5784,7 +5835,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * (that is with a size query)
      */
     if (wrapped_key == NULL) {
-        size_querry = 1;
+        size_query = 1;
         *p_wrapped_key_len = MAX_BLOBSIZE;
         wrapped_key = malloc(MAX_BLOBSIZE);
         if (!wrapped_key) {
@@ -5795,11 +5846,11 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     /* the key that encrypts */
     rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
-                         &wrapping_blob_len, &key_obj);
+                         &wrapping_blob_len, &wrap_key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob(wrapping_key) failed with rc=0x%lx\n",
                     __func__, rc);
-        if (size_querry)
+        if (size_query)
             free(wrapped_key);
         return rc;
     }
@@ -5810,9 +5861,9 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__,
                     rc);
-        if (size_querry)
+        if (size_query)
             free(wrapped_key);
-        return rc;
+        goto done;
     }
 
     /* check if wrap mechanism is allowed for the key to be wrapped.
@@ -5821,7 +5872,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
         TRACE_ERROR("%s No CKA_CLASS attribute found in key template\n",
                     __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
     }
 
     if ((*(CK_OBJECT_CLASS *) attr->pValue != CKO_SECRET_KEY) &&
@@ -5829,7 +5881,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
          (mech->mechanism == CKM_AES_CBC))) {
         TRACE_ERROR("%s Wrap mechanism does not match to target key type\n",
                     __func__);
-        return CKR_KEY_NOT_WRAPPABLE;
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto done;
     }
 
     /* debug */
@@ -5855,8 +5908,15 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                    __func__, rc, (void *)wrapped_key, *p_wrapped_key_len);
     }
 
-    if (size_querry)
+    if (size_query)
         free(wrapped_key);
+
+done:
+    object_put(tokdata, wrap_key_obj);
+    wrap_key_obj = NULL;
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5915,7 +5975,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (!cla_attr || !keytype_attr) {
         TRACE_ERROR("%s CKA_CLASS or CKA_KEY_CLASS attributes not found\n",
                     __func__);
-        return CKR_TEMPLATE_INCONSISTENT;
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
     }
     switch (*(CK_KEY_TYPE *) cla_attr->pValue) {
     case CKO_SECRET_KEY:
@@ -5938,7 +5999,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         break;
     default:
         TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto error;
     }
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
@@ -5949,8 +6011,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * AES_ECB and AES_CBC only allowed to unwrap secret keys.
      */
     if ((*(CK_OBJECT_CLASS *) cla_attr->pValue != CKO_SECRET_KEY) &&
-        ((mech->mechanism == CKM_AES_ECB) || (mech->mechanism == CKM_AES_CBC)))
-        return CKR_ARGUMENTS_BAD;
+        ((mech->mechanism == CKM_AES_ECB) ||
+         (mech->mechanism == CKM_AES_CBC))) {
+        rc = CKR_ARGUMENTS_BAD;
+        goto error;
+    }
+
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
@@ -6080,6 +6146,9 @@ error:
 done:
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+
+    object_put(tokdata, kobj);
+    kobj = NULL;
 
     return rc;
 }

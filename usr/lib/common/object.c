@@ -609,6 +609,7 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
         *new_obj = obj;
     } else {
         template_free((*new_obj)->template);
+        memcpy(&obj->hdr, &(*new_obj)->hdr, sizeof(obj->hdr)); // Keep ref count!
         memcpy(*new_obj, obj, sizeof(OBJECT));
 
         free(obj);              // don't want to do object_free() here!

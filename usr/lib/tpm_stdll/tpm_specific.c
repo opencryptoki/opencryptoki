@@ -479,7 +479,7 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr = NULL, *new_attr, *prime_attr;
     CK_ULONG class, key_type;
     CK_BBOOL found;
-    OBJECT *obj;
+    OBJECT *obj = NULL;
 
     TSS_RESULT result;
     TSS_FLAG initFlags = 0;
@@ -496,20 +496,23 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
     found = template_attribute_find(obj->template, CKA_KEY_TYPE, &attr);
     if (found == FALSE) {
         TRACE_ERROR("template_attribute_find(CKA_KEY_TYPE) failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_type = *((CK_ULONG *) attr->pValue);
 
     if (key_type != CKK_RSA) {
         TRACE_ERROR("Bad key type!\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     found = template_attribute_find(obj->template, CKA_CLASS, &attr);
     if (found == FALSE) {
         TRACE_ERROR("template_attribute_find(CKA_CLASS) failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     class = *((CK_ULONG *) attr->pValue);
@@ -528,14 +531,16 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
             if (found == FALSE) {
                 TRACE_ERROR("Couldn't find prime1 or prime2 of"
                             " key object to wrap\n");
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto done;
             }
         }
 
         /* Make sure the public exponent is usable */
         if ((util_check_public_exponent(obj->template))) {
             TRACE_ERROR("Invalid public exponent\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
 
         /* get the modulus */
@@ -543,14 +548,16 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
         if (found == FALSE) {
             TRACE_ERROR("Couldn't find a required attribute of "
                         "key object\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         /* make sure the key size is usable */
         initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
         if (initFlags == 0) {
             TRACE_ERROR("Invalid key size.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
 
         /* generate the software based key */
@@ -562,13 +569,14 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
                                phKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_wrap_sw_key failed. rc=0x%lu\n", rc);
-            return rc;
+            goto done;
         }
     } else if (class == CKO_PUBLIC_KEY) {
         /* Make sure the public exponent is usable */
         if ((util_check_public_exponent(obj->template))) {
             TRACE_DEVEL("Invalid public exponent\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
 
         /* grab the modulus to put into the TSS key object */
@@ -576,14 +584,16 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
         if (found == FALSE) {
             TRACE_ERROR("Couldn't find a required attribute of "
                         "key object\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
 
         /* make sure the key size is usable */
         initFlags = util_get_keysize_flag(attr->ulValueLen * 8);
         if (initFlags == 0) {
             TRACE_ERROR("Invalid key size.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
         }
 
         initFlags |=
@@ -595,7 +605,8 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
         if (result) {
             TRACE_ERROR("Tspi_Context_CreateObject failed. " "rc=0x%x\n",
                         result);
-            return result;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         result = util_set_public_modulus(tpm_data->tspContext, *phKey,
@@ -604,11 +615,13 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
             TRACE_DEVEL("util_set_public_modulus failed: 0x%x\n", result);
             Tspi_Context_CloseObject(tpm_data->tspContext, *phKey);
             *phKey = NULL_HKEY;
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
     } else {
         TRACE_ERROR("Bad key class!\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* grab the entire key blob to put into the PKCS#11 object */
@@ -617,7 +630,8 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
                                 &ulBlobLen, &rgbBlob);
     if (result) {
         TRACE_ERROR("Tspi_GetAttribData failed with rc: 0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* insert the key blob into the object */
@@ -625,7 +639,7 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_atribute failed\n");
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
-        return rc;
+        goto done;
     }
     template_update_attribute(obj->template, new_attr);
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
@@ -636,7 +650,7 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get process lock.\n");
-            return rc;
+            goto done;
         }
         rc = save_token_object(tokdata, obj);
         if (rc != CKR_OK) {
@@ -645,10 +659,14 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
             rc = XProcUnLock(tokdata);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to release process lock.\n");
-                return rc;
+                goto done;
             }
         }
     }
+
+done:
+    object_put(tokdata, obj);
+    obj = NULL;
 
     return rc;
 }
@@ -1044,6 +1062,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
         free(key_id);
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1055,6 +1074,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         TRACE_DEVEL("build_attribute failed\n");
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1065,6 +1085,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1075,6 +1096,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1084,6 +1106,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
                          sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1093,6 +1116,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
                          &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1101,6 +1125,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = build_attribute(CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1109,6 +1134,7 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = build_attribute(CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
+        object_free(priv_key_obj);
         return rc;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
@@ -1116,6 +1142,8 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = object_mgr_create_final(tokdata, &dummy_sess, priv_key_obj, ckKey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_final failed.\n");
+        object_free(priv_key_obj);
+        priv_key_obj = NULL;
     }
 
     return rc;
@@ -1178,6 +1206,7 @@ CK_RV token_store_pub_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = build_attribute(CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build attribute failed.\n");
+        object_free(pub_key_obj);
         goto done;
     }
     template_update_attribute(pub_key_obj->template, new_attr);
@@ -1186,6 +1215,7 @@ CK_RV token_store_pub_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build attribute failed.\n");
+        object_free(pub_key_obj);
         goto done;
     }
     template_update_attribute(pub_key_obj->template, new_attr);
@@ -1193,6 +1223,8 @@ CK_RV token_store_pub_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
     rc = object_mgr_create_final(tokdata, &dummy_sess, pub_key_obj, ckKey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_final failed\n");
+        object_free(pub_key_obj);
+        pub_key_obj = NULL;
         goto done;
     }
 

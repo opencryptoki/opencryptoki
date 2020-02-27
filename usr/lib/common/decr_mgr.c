@@ -63,12 +63,14 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         rc = template_attribute_find(key_obj->template, CKA_DECRYPT, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_ENCRYPT for the key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         } else {
             flag = *(CK_BBOOL *) attr->pValue;
             if (flag != TRUE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
-                return CKR_KEY_FUNCTION_NOT_PERMITTED;
+                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                goto done;
             }
         }
     } else if (operation == OP_UNWRAP) {
@@ -76,26 +78,28 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to acquire  key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
-                return CKR_WRAPPING_KEY_HANDLE_INVALID;
-            else
-                return rc;
+                rc = CKR_WRAPPING_KEY_HANDLE_INVALID;
+            goto done;
         }
         // is key allowed to unwrap other keys?
         //
         rc = template_attribute_find(key_obj->template, CKA_UNWRAP, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_UNWRAP for the key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         } else {
             flag = *(CK_BBOOL *) attr->pValue;
             if (flag == FALSE) {
                 TRACE_ERROR("CKA_UNWRAP is set to FALSE.\n");
-                return CKR_KEY_FUNCTION_NOT_PERMITTED;
+                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                goto done;
             }
         }
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
     // is the mechanism supported?  is the key type correct?  is a
     // parameter present if required?  is the key size allowed?
@@ -107,19 +111,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES_ECB:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_DES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -127,32 +134,37 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         //
         //    if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE]
         //    & FCV_56_BIT_DES) == 0)
-        //       return CKR_MECHANISM_INVALID;
+        //       rc = CKR_MECHANISM_INVALID;
+        //       goto done;
 
         ctx->context_len = sizeof(DES_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
     case CKM_CDMF_ECB:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_CDMF) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -160,13 +172,15 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         //
         //    if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE]
         //    & FCV_CDMF_DES) == 0)
-        //       return CKR_MECHANISM_INVALID;
+        //       rc = CKR_MECHANISM_INVALID;
+        //       goto done;
 
         ctx->context_len = sizeof(DES_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
@@ -174,19 +188,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES_CBC_PAD:
         if (mech->ulParameterLen != DES_BLOCK_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_DES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -194,13 +211,15 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         //
         //    if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE]
         //    & FCV_56_BIT_DES) == 0)
-        //       return CKR_MECHANISM_INVALID;
+        //       rc = CKR_MECHANISM_INVALID;
+        //       goto done;
 
         ctx->context_len = sizeof(DES_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
@@ -208,19 +227,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_CDMF_CBC_PAD:
         if (mech->ulParameterLen != DES_BLOCK_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_CDMF) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -229,7 +251,8 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
@@ -238,18 +261,21 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES_OFB64:
         if (mech->ulParameterLen != DES_BLOCK_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if ((keytype != CKK_DES3)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -257,26 +283,30 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
     case CKM_DES3_ECB:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_DES3 && keytype != CKK_DES2) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -284,13 +314,15 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         //
         //    if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE]
         //    & FCV_TRIPLE_DES) == 0)
-        //       return CKR_MECHANISM_INVALID;
+        //       rc = CKR_MECHANISM_INVALID;
+        //       goto done;
 
         ctx->context_len = sizeof(DES_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
@@ -298,19 +330,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
         if (mech->ulParameterLen != DES_BLOCK_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_DES3 && keytype != CKK_DES2) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -318,31 +353,36 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         //
         //    if ((nv_FCV.FunctionCntlBytes[DES_FUNCTION_BYTE]
         //    & FCV_TRIPLE_DES) == 0)
-        //       return CKR_MECHANISM_INVALID;
+        //       rc = CKR_MECHANISM_INVALID;
+        //       goto done;
 
         ctx->context_len = sizeof(DES_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
     case CKM_RSA_PKCS_OAEP:
         if (mech->ulParameterLen == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         keytype = *(CK_KEY_TYPE *) attr->pValue;
         if (keytype != CKK_RSA) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            return CKR_KEY_TYPE_INCONSISTENT;
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
         // RSA cannot be used for multi-part operations
         //
@@ -353,18 +393,21 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_RSA_PKCS:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_RSA) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -377,19 +420,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         // XXX Copied from DES3, should be verified - KEY
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_AES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -397,7 +443,8 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(AES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
@@ -406,19 +453,22 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         // XXX Copied from DES3, should be verified - KEY
         if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         //
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_AES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -426,25 +476,29 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(AES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     case CKM_AES_CTR:
         if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS)) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         // is the key type correct?
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_AES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -452,24 +506,28 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(AES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     case CKM_AES_GCM:
         if (mech->ulParameterLen != sizeof(CK_GCM_PARAMS)) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_AES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -477,14 +535,16 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(AES_GCM_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_GCM_CONTEXT));
 
         rc = aes_gcm_init(tokdata, sess, ctx, mech, key_handle, 0);
         if (rc) {
             TRACE_ERROR("Could not initialize AES_GCM parms.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         break;
     case CKM_AES_OFB:
@@ -493,18 +553,21 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB128:
         if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_AES) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -512,13 +575,15 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = (CK_BYTE *) malloc(sizeof(AES_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     if ((mech->ulParameterLen > 0) || (mech->mechanism == CKM_AES_CTR) ||
@@ -526,14 +591,16 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
     } else if (mech->ulParameterLen > 0) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
     }
@@ -546,7 +613,13 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     ctx->multi = FALSE;
     ctx->active = TRUE;
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 //

@@ -2377,13 +2377,15 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     if (template_attribute_find(key->template,
                                 CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
     keylen = attr->ulValueLen;
     if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     switch (ctx->mech.mechanism) {
@@ -2409,7 +2411,8 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     TRACE_INFO("HMAC key length is %ld\n", keylen);
@@ -2427,7 +2430,8 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
             TRACE_ERROR("CSNBHMG (HMAC GENERATE) failed. "
                         "return:%ld, reason:%ld\n", return_code, reason_code);
             *sig_len = 0;
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         /* Copy the signature into the user supplied variable.
@@ -2446,18 +2450,24 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-            return CKR_SIGNATURE_INVALID;
+            rc = CKR_SIGNATURE_INVALID;
+            goto done;
         } else if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMV (HMAC VERIFY) failed. return:%ld,"
                         " reason:%ld\n", return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else if (reason_code != 0) {
             TRACE_WARNING("CSNBHMV (HMAC VERIFY) succeeded, but"
                           " returned reason:%ld\n", reason_code);
         }
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 CK_RV token_specific_hmac_sign(STDLL_TokData_t * tokdata, SESSION * sess,
@@ -2509,7 +2519,8 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     switch (ctx->mech.mechanism) {
@@ -2529,7 +2540,8 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         blocksz_mask = SHA512_BLOCK_SIZE_MASK;  // set to 127
         break;
     default:
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     cca_ctx = (struct cca_sha_ctx *) ctx->context;
@@ -2581,7 +2593,8 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
          */
         memcpy(cca_ctx->tail + cca_ctx->tail_len, in_data, in_data_len);
         cca_ctx->tail_len += in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
 send:
@@ -2655,6 +2668,10 @@ send:
 done:
     if (buffer)
         free(buffer);
+
+    object_put(tokdata, key);
+    key = NULL;
+
     return rc;
 }
 
@@ -2697,7 +2714,8 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     if (template_attribute_find(key->template,
                                 CKA_IBM_OPAQUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     cca_ctx = (struct cca_sha_ctx *) ctx->context;
@@ -2724,7 +2742,8 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         memcpy(rule_array, "HMAC    SHA-512 ", CCA_KEYWORD_SIZE * 2);
         break;
     default:
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     if (cca_ctx->part == CCA_HASH_PART_FIRST)
@@ -2749,7 +2768,8 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
             TRACE_ERROR("CSNBHMG (HMAC SIGN FINAL) failed. "
                         "return:%ld, reason:%ld\n", return_code, reason_code);
             *sig_len = 0;
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
         /* Copy the signature into the user supplied variable.
          * For hmac general mechs, only copy over the specified
@@ -2768,11 +2788,13 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-            return CKR_SIGNATURE_INVALID;
+            rc = CKR_SIGNATURE_INVALID;
+            goto done;
         } else if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMV (HMAC VERIFY) failed. return:%ld,"
                         " reason:%ld\n", return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else if (reason_code != 0) {
             TRACE_WARNING("CSNBHMV (HMAC VERIFY) succeeded, but"
                           " returned reason:%ld\n", reason_code);
@@ -2780,7 +2802,11 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
 
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 CK_RV token_specific_hmac_sign_final(STDLL_TokData_t * tokdata, SESSION * sess,

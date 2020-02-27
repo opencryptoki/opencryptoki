@@ -125,6 +125,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Mgr create final failed.\n");
         object_free(temp_obj);
+        temp_obj = NULL;
         return rc;
     }
 
@@ -164,7 +165,8 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &temp_attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         memset(x, 0, sizeof(x));
         x_len = temp_attr->ulValueLen;
@@ -175,7 +177,8 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(base_key_obj->template, CKA_PRIME, &temp_attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_PRIME in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         memset(p, 0, sizeof(p));
         p_len = temp_attr->ulValueLen;
@@ -190,6 +193,10 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                                          other_pubkey_len, x, x_len, p, p_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
+
+done:
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
 
     return rc;
 }

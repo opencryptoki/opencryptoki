@@ -363,7 +363,8 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -379,7 +380,7 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
-            return rc;
+            goto done;
         }
 
         hash_len = sizeof(hash);
@@ -387,7 +388,7 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            return rc;
+            goto done;
         }
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -420,21 +421,21 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA1_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -442,7 +443,7 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -452,20 +453,20 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA1_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -473,13 +474,17 @@ CK_RV sha1_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, hash, hmac_len);
     *out_data_len = hmac_len;
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 /** This routine gets called for two mechanisms actually:
@@ -544,7 +549,8 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -559,7 +565,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
-            return rc;
+            goto done;
         }
 
         hash_len = sizeof(hash);
@@ -567,7 +573,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            return rc;
+            goto done;
         }
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -600,21 +606,21 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA224_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -622,7 +628,7 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -632,20 +638,20 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA224_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -653,13 +659,17 @@ CK_RV sha224_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, hash, hmac_len);
     *out_data_len = hmac_len;
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 /** This routine gets called for two mechanisms actually:
@@ -724,7 +734,8 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -739,7 +750,7 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
-            return rc;
+            goto done;
         }
 
         hash_len = sizeof(hash);
@@ -747,7 +758,7 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            return rc;
+            goto done;
         }
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -780,21 +791,21 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA256_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -802,7 +813,7 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -812,20 +823,20 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA256_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -833,13 +844,17 @@ CK_RV sha256_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, hash, hmac_len);
     *out_data_len = hmac_len;
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 /** This routine gets called for two mechanisms actually:
@@ -905,7 +920,8 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -920,7 +936,7 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
-            return rc;
+            goto done;
         }
 
         hash_len = sizeof(hash);
@@ -928,7 +944,7 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            return rc;
+            goto done;
         }
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -961,21 +977,21 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA384_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -983,7 +999,7 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -993,20 +1009,20 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA384_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -1014,13 +1030,17 @@ CK_RV sha384_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, hash, hmac_len);
     *out_data_len = hmac_len;
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 /** This routine gets called for 6 mechanisms actually:
@@ -1095,7 +1115,8 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -1110,7 +1131,7 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
-            return rc;
+            goto done;
         }
 
         hash_len = sizeof(hash);
@@ -1118,7 +1139,7 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            return rc;
+            goto done;
         }
 
         memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
@@ -1151,21 +1172,21 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
                                   SHA512_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -1186,20 +1207,20 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
                                   SHA512_BLOCK_SIZE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Update failed.\n");
-        return rc;
+        goto done;
     }
 
     hash_len = sizeof(hash);
@@ -1207,13 +1228,17 @@ CK_RV sha512_hmac_sign(STDLL_TokData_t *tokdata,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Final failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, hash, hmac_len);
     *out_data_len = hmac_len;
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 CK_RV sha1_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,

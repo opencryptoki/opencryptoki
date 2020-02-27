@@ -60,7 +60,8 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find <the_attribute_name> in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
@@ -70,18 +71,21 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
     //
     if (class != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
     // check input data length restrictions.  Generic DSA works on the SHA-1
     // hash of the data so the input to the DSA operation must be 20 bytes
     //
     if (in_data_len != 20) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         *out_data_len = DSA_SIGNATURE_SIZE;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     rc = ckm_dsa_sign(tokdata, in_data, sig, key_obj);
@@ -89,6 +93,10 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
         memcpy(out_data, sig, DSA_SIGNATURE_SIZE);
         *out_data_len = DSA_SIGNATURE_SIZE;
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -123,27 +131,35 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
 
     if (class != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
     // check input data length restrictions
     //
     if (sig_len != DSA_SIGNATURE_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
     if (in_data_len != 20) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
 
     rc = ckm_dsa_verify(tokdata, signature, in_data, key_obj);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }

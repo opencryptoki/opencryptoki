@@ -1003,11 +1003,16 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
     rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-        return CKR_KEY_TYPE_INCONSISTENT;
+        rc = CKR_KEY_TYPE_INCONSISTENT;
     } else {
         *keytype = *(CK_KEY_TYPE *) attr->pValue;
-        return CKR_OK;
+        rc = CKR_OK;
     }
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 CK_RV check_user_and_group()

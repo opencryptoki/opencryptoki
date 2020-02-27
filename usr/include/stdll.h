@@ -26,6 +26,7 @@
 
 
 typedef struct {
+    struct bt_ref_hdr hdr;
     CK_SLOT_ID slotID;
     CK_SESSION_HANDLE sessionh;
 } ST_SESSION_T;

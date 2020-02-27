@@ -2056,6 +2056,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE);
 CK_RV session_mgr_new(STDLL_TokData_t *tokdata, CK_ULONG flags,
                       CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession);
 SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle);
+void session_mgr_put(STDLL_TokData_t *tokdata, SESSION *session);
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type);
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata);
 
@@ -2176,6 +2177,8 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
 // SAB FIXME FIXME
 CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
                               SESSION *sess, SESS_OBJ_TYPE type);
+
+CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj);
 
 /* structures used to hold arguments to callback functions triggered by either
  * bt_for_each_node or bt_node_free */

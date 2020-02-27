@@ -20,6 +20,11 @@ typedef unsigned int uint32;
 // typedef int            int32;
 
 
+/* Each node value must start with struct bt_ref_hdr */
+struct bt_ref_hdr {
+    unsigned long ref;
+};
+
 #define BT_FLAG_FREE 1
 
 /* Binary tree node
@@ -52,6 +57,7 @@ typedef struct API_Slot API_Slot_t;
 
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num);
 void *bt_get_node_value(struct btree *t, unsigned long node_num);
+int bt_put_node_value(struct btree *t, void *value);
 int bt_is_empty(struct btree *t);
 void bt_for_each_node(STDLL_TokData_t *, struct btree *t,
                       void (*)(STDLL_TokData_t *, void *, unsigned long,
