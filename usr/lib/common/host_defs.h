@@ -58,6 +58,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
 
 
 typedef struct _SESSION {
+    struct bt_ref_hdr hdr;
     CK_SESSION_HANDLE handle;
     CK_SESSION_INFO session_info;
 
@@ -171,6 +172,7 @@ typedef struct _TEMPLATE {
 
 
 typedef struct _OBJECT {
+    struct bt_ref_hdr hdr;
     CK_OBJECT_CLASS class;
     CK_BYTE name[8];            // for token objects
 
@@ -184,6 +186,7 @@ typedef struct _OBJECT {
 
 
 typedef struct _OBJECT_MAP {
+    struct bt_ref_hdr hdr;
     CK_OBJECT_HANDLE obj_handle;
     CK_BBOOL is_private;
     CK_BBOOL is_session_obj;

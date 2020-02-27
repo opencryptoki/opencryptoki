@@ -69,7 +69,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                                      &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_VERIFY_RECOVER for the key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
     } else {
         // is key allowed to verify signatures where the signature is an
@@ -77,13 +78,15 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         rc = template_attribute_find(key_obj->template, CKA_VERIFY, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_VERIFY for the key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
     }
     flag = *(CK_BBOOL *) attr->pValue;
     if (flag != TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     // is the mechanism supported?  is the key type correct?  is a
@@ -98,30 +101,34 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
             if (rc == FALSE) {
                 TRACE_ERROR("Could not find CKA_VERIFY for the key.\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
 
             rc = check_pss_params(mech, attr->ulValueLen);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("check_pss_params failed.\n");
-                return rc;
+                goto done;
             }
         } else {
             if (mech->ulParameterLen != 0) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_RSA) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -130,14 +137,16 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
         if (flag == FALSE) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a private key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
         // PKCS #11 doesn't allow multi-part RSA operations
         //
@@ -152,17 +161,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_ECDSA_SHA512:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_EC) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -171,14 +183,16 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
         if (flag == FALSE) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a public key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
 
         if (mech->mechanism == CKM_ECDSA) {
@@ -189,7 +203,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             ctx->context = (CK_BYTE *) malloc(sizeof(RSA_DIGEST_CONTEXT));
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto done;
             }
             memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
         }
@@ -203,17 +218,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_RSA_PKCS:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_RSA) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -222,20 +240,23 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
         if (flag == FALSE) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a public key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
         ctx->context_len = sizeof(RSA_DIGEST_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(RSA_DIGEST_CONTEXT));
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
         break;
@@ -247,24 +268,27 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         rc = check_pss_params(mech, attr->ulValueLen);
         if (rc != CKR_OK) {
             TRACE_DEVEL("check_pss_params failed.\n");
-            return rc;
+            goto done;
         }
 
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_RSA) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -273,20 +297,23 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
         if (flag == FALSE) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a public key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
         ctx->context_len = sizeof(DIGEST_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(ctx->context_len);
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, ctx->context_len);
         break;
@@ -294,17 +321,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DSA:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_DSA) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -313,14 +343,16 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
         if (flag == FALSE) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a public key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
         // PKCS #11 doesn't allow multi-part DSA operations
         //
@@ -332,17 +364,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_MD5_HMAC:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -360,17 +395,20 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_256_HMAC:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         } else {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
         }
 
@@ -385,7 +423,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         rc = hmac_verify_init(tokdata, sess, mech, key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to initialize hmac.\n");
-            return rc;
+            goto done;
         }
         break;
     case CKM_MD2_HMAC_GENERAL:
@@ -396,27 +434,32 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
 
             rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
                                          &attr);
             if (rc == FALSE) {
                 TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             } else {
                 keytype = *(CK_KEY_TYPE *) attr->pValue;
                 if (keytype != CKK_GENERIC_SECRET) {
                     TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                    return CKR_KEY_TYPE_INCONSISTENT;
+                    rc = CKR_KEY_TYPE_INCONSISTENT;
+                    goto done;
                 }
             }
 
@@ -439,56 +482,68 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc= CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA_1_HMAC_GENERAL) && (*param > 20)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA224_HMAC_GENERAL) && (*param > 28)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA256_HMAC_GENERAL) && (*param > 32)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA384_HMAC_GENERAL) && (*param > 48)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA512_HMAC_GENERAL) && (*param > 64)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA512_224_HMAC_GENERAL)
                 && (*param > 28)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             if ((mech->mechanism == CKM_SHA512_256_HMAC_GENERAL)
                 && (*param > 32)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
                                          &attr);
             if (rc == FALSE) {
                 TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             } else {
                 keytype = *(CK_KEY_TYPE *) attr->pValue;
                 if (keytype != CKK_GENERIC_SECRET) {
                     TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                    return CKR_KEY_TYPE_INCONSISTENT;
+                    rc = CKR_KEY_TYPE_INCONSISTENT;
+                    goto done;
                 }
             }
 
@@ -503,7 +558,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = hmac_verify_init(tokdata, sess, mech, key);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to initialize hmac.\n");
-                return rc;
+                goto done;
             }
         }
         break;
@@ -515,33 +570,38 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
             // Netscape sets the parameter == 16.  PKCS #11 limit is 8
             //
             if (mech->mechanism == CKM_SSL3_MD5_MAC) {
                 if (*param < 4 || *param > 16) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             }
 
             if (mech->mechanism == CKM_SSL3_SHA1_MAC) {
                 if (*param < 4 || *param > 20) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             }
 
             rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
             if (rc == FALSE) {
                 TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             } else {
                 class = *(CK_OBJECT_CLASS *) attr->pValue;
                 if (class != CKO_SECRET_KEY) {
                     TRACE_ERROR("This operation requires a secret key.\n");
-                    return CKR_KEY_FUNCTION_NOT_PERMITTED;
+                    rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                    goto done;
                 }
             }
 
@@ -549,7 +609,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             ctx->context = (CK_BYTE *) malloc(sizeof(SSL3_MAC_CONTEXT));
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto done;
             }
             memset(ctx->context, 0x0, sizeof(SSL3_MAC_CONTEXT));
         }
@@ -560,7 +621,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             if (mech->pParameter) {
                 if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
 
                 CK_MAC_GENERAL_PARAMS *param =
@@ -569,11 +631,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                     if (*param < 1 || *param > DES_BLOCK_SIZE) {
                         TRACE_ERROR("%s\n",
                                     ock_err(ERR_MECHANISM_PARAM_INVALID));
-                        return CKR_MECHANISM_PARAM_INVALID;
+                        rc = CKR_MECHANISM_PARAM_INVALID;
+                        goto done;
                     }
                 } else {
                     /* CKM_DES_MAC or CKM_DES3_MAC should not have params */
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             }
 
@@ -582,7 +646,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto done;
             }
             memset(ctx->context, 0x0, sizeof(DES_DATA_CONTEXT));
         }
@@ -592,7 +657,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         if (mech->pParameter) {
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
 
             CK_MAC_GENERAL_PARAMS *param =
@@ -601,11 +667,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 if (*param < 1 || *param > DES_BLOCK_SIZE) {
                     TRACE_ERROR("%s\n",
                                 ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             } else {
                 /* CKM_DES3_CMAC should not have params */
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
         }
 
@@ -614,7 +682,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(DES_CMAC_CONTEXT));
         break;
@@ -624,7 +693,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             if (mech->pParameter) {
                 if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
 
                 CK_MAC_GENERAL_PARAMS *param =
@@ -634,11 +704,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                     if (*param < 1 || *param > AES_BLOCK_SIZE) {
                         TRACE_ERROR("%s\n",
                                     ock_err(ERR_MECHANISM_PARAM_INVALID));
-                        return CKR_MECHANISM_PARAM_INVALID;
+                        rc = CKR_MECHANISM_PARAM_INVALID;
+                        goto done;
                     }
                 } else {
                     /* CKM_AES_MAC should not have params */
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             }
 
@@ -647,7 +719,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
             if (!ctx->context) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto done;
             }
             memset(ctx->context, 0x0, sizeof(AES_DATA_CONTEXT));
         }
@@ -657,7 +730,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         if (mech->pParameter) {
             if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
 
             CK_MAC_GENERAL_PARAMS *param =
@@ -667,11 +741,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 if (*param < 1 || *param > AES_BLOCK_SIZE) {
                     TRACE_ERROR("%s\n",
                                 ock_err(ERR_MECHANISM_PARAM_INVALID));
-                    return CKR_MECHANISM_PARAM_INVALID;
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
                 }
             } else {
                 /* CKM_AES_CMAC should not have params */
-                return CKR_MECHANISM_PARAM_INVALID;
+                rc = CKR_MECHANISM_PARAM_INVALID;
+                goto done;
             }
         }
 
@@ -680,13 +756,15 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
 
         if (!ctx->context) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memset(ctx->context, 0x0, sizeof(AES_CMAC_CONTEXT));
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
 
@@ -694,7 +772,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
     }
@@ -708,7 +787,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     ctx->active = TRUE;
     ctx->recover = recover_mode;
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 

@@ -55,17 +55,25 @@ CK_RV aes_ecb_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_aes_ecb_encrypt(tokdata, in_data, in_data_len,
-                               out_data, out_data_len, key);
+    rc = ckm_aes_ecb_encrypt(tokdata, in_data, in_data_len,
+                             out_data, out_data_len, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -102,17 +110,25 @@ CK_RV aes_ecb_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_aes_ecb_decrypt(tokdata, in_data, in_data_len,
-                               out_data, out_data_len, key);
+    rc = ckm_aes_ecb_decrypt(tokdata, in_data, in_data_len,
+                             out_data, out_data_len, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -149,17 +165,25 @@ CK_RV aes_cbc_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_aes_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
-                               out_data_len, ctx->mech.pParameter, key);
+    rc = ckm_aes_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+                             out_data_len, ctx->mech.pParameter, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -174,7 +198,6 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
 {
     OBJECT *key = NULL;
     CK_RV rc;
-
 
     if (!sess || !ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -195,17 +218,25 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
-                               out_data_len, ctx->mech.pParameter, key);
+    rc = ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+                             out_data_len, ctx->mech.pParameter, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -242,19 +273,22 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = padded_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < padded_len) {
         *out_data_len = padded_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     clear = (CK_BYTE *) malloc(padded_len);
     if (!clear) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     memcpy(clear, in_data, in_data_len);
 
@@ -265,6 +299,10 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
                              ctx->mech.pParameter, key);
 
     free(clear);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }
@@ -304,7 +342,8 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     //
     if (in_data_len % AES_BLOCK_SIZE != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     // the amount of cleartext after stripping the padding will actually be less
     // than the input bytes...
@@ -313,13 +352,15 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = padded_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     clear = (CK_BYTE *) malloc(padded_len);
     if (!clear) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     rc = ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
                              ctx->mech.pParameter, key);
@@ -330,6 +371,10 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     }
 
     free(clear);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }
@@ -364,20 +409,28 @@ CK_RV aes_ctr_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
 
-    return ckm_aes_ctr_encrypt(tokdata, in_data, in_data_len, out_data,
-                               out_data_len, (CK_BYTE *) aesctr->cb,
-                               (CK_ULONG) aesctr->ulCounterBits, key);
+    rc = ckm_aes_ctr_encrypt(tokdata, in_data, in_data_len, out_data,
+                             out_data_len, (CK_BYTE *) aesctr->cb,
+                             (CK_ULONG) aesctr->ulCounterBits, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -410,20 +463,28 @@ CK_RV aes_ctr_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     aesctr = (CK_AES_CTR_PARAMS *) ctx->mech.pParameter;
 
-    return ckm_aes_ctr_decrypt(tokdata, in_data, in_data_len, out_data,
-                               out_data_len, (CK_BYTE *) aesctr->cb,
-                               (CK_ULONG) aesctr->ulCounterBits, key);
+    rc = ckm_aes_ctr_decrypt(tokdata, in_data, in_data_len, out_data,
+                             out_data_len, (CK_BYTE *) aesctr->cb,
+                             (CK_ULONG) aesctr->ulCounterBits, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -477,6 +538,8 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -499,6 +562,9 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -557,6 +623,8 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous decryption operation first
@@ -577,6 +645,9 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -637,6 +708,8 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -663,6 +736,9 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -724,6 +800,8 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous decryption operation first
@@ -751,6 +829,9 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -820,6 +901,8 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -847,6 +930,9 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -918,6 +1004,8 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous decryption operation first
@@ -942,6 +1030,10 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 }
@@ -993,6 +1085,8 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         //copy all the leftover data  from the previous encryption operation
@@ -1012,6 +1106,9 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -1064,6 +1161,8 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         //copy all the leftover data  from the previous encryption operation
@@ -1083,6 +1182,9 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -1280,7 +1382,7 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = out_len;
-        return CKR_OK;
+        rc = CKR_OK;
     } else {
         memcpy(clear, context->data, context->len);
 
@@ -1289,9 +1391,12 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
 
         rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
-
-        return rc;
     }
+
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -1325,7 +1430,8 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     //
     if (context->len != AES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     // we don't know a priori how much data we'll be returning. we won't
     // know until after we decrypt it and strip the padding.  it's possible
@@ -1335,7 +1441,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = out_len;
-        return CKR_OK;
+        rc = CKR_OK;
     } else {
         rc = ckm_aes_cbc_decrypt(tokdata, context->data, AES_BLOCK_SIZE, clear,
                                  &out_len, ctx->mech.pParameter, key);
@@ -1348,9 +1454,13 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
 
             *out_data_len = out_len;
         }
-
-        return rc;
     }
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -1483,6 +1593,9 @@ CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -1540,7 +1653,8 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous encryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1561,6 +1675,10 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1610,6 +1728,9 @@ CK_RV aes_ofb_encrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         *out_data_len = context->len;
 
         return rc;
@@ -1653,6 +1774,9 @@ CK_RV aes_ofb_decrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1712,7 +1836,8 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous decryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1733,6 +1858,10 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1785,6 +1914,9 @@ CK_RV aes_ofb_decrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         *out_data_len = context->len;
 
         return rc;
@@ -1829,6 +1961,9 @@ CK_RV aes_cfb_encrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1888,7 +2023,8 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous encryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1910,6 +2046,10 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1962,6 +2102,9 @@ CK_RV aes_cfb_encrypt_final(STDLL_TokData_t *tokdata,
 
         *out_data_len = context->len;
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         return rc;
     }
 }
@@ -2004,6 +2147,9 @@ CK_RV aes_cfb_decrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2063,7 +2209,8 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous decryption operation first
         memcpy(cipher, context->data, context->len);
@@ -2085,6 +2232,10 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2136,6 +2287,9 @@ CK_RV aes_cfb_decrypt_final(STDLL_TokData_t *tokdata,
             TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
 
         *out_data_len = context->len;
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2198,6 +2352,9 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes mac failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         memcpy(out_data, ((AES_DATA_CONTEXT *) ctx->context)->iv, mac_len);
         *out_data_len = mac_len;
 
@@ -2243,7 +2400,8 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2262,6 +2420,10 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2321,6 +2483,10 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
 
         rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
                                       key_obj, context->iv);
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         if (rc != CKR_OK) {
             TRACE_DEVEL("Token Specific aes mac failed.\n");
             return rc;
@@ -2377,8 +2543,14 @@ CK_RV aes_mac_verify(STDLL_TokData_t *tokdata,
                                       key_obj,
                                       ((AES_DATA_CONTEXT *) ctx->context)->iv);
 
-        if (rc != CKR_OK)
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
+        if (rc != CKR_OK) {
             TRACE_DEVEL("Token specific aes mac failed.\n");
+            return rc;
+        }
+
         if (CRYPTO_memcmp(out_data, ((AES_DATA_CONTEXT *) ctx->context)->iv,
                           out_data_len) == 0)
             return CKR_OK;
@@ -2426,7 +2598,8 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2444,6 +2617,10 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2495,6 +2672,10 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
         }
         rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
                                       key_obj, context->iv);
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         if (rc != CKR_OK) {
             TRACE_DEVEL("Token specific aes mac failed.\n");
             return rc;
@@ -2551,11 +2732,17 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
                                    ((AES_CMAC_CONTEXT *)ctx->context)->iv,
                                    CK_TRUE, CK_TRUE,
                                    &((AES_CMAC_CONTEXT *)ctx->context)->ctx);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific aes cmac failed.\n");
+        goto done;
+    }
 
     memcpy(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv, mac_len);
     *out_data_len = mac_len;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2600,7 +2787,8 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2623,6 +2811,10 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2674,11 +2866,15 @@ CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata,
                                    &context->ctx);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Token Specific aes cmac failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, context->iv, mac_len);
     *out_data_len = mac_len;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2721,8 +2917,14 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
                                    CK_TRUE, CK_TRUE,
                                    &((AES_CMAC_CONTEXT *)ctx->context)->ctx);
 
-    if (rc != CKR_OK)
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific aes cmac failed.\n");
+        return rc;
+    }
+
     if (CRYPTO_memcmp(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
         return CKR_OK;
@@ -2772,7 +2974,8 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2794,6 +2997,10 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2836,6 +3043,10 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
                                    key_obj, context->iv,
                                    !context->initialized, CK_TRUE,
                                    &context->ctx);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific aes mac failed.\n");
         return rc;

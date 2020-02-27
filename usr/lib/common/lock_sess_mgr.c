@@ -27,7 +27,10 @@
 // session_mgr_find()
 //
 // search for the specified session. returning a pointer to the session
-// might be dangerous, but performs well
+// might be dangerous, but performs well.
+//
+// The returned session must be put back (using bt_put_node_value()) by the
+// caller to decrease the reference count!
 //
 // Returns:  SESSION * or NULL
 //
@@ -44,6 +47,10 @@ SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle)
     return result;
 }
 
+void session_mgr_put(STDLL_TokData_t *tokdata, SESSION *session)
+{
+    bt_put_node_value(&tokdata->sess_btree, session);
+}
 
 // session_mgr_new()
 //
@@ -251,6 +258,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
 
     if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
         TRACE_ERROR("Write Lock failed.\n");
+        bt_put_node_value(&tokdata->sess_btree, sess);
+        sess = NULL;
         return CKR_CANT_LOCK;
     }
 
@@ -297,6 +306,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (sess->verify_ctx.mech.pParameter)
         free(sess->verify_ctx.mech.pParameter);
 
+    bt_put_node_value(&tokdata->sess_btree, sess);
+    sess = NULL;
     bt_node_free(&tokdata->sess_btree, handle, TRUE);
 
     // XXX XXX  Not having this is a problem

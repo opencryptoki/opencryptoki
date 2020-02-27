@@ -126,6 +126,7 @@ struct session_state {
 
 /* Each element of the btree objects should have this type: */
 struct icsf_object_mapping {
+    struct bt_ref_hdr hdr;
     CK_SESSION_HANDLE session_id;
     struct icsf_object_record icsf_object;
 };
@@ -1096,12 +1097,18 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
             continue;
 
         /* Skip object from other sessions */
-        if (mapping->session_id != session_state->session_id)
+        if (mapping->session_id != session_state->session_id) {
+            bt_put_node_value(&icsf_data->objects, mapping);
+            mapping = NULL;
             continue;
+        }
 
         /* Skip token objects */
-        if (mapping->icsf_object.id != ICSF_SESSION_OBJECT)
+        if (mapping->icsf_object.id != ICSF_SESSION_OBJECT) {
+            bt_put_node_value(&icsf_data->objects, mapping);
+            mapping = NULL;
             continue;
+        }
 
         if ((rc = icsf_destroy_object(session_state->ld, &reason,
                                       &mapping->icsf_object))) {
@@ -1110,8 +1117,13 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
                         mapping->icsf_object.token_name,
                         mapping->icsf_object.sequence, mapping->icsf_object.id);
             rc = icsf_to_ock_err(rc, reason);
+            bt_put_node_value(&icsf_data->objects, mapping);
+            mapping = NULL;
             break;
         }
+
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
 
         /* Remove object from object list */
         bt_node_free(&icsf_data->objects, i, TRUE);
@@ -1464,6 +1476,11 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
     *dst = node_number;
 
 done:
+    if (mapping_src) {
+        bt_put_node_value(&icsf_data->objects, mapping_src);
+        mapping_src = NULL;
+    }
+
     /* If allocated, object must be freed in case of failure */
     if (rc && mapping_dst)
         free(mapping_dst);
@@ -1995,6 +2012,7 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
     struct icsf_multi_part_context *multi_part_ctx = NULL;
     size_t block_size = 0;
     int symmetric = 0;
+    struct icsf_object_mapping *mapping = NULL;
 
     /* Check session */
     if (!get_session_state(tokdata, session->handle)) {
@@ -2008,12 +2026,13 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
         goto done;
 
     /* Check if key exists */
-    if (!bt_get_node_value(&icsf_data->objects, key)) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, key))) {
         rc = CKR_KEY_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
-    }
-    if (rc != CKR_OK)
         goto done;
+    }
+    bt_put_node_value(&icsf_data->objects, mapping);
+    mapping = NULL;
 
         /** validate the mechanism parameter length here */
     if ((rc = validate_mech_parameters(mech)))
@@ -2096,7 +2115,7 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     CK_BBOOL is_length_only = (output_data == NULL);
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     int reason = 0;
@@ -2131,9 +2150,8 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     if (!(mapping = bt_get_node_value(&icsf_data->objects, encr_ctx->key))) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
-    }
-    if (rc != CKR_OK)
         goto done;
+    }
 
     /* Encrypt data using remote token. */
     if (symmetric) {
@@ -2171,6 +2189,11 @@ CK_RV icsftok_encrypt(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && is_length_only))
         free_encr_ctx(encr_ctx);
 
@@ -2191,7 +2214,7 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
     struct icsf_multi_part_context *multi_part_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_ULONG total, remaining;
@@ -2345,6 +2368,11 @@ keep_remaining_data:
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     /* Free resources */
     if (buffer)
         free(buffer);
@@ -2368,7 +2396,7 @@ CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
     ENCR_DECR_CONTEXT *encr_ctx = &session->encr_ctx;
     struct icsf_multi_part_context *multi_part_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     int chaining;
@@ -2463,6 +2491,11 @@ CK_RV icsftok_encrypt_final(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if ((is_length_only && rc != CKR_OK) ||
         (!is_length_only && rc != CKR_BUFFER_TOO_SMALL))
         free_encr_ctx(encr_ctx);
@@ -2483,6 +2516,7 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
     struct icsf_multi_part_context *multi_part_ctx = NULL;
     size_t block_size = 0;
     int symmetric = 0;
+    struct icsf_object_mapping *mapping = NULL;
 
     /* Check session */
     if (!get_session_state(tokdata, session->handle)) {
@@ -2496,11 +2530,13 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
         goto done;
 
     /* Check if key exists */
-    if (!bt_get_node_value(&icsf_data->objects, key)) {
+    if (!(mapping = bt_get_node_value(&icsf_data->objects, key))) {
         rc = CKR_KEY_HANDLE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         goto done;
     }
+    bt_put_node_value(&icsf_data->objects, mapping);
+    mapping = NULL;
 
         /** validate the mechanism parameter length here */
     if ((rc = validate_mech_parameters(mech)))
@@ -2583,7 +2619,7 @@ CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
     CK_BBOOL is_length_only = (output_data == NULL);
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     int reason = 0;
@@ -2657,6 +2693,11 @@ CK_RV icsftok_decrypt(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && is_length_only))
         free_encr_ctx(decr_ctx);
 
@@ -2677,7 +2718,7 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
     struct icsf_multi_part_context *multi_part_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     CK_ULONG total, remaining;
@@ -2847,6 +2888,11 @@ keep_remaining_data:
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     /* Free resources */
     if (buffer)
         free(buffer);
@@ -2870,7 +2916,7 @@ CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
     ENCR_DECR_CONTEXT *decr_ctx = &session->decr_ctx;
     struct icsf_multi_part_context *multi_part_ctx;
     struct session_state *session_state;
-    struct icsf_object_mapping *mapping;
+    struct icsf_object_mapping *mapping = NULL;
     char chain_data[ICSF_CHAINING_DATA_LEN] = { 0, };
     size_t chain_data_len = sizeof(chain_data);
     int chaining;
@@ -2965,6 +3011,11 @@ CK_RV icsftok_decrypt_final(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if ((is_length_only && rc != CKR_OK) ||
         (!is_length_only && rc != CKR_BUFFER_TOO_SMALL))
         free_encr_ctx(decr_ctx);
@@ -3052,6 +3103,11 @@ CK_RV icsftok_get_attribute_value(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     return rc;
 }
 
@@ -3127,6 +3183,11 @@ CK_RV icsftok_set_attribute_value(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     return rc;
 }
 
@@ -3244,8 +3305,12 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                &mapping->icsf_object,
                                sizeof(struct icsf_object_record)) == 0) {
                         node_number = j;
+                        bt_put_node_value(&icsf_data->objects, mapping);
+                        mapping = NULL;
                         break;
                     }
+                    bt_put_node_value(&icsf_data->objects, mapping);
+                    mapping = NULL;
                 } else {
                     continue;
                 }
@@ -3345,10 +3410,17 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
         goto done;
     }
 
+    bt_put_node_value(&icsf_data->objects, mapping);
+    mapping = NULL;
+
     /* Now remove the object from the object btree */
     bt_node_free(&icsf_data->objects, handle, TRUE);
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
     return rc;
 }
 
@@ -3554,6 +3626,10 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
     ctx->active = TRUE;
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
     if (rc != CKR_OK)
         free_sv_ctx(ctx);
 
@@ -3680,6 +3756,10 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
     if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && length_only))
         free_sv_ctx(ctx);
 
@@ -3836,6 +3916,10 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
     if (rc != CKR_OK)
         free_sv_ctx(ctx);
 
@@ -3964,6 +4048,10 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
     if (rc != CKR_BUFFER_TOO_SMALL && !(rc == CKR_OK && length_only))
         free_sv_ctx(ctx);
 
@@ -4008,7 +4096,8 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
          */
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         multi = FALSE;
         break;
@@ -4022,7 +4111,8 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
          */
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         multi = TRUE;
         break;
@@ -4033,12 +4123,14 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
 
         if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         if (((mech->mechanism == CKM_SSL3_MD5_MAC) && (*param != 16)) ||
             ((mech->mechanism == CKM_SSL3_SHA1_MAC) && (*param != 20))) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
 
         multi = TRUE;
@@ -4055,14 +4147,16 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
          */
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         multi = TRUE;
         datacaching = TRUE;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     /* Initialize ctx */
@@ -4125,6 +4219,11 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
     ctx->active = TRUE;
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if (rc != CKR_OK)
         free_sv_ctx(ctx);
 
@@ -4221,6 +4320,11 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     free_sv_ctx(ctx);
     return rc;
 }
@@ -4373,6 +4477,11 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     if (rc != CKR_OK)
         free_sv_ctx(ctx);
 
@@ -4486,6 +4595,11 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (mapping) {
+        bt_put_node_value(&icsf_data->objects, mapping);
+        mapping = NULL;
+    }
+
     free_sv_ctx(ctx);
 
     return rc;
@@ -4500,7 +4614,7 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
                        CK_BYTE_PTR wrapped_key, CK_ULONG_PTR p_wrapped_key_len)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
-    int rc;
+    int rc = CKR_OK;
     int reason = 0;
     struct session_state *session_state;
     struct icsf_object_mapping *wrapping_key_mapping = NULL;
@@ -4524,7 +4638,8 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
     key_mapping = bt_get_node_value(&icsf_data->objects, key);
     if (!wrapping_key_mapping || !key_mapping) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
-        return CKR_KEY_HANDLE_INVALID;
+        rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
     }
 
     /* validate mechanism parameters. Only 4 mechanisms support
@@ -4534,26 +4649,29 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
         if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
-            return rc;
+            goto done;
 
         if (mech->ulParameterLen != expected_block_size) {
             TRACE_ERROR("Invalid mechanism parameter length: %lu "
                         "(expected %lu)\n",
                         (unsigned long) mech->ulParameterLen,
                         (unsigned long) expected_block_size);
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         break;
     case CKM_RSA_PKCS:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         break;
     default:
         TRACE_ERROR("icsf invalid %lu mechanism for key wrapping\n",
                     mech->mechanism);
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     /* Call ICSF service */
@@ -4563,10 +4681,21 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
                        p_wrapped_key_len);
     if (rc) {
         TRACE_DEVEL("icsf_wrap_key failed\n");
-        return icsf_to_ock_err(rc, reason);
+        rc = icsf_to_ock_err(rc, reason);
+        goto done;
     }
 
-    return CKR_OK;
+done:
+    if (wrapping_key_mapping) {
+        bt_put_node_value(&icsf_data->objects, wrapping_key_mapping);
+        wrapping_key_mapping = NULL;
+    }
+    if (key_mapping) {
+        bt_put_node_value(&icsf_data->objects, key_mapping);
+        key_mapping = NULL;
+    }
+
+    return rc;
 }
 
 /*
@@ -4610,7 +4739,8 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     /* Allocate structure to keep ICSF object information */
     if (!(key_mapping = malloc(sizeof(*key_mapping)))) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     memset(key_mapping, 0, sizeof(*key_mapping));
     key_mapping->session_id = session->handle;
@@ -4621,32 +4751,30 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
-        if ((rc = icsf_block_size(mech->mechanism, &expected_block_size))) {
-            free(key_mapping);
-            return rc;
-        }
+        if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
+            goto done;
 
         if (mech->ulParameterLen != expected_block_size) {
             TRACE_ERROR("Invalid mechanism parameter length: %lu "
                         "(expected %lu)\n",
                         (unsigned long) mech->ulParameterLen,
                         (unsigned long) expected_block_size);
-            free(key_mapping);
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         break;
     case CKM_RSA_PKCS:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            free(key_mapping);
-            return CKR_MECHANISM_PARAM_INVALID;
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
         }
         break;
     default:
         TRACE_ERROR("icsf invalid %lu mechanism for key wrapping\n",
                     mech->mechanism);
-        free(key_mapping);
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     /* Call ICSF service */
@@ -4671,6 +4799,11 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     *p_key = node_number;
 
 done:
+    if (wrapping_key_mapping) {
+        bt_put_node_value(&icsf_data->objects, wrapping_key_mapping);
+        wrapping_key_mapping = NULL;
+    }
+
     /* If allocated, object must be freed in case of failure */
     if (rc && key_mapping)
         free(key_mapping);
@@ -4689,7 +4822,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     struct session_state *session_state;
-    struct icsf_object_mapping *base_key_mapping;
+    struct icsf_object_mapping *base_key_mapping = NULL;
     CK_ULONG node_number;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
     CK_SSL3_KEY_MAT_PARAMS *params = { 0 };
@@ -4809,6 +4942,11 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (base_key_mapping) {
+        bt_put_node_value(&icsf_data->objects, base_key_mapping);
+        base_key_mapping = NULL;
+    }
+
     /* If allocated, object must be freed in case of failure */
     if (rc) {
         for (i = 0; i < sizeof(mappings) / sizeof(*mappings); i++)

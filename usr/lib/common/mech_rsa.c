@@ -352,34 +352,39 @@ CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (in_data_len > (modulus_bytes - 11)) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
 
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
     // this had better be a public key
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     if (token_specific.t_rsa_encrypt == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_encrypt(tokdata, in_data, in_data_len, out_data,
@@ -388,6 +393,9 @@ CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa encrypt failed.\n");
 
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
     return rc;
 }
 
@@ -421,37 +429,42 @@ CK_RV rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (in_data_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         // this is not exact but it's the upper bound; otherwise we'll need
         // to do the RSA operation just to get the required length
         //
         *out_data_len = modulus_bytes - 11;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < (modulus_bytes - 11)) {
         *out_data_len = modulus_bytes - 11;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
     // this had better be a private key
     if (keyclass != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_decrypt == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_decrypt(tokdata, in_data, in_data_len, out_data,
@@ -460,10 +473,15 @@ CK_RV rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         if (rc == CKR_DATA_LEN_RANGE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-            return CKR_ENCRYPTED_DATA_LEN_RANGE;
+            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+            goto done;
         }
         TRACE_DEVEL("Token Specific rsa decrypt failed.\n");
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -496,18 +514,21 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /*
@@ -523,7 +544,8 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     if (!(oaepParms->source) && (oaepParms->pSourceData ||
                                  oaepParms->ulSourceDataLen)) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_PARAM_INVALID;
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
     }
 
     /* verify hashAlg now as well as get hash size. */
@@ -531,13 +553,15 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = get_sha_size(oaepParms->hashAlg, &hlen);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_PARAM_INVALID;
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
     }
 
     /* modulus size should be >= 2*hashsize+2 */
     if (modulus_bytes < (2 * hlen + 2)) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
-        return CKR_KEY_SIZE_RANGE;
+        rc = CKR_KEY_SIZE_RANGE;
+        goto done;
     }
 
     /* hash the label now */
@@ -546,21 +570,26 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
     else
         rc = compute_sha(tokdata, oaepParms->pSourceData,
                          oaepParms->ulSourceDataLen, hash, oaepParms->hashAlg);
+    if (rc != CKR_OK)
+        goto done;
 
     if (encrypt) {
         if (in_data_len > (modulus_bytes - 2 * hlen - 2)) {
             TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-            return CKR_DATA_LEN_RANGE;
+            rc = CKR_DATA_LEN_RANGE;
+            goto done;
         }
         // this had better be a public key
         if (keyclass != CKO_PUBLIC_KEY) {
             TRACE_ERROR("This operation requires a public key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
 
         if (token_specific.t_rsa_oaep_encrypt == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
         }
 
         rc = token_specific.t_rsa_oaep_encrypt(tokdata, ctx, in_data,
@@ -570,17 +599,20 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
         // decrypt
         if (in_data_len != modulus_bytes) {
             TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-            return CKR_ENCRYPTED_DATA_LEN_RANGE;
+            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+            goto done;
         }
         // this had better be a private key
         if (keyclass != CKO_PRIVATE_KEY) {
             TRACE_ERROR("This operation requires a private key.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
         }
 
         if (token_specific.t_rsa_oaep_decrypt == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
         }
 
         rc = token_specific.t_rsa_oaep_decrypt(tokdata, ctx, in_data,
@@ -590,6 +622,10 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa oaep decrypt failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -624,35 +660,40 @@ CK_RV rsa_pkcs_sign(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (in_data_len > (modulus_bytes - 11)) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
     // this had better be a private key
     //
     if (keyclass != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_sign == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_sign(tokdata, sess, in_data, in_data_len,
@@ -660,6 +701,10 @@ CK_RV rsa_pkcs_sign(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa sign failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -692,31 +737,38 @@ CK_RV rsa_pkcs_verify(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (sig_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
     // verifying is a public key operation
     //
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_verify == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_verify(tokdata, sess, in_data, in_data_len,
                                      signature, sig_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa verify failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -754,35 +806,43 @@ CK_RV rsa_pkcs_verify_recover(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (sig_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes - 11;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     /* this had better be a public key */
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_verify_recover == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_verify_recover(tokdata, signature, sig_len,
                                              out_data, out_data_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa verify failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -817,7 +877,7 @@ CK_RV rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // CKM_RSA_X_509 requires input data length to be no bigger than the modulus
     //
@@ -827,31 +887,39 @@ CK_RV rsa_x509_encrypt(STDLL_TokData_t *tokdata,
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /* this had better be a public key */
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_x509_encrypt == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_x509_encrypt(tokdata, in_data, in_data_len,
                                            out_data, out_data_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa x509 encrypt failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -886,17 +954,19 @@ CK_RV rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (in_data_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
     // Although X.509 prepads with zeros, we don't strip it after
     // decryption (PKCS #11 specifies that X.509 decryption is supposed
@@ -905,19 +975,22 @@ CK_RV rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /* this had better be a private key */
     if (keyclass != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_x509_encrypt == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_x509_decrypt(tokdata, in_data, in_data_len,
@@ -929,8 +1002,13 @@ CK_RV rsa_x509_decrypt(STDLL_TokData_t *tokdata,
     //
     if (rc == CKR_DATA_LEN_RANGE) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc =  CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -968,40 +1046,49 @@ CK_RV rsa_x509_sign(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (in_data_len > modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /* this had better be a private key */
     if (keyclass != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_x509_sign == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
     rc = token_specific.t_rsa_x509_sign(tokdata, in_data, in_data_len, out_data,
                                         out_data_len, key_obj);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa x509 sign failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1035,25 +1122,28 @@ CK_RV rsa_x509_verify(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (sig_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
 
     /* this had better be a public key */
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_x509_verify == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
     // verify is a public key operation --> encrypt
     //
@@ -1061,6 +1151,10 @@ CK_RV rsa_x509_verify(STDLL_TokData_t *tokdata,
                                           signature, sig_len, key_obj);
     if (rc != CKR_OK)
         TRACE_ERROR("Token Specific rsa x509 verify failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1098,7 +1192,7 @@ CK_RV rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
@@ -1108,26 +1202,30 @@ CK_RV rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
     }
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
     // we perform no stripping of prepended zero bytes here
     //
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /* this had better be a public key */
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* check for token specific call first */
     if (token_specific.t_rsa_x509_verify_recover == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
     // verify is a public key operation --> encrypt
     //
@@ -1136,6 +1234,10 @@ CK_RV rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
                                                   key_obj);
     if (rc != CKR_OK)
         TRACE_ERROR("Token Specific rsa x509 verify recover.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1170,12 +1272,13 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
 
     if (length_only == TRUE) {
         *out_data_len = modulus_bytes;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     /* verify hashAlg now as well as get hash size. */
@@ -1184,7 +1287,8 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = get_sha_size(pssParms->hashAlg, &hlen);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_PARAM_INVALID;
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
     }
 
     /* pkcs#11v2.2, 12.1.10 states that this mechanism does not
@@ -1193,30 +1297,38 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
      */
     if (in_data_len != hlen) {
         TRACE_ERROR("%s\n", ock_err(CKR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
     }
 
     if (*out_data_len < modulus_bytes) {
         *out_data_len = modulus_bytes;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     /* this had better be a private key */
     if (keyclass != CKO_PRIVATE_KEY) {
         TRACE_ERROR("This operation requires a private key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     if (token_specific.t_rsa_pss_sign == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_pss_sign(tokdata, sess, ctx, in_data, in_data_len,
                                        out_data, out_data_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token Specific rsa pss sign failed.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1244,30 +1356,37 @@ CK_RV rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = rsa_get_key_info(key_obj, &modulus_bytes, &keyclass);
     if (rc != CKR_OK) {
         TRACE_DEVEL("rsa_get_key_info failed.\n");
-        return rc;
+        goto done;
     }
 
     /* check input data length restrictions */
     if (sig_len != modulus_bytes) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
 
     /* this had better be a public key */
     if (keyclass != CKO_PUBLIC_KEY) {
         TRACE_ERROR("This operation requires a public key.\n");
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     if (token_specific.t_rsa_pss_verify == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     rc = token_specific.t_rsa_pss_verify(tokdata, sess, ctx, in_data,
                                          in_data_len, signature, sig_len);
     if (rc != CKR_OK)
         TRACE_ERROR("Token Specific rsa pss verify.\n");
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }

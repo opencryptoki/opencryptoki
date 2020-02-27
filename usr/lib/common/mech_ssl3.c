@@ -104,7 +104,8 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -130,13 +131,13 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, key_data,
                                   key_bytes);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC) {
         rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, inner, 48);
@@ -145,20 +146,20 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
     }
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
                                   in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest final failed.\n");
-        return rc;
+        goto done;
     }
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
@@ -168,13 +169,13 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, key_data,
                                   key_bytes);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
         rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, outer, 48);
@@ -182,22 +183,26 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
         rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, outer, 40);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
                                  &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest final failed.\n");
-        return rc;
+        goto done;
     }
     memcpy(out_data, hash, mac_len);
     *out_data_len = mac_len;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -239,7 +244,8 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
         rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         key_bytes = attr->ulValueLen;
@@ -264,13 +270,13 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
                              &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Init failed.\n");
-            return rc;
+            goto done;
         }
         rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
                                       key_data, key_bytes);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest update failed.\n");
-            return rc;
+            goto done;
         }
         if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
             rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -280,7 +286,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
                                           inner, 40);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest update failed.\n");
-            return rc;
+            goto done;
         }
         context->flag = TRUE;
     }
@@ -290,10 +296,14 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
                                   in_data, in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest update failed.\n");
-        return rc;
+        goto done;
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 
@@ -347,7 +357,8 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -360,7 +371,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
                                  hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Final failed.\n");
-        return rc;
+        goto done;
     }
     // now, do the outer hash
     //
@@ -379,13 +390,13 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
                                   key_data, key_bytes);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
         rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -396,23 +407,27 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context, hash,
                                   hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, FALSE, &context->hash_context,
                                  hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Final failed.\n");
-        return rc;
+        goto done;
     }
     memcpy(out_data, hash, mac_len);
     *out_data_len = mac_len;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -506,7 +521,8 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
         rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
         if (rc == FALSE) {
             TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
 
         key_bytes = attr->ulValueLen;
@@ -531,13 +547,13 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
                              &digest_mech);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Init failed.\n");
-            return rc;
+            goto done;
         }
         rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
                                       key_data, key_bytes);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Update failed.\n");
-            return rc;
+            goto done;
         }
         if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
             rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -547,7 +563,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
                                           inner, 40);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Update failed.\n");
-            return rc;
+            goto done;
         }
         context->flag = TRUE;
     }
@@ -556,10 +572,14 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
                                   in_data, in_data_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 
@@ -601,7 +621,8 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     key_bytes = attr->ulValueLen;
@@ -614,7 +635,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
                                  hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Final failed.\n");
-        return rc;
+        goto done;
     }
     // now, do the outer hash
     //
@@ -633,13 +654,13 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
                                   key_data, key_bytes);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     if (ctx->mech.mechanism == CKM_SSL3_MD5_MAC)
         rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -650,20 +671,20 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context, hash,
                                   hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Update failed.\n");
-        return rc;
+        goto done;
     }
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, FALSE, &context->hash_context,
                                  hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Final failed.\n");
-        return rc;
+        goto done;
     }
     if ((mac_len != sig_len) || (mac_len > hash_len)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
@@ -672,6 +693,10 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
         rc = CKR_SIGNATURE_INVALID;
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
     }
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -975,14 +1000,16 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find <the_attribute_name> in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     } else {
         base_key_len = attr->ulValueLen;
         base_key_value = attr->pValue;
 
         if (base_key_len != 48) {
             TRACE_ERROR("The base key's length is not 48.\n");
-            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto error;
         }
     }
 
@@ -1004,19 +1031,22 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
             class = *(CK_OBJECT_CLASS *) attr->pValue;
             if (class != CKO_SECRET_KEY) {
                 TRACE_ERROR("This operation requires a secret key.\n");
-                return CKR_KEY_FUNCTION_NOT_PERMITTED;
+                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                goto error;
             }
         } else if (attr->type == CKA_KEY_TYPE) {
             keytype = *(CK_KEY_TYPE *) attr->pValue;
             if (keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                return CKR_KEY_TYPE_INCONSISTENT;
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto error;
             }
         } else if (attr->type == CKA_VALUE_LEN) {
             value_len = *(CK_ULONG *) attr->pValue;
             if (value_len != 48) {
                 TRACE_ERROR("The derived key's length is not 48.\n");
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         }
     }
@@ -1162,11 +1192,17 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Mgr create final failed.\n");
         object_free(derived_key_obj);
+        derived_key_obj = NULL;
+        object_put(tokdata, base_key_obj);
+        base_key_obj = NULL;
         return rc;              // do NOT goto error
     }
     // should we destroy the base key?  SSL3 says yes but that might
     // occur in a separate call to C_DestroyObject
     //
+
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
 
     return CKR_OK;
 
@@ -1181,6 +1217,9 @@ error:
         free(extract_attr);
     if (derived_key_obj)
         object_free(derived_key_obj);
+
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
 
     return rc;
 }
@@ -1249,7 +1288,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
 
     base_key_value = attr->pValue;
@@ -1259,7 +1299,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     for (i = 0; i < 4; i++) {
         if (base_attrs[i].found == FALSE) {
             TRACE_ERROR("Could not find attribute in the template\n");
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
         }
     }
 
@@ -1269,7 +1310,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     //
     if (params->bIsExport != FALSE && params->ulIVSizeInBits > 128) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        return CKR_MECHANISM_PARAM_INVALID;
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto error;
     }
     // the template must specify the key type for the client and server keys
     //
@@ -1286,31 +1328,36 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
             tmp = *(CK_BBOOL *) attr->pValue;
             if (tmp != base_sensitive) {
                 TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         } else if (attr->type == CKA_ALWAYS_SENSITIVE) {
             tmp = *(CK_BBOOL *) attr->pValue;
             if (tmp != base_always_sensitive) {
                 TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         } else if (attr->type == CKA_EXTRACTABLE) {
             tmp = *(CK_BBOOL *) attr->pValue;
             if (tmp != base_extractable) {
                 TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         } else if (attr->type == CKA_NEVER_EXTRACTABLE) {
             tmp = *(CK_BBOOL *) attr->pValue;
             if (tmp != base_never_extractable) {
                 TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         } else if (attr->type == CKA_CLASS) {
             CK_OBJECT_CLASS cl = *(CK_OBJECT_CLASS *) attr->pValue;
             if (cl != CKO_SECRET_KEY) {
                 TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto error;
             }
         }
     }
@@ -1319,7 +1366,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     //
     if (keytype == 0xFFFFFFFF) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto error;
     }
     // figure out how much key material we need to generate
     //
@@ -1333,7 +1381,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     //
     if (key_material_loop_count > 26 * 16) {
         TRACE_DEVEL("key_material_loop_count is too big.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
     key_material_loop_count = (key_material_loop_count + 15) / 16;
 
@@ -1486,6 +1535,9 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     }
 
 error:
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
+
     return rc;
 }
 
@@ -1628,9 +1680,15 @@ CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
     }
     template_update_attribute(client_obj->template, client_val_attr);
     template_update_attribute(client_obj->template, client_val_len_attr);
+    // the object owns the attributes now...
+    client_val_attr = NULL;
+    client_val_len_attr = NULL;
 
     template_update_attribute(server_obj->template, server_val_attr);
     template_update_attribute(server_obj->template, server_val_len_attr);
+    // the object owns the attributes now...
+    server_val_attr = NULL;
+    server_val_len_attr = NULL;
 
     rc = object_mgr_create_final(tokdata, sess, client_obj, client_handle);
     if (rc != CKR_OK) {
@@ -1640,6 +1698,8 @@ CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
     rc = object_mgr_create_final(tokdata, sess, server_obj, server_handle);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Mgr Create Final failed.\n");
+        object_mgr_destroy_object(tokdata, sess, *client_handle);
+        client_obj = NULL;
         goto error;
     }
 
@@ -1881,6 +1941,8 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
     rc = object_mgr_create_final(tokdata, sess, server_obj, server_handle);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Mgr Create Final failed.\n");
+        object_mgr_destroy_object(tokdata, sess, *client_handle);
+        client_obj = NULL;
         goto error;
     }
 

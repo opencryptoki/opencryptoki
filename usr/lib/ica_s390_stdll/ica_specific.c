@@ -2326,7 +2326,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         modulus_bytes = attr->ulValueLen;
     }
@@ -2337,7 +2338,8 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     em_data = (CK_BYTE *) malloc(modulus_bytes);
     if (em_data == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     rc = encode_eme_oaep(tokdata, in_data, in_data_len, em_data,
@@ -2357,6 +2359,9 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 done:
     if (em_data)
         free(em_data);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2391,7 +2396,8 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         *out_data_len = attr->ulValueLen;
     }
@@ -2399,13 +2405,14 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     decr_data = (CK_BYTE *) malloc(in_data_len);
     if (decr_data == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     rc = os_specific_rsa_decrypt(tokdata, in_data, in_data_len, decr_data,
                                  key_obj);
     if (rc != CKR_OK)
-        return rc;
+        goto done;
 
     /* pkcs1v2.2, section 7.1.2 Step 2:
      * EME-OAEP decoding.
@@ -2415,6 +2422,10 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
     if (decr_data)
         free(decr_data);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2457,7 +2468,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         modbytes = attr->ulValueLen;
     }
@@ -2466,7 +2478,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     emdata = (CK_BYTE *) malloc(modbytes);
     if (emdata == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
 
     rc = emsa_pss_encode(tokdata, pssParms, in_data, in_data_len, emdata,
@@ -2484,6 +2497,9 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
 done:
     if (emdata)
         free(emdata);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2528,13 +2544,14 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = os_specific_rsa_encrypt(tokdata, signature, sig_len, out, key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-        return rc;
+        goto done;
     }
 
     flag = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
     if (flag == FALSE) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     } else {
         modbytes = attr->ulValueLen;
     }
@@ -2542,6 +2559,10 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     /* call the pss verify scheme */
     rc = emsa_pss_verify(tokdata, pssParms, in_data, in_data_len, out,
                          modbytes);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2715,7 +2736,8 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Could not find CKA_KEY_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* prepare initial counterblock */
@@ -2741,10 +2763,14 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
     }
     if (rc != 0) {
         TRACE_ERROR("ica_aes_gcm_initialize() failed.\n");
-        return CKR_FUNCTION_FAILED;
+        goto done;
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
+    return rc;
 }
 
 CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
@@ -2792,7 +2818,8 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
     /* get key value */
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     if (encrypt) {
@@ -2828,6 +2855,10 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
         (*out_data_len) = 0;
         rc = CKR_FUNCTION_FAILED;
     }
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }
@@ -2894,7 +2925,8 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     /* get key value */
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     out_len = total - remain;
@@ -2976,6 +3008,9 @@ done:
     if (buffer)
         free(buffer);
 
+    object_put(tokdata, key);
+    key = NULL;
+
     return rc;
 }
 
@@ -3004,7 +3039,8 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
     }
     if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     context = (AES_GCM_CONTEXT *) ctx->context;
@@ -3023,7 +3059,8 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
             buffer = (CK_BYTE *) malloc(AES_BLOCK_SIZE);
             if (!buffer) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto done;
             }
             memcpy(buffer, context->data, context->len);
 
@@ -3117,6 +3154,9 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
 done:
     if (buffer)
         free(buffer);
+
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }

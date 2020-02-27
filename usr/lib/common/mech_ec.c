@@ -278,21 +278,27 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
     rc = get_ecsiglen(key_obj, &plen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("get_ecsiglen failed.\n");
-        return rc;
+        goto done;
     }
 
     if (length_only == TRUE) {
         *out_data_len = plen;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < plen) {
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     rc = ckm_ec_sign(tokdata, sess, in_data, in_data_len, out_data,
                      out_data_len, key_obj);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -357,16 +363,21 @@ CK_RV ec_verify(STDLL_TokData_t *tokdata,
     rc = get_ecsiglen(key_obj, &plen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("get_ecsiglen failed.\n");
-        return rc;
+        goto done;
     }
     // check input data length restrictions
     //
     if (sig_len > plen) {
         TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        return CKR_SIGNATURE_LEN_RANGE;
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto done;
     }
     rc = ckm_ec_verify(tokdata, sess, in_data, in_data_len, signature,
                        sig_len, key_obj);
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -916,7 +927,8 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     if (!template_attribute_find
         (base_key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
     }
     oid_p = attr->pValue;
     oid_len = attr->ulValueLen;
@@ -924,7 +936,8 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     /* Extract EC private key (D) from base_key */
     if (!template_attribute_find(base_key_obj->template, CKA_VALUE, &attr)) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* Call token specific ECDH key derivation function */
@@ -937,10 +950,13 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     if (rc != CKR_OK) {
         TRACE_ERROR("Token specific ecdh pkcs derive failed with rc=%ld.\n",
                     rc);
-        return rc;
     }
 
-    return CKR_OK;
+done:
+    object_put(tokdata, base_key_obj);
+    base_key_obj = NULL;
+
+    return rc;
 }
 
 static CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
@@ -1189,6 +1205,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("Object Mgr create final failed, rc=%s.\n", ock_err(rc));
         object_free(temp_obj);
+        temp_obj = NULL;
         goto end;
     }
 

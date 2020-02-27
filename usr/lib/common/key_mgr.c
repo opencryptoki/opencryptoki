@@ -504,8 +504,6 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     rc = object_mgr_create_final(tokdata, sess, priv_key_obj, priv_key_handle);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_final failed.\n");
-        // just calling object_free in the error path below would lead to a
-        // double free error on session close - KEY 09/26/07
         object_mgr_destroy_object(tokdata, sess, *publ_key_handle);
         publ_key_obj = NULL;
         goto error;
@@ -562,6 +560,9 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         return rc;
     }
 
+    object_put(tokdata, key1_obj);
+    key1_obj = NULL;
+
     rc = object_mgr_find_in_map1(tokdata, h_key, &key2_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
@@ -576,12 +577,14 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     if (rc == FALSE) {
         TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key template.\n");
         // could happen if user tries to wrap a public key
-        return CKR_KEY_NOT_WRAPPABLE;
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto done;
     } else {
         flag = *(CK_BBOOL *) attr->pValue;
         if (flag == FALSE) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_UNEXTRACTABLE));
-            return CKR_KEY_UNEXTRACTABLE;
+            rc = CKR_KEY_UNEXTRACTABLE;
+            goto done;
         }
     }
 
@@ -591,7 +594,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key2_obj->template, CKA_CLASS, &attr);
     if (rc == FALSE) {
         TRACE_DEVEL("CKA_CLASS is missing for key to be wrapped.\n");
-        return CKR_KEY_NOT_WRAPPABLE;
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto done;
     } else {
         class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
@@ -628,7 +632,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
-            return CKR_KEY_NOT_WRAPPABLE;
+            rc = CKR_KEY_NOT_WRAPPABLE;
+            goto done;
         }
         break;
     case CKM_CDMF_ECB:
@@ -640,12 +645,14 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_RSA_X_509:
         if (class != CKO_SECRET_KEY) {
             TRACE_ERROR("Specified mechanism only wraps secret keys.\n");
-            return CKR_KEY_NOT_WRAPPABLE;
+            rc = CKR_KEY_NOT_WRAPPABLE;
+            goto done;
         }
         break;
     default:
         TRACE_ERROR("The mechanism does not support wrapping keys.\n");
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
 
@@ -654,7 +661,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     rc = template_attribute_find(key2_obj->template, CKA_KEY_TYPE, &attr);
     if (rc == FALSE) {
         TRACE_ERROR("Failed to find CKA_KEY_TYPE in key template.\n");
-        return CKR_KEY_NOT_WRAPPABLE;
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto done;
     } else {
         keytype = *(CK_KEY_TYPE *) attr->pValue;
     }
@@ -668,7 +676,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("des_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
     case CKK_DES3:
@@ -676,7 +684,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                 &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("des3_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
     case CKK_RSA:
@@ -684,7 +692,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                     &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("rsa_priv_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
 #if !(NODSA)
@@ -693,7 +701,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                     &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("dsa_priv_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
 #endif
@@ -702,7 +710,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                           &data, &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("generic_secret_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
 #ifndef NOAES
@@ -711,7 +719,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                                &data_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("aes_wrap_get_data failed.\n");
-            return rc;
+            goto done;
         }
         break;
 #endif
@@ -721,12 +729,13 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_DEVEL("ecdsa_priv_wrap_get_data failed with rc=%s.\n",
                         ock_err(rc));
-            return rc;
+            goto done;
         }
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-        return CKR_KEY_NOT_WRAPPABLE;
+        rc = CKR_KEY_NOT_WRAPPABLE;
+        goto done;
     }
 
     // we might need to format the wrapped data based on the mechanism
@@ -747,7 +756,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                 OPENSSL_cleanse(data, data_len);
                 free(data);
             }
-            return rc;
+            goto done;
         }
         break;
 #ifndef NOAES
@@ -765,7 +774,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
                 OPENSSL_cleanse(data, data_len);
                 free(data);
             }
-            return rc;
+            goto done;
         }
         break;
 #endif
@@ -789,7 +798,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             OPENSSL_cleanse(data, data_len);
             free(data);
         }
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
     }
 
     ctx = (ENCR_DECR_CONTEXT *) malloc(sizeof(ENCR_DECR_CONTEXT));
@@ -799,7 +809,8 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             OPENSSL_cleanse(data, data_len);
             free(data);
         }
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     memset(ctx, 0x0, sizeof(ENCR_DECR_CONTEXT));
 
@@ -813,7 +824,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             OPENSSL_cleanse(data, data_len);
             free(data);
         }
-        return rc;
+        goto done;
     }
     // do the encryption and clean up.  at this point, 'value' may or may not
     // be NULL depending on 'length_only'
@@ -826,6 +837,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     }
     encr_mgr_cleanup(ctx);
     free(ctx);
+
+done:
+    object_put(tokdata, key2_obj);
+    key2_obj = NULL;
 
     return rc;
 }
@@ -872,6 +887,9 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         TRUE) {
         isopaque = TRUE;
     }
+
+    object_put(tokdata, tmp_obj);
+    tmp_obj = NULL;
 
     found_class = FALSE;
     found_type = FALSE;

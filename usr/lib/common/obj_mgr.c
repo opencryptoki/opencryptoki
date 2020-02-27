@@ -34,7 +34,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     OBJECT *o = NULL;
-    CK_BBOOL priv_obj, sess_obj;
+    CK_BBOOL priv_obj, sess_obj, added = FALSE;
     CK_RV rc;
     unsigned long obj_handle;
 
@@ -202,6 +202,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
             goto done;
         }
     }
+    added = TRUE;
 
     rc = object_mgr_add_to_map(tokdata, sess, o, obj_handle, handle);
     if (rc != CKR_OK) {
@@ -246,8 +247,13 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
 
 
 done:
-    if ((rc != CKR_OK) && (o != NULL))
-        object_free(o);
+    if ((rc != CKR_OK) && (o != NULL)) {
+        if (!added)
+            object_free(o);
+        else
+            object_put(tokdata, o);
+        o = NULL;
+    }
 
     return rc;
 }
@@ -330,6 +336,7 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     OBJECT *new_obj = NULL;
     CK_BBOOL priv_obj;
     CK_BBOOL sess_obj;
+    CK_BBOOL added = FALSE;
     CK_RV rc;
     unsigned long obj_handle;
 
@@ -477,6 +484,7 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
             goto done;
         }
     }
+    added = TRUE;
 
     rc = object_mgr_add_to_map(tokdata, sess, new_obj, obj_handle, new_handle);
     if (rc != CKR_OK) {
@@ -524,8 +532,15 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     }
 
 done:
-    if ((rc != CKR_OK) && (new_obj != NULL))
-        object_free(new_obj);
+    if ((rc != CKR_OK) && (new_obj != NULL)) {
+        if (!added)
+            object_free(new_obj);
+        else
+            object_put(tokdata, new_obj);
+        new_obj = NULL;
+    }
+    object_put(tokdata, old_obj);
+    old_obj = NULL;
 
     return rc;
 }
@@ -612,7 +627,14 @@ CK_RV object_mgr_create_skel(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-
+/*
+ * Finalizes the object creation and adds the object into the appropriate
+ * btree and also the object map btree.
+ * When this function succeeds, object obj must not be freed! It has been added
+ * to the btree and thus must be kept intact.
+ * When this function fails, then the object obj must be freed by the caller
+ * using object_free() (not object_put() nor bt_put_node_value() !)
+ */
 CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
                               SESSION *sess,
                               OBJECT *obj, CK_OBJECT_HANDLE *handle)
@@ -756,7 +778,7 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
 {
     CK_RV rc = CKR_OK;
     OBJECT_MAP *map;
-    OBJECT *o;
+    OBJECT *o = NULL;
 
     UNUSED(sess);
 
@@ -803,14 +825,26 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
             goto done;
         }
 
-        if (map->is_private)
+        if (map->is_private) {
+            bt_put_node_value(&tokdata->priv_token_obj_btree, o);
             bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle, TRUE);
-        else
+        } else {
+            bt_put_node_value(&tokdata->publ_token_obj_btree, o);
             bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle, TRUE);
+        }
+        o = NULL;
     }
 
 done:
-    free(map);
+     if (o != NULL) {
+         if (map->is_private)
+            bt_put_node_value(&tokdata->priv_token_obj_btree, o);
+         else
+            bt_put_node_value(&tokdata->publ_token_obj_btree, o);
+         o = NULL;
+    }
+
+    bt_put_node_value(&tokdata->object_map_btree, map);
     return rc;
 }
 
@@ -822,7 +856,7 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
                          unsigned long map_handle, void *p3)
 {
     OBJECT_MAP *map = (OBJECT_MAP *) node;
-    OBJECT *o;
+    OBJECT *o = NULL;
 
     UNUSED(p3);
 
@@ -855,13 +889,25 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
             goto done;
         }
 
-        if (map->is_private)
+        if (map->is_private) {
+            bt_put_node_value(&tokdata->priv_token_obj_btree, o);
             bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle, TRUE);
-        else
+        }
+        else {
+            bt_put_node_value(&tokdata->publ_token_obj_btree, o);
             bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle, TRUE);
+        }
+        o = NULL;
     }
 
 done:
+    if (o != NULL) {
+        if (map->is_private)
+            bt_put_node_value(&tokdata->priv_token_obj_btree, o);
+        else
+            bt_put_node_value(&tokdata->publ_token_obj_btree, o);
+        o = NULL;
+    }
     /* delete @node from this btree */
     bt_node_free(&tokdata->object_map_btree, map_handle, TRUE);
 }
@@ -901,10 +947,16 @@ done:
 }
 
 
+
+
+
 // object_mgr_find_in_map_nocache()
 //
 // Locates the specified object in the map
 // without going and checking for cache update
+//
+// The returned Object must be put back (using object_put()) by the
+// caller to decrease the reference count!
 //
 CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
                                      CK_OBJECT_HANDLE handle, OBJECT **ptr)
@@ -940,6 +992,9 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
     else
         obj = bt_get_node_value(&tokdata->publ_token_obj_btree, map->obj_handle);
 
+    bt_put_node_value(&tokdata->object_map_btree, map);
+    map = NULL;
+
     if (!obj) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         return CKR_OBJECT_HANDLE_INVALID;
@@ -953,6 +1008,9 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
 // object_mgr_find_in_map1()
 //
 // Locates the specified object in the map
+//
+// The returned Object must be put back (using object_put()) by the
+// caller to decrease the reference count!
 //
 CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
                               CK_OBJECT_HANDLE handle, OBJECT **ptr)
@@ -980,6 +1038,9 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
     else
         obj = bt_get_node_value(&tokdata->publ_token_obj_btree, map->obj_handle);
 
+    bt_put_node_value(&tokdata->object_map_btree, map);
+    map = NULL;
+
     if (!obj) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         return CKR_OBJECT_HANDLE_INVALID;
@@ -1001,6 +1062,8 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
+            object_put(tokdata, obj);
+            obj = NULL;
             return rc;
         }
 
@@ -1008,12 +1071,16 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_check_shm failed.\n");
             XProcUnLock(tokdata);
+            object_put(tokdata, obj);
+            obj = NULL;
             return rc;
         }
 
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to release Process Lock.\n");
+            object_put(tokdata, obj);
+            obj = NULL;
             return rc;
         }
     }
@@ -1051,6 +1118,14 @@ void find_obj_cb(STDLL_TokData_t *tokdata, void *node,
         fa->map_handle = map_handle;
         fa->done = TRUE;
     }
+
+    if (map->is_session_obj)
+        bt_put_node_value(&tokdata->sess_obj_btree, obj);
+    else if (map->is_private)
+        bt_put_node_value(&tokdata->priv_token_obj_btree, obj);
+    else
+        bt_put_node_value(&tokdata->publ_token_obj_btree, obj);
+    obj = NULL;
 }
 
 // object_mgr_find_in_map2()
@@ -1333,13 +1408,18 @@ CK_RV object_mgr_get_attribute_values(STDLL_TokData_t *tokdata,
         if (sess->session_info.state == CKS_RO_PUBLIC_SESSION ||
             sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            return CKR_USER_NOT_LOGGED_IN;
+            rc = CKR_USER_NOT_LOGGED_IN;
+            goto done;
         }
     }
 
     rc = object_get_attribute_values(obj, pTemplate, ulCount);
     if (rc != CKR_OK)
         TRACE_DEVEL("object_get_attribute_values failed.\n");
+
+done:
+    object_put(tokdata, obj);
+    obj = NULL;
 
     return rc;
 }
@@ -1360,6 +1440,9 @@ CK_RV object_mgr_get_object_size(STDLL_TokData_t *tokdata,
     }
 
     *size = object_get_size(obj);
+
+    object_put(tokdata, obj);
+    obj = NULL;
 
     return rc;
 }
@@ -1563,7 +1646,6 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     }
 
     rc = object_mgr_find_in_map1(tokdata, handle, &obj);
-
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
@@ -1579,37 +1661,43 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     //
     if (!modifiable) {
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-        return CKR_ATTRIBUTE_READ_ONLY;
+        rc = CKR_ATTRIBUTE_READ_ONLY;
+        goto done;
     }
     if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
         if (priv_obj) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            return CKR_USER_NOT_LOGGED_IN;
+            rc = CKR_USER_NOT_LOGGED_IN;
+            goto done;
         }
         if (!sess_obj) {
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            return CKR_SESSION_READ_ONLY;
+            rc = CKR_SESSION_READ_ONLY;
+            goto done;
         }
     }
 
     if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
         if (!sess_obj) {
             TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            return CKR_SESSION_READ_ONLY;
+            rc = CKR_SESSION_READ_ONLY;
+            goto done;
         }
     }
 
     if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
         if (priv_obj) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            return CKR_USER_NOT_LOGGED_IN;
+            rc = CKR_USER_NOT_LOGGED_IN;
+            goto done;
         }
     }
 
     if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
         if (priv_obj) {
             TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            return CKR_USER_NOT_LOGGED_IN;
+            rc = CKR_USER_NOT_LOGGED_IN;
+            goto done;
         }
     }
 
@@ -1617,7 +1705,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     rc = object_set_attribute_values(tokdata, obj, pTemplate, ulCount);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_set_attribute_values failed.\n");
-        return rc;
+        goto done;
     }
     // okay.  the object has been updated.  if it's a session object,
     // we're finished.  if it's a token object, we need to update
@@ -1638,7 +1726,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get Process Lock.\n");
-            return rc;
+            goto done;
         }
 
         save_token_object(tokdata, obj);
@@ -1653,7 +1741,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
             if (rc != CKR_OK) {
                 TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
                 XProcUnLock(tokdata);
-                return rc;
+                goto done;
             }
 
             entry = &tokdata->global_shm->priv_tok_objs[index];
@@ -1666,7 +1754,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
             if (rc != CKR_OK) {
                 TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
                 XProcUnLock(tokdata);
-                return rc;
+                goto done;
             }
 
             entry = &tokdata->global_shm->publ_tok_objs[index];
@@ -1678,9 +1766,13 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to release Process Lock.\n");
-            return rc;
+            goto done;
         }
     }
+
+done:
+    object_put(tokdata, obj);
+    obj = NULL;
 
     return rc;
 }
@@ -2110,6 +2202,22 @@ CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
 
     bt_for_each_node(tokdata, &tokdata->object_map_btree, purge_map_by_type_cb, &type);
     return TRUE;
+}
+
+/* Put back the object using its btree */
+CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj)
+{
+    if (obj == NULL)
+        return CKR_OBJECT_HANDLE_INVALID;
+
+    if (object_is_session_object(obj))
+       bt_put_node_value(&tokdata->sess_obj_btree, obj);
+    else if (object_is_private(obj))
+        bt_put_node_value(&tokdata->priv_token_obj_btree, obj);
+    else
+        bt_put_node_value(&tokdata->publ_token_obj_btree, obj);
+
+    return CKR_OK;
 }
 
 #ifdef DEBUG

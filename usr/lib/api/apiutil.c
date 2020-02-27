@@ -203,14 +203,18 @@ CK_RV CloseAllSessions(CK_SLOT_ID slot_id)
 int Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T *rSession)
 {
     ST_SESSION_T *tmp;
+    int rc;
 
     tmp = bt_get_node_value(&(Anchor->sess_btree), handle);
     if (tmp) {
         rSession->slotID = tmp->slotID;
         rSession->sessionh = tmp->sessionh;
     }
+    rc = tmp ? TRUE : FALSE;
+    bt_put_node_value(&(Anchor->sess_btree), tmp);
+    tmp = NULL;
 
-    return (tmp ? TRUE : FALSE);
+    return rc;
 }
 
 int API_Initialized()

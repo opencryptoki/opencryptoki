@@ -378,6 +378,9 @@ out:
         digest_mgr_cleanup(ctx);
     }
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 

@@ -58,17 +58,25 @@ CK_RV des3_ecb_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_des3_ecb_encrypt(tokdata, in_data, in_data_len,
-                                out_data, out_data_len, key);
+    rc = ckm_des3_ecb_encrypt(tokdata, in_data, in_data_len,
+                              out_data, out_data_len, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -105,17 +113,25 @@ CK_RV des3_ecb_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_des3_ecb_decrypt(tokdata, in_data, in_data_len,
-                                out_data, out_data_len, key);
+    rc = ckm_des3_ecb_decrypt(tokdata, in_data, in_data_len,
+                              out_data, out_data_len, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -152,17 +168,25 @@ CK_RV des3_cbc_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_des3_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
-                                out_data_len, ctx->mech.pParameter, key);
+    rc = ckm_des3_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+                              out_data_len, ctx->mech.pParameter, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 //
@@ -198,17 +222,25 @@ CK_RV des3_cbc_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = in_data_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < in_data_len) {
         *out_data_len = in_data_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
-    return ckm_des3_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
-                                out_data_len, ctx->mech.pParameter, key);
+    rc = ckm_des3_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+                              out_data_len, ctx->mech.pParameter, key);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -245,19 +277,22 @@ CK_RV des3_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = padded_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     if (*out_data_len < padded_len) {
         *out_data_len = padded_len;
         TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
-        return CKR_BUFFER_TOO_SMALL;
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
     }
 
     clear = (CK_BYTE *) malloc(padded_len);
     if (!clear) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     memcpy(clear, in_data, in_data_len);
 
@@ -268,6 +303,10 @@ CK_RV des3_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
                               out_data_len, ctx->mech.pParameter, key);
 
     free(clear);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }
@@ -307,7 +346,8 @@ CK_RV des3_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     //
     if (in_data_len % DES_BLOCK_SIZE != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     // the amount of cleartext after stripping the padding will actually be less
     // than the input bytes...
@@ -316,13 +356,15 @@ CK_RV des3_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = padded_len;
-        return CKR_OK;
+        rc = CKR_OK;
+        goto done;
     }
 
     clear = (CK_BYTE *) malloc(padded_len);
     if (!clear) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto done;
     }
     rc = ckm_des3_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
                               ctx->mech.pParameter, key);
@@ -333,6 +375,10 @@ CK_RV des3_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     }
 
     free(clear);
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
 
     return rc;
 }
@@ -389,6 +435,8 @@ CK_RV des3_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -411,6 +459,9 @@ CK_RV des3_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
 
         return rc;
     }
@@ -469,7 +520,8 @@ CK_RV des3_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous decryption operation first
         //
@@ -489,6 +541,11 @@ CK_RV des3_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 
@@ -549,6 +606,8 @@ CK_RV des3_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -575,6 +634,10 @@ CK_RV des3_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 }
@@ -634,6 +697,8 @@ CK_RV des3_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous decryption operation first
@@ -661,6 +726,10 @@ CK_RV des3_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 
@@ -729,6 +798,8 @@ CK_RV des3_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous encryption operation first
@@ -756,6 +827,10 @@ CK_RV des3_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(clear);
+
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 }
@@ -825,6 +900,8 @@ CK_RV des3_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_put(tokdata, key);
+            key = NULL;
             return CKR_HOST_MEMORY;
         }
         // copy any data left over from the previous decryption operation first
@@ -849,6 +926,10 @@ CK_RV des3_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+        object_put(tokdata, key);
+        key = NULL;
+
         return rc;
     }
 }
@@ -1050,7 +1131,7 @@ CK_RV des3_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = out_len;
-        return CKR_OK;
+        rc = CKR_OK;
     } else {
         memcpy(clear, context->data, context->len);
 
@@ -1059,8 +1140,12 @@ CK_RV des3_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
 
         rc = ckm_des3_cbc_encrypt(tokdata, clear, out_len, out_data,
                                   out_data_len, ctx->mech.pParameter, key);
-        return rc;
     }
+
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 
@@ -1094,7 +1179,8 @@ CK_RV des3_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     //
     if (context->len != DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        return CKR_ENCRYPTED_DATA_LEN_RANGE;
+        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+        goto done;
     }
     // we don't know a priori how much data we'll be returning.  we won't
     // know until after we decrypt it and strip the padding.  it's possible
@@ -1104,7 +1190,7 @@ CK_RV des3_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
 
     if (length_only == TRUE) {
         *out_data_len = out_len;
-        return CKR_OK;
+        rc = CKR_OK;
     } else {
         rc = ckm_des3_cbc_decrypt(tokdata, context->data, DES_BLOCK_SIZE, clear,
                                   &out_len, ctx->mech.pParameter, key);
@@ -1117,8 +1203,13 @@ CK_RV des3_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
 
             *out_data_len = out_len;
         }
-        return rc;
     }
+
+done:
+    object_put(tokdata, key);
+    key = NULL;
+
+    return rc;
 }
 
 CK_RV des3_ofb_encrypt(STDLL_TokData_t *tokdata,
@@ -1157,6 +1248,9 @@ CK_RV des3_ofb_encrypt(STDLL_TokData_t *tokdata,
                                    key_obj, ctx->mech.pParameter, 1);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1215,7 +1309,8 @@ CK_RV des3_ofb_encrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous encryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1236,6 +1331,10 @@ CK_RV des3_ofb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1284,6 +1383,9 @@ CK_RV des3_ofb_encrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 ofb encrypt failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         *out_data_len = context->len;
         return rc;
     }
@@ -1326,6 +1428,9 @@ CK_RV des3_ofb_decrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1384,7 +1489,8 @@ CK_RV des3_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous decryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1405,6 +1511,10 @@ CK_RV des3_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1454,6 +1564,9 @@ CK_RV des3_ofb_decrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 ofb decrypt failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         *out_data_len = context->len;
 
         return rc;
@@ -1498,6 +1611,9 @@ CK_RV des3_cfb_encrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1556,7 +1672,8 @@ CK_RV des3_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous encryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1578,6 +1695,10 @@ CK_RV des3_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1628,6 +1749,9 @@ CK_RV des3_cfb_encrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 cfb encrypt failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         *out_data_len = context->len;
 
         return rc;
@@ -1672,6 +1796,9 @@ CK_RV des3_cfb_decrypt(STDLL_TokData_t *tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 cfd decrypt failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -1731,7 +1858,8 @@ CK_RV des3_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous decryption operation first
         memcpy(cipher, context->data, context->len);
@@ -1753,6 +1881,10 @@ CK_RV des3_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1802,6 +1934,9 @@ CK_RV des3_cfb_decrypt_final(STDLL_TokData_t *tokdata,
 
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 cfb decrypt failed.\n");
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         *out_data_len = context->len;
 
@@ -1863,6 +1998,9 @@ CK_RV des3_mac_sign(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 mac failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         memcpy(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv, mac_len);
 
         *out_data_len = mac_len;
@@ -1909,7 +2047,8 @@ CK_RV des3_mac_sign_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -1928,6 +2067,10 @@ CK_RV des3_mac_sign_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -1986,6 +2129,10 @@ CK_RV des3_mac_sign_final(STDLL_TokData_t *tokdata,
         }
         rc = token_specific.t_tdes_mac(tokdata, context->data, DES_BLOCK_SIZE,
                                        key_obj, context->iv);
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         if (rc != CKR_OK) {
             TRACE_DEVEL("Token specific des3 mac failed.\n");
             return rc;
@@ -2044,6 +2191,9 @@ CK_RV des3_mac_verify(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific des3 mac failed.\n");
 
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         if (CRYPTO_memcmp(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv,
                           out_data_len) == 0)
             return CKR_OK;
@@ -2090,7 +2240,8 @@ CK_RV des3_mac_verify_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2108,6 +2259,11 @@ CK_RV des3_mac_verify_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         return rc;
     }
 }
@@ -2159,6 +2315,10 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata,
 
         rc = token_specific.t_tdes_mac(tokdata, context->data, DES_BLOCK_SIZE,
                                        key_obj, context->iv);
+
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         if (rc != CKR_OK) {
             TRACE_DEVEL("Token specific des3 mac failed.\n");
             return rc;
@@ -2221,6 +2381,9 @@ CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata,
 
     *out_data_len = mac_len;
 
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -2264,7 +2427,8 @@ CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2287,6 +2451,10 @@ CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
 
         return rc;
     }
@@ -2337,12 +2505,16 @@ CK_RV des3_cmac_sign_final(STDLL_TokData_t *tokdata,
                                     &context->ctx);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific des3 cmac failed.\n");
-        return rc;
+        goto done;
     }
 
     memcpy(out_data, context->iv, mac_len);
 
     *out_data_len = mac_len;
+
+done:
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     return rc;
 }
@@ -2385,6 +2557,9 @@ CK_RV des3_cmac_verify(STDLL_TokData_t *tokdata,
                                     &((DES_CMAC_CONTEXT *)ctx->context)->ctx);
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 cmac failed.\n");
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
 
     if (CRYPTO_memcmp(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
@@ -2433,7 +2608,8 @@ CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+            rc = CKR_HOST_MEMORY;
+            goto done;
         }
         // copy any data left over from the previous signUpdate operation first
         memcpy(cipher, context->data, context->len);
@@ -2455,6 +2631,11 @@ CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
         }
 
         free(cipher);
+
+done:
+        object_put(tokdata, key_obj);
+        key_obj = NULL;
+
         return rc;
     }
 }
@@ -2496,6 +2677,10 @@ CK_RV des3_cmac_verify_final(STDLL_TokData_t *tokdata,
                                     key_obj, context->iv,
                                     !context->initialized, CK_TRUE,
                                     &context->ctx);
+
+    object_put(tokdata, key_obj);
+    key_obj = NULL;
+
     if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific des3 cmac failed.\n");
         return rc;
