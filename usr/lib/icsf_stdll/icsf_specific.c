@@ -183,7 +183,7 @@ static void purge_object_mapping_cb(STDLL_TokData_t * tokdata, void *value,
     UNUSED(p3);
 
     /* Remove the object */
-    bt_node_free(&icsf_data->objects, node_num, free);
+    bt_node_free(&icsf_data->objects, node_num, TRUE);
 }
 
 /*
@@ -295,7 +295,7 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         return CKR_HOST_MEMORY;
     list_init(&icsf_data->sessions);
     pthread_mutex_init(&icsf_data->sess_list_mutex, NULL);
-    bt_init(&icsf_data->objects);
+    bt_init(&icsf_data->objects, free);
     tokdata->private_data = icsf_data;
 
     rc = XProcLock(tokdata);
@@ -1114,7 +1114,7 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
         }
 
         /* Remove object from object list */
-        bt_node_free(&icsf_data->objects, i, free);
+        bt_node_free(&icsf_data->objects, i, TRUE);
     }
     if (rc)
         return rc;
@@ -1191,7 +1191,7 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
     }
 
     if (finalize) {
-        bt_destroy(&icsf_data->objects, free);
+        bt_destroy(&icsf_data->objects);
         pthread_mutex_destroy(&icsf_data->sess_list_mutex);
         free(icsf_data);
         tokdata->private_data = NULL;
@@ -3346,7 +3346,7 @@ CK_RV icsftok_destroy_object(STDLL_TokData_t * tokdata, SESSION * sess,
     }
 
     /* Now remove the object from the object btree */
-    bt_node_free(&icsf_data->objects, handle, free);
+    bt_node_free(&icsf_data->objects, handle, TRUE);
 
 done:
     return rc;

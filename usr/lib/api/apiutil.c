@@ -144,7 +144,7 @@ unsigned long AddToSessionList(ST_SESSION_T *pSess)
 
 void RemoveFromSessionList(CK_SESSION_HANDLE handle)
 {
-    bt_node_free(&(Anchor->sess_btree), handle, free);
+    bt_node_free(&(Anchor->sess_btree), handle, TRUE);
 }
 
 /* CloseMe
@@ -171,7 +171,7 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
         rv = fcn->ST_CloseSession(sltp->TokData, s);
         if (rv == CKR_OK) {
             decr_sess_counts(slot_id);
-            bt_node_free(&(Anchor->sess_btree), node_handle, free);
+            bt_node_free(&(Anchor->sess_btree), node_handle, TRUE);
         }
     }
 }

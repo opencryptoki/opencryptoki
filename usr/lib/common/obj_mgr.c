@@ -210,7 +210,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
             // put the binary tree node which holds o on the free list, but
             // pass NULL here, so that o (the binary tree node's value pointer)
             // isn't touched. It is free'd below
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, NULL);
+            bt_node_free(&tokdata->sess_obj_btree, obj_handle, FALSE);
         } else {
             // we'll want to delete the token object file too!
             //
@@ -226,12 +226,12 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                 // put the binary tree node which holds o on the free list, but
                 // pass NULL here, so that o (the binary tree node's value
                 // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, NULL);
+                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, FALSE);
             } else {
                 // put the binary tree node which holds o on the free list, but
                 // pass NULL here, so that o (the binary tree node's value
                 // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, NULL);
+                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, FALSE);
             }
 
             object_mgr_del_from_shm(o, tokdata->global_shm);
@@ -489,7 +489,7 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
             // put the binary tree node which holds new_obj on the free list,
             // but pass NULL here, so that new_obj (the binary tree node's value
             // pointer) isn't touched. It is free'd below
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, NULL);
+            bt_node_free(&tokdata->sess_obj_btree, obj_handle, FALSE);
         } else {
             // FIXME - need to destroy the token object file too
             //
@@ -505,12 +505,12 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
                 // put the binary tree node which holds new_obj on the free
                 // list, but pass NULL here, so that new_obj (the binary tree
                 // node's value pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, NULL);
+                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, FALSE);
             } else {
                 // put the binary tree node which holds new_obj on the free
                 // list, but pass NULL here, so that new_obj (the binary tree
                 // node's value pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, NULL);
+                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, FALSE);
             }
 
             object_mgr_del_from_shm(new_obj, tokdata->global_shm);
@@ -711,8 +711,8 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
             // put the binary tree node which holds obj on the free list, but
             // pass NULL here, so that obj (the binary tree node's value
             // pointer) isn't touched.
-            // It is free'd below
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, NULL);
+            // It is free'd by the caller of object_mgr_create_final
+            bt_node_free(&tokdata->sess_obj_btree, obj_handle, FALSE);
         } else {
             // FIXME - need to destroy the token object file too
             //
@@ -727,13 +727,15 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
             if (priv_obj) {
                 // put the binary tree node which holds obj on the free list,
                 // but pass NULL here, so that obj (the binary tree node's value
-                // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, NULL);
+                // pointer) isn't touched. It is free'd by the caller of
+                // object_mgr_create_final
+                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, FALSE);
             } else {
                 // put the binary tree node which holds obj on the free list,
                 // but pass NULL here, so that obj (the binary tree node's value
-                // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, NULL);
+                // pointer) isn't touched. It is free'd by the caller of
+                // object_mgr_create_final
+                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, FALSE);
             }
 
             object_mgr_del_from_shm(obj, tokdata->global_shm);
@@ -759,15 +761,14 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
     UNUSED(sess);
 
     /* Don't use a delete callback, the map will be freed below */
-    map = bt_node_free(&tokdata->object_map_btree, handle, NULL);
+    map = bt_node_free(&tokdata->object_map_btree, handle, FALSE);
     if (map == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
     if (map->is_session_obj) {
-        bt_node_free(&tokdata->sess_obj_btree, map->obj_handle,
-                     call_object_free);
+        bt_node_free(&tokdata->sess_obj_btree, map->obj_handle, TRUE);
     } else {
         if (map->is_private)
             o = bt_get_node_value(&tokdata->priv_token_obj_btree,
@@ -803,11 +804,9 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
         }
 
         if (map->is_private)
-            bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle,
-                         call_object_free);
+            bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle, TRUE);
         else
-            bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle,
-                         call_object_free);
+            bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle, TRUE);
     }
 
 done:
@@ -857,16 +856,14 @@ void delete_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
         }
 
         if (map->is_private)
-            bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle,
-                         call_object_free);
+            bt_node_free(&tokdata->priv_token_obj_btree, map->obj_handle, TRUE);
         else
-            bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle,
-                         call_object_free);
+            bt_node_free(&tokdata->publ_token_obj_btree, map->obj_handle, TRUE);
     }
 
 done:
     /* delete @node from this btree */
-    bt_node_free(&tokdata->object_map_btree, map_handle, free);
+    bt_node_free(&tokdata->object_map_btree, map_handle, TRUE);
 }
 
 // this routine will destroy all token objects in the system
@@ -1389,9 +1386,9 @@ void purge_session_obj_cb(STDLL_TokData_t *tokdata, void *node,
 
         if (del == TRUE) {
             if (obj->map_handle)
-                bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
+                bt_node_free(&tokdata->object_map_btree, obj->map_handle, TRUE);
 
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, call_object_free);
+            bt_node_free(&tokdata->sess_obj_btree, obj_handle, TRUE);
         }
     }
 }
@@ -1433,9 +1430,9 @@ void purge_token_obj_cb(STDLL_TokData_t *tokdata, void *node,
     UNUSED(tokdata);
 
     if (obj->map_handle)
-        bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
+        bt_node_free(&tokdata->object_map_btree, obj->map_handle, TRUE);
 
-    bt_node_free(t, obj_handle, call_object_free);
+    bt_node_free(t, obj_handle, TRUE);
 }
 
 // this routine cleans up the list of token objects. in general, we don't
@@ -1980,8 +1977,8 @@ void delete_objs_from_btree_cb(STDLL_TokData_t *tokdata, void *node,
     }
 
     /* didn't find it in SHM, delete it from its btree and the object map */
-    bt_node_free(&tokdata->object_map_btree, obj->map_handle, free);
-    bt_node_free(ua->t, obj_handle, call_object_free);
+    bt_node_free(&tokdata->object_map_btree, obj->map_handle, TRUE);
+    bt_node_free(ua->t, obj_handle, TRUE);
 }
 
 void find_by_name_cb(STDLL_TokData_t *tokdata, void *node,
@@ -2097,11 +2094,11 @@ void purge_map_by_type_cb(STDLL_TokData_t *tokdata, void *node,
 
     if (type == PRIVATE) {
         if (map->is_private) {
-            bt_node_free(&tokdata->object_map_btree, map_handle, free);
+            bt_node_free(&tokdata->object_map_btree, map_handle, TRUE);
         }
     } else if (type == PUBLIC) {
         if (!map->is_private) {
-            bt_node_free(&tokdata->object_map_btree, map_handle, free);
+            bt_node_free(&tokdata->object_map_btree, map_handle, TRUE);
         }
     }
 }

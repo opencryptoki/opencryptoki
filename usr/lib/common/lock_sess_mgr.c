@@ -297,7 +297,7 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (sess->verify_ctx.mech.pParameter)
         free(sess->verify_ctx.mech.pParameter);
 
-    bt_node_free(&tokdata->sess_btree, handle, free);
+    bt_node_free(&tokdata->sess_btree, handle, TRUE);
 
     // XXX XXX  Not having this is a problem
     //  for IHS.  The spec states that there is an implicit logout
@@ -374,7 +374,7 @@ void session_free(STDLL_TokData_t *tokdata, void *node_value,
         free(sess->verify_ctx.mech.pParameter);
 
     /* NB: any access to sess or @node_value after this returns will segfault */
-    bt_node_free(&tokdata->sess_btree, node_idx, free);
+    bt_node_free(&tokdata->sess_btree, node_idx, TRUE);
 }
 
 // session_mgr_close_all_sessions()
