@@ -1430,7 +1430,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     // Un register from Slot D
     API_UnRegister();
 
-    bt_destroy(&Anchor->sess_btree, NULL);
+    bt_destroy(&Anchor->sess_btree);
 
     detach_shared_memory(Anchor->SharedMemP);
     free(Anchor);               // Free API Proc Struct
@@ -2797,7 +2797,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
     memset((char *) Anchor, 0, sizeof(API_Proc_Struct_t));
-    bt_init(&Anchor->sess_btree);
+    bt_init(&Anchor->sess_btree, free);
     Anchor->Pid = getpid();
 
     // Get shared memory
@@ -2850,7 +2850,7 @@ error_shm:
     detach_shared_memory(Anchor->SharedMemP);
 
 error:
-    bt_destroy(&Anchor->sess_btree, NULL);
+    bt_destroy(&Anchor->sess_btree);
 
     free((void *) Anchor);
     Anchor = NULL;

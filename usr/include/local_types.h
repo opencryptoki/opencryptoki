@@ -43,6 +43,7 @@ struct btree {
 #ifdef ENABLE_LOCKS
     pthread_mutex_t mutex;
 #endif
+    void (*delete_func)(void *);
 };
 
 typedef struct _STDLL_TokData_t STDLL_TokData_t;
@@ -58,8 +59,8 @@ void bt_for_each_node(STDLL_TokData_t *, struct btree *t,
 unsigned long bt_nodes_in_use(struct btree *t);
 unsigned long bt_node_add(struct btree *t, void *value);
 void *bt_node_free(struct btree *t, unsigned long node_num,
-                   void (*delete_func)(void *));
-void bt_destroy(struct btree *t, void (*func)(void *));
-void bt_init(struct btree *t);
+                   int call_delete_func);
+void bt_destroy(struct btree *t);
+void bt_init(struct btree *t, void (*delete_func)(void *));
 
 #endif

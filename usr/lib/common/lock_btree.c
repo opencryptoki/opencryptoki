@@ -236,8 +236,9 @@ void tree_dump(struct btnode *n, int depth)
 /*
  * bt_node_free
  *
- * Move @node_num in tree @t to the free list, calling @delete_func on its value
- * first. Return the deleted value. Note that if the callback routine frees
+ * Move @node_num in tree @t to the free list, calling the dbtree's delete
+ * callback on its value first.
+ * Return the deleted value. Note that if the callback routine frees
  * the value, then the returned value might have already been freed. You still
  * can use it as indication that it found the node_num in the tree and moved
  * it to the free list.
@@ -246,7 +247,7 @@ void tree_dump(struct btnode *n, int depth)
  * list, so no double freeing can occur
  */
 void *bt_node_free(struct btree *t, unsigned long node_num,
-                   void (*delete_func)(void *))
+                   int call_delete_func)
 {
     struct btnode *node;
     void *value = NULL;
@@ -279,8 +280,8 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
 
     pthread_mutex_unlock(&t->mutex);
 
-    if (value && delete_func)
-        delete_func(value);
+    if (value && t->delete_func && call_delete_func)
+        t->delete_func(value);
 
     return value;
 }
@@ -359,9 +360,9 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
  *
  * Walk a binary tree backwards (largest index to smallest), deleting nodes
  * along the way.
- * Call @func on node->value before freeing the node.
+ * Call the btree's delete callback on node->value before freeing the node.
  */
-void bt_destroy(struct btree *t, void (*delete_func)(void *))
+void bt_destroy(struct btree *t)
 {
     unsigned long i;
     struct btnode *temp;
@@ -391,8 +392,8 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
          * freed here because the loop will iterate through each node,
          * freed or not.
          */
-        if (delete_func && !(temp->flags & BT_FLAG_FREE))
-            delete_func(temp->value);
+        if (t->delete_func && !(temp->flags & BT_FLAG_FREE))
+            t->delete_func(temp->value);
 
         free(temp);
         t->size--;
@@ -402,6 +403,7 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
     t->top = NULL;
     t->free_list = NULL;
     t->free_nodes = 0;
+    t->delete_func = NULL;
 
     pthread_mutex_unlock(&t->mutex);
     pthread_mutex_destroy(&t->mutex);
@@ -409,9 +411,10 @@ void bt_destroy(struct btree *t, void (*delete_func)(void *))
 
 /* bt_init
  *
- * Initialize a btree.
+ * Initialize a btree with a delete callback function that is used to delete
+ * values during bt_node_free() and bt_destroy().
  */
-void bt_init(struct btree *t)
+void bt_init(struct btree *t, void (*delete_func)(void *))
 {
     pthread_mutexattr_t attr;
 
@@ -419,6 +422,7 @@ void bt_init(struct btree *t)
     t->top = NULL;
     t->size = 0;
     t->free_nodes = 0;
+    t->delete_func = delete_func;
 
     /*
      * Need a recursive mutex, because btree callback functions may call

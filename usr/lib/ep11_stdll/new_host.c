@@ -99,11 +99,11 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
 #endif
     pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
 
-    bt_init(&sltp->TokData->sess_btree);
-    bt_init(&sltp->TokData->object_map_btree);
-    bt_init(&sltp->TokData->sess_obj_btree);
-    bt_init(&sltp->TokData->priv_token_obj_btree);
-    bt_init(&sltp->TokData->publ_token_obj_btree);
+    bt_init(&sltp->TokData->sess_btree, free);
+    bt_init(&sltp->TokData->object_map_btree, free);
+    bt_init(&sltp->TokData->sess_obj_btree, call_object_free);
+    bt_init(&sltp->TokData->priv_token_obj_btree, call_object_free);
+    bt_init(&sltp->TokData->publ_token_obj_btree, call_object_free);
 
     if (strlen(sinfp->tokname)) {
         sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
@@ -236,11 +236,11 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     object_mgr_purge_token_objects(tokdata);
 
     /* Finally free the nodes on free list. */
-    bt_destroy(&tokdata->sess_btree, free);
-    bt_destroy(&tokdata->object_map_btree, free);
-    bt_destroy(&tokdata->sess_obj_btree, call_object_free);
-    bt_destroy(&tokdata->priv_token_obj_btree, call_object_free);
-    bt_destroy(&tokdata->publ_token_obj_btree, call_object_free);
+    bt_destroy(&tokdata->sess_btree);
+    bt_destroy(&tokdata->object_map_btree);
+    bt_destroy(&tokdata->sess_obj_btree);
+    bt_destroy(&tokdata->priv_token_obj_btree);
+    bt_destroy(&tokdata->publ_token_obj_btree);
 
 #ifdef ENABLE_LOCKS
     pthread_rwlock_destroy(&tokdata->sess_list_rwlock);
