@@ -223,13 +223,16 @@ void tree_dump(struct btnode *n, int depth)
  * bt_node_free
  *
  * Move @node_num in tree @t to the free list, calling @delete_func on its value
- * first.
+ * first. Return the deleted value. Note that if the callback routine frees
+ * the value, then the returned value might have already been freed. You still
+ * can use it as indication that it found the node_num in the tree and moved
+ * it to the free list.
  *
  * Note that bt_get_node will return NULL if the node is already on the free
  * list, so no double freeing can occur
  */
-struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
-                            void (*delete_func) (void *))
+void *bt_node_free(struct btree *t, unsigned long node_num,
+                   void (*delete_func) (void *))
 {
     struct btnode *node;
     int lock = 1;
@@ -260,13 +263,13 @@ struct btnode *bt_node_free(struct btree *t, unsigned long node_num,
     if (value && delete_func)
         (*delete_func) (value);
 
-    return node;
+    return value;
 }
 
-struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
-                             unsigned long node_num,
-                             void (*delete_func) (STDLL_TokData_t *tokdata,
-                                                  void *))
+void *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
+                    unsigned long node_num,
+                    void (*delete_func) (STDLL_TokData_t *tokdata,
+                                         void *))
 {
     struct btnode *node;
     void *value = NULL;
@@ -298,7 +301,7 @@ struct btnode *bt_node_free_(STDLL_TokData_t *tokdata, struct btree *t,
     if (value && delete_func)
         (*delete_func) (tokdata, value);
 
-    return node;
+    return value;
 }
 
 /* bt_is_empty
