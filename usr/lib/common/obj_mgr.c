@@ -749,15 +749,21 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
     return rc;
 }
 
-/* destroy_object_cb
- *
- * Callback used to delete an object from the object map btree and whichever
- * other btree its in (based on its type)
- */
-void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
+CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
+                                SESSION *sess, CK_OBJECT_HANDLE handle)
 {
-    OBJECT_MAP *map = (OBJECT_MAP *) node;
+    CK_RV rc = CKR_OK;
+    OBJECT_MAP *map;
     OBJECT *o;
+
+    UNUSED(sess);
+
+    /* Don't use a delete callback, the map will be freed below */
+    map = bt_node_free(&tokdata->object_map_btree, handle, NULL);
+    if (map == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        return CKR_OBJECT_HANDLE_INVALID;
+    }
 
     if (map->is_session_obj) {
         bt_node_free(&tokdata->sess_obj_btree, map->obj_handle, call_free);
@@ -769,14 +775,17 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
             o = bt_get_node_value(&tokdata->publ_token_obj_btree,
                                   map->obj_handle);
 
-        if (!o)
-            return;
+        if (!o) {
+            rc = CKR_OBJECT_HANDLE_INVALID;
+            goto done;
+        }
 
         /* Use the same calling convention as the old code, if XProcLock fails,
          * don't delete from shm and don't free the object in its other btree
          */
         if (XProcLock(tokdata)) {
             TRACE_ERROR("Failed to get Process Lock.\n");
+            rc = CKR_CANT_LOCK;
             goto done;
         }
 
@@ -788,6 +797,7 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
 
         if (XProcUnLock(tokdata)) {
             TRACE_ERROR("Failed to release Process Lock.\n");
+            rc = CKR_CANT_LOCK;
             goto done;
         }
 
@@ -801,27 +811,6 @@ void destroy_object_cb(STDLL_TokData_t *tokdata, void *node)
 
 done:
     free(map);
-}
-
-// XXX Why does this function take @sess as an argument?
-//
-CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
-                                SESSION *sess, CK_OBJECT_HANDLE handle)
-{
-    CK_RV rc = CKR_OK;
-
-
-    if (!sess) {
-        TRACE_ERROR("Invalid function arguments.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (!bt_node_free_(tokdata, &tokdata->object_map_btree, handle,
-                       destroy_object_cb)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-        rc = CKR_OBJECT_HANDLE_INVALID;
-    }
-
     return rc;
 }
 
