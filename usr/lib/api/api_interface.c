@@ -803,7 +803,7 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
     STDLL_FcnList_t *fcn;
     ST_SESSION_T rSession;
 
-    TRACE_INFO("C_DestrypObject\n");
+    TRACE_INFO("C_DestroyObject\n");
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
