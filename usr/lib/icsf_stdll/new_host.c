@@ -43,7 +43,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
 /* verify that the mech specified is in the
  * mech list for this token...
  */
-CK_RV valid_mech(STDLL_TokData_t * tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
+CK_RV valid_mech(STDLL_TokData_t *tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
 {
     CK_RV rc;
     CK_MECHANISM_INFO info;
@@ -60,11 +60,12 @@ CK_RV valid_mech(STDLL_TokData_t * tokdata, CK_MECHANISM_PTR m, CK_FLAGS f)
     return CKR_OK;
 }
 
+
 /* In an STDLL this is called once for each card in the system
  * therefore the initialized only flags certain one time things.
  */
-CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
-                    SLOT_INFO * sinfp, struct trace_handle_t t)
+CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
+                    SLOT_INFO *sinfp, struct trace_handle_t t)
 {
     CK_RV rc = CKR_OK;
     char abs_tokdir_name[PATH_MAX];
@@ -135,7 +136,6 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
      * been initialized.
      */
     if (sltp->TokData->initialized == FALSE) {
-
         rc = attach_shm(sltp->TokData, SlotNumber);
         if (rc != CKR_OK) {
             TRACE_ERROR("Could not attach to shared memory.\n");
@@ -165,7 +165,7 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         if (sltp->TokData)
             free(sltp->TokData);
         sltp->TokData = NULL;
-        TRACE_DEVEL("Failed to load token data.\n");
+        TRACE_DEVEL("Failed to load token data. (rc=0x%02lx)\n", rc);
         goto done;
     }
 
@@ -206,7 +206,7 @@ done:
  * need to close the adapters that are opened, and clear the other
  * stuff
  */
-CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp,
+CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
                   struct trace_handle_t *t, CK_BBOOL in_fork_initializer)
 {
     CK_RV rc = CKR_OK;
@@ -257,7 +257,7 @@ CK_RV SC_Finalize(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, SLOT_INFO * sinfp,
     return rc;
 }
 
-CK_RV SC_GetTokenInfo(STDLL_TokData_t * tokdata, CK_SLOT_ID sid,
+CK_RV SC_GetTokenInfo(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
                       CK_TOKEN_INFO_PTR pInfo)
 {
     CK_RV rc = CKR_OK;
@@ -292,7 +292,7 @@ done:
     return rc;
 }
 
-CK_RV SC_WaitForSlotEvent(STDLL_TokData_t * tokdata, CK_FLAGS flags,
+CK_RV SC_WaitForSlotEvent(STDLL_TokData_t *tokdata, CK_FLAGS flags,
                           CK_SLOT_ID_PTR pSlot, CK_VOID_PTR pReserved)
 {
     UNUSED(flags);
@@ -312,7 +312,7 @@ CK_RV SC_WaitForSlotEvent(STDLL_TokData_t * tokdata, CK_FLAGS flags,
 /*
  * Get the mechanism type list for the current token.
  */
-CK_RV SC_GetMechanismList(STDLL_TokData_t * tokdata, CK_SLOT_ID sid,
+CK_RV SC_GetMechanismList(STDLL_TokData_t *tokdata, CK_SLOT_ID sid,
                           CK_MECHANISM_TYPE_PTR pMechList, CK_ULONG_PTR count)
 {
     CK_RV rc = CKR_OK;
@@ -339,13 +339,13 @@ CK_RV SC_GetMechanismList(STDLL_TokData_t * tokdata, CK_SLOT_ID sid,
          */
         mechanism_list_transformations(pMechList, count);
     }
+
 out:
     TRACE_INFO("C_GetMechanismList:  rc = 0x%08lx, # mechanisms: %lu\n",
                rc, (count ? *count : 0));
 
     return rc;
 }
-
 
 /*
  * Get the mechanism info for the current type and token.
@@ -378,14 +378,13 @@ out:
     return rc;
 }
 
-
 /*
  * This routine should only be called if no other processes are
  * attached to the token.  we need to somehow check that this is the
  * only process Meta API should prevent this since it knows session
  * states in the shared memory.
 */
-CK_RV SC_InitToken(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
+CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
                    CK_ULONG ulPinLen, CK_CHAR_PTR pLabel)
 {
     CK_RV rc = CKR_OK;
@@ -424,7 +423,7 @@ done:
 }
 
 
-CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                  CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
     SESSION *sess = NULL;
@@ -487,7 +486,7 @@ done:
     return rc;
 }
 
-CK_RV SC_SetPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                 CK_CHAR_PTR pOldPin, CK_ULONG ulOldLen, CK_CHAR_PTR pNewPin,
                 CK_ULONG ulNewLen)
 {
@@ -534,7 +533,7 @@ done:
     return rc;
 }
 
-CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
+CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
                      CK_SESSION_HANDLE_PTR phSession)
 {
     CK_RV rc = CKR_OK;
@@ -571,6 +570,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         return CKR_SESSION_HANDLE_INVALID;
     }
+
     sess->handle = *phSession;
     rc = icsftok_open_session(tokdata, sess);
 
@@ -582,7 +582,7 @@ CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
     return rc;
 }
 
-CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
+CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
     CK_RV rc = CKR_OK;
     SESSION *sess = NULL;
@@ -613,13 +613,13 @@ done:
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
-    TRACE_INFO("C_CloseSession: rc = 0x%08lx  sess = %lu\n",
+    TRACE_INFO("C_CloseSession: rc = 0x%08lx, sess = %lu\n",
                rc, sSession->sessionh);
 
     return rc;
 }
 
-CK_RV SC_CloseAllSessions(STDLL_TokData_t * tokdata, CK_SLOT_ID sid)
+CK_RV SC_CloseAllSessions(STDLL_TokData_t *tokdata, CK_SLOT_ID sid)
 {
     CK_RV rc = CKR_OK;
 
@@ -639,12 +639,12 @@ CK_RV SC_CloseAllSessions(STDLL_TokData_t * tokdata, CK_SLOT_ID sid)
         TRACE_DEVEL("Failed to remove icsf specific session_states.\n");
 
 done:
-    TRACE_INFO("C_CloseAllSessions: rc = 0x%08lx slot = %lu\n", rc, sid);
+    TRACE_INFO("C_CloseAllSessions: rc = 0x%08lx, slot = %lu\n", rc, sid);
 
     return rc;
 }
 
-CK_RV SC_GetSessionInfo(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_GetSessionInfo(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                         CK_SESSION_INFO_PTR pInfo)
 {
     SESSION *sess = NULL;
@@ -672,7 +672,7 @@ CK_RV SC_GetSessionInfo(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
     memcpy(pInfo, &sess->session_info, sizeof(CK_SESSION_INFO));
 
 done:
-    TRACE_INFO("C_GetSessionInfo: session = %lu\n", sSession->sessionh);
+    TRACE_INFO("C_GetSessionInfo: sess = %lu\n", sSession->sessionh);
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -680,8 +680,8 @@ done:
     return rc;
 }
 
-CK_RV SC_GetOperationState(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
+CK_RV SC_GetOperationState(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
                            CK_BYTE_PTR pOperationState,
                            CK_ULONG_PTR pulOperationStateLen)
 {
@@ -717,8 +717,9 @@ CK_RV SC_GetOperationState(STDLL_TokData_t * tokdata,
                                   pulOperationStateLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("session_mgr_get_op_state() failed.\n");
+
 done:
-    TRACE_INFO("C_GetOperationState: rc = 0x%08lx, session = %lu\n",
+    TRACE_INFO("C_GetOperationState: rc = 0x%08lx, sess = %lu\n",
                rc, sSession->sessionh);
 
     if (sess != NULL)
@@ -728,8 +729,8 @@ done:
 }
 
 
-CK_RV SC_SetOperationState(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
+CK_RV SC_SetOperationState(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
                            CK_BYTE_PTR pOperationState,
                            CK_ULONG ulOperationStateLen,
                            CK_OBJECT_HANDLE hEncryptionKey,
@@ -764,8 +765,9 @@ CK_RV SC_SetOperationState(STDLL_TokData_t * tokdata,
 
     if (rc != CKR_OK)
         TRACE_DEVEL("session_mgr_set_op_state() failed.\n");
+
 done:
-    TRACE_INFO("C_SetOperationState: rc = 0x%08lx, session = %lu\n",
+    TRACE_INFO("C_SetOperationState: rc = 0x%08lx, sess = %lu\n",
                rc, sSession->sessionh);
 
     if (sess != NULL)
@@ -775,7 +777,7 @@ done:
 }
 
 
-CK_RV SC_Login(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
 {
     SESSION *sess = NULL;
@@ -887,7 +889,6 @@ done:
     TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
     if (sess)
         save_token_data(tokdata, sess->session_info.slotID);
-
     pthread_mutex_unlock(&tokdata->login_mutex);
 
     if (sess != NULL)
@@ -897,7 +898,7 @@ done:
 }
 
 
-CK_RV SC_Logout(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
+CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -950,7 +951,7 @@ done:
 }
 
 
-CK_RV SC_CreateObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_CreateObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                       CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                       CK_OBJECT_HANDLE_PTR phObject)
 {
@@ -1005,7 +1006,7 @@ done:
 }
 
 
-CK_RV SC_CopyObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_CopyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                     CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phNewObject)
 {
@@ -1043,14 +1044,14 @@ done:
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
-    TRACE_INFO("C_CopyObject:rc = 0x%08lx, old handle = %lu, "
+    TRACE_INFO("C_CopyObject:rc = 0x%08lx,old handle = %lu, "
                "new handle = %lu\n", rc, hObject, *phNewObject);
 
     return rc;
 }
 
 
-CK_RV SC_DestroyObject(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DestroyObject(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                        CK_OBJECT_HANDLE hObject)
 {
     SESSION *sess = NULL;
@@ -1085,13 +1086,13 @@ done:
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
-    TRACE_INFO("C_DestroyObject:rc = 0x%08lx, handle = %lu\n", rc, hObject);
+    TRACE_INFO("C_DestroyObject: rc = 0x%08lx, handle = %lu\n", rc, hObject);
 
     return rc;
 }
 
 
-CK_RV SC_GetObjectSize(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_GetObjectSize(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                        CK_OBJECT_HANDLE hObject, CK_ULONG_PTR pulSize)
 {
     SESSION *sess = NULL;
@@ -1139,8 +1140,8 @@ done:
 }
 
 
-CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
+CK_RV SC_GetAttributeValue(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
                            CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                            CK_ULONG ulCount)
 {
@@ -1175,9 +1176,9 @@ done:
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
-    CK_BYTE *ptr = NULL;
     CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE *ptr = NULL;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
@@ -1196,8 +1197,8 @@ done:
 }
 
 
-CK_RV SC_SetAttributeValue(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
+CK_RV SC_SetAttributeValue(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
                            CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
                            CK_ULONG ulCount)
 {
@@ -1231,8 +1232,8 @@ done:
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
@@ -1251,8 +1252,8 @@ done:
 }
 
 
-CK_RV SC_FindObjectsInit(STDLL_TokData_t * tokdata,
-                         ST_SESSION_HANDLE * sSession,
+CK_RV SC_FindObjectsInit(STDLL_TokData_t *tokdata,
+                         ST_SESSION_HANDLE *sSession,
                          CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount)
 {
     SESSION *sess = NULL;
@@ -1289,14 +1290,14 @@ CK_RV SC_FindObjectsInit(STDLL_TokData_t * tokdata,
     rc = icsftok_find_objects_init(tokdata, sess, pTemplate, ulCount);
 
 done:
-    TRACE_INFO("C_FindObjectsInit:  rc = 0x%08lx\n", rc);
+    TRACE_INFO("C_FindObjectsInit: rc = 0x%08lx\n", rc);
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG i;
 
     attr = pTemplate;
     for (i = 0; i < ulCount; i++, attr++) {
@@ -1315,7 +1316,7 @@ done:
 }
 
 
-CK_RV SC_FindObjects(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_FindObjects(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_OBJECT_HANDLE_PTR phObject, CK_ULONG ulMaxObjectCount,
                      CK_ULONG_PTR pulObjectCount)
 {
@@ -1352,7 +1353,7 @@ CK_RV SC_FindObjects(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 
     if (!sess->find_list) {
         TRACE_DEVEL("sess->find_list is NULL.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
     count = MIN(ulMaxObjectCount, (sess->find_count - sess->find_idx));
@@ -1375,8 +1376,8 @@ done:
 }
 
 
-CK_RV SC_FindObjectsFinal(STDLL_TokData_t * tokdata,
-                          ST_SESSION_HANDLE * sSession)
+CK_RV SC_FindObjectsFinal(STDLL_TokData_t *tokdata,
+                          ST_SESSION_HANDLE *sSession)
 {
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
@@ -1422,7 +1423,7 @@ done:
 }
 
 
-CK_RV SC_EncryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     SESSION *sess = NULL;
@@ -1480,7 +1481,7 @@ done:
 }
 
 
-CK_RV SC_Encrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                  CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                  CK_BYTE_PTR pEncryptedData, CK_ULONG_PTR pulEncryptedDataLen)
 {
@@ -1539,7 +1540,7 @@ done:
 }
 
 
-CK_RV SC_EncryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                        CK_BYTE_PTR pPart, CK_ULONG ulPartLen,
                        CK_BYTE_PTR pEncryptedPart,
                        CK_ULONG_PTR pulEncryptedPartLen)
@@ -1654,7 +1655,7 @@ done:
 }
 
 
-CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     SESSION *sess = NULL;
@@ -1705,7 +1706,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -1714,7 +1715,7 @@ done:
 }
 
 
-CK_RV SC_Decrypt(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                  CK_BYTE_PTR pEncryptedData, CK_ULONG ulEncryptedDataLen,
                  CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
@@ -1774,7 +1775,7 @@ done:
 }
 
 
-CK_RV SC_DecryptUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                        CK_BYTE_PTR pEncryptedPart, CK_ULONG ulEncryptedPartLen,
                        CK_BYTE_PTR pPart, CK_ULONG_PTR pulPartLen)
 {
@@ -1830,7 +1831,7 @@ done:
 }
 
 
-CK_RV SC_DecryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                       CK_BYTE_PTR pLastPart, CK_ULONG_PTR pulLastPartLen)
 {
     SESSION *sess = NULL;
@@ -1876,9 +1877,9 @@ done:
             decr_mgr_cleanup(&sess->decr_ctx);
     }
 
-    TRACE_INFO("C_DecryptFinal:  rc = 0x%08lx, sess = %ld, amount = %lu\n",
+    TRACE_INFO("C_DecryptFinal: rc = 0x%08lx, sess = %ld, amount = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pulLastPartLen ? *pulLastPartLen : (CK_ULONG)(-1)));
+               (pulLastPartLen ? *pulLastPartLen : 0));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -1887,7 +1888,7 @@ done:
 }
 
 
-CK_RV SC_DigestInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     CK_MECHANISM_PTR pMechanism)
 {
     SESSION *sess = NULL;
@@ -1935,9 +1936,9 @@ CK_RV SC_DigestInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("digest_mgr_init() failed.\n");
 
 done:
-    TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = %lx\n",
+    TRACE_INFO("C_DigestInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -1946,7 +1947,7 @@ done:
 }
 
 
-CK_RV SC_Digest(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Digest(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                 CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pDigest,
                 CK_ULONG_PTR pulDigestLen)
 {
@@ -1994,7 +1995,7 @@ done:
 }
 
 
-CK_RV SC_DigestUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DigestUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                       CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
     SESSION *sess = NULL;
@@ -2028,8 +2029,9 @@ CK_RV SC_DigestUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         if (rc != CKR_OK)
             TRACE_DEVEL("digest_mgr_digest_update() failed.\n");
     }
+
 done:
-    TRACE_INFO("C_DigestUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_DigestUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
     if (sess != NULL)
@@ -2039,7 +2041,7 @@ done:
 }
 
 
-CK_RV SC_DigestKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DigestKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                    CK_OBJECT_HANDLE hKey)
 {
     SESSION *sess = NULL;
@@ -2071,7 +2073,7 @@ CK_RV SC_DigestKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("digest_mgr_digest_key() failed.\n");
 
 done:
-    TRACE_INFO("C_DigestKey: rc = %08lx, sess = %ld, key = %lu\n",
+    TRACE_INFO("C_DigestKey: rc = 0x%08lx, sess = %ld, key = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, hKey);
 
     if (sess != NULL)
@@ -2081,7 +2083,7 @@ done:
 }
 
 
-CK_RV SC_DigestFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DigestFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_BYTE_PTR pDigest, CK_ULONG_PTR pulDigestLen)
 {
     SESSION *sess = NULL;
@@ -2118,7 +2120,7 @@ CK_RV SC_DigestFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_ERROR("digest_mgr_digest_final() failed.\n");
 
 done:
-    TRACE_INFO("C_DigestFinal: rc = %08lx, sess = %ld\n",
+    TRACE_INFO("C_DigestFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
     if (sess != NULL)
@@ -2128,7 +2130,7 @@ done:
 }
 
 
-CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                   CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     SESSION *sess = NULL;
@@ -2177,9 +2179,9 @@ CK_RV SC_SignInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_sign_init() failed.\n");
 
 done:
-    TRACE_INFO("C_SignInit: rc = %08lx, sess = %ld, mech = %lx\n",
+    TRACE_INFO("C_SignInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -2188,7 +2190,7 @@ done:
 }
 
 
-CK_RV SC_Sign(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
               CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
               CK_ULONG_PTR pulSignatureLen)
 {
@@ -2231,7 +2233,7 @@ done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature))
         sign_mgr_cleanup(&sess->sign_ctx);
 
-    TRACE_INFO("C_Sign: rc = %08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Sign: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
 
     if (sess != NULL)
@@ -2241,7 +2243,7 @@ done:
 }
 
 
-CK_RV SC_SignUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
     SESSION *sess = NULL;
@@ -2281,7 +2283,7 @@ done:
     if (rc != CKR_OK)
         sign_mgr_cleanup(&sess->sign_ctx);
 
-    TRACE_INFO("C_SignUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_SignUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
     if (sess != NULL)
@@ -2291,7 +2293,7 @@ done:
 }
 
 
-CK_RV SC_SignFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                    CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
     SESSION *sess = NULL;
@@ -2332,7 +2334,7 @@ done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature))
         sign_mgr_cleanup(&sess->sign_ctx);
 
-    TRACE_INFO("C_SignFinal: rc = %08lx, sess = %ld\n",
+    TRACE_INFO("C_SignFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
     if (sess != NULL)
@@ -2342,8 +2344,8 @@ done:
 }
 
 
-CK_RV SC_SignRecoverInit(STDLL_TokData_t * tokdata,
-                         ST_SESSION_HANDLE * sSession,
+CK_RV SC_SignRecoverInit(STDLL_TokData_t *tokdata,
+                         ST_SESSION_HANDLE *sSession,
                          CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     UNUSED(sSession);
@@ -2361,7 +2363,7 @@ CK_RV SC_SignRecoverInit(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_SignRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SignRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_BYTE_PTR pData, CK_ULONG ulDataLen,
                      CK_BYTE_PTR pSignature, CK_ULONG_PTR pulSignatureLen)
 {
@@ -2382,7 +2384,7 @@ CK_RV SC_SignRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 }
 
 
-CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     SESSION *sess = NULL;
@@ -2430,9 +2432,9 @@ CK_RV SC_VerifyInit(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_verify_init() failed.\n");
 
 done:
-    TRACE_INFO("C_VerifyInit: rc = %08lx, sess = %ld, mech = %lx\n",
+    TRACE_INFO("C_VerifyInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -2441,7 +2443,7 @@ done:
 }
 
 
-CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                 CK_BYTE_PTR pData, CK_ULONG ulDataLen, CK_BYTE_PTR pSignature,
                 CK_ULONG ulSignatureLen)
 {
@@ -2483,7 +2485,7 @@ CK_RV SC_Verify(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     verify_mgr_cleanup(&sess->verify_ctx);
 
-    TRACE_INFO("C_Verify: rc = %08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_Verify: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
 
     if (sess != NULL)
@@ -2493,7 +2495,7 @@ done:
 }
 
 
-CK_RV SC_VerifyUpdate(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                       CK_BYTE_PTR pPart, CK_ULONG ulPartLen)
 {
     SESSION *sess = NULL;
@@ -2534,7 +2536,7 @@ done:
     if (rc != CKR_OK)
         verify_mgr_cleanup(&sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyUpdate: rc = %08lx, sess = %ld, datalen = %lu\n",
+    TRACE_INFO("C_VerifyUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
 
     if (sess != NULL)
@@ -2544,7 +2546,7 @@ done:
 }
 
 
-CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen)
 {
     SESSION *sess = NULL;
@@ -2584,7 +2586,7 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     verify_mgr_cleanup(&sess->verify_ctx);
 
-    TRACE_INFO("C_VerifyFinal: rc = %08lx, sess = %ld\n",
+    TRACE_INFO("C_VerifyFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
 
     if (sess != NULL)
@@ -2594,8 +2596,8 @@ done:
 }
 
 
-CK_RV SC_VerifyRecoverInit(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
+CK_RV SC_VerifyRecoverInit(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession,
                            CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hKey)
 {
     UNUSED(sSession);
@@ -2613,7 +2615,7 @@ CK_RV SC_VerifyRecoverInit(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_VerifyRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_VerifyRecover(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                        CK_BYTE_PTR pSignature, CK_ULONG ulSignatureLen,
                        CK_BYTE_PTR pData, CK_ULONG_PTR pulDataLen)
 {
@@ -2634,8 +2636,8 @@ CK_RV SC_VerifyRecover(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 }
 
 
-CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t * tokdata,
-                             ST_SESSION_HANDLE * sSession, CK_BYTE_PTR pPart,
+CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t *tokdata,
+                             ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
                              CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                              CK_ULONG_PTR pulEncryptedPartLen)
 {
@@ -2656,8 +2658,8 @@ CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t * tokdata,
-                             ST_SESSION_HANDLE * sSession,
+CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t *tokdata,
+                             ST_SESSION_HANDLE *sSession,
                              CK_BYTE_PTR pEncryptedPart,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
@@ -2679,8 +2681,8 @@ CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_SignEncryptUpdate(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession, CK_BYTE_PTR pPart,
+CK_RV SC_SignEncryptUpdate(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession, CK_BYTE_PTR pPart,
                            CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                            CK_ULONG_PTR pulEncryptedPartLen)
 {
@@ -2701,8 +2703,8 @@ CK_RV SC_SignEncryptUpdate(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t * tokdata,
-                             ST_SESSION_HANDLE * sSession,
+CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t *tokdata,
+                             ST_SESSION_HANDLE *sSession,
                              CK_BYTE_PTR pEncryptedPart,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
@@ -2724,7 +2726,7 @@ CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_GenerateKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                      CK_MECHANISM_PTR pMechanism, CK_ATTRIBUTE_PTR pTemplate,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phKey)
 {
@@ -2777,8 +2779,8 @@ done:
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG i;
 
     attr = pTemplate;
     if (attr != NULL) {
@@ -2800,8 +2802,8 @@ done:
 }
 
 
-CK_RV SC_GenerateKeyPair(STDLL_TokData_t * tokdata,
-                         ST_SESSION_HANDLE * sSession,
+CK_RV SC_GenerateKeyPair(STDLL_TokData_t *tokdata,
+                         ST_SESSION_HANDLE *sSession,
                          CK_MECHANISM_PTR pMechanism,
                          CK_ATTRIBUTE_PTR pPublicKeyTemplate,
                          CK_ULONG ulPublicKeyAttributeCount,
@@ -2856,16 +2858,16 @@ CK_RV SC_GenerateKeyPair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("icsftok_generate_key_pair() failed.\n");
 done:
-    TRACE_INFO("C_GenerateKeyPair: rc = %08lx, sess = %ld, mech = %lx\n",
+    TRACE_INFO("C_GenerateKeyPair: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : ((CK_LONG) sess->handle),
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG i;
 
     if (rc == CKR_OK) {
         TRACE_DEBUG("Public handle: %lu, Private handle: %lu\n",
@@ -2907,7 +2909,7 @@ done:
 }
 
 
-CK_RV SC_WrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_WrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                  CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hWrappingKey,
                  CK_OBJECT_HANDLE hKey, CK_BYTE_PTR pWrappedKey,
                  CK_ULONG_PTR pulWrappedKeyLen)
@@ -2953,7 +2955,7 @@ CK_RV SC_WrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("*_wrap_key() failed.\n");
 
 done:
-    TRACE_INFO("C_WrapKey: rc = %08lx, sess = %ld, encrypting key = %lu, "
+    TRACE_INFO("C_WrapKey: rc = 0x%08lx, sess = %ld, encrypting key = %lu, "
                "wrapped key = %lu\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
                hWrappingKey, hKey);
@@ -2965,7 +2967,7 @@ done:
 }
 
 
-CK_RV SC_UnwrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_UnwrapKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hUnwrappingKey,
                    CK_BYTE_PTR pWrappedKey, CK_ULONG ulWrappedKeyLen,
                    CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
@@ -3013,18 +3015,18 @@ CK_RV SC_UnwrapKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_unwrap_key() failed.\n");
 
 done:
-    TRACE_INFO("C_UnwrapKey: rc = %08lx, sess = %ld, decrypting key = %lu,"
+    TRACE_INFO("C_UnwrapKey: rc = 0x%08lx, sess = %ld, decrypting key = %lu,"
                "unwrapped key = %lu\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               hUnwrappingKey, (phKey ? *phKey : (CK_ULONG)(-1)));
+               hUnwrappingKey, (phKey ? *phKey : 0));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
+    CK_ULONG i;
 
     attr = pTemplate;
     if (attr != NULL) {
@@ -3046,7 +3048,7 @@ done:
 }
 
 
-CK_RV SC_DeriveKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                    CK_MECHANISM_PTR pMechanism, CK_OBJECT_HANDLE hBaseKey,
                    CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
                    CK_OBJECT_HANDLE_PTR phKey)
@@ -3092,7 +3094,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("icsftok_derive_key() failed.\n");
 
 done:
-    TRACE_INFO("C_DeriveKey: rc = %08lx, sess = %ld, mech = %lu\n",
+    TRACE_INFO("C_DeriveKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
                (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
 
@@ -3100,9 +3102,9 @@ done:
         session_mgr_put(tokdata, sess);
 
 #ifdef DEBUG
-    CK_ULONG i;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *ptr = NULL;
+    CK_ULONG i;
 
     if (rc == CKR_OK) {
         switch (pMechanism->mechanism) {
@@ -3143,12 +3145,11 @@ done:
         TRACE_DEBUG("No attributes\n");
     }
 #endif                          /* DEBUG */
-
     return rc;
 }
 
 
-CK_RV SC_SeedRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_SeedRandom(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                     CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen)
 {
     UNUSED(sSession);
@@ -3166,7 +3167,7 @@ CK_RV SC_SeedRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 }
 
 
-CK_RV SC_GenerateRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+CK_RV SC_GenerateRandom(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                         CK_BYTE_PTR pRandomData, CK_ULONG ulRandomLen)
 {
     SESSION *sess = NULL;
@@ -3198,7 +3199,7 @@ CK_RV SC_GenerateRandom(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         TRACE_DEVEL("rng_generate() failed.\n");
 
 done:
-    TRACE_INFO("C_GenerateRandom: rc = %08lx, %lu bytes\n", rc, ulRandomLen);
+    TRACE_INFO("C_GenerateRandom: rc = 0x%08lx, %lu bytes\n", rc, ulRandomLen);
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -3207,8 +3208,8 @@ done:
 }
 
 
-CK_RV SC_GetFunctionStatus(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession)
+CK_RV SC_GetFunctionStatus(STDLL_TokData_t *tokdata,
+                           ST_SESSION_HANDLE *sSession)
 {
     UNUSED(sSession);
 
@@ -3223,7 +3224,7 @@ CK_RV SC_GetFunctionStatus(STDLL_TokData_t * tokdata,
 }
 
 
-CK_RV SC_CancelFunction(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession)
+CK_RV SC_CancelFunction(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 {
     UNUSED(sSession);
 
@@ -3288,10 +3289,10 @@ void SC_SetFunctionList(void)
     function_list.ST_VerifyFinal = SC_VerifyFinal;
     function_list.ST_VerifyRecoverInit = SC_VerifyRecoverInit;
     function_list.ST_VerifyRecover = SC_VerifyRecover;
-    function_list.ST_DigestEncryptUpdate = NULL;    // SC_DigestEncryptUpdate;
-    function_list.ST_DecryptDigestUpdate = NULL;    // SC_DecryptDigestUpdate;
+    function_list.ST_DigestEncryptUpdate = NULL;      // SC_DigestEncryptUpdate;
+    function_list.ST_DecryptDigestUpdate = NULL;      // SC_DecryptDigestUpdate;
     function_list.ST_SignEncryptUpdate = NULL;  //SC_SignEncryptUpdate;
-    function_list.ST_DecryptVerifyUpdate = NULL;    // SC_DecryptVerifyUpdate;
+    function_list.ST_DecryptVerifyUpdate = NULL;      // SC_DecryptVerifyUpdate;
     function_list.ST_GenerateKey = SC_GenerateKey;
     function_list.ST_GenerateKeyPair = SC_GenerateKeyPair;
     function_list.ST_WrapKey = SC_WrapKey;
