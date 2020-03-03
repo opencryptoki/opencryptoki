@@ -177,7 +177,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
         if (sltp->TokData)
             free(sltp->TokData);
         sltp->TokData = NULL;
-        TRACE_DEVEL("Failed to load token data.\n");
+        TRACE_DEVEL("Failed to load token data. (rc=0x%02lx)\n", rc);
         goto done;
     }
 
@@ -655,7 +655,8 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("Failed to save user's masterkey.\n");
 
 done:
-    TRACE_INFO("C_InitPin: rc = 0x%08lx, sess = %lu\n", rc, sSession->sessionh);
+    TRACE_INFO("C_InitPin: rc = 0x%08lx, session = %lu\n",
+               rc, sSession->sessionh);
 
     pthread_mutex_unlock(&tokdata->login_mutex);
 
@@ -987,7 +988,8 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
 done:
-    TRACE_INFO("C_SetPin: rc = 0x%08lx, sess = %lu\n", rc, sSession->sessionh);
+    TRACE_INFO("C_SetPin: rc = 0x%08lx, session = %lu\n",
+               rc, sSession->sessionh);
 
     pthread_mutex_unlock(&tokdata->login_mutex);
 
@@ -1594,7 +1596,7 @@ done:
         }
     }
     if (rc == CKR_OK)
-        TRACE_DEBUG("Handle:  %lu\n", *phObject);
+        TRACE_DEBUG("Handle: %lu\n", *phObject);
 #endif
 
     return rc;
@@ -1637,9 +1639,8 @@ done:
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
 
-    TRACE_INFO
-        ("C_CopyObject: rc = 0x%08lx, old handle = %lu, new handle = %lu\n", rc,
-         hObject, *phNewObject);
+    TRACE_INFO("C_CopyObject:rc = 0x%08lx,old handle = %lu, "
+               "new handle = %lu\n", rc, hObject, *phNewObject);
 
     return rc;
 }
@@ -1924,7 +1925,7 @@ CK_RV SC_FindObjects(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     if (!sess->find_list) {
         TRACE_DEVEL("sess->find_list is NULL.\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
     }
     count = MIN(ulMaxObjectCount, (sess->find_count - sess->find_idx));
@@ -2165,27 +2166,7 @@ done:
 }
 
 
-/* I think RSA goofed when designing the specification for C_EncryptFinal.
- * This function is supposed to follow the Cryptoki standard that if
- * pLastEncryptedPart == NULL then the user is requesting only the length
- * of the output.
- *
- * But it's quite possible that no output will be returned (say the user
- * specifies a total of 64 bytes of input data throughout the multi-part
- * encryption).  The same thing can happen during an EncryptUpdate.
- *
- * ie:
- *
- *    1) user calls C_EncryptFinal to get the needed length
- *       --> we return "0 bytes required"
- *    2) user passes in a NULL pointer for pLastEncryptedPart
- *       --> we think the user is requesting the length again <--
- *
- * So the user needs to pass in a non-NULL pointer even though we're not
- * going to return anything in it.  It would have been cleaner if RSA would
- * have simply included a "give-me-the-length-only flag" as an argument.
- */
-CK_RV SC_EncryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
                       CK_BYTE_PTR pLastEncryptedPart,
                       CK_ULONG_PTR pulLastEncryptedPartLen)
 {
@@ -2292,7 +2273,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_DecryptInit: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -3497,7 +3478,7 @@ CK_RV SC_GenerateKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_GenerateKey: rc = 0x%08lx, sess = %ld, mech = 0x%lx\n", rc,
                (sess == NULL) ? -1 : (CK_LONG) sess->handle,
-               (pMechanism ? pMechanism->mechanism : (CK_ULONG)(-1)));
+               (pMechanism ? pMechanism->mechanism : (CK_ULONG)-1));
 
     if (sess != NULL)
         session_mgr_put(tokdata, sess);
@@ -3785,7 +3766,7 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pMechanism || (!pTemplate && ulCount != 0)) {
+    if (!pMechanism || !phKey || (!pTemplate && ulCount != 0)) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         rc = CKR_ARGUMENTS_BAD;
         goto done;
@@ -3866,7 +3847,6 @@ done:
         TRACE_DEBUG("No attributes\n");
     }
 #endif                          /* DEBUG */
-
     return rc;
 }
 
