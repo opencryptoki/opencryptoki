@@ -928,10 +928,8 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
                        "Cannot read token object %s " "(ignoring it)", fname);
             continue;
         }
-        // Grab object list  mutex
-        MY_LockMutex(&obj_list_mutex);
+
         rc = restore_private_token_object_old(tokdata, buf, size, NULL);
-        MY_UnlockMutex(&obj_list_mutex);
         if (rc != CKR_OK)
             goto error;
 
@@ -2496,11 +2494,9 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
             continue;
         }
 
-        MY_LockMutex(&obj_list_mutex);
         rc = restore_private_token_object(tokdata, header,
                                           buf, size,
                                           footer, NULL);
-        MY_UnlockMutex(&obj_list_mutex);
         if (rc != CKR_OK)
             goto error;
 
