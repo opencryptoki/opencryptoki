@@ -234,55 +234,6 @@ DL_NODE *dlist_remove_node(DL_NODE *list, DL_NODE *node)
     return list;
 }
 
-// NOTE about Mutexes and cross process locking....
-//
-// The code uses 2 types of locks... internal locks to prevent threads within
-// the same process space from stomping on each other  (pthread_mutex's suffice
-// for this).... and Cross Process Locks....
-// On AIX we use it's variation of Posix semaphores for this.... Idealy on other
-// platforms either POSIXSEMaphores or PTHREADXPL (pthreads xprocess lock) would
-// be used.  On Linux unfortunatly  neither of these are available so we need to
-// use the old standby of  SYSV semaphores (YECH.... GAG....)....  The only
-// pieces which have been tested are the AIX and SYSV portions although
-// we expect that the others work correctly.
-//
-// we use alot more mutexes in the redesign than we did in the original
-// design.  so instead of just the single global "pkcs_mutex" we have to
-// deal with a number of mutexes.  so we'll make the mutex routines a
-// bit more generic.
-//
-
-CK_RV _CreateMutex(MUTEX *mutex)
-{
-    // on AIX we make this a no-op since we assume that
-    // the mutex was created in the initialization
-    pthread_mutex_init(mutex, NULL);
-
-    return CKR_OK;
-}
-
-CK_RV _DestroyMutex(MUTEX *mutex)
-{
-    // no-op in AIX
-    pthread_mutex_destroy((pthread_mutex_t *) mutex);
-
-    return CKR_OK;
-}
-
-CK_RV _LockMutex(MUTEX *mutex)
-{
-    pthread_mutex_lock(mutex);
-
-    return CKR_OK;
-}
-
-CK_RV _UnlockMutex(MUTEX *mutex)
-{
-    pthread_mutex_unlock(mutex);
-
-    return CKR_OK;
-}
-
 CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
 {
     char lockfile[2 * PATH_MAX + sizeof(LOCKDIR_PATH) + 6];

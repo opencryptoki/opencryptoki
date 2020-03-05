@@ -92,8 +92,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
         return CKR_CRYPTOKI_ALREADY_INITIALIZED;
     }
 
-    MY_CreateMutex(&login_mutex);
-
     /*
      * Create separate memory area for each token specific data
      */
@@ -108,6 +106,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
 #ifdef ENABLE_LOCKS
     pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
 #endif
+    pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
 
     if (strlen(sinfp->tokname)) {
         sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
@@ -244,6 +243,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
 #ifdef ENABLE_LOCKS
     pthread_rwlock_destroy(&tokdata->sess_list_rwlock);
 #endif
+    pthread_mutex_destroy(&tokdata->login_mutex);
 
     detach_shm(tokdata, in_fork_initializer);
     /* close spin lock file */
@@ -412,14 +412,18 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
     if (!pPin || !pLabel) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
+        return CKR_ARGUMENTS_BAD;
     }
+
+    if (pthread_mutex_lock(&tokdata->login_mutex)) {
+        TRACE_ERROR("Failed to get mutex lock.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
     if (tokdata->nv_token_data->token_info.flags & CKF_SO_PIN_LOCKED) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
         rc = CKR_PIN_LOCKED;
@@ -489,6 +493,8 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
 done:
     TRACE_INFO("C_InitToken: rc = 0x%08lx\n", rc);
 
+    pthread_mutex_unlock(&tokdata->login_mutex);
+
     return rc;
 }
 
@@ -507,14 +513,18 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
     if (!pPin) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
+        return CKR_ARGUMENTS_BAD;
     }
+
+    if (pthread_mutex_lock(&tokdata->login_mutex)) {
+        TRACE_ERROR("Failed to get mutex lock.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -641,6 +651,8 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_InitPin: rc = 0x%08lx, sess = %lu\n", rc, sSession->sessionh);
 
+    pthread_mutex_unlock(&tokdata->login_mutex);
+
     return rc;
 }
 
@@ -660,9 +672,14 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
+
+    if (pthread_mutex_lock(&tokdata->login_mutex)) {
+        TRACE_ERROR("Failed to get mutex lock.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -963,6 +980,8 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     TRACE_INFO("C_SetPin: rc = 0x%08lx, sess = %lu\n", rc, sSession->sessionh);
 
+    pthread_mutex_unlock(&tokdata->login_mutex);
+
     return rc;
 }
 
@@ -1182,8 +1201,7 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     /* In v2.11, logins should be exclusive, since token
      * specific flags may need to be set for a bad login. - KEY
      */
-    rc = MY_LockMutex(&login_mutex);
-    if (rc != CKR_OK) {
+    if (pthread_mutex_lock(&tokdata->login_mutex)) {
         TRACE_ERROR("Failed to get mutex lock.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -1437,7 +1455,8 @@ done:
     TRACE_INFO("C_Login: rc = 0x%08lx\n", rc);
     if (sess)
         save_token_data(tokdata, sess->session_info.slotID);
-    MY_UnlockMutex(&login_mutex);
+
+    pthread_mutex_unlock(&tokdata->login_mutex);
 
     return rc;
 }
@@ -1450,8 +1469,12 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto done;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    if (pthread_mutex_lock(&tokdata->login_mutex)) {
+        TRACE_ERROR("Failed to get mutex lock.\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     sess = session_mgr_find(tokdata, sSession->sessionh);
@@ -1487,6 +1510,8 @@ CK_RV SC_Logout(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
 
 done:
     TRACE_INFO("C_Logout: rc = 0x%08lx\n", rc);
+
+    pthread_mutex_unlock(&tokdata->login_mutex);
 
     return rc;
 }
