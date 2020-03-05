@@ -27,9 +27,6 @@
 
 // global variables
 //
-
-extern MUTEX login_mutex;
-
 #define SO_PIN_DEFAULT			"87654321"
 #define SO_KDF_LOGIN_IT			100000ULL
 #define SO_KDF_LOGIN_PURPOSE		"so_login_purpose________________"
@@ -1801,11 +1798,6 @@ DL_NODE *dlist_next(DL_NODE *list);
 DL_NODE *dlist_prev(DL_NODE *list);
 void dlist_purge(DL_NODE *list);
 DL_NODE *dlist_remove_node(DL_NODE *list, DL_NODE *node);
-
-CK_RV _CreateMutex(MUTEX *mutex);
-CK_RV _DestroyMutex(MUTEX *mutex);
-CK_RV _LockMutex(MUTEX *mutex);
-CK_RV _UnlockMutex(MUTEX *mutex);
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id);
 CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);

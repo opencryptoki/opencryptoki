@@ -343,6 +343,7 @@ struct _STDLL_TokData_t {
     uint32_t version; /* major<<16|minor */
     unsigned char so_wrap_key[32];
     unsigned char user_wrap_key[32];
+    pthread_mutex_t login_mutex;
     struct btree sess_btree;
 #ifdef ENABLE_LOCKS
     pthread_rwlock_t sess_list_rwlock;
@@ -354,11 +355,5 @@ struct _STDLL_TokData_t {
     MECH_LIST_ELEMENT *mech_list;
     CK_ULONG mech_list_len;
 };
-
-// These are the same for both AIX and Linux...
-#define  MY_CreateMutex(x)    _CreateMutex((MUTEX *)(x))
-#define  MY_DestroyMutex(x)    _DestroyMutex((MUTEX *)(x))
-#define  MY_LockMutex(x)       _LockMutex((MUTEX *)(x))
-#define  MY_UnlockMutex(x)     _UnlockMutex((MUTEX *)(x))
 
 #endif

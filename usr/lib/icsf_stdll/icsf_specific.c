@@ -281,7 +281,7 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     if (icsf_data == NULL)
         return CKR_HOST_MEMORY;
     list_init(&icsf_data->sessions);
-    MY_CreateMutex(&icsf_data->sess_list_mutex);
+    pthread_mutex_init(&icsf_data->sess_list_mutex, NULL);
     tokdata->private_data = icsf_data;
 
     rc = XProcLock(tokdata);
@@ -1177,7 +1177,7 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
     }
 
     if (finalize) {
-        MY_DestroyMutex(&icsf_data->sess_list_mutex);
+        pthread_mutex_destroy(&icsf_data->sess_list_mutex);
         free(icsf_data);
         tokdata->private_data = NULL;
     }

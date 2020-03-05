@@ -28,8 +28,6 @@
 #include "host_defs.h"
 #include "h_extern.h"
 
-MUTEX login_mutex;
-
 struct ST_FCN_LIST function_list;
 
 
