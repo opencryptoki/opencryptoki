@@ -28,7 +28,7 @@
 // global variables
 //
 
-extern MUTEX obj_list_mutex, login_mutex;
+extern MUTEX login_mutex;
 
 #define SO_PIN_DEFAULT			"87654321"
 #define SO_KDF_LOGIN_IT			100000ULL

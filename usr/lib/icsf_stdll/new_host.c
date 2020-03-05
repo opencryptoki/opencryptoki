@@ -80,7 +80,6 @@ CK_RV ST_Initialize(API_Slot_t * sltp, CK_SLOT_ID SlotNumber,
         return CKR_CRYPTOKI_ALREADY_INITIALIZED;
     }
 
-    MY_CreateMutex(&obj_list_mutex);
     MY_CreateMutex(&login_mutex);
 
     /*
