@@ -2097,6 +2097,7 @@ CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata)
     TOK_OBJ_ENTRY *shm_te = NULL;
     CK_ULONG index;
     OBJECT *new_obj;
+    CK_RV rc;
 
     ua.entries = tokdata->global_shm->publ_tok_objs;
     ua.num_entries = &(tokdata->global_shm->num_publ_tok_obj);
@@ -2123,8 +2124,11 @@ CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata)
             memset(new_obj, 0x0, sizeof(OBJECT));
 
             memcpy(new_obj->name, shm_te->name, 8);
-            reload_token_object(tokdata, new_obj);
-            bt_node_add(&tokdata->publ_token_obj_btree, new_obj);
+            rc = reload_token_object(tokdata, new_obj);
+            if (rc == CKR_OK)
+                bt_node_add(&tokdata->publ_token_obj_btree, new_obj);
+            else
+                object_free(new_obj);
         }
     }
 
@@ -2138,6 +2142,7 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
     TOK_OBJ_ENTRY *shm_te = NULL;
     CK_ULONG index;
     OBJECT *new_obj;
+    CK_RV rc;
 
     // SAB XXX don't bother doing this call if we are not in the correct
     // login state
@@ -2168,8 +2173,11 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
             memset(new_obj, 0x0, sizeof(OBJECT));
 
             memcpy(new_obj->name, shm_te->name, 8);
-            reload_token_object(tokdata, new_obj);
-            bt_node_add(&tokdata->priv_token_obj_btree, new_obj);
+            rc = reload_token_object(tokdata, new_obj);
+            if (rc == CKR_OK)
+                bt_node_add(&tokdata->priv_token_obj_btree, new_obj);
+            else
+                object_free(new_obj);
         }
     }
 
