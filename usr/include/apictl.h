@@ -13,7 +13,6 @@
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>
-#include <pthread.h>
 
 #include "local_types.h"
 
@@ -40,7 +39,6 @@ struct API_Slot {
     CK_RV (*pSTfini)(STDLL_TokData_t *, CK_SLOT_ID, SLOT_INFO *,
                      struct trace_handle_t *, CK_BBOOL);
     CK_RV(*pSTcloseall)(STDLL_TokData_t *, CK_SLOT_ID);
-    pthread_mutex_t api_mutex; /* lock API calls against other threads */
 };
 
 
