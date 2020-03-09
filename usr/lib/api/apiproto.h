@@ -34,8 +34,6 @@ CK_RV CreateProcLock();
 CK_RV ProcLock(void);
 CK_RV ProcUnLock(void);
 CK_RV ProcClose(void);
-CK_RV APILock(API_Slot_t *);
-CK_RV APIUnLock(API_Slot_t *);
 
 void _init(void);
 void get_sess_count(CK_SLOT_ID, CK_ULONG *);
@@ -51,7 +49,7 @@ void CK_Info_From_Internal(CK_INFO_PTR dest, CK_INFO_PTR_64 src);
 
 int sessions_exist(CK_SLOT_ID);
 
-CK_RV CloseAllSessions(CK_SLOT_ID slot_id);
+void CloseAllSessions(CK_SLOT_ID slot_id);
 int init_socket_data();
 
 #endif
