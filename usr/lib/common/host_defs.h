@@ -331,6 +331,7 @@ struct _LW_SHM_TYPE {
 struct _STDLL_TokData_t {
     CK_SLOT_INFO slot_info;
     int spinxplfd;              // token specific lock
+    unsigned int spinxplfd_count; // counter for recursive file lock
     pthread_mutex_t spinxplfd_mutex; // token specific pthread lock
     char *pk_dir;
     char data_store[256];       // path information of the token directory

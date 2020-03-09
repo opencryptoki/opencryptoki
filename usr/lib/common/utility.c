@@ -369,24 +369,40 @@ CK_RV XProcLock(STDLL_TokData_t *tokdata)
     if (XThreadLock(tokdata) != CKR_OK)
         return CKR_CANT_LOCK;
 
-    if (tokdata->spinxplfd != -1) {
-        flock(tokdata->spinxplfd, LOCK_EX);
-    } else {
+    if (tokdata->spinxplfd < 0)  {
         TRACE_DEVEL("No file descriptor to lock with.\n");
         return CKR_CANT_LOCK;
     }
+
+    if (tokdata->spinxplfd_count == 0) {
+        if (flock(tokdata->spinxplfd, LOCK_EX) != 0) {
+            TRACE_DEVEL("flock has failed.\n");
+            return CKR_CANT_LOCK;
+        }
+    }
+    tokdata->spinxplfd_count++;
 
     return CKR_OK;
 }
 
 CK_RV XProcUnLock(STDLL_TokData_t *tokdata)
 {
-    if (tokdata->spinxplfd != -1) {
-        flock(tokdata->spinxplfd, LOCK_UN);
-    } else {
+    if (tokdata->spinxplfd < 0)  {
         TRACE_DEVEL("No file descriptor to unlock with.\n");
         return CKR_CANT_LOCK;
     }
+
+    if (tokdata->spinxplfd_count == 0) {
+        TRACE_DEVEL("No file lock is held.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (tokdata->spinxplfd_count == 1) {
+        if (flock(tokdata->spinxplfd, LOCK_UN) != 0) {
+            TRACE_DEVEL("flock has failed.\n");
+            return CKR_CANT_LOCK;
+        }
+    }
+    tokdata->spinxplfd_count--;
 
     if (XThreadUnLock(tokdata) != CKR_OK)
         return CKR_CANT_LOCK;
@@ -399,6 +415,7 @@ CK_RV XProcLock_Init(STDLL_TokData_t *tokdata)
     pthread_mutexattr_t attr;
 
     tokdata->spinxplfd = -1;
+    tokdata->spinxplfd_count = 0;
 
     if (pthread_mutexattr_init(&attr)) {
         TRACE_ERROR("Mutex attribute init failed.\n");
