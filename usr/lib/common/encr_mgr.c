@@ -52,7 +52,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     // key usage restrictions
     //
     if (operation == OP_ENCRYPT_INIT) {
-        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to acquire key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -76,7 +76,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             }
         }
     } else if (operation == OP_WRAP) {
-        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to acquire key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -611,7 +611,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

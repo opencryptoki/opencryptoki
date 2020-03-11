@@ -47,7 +47,7 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
 
     UNUSED(sess);
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -95,7 +95,7 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
     }
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -118,7 +118,7 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
 
     UNUSED(sess);
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -158,7 +158,7 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
     rc = ckm_dsa_verify(tokdata, signature, in_data, key_obj);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

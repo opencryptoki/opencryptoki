@@ -131,6 +131,8 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
 // the individual object level don't have the concept of "session". These checks
 // are done by the object manager.
 //
+// The old_obj must hold the READ lock!
+//
 CK_RV object_copy(STDLL_TokData_t * tokdata,
                   CK_ATTRIBUTE * pTemplate,
                   CK_ULONG ulCount, OBJECT * old_obj, OBJECT ** new_obj)
@@ -167,6 +169,10 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
     memset(o, 0x0, sizeof(OBJECT));
     memset(tmpl, 0x0, sizeof(TEMPLATE));
     memset(new_tmpl, 0x0, sizeof(TEMPLATE));
+
+    rc = object_init_lock(o);
+    if (rc != CKR_OK)
+        goto error;
 
     // copy the original object's attribute template
     //
@@ -306,6 +312,7 @@ void object_free(OBJECT * obj)
     if (obj) {
         if (obj->template)
             template_free(obj->template);
+        object_destroy_lock(obj);
         free(obj);
     }
 }
@@ -604,14 +611,18 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
         goto error;
     }
     obj->template = tmpl;
+    tmpl = NULL;
 
     if (replace == FALSE) {
+        rc = object_init_lock(obj);
+        if (rc != CKR_OK)
+            goto error;
+
         *new_obj = obj;
     } else {
+        /* Reload of existing object only changes the template */
         template_free((*new_obj)->template);
-        memcpy(&obj->hdr, &(*new_obj)->hdr, sizeof(obj->hdr)); // Keep ref count!
-        memcpy(*new_obj, obj, sizeof(OBJECT));
-
+        (*new_obj)->template = obj->template;
         free(obj);              // don't want to do object_free() here!
     }
 
@@ -697,6 +708,12 @@ CK_RV object_create_skel(STDLL_TokData_t * tokdata,
     // at this point, we should have a valid object with correct attributes
     //
     o->template = tmpl;
+    tmpl = NULL;
+
+    rc = object_init_lock(o);
+    if (rc != CKR_OK)
+        goto done;
+
     *obj = o;
 
     return CKR_OK;
@@ -710,4 +727,61 @@ done:
         template_free(tmpl2);
 
     return rc;
+}
+
+CK_RV object_init_lock(OBJECT *obj)
+{
+    if (pthread_rwlock_init(&obj->template_rwlock, NULL) != 0) {
+        TRACE_DEVEL("Object Lock init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_destroy_lock(OBJECT *obj)
+{
+    if (pthread_rwlock_destroy(&obj->template_rwlock) != 0) {
+        TRACE_DEVEL("Object Lock destroy failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Do NOT try to get an object lock, if the current thread holds the
+ * XProcLock! This might case a deadlock !
+ * Always first acquire the Object lock, and then the XProcLock.
+ */
+CK_RV object_lock(OBJECT *obj, OBJ_LOCK_TYPE type)
+{
+    switch (type) {
+    case NO_LOCK:
+        break;
+    case READ_LOCK:
+        if (pthread_rwlock_rdlock(&obj->template_rwlock) != 0) {
+            TRACE_DEVEL("Object Read-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+        break;
+    case WRITE_LOCK:
+        if (pthread_rwlock_wrlock(&obj->template_rwlock) != 0) {
+            TRACE_DEVEL("Object Write-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+        break;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_unlock(OBJECT *obj)
+{
+    if (pthread_rwlock_unlock(&obj->template_rwlock) != 0) {
+        TRACE_DEVEL("Object Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
 }

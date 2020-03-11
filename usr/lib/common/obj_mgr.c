@@ -229,7 +229,7 @@ done:
         if (!added)
             object_free(o);
         else
-            object_put(tokdata, o);
+            object_put(tokdata, o, FALSE);
         o = NULL;
     }
 
@@ -335,7 +335,7 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, old_handle, &old_obj);
+    rc = object_mgr_find_in_map1(tokdata, old_handle, &old_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         goto done;
@@ -505,10 +505,10 @@ done:
         if (!added)
             object_free(new_obj);
         else
-            object_put(tokdata, new_obj);
+            object_put(tokdata, new_obj, FALSE);
         new_obj = NULL;
     }
-    object_put(tokdata, old_obj);
+    object_put(tokdata, old_obj, TRUE);
     old_obj = NULL;
 
     if (locked) {
@@ -946,8 +946,12 @@ done:
 // The returned Object must be put back (using object_put()) by the
 // caller to decrease the reference count!
 //
+// The returned object is locked (depending on lock_type), and must be unlocked
+// by the caller!
+//
 CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
-                                     CK_OBJECT_HANDLE handle, OBJECT **ptr)
+                                     CK_OBJECT_HANDLE handle, OBJECT **ptr,
+                                     OBJ_LOCK_TYPE lock_type)
 {
     OBJECT_MAP *map = NULL;
     OBJECT *obj = NULL;
@@ -988,6 +992,13 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
+    rc = object_lock(obj, lock_type);
+    if (rc != CKR_OK) {
+        object_put(tokdata, obj, FALSE);
+        obj = NULL;
+        return rc;
+    }
+
     *ptr = obj;
 
     return rc;
@@ -1000,13 +1011,17 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
 // The returned Object must be put back (using object_put()) by the
 // caller to decrease the reference count!
 //
+// The returned object is locked (depending on lock_type), and must be unlocked
+// by the caller!
+//
 CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
-                              CK_OBJECT_HANDLE handle, OBJECT **ptr)
+                              CK_OBJECT_HANDLE handle, OBJECT **ptr,
+                              OBJ_LOCK_TYPE lock_type)
 {
     OBJECT_MAP *map = NULL;
     OBJECT *obj = NULL;
     CK_RV rc = CKR_OK;
-
+    CK_BBOOL session_obj, locked = FALSE;
 
     if (!ptr) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -1019,6 +1034,7 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
+    session_obj = map->is_session_obj;
     if (map->is_session_obj)
         obj = bt_get_node_value(&tokdata->sess_obj_btree, map->obj_handle);
     else if (map->is_private)
@@ -1046,34 +1062,42 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
      * possible another process or session has deleted a token object.
      * Accounting is done in shm, so check shm to see if object still exists.
      */
-    if (!object_is_session_object(obj)) {
-        rc = XProcLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to get Process Lock.\n");
-            object_put(tokdata, obj);
-            obj = NULL;
-            return rc;
-        }
+    if (!session_obj) {
+        /* object_mgr_check_shm() needs the object to hold the READ lock */
+        rc = object_lock(obj, READ_LOCK);
+        if (rc != CKR_OK)
+            goto done;
+        locked = TRUE;
 
         rc = object_mgr_check_shm(tokdata, obj);
         if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_check_shm failed.\n");
-            XProcUnLock(tokdata);
-            object_put(tokdata, obj);
-            obj = NULL;
-            return rc;
+            goto done;
         }
 
-        rc = XProcUnLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to release Process Lock.\n");
-            object_put(tokdata, obj);
-            obj = NULL;
-            return rc;
+        if (lock_type == READ_LOCK) {
+            /* already have the desired object lock */
+            rc = CKR_OK;
+            goto done;
         }
+
+        rc = object_unlock(obj);
+        if (rc != CKR_OK)
+            goto done;
+        locked = FALSE;
     }
 
-    *ptr = obj;
+    rc = object_lock(obj, lock_type);
+    if (rc != CKR_OK)
+        goto done;
+
+done:
+    if (rc == CKR_OK) {
+        *ptr = obj;
+    } else {
+        object_put(tokdata, obj, locked);
+        obj = NULL;
+    }
 
     return rc;
 }
@@ -1118,6 +1142,8 @@ void find_obj_cb(STDLL_TokData_t *tokdata, void *node,
 
 // object_mgr_find_in_map2()
 //
+// The caller must already have locked the passed object (READ_LOCK)!
+//
 CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
                               OBJECT *obj, CK_OBJECT_HANDLE *handle)
 {
@@ -1128,9 +1154,6 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
-    //
-    // no mutex here.  the calling function should have locked the mutex
-    //
 
     fa.done = FALSE;
     fa.obj = obj;
@@ -1147,17 +1170,9 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
     *handle = fa.map_handle;
 
     if (!object_is_session_object(obj)) {
-        rc = XProcLock(tokdata);
+        rc = object_mgr_check_shm(tokdata, obj);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to get Process Lock.\n");
-            return rc;
-        }
-
-        object_mgr_check_shm(tokdata, obj);
-
-        rc = XProcUnLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to release Process Lock.\n");
+            TRACE_DEVEL("object_mgr_check_shm failed.\n");
             return rc;
         }
     }
@@ -1174,6 +1189,9 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
     CK_ATTRIBUTE *attr;
     CK_BBOOL match = FALSE;
     CK_RV rc;
+
+    if (object_lock(obj, READ_LOCK) != CKR_OK)
+        return;
 
     if ((object_is_private(obj) == FALSE) || (fa->public_only == FALSE)) {
         // if the user doesn't specify any template attributes then we return
@@ -1193,7 +1211,7 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
                                        &map_handle);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("object_mgr_add_to_map failed.\n");
-                return;
+                goto done;
             }
         }
         // If hw_feature is false here, we need to filter out all objects
@@ -1203,10 +1221,10 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
              TRUE)) {
             if (attr->pValue == NULL) {
                 TRACE_DEVEL("%s\n", ock_err(ERR_GENERAL_ERROR));
-                return;
+                goto done;
             }
             if (*(CK_OBJECT_CLASS *) attr->pValue == CKO_HW_FEATURE)
-                return;
+                goto done;
         }
 
         /* Don't find objects that have been created with the CKA_HIDDEN
@@ -1215,7 +1233,7 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
             (template_attribute_find(obj->template, CKA_HIDDEN, &attr) ==
              TRUE)) {
             if (*(CK_BBOOL *) attr->pValue == TRUE)
-                return;
+                goto done;
         }
 
         fa->sess->find_list[fa->sess->find_count] = map_handle;
@@ -1229,10 +1247,13 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
                                              sizeof(CK_OBJECT_HANDLE));
             if (!fa->sess->find_list) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                return;
+                goto done;
             }
         }
     }
+
+done:
+    object_unlock(obj);
 }
 
 CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
@@ -1387,7 +1408,7 @@ CK_RV object_mgr_get_attribute_values(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, handle, &obj);
+    rc = object_mgr_find_in_map1(tokdata, handle, &obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
@@ -1408,7 +1429,7 @@ CK_RV object_mgr_get_attribute_values(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("object_get_attribute_values failed.\n");
 
 done:
-    object_put(tokdata, obj);
+    object_put(tokdata, obj, TRUE);
     obj = NULL;
 
     return rc;
@@ -1423,7 +1444,7 @@ CK_RV object_mgr_get_object_size(STDLL_TokData_t *tokdata,
     OBJECT *obj;
     CK_RV rc;
 
-    rc = object_mgr_find_in_map1(tokdata, handle, &obj);
+    rc = object_mgr_find_in_map1(tokdata, handle, &obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
@@ -1431,7 +1452,7 @@ CK_RV object_mgr_get_object_size(STDLL_TokData_t *tokdata,
 
     *size = object_get_size(obj);
 
-    object_put(tokdata, obj);
+    object_put(tokdata, obj, TRUE);
     obj = NULL;
 
     return rc;
@@ -1447,6 +1468,9 @@ void purge_session_obj_cb(STDLL_TokData_t *tokdata, void *node,
     UNUSED(tokdata);
 
     if (obj->session == pa->sess) {
+        if (object_lock(obj, READ_LOCK) != CKR_OK)
+            return;
+
         if (pa->type == PRIVATE) {
             if (object_is_private(obj))
                 del = TRUE;
@@ -1456,6 +1480,8 @@ void purge_session_obj_cb(STDLL_TokData_t *tokdata, void *node,
         } else if (pa->type == ALL) {
             del = TRUE;
         }
+
+        object_unlock(obj);
 
         if (del == TRUE) {
             if (obj->map_handle)
@@ -1638,7 +1664,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, handle, &obj);
+    rc = object_mgr_find_in_map1(tokdata, handle, &obj, WRITE_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
@@ -1764,7 +1790,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     }
 
 done:
-    object_put(tokdata, obj);
+    object_put(tokdata, obj, TRUE);
     obj = NULL;
 
     return rc;
@@ -1901,27 +1927,30 @@ CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
 }
 
 
-//
+// The object must hold the READ lock when this function is called!
 //
 CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
 {
     TOK_OBJ_ENTRY *entry = NULL;
-    CK_BBOOL priv;
+    CK_BBOOL priv, rd_locked = TRUE, wr_locked = FALSE;
     CK_ULONG index;
     CK_RV rc;
 
-
-    // the calling routine is responsible for locking the global_shm mutex
-    //
-
-    /* first check the object count. If it is 0, then just return. */
     priv = object_is_private(obj);
 
-    if (priv) {
+retry:
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+        return rc;
+    }
 
+    if (priv) {
+        /* first check the object count. If it is 0, then just return. */
         if (tokdata->global_shm->num_priv_tok_obj == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-            return CKR_OBJECT_HANDLE_INVALID;
+            rc = CKR_OBJECT_HANDLE_INVALID;
+            goto done;
         }
         rc = object_mgr_search_shm_for_obj(tokdata->global_shm->priv_tok_objs,
                                            0,
@@ -1929,14 +1958,15 @@ CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
                                            num_priv_tok_obj - 1, obj, &index);
         if (rc != CKR_OK) {
             TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
-            return rc;
+            goto done;
         }
         entry = &tokdata->global_shm->priv_tok_objs[index];
     } else {
-
+        /* first check the object count. If it is 0, then just return. */
         if (tokdata->global_shm->num_publ_tok_obj == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-            return CKR_OBJECT_HANDLE_INVALID;
+            rc = CKR_OBJECT_HANDLE_INVALID;
+            goto done;
         }
         rc = object_mgr_search_shm_for_obj(tokdata->global_shm->publ_tok_objs,
                                            0,
@@ -1945,16 +1975,91 @@ CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
                                            obj, &index);
         if (rc != CKR_OK) {
             TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
-            return rc;
+            goto done;
         }
         entry = &tokdata->global_shm->publ_tok_objs[index];
     }
 
     if ((obj->count_hi == entry->count_hi)
-        && (obj->count_lo == entry->count_lo))
-        return CKR_OK;
+        && (obj->count_lo == entry->count_lo)) {
+        rc = CKR_OK;
+        goto done;
+    }
+
+    /* We need to acquire the WRITE lock on the object because we are modifying
+     * the attributes. Since the object already holds the READ lock, we need to
+     * unlock it first, then get the WRITE lock, and finally unlock again and
+     * get the READ lock again. The caller assumes that the object still holds
+     * the READ lock when we return.
+     *
+     * We must not hold the XProcLock when trying to get the WRITE lock on the
+     * Objects. This might cause a deadlock, if another thread holds a READ or
+     * WRITE lock on the object, and is also trying to get the XProcLock.
+     */
+
+    if (rd_locked) {
+        rc = object_unlock(obj);
+        if (rc != CKR_OK)
+            goto done;
+        rd_locked = FALSE;
+    }
+
+    if (!wr_locked) {
+        /* Try to get the WRITE lock, although we hold the XProcLock. If we get
+         * it we take the fast path, if not, we release the XProcLock, then get
+         * the WRITE lock and then get the XProcLock again. Since we have
+         * released the XProcLock, we then need to re-do the SHM checking.
+         */
+        if (pthread_rwlock_trywrlock(&obj->template_rwlock) != 0) {
+            /* Did not get the WRITE lock */
+            rc = XProcUnLock(tokdata);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to release Process Lock.\n");
+                goto done;
+            }
+
+            rc = object_lock(obj, WRITE_LOCK);
+            if (rc != CKR_OK)
+                goto done;
+            wr_locked = TRUE;
+
+            goto retry;
+        }
+
+        wr_locked = TRUE;
+    }
+
+    /* If we reach here, we do have the WRITE lock on the object */
 
     rc = reload_token_object(tokdata, obj);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = object_unlock(obj);
+    if (rc != CKR_OK)
+        goto done;
+    wr_locked = FALSE;
+
+    /* Re-acquire the READ lock only after we have released the XProcLock ! */
+
+done:
+    if (rc == CKR_OK) {
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+        }
+    } else {
+        XProcUnLock(tokdata);
+    }
+
+    if (wr_locked)
+        object_unlock(obj);
+    if (!rd_locked) {
+        if (rc == CKR_OK)
+            rc = object_lock(obj, READ_LOCK);
+        else
+            object_lock(obj, READ_LOCK);
+    }
 
     return rc;
 }
@@ -2116,6 +2221,12 @@ CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata)
             new_obj = (OBJECT *) malloc(sizeof(OBJECT));
             memset(new_obj, 0x0, sizeof(OBJECT));
 
+            rc = object_init_lock(new_obj);
+            if (rc != CKR_OK) {
+                free(new_obj);
+                continue;
+            }
+
             memcpy(new_obj->name, shm_te->name, 8);
             rc = reload_token_object(tokdata, new_obj);
             if (rc == CKR_OK)
@@ -2165,6 +2276,12 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
             new_obj = (OBJECT *) malloc(sizeof(OBJECT));
             memset(new_obj, 0x0, sizeof(OBJECT));
 
+            rc = object_init_lock(new_obj);
+            if (rc != CKR_OK) {
+                free(new_obj);
+                continue;
+            }
+
             memcpy(new_obj->name, shm_te->name, 8);
             rc = reload_token_object(tokdata, new_obj);
             if (rc == CKR_OK)
@@ -2206,14 +2323,32 @@ CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
 }
 
 /* Put back the object using its btree */
-CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj)
+CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj, CK_BBOOL unlock)
 {
+    CK_BBOOL sess, priv;
+    CK_RV rc;
+
     if (obj == NULL)
         return CKR_OBJECT_HANDLE_INVALID;
 
-    if (object_is_session_object(obj))
+    if (!unlock) {
+        rc = object_lock(obj, READ_LOCK);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    sess = object_is_session_object(obj);
+    priv = object_is_private(obj);
+
+    if (unlock) {
+        rc= object_unlock(obj);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (sess)
        bt_put_node_value(&tokdata->sess_obj_btree, obj);
-    else if (object_is_private(obj))
+    else if (priv)
         bt_put_node_value(&tokdata->priv_token_obj_btree, obj);
     else
         bt_put_node_value(&tokdata->publ_token_obj_btree, obj);

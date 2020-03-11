@@ -53,7 +53,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     }
     // key usage restrictions
     //
-    rc = object_mgr_find_in_map1(tokdata, key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -790,7 +790,7 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

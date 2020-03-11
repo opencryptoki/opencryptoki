@@ -1344,7 +1344,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
 
     /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -1382,7 +1382,7 @@ done:
     if (emdata)
         free(emdata);
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -1418,7 +1418,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
 
     /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -1445,7 +1445,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                          modbytes);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -1681,7 +1681,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
     oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -1725,7 +1725,7 @@ done:
         free(em_data);
     }
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -1752,7 +1752,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
     oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -1790,7 +1790,7 @@ error:
         free(decr_data);
     }
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2470,7 +2470,7 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
     EVP_MD_CTX *mdctx = NULL;
     EVP_PKEY *pkey = NULL;
 
-    rc = object_mgr_find_in_map1(tokdata, Hkey, &key);
+    rc = object_mgr_find_in_map1(tokdata, Hkey, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2540,7 +2540,7 @@ done:
 if (pkey != NULL)
         EVP_PKEY_free(pkey);
 
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
     return rc;
 }

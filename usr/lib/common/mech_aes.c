@@ -47,7 +47,7 @@ CK_RV aes_ecb_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -70,7 +70,7 @@ CK_RV aes_ecb_encrypt(STDLL_TokData_t *tokdata,
                              out_data, out_data_len, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -102,7 +102,7 @@ CK_RV aes_ecb_decrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
         return CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -125,7 +125,7 @@ CK_RV aes_ecb_decrypt(STDLL_TokData_t *tokdata,
                              out_data, out_data_len, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -157,7 +157,7 @@ CK_RV aes_cbc_encrypt(STDLL_TokData_t *tokdata,
         return CKR_DATA_LEN_RANGE;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -180,7 +180,7 @@ CK_RV aes_cbc_encrypt(STDLL_TokData_t *tokdata,
                              out_data_len, ctx->mech.pParameter, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -210,7 +210,7 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
         return CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -233,7 +233,7 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
                              out_data_len, ctx->mech.pParameter, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -262,7 +262,7 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
     // DES3-CBC-PAD has no input length requirements
     //
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -301,7 +301,7 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
     free(clear);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -332,7 +332,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     // no need to validate the input length since we'll pad as necessary
     //
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -373,7 +373,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
     free(clear);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -401,7 +401,7 @@ CK_RV aes_ctr_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -427,7 +427,7 @@ CK_RV aes_ctr_encrypt(STDLL_TokData_t *tokdata,
                              (CK_ULONG) aesctr->ulCounterBits, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -455,7 +455,7 @@ CK_RV aes_ctr_decrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
         return CKR_ENCRYPTED_DATA_LEN_RANGE;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -481,7 +481,7 @@ CK_RV aes_ctr_decrypt(STDLL_TokData_t *tokdata,
                              (CK_ULONG) aesctr->ulCounterBits, key);
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -529,7 +529,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -538,7 +538,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -563,7 +563,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
 
         free(clear);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -614,7 +614,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -623,7 +623,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -646,7 +646,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
 
         free(cipher);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -698,7 +698,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -708,7 +708,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -737,7 +737,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
 
         free(clear);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -790,7 +790,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -800,7 +800,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -830,7 +830,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
 
         free(cipher);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -891,7 +891,7 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         //    1) remain != 0
         //    2) out_len != 0
         //
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -901,7 +901,7 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -931,7 +931,7 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
 
         free(clear);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -994,7 +994,7 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         //    1) remain != 0
         //    2) out_len != 0
         //
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1004,7 +1004,7 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         cipher = (CK_BYTE *) malloc(out_len);
         if (!cipher) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -1031,7 +1031,7 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
 
         free(cipher);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -1076,7 +1076,7 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
             *out_data_len = out_len;
             return CKR_OK;
         }
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1085,7 +1085,7 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -1107,7 +1107,7 @@ CK_RV aes_ctr_encrypt_update(STDLL_TokData_t *tokdata,
 
         free(clear);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -1152,7 +1152,7 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
             *out_data_len = out_len;
             return CKR_OK;
         }
-        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+        rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1161,7 +1161,7 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
         clear = (CK_BYTE *) malloc(out_len);
         if (!clear) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            object_put(tokdata, key);
+            object_put(tokdata, key, TRUE);
             key = NULL;
             return CKR_HOST_MEMORY;
         }
@@ -1183,7 +1183,7 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
 
         free(clear);
 
-        object_put(tokdata, key);
+        object_put(tokdata, key, TRUE);
         key = NULL;
 
         return rc;
@@ -1361,7 +1361,7 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -1393,7 +1393,7 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
                                  out_data_len, ctx->mech.pParameter, key);
     }
 
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -1418,7 +1418,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -1457,7 +1457,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
     }
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -1581,7 +1581,7 @@ CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -1593,7 +1593,7 @@ CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -1644,7 +1644,7 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_BUFFER_TOO_SMALL;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1677,7 +1677,7 @@ CK_RV aes_ofb_encrypt_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -1715,7 +1715,7 @@ CK_RV aes_ofb_encrypt_final(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1728,7 +1728,7 @@ CK_RV aes_ofb_encrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes ofb encrypt failed.\n");
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         *out_data_len = context->len;
@@ -1763,7 +1763,7 @@ CK_RV aes_ofb_decrypt(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -1775,7 +1775,7 @@ CK_RV aes_ofb_decrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -1827,7 +1827,7 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_BUFFER_TOO_SMALL;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1860,7 +1860,7 @@ CK_RV aes_ofb_decrypt_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -1901,7 +1901,7 @@ CK_RV aes_ofb_decrypt_final(STDLL_TokData_t *tokdata,
             return CKR_OK;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -1914,7 +1914,7 @@ CK_RV aes_ofb_decrypt_final(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes ofb decrypt failed.\n");
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         *out_data_len = context->len;
@@ -1950,7 +1950,7 @@ CK_RV aes_cfb_encrypt(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -1962,7 +1962,7 @@ CK_RV aes_cfb_encrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes cfb encrypt failed.\n");
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2014,7 +2014,7 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
             return CKR_BUFFER_TOO_SMALL;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2048,7 +2048,7 @@ CK_RV aes_cfb_encrypt_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2087,7 +2087,7 @@ CK_RV aes_cfb_encrypt_final(STDLL_TokData_t *tokdata,
         *out_data_len = context->len;
         return CKR_OK;
     } else {
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2102,7 +2102,7 @@ CK_RV aes_cfb_encrypt_final(STDLL_TokData_t *tokdata,
 
         *out_data_len = context->len;
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2136,7 +2136,7 @@ CK_RV aes_cfb_decrypt(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2148,7 +2148,7 @@ CK_RV aes_cfb_decrypt(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific aes cfb decrypt failed.\n");
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2200,7 +2200,7 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
             return CKR_BUFFER_TOO_SMALL;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2234,7 +2234,7 @@ CK_RV aes_cfb_decrypt_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2273,7 +2273,7 @@ CK_RV aes_cfb_decrypt_final(STDLL_TokData_t *tokdata,
         *out_data_len = context->len;
         return CKR_OK;
     } else {
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2288,7 +2288,7 @@ CK_RV aes_cfb_decrypt_final(STDLL_TokData_t *tokdata,
 
         *out_data_len = context->len;
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2340,7 +2340,7 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
             return CKR_BUFFER_TOO_SMALL;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2352,7 +2352,7 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific aes mac failed.\n");
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         memcpy(out_data, ((AES_DATA_CONTEXT *) ctx->context)->iv, mac_len);
@@ -2391,7 +2391,7 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
         remain = (total % AES_BLOCK_SIZE);
         out_len = total - remain;
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2422,7 +2422,7 @@ CK_RV aes_mac_sign_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2475,7 +2475,7 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
         memset(context->data + context->len, 0x0,
                AES_BLOCK_SIZE - context->len);
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2484,7 +2484,7 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
         rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
                                       key_obj, context->iv);
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         if (rc != CKR_OK) {
@@ -2533,7 +2533,7 @@ CK_RV aes_mac_verify(STDLL_TokData_t *tokdata,
             return CKR_SIGNATURE_LEN_RANGE;
         }
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2543,7 +2543,7 @@ CK_RV aes_mac_verify(STDLL_TokData_t *tokdata,
                                       key_obj,
                                       ((AES_DATA_CONTEXT *) ctx->context)->iv);
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         if (rc != CKR_OK) {
@@ -2589,7 +2589,7 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
         remain = (total % AES_BLOCK_SIZE);
         out_len = total - remain;
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2619,7 +2619,7 @@ CK_RV aes_mac_verify_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2665,7 +2665,7 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
         memset(context->data + context->len, 0x0,
                AES_BLOCK_SIZE - context->len);
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2673,7 +2673,7 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
         rc = token_specific.t_aes_mac(tokdata, context->data, AES_BLOCK_SIZE,
                                       key_obj, context->iv);
 
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         if (rc != CKR_OK) {
@@ -2721,7 +2721,7 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2741,7 +2741,7 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
     *out_data_len = mac_len;
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2778,7 +2778,7 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
             remain = AES_BLOCK_SIZE; /* Keep last block in context */
         out_len = total - remain;
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2813,7 +2813,7 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -2854,7 +2854,7 @@ CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2873,7 +2873,7 @@ CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata,
     *out_data_len = mac_len;
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2905,7 +2905,7 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
         return CKR_SIGNATURE_LEN_RANGE;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2917,7 +2917,7 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
                                    CK_TRUE, CK_TRUE,
                                    &((AES_CMAC_CONTEXT *)ctx->context)->ctx);
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     if (rc != CKR_OK) {
@@ -2965,7 +2965,7 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
             remain = AES_BLOCK_SIZE; /* Keep last block in context */
         out_len = total - remain;
 
-        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+        rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to find specified object.\n");
             return rc;
@@ -2999,7 +2999,7 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
         free(cipher);
 
 done:
-        object_put(tokdata, key_obj);
+        object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
 
         return rc;
@@ -3033,7 +3033,7 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
         return CKR_SIGNATURE_LEN_RANGE;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -3044,7 +3044,7 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
                                    !context->initialized, CK_TRUE,
                                    &context->ctx);
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     if (rc != CKR_OK) {

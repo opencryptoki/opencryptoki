@@ -337,7 +337,7 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
@@ -378,7 +378,7 @@ out:
         digest_mgr_cleanup(ctx);
     }
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

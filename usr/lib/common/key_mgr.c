@@ -551,7 +551,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, h_wrapping_key, &key1_obj);
+    rc = object_mgr_find_in_map1(tokdata, h_wrapping_key, &key1_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPING_KEY_HANDLE_INVALID));
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -560,10 +560,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    object_put(tokdata, key1_obj);
+    object_put(tokdata, key1_obj, TRUE);
     key1_obj = NULL;
 
-    rc = object_mgr_find_in_map1(tokdata, h_key, &key2_obj);
+    rc = object_mgr_find_in_map1(tokdata, h_key, &key2_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -839,7 +839,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     free(ctx);
 
 done:
-    object_put(tokdata, key2_obj);
+    object_put(tokdata, key2_obj, TRUE);
     key2_obj = NULL;
 
     return rc;
@@ -874,7 +874,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, h_unwrapping_key, &tmp_obj);
+    rc = object_mgr_find_in_map1(tokdata, h_unwrapping_key, &tmp_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -888,7 +888,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         isopaque = TRUE;
     }
 
-    object_put(tokdata, tmp_obj);
+    object_put(tokdata, tmp_obj, TRUE);
     tmp_obj = NULL;
 
     found_class = FALSE;

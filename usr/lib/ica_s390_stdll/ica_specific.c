@@ -2317,7 +2317,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
     oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -2360,7 +2360,7 @@ done:
     if (em_data)
         free(em_data);
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2387,7 +2387,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
     oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -2424,7 +2424,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
         free(decr_data);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2459,7 +2459,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
 
     /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -2498,7 +2498,7 @@ done:
     if (emdata)
         free(emdata);
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2534,7 +2534,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
 
     /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
         return rc;
@@ -2561,7 +2561,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                          modbytes);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2726,7 +2726,7 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
     UNUSED(sess);
 
     /* find key object */
-    rc = object_mgr_find_in_map1(tokdata, key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2767,7 +2767,7 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -2809,7 +2809,7 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
     tag_data_len = (aes_gcm_param->ulTagBits + 7) / 8;
 
     /* find key object */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2857,7 +2857,7 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -2916,7 +2916,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* At least we have 1 block */
     /* find key object */
-    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -3008,7 +3008,7 @@ done:
     if (buffer)
         free(buffer);
 
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -3032,7 +3032,7 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
     UNUSED(sess);
 
     /* find key object */
-    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -3155,7 +3155,7 @@ done:
     if (buffer)
         free(buffer);
 
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
