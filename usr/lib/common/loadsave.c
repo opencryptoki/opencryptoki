@@ -94,6 +94,7 @@ error:
 
 //
 // Note: The token lock (XProcLock) must be held when calling this function.
+// The object must hold the READ lock when this function is called.
 //
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 {

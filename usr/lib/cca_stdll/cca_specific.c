@@ -2368,7 +2368,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2464,7 +2464,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     }
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -2510,7 +2510,7 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     if (in_data_len == 0)
         return CKR_OK;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2669,7 +2669,7 @@ done:
     if (buffer)
         free(buffer);
 
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;
@@ -2705,7 +2705,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return CKR_OPERATION_NOT_INITIALIZED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find specified object.\n");
         return rc;
@@ -2803,7 +2803,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     }
 
 done:
-    object_put(tokdata, key);
+    object_put(tokdata, key, TRUE);
     key = NULL;
 
     return rc;

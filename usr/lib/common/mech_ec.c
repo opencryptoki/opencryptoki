@@ -266,7 +266,7 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -297,7 +297,7 @@ CK_RV ec_sign(STDLL_TokData_t *tokdata,
                      out_data_len, key_obj);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -351,7 +351,7 @@ CK_RV ec_verify(STDLL_TokData_t *tokdata,
     CK_ULONG plen;
     CK_RV rc;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -376,7 +376,7 @@ CK_RV ec_verify(STDLL_TokData_t *tokdata,
                        sig_len, key_obj);
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;
@@ -914,7 +914,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     }
 
     /* Find base_key struct */
-    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj);
+    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -953,7 +953,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     }
 
 done:
-    object_put(tokdata, base_key_obj);
+    object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
 
     return rc;

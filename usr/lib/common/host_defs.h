@@ -178,6 +178,7 @@ typedef struct _OBJECT {
 
     SESSION *session;           // creator; only for session objects
     TEMPLATE *template;
+    pthread_rwlock_t template_rwlock; // Lock for object's template
     CK_ULONG count_hi;          // only significant for token objects
     CK_ULONG count_lo;          // only significant for token objects
     CK_ULONG index;             // SAB  Index into the SHM

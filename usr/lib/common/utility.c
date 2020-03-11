@@ -1012,7 +1012,7 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
 
-    rc = object_mgr_find_in_map1(tokdata, hkey, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, hkey, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
@@ -1026,7 +1026,7 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
         rc = CKR_OK;
     }
 
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

@@ -231,7 +231,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
 
     memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj);
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
@@ -361,7 +361,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
     *out_data_len = hmac_len;
 
 done:
-    object_put(tokdata, key_obj);
+    object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
     return rc;

@@ -2126,10 +2126,12 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
 CK_RV object_mgr_destroy_token_objects(STDLL_TokData_t *tokdata);
 
 CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
-                                     CK_OBJECT_HANDLE handle, OBJECT **ptr);
+                                     CK_OBJECT_HANDLE handle, OBJECT **ptr,
+                                     OBJ_LOCK_TYPE lock_type);
 
 CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
-                              CK_OBJECT_HANDLE handle, OBJECT **ptr);
+                              CK_OBJECT_HANDLE handle, OBJECT **ptr,
+                              OBJ_LOCK_TYPE lock_type);
 
 CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
                               OBJECT *ptr, CK_OBJECT_HANDLE *handle);
@@ -2178,7 +2180,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
 CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
                               SESSION *sess, SESS_OBJ_TYPE type);
 
-CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj);
+CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj, CK_BBOOL unlock);
 
 /* structures used to hold arguments to callback functions triggered by either
  * bt_for_each_node or bt_node_free */
@@ -2255,6 +2257,10 @@ CK_BBOOL object_is_public(OBJECT *obj);
 CK_BBOOL object_is_token_object(OBJECT *obj);
 CK_BBOOL object_is_session_object(OBJECT *obj);
 
+CK_RV object_init_lock(OBJECT *obj);
+CK_RV object_destroy_lock(OBJECT *obj);
+CK_RV object_lock(OBJECT *obj, OBJ_LOCK_TYPE type);
+CK_RV object_unlock(OBJECT *obj);
 
 // object attribute template routines
 //

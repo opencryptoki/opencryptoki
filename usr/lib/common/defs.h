@@ -162,6 +162,11 @@ typedef enum {
     PUBLIC
 } SESS_OBJ_TYPE;
 
+typedef enum {
+    NO_LOCK = 0,
+    READ_LOCK,
+    WRITE_LOCK,
+} OBJ_LOCK_TYPE;
 
 typedef struct _DL_NODE {
     struct _DL_NODE *next;

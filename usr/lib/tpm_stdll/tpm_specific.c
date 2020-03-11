@@ -469,6 +469,9 @@ CK_RV token_wrap_sw_key(STDLL_TokData_t * tokdata,
 /*
  * Create a TPM key blob for an imported key. This function is only called when
  * a key is in active use, so any failure should trickle through.
+ *
+ * Note: The passed Object ckObject must not hold a lock, this function might
+ *       need to acquire a WRITE lock on the object!
  */
 CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
                             CK_OBJECT_HANDLE ckObject, TSS_HKEY hParentKey,
@@ -486,7 +489,7 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
     BYTE *rgbBlob;
     UINT32 ulBlobLen;
 
-    rc = object_mgr_find_in_map1(tokdata, ckObject, &obj);
+    rc = object_mgr_find_in_map1(tokdata, ckObject, &obj, WRITE_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed. rc=0x%lx\n", rc);
         return rc;
@@ -665,7 +668,7 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
     }
 
 done:
-    object_put(tokdata, obj);
+    object_put(tokdata, obj, TRUE);
     obj = NULL;
 
     return rc;
@@ -673,6 +676,9 @@ done:
 
 /*
  * load a key in the TSS hierarchy from its CK_OBJECT_HANDLE
+ *
+ * Note: The passed Object ckKey must not hold a lock, this function might
+ *       need to acquire a READ or WRITE lock on the object!
  */
 CK_RV token_load_key(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE ckKey,
                      TSS_HKEY hParentKey, CK_CHAR_PTR passHash,
@@ -3110,11 +3116,25 @@ CK_RV token_rsa_load_key(STDLL_TokData_t * tokdata, OBJECT * key_obj,
         if (rc != CKR_OK)
             return CKR_FUNCTION_FAILED;
 
+        /* The Object holds the READ lock, but token_load_key might need the
+         * WRITE lock, so unlock the object
+         */
+        rc = object_unlock(key_obj);
+        if (rc != CKR_OK)
+            return rc;
+
         rc = token_load_key(tokdata, handle, hParentKey, NULL, phKey);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_load_key failed. rc=0x%lx\n", rc);
+            object_lock(key_obj, READ_LOCK);
             return rc;
         }
+
+        /* Get the READ lock again */
+        rc = object_lock(key_obj, READ_LOCK);
+        if (rc != CKR_OK)
+            return rc;
+
         /* try again to get the CKA_IBM_OPAQUE attr */
         rc = template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr);
         if (rc == FALSE) {
