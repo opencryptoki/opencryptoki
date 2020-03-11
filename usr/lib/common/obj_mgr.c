@@ -1158,18 +1158,20 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
 
     *handle = fa.map_handle;
 
-    rc = XProcLock(tokdata);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to get Process Lock.\n");
-        return rc;
-    }
+    if (!object_is_session_object(obj)) {
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get Process Lock.\n");
+            return rc;
+        }
 
-    object_mgr_check_shm(tokdata, obj);
+        object_mgr_check_shm(tokdata, obj);
 
-    rc = XProcUnLock(tokdata);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to release Process Lock.\n");
-        return rc;
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            return rc;
+        }
     }
 
     return CKR_OK;
