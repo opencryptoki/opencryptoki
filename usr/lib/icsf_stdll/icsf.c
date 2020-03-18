@@ -1909,6 +1909,7 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
     struct berval bv_chaining_data = { 0UL, NULL };
     const char *rule_alg, *rule_cipher;
     int reason = 0, length = 0;
+    size_t clear_len;
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(key);
@@ -1962,6 +1963,26 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
         return -1;
     }
 
+    /*
+     * For mechs with CBC padding (CKM_*_CBC_PAD), we need to specify the clear
+     * text length at least as large as the cipher text length. The padding is
+     * removed, but the call still wants the output size to be that large,
+     * otherwise it returns an ICSF_REASON_OUTPUT_PARAMETER_TOO_SHORT error,
+     * although the resulting (un-padded) clear text fits into the user
+     * supplied buffer.
+     */
+    clear_len = *p_clear_text_len;
+    switch (mech->mechanism) {
+    case CKM_DES_CBC_PAD:
+    case CKM_DES3_CBC_PAD:
+    case CKM_AES_CBC_PAD:
+        if (clear_len < cipher_text_len)
+            clear_len = cipher_text_len;
+        break;
+    default:
+        break;
+    }
+
     if (ber_printf(msg, "totototi",
                    0 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
                    init_vector, init_vector_len,
@@ -1971,7 +1992,7 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
                    3 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
                    cipher_text, cipher_text_len,
                    4 | LBER_CLASS_CONTEXT | LBER_PRIMITIVE,
-                   (clear_text) ? *p_clear_text_len : 0UL) < 0) {
+                   (clear_text) ? clear_len : 0UL) < 0) {
         rc = -1;
         TRACE_ERROR("Failed to encode message: %d.\n", rc);
         goto done;
@@ -2025,7 +2046,6 @@ int icsf_secret_key_decrypt(LDAP * ld, int *p_reason,
         }
     }
 
-    rc = 0;
 done:
     if (result)
         ber_free(result, 1);
