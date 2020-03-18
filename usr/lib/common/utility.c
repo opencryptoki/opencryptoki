@@ -494,11 +494,11 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     // XXX New in v2.11 - KEY
 
     // For the release, we made these
-    // values as CK_UNAVAILABLE_INFORMATION
+    // values as CK_UNAVAILABLE_INFORMATION or CK_EFFECTIVELY_INFINITE
     //
-    token_info->ulMaxSessionCount = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
+    token_info->ulMaxSessionCount = (CK_ULONG_32) CK_EFFECTIVELY_INFINITE;
     token_info->ulSessionCount = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
-    token_info->ulMaxRwSessionCount = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
+    token_info->ulMaxRwSessionCount = (CK_ULONG_32) CK_EFFECTIVELY_INFINITE;
     token_info->ulRwSessionCount = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
     token_info->ulMaxPinLen = MAX_PIN_LEN;
     token_info->ulMinPinLen = MIN_PIN_LEN;
@@ -1123,9 +1123,9 @@ void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
 
     pInfo->hardwareVersion = nv_token_data->token_info.hardwareVersion;
     pInfo->firmwareVersion = nv_token_data->token_info.firmwareVersion;
-    pInfo->ulMaxSessionCount = ULONG_MAX - 1;
+    pInfo->ulMaxSessionCount = CK_EFFECTIVELY_INFINITE;
     /* pInfo->ulSessionCount is set at the API level */
-    pInfo->ulMaxRwSessionCount = ULONG_MAX - 1;
+    pInfo->ulMaxRwSessionCount = CK_EFFECTIVELY_INFINITE;
     pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
 }
 
