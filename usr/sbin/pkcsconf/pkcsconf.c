@@ -811,8 +811,23 @@ CK_RV list_slot(int slot_id)
     return CKR_OK;
 }
 
+static void print_value(CK_ULONG value, char *buf, CK_ULONG buf_len,
+                        CK_BBOOL check_infinite, char *fmt)
+{
+    if (value == CK_UNAVAILABLE_INFORMATION)
+        strncpy(buf, "[information unavailable]", buf_len - 1);
+    else if (check_infinite && value == CK_EFFECTIVELY_INFINITE)
+        strncpy(buf, "[effectively infinite]", buf_len - 1);
+    else
+        snprintf(buf, buf_len, fmt, value);
+    buf[buf_len - 1] = '\0';
+}
+
 void print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
 {
+    char temp1[256];
+    char temp2[256];
+
     /* Display the token information */
     printf("Token #%d Info:\n", slot_id);
     printf("\tLabel: %.32s\n", TokenInfo->label);
@@ -860,16 +875,27 @@ void print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
         printf("SO_PIN_TO_BE_CHANGED|");
     printf(")\n");
 
-    printf("\tSessions: %lu/%lu\n", TokenInfo->ulSessionCount,
-           TokenInfo->ulMaxSessionCount);
-    printf("\tR/W Sessions: %lu/%lu\n", TokenInfo->ulRwSessionCount,
-           TokenInfo->ulMaxRwSessionCount);
+    print_value(TokenInfo->ulSessionCount, temp1, sizeof(temp1), FALSE, "%lu");
+    print_value(TokenInfo->ulMaxSessionCount, temp2, sizeof(temp2), TRUE,
+                "%lu");
+    printf("\tSessions: %s/%s\n", temp1, temp2);
+    print_value(TokenInfo->ulRwSessionCount, temp1, sizeof(temp1), FALSE,
+                "%lu");
+    print_value(TokenInfo->ulMaxRwSessionCount, temp2, sizeof(temp2), TRUE,
+                "%lu");
+    printf("\tR/W Sessions: %s/%s\n", temp1, temp2);
     printf("\tPIN Length: %lu-%lu\n", TokenInfo->ulMinPinLen,
            TokenInfo->ulMaxPinLen);
-    printf("\tPublic Memory: 0x%lX/0x%lX\n", TokenInfo->ulFreePublicMemory,
-           TokenInfo->ulTotalPublicMemory);
-    printf("\tPrivate Memory: 0x%lX/0x%lX\n", TokenInfo->ulFreePrivateMemory,
-           TokenInfo->ulTotalPrivateMemory);
+    print_value(TokenInfo->ulFreePublicMemory, temp1, sizeof(temp1), FALSE,
+                "0x%lX");
+    print_value(TokenInfo->ulTotalPublicMemory, temp2, sizeof(temp2), FALSE,
+                "0x%lX");
+    printf("\tPublic Memory: %s/%s\n", temp1, temp2);
+    print_value(TokenInfo->ulFreePrivateMemory, temp1, sizeof(temp1), FALSE,
+                "0x%lX");
+    print_value(TokenInfo->ulTotalPrivateMemory, temp2, sizeof(temp2), FALSE,
+                "0x%lX");
+    printf("\tPrivate Memory: %s/%s\n", temp1, temp2);
     printf("\tHardware Version: %d.%d\n", TokenInfo->hardwareVersion.major,
            TokenInfo->hardwareVersion.minor);
     printf("\tFirmware Version: %d.%d\n", TokenInfo->firmwareVersion.major,
