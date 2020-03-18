@@ -733,6 +733,7 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 {
     CK_RV rc = CKR_OK;
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
+    CK_CHAR token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
 
     UNUSED(label);
 
@@ -748,9 +749,11 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     if ((rc = reset_token_data(tokdata, slot_id, pin, pin_len)))
         goto done;
 
-    if ((rc = destroy_objects(tokdata, slot_id,
-                              tokdata->nv_token_data->token_info.label,
-                              pin, pin_len)))
+    strunpad((char *)token_name,
+             (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
+
+    if ((rc = destroy_objects(tokdata, slot_id, token_name, pin, pin_len)))
         goto done;
 
     /* purge the object btree */
@@ -1500,7 +1503,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping;
     CK_ULONG node_number;
-    char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
+    char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     int reason = 0;
 
     /* Check permissions based on attributes and session */
@@ -1515,8 +1518,8 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    memcpy(token_name, tokdata->nv_token_data->token_info.label,
-           sizeof(token_name));
+    strunpad(token_name, (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
@@ -1681,7 +1684,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc;
-    char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
+    char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     struct session_state *session_state;
     struct icsf_object_mapping *pub_key_mapping = NULL;
     struct icsf_object_mapping *priv_key_mapping = NULL;
@@ -1740,8 +1743,8 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
-    memcpy(token_name, tokdata->nv_token_data->token_info.label,
-           sizeof(token_name));
+    strunpad(token_name, (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
@@ -1805,7 +1808,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     struct session_state *session_state;
     struct icsf_object_mapping *mapping = NULL;
     CK_ULONG node_number;
-    char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
+    char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     CK_ATTRIBUTE_PTR new_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
     CK_ULONG class = CKO_SECRET_KEY;
@@ -1836,8 +1839,8 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
-    memcpy(token_name, tokdata->nv_token_data->token_info.label,
-           sizeof(token_name));
+    strunpad(token_name, (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
@@ -3198,7 +3201,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
-    char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
+    char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     struct session_state *session_state;
     struct icsf_object_record records[MAX_RECORDS];
     struct icsf_object_record *previous = NULL;
@@ -3248,8 +3251,8 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
-    memcpy(token_name, tokdata->nv_token_data->token_info.label,
-           sizeof(token_name));
+    strunpad(token_name, (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
@@ -4824,7 +4827,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     struct session_state *session_state;
     struct icsf_object_mapping *base_key_mapping = NULL;
     CK_ULONG node_number;
-    char token_name[sizeof(tokdata->nv_token_data->token_info.label)];
+    char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     CK_SSL3_KEY_MAT_PARAMS *params = { 0 };
     unsigned int i;
     int reason = 0;
@@ -4859,8 +4862,8 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    memcpy(token_name, tokdata->nv_token_data->token_info.label,
-           sizeof(token_name));
+    strunpad(token_name, (const char *)tokdata->nv_token_data->token_info.label,
+             sizeof(tokdata->nv_token_data->token_info.label), ' ');
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
