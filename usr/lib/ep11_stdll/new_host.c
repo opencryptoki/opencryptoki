@@ -3939,7 +3939,12 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pMechanism || !phKey || (!pTemplate && ulCount != 0)) {
+    if (!pMechanism || (!pTemplate && ulCount != 0)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+    if (pMechanism->mechanism != CKM_SSL3_KEY_AND_MAC_DERIVE && !phKey) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         rc = CKR_ARGUMENTS_BAD;
         goto done;
