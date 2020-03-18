@@ -155,7 +155,7 @@ static void strpad(char *dest, const char *orig, size_t len, int padding_char)
 /* Copy a string `orig` of length `len` and padded with `padding_char` to a null
  * terminated string `dest`. `dest` should be at least `len` + 1 bytes long.
  */
-static void strunpad(char *dest, const char *orig, size_t len, int padding_char)
+void strunpad(char *dest, const char *orig, size_t len, int padding_char)
 {
     size_t i;
 

@@ -255,4 +255,6 @@ int icsf_derive_multiple_keys(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
 int icsf_get_object_size(LDAP * ld, int *reason,
                          struct icsf_object_record *object, CK_ULONG attrs_len,
                          CK_ULONG * obj_size);
+
+void strunpad(char *dest, const char *orig, size_t len, int padding_char);
 #endif
