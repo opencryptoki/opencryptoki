@@ -90,22 +90,23 @@ CK_RV do_CreateSessionObject(void)
     rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     // now, create the objects
     rc = funcs->C_CreateObject(h_session, data_attribs, 4, &h_data);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
+done:
     // done...close the session and verify the object is deleted
     rc = funcs->C_CloseAllSessions(slot_id);
     if (rc != CKR_OK) {
@@ -200,14 +201,14 @@ CK_RV do_CopyObject(void)
     rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     /* create the object */
     rc = funcs->C_CreateObject(h_session, data_attribs, 3, &h_data);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     /* create the copy */
@@ -283,6 +284,7 @@ destroy_1:
     if (loc_rc != CKR_OK)
         testcase_error("C_DestroyObject() loc_rc = %s", p11_get_ckr(loc_rc));
 
+done:
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK)
         testcase_error("C_CloseAllSessions() loc_rc=%s", p11_get_ckr(loc_rc));
@@ -372,14 +374,14 @@ CK_RV do_SetAttributeValues(void)
     rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto error;
     }
 
     /* create the object */
     rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto error;
     }
 
     /* Add CKA_SERIAL_NUMBER and CKA_ISSUER and change the
@@ -414,7 +416,8 @@ CK_RV do_SetAttributeValues(void)
 
         if (memcmp(check1[1].pValue, cert_ser_no, check1[1].ulValueLen) != 0) {
             testcase_fail("CKA_SERIAL_NUMBER mismatch");
-            return -1;
+            rc = -1;
+            goto done;
         }
 
         if (memcmp(check1[2].pValue, cert_id2, check1[2].ulValueLen) != 0) {
@@ -461,7 +464,7 @@ done:
     if (loc_rc != CKR_OK)
         testcase_error("C_DestroyObject() loc_rc = %s", p11_get_ckr(loc_rc));
 
-
+error:
     /* done...close the session */
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK)
@@ -582,14 +585,14 @@ CK_RV do_FindObjects(void)
     rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     /* create the objects */
     rc = funcs->C_CreateObject(h_session, cert1_attribs, 6, &h_cert1);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert2_attribs, 6, &h_cert2);
@@ -680,6 +683,7 @@ destroy_1:
     if (loc_rc != CKR_OK)
         testcase_error("C_DestroyObject() loc_rc = %s", p11_get_ckr(loc_rc));
 
+done:
     /* done...close the session */
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK)
@@ -810,14 +814,14 @@ CK_RV do_CreateTokenObjects(void)
     rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
         testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     /* create the token objects */
     rc = funcs->C_CreateObject(h_session, cert1_attribs, 7, &h_cert1);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
-        return rc;
+        goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert2_attribs, 7, &h_cert2);
@@ -988,6 +992,7 @@ destroy_1:
     if (loc_rc != CKR_OK)
         testcase_error("C_DestroyObject() loc_rc = %s", p11_get_ckr(loc_rc));
 
+done:
     /* done...close the session */
     loc_rc = funcs->C_CloseAllSessions(slot_id);
     if (loc_rc != CKR_OK)
