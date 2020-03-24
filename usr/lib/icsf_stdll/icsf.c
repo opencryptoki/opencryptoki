@@ -22,6 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <lber.h>
+#include <limits.h>
 #include "icsf.h"
 
 /* For logging functions: */
@@ -2781,9 +2782,11 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      *      wrappedKeyMaxLen        INTEGER (0 .. MaxCSFPInteger),
      *      initialValue            OCTET STRING
      * }
+     * For a size query (wrapped_key is NULL), we set wrappedKeyMaxLen to
+     * USHRT_MAX (65535), which is hopefully large enough.
      */
     rc = ber_printf(msg, "ois", wrapping_handle, sizeof(wrapping_handle),
-                    (ber_int_t) * p_wrapped_key_len, "");
+            wrapped_key != NULL ? (ber_int_t)*p_wrapped_key_len : USHRT_MAX, "");
     if (rc < 0) {
         rc = -1;
         TRACE_ERROR("Failed to encode message: %d.\n", rc);
