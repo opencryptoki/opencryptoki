@@ -502,26 +502,26 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
              }
 
             testcase_error("C_EncryptInit, rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto tv_cleanup;
         }
         // do (public key) encryption
         rc = funcs->C_Encrypt(session,
                               original, original_len, crypt, &crypt_len);
         if (rc != CKR_OK) {
             testcase_error("C_Encrypt, rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto tv_cleanup;
         }
         // initialize (private key) decryption
         rc = funcs->C_DecryptInit(session, &mech, priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_DecryptInit, rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto tv_cleanup;
         }
         // do (private key) decryption
         rc = funcs->C_Decrypt(session, crypt, crypt_len, decrypt, &decrypt_len);
         if (rc != CKR_OK) {
             testcase_error("C_Decrypt, rc=%s", p11_get_ckr(rc));
-            goto error;
+            goto tv_cleanup;
         }
         // FIXME: there shouldn't be any padding here
         // remove padding if mech is CKM_RSA_X_509
@@ -1129,6 +1129,16 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+        if (is_icsf_token(slot_id)) {
+            if (!is_valid_icsf_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len) ||
+                (tsuite->tv[i].modbits < 1024)) {
+                testcase_skip("ICSF Token cannot be used with "
+                              "publ_exp='%s'.", s);
+                continue;
+            }
+        }
+
         // begin test
         testcase_begin("%s Wrap Unwrap with test vector %d, "
                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu', "
@@ -1501,7 +1511,7 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 
         if (rc != CKR_OK) {
             testcase_error("C_Sign(), rc=%s.", p11_get_ckr(rc));
-            goto error;
+            goto skip;
         }
         // check results
         testcase_new_assertion();
@@ -1518,7 +1528,7 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         } else {
             testcase_pass("C_Sign.");
         }
-
+skip:
         // clean up
         rc = funcs->C_DestroyObject(session, priv_key);
         if (rc != CKR_OK) {
