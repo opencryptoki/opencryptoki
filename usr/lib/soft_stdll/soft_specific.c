@@ -2190,14 +2190,14 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
             SHA512_CTX *c = (SHA512_CTX *)ctx->context;
 
             /* SHA-512/224 uses a distinct initial hash value */
-            c->h[0] = U64(0x8c3d37c819544da2);
-            c->h[1] = U64(0x73e1996689dcd4d6);
-            c->h[2] = U64(0x1dfab7ae32ff9c82);
-            c->h[3] = U64(0x679dd514582f9fcf);
-            c->h[4] = U64(0x0f6d2b697bd44da8);
-            c->h[5] = U64(0x77e36f7304c48942);
-            c->h[6] = U64(0x3f9d85a86a1d36c8);
-            c->h[7] = U64(0x1112e6ad91d692a1);
+            c->h[0] = 0x8c3d37c819544da2ULL;
+            c->h[1] = 0x73e1996689dcd4d6ULL;
+            c->h[2] = 0x1dfab7ae32ff9c82ULL;
+            c->h[3] = 0x679dd514582f9fcfULL;
+            c->h[4] = 0x0f6d2b697bd44da8ULL;
+            c->h[5] = 0x77e36f7304c48942ULL;
+            c->h[6] = 0x3f9d85a86a1d36c8ULL;
+            c->h[7] = 0x1112e6ad91d692a1ULL;
             break;
         }
     case CKM_SHA512_256:
@@ -2205,14 +2205,14 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
             SHA512_CTX *c = (SHA512_CTX *)ctx->context;
 
             /* SHA-512/256 uses a distinct initial hash value */
-            c->h[0] = U64(0x22312194fc2bf72c);
-            c->h[1] = U64(0x9f555fa3c84c64c2);
-            c->h[2] = U64(0x2393b86b6f53b151);
-            c->h[3] = U64(0x963877195940eabd);
-            c->h[4] = U64(0x96283ee2a88effe3);
-            c->h[5] = U64(0xbe5e1e2553863992);
-            c->h[6] = U64(0x2b0199fc2c85b8aa);
-            c->h[7] = U64(0x0eb72ddc81c52ca2);
+            c->h[0] = 0x22312194fc2bf72cULL;
+            c->h[1] = 0x9f555fa3c84c64c2ULL;
+            c->h[2] = 0x2393b86b6f53b151ULL;
+            c->h[3] = 0x963877195940eabdULL;
+            c->h[4] = 0x96283ee2a88effe3ULL;
+            c->h[5] = 0xbe5e1e2553863992ULL;
+            c->h[6] = 0x2b0199fc2c85b8aaULL;
+            c->h[7] = 0x0eb72ddc81c52ca2ULL;
             break;
         }
     }
