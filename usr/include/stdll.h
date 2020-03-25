@@ -88,7 +88,8 @@ typedef CK_RV (CK_PTR ST_C_OpenSession) (STDLL_TokData_t *tokdata,
                                          CK_SESSION_HANDLE_PTR phSession);
 
 typedef CK_RV (CK_PTR ST_C_CloseSession) (STDLL_TokData_t *tokdata,
-                                          ST_SESSION_T *hSession);
+                                          ST_SESSION_T *hSession,
+                                          CK_BBOOL in_fork_initializer);
 typedef CK_RV (CK_PTR ST_C_CloseAllSessions) (STDLL_TokData_t *tokdata,
                                               CK_SLOT_ID slotID);
 typedef CK_RV (CK_PTR ST_C_GetSessionInfo) (STDLL_TokData_t *tokdata,

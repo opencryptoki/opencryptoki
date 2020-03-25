@@ -1025,10 +1025,13 @@ static void _ep11tok_logout_session(STDLL_TokData_t * tokdata, void *node_value,
     ep11tok_logout_session(tokdata, (SESSION *) node_value);
 }
 
-CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
+CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                      CK_BBOOL in_fork_initializer)
 {
     CK_RV rc = CKR_OK;
     SESSION *sess = NULL;
+
+    UNUSED(in_fork_initializer);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));

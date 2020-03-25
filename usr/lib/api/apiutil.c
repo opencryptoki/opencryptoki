@@ -127,6 +127,11 @@ void RemoveFromSessionList(CK_SESSION_HANDLE handle)
     bt_node_free(&(Anchor->sess_btree), handle, TRUE);
 }
 
+struct closeme_arg {
+    CK_SLOT_ID slot_id;
+    CK_BBOOL in_fork_initializer;
+};
+
 /* CloseMe
  *
  * Callback function used to close an individual session for a slot
@@ -135,22 +140,23 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
              unsigned long node_handle, void *arg)
 {
     CK_RV rv;
-    CK_SLOT_ID slot_id = *(CK_SLOT_ID *) arg;
+    struct closeme_arg *closeme_arg = (struct closeme_arg *) arg;
     ST_SESSION_T *s = (ST_SESSION_T *) node_value;
     API_Slot_t *sltp;
     STDLL_FcnList_t *fcn;
 
     UNUSED(tokdata);
 
-    if (s->slotID == slot_id) {
+    if (s->slotID == closeme_arg->slot_id) {
         /* the single ugliest part about moving to a binary tree: these are the
          * guts of the C_CloseSession function, copied here without tests for
          * validity, since if we're here, they must already have been valid */
-        sltp = &(Anchor->SltList[slot_id]);
+        sltp = &(Anchor->SltList[closeme_arg->slot_id]);
         fcn = sltp->FcnList;
-        rv = fcn->ST_CloseSession(sltp->TokData, s);
+        rv = fcn->ST_CloseSession(sltp->TokData, s,
+                                  closeme_arg->in_fork_initializer);
         if (rv == CKR_OK) {
-            decr_sess_counts(slot_id);
+            decr_sess_counts(closeme_arg->slot_id);
             bt_node_free(&(Anchor->sess_btree), node_handle, TRUE);
         }
     }
@@ -163,13 +169,17 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
  * Once all the nodes are closed, we check to see if the tree is empty and if
  * so, destroy it
  */
-void CloseAllSessions(CK_SLOT_ID slot_id)
+void CloseAllSessions(CK_SLOT_ID slot_id, CK_BBOOL in_fork_initializer)
 {
     API_Slot_t *sltp = &(Anchor->SltList[slot_id]);
+    struct closeme_arg arg;
+
+    arg.slot_id = slot_id;
+    arg.in_fork_initializer = in_fork_initializer;
 
     /* for every node in the API-level session tree, call CloseMe on it */
     bt_for_each_node(sltp->TokData, &(Anchor->sess_btree), CloseMe,
-                     (void *) &slot_id);
+                     (void *)&arg);
 
 }
 

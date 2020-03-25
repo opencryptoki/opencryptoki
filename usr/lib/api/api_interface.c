@@ -145,7 +145,7 @@ CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
     /* for every node in the API-level session tree, if the session's slot
      * matches slotID, close it
      */
-    CloseAllSessions(slotID);
+    CloseAllSessions(slotID, FALSE);
 
     return CKR_OK;
 }                               // end of C_CloseAllSessions
@@ -189,7 +189,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
     }
     if (fcn->ST_CloseSession) {
         // Map the Session to the slot session
-        rv = fcn->ST_CloseSession(sltp->TokData, &rSession);
+        rv = fcn->ST_CloseSession(sltp->TokData, &rSession, FALSE);
         TRACE_DEVEL("Called STDLL rv = 0x%lx\n", rv);
         //  If the STDLL successfully closed the session
         //  we can free it.. Otherwise we will have to leave it
@@ -1329,7 +1329,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
         if (slot_loaded[slotID]) {
-            CloseAllSessions(slotID);
+            CloseAllSessions(slotID, in_child_fork_initializer);
             if (sltp->pSTfini) {
                 sinfp = &(shData->slot_info[slotID]);
                 // call the terminate function..
@@ -3044,7 +3044,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
                 /* failed to add the object to the API-level tree, close the
                  * STDLL-level session and return failure
                  */
-                fcn->ST_CloseSession(sltp->TokData, apiSessp);
+                fcn->ST_CloseSession(sltp->TokData, apiSessp, FALSE);
                 free(apiSessp);
                 rv = CKR_HOST_MEMORY;
                 goto done;

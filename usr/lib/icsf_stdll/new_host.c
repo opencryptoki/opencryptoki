@@ -243,7 +243,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     /* close spin lock file */
     CloseXProcLock(tokdata);
 
-    rc = icsftok_final(tokdata, TRUE);
+    rc = icsftok_final(tokdata, TRUE, in_fork_initializer);
     if (rc != CKR_OK) {
         TRACE_ERROR("Token specific final call failed.\n");
         return rc;
@@ -582,7 +582,8 @@ CK_RV SC_OpenSession(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
     return rc;
 }
 
-CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
+CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                      CK_BBOOL in_fork_initializer)
 {
     CK_RV rc = CKR_OK;
     SESSION *sess = NULL;
@@ -601,7 +602,7 @@ CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
     }
     //set the handle here as handle is never set into session during creation
     sess->handle = sSession->sessionh;
-    rc = icsftok_close_session(tokdata, sess);
+    rc = icsftok_close_session(tokdata, sess, in_fork_initializer);
     if (rc)
         goto done;
     session_mgr_put(tokdata, sess);
@@ -634,7 +635,7 @@ CK_RV SC_CloseAllSessions(STDLL_TokData_t *tokdata, CK_SLOT_ID sid)
         goto done;
     }
 
-    rc = icsftok_final(tokdata, FALSE);
+    rc = icsftok_final(tokdata, FALSE, FALSE);
     if (rc != CKR_OK)
         TRACE_DEVEL("Failed to remove icsf specific session_states.\n");
 
