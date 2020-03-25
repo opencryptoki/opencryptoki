@@ -1084,7 +1084,8 @@ done:
  * Must be called with sess_list_mutex locked.
  */
 static CK_RV close_session(STDLL_TokData_t * tokdata,
-                           struct session_state *session_state)
+                           struct session_state *session_state,
+                           CK_BBOOL in_fork_initializer)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
@@ -1136,7 +1137,7 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
 
     /* Log off from LDAP server */
     if (session_state->ld) {
-        if (icsf_logout(session_state->ld)) {
+        if (!in_fork_initializer && icsf_logout(session_state->ld)) {
             TRACE_DEVEL("Failed to disconnect from LDAP server.\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -1159,7 +1160,8 @@ static CK_RV close_session(STDLL_TokData_t * tokdata,
 /*
  * Called during C_CloseSession.
  */
-CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session)
+CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session,
+                            CK_BBOOL in_fork_initializer)
 {
     CK_RV rc;
     struct session_state *session_state;
@@ -1171,7 +1173,7 @@ CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session)
         return CKR_SESSION_HANDLE_INVALID;
     }
 
-    if ((rc = close_session(tokdata, session_state)))
+    if ((rc = close_session(tokdata, session_state, in_fork_initializer)))
         TRACE_ERROR("close_session failed\n");
 
     return rc;
@@ -1180,7 +1182,8 @@ CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session)
 /*
  * Called during C_Finalize and C_CloseAllSessions
  */
-CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
+CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize,
+                    CK_BBOOL in_fork_initializer)
 {
     icsf_private_data_t *icsf_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
@@ -1195,7 +1198,7 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize)
 
     for_each_list_entry_safe(&icsf_data->sessions, struct session_state,
                              session_state, sessions, e) {
-        if ((rc = close_session(tokdata, session_state)))
+        if ((rc = close_session(tokdata, session_state, in_fork_initializer)))
             break;
     }
 

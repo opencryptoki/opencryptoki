@@ -43,7 +43,8 @@ typedef struct {
 CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                    char *conf_name);
 
-CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize);
+CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize,
+                    CK_BBOOL in_fork_initializer);
 
 CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
                          CK_CHAR_PTR pin, CK_ULONG pin_len, CK_CHAR_PTR label);
@@ -57,7 +58,8 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
 CK_RV icsftok_open_session(STDLL_TokData_t * tokdata, SESSION * sess);
 
-CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session);
+CK_RV icsftok_close_session(STDLL_TokData_t * tokdata, SESSION * session,
+                            CK_BBOOL in_fork_initializer);
 
 CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                     CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen);

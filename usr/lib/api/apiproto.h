@@ -49,7 +49,7 @@ void CK_Info_From_Internal(CK_INFO_PTR dest, CK_INFO_PTR_64 src);
 
 int sessions_exist(CK_SLOT_ID);
 
-void CloseAllSessions(CK_SLOT_ID slot_id);
+void CloseAllSessions(CK_SLOT_ID slot_id, CK_BBOOL in_fork_initializer);
 int init_socket_data();
 
 #endif
