@@ -993,7 +993,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     CK_ULONG wrapped_data_len = 0;
     CK_ULONG user_pin_len;
     CK_ULONG orig_len, crypt_len, decrypt_len;
-    CK_ULONG tmpl_count = 3;
+    CK_ULONG tmpl_count = 2; /* Use only the first 2 attrs, except for CCA */
     CK_ULONG key_size;
     CK_FLAGS flags;
     CK_RV rc = CKR_OK;
@@ -1001,11 +1001,9 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_AES;
     CK_ATTRIBUTE template[] = {
-        {CKA_CLASS, &key_class, sizeof(key_class)}
-        ,
-        {CKA_KEY_TYPE, &key_type, sizeof(key_type)}
-        ,
-        {CKA_VALUE_LEN, &key_size, sizeof(key_size)}
+        {CKA_CLASS, &key_class, sizeof(key_class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_VALUE_LEN, &key_size, sizeof(key_size)} /* For CCA only */
     };
 
     testsuite_begin("%s Wrap/Unwrap.", tsuite->name);
@@ -1110,6 +1108,15 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_WrapKey rc=%s", p11_get_ckr(rc));
             goto error;
+        }
+
+        if (is_cca_token(slot_id)) {
+            /*
+             * CCA requires the CKA_VALUE_LEN attribute in the unwrap template,
+             * although the PKCS#11 standard states that it can not be specified
+             * for unwrap.
+             */
+            tmpl_count = 3;
         }
 
         /** unwrap key **/
