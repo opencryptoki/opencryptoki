@@ -1,0 +1,3 @@
+[submodule "pkcs11test"]
+	path = pkcs11test
+	url = https://github.com/google/pkcs11test
