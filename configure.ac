@@ -181,9 +181,7 @@ AC_ARG_ENABLE([pkcsep11_session],
 
 dnl --- locking support
 AC_ARG_ENABLE([locks],
-	AS_HELP_STRING([--enable-locks],[build opencryptoki with locks instead of transactional memory @<:@default=enabled@:>@]),
-	[],
-	[enable_locks=check])
+	AS_HELP_STRING([--disable-locks],[build opencryptoki with transactional memory instead of locks]))
 
 dnl ---
 dnl --- Check for external software
@@ -629,6 +627,7 @@ echo "	Testcases:		$enable_testcases"
 echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
 echo "	Systemd service:	$enable_systemd"
+echo "	Build with locks:	$enable_locks"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"
