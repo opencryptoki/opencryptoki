@@ -181,9 +181,9 @@ AC_ARG_ENABLE([pkcsep11_session],
 
 dnl --- locking support
 AC_ARG_ENABLE([locks],
-	AS_HELP_STRING([--enable-locks],[build opencryptoki with locks instead of transactional memory @<:@default=disabled@:>@]),
-	[enable_locks=yes],
-	[enable_locks=no])
+	AS_HELP_STRING([--disable-locks],[build opencryptoki with transactional memory instead of locks @<:@default=enabled@:>@]),
+	[enable_locks=no],
+	[enable_locks=yes])
 
 dnl ---
 dnl --- Check for external software
