@@ -181,9 +181,9 @@ AC_ARG_ENABLE([pkcsep11_session],
 
 dnl --- locking support
 AC_ARG_ENABLE([locks],
-	AS_HELP_STRING([--enable-locks],[build opencryptoki with locks instead of transactional memory @<:@default=enabled@:>@]),
-	[],
-	[enable_locks=check])
+	AS_HELP_STRING([--enable-locks],[build opencryptoki with locks instead of transactional memory @<:@default=disabled@:>@]),
+	[enable_locks=yes],
+	[enable_locks=no])
 
 dnl ---
 dnl --- Check for external software
@@ -586,18 +586,18 @@ fi
 AM_CONDITIONAL([ENABLE_PKCSEP11_SESSION], [test "x$enable_pkcsep11_session" = "xyes"])
 
 dnl --- enable_locks
+if test "x$enable_locks" = "xno"; then
+	if test "x$itm" != "xyes"; then
+		AC_MSG_ERROR([in order to build opencryptoki with transactional memory,
+libitm and gcc>=4.7 is required])
+    fi
+fi
 if test "x$enable_locks" != "xno"; then
         enable_locks=yes
         CFLAGS="$CFLAGS -DENABLE_LOCKS"
 else
         enable_locks=no
         CFLAGS="$CFLAGS -fgnu-tm"
-fi
-if test "x$enable_locks" = "xno"; then
-	if test "x$itm" != "xyes"; then
-		AC_MSG_ERROR([in order to build opencryptoki with transactional memory,
-libitm and gcc>=4.7 is required])
-    fi
 fi
 AM_CONDITIONAL([ENABLE_LOCKS], [test "x$enable_locks" = "xyes"])
 
