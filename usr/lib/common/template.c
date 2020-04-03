@@ -574,10 +574,9 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
     CK_ULONG_32 attr_ulong_32;
     CK_ULONG attr_ulong;
     CK_ATTRIBUTE *a1_64 = NULL;
-    CK_ATTRIBUTE_32 *a1 = NULL;
+    CK_ATTRIBUTE_32 a1;
 
-
-    if (!new_tmpl || !buf) {
+    if (!new_tmpl) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -619,17 +618,16 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
             }
             memcpy(a2, a1_64, len);
         } else {
-            a1 = (CK_ATTRIBUTE_32 *) ptr;
-
-            if ((a1->type == CKA_CLASS || a1->type == CKA_KEY_TYPE
-                 || a1->type == CKA_MODULUS_BITS
-                 || a1->type == CKA_VALUE_BITS
-                 || a1->type == CKA_CERTIFICATE_TYPE
-                 || a1->type == CKA_VALUE_LEN)
-                && a1->ulValueLen != 0) {
+            memcpy(&a1, ptr, sizeof(a1));
+            if ((a1.type == CKA_CLASS || a1.type == CKA_KEY_TYPE
+                 || a1.type == CKA_MODULUS_BITS
+                 || a1.type == CKA_VALUE_BITS
+                 || a1.type == CKA_CERTIFICATE_TYPE
+                 || a1.type == CKA_VALUE_LEN)
+                && a1.ulValueLen != 0) {
                 len = sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG);
             } else {
-                len = sizeof(CK_ATTRIBUTE) + a1->ulValueLen;
+                len = sizeof(CK_ATTRIBUTE) + a1.ulValueLen;
             }
 
             a2 = (CK_ATTRIBUTE *) malloc(len);
@@ -638,25 +636,25 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 return CKR_HOST_MEMORY;
             }
-            a2->type = a1->type;
+            a2->type = a1.type;
 
-            if ((a1->type == CKA_CLASS || a1->type == CKA_KEY_TYPE
-                 || a1->type == CKA_MODULUS_BITS
-                 || a1->type == CKA_VALUE_BITS
-                 || a1->type == CKA_CERTIFICATE_TYPE
-                 || a1->type == CKA_VALUE_LEN)
-                && a1->ulValueLen != 0) {
+            if ((a1.type == CKA_CLASS || a1.type == CKA_KEY_TYPE
+                 || a1.type == CKA_MODULUS_BITS
+                 || a1.type == CKA_VALUE_BITS
+                 || a1.type == CKA_CERTIFICATE_TYPE
+                 || a1.type == CKA_VALUE_LEN)
+                && a1.ulValueLen != 0) {
 
                 a2->ulValueLen = sizeof(CK_ULONG);
 
                 {
-                    CK_ULONG_32 *p32;
+                    CK_ULONG_32 u32;
                     CK_BYTE *pb2;
 
-                    pb2 = (CK_BYTE *) a1;
+                    pb2 = (CK_BYTE *) ptr;
                     pb2 += sizeof(CK_ATTRIBUTE_32);
-                    p32 = (CK_ULONG_32 *) pb2;
-                    attr_ulong_32 = *p32;
+                    memcpy(&u32, pb2, sizeof(u32));
+                    attr_ulong_32 = u32;
                 }
 
                 attr_ulong = attr_ulong_32;
@@ -670,20 +668,20 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
             } else {
                 CK_BYTE *pb2, *pb;
 
-                a2->ulValueLen = a1->ulValueLen;
+                a2->ulValueLen = a1.ulValueLen;
                 pb2 = (CK_BYTE *) a2;
                 pb2 += sizeof(CK_ATTRIBUTE);
-                pb = (CK_BYTE *) a1;
+                pb = (CK_BYTE *) ptr;
                 pb += sizeof(CK_ATTRIBUTE_32);
                 /* if a buffer size is given, make sure it
                  * doesn't get overrun
                  */
-                if (buf_size >= 0 && (pb + a1->ulValueLen) > (buf + buf_size)) {
+                if (buf_size >= 0 && (pb + a1.ulValueLen) > (buf + buf_size)) {
                     free(a2);
                     template_free(tmpl);
                     return CKR_FUNCTION_FAILED;
                 }
-                memcpy(pb2, pb, a1->ulValueLen);
+                memcpy(pb2, pb, a1.ulValueLen);
             }
         }
 
@@ -701,7 +699,7 @@ CK_RV template_unflatten_withSize(TEMPLATE **new_tmpl, CK_BYTE *buf,
         if (long_len == 4)
             ptr += len;
         else
-            ptr += sizeof(CK_ATTRIBUTE_32) + a1->ulValueLen;
+            ptr += sizeof(CK_ATTRIBUTE_32) + a1.ulValueLen;
     }
 
     *new_tmpl = tmpl;
