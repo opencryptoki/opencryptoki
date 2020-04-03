@@ -59,10 +59,10 @@
 
 #define MAX_GENERIC_KEY_SIZE 256
 
-const char manuf[] = "IBM Corp.";
-const char model[] = "IBM SoftTok ";
-const char descr[] = "IBM PKCS#11 Soft token";
-const char label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM";
+const char model[] = "Soft";
+const char descr[] = "IBM Soft token";
+const char label[] = "softtok";
 
 static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_GENERATE_KEY_PAIR}},

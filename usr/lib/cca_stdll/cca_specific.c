@@ -64,10 +64,10 @@
 #define POINT_CONVERSION_HYBRID          0x06
 
 
-const char manuf[] = "IBM Corp.";
-const char model[] = "IBM CCA Token";
-const char descr[] = "IBM PKCS#11 CCA Token";
-const char label[] = "IBM PKCS#11 for CCA";
+const char manuf[] = "IBM";
+const char model[] = "CCA";
+const char descr[] = "IBM CCA Token";
+const char label[] = "ccatok";
 
 #define CCASHAREDLIB "libcsulcca.so"
 

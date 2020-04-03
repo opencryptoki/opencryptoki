@@ -46,10 +46,10 @@
 #include "slotmgr.h"
 
 /* Default token attributes */
-const char manuf[] = "IBM Corp.";
-const char model[] = "IBM ICSFTok ";
-const char descr[] = "IBM PKCS#11 ICSF token";
-const char label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM";
+const char model[] = "ICSF";
+const char descr[] = "IBM ICSF token";
+const char label[] = "icsftok";
 
 /* mechanisms provided by this token */
 static const MECH_LIST_ELEMENT icsf_mech_list[] = {

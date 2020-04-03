@@ -474,9 +474,8 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     memcpy(token_info->manufacturerID, manuf, strlen(manuf));
     memcpy(token_info->model, model, strlen(model));
 
-    // use the 41-xxxxx serial number from the coprocessor
-    //
-    memcpy(token_info->serialNumber, "123", 3);
+    // Unused
+    // memcpy(token_info->serialNumber, "123", 3);
 
     // I don't see any API support for changing the clock so
     // we will use the system clock for the token's clock.
@@ -507,9 +506,9 @@ void init_tokenInfo(TOKEN_DATA *nv_token_data)
     token_info->ulTotalPrivateMemory = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
     token_info->ulFreePrivateMemory = (CK_ULONG_32) CK_UNAVAILABLE_INFORMATION;
 
-    token_info->hardwareVersion.major = 1;
+    token_info->hardwareVersion.major = 0;
     token_info->hardwareVersion.minor = 0;
-    token_info->firmwareVersion.major = 1;
+    token_info->firmwareVersion.major = 0;
     token_info->firmwareVersion.minor = 0;
 }
 

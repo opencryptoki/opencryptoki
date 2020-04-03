@@ -575,7 +575,7 @@ CK_RV display_pkcs11_info(void)
     printf("\tManufacturer: %.32s \n", CryptokiInfo.manufacturerID);
     printf("\tFlags: 0x%lX  \n", CryptokiInfo.flags);
     printf("\tLibrary Description: %.32s \n", CryptokiInfo.libraryDescription);
-    printf("\tLibrary Version %d.%d \n", CryptokiInfo.libraryVersion.major,
+    printf("\tLibrary Version: %d.%d \n", CryptokiInfo.libraryVersion.major,
            CryptokiInfo.libraryVersion.minor);
 
     return rc;
