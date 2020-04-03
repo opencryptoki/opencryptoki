@@ -49,6 +49,8 @@ extern const CK_BYTE ber_rsaEncryption[];
 extern const CK_ULONG ber_rsaEncryptionLen;
 extern const CK_BYTE der_AlgIdECBase[];
 extern const CK_ULONG der_AlgIdECBaseLen;
+extern const CK_BYTE ber_AlgIdDilithium[];
+extern const CK_ULONG ber_AlgIdDilithiumLen;
 extern const CK_BYTE ber_idDSA[];
 extern const CK_ULONG ber_idDSALen;
 extern const CK_BYTE ber_idDH[];
@@ -2448,6 +2450,12 @@ CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
 CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                             CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                       CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                                CK_ULONG total_length, CK_BBOOL isOpaque);
+CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
+                                         CK_BYTE *data, CK_ULONG total_length);
 
 // diffie-hellman routines
 //
@@ -2764,6 +2772,39 @@ CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
                                 CK_ATTRIBUTE **ecparam,
                                 CK_ATTRIBUTE **pub_key,
                                 CK_ATTRIBUTE **priv_key);
+
+CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only, CK_BYTE **data,
+                              CK_ULONG *data_len, CK_ATTRIBUTE *rho,
+                              CK_ATTRIBUTE *t1);
+
+CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **rho_attr,
+                              CK_ATTRIBUTE **t1_attr);
+
+CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
+                               CK_BYTE **data,
+                               CK_ULONG *data_len,
+                               CK_ATTRIBUTE *rho,
+                               CK_ATTRIBUTE *seed,
+                               CK_ATTRIBUTE *tr,
+                               CK_ATTRIBUTE *s1,
+                               CK_ATTRIBUTE *s2,
+                               CK_ATTRIBUTE *t0,
+                               CK_ATTRIBUTE *t1,
+                               CK_ATTRIBUTE *opaque);
+
+CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
+                               CK_ULONG data_len,
+                               CK_ATTRIBUTE **rho,
+                               CK_ATTRIBUTE **seed,
+                               CK_ATTRIBUTE **tr,
+                               CK_ATTRIBUTE **s1,
+                               CK_ATTRIBUTE **s2,
+                               CK_ATTRIBUTE **t0,
+                               CK_ATTRIBUTE **t1,
+                               CK_ATTRIBUTE **opaque,
+                               CK_BBOOL isopaque);
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;

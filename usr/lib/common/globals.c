@@ -49,6 +49,8 @@ const CK_BYTE ber_sha1WithRSAEncryption[] =
     { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05 };
 const CK_BYTE ber_idDH[] =
     { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x03, 0x01 };
+const CK_BYTE ber_idDilithium[] =
+    { 0x06, 0x0B, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x02, 0x82, 0x0B, 0x01, 0x06, 0x05 };
 
 // Algorithm IDs. (Sequence of OID plus parms, usually NULL)
 //
@@ -100,6 +102,12 @@ const CK_BYTE ber_AlgIdRSAEncryption[] = {
 const CK_BYTE der_AlgIdECBase[] =
     { 0x30, 0x09, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01 };
 
+const CK_BYTE ber_AlgIdDilithium[] =
+    { 0x30, 0x0F, 0x06, 0x0B, 0x2B, 0x06, 0x01,
+      0x04, 0x01, 0x02, 0x82, 0x0B, 0x01, 0x06,
+      0x05, 0x05, 0x00
+};
+
 // ID Lengths
 //
 const CK_ULONG ber_idDSALen = sizeof(ber_idDSA);
@@ -110,6 +118,7 @@ const CK_ULONG ber_md4WithRSAEncryptionLen = sizeof(ber_md4WithRSAEncryption);
 const CK_ULONG ber_md5WithRSAEncryptionLen = sizeof(ber_md5WithRSAEncryption);
 const CK_ULONG ber_sha1WithRSAEncryptionLen = sizeof(ber_sha1WithRSAEncryption);
 const CK_ULONG ber_idDHLen = sizeof(ber_idDH);
+const CK_ULONG ber_idDilithiumLen = sizeof(ber_idDilithium);
 
 const CK_ULONG ber_AlgMd2Len = sizeof(ber_AlgMd2);
 const CK_ULONG ber_AlgMd5Len = sizeof(ber_AlgMd5);
@@ -120,6 +129,7 @@ const CK_ULONG ber_AlgSha384Len = sizeof(ber_AlgSha384);
 const CK_ULONG ber_AlgSha512Len = sizeof(ber_AlgSha512);
 const CK_ULONG ber_AlgIdRSAEncryptionLen = sizeof(ber_AlgIdRSAEncryption);
 const CK_ULONG der_AlgIdECBaseLen = sizeof(der_AlgIdECBase);
+const CK_ULONG ber_AlgIdDilithiumLen = sizeof(ber_AlgIdDilithium);
 
 const CK_ULONG des_weak_count = 4;
 const CK_ULONG des_semi_weak_count = 12;

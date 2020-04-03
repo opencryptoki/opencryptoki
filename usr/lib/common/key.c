@@ -603,6 +603,9 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
     case CKK_EC:
         rc = ec_priv_unwrap(tmpl, data, data_len, isopaque);
         break;
+    case CKK_IBM_PQC_DILITHIUM:
+        rc = ibm_dilithium_priv_unwrap(tmpl, data, data_len, isopaque);
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
         return CKR_WRAPPED_KEY_INVALID;
@@ -1656,6 +1659,142 @@ CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     rc = template_update_attribute(tmpl, publ_exp);
     if (rc != CKR_OK)
         TRACE_DEVEL("template_update_attribute(CKA_PUBLIC_EXPONENT) failed\n");
+
+    return CKR_OK;
+}
+
+CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
+                                       CK_BBOOL length_only,
+                                       CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *keyform, *rho = NULL, *seed = NULL;
+    CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
+    CK_ATTRIBUTE *t0 = NULL, *t1 = NULL;
+    CK_ATTRIBUTE *opaque = NULL;
+    CK_RV rc;
+
+    /* A private Dilithium key must have a keyform value */
+    if (!template_attribute_find(tmpl, CKA_IBM_DILITHIUM_KEYFORM, &keyform)) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the key.\n");
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Check if it's an expected keyform */
+    if (*(CK_ULONG *) keyform->pValue != IBM_DILITHIUM_KEYFORM_ROUND2) {
+        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: %ld \n",
+                    *(CK_ULONG *) keyform->pValue);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    /* Check if key given as opaque blob */
+    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_RHO, &rho) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_SEED, &seed) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_TR, &tr) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S1, &s1) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S2, &s2) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T0, &t0) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T1, &t1) == FALSE) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+    }
+
+    rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
+                                  rho, seed, tr, s1, s2, t0, t1,
+                                  opaque);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_IBM_DilithiumPrivateKey failed\n");
+    }
+
+    return rc;
+}
+
+CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
+                                         CK_ULONG total_length)
+{
+    CK_ATTRIBUTE *rho = NULL;
+    CK_ATTRIBUTE *t1 = NULL;
+    CK_RV rc;
+
+    rc = ber_decode_IBM_DilithiumPublicKey(data, total_length, &rho, &t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_decode_DilithiumPublicKey failed\n");
+        return rc;
+    }
+
+    rc = template_update_attribute(tmpl, rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute(CKA_IBM_DILITHIUM_RHO) failed\n");
+        return rc;
+    }
+    rc = template_update_attribute(tmpl, t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute(CKA_IBM_DILITHIUM_T1) failed\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+//
+//
+CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                                CK_ULONG total_length, CK_BBOOL isOpaque)
+{
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL;
+    CK_ATTRIBUTE *s1 = NULL, *s2 = NULL, *t0 = NULL, *t1 = NULL;
+    CK_ATTRIBUTE *opaque = NULL;
+    CK_RV rc;
+
+    rc = ber_decode_IBM_DilithiumPrivateKey(data, total_length,
+                                 &rho, &seed, &tr, &s1, &s2, &t0, &t1,
+                                 &opaque, isOpaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("der_decode_IBM_DilithiumPrivateKey failed\n");
+        return rc;
+    }
+
+    if (isOpaque)
+        rc |= template_update_attribute(tmpl, opaque);
+
+    rc |= template_update_attribute(tmpl, rho);
+    rc |= template_update_attribute(tmpl, seed);
+    rc |= template_update_attribute(tmpl, tr);
+    rc |= template_update_attribute(tmpl, s1);
+    rc |= template_update_attribute(tmpl, s2);
+    rc |= template_update_attribute(tmpl, t0);
+    rc |= template_update_attribute(tmpl, t1);
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        return rc;
+    }
 
     return CKR_OK;
 }
@@ -3355,13 +3494,14 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
     CK_ULONG i;
 
     /* MODE_KEYGEN: attrs are added during keygen */
-    if (mode == MODE_KEYGEN)
+    if (mode == MODE_KEYGEN || mode == MODE_UNWRAP)
         return publ_key_check_required_attributes(tmpl, mode);
 
     /* MODE_CREATE (key import) or MODE_COPY: check if all attrs present */
     for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
         if (!(template_attribute_find(tmpl, req_attrs[i], &attr))) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            TRACE_ERROR("%s, attribute %08lX missing.\n",
+                        ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
             return CKR_TEMPLATE_INCOMPLETE;
         }
     }
@@ -3388,13 +3528,14 @@ CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
     CK_ULONG i;
 
     /* MODE_KEYGEN: attrs are added during keygen */
-    if (mode == MODE_KEYGEN)
+    if (mode == MODE_KEYGEN || mode == MODE_UNWRAP)
         return priv_key_check_required_attributes(tmpl, mode);
 
     /* MODE_CREATE (key import) or MODE_COPY: check if all attrs present */
     for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
         if (!(template_attribute_find(tmpl, req_attrs[i], &attr))) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            TRACE_ERROR("%s, attribute %08lX missing.\n",
+                        ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
             return CKR_TEMPLATE_INCOMPLETE;
         }
     }
@@ -3418,7 +3559,7 @@ CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_DILITHIUM_KEYFORM:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            switch ((CK_ULONG)attr->pValue) {
+            switch (*((CK_ULONG *)attr->pValue)) {
             case IBM_DILITHIUM_KEYFORM_ROUND2:
                 return CKR_OK;
             default:
@@ -3453,7 +3594,7 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_DILITHIUM_KEYFORM:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            switch ((CK_ULONG)attr->pValue) {
+            switch (*((CK_ULONG *)attr->pValue)) {
             case IBM_DILITHIUM_KEYFORM_ROUND2:
                 return CKR_OK;
             default:

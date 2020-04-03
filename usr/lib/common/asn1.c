@@ -411,8 +411,109 @@ CK_RV ber_decode_OCTET_STRING(CK_BYTE *str,
     return CKR_FUNCTION_FAILED;
 }
 
-//
-//
+/**
+ * Here we assume that the indication about unused bits is NOT
+ * part of the data. It will be added by this function.
+ */
+CK_ULONG ber_encode_BIT_STRING(CK_BBOOL length_only,
+                            CK_BYTE **ber_str,
+                            CK_ULONG *ber_str_len, CK_BYTE *data,
+                            CK_ULONG data_len,
+                            CK_BYTE unused_bits)
+{
+    CK_BYTE *buf = NULL;
+    CK_ULONG len;
+
+    // if data_len < 127 use short-form length id
+    // if data_len < 256 use long-form length id with 1-byte length field
+    // if data_len < 65536 use long-form length id with 2-byte length field
+    // if data_len < 16777216 use long-form length id with 3-byte length field
+
+    if (data_len + 1 < 128) {
+        len = 1 + 1 + 1 + data_len;
+    } else if (data_len + 1 < 256) {
+        len = 1 + (1 + 1) + 1 + data_len;
+    } else if (data_len + 1 < (1 << 16)) {
+        len = 1 + (1 + 2) + 1 + data_len;
+    } else if (data_len + 1 < (1 << 24)) {
+        len = 1 + (1 + 3) + 1 + data_len;
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    if (length_only == TRUE) {
+        *ber_str_len = len;
+        return CKR_OK;
+    }
+
+    buf = (CK_BYTE *) malloc(len);
+    if (!buf) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (data_len + 1 < 128) {
+        buf[0] = 0x03;
+        buf[1] = data_len + 1;
+        buf[2] = unused_bits;
+        if (data && data_len)
+            memcpy(&buf[3], data, data_len);
+        *ber_str_len = len;
+        *ber_str = buf;
+        return CKR_OK;
+    }
+
+    if (data_len + 1 < 256) {
+        buf[0] = 0x03;
+        buf[1] = 0x81;
+        buf[2] = data_len + 1;
+        buf[3] = unused_bits;
+        if (data && data_len)
+            memcpy(&buf[4], data, data_len);
+        *ber_str_len = len;
+        *ber_str = buf;
+        return CKR_OK;
+    }
+
+    if (data_len + 1 < (1 << 16)) {
+        buf[0] = 0x03;
+        buf[1] = 0x82;
+        buf[2] = ((data_len + 1) >> 8) & 0xFF;
+        buf[3] = ((data_len + 1)) & 0xFF;
+        buf[4] = unused_bits;
+        if (data && data_len)
+            memcpy(&buf[5], data, data_len);
+        *ber_str_len = len;
+        *ber_str = buf;
+        return CKR_OK;
+    }
+
+    if (data_len + 1 < (1 << 24)) {
+        buf[0] = 0x03;
+        buf[1] = 0x83;
+        buf[2] = ((data_len + 1) >> 16) & 0xFF;
+        buf[3] = ((data_len + 1) >> 8) & 0xFF;
+        buf[4] = ((data_len + 1)) & 0xFF;
+        buf[5] = unused_bits;
+        if (data)
+            memcpy(&buf[6], data, data_len);
+        *ber_str_len = len;
+        *ber_str = buf;
+        return CKR_OK;
+    }
+    // we should never reach this
+    //
+    free(buf);
+    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+
+    return CKR_FUNCTION_FAILED;
+}
+
+/**
+ * Here the 'unused bits' byte is part of the returned decoded data.
+ * The first byte of output parm *data is the number of unused bits and must
+ * be removed later by the calling function.
+ */
 CK_RV ber_decode_BIT_STRING(CK_BYTE *str,
                             CK_BYTE **data,
                             CK_ULONG *data_len, CK_ULONG *field_len)
@@ -3470,6 +3571,715 @@ cleanup:
         free(base_attr);
     if (value_attr)
         free(value_attr);
+
+    return rc;
+}
+
+/**
+ * An IBM Dilithium public key is given by:
+ *
+ *  SEQUENCE (2 elem)
+ *    SEQUENCE (2 elem)
+ *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
+ *      NULL
+ *    BIT STRING (1 elem)
+ *      SEQUENCE (2 elem)
+ *        BIT STRING (256 bit)   = 32 bytes
+ *        BIT STRING (13824 bit) = 1728 bytes
+ */
+CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
+                          CK_BYTE **data, CK_ULONG *data_len,
+                          CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
+{
+    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
+    CK_ULONG len, len4, offset, total, total_len;
+    CK_RV rc;
+
+    UNUSED(length_only);
+
+    offset = 0;
+    rc = 0;
+    total_len = ber_AlgIdDilithiumLen;
+    total = 0;
+
+    /* Calculate storage for inner sequence */
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, rho->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, t1->ulValueLen);
+    offset += len;
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    /* Allocate storage for inner sequence */
+    buf = (CK_BYTE *) malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    /**
+     *    SEQUENCE (2 elem)
+     *       BIT STRING -> rho
+     *       BIT STRING -> t
+     */
+    offset = 0;
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               rho->pValue, rho->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               t1->pValue, t1->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    free(buf);
+    buf = NULL;
+
+    /* Calculate length of outer sequence */
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, buf2, len, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    } else {
+        total_len += total;
+    }
+
+    /* Allocate storage for outer sequence and bit string */
+    buf3 = (CK_BYTE *) malloc(total_len);
+    if (!buf3) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    /*
+     * SEQUENCE (2 elem)
+     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
+     *      NULL  <- no parms for this oid
+     */
+    total_len = 0;
+    memcpy(buf3 + total_len, ber_AlgIdDilithium, ber_AlgIdDilithiumLen);
+    total_len += ber_AlgIdDilithiumLen;
+
+    /*
+     * BIT STRING (1 elem)
+     *       SEQUENCE (2 elem)
+     *          BIT STRING  -> rho
+     *          BIT STRING  -> t1
+     */
+    rc = ber_encode_BIT_STRING(FALSE, &buf4, &len4, buf2, len, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    memcpy(buf3 + total_len, buf4, len4);
+    total_len += len4;
+    free(buf4);
+    buf4 = NULL;
+
+    /**
+     * SEQUENCE (2 elem)
+     *    SEQUENCE (2 elem)
+     *       OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
+     *       NULL -> no parms for this oid
+     *    BIT STRING (1 elem)
+     *       SEQUENCE (2 elem)
+     *          BIT STRING  -> rho
+     *          BIT STRING  -> t1
+     */
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+
+error:
+
+    if (buf)
+        free(buf);
+    if (buf2)
+        free(buf2);
+    if (buf3)
+        free(buf3);
+
+    return rc;
+}
+
+
+CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
+                              CK_ULONG data_len,
+                              CK_ATTRIBUTE **rho_attr,
+                              CK_ATTRIBUTE **t1_attr)
+{
+    CK_ATTRIBUTE *rho_attr_temp = NULL;
+    CK_ATTRIBUTE *t1_attr_temp = NULL;
+
+    CK_BYTE *algid_DilithiumBase = NULL;
+    CK_BYTE *algid = NULL;
+    CK_ULONG algid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *val = NULL;
+    CK_ULONG val_len;
+    CK_BYTE *seq;
+    CK_ULONG seq_len;
+    CK_BYTE *rho;
+    CK_ULONG rho_len;
+    CK_BYTE *t1;
+    CK_ULONG t1_len;
+    CK_ULONG field_len, offset, len;
+    CK_RV rc;
+
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
+    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+                         &val, &val_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    /* Make sure we're dealing with a Dilithium key */
+    rc = ber_decode_SEQUENCE((CK_BYTE *)ber_AlgIdDilithium, &algid_DilithiumBase, &len,
+                             &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+    if (memcmp(algid, algid_DilithiumBase, len) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Decode sequence:
+     *     SEQUENCE (2 elem)
+     *       BIT STRING = rho
+     *       BIT STRING = t1
+     */
+    rc = ber_decode_SEQUENCE(val, &seq, &seq_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    /* Decode rho */
+    rc = ber_decode_BIT_STRING(seq, &rho, &rho_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    /* Decode t1 */
+    offset = field_len;
+    rc = ber_decode_BIT_STRING(seq + offset, &t1, &t1_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+
+    /* Build rho attribute */
+    rc = build_attribute(CKA_IBM_DILITHIUM_RHO, rho, rho_len, &rho_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    /* Build t1 attribute */
+    rc = build_attribute(CKA_IBM_DILITHIUM_T1, t1, t1_len, &t1_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *rho_attr = rho_attr_temp;
+    *t1_attr = t1_attr_temp;
+
+    return CKR_OK;
+
+cleanup:
+    if (rho_attr_temp)
+        free(rho_attr_temp);
+    if (t1_attr_temp)
+        free(t1_attr_temp);
+
+    return rc;
+}
+
+/**
+ * An IBM Dilithium private key is given by:
+ *
+ *     DilithiumPrivateKey ::= SEQUENCE {
+ *       version INTEGER,     -- v0, reserved 0
+ *       rho BIT STRING,      -- nonce
+ *       key BIT STRING,      -- key/seed/D
+ *       tr  BIT STRING,      -- PRF bytes ('CRH' in spec)
+ *       s1  BIT STRING,      -- vector(L)
+ *       s2  BIT STRING,      -- vector(K)
+ *       t0  BIT STRING       -- low bits(vector L)
+ *       t1 [0] IMPLICIT OPTIONAL {
+ *         t1  BIT STRING     -- high bits(vector L)  -- see also public key
+ *       }
+ *     }
+ */
+CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
+                               CK_BYTE **data,
+                               CK_ULONG *data_len,
+                               CK_ATTRIBUTE *rho,
+                               CK_ATTRIBUTE *seed,
+                               CK_ATTRIBUTE *tr,
+                               CK_ATTRIBUTE *s1,
+                               CK_ATTRIBUTE *s2,
+                               CK_ATTRIBUTE *t0,
+                               CK_ATTRIBUTE *t1,
+                               CK_ATTRIBUTE *opaque)
+{
+    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
+    CK_ULONG len, len2, offset;
+    CK_BYTE version[] = { 0 };
+    CK_RV rc;
+
+    /* Calculate storage for sequence */
+    offset = 0;
+    rc = 0;
+
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
+    offset += len;
+    if (opaque != NULL) {
+        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL, opaque->ulValueLen);
+        offset += len;
+    } else {
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, rho->ulValueLen, 0);
+        offset += len;
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, seed->ulValueLen, 0);
+        offset += len;
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, tr->ulValueLen, 0);
+        offset += len;
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s1->ulValueLen, 0);
+        offset += len;
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s2->ulValueLen, 0);
+        offset += len;
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, t0->ulValueLen, 0);
+        offset += len;
+        if (t1) {
+            rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, t1->ulValueLen, 0);
+            rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
+            offset += len;
+        }
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Calculate storage for sequence failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (length_only == TRUE) {
+        rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, offset);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+            return rc;
+        }
+        rc = ber_encode_PrivateKeyInfo(TRUE,
+                                       NULL, data_len,
+                                       NULL, ber_AlgIdDilithiumLen,
+                                       NULL, len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+            return rc;
+        }
+        return rc;
+    }
+
+    /* Allocate storage for sequence */
+    buf = (CK_BYTE *) malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+    offset = 0;
+    rc = 0;
+
+    /* Version */
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_INTEGER of version failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* Check if key given as opaque blob */
+    if (opaque != NULL) {
+        // the CKA_IBM_OPAQUE attrib
+        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
+                                     opaque->pValue, opaque->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_OCTET_STRING failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    } else {
+        /* rho */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                rho->pValue, rho->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of rho failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* seed */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                seed->pValue, seed->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of seed failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* tr */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                   tr->pValue, tr->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of (tr) failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* s1 */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                   s1->pValue, s1->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of (s1) failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* s2 */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                   s2->pValue, s2->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of (s2) failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* t0 */
+        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                                   t0->pValue, t0->ulValueLen, 0);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ber_encode_BIT_STRING of (t0) failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+
+        /* (t1) Optional bit-string of public key */
+        if (t1 && t1->pValue) {
+            rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2, t1->pValue, t1->ulValueLen, 0);
+            rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("encoding of t1 value failed\n");
+                goto error;
+            }
+            memcpy(buf + offset, buf2, len);
+            offset += len;
+            free(buf2);
+            buf2 = NULL;
+        }
+    }
+
+    /* Encode sequence */
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_SEQUENCE failed\n");
+        goto error;
+    }
+    rc = ber_encode_PrivateKeyInfo(FALSE,
+                                   data, data_len,
+                                   ber_AlgIdDilithium,
+                                   ber_AlgIdDilithiumLen, buf2, len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
+    }
+
+error:
+    if (buf3)
+        free(buf3);
+    if (buf2)
+        free(buf2);
+    if (buf)
+        free(buf);
+
+    return rc;
+}
+
+/**
+ * decode an IBM Dilithium private key:
+ *
+ *       DilithiumPrivateKey ::= SEQUENCE {
+ *         version INTEGER,     -- v0, reserved 0
+ *         rho BIT STRING,      -- nonce
+ *         key BIT STRING,      -- key/seed/D
+ *         tr  BIT STRING,      -- PRF bytes ('CRH' in spec)
+ *         s1  BIT STRING,      -- vector(L)
+ *         s2  BIT STRING,      -- vector(K)
+ *         t0  BIT STRING       -- low bits(vector L)
+ *         t1 [0] IMPLICIT OPTIONAL {
+ *           t1  BIT STRING     -- high bits(vector L)  -- see also public key
+ *         }
+ *       }
+ */
+CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
+                               CK_ULONG data_len,
+                               CK_ATTRIBUTE **rho,
+                               CK_ATTRIBUTE **seed,
+                               CK_ATTRIBUTE **tr,
+                               CK_ATTRIBUTE **s1,
+                               CK_ATTRIBUTE **s2,
+                               CK_ATTRIBUTE **t0,
+                               CK_ATTRIBUTE **t1,
+                               CK_ATTRIBUTE **opaque,
+                               CK_BBOOL isopaque)
+{
+    CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
+    CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
+    CK_ATTRIBUTE *t0_attr = NULL, *t1_attr = NULL;
+    CK_ATTRIBUTE *o_attr = NULL;
+    CK_BYTE *alg = NULL;
+    CK_BYTE *dilithium_priv_key = NULL;
+    CK_BYTE *buf = NULL;
+    CK_BYTE *tmp = NULL;
+    CK_ULONG offset, buf_len, field_len, len;
+    CK_RV rc;
+
+    /* Check if this is a Dilithium private key */
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &alg, &len,
+                                   &dilithium_priv_key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    if (memcmp(alg, ber_AlgIdDilithium, ber_AlgIdDilithiumLen) != 0) {
+        // probably ought to use a different error
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Decode private Dilithium key */
+    rc = ber_decode_SEQUENCE(dilithium_priv_key, &buf, &buf_len, &field_len);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Now build the attributes */
+    offset = 0;
+
+    /* Skip the version */
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    /* Check if key given as opaque blob */
+    if (isopaque) {
+
+        /* Key is opaque */
+        rc = ber_decode_OCTET_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_OPAQUE, tmp, len, &o_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+        *opaque = o_attr;
+
+    } else {
+
+        /* rho */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (rho) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_RHO, tmp, len, &rho_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (rho) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* seed */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (seed) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_SEED, tmp, len, &seed_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (seed) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* tr */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (tr) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_TR, tmp, len, &tr_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (tr) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* s1 */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (s1) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_S1, tmp, len, &s1_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (s1) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* s2 */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (s2) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_S2, tmp, len, &s2_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (s2) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* t0 */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (t0) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_T0, tmp, len, &t0_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (t0) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+
+        /* t1 */
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+            goto cleanup;
+        } else {
+            rc = build_attribute(CKA_IBM_DILITHIUM_T1, tmp, len, &t1_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute for (t1) failed\n");
+                goto cleanup;
+            }
+            offset += field_len;
+        }
+    }
+
+    /* Check if buffer big enough */
+    if (offset > buf_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto cleanup;
+    }
+
+    *rho = rho_attr;
+    *seed = seed_attr;
+    *tr = tr_attr;
+    *s1 = s1_attr;
+    *s2 = s2_attr;
+    *t0 = t0_attr;
+    *t1 = t1_attr;
+
+    return CKR_OK;
+
+cleanup:
+
+    if (seed_attr)
+        free(seed_attr);
+    if (t1_attr)
+        free(t1_attr);
+    if (isopaque) {
+        if (o_attr)
+            free(o_attr);
+    } else {
+        if (rho_attr)
+            free(rho_attr);
+        if (seed_attr)
+            free(seed_attr);
+        if (tr_attr)
+            free(tr_attr);
+        if (s1_attr)
+            free(s1_attr);
+        if (s2_attr)
+            free(s2_attr);
+        if (t0_attr)
+            free(t0_attr);
+    }
 
     return rc;
 }
