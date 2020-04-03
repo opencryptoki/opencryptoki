@@ -2602,6 +2602,213 @@ import_DH_key_end:
     return rc;
 }
 
+/*
+ * makes blobs for private imported IBM Dilithium keys and
+ * SPKIs for public imported IBM Dilithium keys.
+ * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
+ */
+static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
+                           OBJECT * dilithium_key_obj,
+                           CK_BYTE * blob, size_t * blob_size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
+    CK_BYTE cipher[MAX_BLOBSIZE];
+    CK_ULONG cipher_l = sizeof(cipher);
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    CK_BYTE csum[MAX_BLOBSIZE];
+    CK_ULONG cslen = sizeof(csum);
+    CK_OBJECT_CLASS class;
+    CK_BYTE *data = NULL;
+    CK_ULONG data_len;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *pubkey = NULL;
+
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+
+    /* need class for secret/public key info */
+    if (!template_attribute_find(dilithium_key_obj->template, CKA_CLASS, &attr)) {
+        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* m_Unwrap builds key blob in the card,
+     * tell ep11 the attributes the user specified for that key.
+     */
+    node = dilithium_key_obj->template->attribute_list;
+    while (node != NULL) {
+        CK_ATTRIBUTE_PTR a = node->data;
+
+        /* ep11 handles this as 'read only' */
+        if (CKA_NEVER_EXTRACTABLE == a->type ||
+            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
+            ;
+        } else {
+            rc = add_to_attribute_array(&p_attrs, &attrs_len,
+                                        a->type, a->pValue, a->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
+                            __func__, a->type, rc);
+                goto done;
+            }
+        }
+
+        node = node->next;
+    }
+
+    class = *(CK_OBJECT_CLASS *) attr->pValue;
+
+    if (class != CKO_PRIVATE_KEY) {
+
+        /* Make an SPKI for the public IBM Dilithium key */
+        CK_ATTRIBUTE *keyform;
+        CK_ATTRIBUTE *rho;
+        CK_ATTRIBUTE *t1;
+
+        /* A public IBM Dilithium key must have a keyform value */
+        if (!template_attribute_find(dilithium_key_obj->template,
+                                     CKA_IBM_DILITHIUM_KEYFORM, &keyform)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto done;
+        }
+
+        /* Check if it's an expected keyform */
+        if (*(CK_ULONG *) keyform->pValue != IBM_DILITHIUM_KEYFORM_ROUND2) {
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
+        }
+
+        /* A public IBM Dilithium key must have a rho value */
+        if (!template_attribute_find(dilithium_key_obj->template,
+                                     CKA_IBM_DILITHIUM_RHO, &rho)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto done;
+        }
+
+        /* A public IBM Dilithium key must have a t1 value */
+        if (!template_attribute_find(dilithium_key_obj->template,
+                                     CKA_IBM_DILITHIUM_T1, &t1)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto done;
+        }
+
+        /* Encode the public key */
+        rc = ber_encode_IBM_DilithiumPublicKey(0, &data, &data_len, rho, t1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+                        "data_len=0x%lx\n", __func__, class, rc, data_len);
+            goto done;
+        } else {
+            TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+                       "data_len=0x%lx\n", __func__, class, rc, data_len);
+        }
+
+        /* save the SPKI as blob although it is not a blob.
+         * The card expects MACed-SPKIs as public keys.
+         */
+        rc = make_maced_spki(tokdata, sess, dilithium_key_obj, data, data_len,
+                             blob, blob_size);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
+                        __func__, rc);
+            goto done;
+        }
+
+    } else {
+
+        /* imported private IBM Dilithium key goes here */
+
+        /* extract the secret data to be wrapped
+         * since this is AES_CBC_PAD, padding is done in mechanism.
+         */
+        rc = ibm_dilithium_priv_wrap_get_data(dilithium_key_obj->template, FALSE,
+                                      &data, &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s Dilithium wrap get data failed\n", __func__);
+            goto done;
+        }
+
+        /* encrypt */
+        RETRY_START
+            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     &mech_w, data, data_len,
+                                     cipher, &cipher_l, ep11_data->target);
+        RETRY_END(rc, tokdata, sess)
+
+        TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                   __func__, rc, cipher_l);
+
+        if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
+            TRACE_ERROR("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
+                        __func__, rc, cipher_l);
+            goto done;
+        }
+
+        rc = check_key_attributes(tokdata, CKK_IBM_PQC_DILITHIUM,
+                            CKO_PRIVATE_KEY,
+                            p_attrs, attrs_len,
+                            &new_p_attrs, &new_attrs_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s EC check private key attributes failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto done;
+        }
+
+        ep11_get_pin_blob(ep11_session, object_is_session_object(dilithium_key_obj),
+                          &ep11_pin_blob, &ep11_pin_blob_len);
+
+        /* calls the card, it decrypts the private Dilithium key,
+         * reads its BER format and builds a blob.
+         */
+        RETRY_START
+            rc = dll_m_UnwrapKey(cipher, cipher_l,
+                                 ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                                 ep11_pin_blob,
+                                 ep11_pin_blob_len, &mech_w,
+                                 new_p_attrs, new_attrs_len, blob,
+                                 blob_size, csum, &cslen, ep11_data->target);
+        RETRY_END(rc, tokdata, sess)
+
+        if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, sess);
+            TRACE_ERROR("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                        __func__, rc, *blob_size);
+        } else {
+            TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
+                       __func__, rc, *blob_size);
+        }
+
+        cleanse_attribute(dilithium_key_obj->template, CKA_VALUE);
+    }
+
+done:
+
+    if (pubkey)
+        free(pubkey);
+    if (data) {
+        OPENSSL_cleanse(data, data_len);
+        free(data);
+    }
+    if (p_attrs != NULL)
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
+
+    return rc;
+}
+
 CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                                 OBJECT * obj)
 {
@@ -2661,6 +2868,16 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
             return rc;
         }
         TRACE_INFO("%s import DH key rc=0x%lx blobsize=0x%zx\n",
+                   __func__, rc, blobsize);
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+        rc = import_IBM_Dilithium_key(tokdata, sess, obj, blob, &blobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import IBM Dilithium key rc=0x%lx blobsize=0x%zx\n",
+                        __func__, rc, blobsize);
+            return rc;
+        }
+        TRACE_INFO("%s import IBM Dilithium key rc=0x%lx blobsize=0x%zx\n",
                    __func__, rc, blobsize);
         break;
     case CKK_DES2:
@@ -5899,10 +6116,10 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s start wrapKey: mech=0x%lx wr_key=0x%lx\n",
                __func__, mech->mechanism, wrapping_key);
 
-    /* the key to be wrapped is extracted from its blob by the card
-     * and a standard BER encoding is build which is encryted by
-     * the wrapping key (wrapping_blob).
-     * The wrapped key can be processed by any PKCS11 implementation.
+    /* The key to be wrapped is extracted from its blob by the card.
+     * A standard BER encoding is built and encrypted by the wrapping key
+     * (wrapping blob). The wrapped key can be processed by any PKCS11
+     * implementation.
      */
     RETRY_START
         rc =
@@ -6127,6 +6344,9 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
             break;
         case CKK_DH:
             rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            break;
+        case CKK_IBM_PQC_DILITHIUM:
+            rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template, csum, cslen);
             break;
         }
 
