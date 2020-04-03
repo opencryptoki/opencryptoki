@@ -2460,6 +2460,37 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+//
+//
+CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
+                     CK_BYTE *data, CK_ULONG total_length, CK_BBOOL isOpaque)
+{
+    CK_ATTRIBUTE *pubkey = NULL;
+    CK_ATTRIBUTE *privkey = NULL;
+    CK_ATTRIBUTE *opaque = NULL;
+    CK_ATTRIBUTE *ecparam = NULL;
+    CK_RV rc;
+
+    rc = der_decode_ECPrivateKey(data, total_length, &ecparam,
+                                 &pubkey, &privkey, &opaque, isOpaque);
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
+        return rc;
+    }
+    p11_attribute_trim(pubkey);
+    p11_attribute_trim(privkey);
+
+    if (isOpaque)
+        template_update_attribute(tmpl, opaque);
+    if (pubkey)
+        template_update_attribute(tmpl, pubkey);
+    if (privkey)
+        template_update_attribute(tmpl, privkey);
+    template_update_attribute(tmpl, ecparam);
+
+    return CKR_OK;
+}
 
 // dh_publ_check_required_attributes()
 //
@@ -2802,38 +2833,6 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     rc = template_update_attribute(tmpl, value);
     if (rc != CKR_OK)
         TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
-
-    return CKR_OK;
-}
-
-//
-//
-CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
-                     CK_BYTE *data, CK_ULONG total_length, CK_BBOOL isOpaque)
-{
-    CK_ATTRIBUTE *pubkey = NULL;
-    CK_ATTRIBUTE *privkey = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
-    CK_ATTRIBUTE *ecparam = NULL;
-    CK_RV rc;
-
-    rc = der_decode_ECPrivateKey(data, total_length, &ecparam,
-                                 &pubkey, &privkey, &opaque, isOpaque);
-
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
-        return rc;
-    }
-    p11_attribute_trim(pubkey);
-    p11_attribute_trim(privkey);
-
-    if (isOpaque)
-        template_update_attribute(tmpl, opaque);
-    if (pubkey)
-        template_update_attribute(tmpl, pubkey);
-    if (privkey)
-        template_update_attribute(tmpl, privkey);
-    template_update_attribute(tmpl, ecparam);
 
     return CKR_OK;
 }
