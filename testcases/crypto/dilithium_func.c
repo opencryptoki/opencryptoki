@@ -19,8 +19,7 @@
 #include "regress.h"
 #include "common.c"
 #include "defs.h"
-
-#include <openssl/crypto.h>
+#include "dilithium.h"
 
 /**
  * Experimental Support for Dilithium keys and signatures
@@ -153,6 +152,88 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV run_SignVerifyDilithiumKAT(CK_SESSION_HANDLE session,
+                                 CK_ULONG index,
+                                 CK_OBJECT_HANDLE priv_key,
+                                 CK_OBJECT_HANDLE publ_key)
+{
+    CK_MECHANISM mech;
+    CK_BYTE_PTR signature = NULL;
+    CK_ULONG siglen;
+    CK_RV rc;
+
+    mech.mechanism = CKM_IBM_DILITHIUM;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    /* Initialize */
+    rc = funcs->C_SignInit(session, &mech, priv_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Determine signature length */
+    rc = funcs->C_Sign(session, dilithium_tv[index].msg, dilithium_tv[index].msg_len,
+                       NULL, &siglen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Allocate buffer for signature */
+    signature = calloc(sizeof(CK_BYTE), siglen);
+    if (signature == NULL) {
+        testcase_error("Can't allocate memory for %lu bytes",
+                       sizeof(CK_BYTE) *siglen);
+        rc = -1;
+        goto testcase_cleanup;
+    }
+
+    /* Create signature */
+    rc = funcs->C_Sign(session, dilithium_tv[index].msg, dilithium_tv[index].msg_len,
+                       signature, &siglen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Check if calculated signature len matches with known signature len */
+    if (siglen != dilithium_tv[index].sig_len) {
+        testcase_error("Calculated signature length %ld does not match known length %ld.",
+                       siglen, dilithium_tv[index].sig_len);
+        goto testcase_cleanup;
+    }
+
+    /* Check if signature matches with known signature */
+    if (memcmp(signature, dilithium_tv[index].sig, siglen) != 0) {
+        testcase_error("Signature bad.");
+        goto testcase_cleanup;
+    }
+
+    /* Verify signature */
+    rc = funcs->C_VerifyInit(session, &mech, publ_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_Verify(session, dilithium_tv[index].msg, dilithium_tv[index].msg_len,
+                         signature, siglen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = CKR_OK;
+
+testcase_cleanup:
+
+    free(signature);
+
+    return rc;
+}
+
 CK_RV run_GenerateDilithiumKeyPairSignVerify()
 {
     CK_MECHANISM mech;
@@ -240,6 +321,371 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV run_ImportDilithiumKeyPairSignVerify()
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, i;
+    CK_FLAGS flags;
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    mech.mechanism = CKM_IBM_DILITHIUM;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    /* query the slot, check if this mech is supported */
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for EC key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
+                          (unsigned int) SLOT_ID);
+            goto testcase_cleanup;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+
+    for (i = 0; i < DILITHIUM_TV_NUM; i++) {
+
+        testcase_begin("Starting Dilithium import key pair, Sign/Verify, KAT index=%lu", i);
+
+        /* Create Dilithium private key */
+        rc = create_DilithiumPrivateKey(session,
+                            dilithium_tv[i].rho, dilithium_tv[i].rho_len,
+                            dilithium_tv[i].seed, dilithium_tv[i].seed_len,
+                            dilithium_tv[i].tr, dilithium_tv[i].tr_len,
+                            dilithium_tv[i].s1, dilithium_tv[i].s1_len,
+                            dilithium_tv[i].s2, dilithium_tv[i].s2_len,
+                            dilithium_tv[i].t0, dilithium_tv[i].t0_len,
+                            dilithium_tv[i].t1, dilithium_tv[i].t1_len,
+                            &priv_key);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (Dilithium Private Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Import Dilithium private key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        /* Create Dilithium public key */
+        rc = create_DilithiumPublicKey(session,
+                                dilithium_tv[i].rho, dilithium_tv[i].rho_len,
+                                dilithium_tv[i].t1, dilithium_tv[i].t1_len,
+                                &publ_key);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_fail("C_CreateObject (Dilithium Public Key) failed at i=%lu, "
+                          "rc=%s", i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Import Dilithium public key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        /* Test sign/verify with KAT */
+        testcase_new_assertion();
+        rc = run_SignVerifyDilithiumKAT(session, i, priv_key, publ_key);
+        if (rc != 0) {
+            testcase_fail("run_SignVerifyDilithiumKAT failed index=%lu.", i);
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Sign & verify KAT, i=%lu passed.", i);
+
+        /* Clean up */
+        rc = funcs->C_DestroyObject(session, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        rc = funcs->C_DestroyObject(session, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+    }
+
+    goto done;
+
+testcase_cleanup:
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+
+done:
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
+/**
+ * Wraps the given key with the given secret key using the given wrapping
+ * mechanism.
+ */
+CK_RV wrapKey(CK_SESSION_HANDLE session, CK_MECHANISM *wrap_mech,
+              CK_OBJECT_HANDLE secret_key, CK_OBJECT_HANDLE key_to_wrap,
+              CK_BYTE_PTR *wrapped_key, CK_ULONG *wrapped_keylen)
+{
+    CK_BYTE_PTR tmp_key;
+    CK_ULONG tmp_len;
+    CK_RV rc;
+
+    /* Determine length of wrapped key */
+    rc = funcs->C_WrapKey(session, wrap_mech, secret_key, key_to_wrap,
+                          NULL, &tmp_len);
+    if (rc != CKR_OK)
+        goto done;
+
+    /* Allocate memory for wrapped_key */
+    tmp_key = calloc(sizeof(CK_BYTE), tmp_len);
+    if (!tmp_key) {
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    /* Now wrap the key */
+    rc = funcs->C_WrapKey(session, wrap_mech, secret_key, key_to_wrap,
+                          tmp_key, &tmp_len);
+    if (rc != CKR_OK) {
+        free(tmp_key);
+        tmp_key = NULL;
+        goto done;
+    }
+
+    *wrapped_key = tmp_key;
+    *wrapped_keylen = tmp_len;
+
+    rc = CKR_OK;
+
+done:
+
+    return rc;
+}
+
+/**
+ * Unwraps the given wrapped_key using the given secret_key and wrapping
+ * mechanism.
+ */
+CK_RV unwrapKey(CK_SESSION_HANDLE session, CK_MECHANISM *wrap_mech,
+                CK_BYTE_PTR wrapped_key, CK_ULONG wrapped_keylen,
+                CK_OBJECT_HANDLE secret_key, CK_OBJECT_HANDLE *unwrapped_key)
+{
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE key_type = CKK_IBM_PQC_DILITHIUM;
+    CK_OBJECT_HANDLE tmp_key = CK_INVALID_HANDLE;
+    CK_BYTE unwrap_label[] = "unwrapped_private_Dilithium_Key";
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_RV rc;
+
+    CK_ATTRIBUTE unwrap_tmpl[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, &unwrap_label, sizeof(unwrap_label)},
+        {CKA_SUBJECT, subject, sizeof(subject)},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_DECRYPT, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+    };
+
+    rc = funcs->C_UnwrapKey(session, wrap_mech, secret_key,
+                            wrapped_key, wrapped_keylen,
+                            unwrap_tmpl,
+                            sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE),
+                            &tmp_key);
+    if (rc != CKR_OK)
+        goto done;
+
+    *unwrapped_key = tmp_key;
+
+    rc = CKR_OK;
+
+done:
+
+    return rc;
+}
+
+CK_RV run_TransferDilithiumKeyPairSignVerify()
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len, i;
+    CK_FLAGS flags;
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+    CK_OBJECT_HANDLE secret_key = CK_INVALID_HANDLE;
+    CK_BYTE_PTR wrapped_key = NULL;
+    CK_ULONG wrapped_keylen;
+    CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
+    CK_MECHANISM wrap_mech, wkey_mech;
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    mech.mechanism = CKM_IBM_DILITHIUM;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    /* query the slot, check if this mech is supported */
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for EC key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
+                          (unsigned int) SLOT_ID);
+            goto testcase_cleanup;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+
+    for (i = 0; i < DILITHIUM_TV_NUM; i++) {
+
+        testcase_begin("Starting Dilithium transfer key pair, Sign/Verify KAT index=%ld.",i);
+
+        /* Create Dilithium private key */
+        rc = create_DilithiumPrivateKey(session,
+                            dilithium_tv[i].rho, dilithium_tv[i].rho_len,
+                            dilithium_tv[i].seed, dilithium_tv[i].seed_len,
+                            dilithium_tv[i].tr, dilithium_tv[i].tr_len,
+                            dilithium_tv[i].s1, dilithium_tv[i].s1_len,
+                            dilithium_tv[i].s2, dilithium_tv[i].s2_len,
+                            dilithium_tv[i].t0, dilithium_tv[i].t0_len,
+                            dilithium_tv[i].t1, dilithium_tv[i].t1_len,
+                            &priv_key);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_fail
+                ("C_CreateObject (Dilithium Private Key) failed at i=%lu, rc=%s", i,
+                 p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Import Dilithium private key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        /* Create Dilithium public key */
+        rc = create_DilithiumPublicKey(session,
+                                dilithium_tv[i].rho, dilithium_tv[i].rho_len,
+                                dilithium_tv[i].t1, dilithium_tv[i].t1_len,
+                                &publ_key);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_fail
+                ("C_CreateObject (Dilithium Public Key) failed at i=%lu, rc=%s", i,
+                 p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Import Dilithium public key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        /* Create wrapping key (secret key) */
+        wkey_mech.mechanism = CKM_AES_KEY_GEN;
+        wkey_mech.pParameter = NULL;
+        wkey_mech.ulParameterLen = 0;
+        rc = generate_AESKey(session, 32, &wkey_mech, &secret_key);
+        if (rc != CKR_OK) {
+            testcase_error("generate_AESKey, rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        /* Setup wrapping mechanism */
+        wrap_mech.mechanism = CKM_AES_CBC_PAD;
+        wrap_mech.pParameter = "0123456789abcdef";
+        wrap_mech.ulParameterLen = 16;
+
+        /* Wrap Dilithium private key with secret key */
+        rc = wrapKey(session, &wrap_mech, secret_key, priv_key,
+                     &wrapped_key, &wrapped_keylen);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_error("wrapKey, rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Wrap Dilithium private key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        /* Unwrap Dilithium private key */
+        rc = unwrapKey(session, &wrap_mech, wrapped_key, wrapped_keylen,
+                       secret_key, &unwrapped_key);
+        testcase_new_assertion();
+        if (rc != CKR_OK) {
+            testcase_error("unwrapKey, rc=%s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Unwrap Dilithium private key (%s) index=%lu passed.",
+                      dilithium_tv[i].name, i);
+
+        free(wrapped_key);
+        wrapped_key = NULL;
+
+        /* Test sign/verify using unwrapped private key and untouched public key */
+        testcase_new_assertion();
+        rc = run_SignVerifyDilithiumKAT(session, i, unwrapped_key, publ_key);
+        if (rc != 0) {
+            testcase_fail("Sign & verify KAT using unwrapped key failed, index=%lu, rc=%s.",
+                          i, p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+        testcase_pass("*Sign & verify KAT using unwrapped key, i=%lu passed.", i);
+
+        /* Clean up */
+        rc = funcs->C_DestroyObject(session, publ_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        rc = funcs->C_DestroyObject(session, priv_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        rc = funcs->C_DestroyObject(session, secret_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+
+        rc = funcs->C_DestroyObject(session, unwrapped_key);
+        if (rc != CKR_OK) {
+            testcase_error("C_DestroyObject(), rc=%s.", p11_get_ckr(rc));
+        }
+    }
+
+    goto done;
+
+testcase_cleanup:
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    if (secret_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret_key);
+    if (unwrapped_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, unwrapped_key);
+
+    if (wrapped_key)
+        free(wrapped_key);
+
+done:
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -279,6 +725,10 @@ int main(int argc, char **argv)
     testcase_setup(total_assertions);
 
     rv = run_GenerateDilithiumKeyPairSignVerify();
+
+    rv = run_ImportDilithiumKeyPairSignVerify();
+
+    rv = run_TransferDilithiumKeyPairSignVerify();
 
     testcase_print_result();
 

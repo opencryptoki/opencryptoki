@@ -50,7 +50,6 @@ testcases_crypto_ec_tests_SOURCES = testcases/crypto/ec_func.c
 testcases_crypto_dilithium_tests_CFLAGS = ${testcases_inc}
 testcases_crypto_dilithium_tests_LDADD = testcases/common/libcommon.la
 testcases_crypto_dilithium_tests_SOURCES = testcases/crypto/dilithium_func.c
-testcases_crypto_dilithium_tests_LDFLAGS = -lcrypto
 
 testcases_crypto_rsaupdate_tests_CFLAGS = ${testcases_inc}
 testcases_crypto_rsaupdate_tests_LDADD = testcases/common/libcommon.la

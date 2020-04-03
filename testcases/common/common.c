@@ -486,6 +486,91 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
     return rc;
 }
 
+/** Create an IBM Dilithium private key using private values **/
+CK_RV create_DilithiumPrivateKey(CK_SESSION_HANDLE session,
+                          CK_BYTE rho[], CK_ULONG rho_len,
+                          CK_BYTE seed[], CK_ULONG seed_len,
+                          CK_BYTE tr[], CK_ULONG tr_len,
+                          CK_BYTE s1[], CK_ULONG s1_len,
+                          CK_BYTE s2[], CK_ULONG s2_len,
+                          CK_BYTE t0[], CK_ULONG t0_len,
+                          CK_BYTE t1[], CK_ULONG t1_len,
+                          CK_OBJECT_HANDLE * priv_key)
+{
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_PQC_DILITHIUM;
+    CK_UTF8CHAR label[] = "A Dilithium private key object";
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_ULONG keyform = IBM_DILITHIUM_KEYFORM_ROUND2;
+    CK_RV rc;
+
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_IBM_DILITHIUM_RHO, rho, rho_len},
+        {CKA_IBM_DILITHIUM_SEED, seed, seed_len},
+        {CKA_IBM_DILITHIUM_TR, tr, tr_len},
+        {CKA_IBM_DILITHIUM_S1, s1, s1_len},
+        {CKA_IBM_DILITHIUM_S2, s2, s2_len},
+        {CKA_IBM_DILITHIUM_T0, t0, t0_len},
+        {CKA_IBM_DILITHIUM_T1, t1, t1_len},
+        {CKA_IBM_DILITHIUM_KEYFORM, &keyform, sizeof(keyform)},
+    };
+
+    // create key
+    rc = funcs->C_CreateObject(session, template,
+                               sizeof(template) / sizeof(CK_ATTRIBUTE),
+                               priv_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+/** Create an IBM Dilithium public key using  (rho, t1) **/
+CK_RV create_DilithiumPublicKey(CK_SESSION_HANDLE session,
+                         CK_BYTE rho[], CK_ULONG rho_len,
+                         CK_BYTE t1[], CK_ULONG t1_len,
+                         CK_OBJECT_HANDLE * publ_key)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_PQC_DILITHIUM;
+    CK_UTF8CHAR label[] = "A Dilithium public key object";
+    CK_BBOOL true = TRUE;
+    CK_ULONG keyform = IBM_DILITHIUM_KEYFORM_ROUND2;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_IBM_DILITHIUM_RHO, rho, rho_len},
+        {CKA_IBM_DILITHIUM_T1, t1, t1_len},
+        {CKA_IBM_DILITHIUM_KEYFORM, &keyform, sizeof(keyform)},
+    };
+
+    // create key
+    rc = funcs->C_CreateObject(session, template,
+                           sizeof(template) / sizeof(CK_ATTRIBUTE),
+                           publ_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
 /** Create an DSA public key using the prime 'p', subprime 'q', base 'g' and private value 'y' **/
 CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
                            CK_BYTE prime[],
