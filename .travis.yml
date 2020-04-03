@@ -21,7 +21,7 @@ matrix:
         - name: "linux-x86-gcc-tm"
           os: linux
           compiler: gcc
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-clang-locks"
           os: linux-ppc64le
           compiler: clang
@@ -29,7 +29,7 @@ matrix:
         - name: "linux-ppc64le-gcc-tm"
           os: linux-ppc64le
           compiler: gcc
-          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-s390x-clang-locks"
           os: linux
           arch: s390x
@@ -39,7 +39,7 @@ matrix:
           os: linux
           arch: s390x
           compiler: gcc
-          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror"
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-icatok --enable-ep11tok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-arm64-clang-locks"
           os: linux
           arch: arm64
@@ -49,7 +49,7 @@ matrix:
           os: linux
           arch: arm64
           compiler: gcc
-          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases" CFLAGS="-O3 -Wextra -Wno-clobbered -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swttok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror -DDEBUG"
 
 before_script:
     - sudo groupadd pkcs11
@@ -60,10 +60,8 @@ script:
     - sudo make install
     - sudo ldconfig
     - sudo pkcsslotd
+    - sudo pkcsconf -i
+    - sudo pkcsconf -s
     - sudo pkcsconf -t
     - cd testcases
     - sudo PKCS11_SO_PIN=87654321 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
-
-notifications:
-  slack:
-    secure: dcaiPQdCGfoMNc8Hr4Mjg31cB2kY4XAE/ed2VNNZVGrbEdHLHzUKa55bGvRpxLgREWG6zly2izDpTS0lskO0WD7XS1ybLNT5AZITgN2Sa+yG87qHSMgFQybz5sgZtOzd6KFUH+Ft3OBbvRMMS+bUsd6GIoqguHV5eRUYZoa+3Gc7g0Hvo/2C4s5mGL4DrWHou8WnGI1nplvLgsadCjZdJ8y/yoX6ua3h1KNDpv9Mbe2SFb6b/t244p58+JwvVXyP8PEqzRtjuYE9PXLYTqwz0pYJlBmcLDCUXNeI9vdJ/+523A7YuaMq2spIKd0hLMqmJ2+CiC/iLM0dX9Are7f/BTsSfkcAYhjF0tmlHRUFuqLwRvEDjyNifMaGsTNuRDMAhEc2F77gIyvLA03EHKBhdVGlPT3+dwzpze0nDUP+ThneSgZplG7kuvBZ+ZdN0kaDZxzyPAXhCLxIg8vhJ9cPeI07dfoyOeGIoYSThk+MpOBKZUVmVF7APAM/ytALZ1Oycvvh2ApOdxl0or1ezTEFFArMoMNQOaIK6DNElsdYDyQopjtLq8ZOXhtNcaqOpZ0B95/qj4iPnoyk9sG592PYu3wzoVbXXuEWa7XCp+jiky5AUMOkxF9dpAmXkzkGyD+jFjhZ35VvGqshK3RmlNL81VNmA9Tm8LbkvQ4Tl1mvS1s=
