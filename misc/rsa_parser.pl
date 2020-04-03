@@ -78,7 +78,7 @@ $begin_siglen = "\t\t.sig_len = ";
 
 # giant block of generated tests that I copy-pasted here.
 # this could be replaced with some functions that generate the data below
-# TODO: CKM_CDMF_KEY_GEN doesn't seem to be supported by ICA, CCA or SoftTok,
+# TODO: CKM_CDMF_KEY_GEN doesn't seem to be supported by ICA, CCA or Soft,
 # so those tests can be removed
 $defheader = "#include \"pkcs11types.h\"
 #define MAX_MODULUS_SIZE 256

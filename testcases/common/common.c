@@ -830,7 +830,7 @@ int is_icsf_token(CK_SLOT_ID slot_id)
     if ((strstr((const char *) tokinfo.model, "ICA") == NULL) &&
         (strstr((const char *) tokinfo.model, "EP11") == NULL) &&
         (strstr((const char *) tokinfo.model, "CCA") == NULL) &&
-        (strstr((const char *) tokinfo.model, "SoftTok") == NULL))
+        (strstr((const char *) tokinfo.model, "Soft") == NULL))
         return TRUE;
 
     return FALSE;
@@ -870,7 +870,7 @@ int is_cca_token(CK_SLOT_ID slot_id)
     return strstr((const char *) tokinfo.model, "CCA") != NULL;
 }
 
-/** Returns true if slot_id is a SoftTok Token **/
+/** Returns true if slot_id is a Soft Token **/
 int is_soft_token(CK_SLOT_ID slot_id)
 {
     CK_RV rc;
@@ -880,7 +880,7 @@ int is_soft_token(CK_SLOT_ID slot_id)
     if (rc != CKR_OK)
         return FALSE;
 
-    return strstr((const char *) tokinfo.model, "SoftTok") != NULL;
+    return strstr((const char *) tokinfo.model, "Soft") != NULL;
 }
 
 /** Returns true if slot_id is a TPM Token **/
