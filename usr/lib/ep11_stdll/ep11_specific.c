@@ -169,10 +169,10 @@ static inline void hexdump(void *buf, size_t buflen)
 
 #endif                          /* DEBUG */
 
-const char manuf[] = "IBM Corp.";
-const char model[] = "IBM EP11Tok ";
-const char descr[] = "IBM PKCS#11 EP11 token";
-const char label[] = "IBM OS PKCS#11   ";
+const char manuf[] = "IBM";
+const char model[] = "EP11";
+const char descr[] = "IBM EP11 token";
+const char label[] = "ep11tok";
 
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
 #define MAX_BLOBSIZE 8192

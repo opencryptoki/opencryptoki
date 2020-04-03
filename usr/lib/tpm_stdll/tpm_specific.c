@@ -93,10 +93,10 @@ typedef struct {
 TSS_RESULT util_set_public_modulus(TSS_HCONTEXT tspContext, TSS_HKEY,
                                   unsigned long, unsigned char *);
 
-const char manuf[] = "IBM Corp.";
-const char model[] = "TPM v1.1 Token";
-const char descr[] = "Token for the Trusted Platform Module";
-const char label[] = "IBM PKCS#11 TPM Token";
+const char manuf[] = "IBM";
+const char model[] = "TPM";
+const char descr[] = "IBM TPM v1.1 token";
+const char label[] = "tpmtok";
 
 static const MECH_LIST_ELEMENT tpm_mech_list[] = {
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},

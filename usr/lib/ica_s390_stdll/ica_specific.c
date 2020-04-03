@@ -61,10 +61,10 @@ typedef struct {
 
 #define MAX_GENERIC_KEY_SIZE 256
 
-const char manuf[] = "IBM Corp.";
-const char model[] = "IBM ICA     ";
-const char descr[] = "IBM PKCS#11 ICA token ";
-const char label[] = "IBM ICA  PKCS #11";
+const char manuf[] = "IBM";
+const char model[] = "ICA";
+const char descr[] = "IBM ICA token";
+const char label[] = "icatok";
 
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 

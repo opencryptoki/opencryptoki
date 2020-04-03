@@ -228,7 +228,7 @@ typedef Slot_Info_t SLOT_INFO;
 //  Call to populate the shared memory
 #define STR "01234567890123456789012345678901"
 #define MFG "IBM                             "
-#define LIB "Meta PKCS11 LIBRARY             "
+#define LIB "openCryptoki                    "
 
 
 #define MAJOR_V   1
