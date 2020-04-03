@@ -155,7 +155,7 @@ check_slot()
             echo "ICA Token type detected"
             TOKTYPE="ICA"
             ;;
-        *SoftTok*)
+        *Soft*)
             echo "Software Token type detected"
             TOKTYPE="Software"
             ;;
