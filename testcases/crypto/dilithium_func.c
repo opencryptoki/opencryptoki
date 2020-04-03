@@ -48,21 +48,18 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
                               CK_OBJECT_HANDLE priv_key,
                               CK_OBJECT_HANDLE publ_key)
 {
-    CK_MECHANISM mech2;
+    CK_MECHANISM mech;
     CK_BYTE_PTR data = NULL, signature = NULL;
     CK_ULONG i, signaturelen;
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
-    testcase_begin("Starting with mechtype='%s', inputlen=%lu",
-                   p11_get_ckm(mechType), inputlen);
+    mech.mechanism = mechType;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
 
-    mech2.mechanism = mechType;
-    mech2.ulParameterLen = 0;
-    mech2.pParameter = NULL;
-
-    /* query the slot, check if this mech if supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
+    /* Query the slot, check if this mech if supported */
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
     if (rc != CKR_OK) {
         if (rc == CKR_MECHANISM_INVALID) {
             /* no support for Dilithium? skip */
@@ -89,7 +86,7 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
     }
 
     /* Sign */
-    rc = funcs->C_SignInit(session, &mech2, priv_key);
+    rc = funcs->C_SignInit(session, &mech, priv_key);
     if (rc != CKR_OK) {
         testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -116,7 +113,7 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
     }
 
     /* Verify */
-    rc = funcs->C_VerifyInit(session, &mech2, publ_key);
+    rc = funcs->C_VerifyInit(session, &mech, publ_key);
     if (rc != CKR_OK) {
         testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -132,7 +129,7 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
     memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV",
            strlen("ABCDEFGHIJKLMNOPQRSTUV"));
 
-    rc = funcs->C_VerifyInit(session, &mech2, publ_key);
+    rc = funcs->C_VerifyInit(session, &mech, publ_key);
     if (rc != CKR_OK) {
         testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -237,6 +234,7 @@ testcase_cleanup:
     if (priv_key != CK_INVALID_HANDLE)
         funcs->C_DestroyObject(session, priv_key);
 
+    testcase_user_logout();
     testcase_close_session();
 
     return rc;
