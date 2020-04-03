@@ -478,7 +478,8 @@ CK_RV object_get_attribute_values(OBJECT * obj,
         if (pTemplate[i].pValue == NULL) {
             pTemplate[i].ulValueLen = attr->ulValueLen;
         } else if (pTemplate[i].ulValueLen >= attr->ulValueLen) {
-            memcpy(pTemplate[i].pValue, attr->pValue, attr->ulValueLen);
+            if (attr->pValue != NULL)
+                memcpy(pTemplate[i].pValue, attr->pValue, attr->ulValueLen);
             pTemplate[i].ulValueLen = attr->ulValueLen;
         } else {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
