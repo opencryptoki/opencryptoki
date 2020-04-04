@@ -11,7 +11,15 @@
 #ifndef _EC_DEFS
 #define _EC_DEFS
 
+#include <openssl/opensslv.h>
 #include "ec_curves.h"
+
+/* OpenSSL compat */
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+# define EC_POINT_get_affine_coordinates EC_POINT_get_affine_coordinates_GFp
+# define EC_POINT_set_compressed_coordinates \
+                                     EC_POINT_set_compressed_coordinates_GFp
+#endif
 
 // Elliptic Curve type
 //
