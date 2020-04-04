@@ -32,6 +32,7 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
                   CK_ULONG *out_data_len,
                   CK_BYTE *init_v, CK_BYTE *key_value, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     DES_key_schedule des_key1;
     DES_key_schedule des_key2;
     DES_key_schedule des_key3;
@@ -75,6 +76,40 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
     }
 
     return CKR_OK;
+#else
+    CK_RV rc;
+    int outlen;
+    const EVP_CIPHER *cipher = EVP_des_ede3_cbc();
+    EVP_CIPHER_CTX *ctx = NULL;
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, key_value, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV sw_aes_cbc(CK_BYTE *in_data,
