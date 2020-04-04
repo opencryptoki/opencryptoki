@@ -22,6 +22,11 @@
 #define DKEYLEN  32      // 256 bytes is max key size to be derived
 #define PIN_SIZE 80      // samedefine in pkcsconf
 #define ENCRYPT_SIZE 96      // PIN_SIZE + AES_BLOCK_SIZE (for padding)
+/*
+ * SP 800-132 recommends a minimum iteration count of 1000.
+ * so lets try that for now...
+ */
+#define ITERATIONS 1000
 
 #define ICSF_CONFIG_PATH CONFIG_PATH "/icsf"
 #define RACFFILE ICSF_CONFIG_PATH "/RACF"

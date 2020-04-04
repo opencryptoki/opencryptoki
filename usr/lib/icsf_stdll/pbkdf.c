@@ -313,103 +313,24 @@ CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
     return CKR_OK;
 }
 
-CK_RV pbkdf(CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
+CK_RV pbkdf(CK_BYTE *password, CK_ULONG len, CK_BYTE *salt, CK_BYTE *dkey,
             CK_ULONG klen)
 {
+    int rc;
 
-    unsigned char hash[SHA256_HASH_SIZE];
-    unsigned char hash_block[SHA256_HASH_SIZE];
-    unsigned char *result;
-    unsigned int r, num_of_blocks;
-    unsigned int count, hashlen;
-    CK_ULONG rc = CKR_OK;
-    unsigned int i, j;
-    int k;
-
-    /* check inputs */
-    if (!password || !salt) {
+    if (!password || !salt || len > INT_MAX || klen > INT_MAX) {
         TRACE_ERROR("Invalid function argument(s).\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    /* check length of key.. for now only 32 byte keys */
-    if (klen != DKEYLEN) {
-        TRACE_ERROR("Only support 32 byte keys.\n");
+    rc = PKCS5_PBKDF2_HMAC((char *)password, len, salt, SALTSIZE,
+                            ITERATIONS, EVP_sha256(), klen, dkey);
+    if (rc != 1) {
+        TRACE_ERROR("PBKDF2 failed.\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    /* SP 800-132 recommends a minimum iteration count of 1000.
-     * so lets try that for now...
-     */
-    count = 1000;
-
-    hashlen = SHA256_HASH_SIZE;
-
-    /* Calculate amount of blocks in klen.
-     * SP 800-132: len = [kLen / hLen] (rounded up).
-     *             r = kLen - (len - 1) * hLen;
-     */
-    if (klen < SHA256_HASH_SIZE) {
-        num_of_blocks = 1;
-        r = klen;
-    } else {
-        num_of_blocks = klen / SHA256_HASH_SIZE;
-        /* round up by adding another block if there is a modulus */
-        if ((klen % SHA256_HASH_SIZE) != 0)
-            num_of_blocks++;
-        r = klen - (num_of_blocks - 1) * SHA256_HASH_SIZE;
-    }
-
-    /* SP 800-132: For i = 1 to len */
-    for (i = 1; i <= num_of_blocks; i++) {
-
-        /* SP 800-132: Ti = 0; */
-        memset(hash_block, 0, SHA256_HASH_SIZE);
-
-        /* SP 800-132: U0 = S || Int(i); */
-        memset(hash, 0, SHA256_HASH_SIZE);
-        memcpy(hash, salt, SALTSIZE);
-        hash[SALTSIZE] = i;
-        hashlen = SALTSIZE + 1;
-
-        /* SP 800-132: For j = 1 to C */
-        for (j = 1; j <= count; j++) {
-            /* SP 800-132: Uj = HMAC(P, U(j-1)); */
-            result =
-                HMAC(EVP_sha256(), password, len, hash, hashlen, NULL, NULL);
-            if (result == NULL) {
-                TRACE_ERROR("Failed to compute the hmac.\n");
-                rc = CKR_FUNCTION_FAILED;
-                goto out;
-            }
-
-            /* SP 800-132: Ti = Ti Exclusive_OR Uj; */
-            for (k = 0; k < SHA256_HASH_SIZE; k++)
-                hash_block[k] ^= hash[k];
-
-            /* prep U(j-1) for next iteration */
-            memcpy(hash, result, SHA256_HASH_SIZE);
-            hashlen = SHA256_HASH_SIZE;
-        }
-
-        /* SP 800-132: derived_key =
-         *   hash_block(1)||hash_block(2)||hash_block(num_of_blocks)<0...r-1>
-         * This means num_of_blocks are needed to concatencate
-         * together to make the derived key.
-         * However, if the derived key length is not a multiple of the
-         * HASH_SIZE, then we only need some of the data in the last hash_block.
-         * So, if there is an r, then only copy r bytes from last hash_block
-         * to the derived_key.
-         */
-        if ((i == num_of_blocks) && (r != 0))
-            memcpy(dkey, hash_block, r);
-        else
-            memcpy(dkey, hash_block, SHA256_HASH_SIZE);
-
-    }
-
-out:
-    return rc;
+    return CKR_OK;
 }
 
 CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
