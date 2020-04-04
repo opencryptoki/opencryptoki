@@ -2520,6 +2520,7 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     CK_ULONG rc;
     CK_ATTRIBUTE *attr = NULL;
 
@@ -2541,7 +2542,7 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
 
     // the des decrypt will only fail if the data length is not evenly divisible
     // by 8
-    if (in_data_len % 8) {
+    if (in_data_len % DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -2570,6 +2571,53 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
     }
 
     return rc;
+#else
+    const EVP_CIPHER *cipher = EVP_des_ecb();
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char dkey[8];
+    CK_ULONG rc;
+    int outlen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(dkey, attr->pValue, sizeof(dkey));
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, dkey, NULL, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(dkey, sizeof(dkey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
@@ -2579,6 +2627,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     CK_ULONG rc;
     CK_ATTRIBUTE *attr = NULL;
 
@@ -2601,7 +2650,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     memcpy(&ivec, init_v, 8);
     // the des decrypt will only fail if the data length is not evenly divisible
     // by 8
-    if (in_data_len % 8) {
+    if (in_data_len % DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -2619,6 +2668,53 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
         rc = CKR_OK;
     }
     return rc;
+#else
+    const EVP_CIPHER *cipher = EVP_des_cbc();
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char dkey[DES_KEY_SIZE];
+    CK_ULONG rc;
+    int outlen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    memcpy(dkey, attr->pValue, sizeof(dkey));
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, dkey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(dkey, sizeof(dkey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
@@ -2628,6 +2724,7 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
                               CK_ULONG * out_data_len,
                               OBJECT * key, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_KEY_TYPE keytype;
@@ -2674,7 +2771,7 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
 
     // the des decrypt will only fail if the data length is not evenly divisible
     // by 8
-    if (in_data_len % 8) {
+    if (in_data_len % DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -2702,6 +2799,67 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
     }
 
     return rc;
+#else
+    const EVP_CIPHER *cipher = EVP_des_ede3_ecb();
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char dkey[3 * DES_KEY_SIZE];
+    CK_KEY_TYPE keytype;
+    CK_ULONG rc;
+    int outlen;
+
+    UNUSED(tokdata);
+
+    // get the key type
+    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_KEY_TYPE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (keytype == CKK_DES2) {
+        memcpy(dkey, attr->pValue, 2 * DES_KEY_SIZE);
+        memcpy(dkey + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+    } else {
+        memcpy(dkey, attr->pValue, 3 * DES_KEY_SIZE);
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, dkey, NULL, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(dkey, sizeof(dkey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
@@ -2711,6 +2869,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
                               CK_ULONG * out_data_len,
                               OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     CK_RV rc = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
     CK_KEY_TYPE keytype;
@@ -2758,7 +2917,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
 
     // the des decrypt will only fail if the data length is not evenly divisible
     // by 8
-    if (in_data_len % 8) {
+    if (in_data_len % DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -2783,6 +2942,67 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
     }
 
     return rc;
+#else
+    const EVP_CIPHER *cipher = EVP_des_ede3_cbc();
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char dkey[3 * DES_KEY_SIZE];
+    CK_KEY_TYPE keytype;
+    CK_ULONG rc;
+    int outlen;
+
+    UNUSED(tokdata);
+
+    // get the key type
+    rc = template_attribute_find(key->template, CKA_KEY_TYPE, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_KEY_TYPE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    if (keytype == CKK_DES2) {
+        memcpy(dkey, attr->pValue, 2 * DES_KEY_SIZE);
+        memcpy(dkey + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+    } else {
+        memcpy(dkey, attr->pValue, 3 * DES_KEY_SIZE);
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, dkey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(dkey, sizeof(dkey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 /* wrap the 20 bytes of auth data @authData and store in an attribute of the two
@@ -3474,6 +3694,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     CK_ATTRIBUTE *attr = NULL;
     AES_KEY ssl_aes_key;
     unsigned int i;
@@ -3513,6 +3734,67 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     *out_data_len = in_data_len;
 
     return CKR_OK;
+#else
+    CK_RV rc;
+    int outlen;
+    unsigned char akey[AES_KEY_SIZE_256];
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG keylen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8) {
+        cipher = EVP_aes_128_ecb();
+    } else if (keylen == 192 / 8) {
+        cipher = EVP_aes_192_ecb();
+    } else if (keylen == 256 / 8) {
+        cipher = EVP_aes_256_ecb();
+    } else {
+        TRACE_ERROR("Invalid AES key size.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(akey, attr->pValue, keylen);
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, akey, NULL, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(akey, sizeof(akey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
@@ -3522,6 +3804,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     AES_KEY ssl_aes_key;
     CK_ATTRIBUTE *attr = NULL;
 
@@ -3551,6 +3834,67 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     *out_data_len = in_data_len;
 
     return CKR_OK;
+#else
+    CK_RV rc;
+    int outlen;
+    unsigned char akey[AES_KEY_SIZE_256];
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG keylen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    if (template_attribute_find(key->template, CKA_VALUE, &attr) == FALSE) {
+        TRACE_ERROR("template_attribute_find(CKA_VALUE) failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8) {
+        cipher = EVP_aes_128_cbc();
+    } else if (keylen == 192 / 8) {
+        cipher = EVP_aes_192_cbc();
+    } else if (keylen == 256 / 8) {
+        cipher = EVP_aes_256_cbc();
+    } else {
+        TRACE_ERROR("Invalid AES key size.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(akey, attr->pValue, keylen);
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, akey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(akey, sizeof(akey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
 
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,

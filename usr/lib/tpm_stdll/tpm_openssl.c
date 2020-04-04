@@ -59,11 +59,13 @@ void openssl_print_errors()
 
 RSA *openssl_gen_key(STDLL_TokData_t *tokdata)
 {
-    RSA *rsa;
-    int rc, counter = 0;
+    RSA *rsa = NULL;
+    int rc = 0, counter = 0;
     char buf[32];
 #ifndef OLDER_OPENSSL
-    BIGNUM *bne;
+    EVP_PKEY *pkey = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    BIGNUM *bne = NULL;
 #endif
 
     token_specific_rng(tokdata, (CK_BYTE *) buf, 32);
@@ -73,6 +75,13 @@ regen_rsa_key:
 #ifdef OLDER_OPENSSL
     rsa = RSA_generate_key(2048, 65537, NULL, NULL);
     if (rsa == NULL) {
+        fprintf(stderr, "Error generating user's RSA key\n");
+        ERR_load_crypto_strings();
+        ERR_print_errors_fp(stderr);
+        goto err;
+    }
+
+    rc = RSA_check_key(rsa);
 #else
     bne = BN_new();
     rc = BN_set_word(bne, 65537);
@@ -80,20 +89,29 @@ regen_rsa_key:
         fprintf(stderr, "Error generating bne\n");
         ERR_load_crypto_strings();
         ERR_print_errors_fp(stderr);
-        return NULL;
+        goto err;
     }
 
-    rsa = RSA_new();
-    rc = RSA_generate_key_ex(rsa, 2048, bne, NULL);
-    if (!rc) {
-#endif
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (ctx == NULL)
+        goto err;
+
+    if (EVP_PKEY_keygen_init(ctx) <= 0
+        || EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0
+        || EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, bne) <= 0
+        || EVP_PKEY_keygen(ctx, &pkey) <= 0
+        || (rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
         fprintf(stderr, "Error generating user's RSA key\n");
         ERR_load_crypto_strings();
         ERR_print_errors_fp(stderr);
-        return NULL;
+        goto err;
     }
-
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
     rc = RSA_check_key(rsa);
+#else
+    rc = EVP_PKEY_check(ctx) == 1 ? 1 : 0;
+#endif
+#endif
     switch (rc) {
     case 0:
         /* rsa is not a valid RSA key */
@@ -102,7 +120,7 @@ regen_rsa_key:
         if (counter == KEYGEN_RETRY) {
             TRACE_DEVEL("Tried %d times to generate a "
                         "valid RSA key, failed.\n", KEYGEN_RETRY);
-            return NULL;
+            goto err;
         }
         goto regen_rsa_key;
         break;
@@ -116,7 +134,27 @@ regen_rsa_key:
         break;
     }
 
+#ifndef OLDER_OPENSSL
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    if (bne != NULL)
+        BN_free(bne);
+#endif
     return rsa;
+err:
+    if (rsa != NULL)
+        RSA_free(rsa);
+#ifndef OLDER_OPENSSL
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+    if (bne != NULL)
+        BN_free(bne);
+#endif
+    return NULL;
 }
 
 int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
