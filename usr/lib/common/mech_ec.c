@@ -29,11 +29,6 @@
 #include "openssl/obj_mac.h"
 #include <openssl/ec.h>
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-# define EC_POINT_get_affine_coordinates EC_POINT_get_affine_coordinates_GFp
-# define EC_POINT_set_compressed_coordinates \
-                                     EC_POINT_set_compressed_coordinates_GFp
-#endif
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 /*
  * Older OpenSLL versions do not have BN_bn2binpad, so implement it here

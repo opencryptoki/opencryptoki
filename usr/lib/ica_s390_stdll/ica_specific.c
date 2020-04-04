@@ -4058,8 +4058,8 @@ static CK_RV decompress_pubkey(unsigned int nid,
         goto end;
     }
 
-    if (!EC_POINT_set_compressed_coordinates_GFp(group,
-                                                 point, bn_x, y_bit, ctx)) {
+    if (!EC_POINT_set_compressed_coordinates(group,
+                                             point, bn_x, y_bit, ctx)) {
         ret = CKR_FUNCTION_FAILED;
         goto end;
     }
@@ -4069,7 +4069,7 @@ static CK_RV decompress_pubkey(unsigned int nid,
         goto end;
     }
 
-    if (!EC_POINT_get_affine_coordinates_GFp(group, point, bn_x, bn_y, ctx)) {
+    if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, ctx)) {
         ret = CKR_FUNCTION_FAILED;
         goto end;
     }
