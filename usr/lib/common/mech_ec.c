@@ -29,6 +29,11 @@
 #include "openssl/obj_mac.h"
 #include <openssl/ec.h>
 
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+# define EC_POINT_get_affine_coordinates EC_POINT_get_affine_coordinates_GFp
+# define EC_POINT_set_compressed_coordinates \
+                                     EC_POINT_set_compressed_coordinates_GFp
+#endif
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 /*
  * Older OpenSLL versions do not have BN_bn2binpad, so implement it here
@@ -1338,8 +1343,8 @@ CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
     bn_y = BN_new();
     ctx = BN_CTX_new();
 
-    if (!EC_POINT_set_compressed_coordinates_GFp(group,
-                                                 point, bn_x, y_bit, ctx)) {
+    if (!EC_POINT_set_compressed_coordinates(group,
+                                             point, bn_x, y_bit, ctx)) {
         rc = CKR_FUNCTION_FAILED;
         goto end;
     }
@@ -1349,7 +1354,7 @@ CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
         goto end;
     }
 
-    if (!EC_POINT_get_affine_coordinates_GFp(group, point, bn_x, bn_y, ctx)) {
+    if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, ctx)) {
         rc = CKR_FUNCTION_FAILED;
         goto end;
     }
