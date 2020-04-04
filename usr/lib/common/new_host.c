@@ -988,7 +988,7 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
 done:
-    TRACE_INFO("C_SetPin: rc = 0x%08lx, session = %lu\n",
+    TRACE_INFO("C_SetPIN: rc = 0x%08lx, session = %lu\n",
                rc, sSession->sessionh);
 
     pthread_mutex_unlock(&tokdata->login_mutex);
