@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <openssl/des.h>
 #include <openssl/aes.h>
+#include <openssl/evp.h>
 #include <fcntl.h>
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -83,6 +84,7 @@ CK_RV sw_aes_cbc(CK_BYTE *in_data,
                  CK_BYTE *init_v, CK_BYTE *key_value, CK_ULONG keylen,
                  CK_BYTE encrypt)
 {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     AES_KEY aes_key;
 
     UNUSED(out_data_len); //XXX can this parameter be removed ?
@@ -108,4 +110,47 @@ CK_RV sw_aes_cbc(CK_BYTE *in_data,
     }
 
     return CKR_OK;
+#else
+    CK_RV rc;
+    int outlen;
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+
+    UNUSED(out_data_len);
+
+    if (keylen == 128 / 8)
+        cipher = EVP_aes_128_cbc();
+    else if (keylen == 192 / 8)
+        cipher = EVP_aes_192_cbc();
+    else if (keylen == 256 / 8)
+        cipher = EVP_aes_256_cbc();
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = ERR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, key_value, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = ERR_GENERAL_ERROR;
+        goto done;
+    }
+
+    rc = CKR_OK;
+done:
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+#endif
 }
