@@ -259,7 +259,7 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    // DES3-CBC-PAD has no input length requirements
+    // AES-CBC-PAD has no input length requirements
     //
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
