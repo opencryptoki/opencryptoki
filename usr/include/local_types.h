@@ -22,7 +22,11 @@ typedef unsigned int uint32;
 
 /* Each node value must start with struct bt_ref_hdr */
 struct bt_ref_hdr {
+#ifdef ENABLE_LOCKS
+    volatile unsigned long ref;
+#else
     unsigned long ref;
+#endif
 };
 
 #define BT_FLAG_FREE 1
