@@ -93,6 +93,11 @@ void *bt_get_node_value(struct btree *t, unsigned long node_num)
 {
     struct btnode *n;
     void *v;
+    unsigned long ref;
+
+#ifndef DEBUG
+    UNUSED(ref);
+#endif
 
     if (pthread_mutex_lock(&t->mutex)) {
         TRACE_ERROR("BTree Lock failed.\n");
@@ -109,10 +114,10 @@ void *bt_get_node_value(struct btree *t, unsigned long node_num)
     v = ((n) ? n->value : NULL);
 
     if (v != NULL) {
-        ((struct bt_ref_hdr *)v)->ref++;
+        ref = __sync_add_and_fetch(&((struct bt_ref_hdr *)v)->ref, 1);
 
         TRACE_DEBUG("bt_get_node_value: Btree: %p Value: %p Ref: %lu\n",
-                    (void *)t, v, ((struct bt_ref_hdr *)v)->ref);
+                    (void *)t, v, ref);
     }
 
     pthread_mutex_unlock(&t->mutex);
@@ -133,13 +138,8 @@ int bt_put_node_value(struct btree *t, void *value)
     if (value == NULL)
         return 0;
 
-    if (pthread_mutex_lock(&t->mutex)) {
-         TRACE_ERROR("BTree Lock failed.\n");
-         return 0;
-     }
-
     if (((struct bt_ref_hdr *)value)->ref > 0) {
-        ref = --((struct bt_ref_hdr *)value)->ref;
+        ref = __sync_sub_and_fetch(&((struct bt_ref_hdr *)value)->ref, 1);
 
         TRACE_DEBUG("bt_put_node_value: Btree: %p Value: %p Ref: %lu\n",
                     (void *)t, value, ((struct bt_ref_hdr *)value)->ref);
@@ -148,8 +148,6 @@ int bt_put_node_value(struct btree *t, void *value)
                       (void *)t, value);
         ref = 0;
     }
-
-    pthread_mutex_unlock(&t->mutex);
 
     if (ref == 0 && t->delete_func) {
          TRACE_DEBUG("delete_func: Btree: %p Value: %p\n", (void *)t, value);
