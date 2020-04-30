@@ -1,0 +1,69 @@
+.\" pkcstok_migrate.1
+.\"
+.\" Copyright IBM Corp. 2020
+.\" See LICENSE for details.
+.\"
+.TH PKCSTOK_MIGRATE 1 "June 2020" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcstok_migrate \- utility to migrate an ICA, CCA, Soft, or EP11 token repository
+to the FIPS compliant format introduced with openCryptoki 3.12.
+
+.SH SYNOPSIS
+\fBpkcstok_migrate\fP [\fB-h\fP]
+.br
+\fBpkcstok_migrate\fP \fB--slotid\fP \fIslot-number\fP \fB--datastore\fP \fIdatastore\fP
+\fB--confdir\fP \fIconfdir\fP [\fB--sopin\fP \fIsopin\fP] [\fB--userpin\fP
+\fIuserpin\fP] [\fB--verbose\fP \fIlevel\fP]
+
+.SH DESCRIPTION
+Convert all objects inside a token repository to the new format introduced with
+version 3.12.  All encrypted data inside the new format is stored using FIPS
+compliant methods. The new format affects the token's master key files (MK_SO
+and MK_USER), the NVTOK.DAT, and the token object files in the TOK_OBJ folder.
+
+While using this tool no process using the token to be migrated must be running.
+Especially the pkcsslotd must be stopped before running this tool.
+
+The tool creates a backup of the token repository to be migrated, and performs
+all migration actions on this backup, leaving the original repository folder
+completely untouched. The backup folder is located in the same directory as the
+original repository and is suffixed with _PKCSTOK_MIGRATE_TMP.
+
+After a successful migration, the original repository is renamed with a suffix
+of _BAK and the backup folder is renamed to the original repository name, so
+that the migrated repository can immediately be used. The old folder may be
+deleted by the user manually later.
+
+After a successful migration, the tool adds parameter 'tokversion = 3.12' to the
+token's slot configuration in the opencryptoki.conf file. The original config
+file is still available as opencryptoki.conf_BAK and may be removed by the user
+manually.
+
+After an unsuccessful migration, the original repository is still available
+unchanged. 
+
+.SH "OPTIONS SUMMARY"
+.IP "\fB--slotid -s\fP \fISLOT-NUMBER\fP" 10
+specifies the token slot number of the token repository to be migrated
+.IP "\fB--datastore -d\fP \fIDATASTORE\fP" 10
+specifies the directory of the token repository to be migrated.
+.IP "\fB--confdir -c\fP \fICONFDIR\fP" 10
+specifies the directory where the opencryptoki.conf file is located.
+.IP "\fB--sopin -p\fP \fISOPIN\fP" 10
+specifies the SO pin. If not specified, the SO pin is prompted.
+.IP "\fB--userpin -u\fP \fIUSERPIN\fP" 10
+specifies the user pin. If not specified, the user pin is prompted.
+.IP "\fB--verbose -v\fP \fILEVEL\fP" 10
+specifies the verbose level: \fInone\fP, error, warn, info, devel, debug
+.IP "\fB--help -h\fP" 10
+show usage information
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBpkcsconf\fP(1),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcsslotd\fP(8).
+.PD
