@@ -13,6 +13,9 @@ endif
 if ENABLE_P11SAK
 include usr/sbin/p11sak/p11sak.mk
 endif
+if ENABLE_PKCSTOK_MIGRATE
+include usr/sbin/pkcstok_migrate/pkcstok_migrate.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk
