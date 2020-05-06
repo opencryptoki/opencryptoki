@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.69])
-AC_INIT([openCryptoki],[3.13.0],[opencryptoki-tech@lists.sourceforge.net],[],[https://github.com/opencryptoki/opencryptoki])
+AC_INIT([openCryptoki],[3.14.0],[opencryptoki-tech@lists.sourceforge.net],[],[https://github.com/opencryptoki/opencryptoki])
 AC_CONFIG_SRCDIR([testcases/common/common.c])
 
 dnl Needed for $target!
@@ -70,7 +70,7 @@ if test "x$YACC" = "xyacc"; then
     # AC_PROG_YACC only checks for yacc replacements, not for yacc itself
     AC_CHECK_PROG([YACC_FOUND], [yacc], [yes], [no])
     if test "x$YACC_FOUND" = "xno"; then
-        AC_MSG_ERROR(['YACC' program is missing on your system. Please install 'bison'.])
+	AC_MSG_ERROR(['YACC' program is missing on your system. Please install 'bison'.])
     fi
 fi
 
@@ -78,9 +78,9 @@ AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
 
 OPENLDAP_LIBS=
 AC_CHECK_HEADERS([lber.h ldap.h],
-                [OPENLDAP_LIBS="-llber -lldap"],
-                [AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
-                              'openldap-devel'.])])
+		[OPENLDAP_LIBS="-llber -lldap"],
+		[AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
+			      'openldap-devel'.])])
 LIBS="$LIBS $OPENLDAP_LIBS"
 AC_SUBST([OPENLDAP_LIBS])
 
@@ -127,14 +127,14 @@ dnl --- that it will enable it by default it dependencies are met
 dnl --- ICA token
 AC_ARG_ENABLE([icatok],
 	AS_HELP_STRING([--enable-icatok],[build ica token @<:@default=enabled if
-        libica is present@:>@]),
+	libica is present@:>@]),
 	[],
 	[enable_icatok=check])
 
 dnl --- CCA token
 AC_ARG_ENABLE([ccatok],
 	AS_HELP_STRING([--enable-ccatok],[build cca token (IBM Common Cryptographic
-        Architecture) @<:@default=enabled@:>@]),
+	Architecture) @<:@default=enabled@:>@]),
 	[],
 	[enable_ccatok=yes])
 
@@ -147,22 +147,22 @@ AC_ARG_ENABLE([swtok],
 dnl --- EP11 token
 AC_ARG_ENABLE([ep11tok],
     AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled
-        if zcrypt is present@:>@]),
+	if zcrypt is present@:>@]),
     [],
     [enable_ep11tok=check])
 
 dnl --- TPM token
 AC_ARG_ENABLE([tpmtok],
 	AS_HELP_STRING([--enable-tpmtok],[build tpm token (Trusted Platform Module)
-        @<:@default=enabled if TrouSerS is present@:>@]),
+	@<:@default=enabled if TrouSerS is present@:>@]),
 	[],
 	[enable_tpmtok=check])
 
 dnl -- icsf token (Integrated Cryptographic Service Facility remote token)
 AC_ARG_ENABLE([icsftok],
 	AS_HELP_STRING([--enable-icsftok],[build icsf token (Integrated
-        Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library
-        is present@:>@]),
+	Cryptographic Service Facility) @<:@default=enabled if OpenLDAP library
+	is present@:>@]),
 	[],
 	[enable_icsftok=check])
 
@@ -207,9 +207,9 @@ AC_ARG_WITH([libica],
 
 dnl --- zcrypt development files
 AC_ARG_WITH([zcrypt],
-        AS_HELP_STRING([--with-zcrypt@<:@=DIR@:>@],[zcrypt development files location]),
-        [],
-        [with_zcrypt=check])
+	AS_HELP_STRING([--with-zcrypt@<:@=DIR@:>@],[zcrypt development files location]),
+	[],
+	[with_zcrypt=check])
 
 dnl --- TSS (TrouSerS) development files
 AC_ARG_WITH([tss],
@@ -236,10 +236,10 @@ dnl ---
 
 case $target in
      *s390x*)
-          ;;
+	  ;;
      *s390*)
-          CFLAGS="$CFLAGS -m31"
-          ;;
+	  CFLAGS="$CFLAGS -m31"
+	  ;;
      *ppc64* | *x86_64*)
 	  ;;
      *ppc* | i*86*)
@@ -444,7 +444,7 @@ if test "x$enable_testcases" = "xyes"; then
 
 	if test "x$HAVE_EXPECT" = "xno"; then
 		AC_MSG_ERROR([*** testcases requires 'expect' interpreter, which wasn't found])
-                enable_testcases=no
+		enable_testcases=no
 	fi
 fi
 AM_CONDITIONAL([ENABLE_TESTCASES], [test "x$enable_testcases" = "xyes"])
@@ -521,12 +521,12 @@ if test "x$enable_ep11tok" = "xyes"; then
 	])
 fi
 if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
-        enable_ep11tok=yes
+	enable_ep11tok=yes
 	AC_CHECK_HEADER([ica_api.h], [], [
 		enable_ep11tok=no
 	])
 else
-        enable_ep11tok=no
+	enable_ep11tok=no
 fi
 AM_CONDITIONAL([ENABLE_EP11TOK], [test "x$enable_ep11tok" = "xyes"])
 
@@ -567,9 +567,9 @@ if test "x$enable_pkcsep11_migrate" = "xyes"; then
 	fi
 fi
 if test "x$enable_pkcsep11_migrate" != "xno" -a "x$with_zcrypt" != "xno"; then
-        enable_pkcsep11_migrate=yes
+	enable_pkcsep11_migrate=yes
 else
-        enable_pkcsep11_migrate=no
+	enable_pkcsep11_migrate=no
 fi
 AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "xyes"])
 
@@ -582,9 +582,9 @@ if test "x$enable_pkcsep11_session" = "xyes"; then
 fi
 
 if test "x$enable_pkcsep11_session" != "xno" -a "x$with_zcrypt" != "xno"; then
-        enable_pkcsep11_session=yes
+	enable_pkcsep11_session=yes
 else
-        enable_pkcsep11_session=no
+	enable_pkcsep11_session=no
 fi
 
 AM_CONDITIONAL([ENABLE_PKCSEP11_SESSION], [test "x$enable_pkcsep11_session" = "xyes"])
@@ -594,11 +594,11 @@ AM_CONDITIONAL([ENABLE_P11SAK], [test "x$enable_p11sak" = "xyes"])
 
 dnl --- enable_locks
 if test "x$enable_locks" != "xno"; then
-        enable_locks=yes
-        CFLAGS="$CFLAGS -DENABLE_LOCKS"
+	enable_locks=yes
+	CFLAGS="$CFLAGS -DENABLE_LOCKS"
 else
-        enable_locks=no
-        CFLAGS="$CFLAGS -fgnu-tm"
+	enable_locks=no
+	CFLAGS="$CFLAGS -fgnu-tm"
 fi
 if test "x$enable_locks" = "xno"; then
 	if test "x$itm" != "xyes"; then

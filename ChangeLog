@@ -1,3 +1,11 @@
++ Opencryptoki 3.14
+- EP11: Dilitium support stage 2
+- Common: Rework on process and thread locking
+- Common: Rework on btree and object locking
+- ICSF: minor fixes
+- TPM, ICA, ICSF: support multiple token instances
+- new tool p11sak
+
 + openCryptoki 3.13.0
 - EP11: Dilithium support
 - EP11: EdDSA support
@@ -126,8 +134,8 @@ SC_DecryptUpdate.
   version 5.0 libsculcca rpm.
 
 * opencryptoki 3.4.1
-- fix 32-bit compiler error for ep11 
-- fix buffer overflow for cca token 
+- fix 32-bit compiler error for ep11
+- fix buffer overflow for cca token
 - fix a testcase
 
 * opencryptoki 3.4
@@ -148,7 +156,7 @@ SC_DecryptUpdate.
 - Various bugfixes
 
 * opencryptoki 3.3
-- Dynamic tracing introduced via the new environment variable, 
+- Dynamic tracing introduced via the new environment variable,
   OPENCRYPTOKI_TRACE_LEVEL=<level>. The opencryptoki base as well as all
   tokens changed to use the new tracing.
 - Allow root to run pkcs11 commands without being in pkcs11 group.
@@ -160,7 +168,7 @@ SC_DecryptUpdate.
 
 * opencryptoki 3.2
 - New pkcscca tool. Currently it assists in migrating cca private token
-  objects from opencryptoki version 2 to the clear key encryption method 
+  objects from opencryptoki version 2 to the clear key encryption method
   used in opencryptoki version 3. Includes a manpage for pkcscca tool.
   Changes to README.cca_stdll to assist in using the CCA token and
   migrating the private token objects.
@@ -169,7 +177,7 @@ SC_DecryptUpdate.
 - New testcases for various crypto algorithms.
 
 * opencryptoki-3.1
-- New ep11 token to support IBM Crypto Express adpaters (starting with 
+- New ep11 token to support IBM Crypto Express adpaters (starting with
   Crypto Express 4S adapters) configured with Enterprise PKCS#11(EP11)
   firmware.
 - New pkcsep11_migrate utility (and manpage) to migrate token objects
@@ -214,23 +222,23 @@ SC_DecryptUpdate.
 * opencryptoki-2.4.1 (February 21, 2012)
 - SHA256 support added for CCA token
 - Several crypto algorithm testcases refactored to include published
-  test vectors. 
+  test vectors.
 - Testcase directory restructured for future improvements.
 - Allow tpm stdll to get SRK passwd and mode from new env variables.
   See [1] for info on how to use this feature and please report any bugs.
-- Renamed spinlocks for shared memory to /var/lock dir and did 
+- Renamed spinlocks for shared memory to /var/lock dir and did
   some cleanup of unused locking schemes.
 - Various bugfixes and cleanup.
 
 [1] http://opencryptoki.git.sourceforge.net/git/gitweb.cgi?p=opencryptoki/opencryptoki;a=blob;f=doc/README.tpm_stdll;h=dda0d2263cfbb3df8c65ebc64b8006e3242f6321;hb=HEAD#l58
 
 
-* opencryptoki-2.4 
+* opencryptoki-2.4
 - Support for Elliptic Curve Support in CCA token.
 - Support for AES CTR in ICA token.
 - Session handling refactored from using a reference to memory to
   using a handle that references a binray tree node.
-- Cleanup logging. Debug messages now go to a file referenced in 
+- Cleanup logging. Debug messages now go to a file referenced in
   OPENCRYPTOKI_DEBUG_FILE env variable.
 - Various bugfixes and cleanup.
 

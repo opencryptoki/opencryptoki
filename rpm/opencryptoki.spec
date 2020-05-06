@@ -2,7 +2,7 @@
 
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.20
-Version:		3.13.0
+Version:		3.14.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -333,11 +333,11 @@ exit 0
 * Thu Jul 29 2010 Klaus H Kiwi <klausk@linux.vnet.ibm.com> 2.3.2-1
 - Put STDLLs in separate packages
 - General spec file cleanup
-* Thu Aug 7 2006 Daniel H Jones <danjones@us.ibm.com> 
+* Thu Aug 7 2006 Daniel H Jones <danjones@us.ibm.com>
 - spec file cleanup
 * Tue Aug 1 2006 Daniel H Jones <danjones@us.ibm.com>
 - sw token not created for s390
-* Tue Jul 25 2006 Daniel H Jones <danjones@us.ibm.com> 
+* Tue Jul 25 2006 Daniel H Jones <danjones@us.ibm.com>
 - fixed post section and /var/lib/opencryptoki perms
 * Thu May 25 2006 Daniel H Jones <danjones@us.ibm.com> 2.2.4-1
 - initial file created
