@@ -26,6 +26,7 @@ man/man1/pkcsconf.1
 man/man1/pkcsep11_migrate.1
 man/man1/pkcsep11_session.1
 man/man1/pkcsicsf.1
+man/man1/p11sak.1
 man/man5/opencryptoki.conf.5
 man/man7/opencryptoki.7
 man/man8/pkcsslotd.8
@@ -49,6 +50,7 @@ usr/sbin/pkcsep11_migrate/.deps/
 usr/sbin/pkcsep11_session/.deps/
 usr/sbin/pkcsicsf/.deps/
 usr/sbin/pkcsslotd/.deps/
+usr/sbin/p11sak/.deps/
 
 
 misc/pkcsslotd
@@ -443,3 +445,6 @@ usr/sbin/pkcsslotd/usr_sbin_pkcsslotd_pkcsslotd-shmem.o
 usr/sbin/pkcsslotd/usr_sbin_pkcsslotd_pkcsslotd-signal.o
 usr/sbin/pkcsslotd/usr_sbin_pkcsslotd_pkcsslotd-slotmgr.o
 usr/sbin/pkcsslotd/usr_sbin_pkcsslotd_pkcsslotd-socket_server.o
+usr/sbin/p11sak/.dirstamp
+usr/sbin/p11sak/p11sak
+usr/sbin/p11sak/usr_sbin_p11sak_p11sak-p11sak.o

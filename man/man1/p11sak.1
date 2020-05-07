@@ -1,0 +1,386 @@
+.TH P11SAK 1 "May 2020" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+p11sak \- generate and list token keys in an openCryptoki token repository.
+.
+.
+.SH SYNOPSIS
+.B p11sak
+.I command
+.RI [ ARGS ]
+.RB [ OPTIONS ]
+.
+.PP
+.B p11sak
+.BR \-\-help | \-h
+.br
+
+.SH DESCRIPTION
+.B p11sak can be used to generate and list the token keys in an openCryptoki token repository. 
+The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES; 3DES, AES) and asymetric (RSA, EC) keys. 
+This tool is especially capable of a well defined listing of keys with their PKCS #11 attributes.
+.
+.
+.
+.SH COMMANDS
+The \fBp11sak\fP tool can operate in two modes: when command 
+.I generate-key
+is specified, it operates in the mode to generate a token key in the openCryptoki token repository.
+When command
+.I list-key
+is given, it lists the keys specified in the arguments. 
+.
+.PP
+.SS "generate-key"
+.PP
+Use the 
+.B generate-key|gen-key|gen
+command and key argument to generate a token key with the respective 
+.RI [ ARGS ]
+and
+.RB [ OPTIONS ].
+The 
+.BR \-\-help | \-h
+option will show the arguments and options available.
+.
+.PP
+.SS "list-key"
+.PP
+Use the 
+.B list-key|ls-key|ls
+command and key argument to list token keys given the respective 
+.RI [ ARGS ]
+and
+.RB [ OPTIONS ].
+The 
+.BR \-\-help | \-h
+option will show the arguments and options available.
+
+.
+.PP
+.SS "Generating DES/3DES keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR des | 3des
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the 
+.B generate-key
+command with the
+.B des|3des
+key argument to generate a DES or 3DES key. The 
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to 
+.IR SLOTID
+and the token PIN. The 
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and 
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.
+.PP
+.SS "Generating AES keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR aes 
+.BR 128 | 192 | 256
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the 
+.B generate-key
+.B aes
+.B 128|192|256
+command and key argument to generate a AES key with 128, 192 or 256 bit length, respectively. The 
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to 
+.IR SLOTID
+and the token PIN. The 
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and 
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.
+.PP
+.SS "Generating RSA keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR rsa 
+.BR 1024 | 2048 | 4096
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-exponent 
+.IR EXP
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the 
+.B generate-key
+.B rsa
+.B 1024|2048|4096
+command and key argument to generate a 1024, 2048 or 4096 bit RSA key, respectively. The 
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to 
+.IR SLOTID
+and the token PIN. The 
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and 
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes). Furthermore, the
+.B \-\-exponent 
+.IR EXP
+options allows the user to specify the exponent used for generating the RSA key. The default is set to 65537 according to the PKCS #11 standard.
+.
+.PP
+.SS "Generating EC keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR ec 
+.BR CURVE
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the 
+.B generate-key
+.B ec
+.B CURVE
+command and key argument to generate an EC key, where
+.I CURVE
+specifies the eliptic curve used to create the EC key. The following arguments can be used for respective curves:
+.B prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1
+.B | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1
+.B | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1
+.PP
+.B Note: 
+not all curves will be supported by all tokens and key generation will fail when the specified 
+.I CURVE
+is not supported. The 
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to 
+.IR SLOTID
+and the token PIN. The 
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and 
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.
+.PP
+.SS "Listing symmetric and asymmetric keys"
+.
+.B p11sak
+.BR list-key | ls-key | ls
+.BR des | 3des | aes | rsa | ec | public | private | secret
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-long | \-l
+.B \-\-help | \-h
+.PP
+Use the 
+.B list-key | ls-key | ls
+command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private or secret keys can also be listed irrespective of key type.
+.
+.PP
+.
+.
+.
+.SH ARGS
+.
+.SS "des | 3des | aes | rsa | ec | public | private | secret"
+
+selects the respective symmetric or asymetric key to be generated or listed. The 
+.B public|private|secret
+argument can only be used with the 
+.B list-key
+command to list either public, private or secret keys.
+.PP
+.
+.
+.
+.SS "128|192|256"
+the 
+.B aes
+argument has to be followed by either 128, 192 or 256 to set the respective key bit length of the AES key.
+.PP
+.
+.
+.
+.SS "1024|2048|4096"
+the 
+.B rsa
+argument has to be followed by either 1024, 2048 or 4096 to set the respective key bit length of the RSA key.
+.PP
+.
+.
+.
+.SS "prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1"
+the 
+.B ec
+argument has to be followed by either of these
+.I CURVE
+to select the EC curve used to generate the key.
+.PP
+.
+.
+
+.SH OPTIONS
+
+.SS "\-\-slot SLOTID"
+sets the token to 
+.IR SLOTID
+.PP
+.
+.
+.
+.SS "\-\-pin PIN"
+sets the token PIN to 
+.IR PIN
+.PP
+.
+.
+.
+.SS "\-\-label LABEL"
+sets the key label attribute to 
+.IR LABEL
+.PP
+.
+.
+.
+.SS "\-\-exponent EXP"
+sets the RSA exponent to 
+.IR EXP
+.PP
+.
+.
+.
+.SS "\-\-attr [M R L S E D G V W U A X N T]"
+sets the binary attributes of a key. 
+.PP
+.B Note: 
+not all binary attributes are applicable to all keys and will be omitted if not applicable. 
+.PP
+The attributes are set to 
+.B FALSE 
+by default and switched to
+.B TRUE
+when the letter that is associated with the given binary attribute is specified. The following letters are associated with the respective 
+.B CK_ATTRIBUTE:
+.IP "\(bu" 2
+.B M 
+- CKA_MODIFIABLE
+.IP "\(bu" 2
+.B R 
+- CKA_DERIVE
+.IP "\(bu" 2
+.B L 
+- CKA_LOCAL
+.IP "\(bu" 2
+.B S 
+- CKA_SENSITIVE
+.IP "\(bu" 2
+.B E 
+- CKA_ENCRYPT
+.IP "\(bu" 2
+.B D 
+- CKA_DECRYPT
+.IP "\(bu" 2
+.B G 
+- CKA_SIGN
+.IP "\(bu" 2
+.B V 
+- CKA_VERIFY
+.IP "\(bu" 2
+.B W 
+- CKA_WRAP
+.IP "\(bu" 2
+.B U 
+- CKA_UNWRAP
+.IP "\(bu" 2
+.B A 
+- CKA_ALWAYS_SENSITIVE
+.IP "\(bu" 2
+.B X 
+- CKA_EXTRACTABLE
+.IP "\(bu" 2
+.B N 
+- CKA_NEVER_EXTRACTABLE
+.PP
+CKA_TOKEN and CKA_PRIVATE are set by default to
+.B TRUE.
+For multiple attributes, combine the letters in a string without white space, e. g. 'MLD'.
+.PP
+.
+.
+.
+.SS "\-\-long | \-l"
+prints the 
+.B list-key 
+output in long format. If omitted, the output is in a short, tabular format.
+.PP
+.
+.
+.
+.SS "\-\-help | \-h"
+prints help for the usage of 
+.B p11sak
+and/or the respective command.
+.PP

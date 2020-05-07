@@ -172,7 +172,7 @@ AC_ARG_ENABLE([pkcsep11_migrate],
 	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
 	[],
 	[enable_pkcsep11_migrate=check])
-	
+
 dnl --- pkcsep11_session
 AC_ARG_ENABLE([pkcsep11_session],
 	AS_HELP_STRING([--enable-pkcsep11_session],[build pkcsep11_session (EP11 token session logout tool) @<:@default=enabled if EP11 library is present@:>@]),
@@ -182,6 +182,12 @@ AC_ARG_ENABLE([pkcsep11_session],
 dnl --- locking support
 AC_ARG_ENABLE([locks],
 	AS_HELP_STRING([--disable-locks],[build opencryptoki with transactional memory instead of locks]))
+
+dnl --- p11sak took
+AC_ARG_ENABLE([p11sak],
+	AS_HELP_STRING([--enable-p11sak],[build p11sak tool @<:@default=enabled@:>@]),
+	[],
+	[enable_p11sak=yes])
 
 dnl ---
 dnl --- Check for external software
@@ -583,6 +589,9 @@ fi
 
 AM_CONDITIONAL([ENABLE_PKCSEP11_SESSION], [test "x$enable_pkcsep11_session" = "xyes"])
 
+dnl --- enable_p11sak
+AM_CONDITIONAL([ENABLE_P11SAK], [test "x$enable_p11sak" = "xyes"])
+
 dnl --- enable_locks
 if test "x$enable_locks" != "xno"; then
         enable_locks=yes
@@ -628,6 +637,7 @@ echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
 echo "	Systemd service:	$enable_systemd"
 echo "	Build with locks:	$enable_locks"
+echo "	Build p11sak tool:	$enable_p11sak"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"

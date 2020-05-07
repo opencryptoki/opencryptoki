@@ -12,5 +12,9 @@ if ENABLE_CCATOK
 man1_MANS += man/man1/pkcscca.1
 endif
 
+if ENABLE_P11SAK
+man1_MANS += man/man1/p11sak.1
+endif
+
 EXTRA_DIST += $(man1_MANS)
 CLEANFILES += $(man1_MANS)
