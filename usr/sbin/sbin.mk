@@ -10,6 +10,9 @@ endif
 if ENABLE_CCATOK
 include usr/sbin/pkcscca/pkcscca.mk
 endif
+if ENABLE_P11SAK
+include usr/sbin/p11sak/p11sak.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk
