@@ -1701,7 +1701,7 @@ static CK_RV aes_256_gcm_seal(unsigned char *out,
         || EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, 1) != 1
         || EVP_CipherUpdate(ctx, NULL, &outlen, aad, aadlen) != 1
         || EVP_CipherUpdate(ctx, out, &outlen, in, inlen) != 1
-        || EVP_CipherFinal_ex(ctx, out, &outlen) != 1
+        || EVP_CipherFinal_ex(ctx, out + outlen, &outlen) != 1
         || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
         rc = ERR_GENERAL_ERROR;
@@ -1741,7 +1741,7 @@ static CK_RV aes_256_gcm_unseal(unsigned char *out,
         || EVP_CipherInit_ex(ctx, NULL, NULL, key, iv, 0) != 1
         || EVP_CipherUpdate(ctx, NULL, &outlen, aad, aadlen) != 1
         || EVP_CipherUpdate(ctx, out, &outlen, in, inlen) != 1
-        || EVP_CipherFinal_ex(ctx, out, &outlen) != 1) {
+        || EVP_CipherFinal_ex(ctx, out + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
         rc = ERR_GENERAL_ERROR;
         goto done;
@@ -1759,6 +1759,7 @@ static CK_RV aes_256_wrap(unsigned char out[40],
 {
     CK_RV rc;
     int outlen;
+    unsigned char buffer[40 + EVP_MAX_BLOCK_LENGTH];
 
     EVP_CIPHER_CTX *ctx = NULL;
 
@@ -1772,13 +1773,14 @@ static CK_RV aes_256_wrap(unsigned char out[40],
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
     if (EVP_CipherInit_ex(ctx, EVP_aes_256_wrap(), NULL, kek, NULL, 1) != 1
-        || EVP_CipherUpdate(ctx, out, &outlen, in, 32) != 1
-        || EVP_CipherFinal_ex(ctx, out, &outlen) != 1) {
+        || EVP_CipherUpdate(ctx, buffer, &outlen, in, 32) != 1
+        || EVP_CipherFinal_ex(ctx, buffer + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
         rc = ERR_GENERAL_ERROR;
         goto done;
     }
 
+    memcpy(out, buffer, 40);
     rc = CKR_OK;
 done:
     EVP_CIPHER_CTX_free(ctx);
@@ -1791,6 +1793,7 @@ static CK_RV aes_256_unwrap(unsigned char key[32],
 {
     CK_RV rc;
     int outlen;
+    unsigned char buffer[32 + EVP_MAX_BLOCK_LENGTH];
 
     EVP_CIPHER_CTX *ctx = NULL;
 
@@ -1804,13 +1807,14 @@ static CK_RV aes_256_unwrap(unsigned char key[32],
     EVP_CIPHER_CTX_set_flags(ctx, EVP_CIPHER_CTX_FLAG_WRAP_ALLOW);
 
     if (EVP_CipherInit_ex(ctx, EVP_aes_256_wrap(), NULL, kek, NULL, 0) != 1
-        || EVP_CipherUpdate(ctx, key, &outlen, in, 40) != 1
-        || EVP_CipherFinal_ex(ctx, key, &outlen) != 1) {
+        || EVP_CipherUpdate(ctx, buffer, &outlen, in, 40) != 1
+        || EVP_CipherFinal_ex(ctx, buffer + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
         rc = ERR_GENERAL_ERROR;
         goto done;
     }
 
+    memcpy(key, buffer, 32);
     rc = CKR_OK;
 done:
     EVP_CIPHER_CTX_free(ctx);
