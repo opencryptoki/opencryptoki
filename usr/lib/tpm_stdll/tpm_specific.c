@@ -159,8 +159,6 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     TSS_HTPM hTPM;
     BYTE *random_bytes = NULL;
 
-    UNUSED(tokdata);
-
     rc = Tspi_Context_GetTpmObject(tpm_data->tspContext, &hTPM);
     if (rc) {
         TRACE_ERROR("Tspi_Context_GetTpmObject: %x\n", rc);
@@ -1389,7 +1387,7 @@ CK_RV token_create_private_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
     unsigned char n[256], p[256];
 
     /* all sw generated keys are 2048 bits */
-    if ((rsa = openssl_gen_key()) == NULL)
+    if ((rsa = openssl_gen_key(tokdata)) == NULL)
         return CKR_HOST_MEMORY;
 
     if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
@@ -1467,7 +1465,7 @@ CK_RV token_create_public_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
     unsigned char n[256], p[256];
 
     /* all sw generated keys are 2048 bits */
-    if ((rsa = openssl_gen_key()) == NULL)
+    if ((rsa = openssl_gen_key(tokdata)) == NULL)
         return CKR_HOST_MEMORY;
 
     if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {

@@ -57,7 +57,7 @@ void openssl_print_errors()
 }
 #endif
 
-RSA *openssl_gen_key()
+RSA *openssl_gen_key(STDLL_TokData_t *tokdata)
 {
     RSA *rsa;
     int rc, counter = 0;
@@ -66,7 +66,7 @@ RSA *openssl_gen_key()
     BIGNUM *bne;
 #endif
 
-    token_specific_rng(NULL, (CK_BYTE *) buf, 32);
+    token_specific_rng(tokdata, (CK_BYTE *) buf, 32);
     RAND_seed(buf, 32);
 
 regen_rsa_key:
