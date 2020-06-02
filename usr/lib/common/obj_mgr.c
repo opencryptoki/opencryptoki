@@ -1751,6 +1751,12 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         save_token_object(tokdata, obj);
 
         if (priv_obj) {
+            if (tokdata->global_shm->num_priv_tok_obj == 0) {
+                TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+                rc = CKR_OBJECT_HANDLE_INVALID;
+                XProcUnLock(tokdata);
+                goto done;
+            }
             rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
                                                priv_tok_objs, 0,
                                                tokdata->global_shm->
@@ -1765,6 +1771,12 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
 
             entry = &tokdata->global_shm->priv_tok_objs[index];
         } else {
+            if (tokdata->global_shm->num_publ_tok_obj == 0) {
+                TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+                rc = CKR_OBJECT_HANDLE_INVALID;
+                XProcUnLock(tokdata);
+                goto done;
+            }
             rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
                                                publ_tok_objs, 0,
                                                tokdata->global_shm->
@@ -1846,6 +1858,10 @@ CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
     priv = object_is_private(obj);
 
     if (priv) {
+        if (global_shm->num_priv_tok_obj == 0) {
+            TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+            return CKR_OBJECT_HANDLE_INVALID;
+        }
         rc = object_mgr_search_shm_for_obj(global_shm->priv_tok_objs,
                                            0, global_shm->num_priv_tok_obj - 1,
                                            obj, &index);
@@ -1886,6 +1902,10 @@ CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
                    sizeof(TOK_OBJ_ENTRY));
         }
     } else {
+        if (global_shm->num_publ_tok_obj == 0) {
+            TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+            return CKR_OBJECT_HANDLE_INVALID;
+        }
         rc = object_mgr_search_shm_for_obj(global_shm->publ_tok_objs,
                                            0, global_shm->num_publ_tok_obj - 1,
                                            obj, &index);
