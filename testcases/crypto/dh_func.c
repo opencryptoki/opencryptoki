@@ -260,15 +260,8 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
             testcase_error("C_GetAttributeValue #1: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
-        // Make sure peer's key is the right size
-        if ((extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-            (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) - 1)) {
-            testcase_fail("ERROR:size error peer's key %ld",
-                          extr1_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        } else {
-            testcase_pass("Successfully generated DH keys");
-        }
+
+        testcase_pass("Successfully generated DH keys");
     } else {
         // First, import the DH key Pair for Party A
 
@@ -320,15 +313,8 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
             testcase_error("C_GetAttributeValue #1: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
-        // Make sure peer's key is the right size
-        if ((extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-            (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) - 1)) {
-            testcase_fail("ERROR:size error peer's key %ld",
-                          extr1_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        } else {
-            testcase_pass("Successfully imported DH keys");
-        }
+
+        testcase_pass("Successfully imported DH keys");
     }
 
     // Testcase #2 - Now derive the secrets...
@@ -358,13 +344,6 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
             testcase_error("C_GetAttributeValue #2: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
-        // Make sure party A's key is the right size
-        if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-            (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) - 1)) {
-            testcase_fail("ERROR:size error party A's key %ld",
-                          extr2_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        }
         // Now, derive a generic secret key using peer's private key
         // and A's public key
         mech.mechanism = CKM_DH_PKCS_DERIVE;
@@ -388,13 +367,6 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
             goto testcase_cleanup;
         }
 
-        if (extr1_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
-            *((int *) extr1_tmpl[0].pValue) == 0) {
-            testcase_fail("ERROR:derived key #1 length or value %ld",
-                          extr1_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        }
-
         memset(key2_value, 0, sizeof(key2_value));
         extr2_tmpl[0].ulValueLen = sizeof(key2_value);
 
@@ -405,14 +377,8 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
             goto testcase_cleanup;
         }
 
-        if (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) ||
-            *((int *) extr2_tmpl[0].pValue) == 0) {
-            testcase_fail("ERROR:derived key #2 length or value %ld",
-                          extr2_tmpl[0].ulValueLen);
-            goto testcase_cleanup;
-        }
-
-        if (memcmp(key1_value, key2_value, sizeof(DH_PUBL_PRIME)) != 0) {
+        if (extr1_tmpl[0].ulValueLen != extr2_tmpl[0].ulValueLen ||
+            memcmp(key1_value, key2_value, extr1_tmpl[0].ulValueLen) != 0) {
             testcase_fail("ERROR:derived key mismatch");
             goto testcase_cleanup;
         }
@@ -451,13 +417,6 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
         rc = funcs->C_GetAttributeValue(session, publ_key, extr2_tmpl, 1);
         if (rc != CKR_OK) {
             testcase_error("C_GetAttributeValue #2: rc = %s", p11_get_ckr(rc));
-            goto testcase_cleanup;
-        }
-        // Make sure party A's key is the right size
-        if ((extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME)) &&
-            (extr2_tmpl[0].ulValueLen != sizeof(DH_PUBL_PRIME) - 1)) {
-            testcase_fail("ERROR:size error party A's key %ld",
-                          extr2_tmpl[0].ulValueLen);
             goto testcase_cleanup;
         }
         // Now, derive a generic secret key using peer's private key
