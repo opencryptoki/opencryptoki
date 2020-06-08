@@ -62,11 +62,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     // Perform DH checking of parameters
     // Check the existance of the public-value in mechanism
-    if ((!mech->pParameter) ||
-        ((mech->ulParameterLen != 64) &&
-         (mech->ulParameterLen != 96) &&
-         (mech->ulParameterLen != 128) &&
-         (mech->ulParameterLen != 192) && (mech->ulParameterLen != 256))) {
+    if (mech->pParameter == NULL || mech->ulParameterLen == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return (CKR_MECHANISM_PARAM_INVALID);
     }
