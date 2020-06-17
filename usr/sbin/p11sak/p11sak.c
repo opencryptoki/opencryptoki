@@ -260,6 +260,9 @@ static const char* CKA2a(CK_ATTRIBUTE_TYPE attr_type) {
  * Translates the given key type to its related char string.
  */
 static const char* CKK2a(CK_KEY_TYPE t) {
+
+    // if new cases are added, the buffer = malloc()
+    // in tok_key_get_key_type() needs to be updated
     switch (t) {
     case CKK_DES:
         return "DES";
@@ -1328,7 +1331,12 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
         return ret;
     }
 
-    buffer = malloc(16);
+    // the buffer holds the following string
+    // "public " + CKK2a(kt) with kt = "unknown key type" being the longest kt string
+    // or "private  " + CKK2a(kt) with kt = "unknown key type" being the longest kt string
+    // Hence, the size of the string is 25 Bytes including the '\0' character
+    // Use 32 Bytes as multiple of 8
+    buffer = malloc(32);
 
     if (!buffer) {
         return CKR_HOST_MEMORY;
@@ -1344,6 +1352,10 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
     case CKO_PRIVATE_KEY:
         strcpy(buffer, "private ");
         break;
+    default:
+        ret = CKR_KEY_HANDLE_INVALID;
+        free(buffer);
+        return ret;
     }
 
     template[0].type = CKA_KEY_TYPE;
@@ -1356,6 +1368,7 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
                 ret);
         return ret;
     }
+
     strcat(buffer, CKK2a(kt));
 
     *klength = 0;
