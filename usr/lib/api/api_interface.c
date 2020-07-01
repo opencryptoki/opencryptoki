@@ -2557,6 +2557,11 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     // Clear out the load list
     memset(slot_loaded, 0, sizeof(int) * NUMBER_SLOTS_MANAGED);
 
+    // Zero out API_Proc_Struct
+    // This must be done prior to all goto error calls, else bt_destroy()
+    // will fail because it accesses uninitialized memory when t->size > 0.
+    memset(Anchor, 0, sizeof(API_Proc_Struct_t));
+
     TRACE_DEBUG("Anchor allocated at %s\n", (char *) Anchor);
 
     // Validation of the parameters passed
@@ -2653,12 +2658,10 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         rc = CKR_FUNCTION_FAILED;
         goto error;
     }
-    //Zero out API_Proc_Struct
     //Map Shared Memory Region
     //if ( Shared Memory Mapped not Successful )
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
-    memset((char *) Anchor, 0, sizeof(API_Proc_Struct_t));
     bt_init(&Anchor->sess_btree, free);
     Anchor->Pid = getpid();
 
