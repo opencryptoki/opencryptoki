@@ -239,7 +239,7 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
 
     /* Setup header */
     memset(&header, 0, sizeof(header));
-    header.tokversion = 0x0003000C;
+    header.tokversion = htobe32(0x0003000C);
     header.private_flag = 0x01;
     ret = aes_256_wrap(header.key_wrapped, obj_key, masterkey);
     if (ret != CKR_OK) {
@@ -252,7 +252,7 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
     header.iv[9] = 0;
     header.iv[10] = 0;
     header.iv[11] = 1;
-    header.object_len = clear_len;
+    header.object_len = htobe32(clear_len);
     memcpy(object, &header, HEADER_LEN);
 
     /* Encrypt body */
