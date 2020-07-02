@@ -1077,6 +1077,42 @@ static CK_RV load_NVTOK_DAT(const char *data_store, const char *nvtok_name,
         goto done;
     }
 
+    if (stbuf.st_size == sizeof(TOKEN_DATA)) {
+        /* The 312 version always uses big endian */
+        td->token_info.flags = be32toh(td->token_info.flags);
+        td->token_info.ulMaxSessionCount
+          = be32toh(td->token_info.ulMaxSessionCount);
+        td->token_info.ulSessionCount
+          = be32toh(td->token_info.ulSessionCount);
+        td->token_info.ulMaxRwSessionCount
+          = be32toh(td->token_info.ulMaxRwSessionCount);
+        td->token_info.ulRwSessionCount
+          = be32toh(td->token_info.ulRwSessionCount);
+        td->token_info.ulMaxPinLen = be32toh(td->token_info.ulMaxPinLen);
+        td->token_info.ulMinPinLen = be32toh(td->token_info.ulMinPinLen);
+        td->token_info.ulTotalPublicMemory
+          = be32toh(td->token_info.ulTotalPublicMemory);
+        td->token_info.ulFreePublicMemory
+          = be32toh(td->token_info.ulFreePublicMemory);
+        td->token_info.ulTotalPrivateMemory
+          = be32toh(td->token_info.ulTotalPrivateMemory);
+        td->token_info.ulFreePrivateMemory
+          = be32toh(td->token_info.ulFreePrivateMemory);
+        td->tweak_vector.allow_weak_des
+          = be32toh(td->tweak_vector.allow_weak_des);
+        td->tweak_vector.check_des_parity
+          = be32toh(td->tweak_vector.check_des_parity);
+        td->tweak_vector.allow_key_mods
+          = be32toh(td->tweak_vector.allow_key_mods);
+        td->tweak_vector.netscape_mods
+          = be32toh(td->tweak_vector.netscape_mods);
+        td->dat.version = be32toh(td->dat.version);
+        td->dat.so_login_it = be64toh(td->dat.so_login_it);
+        td->dat.user_login_it = be64toh(td->dat.user_login_it);
+        td->dat.so_wrap_it = be64toh(td->dat.so_wrap_it);
+        td->dat.user_wrap_it = be64toh(td->dat.user_wrap_it);
+    }
+
     ret = CKR_OK;
 
 done:
@@ -1628,6 +1664,7 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
 {
     const char *nvtok = "NVTOK.DAT_312";
     char fname[PATH_MAX + 1 + strlen(nvtok) + 1];
+    TOKEN_DATA be_tokdata;
     FILE *fp = NULL;
     CK_RV ret;
     size_t rc;
@@ -1656,14 +1693,6 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
         goto done;
     }
 
-    /* Write old part into NVTOK.DAT_312 */
-    rc = fwrite(tokdata, sizeof(TOKEN_DATA_OLD), 1, fp);
-    if (rc != 1) {
-        TRACE_ERROR("fwrite(%s) failed, errno=%s.\n", fname, strerror(errno));
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
     /* Create additions for new format */
     ret = create_TOKEN_DATA_VERSION(sopin, userpin, tokdata);
     if (ret != CKR_OK) {
@@ -1671,8 +1700,43 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
         goto done;
     }
 
-    /* Append TOKEN_DATA_VERSION to NVTOK.DAT_312 */
-    rc = fwrite(&(tokdata->dat), sizeof(TOKEN_DATA_VERSION), 1, fp);
+    /* The 312 version always uses big endian */
+    memcpy(&be_tokdata, tokdata, sizeof(TOKEN_DATA));
+    be_tokdata.token_info.flags = htobe32(tokdata->token_info.flags);
+    be_tokdata.token_info.ulMaxSessionCount
+      = htobe32(tokdata->token_info.ulMaxSessionCount);
+    be_tokdata.token_info.ulSessionCount
+      = htobe32(tokdata->token_info.ulSessionCount);
+    be_tokdata.token_info.ulMaxRwSessionCount
+      = htobe32(tokdata->token_info.ulMaxRwSessionCount);
+    be_tokdata.token_info.ulRwSessionCount
+      = htobe32(tokdata->token_info.ulRwSessionCount);
+    be_tokdata.token_info.ulMaxPinLen = htobe32(tokdata->token_info.ulMaxPinLen);
+    be_tokdata.token_info.ulMinPinLen = htobe32(tokdata->token_info.ulMinPinLen);
+    be_tokdata.token_info.ulTotalPublicMemory
+      = htobe32(tokdata->token_info.ulTotalPublicMemory);
+    be_tokdata.token_info.ulFreePublicMemory
+      = htobe32(tokdata->token_info.ulFreePublicMemory);
+    be_tokdata.token_info.ulTotalPrivateMemory
+      = htobe32(tokdata->token_info.ulTotalPrivateMemory);
+    be_tokdata.token_info.ulFreePrivateMemory
+      = htobe32(tokdata->token_info.ulFreePrivateMemory);
+    be_tokdata.tweak_vector.allow_weak_des
+      = htobe32(tokdata->tweak_vector.allow_weak_des);
+    be_tokdata.tweak_vector.check_des_parity
+      = htobe32(tokdata->tweak_vector.check_des_parity);
+    be_tokdata.tweak_vector.allow_key_mods
+      = htobe32(tokdata->tweak_vector.allow_key_mods);
+    be_tokdata.tweak_vector.netscape_mods
+      = htobe32(tokdata->tweak_vector.netscape_mods);
+    be_tokdata.dat.version = htobe32(tokdata->dat.version);
+    be_tokdata.dat.so_login_it = htobe64(tokdata->dat.so_login_it);
+    be_tokdata.dat.user_login_it = htobe64(tokdata->dat.user_login_it);
+    be_tokdata.dat.so_wrap_it = htobe64(tokdata->dat.so_wrap_it);
+    be_tokdata.dat.user_wrap_it = htobe64(tokdata->dat.user_wrap_it);
+
+    /* Write converted token data into NVTOK.DAT_312 */
+    rc = fwrite(&be_tokdata, sizeof(TOKEN_DATA), 1, fp);
     if (rc != 1) {
         TRACE_ERROR("fwrite(%s) failed, errno=%s.\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
