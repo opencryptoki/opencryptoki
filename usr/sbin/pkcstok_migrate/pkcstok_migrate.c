@@ -31,6 +31,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/mman.h>
 #include <pkcs11types.h>
 
 #include "sw_crypt.h"
@@ -2109,6 +2110,36 @@ done:
 }
 
 /**
+ * Removes the token_s shared memory from /dev/shm
+ */
+static CK_RV remove_shared_memory(char *location)
+{
+    char shm_name[PATH_MAX];
+    int i, k, rc;
+
+    i = k = 0;
+    shm_name[k++] = '/';
+    if (location[i] == '/')
+        i++;
+
+    for (; location[i]; i++, k++) {
+        if (location[i] == '/')
+            shm_name[k] = '.';
+        else
+            shm_name[k] = location[i];
+    }
+    shm_name[k] = '\0';
+
+    rc = shm_unlink(shm_name);
+    if (rc != 0) {
+        warnx("shm_unlink(%s) failed, errno=%s", shm_name, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+/**
  * Copy a file given by name from a src folder to a dst folder.
  */
 static CK_RV file_copy(char *dst, const char *src, const char *name)
@@ -2715,6 +2746,13 @@ int main(int argc, char **argv)
     ret = switch_to_new_repository(data_store_old, data_store_new);
     if (ret != CKR_OK) {
         warnx("Switch to new repository failed.");
+        goto done;
+    }
+
+    /* Remove the token's shared memory */
+    ret = remove_shared_memory(data_store);
+    if (ret != CKR_OK) {
+        warnx("Failed to remove token's shared memory.");
         goto done;
     }
 
