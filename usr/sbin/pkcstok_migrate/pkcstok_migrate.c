@@ -103,9 +103,9 @@ static CK_RV make_OBJECT_PUB_312(char **obj_new, unsigned int *obj_new_len,
 
     /* Setup object */
     memset(&header, 0, sizeof(header));
-    header.tokversion = 0x0003000C;
+    header.tokversion = htobe32(0x0003000C);
     header.private_flag = 0x00;
-    header.object_len = clear_len;
+    header.object_len = htobe32(clear_len);
     memcpy(object, &header, sizeof(header));
     memcpy(object + sizeof(header), clear, clear_len);
 
