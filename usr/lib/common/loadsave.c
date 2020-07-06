@@ -2557,6 +2557,7 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     CK_ULONG size_64;
     CK_RV rc;
     uint32_t len;
+    uint32_t ver;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return reload_token_object_old(tokdata, obj);
@@ -2580,9 +2581,18 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         goto done;
     }
 
+    memcpy(&ver, header, 4);
     memcpy(&priv, header + 4, 1);
     memcpy(&len, header + 60, 4);
-    size = be32toh(len);
+
+    /*
+     * In OCK 3.12 - 3.14 the version and size was not stored in BE. So if
+     * version field is in platform endianness, keep size as is also.
+     */
+    if (ver == TOK_NEW_DATA_STORE)
+        size = len;
+    else
+        size = be32toh(len);
 
     buf = (CK_BYTE *) malloc(size);
     if (buf == NULL) {
@@ -2647,8 +2657,9 @@ CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     CK_ULONG clear_len;
     CK_BBOOL flag = FALSE;
     CK_RV rc;
-    CK_ULONG_32 len;
+    CK_ULONG_32 len, be_len;
     unsigned char reserved[7] = {0};
+    uint32_t tmp;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return save_public_token_object_old(tokdata, obj);
@@ -2669,11 +2680,14 @@ CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         goto done;
     }
 
+    tmp = htobe32(tokdata->version);
+    be_len = htobe32(len);
+
     set_perm(fileno(fp));
-    if (fwrite(&tokdata->version, 4, 1, fp) != 1
+    if (fwrite(&tmp, 4, 1, fp) != 1
         || fwrite(&flag, 1, 1, fp) != 1
         || fwrite(reserved, 7, 1, fp) != 1
-        || fwrite(&len, 4, 1, fp) != 1
+        || fwrite(&be_len, 4, 1, fp) != 1
         || fwrite(clear, len, 1, fp) != 1) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -2704,6 +2718,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
     CK_BBOOL priv;
     CK_ULONG_32 size;
     unsigned char header[PUB_HEADER_LEN];
+    uint32_t ver;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return load_public_token_objects_old(tokdata);
@@ -2731,9 +2746,16 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
             continue;
         }
 
+        memcpy(&ver, header, 4);
         memcpy(&priv, header + 4, 1);
         memcpy(&size, header + 12, 4);
-        size = be32toh(size);
+
+        /*
+         * In OCK 3.12 - 3.14 the version and size was not stored in BE. So if
+         * version field is in platform endianness, keep size as is also
+         */
+        if (ver != TOK_NEW_DATA_STORE)
+            size = be32toh(size);
 
         if (priv == TRUE) {
             fclose(fp2);
