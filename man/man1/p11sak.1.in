@@ -15,19 +15,22 @@ p11sak \- generate and list token keys in an openCryptoki token repository.
 .br
 
 .SH DESCRIPTION
-.B p11sak can be used to generate and list the token keys in an openCryptoki token repository.
+.B p11sak can be used to generate, list and delete the token keys in an openCryptoki token repository.
 The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES; 3DES, AES) and asymetric (RSA, EC) keys.
 This tool is especially capable of a well defined listing of keys with their PKCS #11 attributes.
 .
 .
 .
 .SH COMMANDS
-The \fBp11sak\fP tool can operate in two modes: when command
+The \fBp11sak\fP tool can operate in three modes: when command
 .I generate-key
 is specified, it operates in the mode to generate a token key in the openCryptoki token repository.
-When command
+If command
 .I list-key
 is given, it lists the keys specified in the arguments.
+If command
+.I remove-key
+is given, it removes the keys specified in the arguments.
 .
 .PP
 .SS "generate-key"
@@ -54,7 +57,19 @@ and
 The
 .BR \-\-help | \-h
 option will show the arguments and options available.
-
+.
+.PP
+.SS "list-key"
+.PP
+Use the
+.B remove-key|rm-key|rm
+command and key argument to delete token keys given the respective
+.RI [ ARGS ]
+and
+.RB [ OPTIONS ].
+The
+.BR \-\-help | \-h
+option will show the arguments and options available.
 .
 .PP
 .SS "Generating DES/3DES keys"
@@ -240,6 +255,31 @@ Use the
 command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private or secret keys can also be listed irrespective of key type.
 .
 .PP
+.SS "Deleting symmetric and asymmetric keys"
+.
+.B p11sak
+.BR remove-key | rm-key | rm
+.BR des | 3des | aes | rsa | ec
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-force | \-f
+.B \-\-help | \-h
+.PP
+Use the
+.B remove-key | rm-key | rm
+command and key argument to delete DES, 3DES, AES, RSA or EC keys, respectively. All specified cipher keys will be promted to be deleted unless 
+a specific key with the 
+.B \-\-label
+.IR LABEL
+argument is selected. The user will be promted to confirm the deletion of the key. To suppress the promt, use the 
+.B \-\-force | \-f
+option.
+.
+.PP
 .
 .
 .
@@ -375,6 +415,14 @@ For multiple attributes, combine the letters in a string without white space, e.
 prints the
 .B list-key
 output in long format. If omitted, the output is in a short, tabular format.
+.PP
+.
+.
+.
+.SS "\-\-force | \-f"
+to be used with the 
+.B remove-key
+command to suppress the promt whether the user wants to delete the specified keys.
 .PP
 .
 .
