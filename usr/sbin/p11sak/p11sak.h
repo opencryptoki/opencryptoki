@@ -9,7 +9,7 @@
  */
 
 typedef enum {
-    no_cmd, gen_key, list_key,
+    no_cmd, gen_key, list_key, remove_key
 } p11sak_cmd;
 
 /*

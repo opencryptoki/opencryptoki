@@ -17,9 +17,8 @@
 #include <pkcs11types.h>
 #include <dlfcn.h>
 
-
 #include <termios.h>
-
+#include "p11util.h"
 #include "p11sak.h"
 
 static const char *default_pkcs11lib = "libopencryptoki.so";
@@ -36,7 +35,7 @@ static void unload_pkcs11lib(void)
 static void load_pkcs11lib(void)
 {
     CK_RV rc;
-    CK_RV(*pfoo) ();
+    CK_RV (*pfoo)();
     const char *libname;
 
     /* check for environment variable PKCSLIB */
@@ -52,28 +51,30 @@ static void load_pkcs11lib(void)
     }
 
     /* get function list */
-    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
+    *(void**) (&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
     if (!pfoo) {
         dlclose(pkcs11lib);
         printf("Error: failed to resolve symbol '%s' from pkcs11 lib '%s'\n",
-               "C_GetFunctionList", libname);
+                "C_GetFunctionList", libname);
         exit(99);
     }
     rc = pfoo(&funcs);
     if (rc != CKR_OK) {
         dlclose(pkcs11lib);
-        printf("Error: C_GetFunctionList() on pkcs11 lib '%s' failed with rc=0x%lX)\n",
-               libname, rc);
+        printf(
+                "Error: C_GetFunctionList() on pkcs11 lib '%s' failed with rc = 0x%lX - %s)\n",
+                libname, rc, p11_get_ckr(rc));
         exit(99);
     }
 
     atexit(unload_pkcs11lib);
 }
 
-static CK_RV get_pin(char **pin, size_t *pinlen) {
+static CK_RV get_pin(char **pin, size_t *pinlen)
+{
     struct termios old, new;
     int nread;
-    char *buff = NULL;
+    char *user_input = NULL;
     size_t buflen;
     CK_RV rc = 0;
 
@@ -87,9 +88,9 @@ static CK_RV get_pin(char **pin, size_t *pinlen) {
         return -1;
 
     /* read the pin
-     * Note: getline will allocate memory for buff. free it when done.
+     * Note: getline will allocate memory for user_input. free it when done.
      */
-    nread = getline(&buff, &buflen, stdin);
+    nread = getline(&user_input, &buflen, stdin);
     if (nread == -1) {
         rc = -1;
         goto done;
@@ -113,20 +114,21 @@ static CK_RV get_pin(char **pin, size_t *pinlen) {
     }
 
     /* strip the carriage return since not part of pin. */
-    buff[nread - 1] = '\0';
-    memcpy(*pin, buff, nread);
+    user_input[nread - 1] = '\0';
+    memcpy(*pin, user_input, nread);
     /* don't include the terminating null in the pinlen */
     *pinlen = nread - 1;
 
-    done: if (buff)
-        free(buff);
+    done: if (user_input)
+        free(user_input);
 
     return rc;
 }
 /**
  * Translates the given key type to its string representation.
  */
-static const char* kt2str(p11sak_kt ktype) {
+static const char* kt2str(p11sak_kt ktype)
+{
     switch (ktype) {
     case kt_DES:
         return "DES";
@@ -155,7 +157,8 @@ static const char* kt2str(p11sak_kt ktype) {
 /**
  * Translates the given key type to its CK_KEY_TYPE
  */
-static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type) {
+static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type)
+{
     switch (ktype) {
     case kt_DES:
         *a_key_type = CKK_DES;
@@ -183,7 +186,8 @@ static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type) {
 /**
  * Translates the given key type to its CK_OBJECT_CLASS
  */
-static CK_RV kt2CKO(p11sak_kt ktype, CK_OBJECT_CLASS *a_cko) {
+static CK_RV kt2CKO(p11sak_kt ktype, CK_OBJECT_CLASS *a_cko)
+{
     switch (ktype) {
     case kt_SECRET:
         *a_cko = CKO_SECRET_KEY;
@@ -203,7 +207,8 @@ static CK_RV kt2CKO(p11sak_kt ktype, CK_OBJECT_CLASS *a_cko) {
  * Translates the given p11sak command to its string representation.
  * no_cmd, gen_key, list_key
  */
-static const char* cmd2str(p11sak_cmd cmd) {
+static const char* cmd2str(p11sak_cmd cmd)
+{
     switch (cmd) {
     case no_cmd:
         return "no_cmd";
@@ -211,6 +216,8 @@ static const char* cmd2str(p11sak_cmd cmd) {
         return "generate-key";
     case list_key:
         return "list-key";
+    case remove_key:
+        return "remove-key";
     default:
         return "unknown p11sak cmd";
     }
@@ -218,7 +225,8 @@ static const char* cmd2str(p11sak_cmd cmd) {
 /**
  * Translates the given attribute type to its long name.
  */
-static const char* CKA2a(CK_ATTRIBUTE_TYPE attr_type) {
+static const char* CKA2a(CK_ATTRIBUTE_TYPE attr_type)
+{
     switch (attr_type) {
     case CKA_TOKEN:
         return "CKA_TOKEN";
@@ -259,8 +267,8 @@ static const char* CKA2a(CK_ATTRIBUTE_TYPE attr_type) {
 /**
  * Translates the given key type to its related char string.
  */
-static const char* CKK2a(CK_KEY_TYPE t) {
-
+static const char* CKK2a(CK_KEY_TYPE t)
+{
     // if new cases are added, the buffer = malloc()
     // in tok_key_get_key_type() needs to be updated
     switch (t) {
@@ -287,7 +295,8 @@ static const char* CKK2a(CK_KEY_TYPE t) {
 /**
  * Translates the given bool to its related char string.
  */
-static const char* CK_BBOOL2a(CK_BBOOL b) {
+static const char* CK_BBOOL2a(CK_BBOOL b)
+{
     switch (b) {
     case 0:
         return "CK_FALSE";
@@ -300,7 +309,8 @@ static const char* CK_BBOOL2a(CK_BBOOL b) {
 /**
  * Translates the given ULONG value to a byte string.
  */
-static CK_BYTE* CK_ULONG2bigint(CK_ULONG ul, CK_BYTE *bytes, CK_ULONG *len) {
+static CK_BYTE* CK_ULONG2bigint(CK_ULONG ul, CK_BYTE *bytes, CK_ULONG *len)
+{
     CK_BYTE *ulp;
     CK_ULONG tul = 1;
     CK_BYTE *tulp;
@@ -330,16 +340,19 @@ static CK_BYTE* CK_ULONG2bigint(CK_ULONG ul, CK_BYTE *bytes, CK_ULONG *len) {
 /**
  * print help functions
  */
-static void print_cmd_help(void) {
+static void print_cmd_help(void)
+{
     printf("\n Usage: p11sak COMMAND [ARGS] [OPTIONS]\n");
     printf("\n Commands:\n");
     printf("      generate-key       Generate a key\n");
     printf("      list-key           List keys in the repository\n");
+    printf("      remove-key         Delete keys in the repository\n");
     printf("\n Options:\n");
     printf("      -h, --help         Show this help\n\n");
 }
 
-static void print_listkeys_help(void) {
+static void print_listkeys_help(void)
+{
     printf("\n Usage: p11sak list-key [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      des\n");
@@ -358,7 +371,8 @@ static void print_listkeys_help(void) {
     printf("      -h, --help           Show this help\n\n");
 }
 
-static void print_gen_help(void) {
+static void print_gen_help(void)
+{
     printf("\n Usage: p11sak generate-key [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      des\n");
@@ -379,7 +393,28 @@ static void print_gen_help(void) {
     printf("      -h, --help                              Show this help\n\n");
 }
 
-static void print_gen_des_help(void) {
+static void print_removekeys_help(void)
+{
+    printf("\n Usage: p11sak remove-key [ARGS] [OPTIONS]\n");
+    printf("\n Args:\n");
+    printf("      des\n");
+    printf("      3des\n");
+    printf("      aes\n");
+    printf("      rsa\n");
+    printf("      ec\n");
+    printf("\n Options:\n");
+    printf(
+            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf(
+            "      --label LABEL                           Key label LABEL to be removed\n");
+    printf(
+            "      -f, --force                             Force remove all keys of given cipher type\n");
+    printf("      -h, --help                              Show this help\n\n");
+}
+
+static void print_gen_des_help(void)
+{
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -391,7 +426,8 @@ static void print_gen_des_help(void) {
     printf("      -h, --help                              Show this help\n\n");
 }
 
-static void print_gen_aes_help(void) {
+static void print_gen_aes_help(void)
+{
     printf("\n Usage: p11sak generate-key aes [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      128\n");
@@ -408,7 +444,8 @@ static void print_gen_aes_help(void) {
     printf("      -h, --help                              Show this help\n\n");
 }
 
-static void print_gen_rsa_help(void) {
+static void print_gen_rsa_help(void)
+{
     printf("\n Usage: p11sak generate-key rsa [ARGS] [OPTIONS] [ARGS]\n");
     printf("\n Args:\n");
     printf("      1024\n");
@@ -427,7 +464,8 @@ static void print_gen_rsa_help(void) {
     printf("      -h, --help                              Show this help\n\n");
 }
 
-static void print_gen_ec_help(void) {
+static void print_gen_ec_help(void)
+{
     printf("\n Usage: p11sak generate-key ec [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      prime256v1\n");
@@ -446,7 +484,8 @@ static void print_gen_ec_help(void) {
 /**
  * Print help for generate-key command
  */
-static CK_RV print_gen_keys_help(p11sak_kt *kt) {
+static CK_RV print_gen_keys_help(p11sak_kt *kt)
+{
 
     switch (*kt) {
     case kt_DES:
@@ -478,7 +517,8 @@ static CK_RV print_gen_keys_help(p11sak_kt *kt) {
 /**
  * Print help for attributes
  */
-static void print_gen_attr_help(void) {
+static void print_gen_attr_help(void)
+{
     printf("\n");
     printf("      Setting CK_ATTRIBUTE\n");
     printf("\n");
@@ -510,7 +550,8 @@ static void print_gen_attr_help(void) {
  * pubattr >= x elements, prvattr >= y elements
  */
 static CK_RV read_rsa_args(CK_ULONG modulusbits, CK_ULONG exponent,
-        CK_ATTRIBUTE *pubattr, CK_ULONG *pubcount) {
+                           CK_ATTRIBUTE *pubattr, CK_ULONG *pubcount)
+{
     CK_ULONG *mod_bits;
     CK_ULONG ulpubexp;
     CK_BYTE *pubexp;
@@ -550,7 +591,8 @@ static CK_RV read_rsa_args(CK_ULONG modulusbits, CK_ULONG exponent,
  * Builds the CKA_EC_PARAMS attribute from the given ECcurve.
  */
 static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
-        CK_ULONG *pubcount) {
+                          CK_ULONG *pubcount)
+{
     pubattr[*pubcount].type = CKA_EC_PARAMS;
     if (strcmp(ECcurve, "prime256v1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) prime256v1;
@@ -614,7 +656,7 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP512t1);
     } else {
         printf("Unexpected case while parsing EC curves.\n");
-        printf("Note: not all tokens support all curves.");
+        printf("Note: not all tokens support all curves.\n");
         return CKR_ARGUMENTS_BAD;
     }
     (*pubcount)++;
@@ -625,7 +667,9 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
  * Builds two CKA_LABEL attributes from given label.
  */
 static CK_RV set_labelpair_attr(const char *label, CK_ATTRIBUTE *pubattr,
-        CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr, CK_ULONG *prvcount) {
+                                CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr,
+                                CK_ULONG *prvcount)
+{
     char *publabel;
     char *prvlabel;
 
@@ -658,7 +702,8 @@ static CK_RV set_labelpair_attr(const char *label, CK_ATTRIBUTE *pubattr,
 /**
  * Set mechanism according to given key type.
  */
-static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech) {
+static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech)
+{
     pmech->pParameter = NULL_PTR;
     pmech->ulParameterLen = 0;
     switch (kt) {
@@ -688,7 +733,9 @@ static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech) {
  * Set default asymmetric key attributes.
  */
 static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr,
-        CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr, CK_ULONG *prvcount) {
+                       CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr,
+                       CK_ULONG *prvcount)
+{
     int i = 0;
 
     pubattr[*pubcount].type = CKA_TOKEN;
@@ -763,7 +810,8 @@ static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr,
     return CKR_OK;
 }
 
-static CK_ULONG char2attrtype(char c) {
+static CK_ULONG char2attrtype(char c)
+{
     switch (c) {
     case 'T':
         return CKA_TOKEN;
@@ -800,7 +848,8 @@ static CK_ULONG char2attrtype(char c) {
     }
 }
 
-static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string) {
+static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string)
+{
     int i;
 
     if (!attr_string)
@@ -816,9 +865,10 @@ static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string) {
  * Generation of the symmetric key
  */
 static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
-        CK_MECHANISM *pmech, char *attr_string, CK_OBJECT_HANDLE *phkey,
-        char *label) {
-    CK_RV ret;
+                         CK_MECHANISM *pmech, char *attr_string,
+                         CK_OBJECT_HANDLE *phkey, char *label)
+{
+    CK_RV rc;
     int i = 0;
 
     /* Boolean attributes (cannot be specified by user) */
@@ -844,13 +894,13 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
     CK_ATTRIBUTE tmplt[] = {
             // boolean attrs
             { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE, &a_private, bs }, {
-                    CKA_MODIFIABLE, &a_modifiable, bs }, { CKA_DERIVE,
-                    &a_derive, bs }, { CKA_SENSITIVE, &a_sensitive, bs }, {
-                    CKA_ENCRYPT, &a_encrypt, bs },
-            { CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, {
-                    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
-                    CKA_UNWRAP, &a_unwrap, bs }, { CKA_EXTRACTABLE,
-                    &a_extractable, bs },
+            CKA_MODIFIABLE, &a_modifiable, bs }, { CKA_DERIVE, &a_derive, bs },
+            { CKA_SENSITIVE, &a_sensitive, bs }, {
+            CKA_ENCRYPT, &a_encrypt, bs }, { CKA_DECRYPT, &a_decrypt, bs }, {
+                    CKA_SIGN, &a_sign, bs }, {
+            CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
+            CKA_UNWRAP, &a_unwrap, bs },
+            { CKA_EXTRACTABLE, &a_extractable, bs },
             // non-boolean attrs
             { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, { CKA_LABEL,
                     label, strlen(label) } };
@@ -863,43 +913,47 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
     }
 
     /* generate key */
-    ret = funcs->C_GenerateKey(session, pmech, tmplt, num_attrs, phkey);
-    if (ret != CKR_OK) {
+    rc = funcs->C_GenerateKey(session, pmech, tmplt, num_attrs, phkey);
+    if (rc != CKR_OK) {
         printf("Key generation of key of length %ld bytes failed\n",
                 a_value_len);
-        printf("in tok_key_gen (error code 0x%lX)\n", ret);
+        printf("in tok_key_gen() (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
     }
-    return ret;
+    return rc;
 }
-
 /**
  * Generation of the asymmetric key pair
  */
 static CK_RV key_pair_gen(CK_SESSION_HANDLE session, p11sak_kt kt,
-        CK_MECHANISM_PTR pmech, CK_ATTRIBUTE *pubattr, CK_ULONG pubcount,
-        CK_ATTRIBUTE *prvattr, CK_ULONG prvcount, CK_OBJECT_HANDLE_PTR phpubkey,
-        CK_OBJECT_HANDLE_PTR phprvkey) {
+                          CK_MECHANISM_PTR pmech, CK_ATTRIBUTE *pubattr,
+                          CK_ULONG pubcount, CK_ATTRIBUTE *prvattr,
+                          CK_ULONG prvcount, CK_OBJECT_HANDLE_PTR phpubkey,
+                          CK_OBJECT_HANDLE_PTR phprvkey)
+{
 
-    CK_RV ret;
+    CK_RV rc;
 
     printf("Generate asymmetric key: %s\n", kt2str(kt));
 
-    ret = funcs->C_GenerateKeyPair(session, pmech, pubattr, pubcount, prvattr,
+    rc = funcs->C_GenerateKeyPair(session, pmech, pubattr, pubcount, prvattr,
             prvcount, phpubkey, phprvkey);
-    if (ret != CKR_OK) {
-        printf("Key pair generation failed (error code 0x%lX)\n", ret);
-        return ret;
+    if (rc != CKR_OK) {
+        printf("Key pair generation failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
 
     printf("Asymmetric key pair generation successful!\n");
 
     return CKR_OK;
 }
-
 /**
- *
+ * Initialize key object list
  */
-static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt, char *label) {
+static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
+                               char *label)
+{
     CK_RV rc;
     CK_ULONG count;
 
@@ -926,13 +980,15 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt, char *la
     if (kt < kt_SECRET) {
         rc = kt2CKK(kt, &a_key_type);
         if (rc != CKR_OK) {
-            printf("Keytype could not be set (error code 0x%lX)\n", rc);
+            printf("Keytype could not be set (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
             return rc;
         }
     } else {
         rc = kt2CKO(kt, &a_cko);
         if (rc != CKR_OK) {
-            printf("Keyobject could not be set (error code 0x%lX)\n", rc);
+            printf("Keyobject could not be set (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
             return rc;
         }
     }
@@ -972,18 +1028,19 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt, char *la
     rc = funcs->C_FindObjectsInit(session, tmplt, count);
     if (rc != CKR_OK) {
         printf("C_FindObjectInit failed\n");
-        printf("in tok_key_list_init (error code 0x%lX)\n", rc);
+        printf("in tok_key_list_init() (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         return rc;
     }
 
     return CKR_OK;
 }
-
 /**
  * returns 1 if the given attribute is not applicable for the
  * given key type, 0 otherwise.
  */
-static CK_BBOOL attr_na(const CK_ATTRIBUTE attr, p11sak_kt ktype) {
+static CK_BBOOL attr_na(const CK_ATTRIBUTE attr, p11sak_kt ktype)
+{
     switch (ktype) {
     case kt_DES:
     case kt_3DES:
@@ -1025,11 +1082,11 @@ static CK_BBOOL attr_na(const CK_ATTRIBUTE attr, p11sak_kt ktype) {
         return 0;
     }
 }
-
 /**
  * Columns: T  P  M  R  L  S  E  D  G  V  W  U  X  A  N
  */
-static CK_ATTRIBUTE_TYPE col2type(int col) {
+static CK_ATTRIBUTE_TYPE col2type(int col)
+{
     switch (col) {
     case 0:
         return CKA_TOKEN;
@@ -1066,7 +1123,8 @@ static CK_ATTRIBUTE_TYPE col2type(int col) {
     }
 }
 
-static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype) {
+static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype)
+{
     int j = 0;
     int attr_count = 0;
 
@@ -1095,11 +1153,12 @@ static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype) {
     return;
 }
 /**
- *
+ * Print attributes of secure keys
  */
-static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey,
-        int long_print) {
-    CK_RV ret;
+static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
+                                      CK_OBJECT_HANDLE hkey, int long_print)
+{
+    CK_RV rc;
     int i;
 
     /* Boolean Attributes */
@@ -1122,20 +1181,20 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDL
 
     CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
             &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-            CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-            CKA_SENSITIVE, &a_sensitive, bs }, { CKA_ENCRYPT, &a_encrypt, bs },
-            { CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, {
-                    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
-                    CKA_UNWRAP, &a_unwrap, bs }, { CKA_EXTRACTABLE,
-                    &a_extractable, bs }, { CKA_ALWAYS_SENSITIVE,
-                    &a_always_sensitive, bs }, { CKA_NEVER_EXTRACTABLE,
-                    &a_never_extractable, bs }, };
+    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
+    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_ENCRYPT, &a_encrypt, bs }, {
+            CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, {
+    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
+    CKA_UNWRAP, &a_unwrap, bs }, { CKA_EXTRACTABLE, &a_extractable, bs }, {
+            CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
+            CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs }, };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
-    ret = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
-    if (ret != CKR_OK) {
-        printf("Attribute retrieval failed (error code 0x%lX)\n", ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
+    if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
 
     if (long_print) {
@@ -1159,11 +1218,12 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDL
     return CKR_OK;
 }
 /**
- *
+ * Print attributes of private keys
  */
 static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
-        CK_OBJECT_HANDLE hkey, int long_print) {
-    CK_RV ret;
+                                       CK_OBJECT_HANDLE hkey, int long_print)
+{
+    CK_RV rc;
     int i = 0;
 
     /* Boolean Attributes */
@@ -1183,18 +1243,19 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
 
     CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
             &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-            CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-            CKA_SENSITIVE, &a_sensitive, bs }, { CKA_DECRYPT, &a_decrypt, bs },
-            { CKA_SIGN, &a_sign, bs }, { CKA_UNWRAP, &a_unwrap, bs }, {
-                    CKA_EXTRACTABLE, &a_extractable, bs }, {
-                    CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
-                    CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
+    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
+    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_DECRYPT, &a_decrypt, bs }, {
+            CKA_SIGN, &a_sign, bs }, { CKA_UNWRAP, &a_unwrap, bs }, {
+    CKA_EXTRACTABLE, &a_extractable, bs }, {
+    CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
+    CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
-    ret = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
-    if (ret != CKR_OK) {
-        printf("Attribute retrieval failed (error code 0x%lX)\n", ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
+    if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
 
     /* Long print */
@@ -1219,13 +1280,13 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
 
     return CKR_OK;
 }
-
 /**
- *
+ * Print attributes of public keys
  */
-static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey,
-        int long_print) {
-    CK_RV ret;
+static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
+                                      CK_OBJECT_HANDLE hkey, int long_print)
+{
+    CK_RV rc;
     int i = 0;
 
     /* Boolean Attributes */
@@ -1241,15 +1302,16 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDL
 
     CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
             &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-            CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-            CKA_ENCRYPT, &a_encrypt, bs }, { CKA_VERIFY, &a_verify, bs }, {
-            CKA_WRAP, &a_wrap, bs } };
+    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
+    CKA_ENCRYPT, &a_encrypt, bs }, { CKA_VERIFY, &a_verify, bs }, {
+    CKA_WRAP, &a_wrap, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
-    ret = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
-    if (ret != CKR_OK) {
-        printf("Attribute retrieval failed (error code 0x%lX)\n", ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
+    if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
 
     /* Long print */
@@ -1274,20 +1336,21 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session, CK_OBJECT_HANDL
 
     return CKR_OK;
 }
-
 /**
- *
+ * Get label attribute of key
  */
-static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey,
-        char **plabel) {
-    CK_RV ret;
+static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
+                                    CK_OBJECT_HANDLE hkey, char **plabel)
+{
+    CK_RV rc;
     char *label;
     CK_ATTRIBUTE template[1] = { { CKA_LABEL, NULL_PTR, 0 } };
 
-    ret = funcs->C_GetAttributeValue(session, hkey, template, 1);
-    if (ret != CKR_OK) {
-        printf("Key cannot show CKA_LABEL attribute (error code 0x%lX)\n", ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
+    if (rc != CKR_OK) {
+        printf("Key cannot show CKA_LABEL attribute (error code 0x%lX: %s)\n",
+                rc, p11_get_ckr(rc));
+        return rc;
     }
 
     label = malloc(template[0].ulValueLen);
@@ -1297,11 +1360,11 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE 
     }
 
     template[0].pValue = label;
-    ret = funcs->C_GetAttributeValue(session, hkey, template, 1);
-    if (ret != CKR_OK) {
-        printf("Error retrieving CKA_LABEL attribute (error code 0x%lX)\n",
-                ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
+    if (rc != CKR_OK) {
+        printf("Error retrieving CKA_LABEL attribute (error code 0x%lX: %s)\n",
+                rc, p11_get_ckr(rc));
+        return rc;
     }
 
     label[template[0].ulValueLen] = 0;
@@ -1309,13 +1372,14 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE 
 
     return CKR_OK;
 }
-
 /**
- *
+ * Get key type
  */
 static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey,
-        CK_OBJECT_CLASS *keyclass, char **ktype, CK_ULONG *klength) {
-    CK_RV ret;
+                                  CK_OBJECT_CLASS *keyclass, char **ktype,
+                                  CK_ULONG *klength)
+{
+    CK_RV rc;
     char *buffer;
     CK_OBJECT_CLASS oclass;
     CK_KEY_TYPE kt;
@@ -1324,11 +1388,12 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
     CK_ATTRIBUTE template[1] =
             { { CKA_CLASS, &oclass, sizeof(CK_OBJECT_CLASS) } };
 
-    ret = funcs->C_GetAttributeValue(session, hkey, template, 1);
-    if (ret != CKR_OK) {
-        printf("Object does not have CKA_CLASS attribute (error code 0x%lX)\n",
-                ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
+    if (rc != CKR_OK) {
+        printf(
+                "Object does not have CKA_CLASS attribute (error code 0x%lX: %s)\n",
+                rc, p11_get_ckr(rc));
+        return rc;
     }
 
     // the buffer holds the following string
@@ -1337,7 +1402,6 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
     // Hence, the size of the string is 25 Bytes including the '\0' character
     // Use 32 Bytes as multiple of 8
     buffer = malloc(32);
-
     if (!buffer) {
         return CKR_HOST_MEMORY;
     }
@@ -1353,20 +1417,23 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
         strcpy(buffer, "private ");
         break;
     default:
-        ret = CKR_KEY_HANDLE_INVALID;
+        // FIXIT - return code to represent object class invalid
+        rc = CKR_KEY_HANDLE_INVALID;
+        printf("Object handle invalid (error code 0x%lX: %s)\n",
+               rc, p11_get_ckr(rc));
         free(buffer);
-        return ret;
+        return rc;
     }
 
     template[0].type = CKA_KEY_TYPE;
     template[0].pValue = &kt;
     template[0].ulValueLen = sizeof(CK_KEY_TYPE);
-    ret = funcs->C_GetAttributeValue(session, hkey, template, 1);
-    if (ret != CKR_OK) {
-        printf(
-                "Object does not have CKA_KEY_TYPE attribute (error code 0x%lX)\n",
-                ret);
-        return ret;
+    rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
+    if (rc != CKR_OK) {
+        printf("Object does not have CKA_KEY_TYPE attribute (error code 0x%lX: %s)\n",
+               rc, p11_get_ckr(rc));
+        free(buffer);
+        return rc;
     }
 
     strcat(buffer, CKK2a(kt));
@@ -1378,14 +1445,17 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
         template[0].type = CKA_VALUE_LEN;
         template[0].pValue = &vl;
         template[0].ulValueLen = sizeof(CK_ULONG);
-        ret = funcs->C_GetAttributeValue(session, hkey, template, 1);
-        if (ret != CKR_OK) {
-            printf(
-                    "Object does not have CKA_VALUE_LEN attribute (error code 0x%lX)\n",
-                    ret);
-            return ret;
+        rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
+        if (rc != CKR_OK) {
+            printf("Object does not have CKA_VALUE_LEN attribute (error code 0x%lX: %s)\n",
+                   rc, p11_get_ckr(rc));
+            free(buffer);
+            return rc;
         }
         *klength = vl * 8;
+        break;
+    default:
+        // Fall through - template values set above
         break;
     }
 
@@ -1398,8 +1468,9 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
 /**
  * Check args for gen_key command.
  */
-static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength, char *ECcurve) {
-
+static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
+                                char *ECcurve)
+{
     switch (*kt) {
     case kt_DES:
     case kt_3DES:
@@ -1444,18 +1515,14 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength, char *ECcurve
 
     return CKR_OK;
 }
-
 /**
  * Check args for list_key command.
  */
-static CK_RV check_args_list_key(p11sak_kt *kt) {
+static CK_RV check_args_list_key(p11sak_kt *kt)
+{
     switch (*kt) {
     case kt_AES:
-//        *kt = kt_AES;
-//        break;
     case kt_RSAPKCS:
-//        *kt = kt_RSAPKCS;
-//        break;
     case kt_DES:
     case kt_3DES:
     case kt_EC:
@@ -1473,11 +1540,35 @@ static CK_RV check_args_list_key(p11sak_kt *kt) {
     return CKR_OK;
 }
 /**
+ * Check args for remove-key command.
+ */
+static CK_RV check_args_remove_key(p11sak_kt *kt)
+{
+    switch (*kt) {
+    case kt_DES:
+    case kt_3DES:
+    case kt_AES:
+    case kt_RSAPKCS:
+    case kt_EC:
+    case kt_GENERIC:
+    case kt_SECRET:
+    case kt_PUBLIC:
+    case kt_PRIVATE:
+        break;
+    default:
+        printf("Cipher key type [%d] is not set or not supported\n", *kt);
+        print_gen_help();
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+/**
  * Parse p11sak command from argv.
  */
-static p11sak_cmd parse_cmd(const char *arg) {
+static p11sak_cmd parse_cmd(const char *arg)
+{
     p11sak_cmd cmd = no_cmd;
-    ;
 
     if ((strcmp(arg, "generate-key") == 0) || (strcmp(arg, "gen-key") == 0)
             || (strcmp(arg, "gen") == 0)) {
@@ -1485,6 +1576,9 @@ static p11sak_cmd parse_cmd(const char *arg) {
     } else if ((strcmp(arg, "list-key") == 0) || (strcmp(arg, "ls-key") == 0)
             || (strcmp(arg, "ls") == 0)) {
         cmd = list_key;
+    } else if ((strcmp(arg, "remove-key") == 0) || (strcmp(arg, "rm-key") == 0)
+            || (strcmp(arg, "rm") == 0)) {
+        cmd = remove_key;
     } else {
         printf("Unknown command %s\n", cmd2str(cmd));
         cmd = no_cmd;
@@ -1492,7 +1586,8 @@ static p11sak_cmd parse_cmd(const char *arg) {
     return cmd;
 }
 
-static CK_BBOOL last_parm_is_help(char *argv[], int argc) {
+static CK_BBOOL last_parm_is_help(char *argv[], int argc)
+{
     if (strcmp(argv[argc - 1], "-h") == 0
             || strcmp(argv[argc - 1], "--help") == 0) {
         return 1;
@@ -1501,26 +1596,29 @@ static CK_BBOOL last_parm_is_help(char *argv[], int argc) {
     return 0;
 }
 
-static CK_ULONG get_ulong_arg(int pos, char *argv[], int argc) {
+static CK_ULONG get_ulong_arg(int pos, char *argv[], int argc)
+{
     if (pos < argc)
         return atol(argv[pos]);
     else
         return 0;
 }
 
-static char* get_string_arg(int pos, char *argv[], int argc) {
+static char* get_string_arg(int pos, char *argv[], int argc)
+{
     if (pos < argc)
         return argv[pos];
     else
         return NULL;
 }
-
 /**
  * Parse the list-key args.
  */
 static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
-        CK_ULONG *keylength, CK_SLOT_ID *slot, char **pin, int *long_print) {
-    CK_RV ret;
+                                 CK_ULONG *keylength, CK_SLOT_ID *slot,
+                                 char **pin, int *long_print)
+{
+    CK_RV rc;
     int i;
 
     if (last_parm_is_help(argv, argc)) {
@@ -1536,7 +1634,6 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if (strcmp(argv[i], "3DES") == 0
                 || strcmp(argv[i], "3des") == 0) {
             *kt = kt_3DES;
-            *keylength = 192;
         } else if (strcmp(argv[i], "AES") == 0 || strcmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
         } else if (strcmp(argv[i], "RSA") == 0 || strcmp(argv[i], "rsa") == 0) {
@@ -1555,12 +1652,22 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if (strcmp(argv[i], "PRIVATE") == 0
                 || strcmp(argv[i], "private") == 0) {
             *kt = kt_PRIVATE;
-        /* Get options */
+            /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
-            *slot = (CK_ULONG) atol(argv[i + 1]);
+            if (i + 1 < argc) {
+                *slot = (CK_ULONG) atol(argv[i + 1]);
+            } else {
+                printf("--slot <SLOT> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if (strcmp(argv[i], "--pin") == 0) {
-            *pin = argv[i + 1];
+            if (i + 1 < argc) {
+                *pin = argv[i + 1];
+            } else {
+                printf("--pin <PIN> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if ((strcmp(argv[i], "-l") == 0)
                 || (strcmp(argv[i], "--long") == 0)) {
@@ -1570,28 +1677,30 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             print_listkeys_help();
             return CKR_ARGUMENTS_BAD;
         } else {
-            printf("Unknown argument or option %s for command list-key\n", argv[i]);
+            printf("Unknown argument or option %s for command list-key\n",
+                    argv[i]);
             return CKR_ARGUMENTS_BAD;
         }
     }
 
-    ret = check_args_list_key(kt);
+    rc = check_args_list_key(kt);
 
     if (*slot == 0) {
         printf("Slot number must be specified.\n");
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
     }
 
-
-    return ret;
+    return rc;
 }
 /**
  * Parse the generate-key args.
  */
 static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
-        CK_ULONG *keylength, char **ECcurve, CK_SLOT_ID *slot,
-        char **pin, CK_ULONG *exponent, char **label, char **attr_string) {
-    CK_RV ret;
+                                CK_ULONG *keylength, char **ECcurve,
+                                CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
+                                char **label, char **attr_string)
+{
+    CK_RV rc;
     int i;
 
     for (i = 2; i < argc; i++) {
@@ -1615,28 +1724,54 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_EC;
             *ECcurve = get_string_arg(i + 1, argv, argc);
             i++;
-        /* Get options */
+            /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
-            *slot = (CK_ULONG) atol(argv[i + 1]);
+            if (i + 1 < argc) {
+                *slot = (CK_ULONG) atol(argv[i + 1]);
+            } else {
+                printf("--slot <SLOT> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if (strcmp(argv[i], "--pin") == 0) {
-            *pin = argv[i + 1];
+            if (i + 1 < argc) {
+                *pin = argv[i + 1];
+            } else {
+                printf("--pin <PIN> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if (strcmp(argv[i], "--label") == 0) {
-            *label = argv[i + 1];
+            if (i + 1 < argc) {
+                *label = argv[i + 1];
+            } else {
+                printf("--label <LABEL> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if (strcmp(argv[i], "--exponent") == 0) {
-            *exponent = atol(argv[i + 1]);
+            if (i + 1 < argc) {
+                *exponent = atol(argv[i + 1]);
+            } else {
+                printf("--exponent <EXPONENT> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if ((strcmp(argv[i], "--attr") == 0)) {
-            *attr_string = argv[i + 1];
+            if (i + 1 < argc) {
+                *attr_string = argv[i + 1];
+            } else {
+                printf("--attr <ATTRIBUTES> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
             i++;
         } else if ((strcmp(argv[i], "-h") == 0)
                 || (strcmp(argv[i], "--help") == 0)) {
             print_gen_keys_help(kt);
             return CKR_ARGUMENTS_BAD;
         } else {
-            printf("Unknown argument or option %s for command generate-key\n", argv[i]);
+            printf("Unknown argument or option %s for command generate-key\n",
+                    argv[i]);
             return CKR_ARGUMENTS_BAD;
         }
     }
@@ -1652,66 +1787,160 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
     }
 
     /* Check args */
-    ret = check_args_gen_key(kt, *keylength, *ECcurve);
+    rc = check_args_gen_key(kt, *keylength, *ECcurve);
 
     /* Check required options */
     if (*label == NULL) {
         printf("Key label must be specified.\n");
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
     }
 
     if (*slot == 0) {
         printf("Slot number must be specified.\n");
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
     }
 
-    return ret;
+    return rc;
 }
+/**
+ * Parse the remove-key args.
+ */
+static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
+                                   CK_SLOT_ID *slot, char **pin, char **label,
+                                   CK_ULONG *keylength, CK_BBOOL *forceAll)
+{
+    CK_RV rc;
+    int i;
 
+    if (last_parm_is_help(argv, argc)) {
+        print_removekeys_help();
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    for (i = 2; i < argc; i++) {
+        /* Get arguments */
+        if (strcmp(argv[i], "DES") == 0 || strcmp(argv[i], "des") == 0) {
+            *kt = kt_DES;
+            *keylength = 64;
+        } else if (strcmp(argv[i], "3DES") == 0
+                || strcmp(argv[i], "3des") == 0) {
+            *kt = kt_3DES;
+        } else if (strcmp(argv[i], "AES") == 0 || strcmp(argv[i], "aes") == 0) {
+            *kt = kt_AES;
+        } else if (strcmp(argv[i], "RSA") == 0 || strcmp(argv[i], "rsa") == 0) {
+            *kt = kt_RSAPKCS;
+        } else if (strcmp(argv[i], "EC") == 0 || strcmp(argv[i], "ec") == 0) {
+            *kt = kt_EC;
+            /* Get options */
+        } else if (strcmp(argv[i], "--slot") == 0) {
+            if (i + 1 < argc) {
+                *slot = (CK_ULONG) atol(argv[i + 1]);
+            } else {
+                printf("--slot <SLOT> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+            i++;
+        } else if (strcmp(argv[i], "--pin") == 0) {
+            if (i + 1 < argc) {
+                *pin = argv[i + 1];
+            } else {
+                printf("--pin <PIN> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+            i++;
+        } else if (strcmp(argv[i], "--label") == 0) {
+            if (i + 1 < argc) {
+                *label = argv[i + 1];
+            } else {
+                printf("--label <LABEL> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+            i++;
+        } else if ((strcmp(argv[i], "-f") == 0)
+                || (strcmp(argv[i], "--force") == 0)) {
+            *forceAll = ckb_true;
+        } else if ((strcmp(argv[i], "-h") == 0)
+                || (strcmp(argv[i], "--help") == 0)) {
+
+            print_removekeys_help();
+            return CKR_ARGUMENTS_BAD;
+        } else {
+            printf("Unknown argument or option %s for command remove-key\n",
+                    argv[i]);
+            return CKR_ARGUMENTS_BAD;
+        }
+    }
+
+    rc = check_args_remove_key(kt);
+
+    /* Check required options */
+    if (*label == NULL) {
+        *label = "";
+    }
+
+    if (*slot == 0) {
+        printf("Slot number must be specified.\n");
+        rc = CKR_ARGUMENTS_BAD;
+    }
+
+    return rc;
+}
 /**
  * Parse the p11sak command args.
  */
-static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc, p11sak_kt *kt,
-        CK_ULONG *keylength, char **ECcurve, CK_SLOT_ID *slot, char **pin,
-        CK_ULONG *exponent, char **label, char **attr_string, int *long_print) {
-    CK_RV ret;
+static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
+                            p11sak_kt *kt, CK_ULONG *keylength, char **ECcurve,
+                            CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
+                            char **label, char **attr_string, int *long_print,
+                            CK_BBOOL *forceAll)
+{
+    CK_RV rc;
 
     switch (cmd) {
     case gen_key:
-        ret = parse_gen_key_args(argv, argc, kt, keylength, ECcurve,
-                slot, pin, exponent, label, attr_string);
+        rc = parse_gen_key_args(argv, argc, kt, keylength, ECcurve, slot, pin,
+                exponent, label, attr_string);
         break;
     case list_key:
-        ret = parse_list_key_args(argv, argc, kt, keylength, slot, pin, long_print);
+        rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
+                long_print);
+        break;
+    case remove_key:
+        rc = parse_remove_key_args(argv, argc, kt, slot, pin, label, keylength,
+                forceAll);
         break;
     default:
         printf("Error: unknown command %d specified.\n", cmd);
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
     }
 
-    return ret;
+    return rc;
 }
 /**
  * Generate a symmetric key.
  */
-static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session,
-        p11sak_kt kt, CK_ULONG keylength, char *label, char *attr_string) {
+static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, p11sak_kt kt,
+                                    CK_ULONG keylength, char *label,
+                                    char *attr_string)
+{
     CK_OBJECT_HANDLE hkey;
     CK_MECHANISM mech;
-    CK_RV ret;
+    CK_RV rc;
 
     printf("Generate symmetric key %s with keylen=%ld and label=[%s]\n",
             kt2str(kt), keylength, label);
 
-    ret = key_pair_gen_mech(kt, &mech);
-    if (ret != CKR_OK) {
-        printf("Error setting the mechanism (error code 0x%lX)\n", ret);
+    rc = key_pair_gen_mech(kt, &mech);
+    if (rc != CKR_OK) {
+        printf("Error setting the mechanism (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = tok_key_gen(session, keylength, &mech, attr_string, &hkey, label);
-    if (ret != CKR_OK) {
-        printf("Key generation failed (error code 0x%lX)\n", ret);
+    rc = tok_key_gen(session, keylength, &mech, attr_string, &hkey, label);
+    if (rc != CKR_OK) {
+        printf("Key generation failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
@@ -1719,79 +1948,85 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session,
 
     done:
 
-    return ret;
+    return rc;
 }
 /**
  * Generate an asymmetric key.
  */
 static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
-        p11sak_kt kt, CK_ULONG keylength, CK_ULONG exponent, char *ECcurve,
-        char *label, char *attr_string) {
+                                     p11sak_kt kt, CK_ULONG keylength,
+                                     CK_ULONG exponent, char *ECcurve,
+                                     char *label, char *attr_string)
+{
     CK_OBJECT_HANDLE pub_keyh, prv_keyh;
     CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
     CK_ULONG pub_acount = 0;
     CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
     CK_ULONG prv_acount = 0;
     CK_MECHANISM mech;
-    CK_RV ret;
+    CK_RV rc;
 
     if (kt == kt_RSAPKCS) {
-        ret = read_rsa_args((CK_ULONG) keylength, exponent, pub_attr,
+        rc = read_rsa_args((CK_ULONG) keylength, exponent, pub_attr,
                 &pub_acount);
-        if (ret) {
+        if (rc) {
             printf("Error setting RSA parameters!\n");
             goto done;
         }
     } else if (kt == kt_EC) {
-        ret = read_ec_args(ECcurve, pub_attr, &pub_acount);
-        if (ret) {
+        rc = read_ec_args(ECcurve, pub_attr, &pub_acount);
+        if (rc) {
             printf("Error parsing EC parameters!\n");
             goto done;
         }
     } else {
         printf("The key type %d is not yet supported.\n", kt);
-        ret = CKR_KEY_TYPE_INCONSISTENT;
+        rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
 
-    ret = set_labelpair_attr(label, pub_attr, &pub_acount, prv_attr,
+    rc = set_labelpair_attr(label, pub_attr, &pub_acount, prv_attr,
             &prv_acount);
-    if (ret != CKR_OK) {
-        printf("Error setting the label attributes (error code 0x%lX)\n", ret);
+    if (rc != CKR_OK) {
+        printf("Error setting the label attributes (error code 0x%lX: %s)\n",
+                rc, p11_get_ckr(rc));
         goto done;
     }
 
-    ret = key_pair_gen_mech(kt, &mech);
-    if (ret != CKR_OK) {
-        printf("Error setting the mechanism (error code 0x%lX)\n", ret);
+    rc = key_pair_gen_mech(kt, &mech);
+    if (rc != CKR_OK) {
+        printf("Error setting the mechanism (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = set_battr(attr_string, pub_attr, &pub_acount, prv_attr, &prv_acount);
-    if (ret != CKR_OK) {
-        printf("Error setting binary attributes (error code 0x%lX)\n", ret);
+    rc = set_battr(attr_string, pub_attr, &pub_acount, prv_attr, &prv_acount);
+    if (rc != CKR_OK) {
+        printf("Error setting binary attributes (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = key_pair_gen(session, kt, &mech, pub_attr, pub_acount, prv_attr,
+    rc = key_pair_gen(session, kt, &mech, pub_attr, pub_acount, prv_attr,
             prv_acount, &pub_keyh, &prv_keyh);
-    if (ret != CKR_OK) {
+    if (rc != CKR_OK) {
         printf(
-                "Generating a key pair in the token in slot %ld failed (error code 0x%lX)\n",
-                slot, ret);
+                "Generating a key pair in the token in slot %ld failed (error code 0x%lX: %s)\n",
+                slot, rc, p11_get_ckr(rc));
         goto done;
     }
 
-    done:
+done:
 
-    return ret;
+    return rc;
 }
 /**
- * Generate a new ckey.
+ * Generate a new key.
  */
-static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot, p11sak_kt kt,
-        CK_ULONG keylength, char *ECcurve, CK_ULONG exponent, char *label,
-        char *attr_string) {
+static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                           p11sak_kt kt, CK_ULONG keylength, char *ECcurve,
+                           CK_ULONG exponent, char *label, char *attr_string)
+{
     switch (kt) {
     case kt_DES:
     case kt_3DES:
@@ -1808,21 +2043,23 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot, p11sak_kt
     }
 }
 /**
- * List the given ckey.
+ * List the given key.
  */
-static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print) {
+static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
+{
     CK_ULONG keylength, count;
     CK_OBJECT_CLASS keyclass;
     CK_OBJECT_HANDLE hkey;
     char *keytype = NULL;
     char *label = NULL;
-    CK_RV ret;
+    CK_RV rc;
     int CELL_SIZE = 11;
 
-    ret = tok_key_list_init(session, kt, label);
-    if (ret != CKR_OK) {
-        printf("Init token key list failed (error code 0x%lX)\n", ret);
-        return ret;
+    rc = tok_key_list_init(session, kt, label);
+    if (rc != CKR_OK) {
+        printf("Init token key list failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
     }
 
     if (long_print == 0) {
@@ -1834,24 +2071,27 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print) 
     }
 
     while (1) {
-        ret = funcs->C_FindObjects(session, &hkey, 1, &count);
-        if (ret != CKR_OK) {
-            printf("C_FindObjects failed (error code 0x%lX)\n", ret);
-            return 1;
+        rc = funcs->C_FindObjects(session, &hkey, 1, &count);
+        if (rc != CKR_OK) {
+            printf("C_FindObjects failed (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            return rc;
         }
         if (count == 0)
             break;
 
-        ret = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
+        rc = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
                 &keylength);
-        if (ret != CKR_OK) {
-            printf("Invalid key type (error code 0x%lX)\n", ret);
+        if (rc != CKR_OK) {
+            printf("Invalid key type (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
             continue;
         }
 
-        ret = tok_key_get_label_attr(session, hkey, &label);
-        if (ret != CKR_OK) {
-            printf("Retrieval of label failed (error code 0x%lX)\n", ret);
+        rc = tok_key_get_label_attr(session, hkey, &label);
+        if (rc != CKR_OK) {
+            printf("Retrieval of label failed (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
         } else if (long_print) {
             printf("Label: %s\t\t", label);
         }
@@ -1868,34 +2108,34 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print) 
 
         switch (keyclass) {
         case CKO_SECRET_KEY:
-            ret = sec_key_print_attributes(session, hkey, long_print);
-            if (ret != CKR_OK) {
+            rc = sec_key_print_attributes(session, hkey, long_print);
+            if (rc != CKR_OK) {
                 printf(
-                        "Secret key attribute printing failed(error code 0x%lX)\n",
-                        ret);
+                        "Secret key attribute printing failed (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
                 goto done;
             }
             break;
         case CKO_PRIVATE_KEY:
-            ret = priv_key_print_attributes(session, hkey, long_print);
-            if (ret != CKR_OK) {
+            rc = priv_key_print_attributes(session, hkey, long_print);
+            if (rc != CKR_OK) {
                 printf(
-                        "Private key attribute printing failed (error code 0x%lX)\n",
-                        ret);
+                        "Private key attribute printing failed (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
                 goto done;
             }
             break;
         case CKO_PUBLIC_KEY:
-            ret = pub_key_print_attributes(session, hkey, long_print);
-            if (ret != CKR_OK) {
+            rc = pub_key_print_attributes(session, hkey, long_print);
+            if (rc != CKR_OK) {
                 printf(
-                        "Public key attribute printing failed (error code 0x%lX)\n",
-                        ret);
+                        "Public key attribute printing failed (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
                 goto done;
             }
             break;
         default:
-            printf("Unhandled keyclass in list_ckey! Should not occur (?)\n");
+            printf("Unhandled keyclass in list_ckey!\n");
             break;
         }
 
@@ -1908,109 +2148,286 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print) 
                 printf(" %*s | ", CELL_SIZE, keytype);
             printf("%s\n", label);
         }
+        free(label);
+        free(keytype);
     }
 
-    ret = funcs->C_FindObjectsFinal(session);
-    if (ret != CKR_OK) {
-        printf("C_FindObjectsFinal failed (error code 0x%lX)\n", ret);
+    rc = funcs->C_FindObjectsFinal(session);
+    if (rc != CKR_OK) {
+        printf("C_FindObjectsFinal failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = CKR_OK;
+    rc = CKR_OK;
 
-    done: free(label);
-    free(keytype);
-    return ret;
+done:
+
+    if (rc != CKR_OK) {
+        free(label);
+        free(keytype);
+    }
+    return rc;
 }
 
-static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot, p11sak_cmd cmd,
-        p11sak_kt kt, CK_ULONG keylength, CK_ULONG exponent, char *ECcurve,
-        char *label, char *attr_string, int long_print) {
-    CK_RV ret;
+static CK_BBOOL user_input_ok(char *input)
+{
+    if (strlen(input) != 2)
+        return CK_FALSE;
 
+    if ((strncmp(input, "y", 1) == 0) ||
+        (strncmp(input, "n", 1) == 0))
+        return CK_TRUE;
+    else
+        return CK_FALSE;
+}
+
+static CK_RV confirm_destroy(char **user_input, char* label)
+{
+    int nread;
+    size_t buflen;
+    CK_RV rc = CKR_OK;
+
+    printf("Are you sure you want to destroy object %s [y/n]? ", label);
+    while (1){
+        nread = getline(user_input, &buflen, stdin);
+        if (nread == -1) {
+            printf("User input failed (error code 0x%lX: %s)\n",
+                    rc, p11_get_ckr(rc));
+            rc = -1;
+            return rc;
+        }
+
+        if (user_input_ok(*user_input)) {
+            break;
+        } else {
+            free(*user_input);
+            *user_input = NULL;
+            printf("Please just enter 'y' or 'n': ");
+        }
+    }
+
+    return rc;
+}
+
+
+static CK_RV finalize_destroy_object(char *label, CK_SESSION_HANDLE *session,
+                                   CK_OBJECT_HANDLE *hkey)
+{
+    char *user_input = NULL;
+    CK_RV rc = CKR_OK;
+
+    rc = confirm_destroy(&user_input, label);
+    if (rc != CKR_OK) {
+        printf("User input failed (error code 0x%lX: %s)\n",
+                rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    if (strncmp(user_input, "y", 1) == 0) {
+        printf("Destroy Object with Label: %s\n", label);
+        rc = funcs->C_DestroyObject(*session, *hkey);
+        if (rc != CKR_OK) {
+            printf("Key with label %s could not be destroyed (error code 0x%lX: %s)\n",
+                   label, rc, p11_get_ckr(rc));
+            goto done;
+        }
+        printf("DONE - Destroy Object with Label: %s\n", label);
+    } else if (strncmp(user_input, "n", 1) == 0) {
+        printf("Skip deleting Key\n");
+    } else {
+        printf("Please just enter (y) for yes or (n) for no.\n");
+    }
+
+done:
+    free(user_input);
+    return rc;
+}
+/**
+ * Delete objects
+ */
+static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
+                       CK_BBOOL *forceAll)
+{
+    CK_ULONG keylength, count;
+    CK_OBJECT_CLASS keyclass;
+    CK_OBJECT_HANDLE hkey;
+    char *keytype = NULL;
+    char *label = NULL;
+    CK_RV rc = CKR_OK;
+
+    rc = tok_key_list_init(session, kt, label);
+    if (rc != CKR_OK) {
+        printf("Init token key list failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return rc;
+    }
+
+    while (1) {
+        rc = funcs->C_FindObjects(session, &hkey, 1, &count);
+        if (rc != CKR_OK) {
+            printf("C_FindObjects failed (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            goto done;
+        }
+        if (count == 0)
+            break;
+
+        rc = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
+                &keylength);
+        if (rc != CKR_OK) {
+            printf("Invalid key type (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            continue;
+        }
+
+        rc = tok_key_get_label_attr(session, hkey, &label);
+        if (rc != CKR_OK) {
+            printf("Retrieval of label failed (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+        }
+
+        if (*forceAll) {
+            if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
+                printf("Destroy Object with Label: %s\n", label);
+                rc = funcs->C_DestroyObject(session, hkey);
+                if (rc != CKR_OK) {
+                    printf(
+                            "Key with label %s could not be destroyed (error code 0x%lX: %s)\n",
+                            label, rc, p11_get_ckr(rc));
+                    goto done;
+                }
+                printf("DONE - Destroy Object with Label: %s\n", label);
+            }
+        } else {
+            if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
+                rc = finalize_destroy_object(label, &session, &hkey);
+                if (rc != CKR_OK) {
+                    goto done;
+                }
+            }
+        }
+
+        free(label);
+        free(keytype);
+    }
+
+    rc = funcs->C_FindObjectsFinal(session);
+    if (rc != CKR_OK) {
+        printf("C_FindObjectsFinal failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        goto done;
+    }
+
+done:
+
+    if (rc != CKR_OK) {
+        free(label);
+        free(keytype);
+    }
+    return rc;
+}
+
+static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                         p11sak_cmd cmd, p11sak_kt kt, CK_ULONG keylength,
+                         CK_ULONG exponent, char *ECcurve, char *label,
+                         char *attr_string, int long_print, CK_BBOOL *forceAll)
+{
+    CK_RV rc;
     switch (cmd) {
     case gen_key:
-        ret = generate_ckey(session, slot, kt, keylength, ECcurve, exponent,
+        rc = generate_ckey(session, slot, kt, keylength, ECcurve, exponent,
                 label, attr_string);
         break;
     case list_key:
-        ret = list_ckey(session, kt, long_print);
+        rc = list_ckey(session, kt, long_print);
+        break;
+    case remove_key:
+        rc = delete_key(session, kt, label, forceAll);
         break;
     default:
         printf("   Unknown COMMAND %c\n", cmd);
         print_cmd_help();
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         break;
     }
 
-    return ret;
+    return rc;
 }
 
 static CK_RV start_session(CK_SESSION_HANDLE *session, CK_SLOT_ID slot,
-        CK_CHAR_PTR pin, CK_ULONG pinlen) {
+                           CK_CHAR_PTR pin, CK_ULONG pinlen)
+{
     CK_SESSION_HANDLE tmp_sess;
     CK_TOKEN_INFO tokeninfo;
     CK_SLOT_INFO slotinfo;
-    CK_RV ret;
+    CK_RV rc;
 
-    ret = funcs->C_Initialize(NULL_PTR);
-    if (ret != CKR_OK) {
-        printf("Error in C_Initialize (error code 0x%lX)\n", ret);
+    rc = funcs->C_Initialize(NULL_PTR);
+    if (rc != CKR_OK) {
+        printf("Error in C_Initialize (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = funcs->C_GetSlotInfo(slot, &slotinfo);
-    if (ret != CKR_OK) {
-        printf("Slot %ld not available (error code 0x%lX)\n", slot, ret);
+    rc = funcs->C_GetSlotInfo(slot, &slotinfo);
+    if (rc != CKR_OK) {
+        printf("Slot %ld not available (error code 0x%lX: %s)\n", slot, rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = funcs->C_GetTokenInfo(slot, &tokeninfo);
-    if (ret != CKR_OK) {
-        printf("Token at slot %ld not available (error code 0x%lX)\n", slot,
-                ret);
+    rc = funcs->C_GetTokenInfo(slot, &tokeninfo);
+    if (rc != CKR_OK) {
+        printf("Token at slot %ld not available (error code 0x%lX: %s)\n", slot,
+                rc, p11_get_ckr(rc));
         goto done;
     }
 
-    ret = funcs->C_OpenSession(slot, CKF_SERIAL_SESSION | CKF_RW_SESSION, NULL_PTR,
+    rc = funcs->C_OpenSession(slot, CKF_SERIAL_SESSION | CKF_RW_SESSION,
+            NULL_PTR,
             NULL_PTR, &tmp_sess);
-    if (ret != CKR_OK) {
-        printf("Opening a session failed (error code 0x%lX)\n", ret);
+    if (rc != CKR_OK) {
+        printf("Opening a session failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = funcs->C_Login(tmp_sess, CKU_USER, pin, pinlen);
-    if (ret != CKR_OK) {
-        printf("Login failed (error code 0x%lX)\n", ret);
+    rc = funcs->C_Login(tmp_sess, CKU_USER, pin, pinlen);
+    if (rc != CKR_OK) {
+        printf("Login failed (error code 0x%lX: %s)\n", rc, p11_get_ckr(rc));
         goto done;
     }
 
     *session = tmp_sess;
-    ret = CKR_OK;
+    rc = CKR_OK;
 
     done:
 
-    return ret;
+    return rc;
 }
 
-static CK_RV close_session(CK_SESSION_HANDLE session) {
-    CK_RV ret;
+static CK_RV close_session(CK_SESSION_HANDLE session)
+{
+    CK_RV rc;
 
-    ret = funcs->C_Logout(session);
-    if (ret != CKR_OK) {
-        printf("Logout failed (error code 0x%lX)\n", ret);
-        return ret;
+    rc = funcs->C_Logout(session);
+    if (rc != CKR_OK) {
+        printf("Logout failed (error code 0x%lX: %s)\n", rc, p11_get_ckr(rc));
+        return rc;
     }
 
-    ret = funcs->C_Finalize(NULL_PTR);
-    if (ret != CKR_OK) {
-        printf("Error in C_Finalize: (error code 0x%lX)\n", ret);
+    rc = funcs->C_Finalize(NULL_PTR);
+    if (rc != CKR_OK) {
+        printf("Error in C_Finalize: (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
     }
 
-    return ret;
+    return rc;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     int long_print = 0;
     p11sak_kt kt = no_key_type;
     p11sak_cmd cmd = no_cmd;
@@ -2020,41 +2437,33 @@ int main(int argc, char *argv[]) {
     char *ECcurve = NULL;
     char *attr_string = NULL;
     CK_ULONG keylength = 0;
-    CK_RV ret = CKR_OK;
+    CK_RV rc = CKR_OK;
     CK_SESSION_HANDLE session;
     char *pin = NULL;
     size_t pinlen;
+    CK_BBOOL forceAll = ckb_false;
 
     /* Check if just help requested */
-//    if (argc < 3 && last_parm_is_help(argv, argc)) {
-//    if (argc < 3 || last_parm_is_help(argv, argc)) {
     if (argc < 3) {
         print_cmd_help();
-        ret = CKR_OK;
+        rc = CKR_OK;
         goto done;
     }
 
     /* Parse command */
     cmd = parse_cmd(argv[1]);
     if (cmd == no_cmd) {
-        ret = CKR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         print_cmd_help();
         goto done;
     }
 
     /* Parse command args */
-    ret = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve,
-            &slot, &pin, &exponent, &label, &attr_string, &long_print);
-    if (ret != CKR_OK) {
+    rc = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve, &slot, &pin,
+            &exponent, &label, &attr_string, &long_print, &forceAll);
+    if (rc != CKR_OK) {
         goto done;
     }
-
-//    /* Parse options */
-//    ret = parse_options(cmd, argv, argc, &slot, &pin, &exponent, &label,
-//            &attr_string, &long_print);
-//    if (ret != CKR_OK) {
-//        goto done;
-//    }
 
     /* now try to load the pkcs11 lib (will exit(99) on failure) */
     load_pkcs11lib();
@@ -2062,7 +2471,7 @@ int main(int argc, char *argv[]) {
     /* Prompt for PIN if not already set via option */
     if (!pin) {
         printf("Please enter user PIN:");
-        ret = get_pin(&pin, &pinlen);
+        rc = get_pin(&pin, &pinlen);
 
         if (strlen(pin) == 0) {
             char *s = getenv("PKCS11_USER_PIN");
@@ -2075,31 +2484,33 @@ int main(int argc, char *argv[]) {
     }
 
     /* Open PKCS#11 session */
-    ret = start_session(&session, slot, (CK_CHAR_PTR) pin, strlen(pin));
-    if (ret != CKR_OK) {
-        printf("Error: failed to open session (error code 0x%lX)\n", ret);
+    rc = start_session(&session, slot, (CK_CHAR_PTR) pin, strlen(pin));
+    if (rc != CKR_OK) {
+        printf("Failed to open session (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
     /* Execute command */
-    ret = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
-            label, attr_string, long_print);
-    if (ret != CKR_OK) {
-        printf("Error: failed to execute p11sak command (error code 0x%lX)\n",
-                ret);
+    rc = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
+            label, attr_string, long_print, &forceAll);
+    if (rc != CKR_OK) {
+        printf("Failed to execute p11sak command (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
     /* Close PKCS#11 session */
-    ret = close_session(session);
-    if (ret != CKR_OK) {
-        printf("Error: failed to close session (error code 0x%lX)\n", ret);
+    rc = close_session(session);
+    if (rc != CKR_OK) {
+        printf("Failed to close session (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
         goto done;
     }
 
-    ret = CKR_OK;
+    rc = CKR_OK;
 
     done:
 
-    return ret;
+    return rc;
 }
