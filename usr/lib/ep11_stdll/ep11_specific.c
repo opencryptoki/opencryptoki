@@ -6385,57 +6385,88 @@ done:
     return rc;
 }
 
-
-/* mechanisms ep11 reports but should be hidden because e.g.
-   the EP11 card operates in a FIPS mode that forbides the mechanism,
-   add here other mechanisms if required */
-static const CK_MECHANISM_TYPE ep11_banned_mech_list[] = {
-#ifdef DEFENSIVE_MECHLIST
-    CKM_DES_KEY_GEN,
-    CKM_DES_ECB,
-    CKM_DES_CBC,
-    CKM_DES_CBC_PAD,
-    CKM_GENERIC_SECRET_KEY_GEN,
-
-    /* Wrong/outdated */
-    CKM_EP11_SHA512_224,
-    CKM_EP11_SHA512_224_HMAC,
-    CKM_EP11_SHA512_224_HMAC_GENERAL,
-    CKM_EP11_SHA512_256,
-    CKM_EP11_SHA512_256_HMAC,
-    CKM_EP11_SHA512_256_HMAC_GENERAL,
-
-    /* Vendor specific */
-    CKM_IBM_ECDSA_SHA224,
-    CKM_IBM_ECDSA_SHA256,
-    CKM_IBM_ECDSA_SHA384,
-    CKM_IBM_ECDSA_SHA512,
-    CKM_IBM_EC_MULTIPLY,
-    CKM_IBM_EAC,
-    CKM_IBM_TESTCODE,
-    CKM_IBM_SHA512_256,
-    CKM_IBM_SHA512_224,
-    CKM_IBM_SHA512_256_HMAC,
-    CKM_IBM_SHA512_224_HMAC,
-    CKM_IBM_SHA512_256_KEY_DERIVATION,
-    CKM_IBM_SHA512_224_KEY_DERIVATION,
-    CKM_IBM_EDDSA_PH_SHA512,
-    CKM_IBM_SIPHASH,
-    CKM_IBM_CLEARKEY_TRANSPORT,
-    CKM_IBM_ATTRIBUTEBOUND_WRAP,
-    CKM_IBM_TRANSPORTKEY,
-    CKM_IBM_DH_PKCS_DERIVE_RAW,
-    CKM_IBM_ECDH1_DERIVE_RAW,
-    CKM_IBM_WIRETEST,
-    CKM_IBM_RETAINKEY,
-    CKM_IBM_CPACF_WRAP,
-    CKM_IBM_SM3,
-#endif
+static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
+    CKM_AES_CBC,
+    CKM_AES_CBC_PAD,
+    CKM_AES_CMAC,
+    CKM_AES_ECB,
+    CKM_AES_KEY_GEN,
+    CKM_DES2_KEY_GEN,
+    CKM_DES3_CBC,
+    CKM_DES3_CBC_PAD,
+    CKM_DES3_CMAC,
+    CKM_DES3_ECB,
+    CKM_DES3_KEY_GEN,
+    CKM_DH_PKCS_DERIVE,
+    CKM_DH_PKCS_KEY_PAIR_GEN,
+    CKM_DH_PKCS_PARAMETER_GEN,
+    CKM_DSA,
+    CKM_DSA_KEY_PAIR_GEN,
+    CKM_DSA_PARAMETER_GEN,
+    CKM_DSA_SHA1,
+    CKM_EC_KEY_PAIR_GEN,
+    CKM_ECDH1_DERIVE,
+    CKM_ECDSA,
+    CKM_ECDSA_SHA1,
+    CKM_ECDSA_SHA224,
+    CKM_ECDSA_SHA256,
+    CKM_ECDSA_SHA384,
+    CKM_ECDSA_SHA512,
+    CKM_IBM_CMAC,
+    CKM_IBM_DILITHIUM,
+    CKM_IBM_EC_X25519,
+    CKM_IBM_EC_X448,
+    CKM_IBM_ED25519_SHA512,
+    CKM_IBM_ED448_SHA3,
+    CKM_IBM_SHA3_224,
+    CKM_IBM_SHA3_224_HMAC,
+    CKM_IBM_SHA3_256,
+    CKM_IBM_SHA3_256_HMAC,
+    CKM_IBM_SHA3_384,
+    CKM_IBM_SHA3_384_HMAC,
+    CKM_IBM_SHA3_512,
+    CKM_IBM_SHA3_512_HMAC,
+    CKM_PBE_SHA1_DES3_EDE_CBC,
+    CKM_RSA_PKCS,
+    CKM_RSA_PKCS_KEY_PAIR_GEN,
+    CKM_RSA_PKCS_OAEP,
+    CKM_RSA_PKCS_PSS,
+    CKM_RSA_X9_31,
+    CKM_RSA_X9_31_KEY_PAIR_GEN,
+    CKM_SHA1_KEY_DERIVATION,
+    CKM_SHA1_RSA_PKCS,
+    CKM_SHA1_RSA_PKCS_PSS,
+    CKM_SHA1_RSA_X9_31,
+    CKM_SHA224,
+    CKM_SHA224_HMAC,
+    CKM_SHA224_KEY_DERIVATION,
+    CKM_SHA224_RSA_PKCS,
+    CKM_SHA224_RSA_PKCS_PSS,
+    CKM_SHA256,
+    CKM_SHA256_HMAC,
+    CKM_SHA256_KEY_DERIVATION,
+    CKM_SHA256_RSA_PKCS,
+    CKM_SHA256_RSA_PKCS_PSS,
+    CKM_SHA384,
+    CKM_SHA384_HMAC,
+    CKM_SHA384_KEY_DERIVATION,
+    CKM_SHA384_RSA_PKCS,
+    CKM_SHA384_RSA_PKCS_PSS,
+    CKM_SHA512,
+    CKM_SHA512_224,
+    CKM_SHA512_224_HMAC,
+    CKM_SHA512_256,
+    CKM_SHA512_256_HMAC,
+    CKM_SHA512_HMAC,
+    CKM_SHA512_KEY_DERIVATION,
+    CKM_SHA512_RSA_PKCS,
+    CKM_SHA512_RSA_PKCS_PSS,
+    CKM_SHA_1,
+    CKM_SHA_1_HMAC,
 };
 
-static const CK_ULONG banned_mech_list_len =
-    (sizeof(ep11_banned_mech_list) / sizeof(CK_MECHANISM_TYPE));
-
+static const CK_ULONG supported_mech_list_len =
+    (sizeof(ep11_supported_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
@@ -6574,14 +6605,21 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
     CK_VERSION ver3 = { .major = 3, .minor = 0 };
+    CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
 
-    for (i = 0; i < banned_mech_list_len; i++) {
-        if (type == ep11_banned_mech_list[i]) {
-            TRACE_INFO("%s Mech '%s' banned\n", __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+    for (i = 0; i < supported_mech_list_len; i++) {
+        if (type == ep11_supported_mech_list[i]) {
+            found = TRUE;
+            break;
         }
+    }
+
+    if (!found) {
+        TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
+                   ep11_get_ckm(type));
+        return CKR_MECHANISM_INVALID;
     }
 
     if (check_cps_for_mechanism(ep11_data->cp_config,
