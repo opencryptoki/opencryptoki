@@ -236,7 +236,7 @@ _signVerifyParam signVerifyInput[] = {
     {CKM_ECDSA_SHA384, 100, 4},
     {CKM_ECDSA_SHA512, 100, 0},
     {CKM_ECDSA_SHA512, 100, 4},
-    {CKM_IBM_EDDSA_SHA512, 100, 0},
+    {CKM_IBM_ED25519_SHA512, 100, 0},
     {CKM_IBM_ED448_SHA3, 100, 0},
 };
 
@@ -1005,7 +1005,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         }
     }
 
-    if ((mechType == CKM_IBM_EDDSA_SHA512 || mechType == CKM_IBM_ED448_SHA3)) {
+    if ((mechType == CKM_IBM_ED25519_SHA512 || mechType == CKM_IBM_ED448_SHA3)) {
         if (curve_type != CURVE_EDWARDS) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can only be used with Edwards curves",
