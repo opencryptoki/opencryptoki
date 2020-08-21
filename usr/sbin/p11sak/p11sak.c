@@ -362,7 +362,7 @@ static void print_gen_help(void) {
     printf("      3des\n");
     printf("      aes [128 | 192 | 256]\n");
     printf("      rsa [1024 | 2048 | 4096]\n");
-    printf("      ec [prime256v1 | secp384r1 | secp521]\n");
+    printf("      ec [prime256v1 | secp384r1 | secp521r1]\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -429,7 +429,7 @@ static void print_gen_ec_help(void) {
     printf("\n Args:\n");
     printf("      prime256v1\n");
     printf("      secp384r1\n");
-    printf("      secp521\n");
+    printf("      secp521r1\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
