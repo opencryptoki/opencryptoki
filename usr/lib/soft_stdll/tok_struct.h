@@ -100,11 +100,18 @@ token_spec_t token_specific = {
     &token_specific_rsa_pss_sign,
     &token_specific_rsa_pss_verify,
     &token_specific_rsa_generate_keypair,
+#ifndef NO_EC
     // Elliptic Curve
+    &token_specific_ec_sign,
+    &token_specific_ec_verify,
+    &token_specific_ec_generate_keypair,
+    &token_specific_ecdh_pkcs_derive,
+#else
     NULL,                       // ec_sign
     NULL,                       // ec_verify
     NULL,                       // ec_generate_keypair
     NULL,                       // ecdh_derive
+#endif
 /* Begin code contributed by Corrent corp. */
     // DH
 #ifndef NODH
@@ -158,7 +165,7 @@ token_spec_t token_specific = {
     NULL,                       // dsa_verify
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
-    NULL                        // object_add
+    &token_specific_object_add,
 };
 
 #endif
