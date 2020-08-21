@@ -24,6 +24,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <openssl/opensslv.h>
+
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+#define NO_EC 1
+#endif
+
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -47,6 +53,7 @@
 #include <openssl/sha.h>
 #include <openssl/crypto.h>
 #include <openssl/cmac.h>
+#include <openssl/ec.h>
 
 /*
  * In order to make opencryptoki compatible with
@@ -165,7 +172,24 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
 #endif
-    {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}}
+    {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
+#if !(NO_EC)
+    {CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_GENERATE_KEY_PAIR |
+                           CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+    {CKM_ECDSA, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                 CKF_EC_F_P}},
+    {CKM_ECDSA_SHA1, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                      CKF_EC_F_P}},
+    {CKM_ECDSA_SHA224, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                        CKF_EC_F_P}},
+    {CKM_ECDSA_SHA256, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                        CKF_EC_F_P}},
+    {CKM_ECDSA_SHA384, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                        CKF_EC_F_P}},
+    {CKM_ECDSA_SHA512, {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE |
+                        CKF_EC_F_P}},
+    {CKM_ECDH1_DERIVE, {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}},
+#endif
 };
 
 static const CK_ULONG soft_mech_list_len =
@@ -3973,3 +3997,540 @@ err:
     return rv;
 #endif
 }
+
+#ifndef NO_EC
+
+static CK_RV make_ec_key_from_params(const CK_BYTE *params, CK_ULONG params_len,
+                                     EC_KEY **key)
+{
+    const unsigned char *oid;
+    ASN1_OBJECT *obj = NULL;
+    EC_KEY *ec_key = NULL;
+    int nid;
+    CK_RV rc = CKR_OK;
+
+    oid = params;
+    obj = d2i_ASN1_OBJECT(NULL, &oid, params_len);
+    if (obj == NULL) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    nid = OBJ_obj2nid(obj);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    ec_key = EC_KEY_new_by_curve_name(nid);
+    if (ec_key == NULL) {
+       TRACE_ERROR("curve not supported by OpenSSL.\n");
+       rc = CKR_CURVE_NOT_SUPPORTED;
+       goto out;
+    }
+
+out:
+    if (obj != NULL)
+        ASN1_OBJECT_free(obj);
+
+    if (rc != CKR_OK) {
+        if (ec_key != NULL)
+            EC_KEY_free(ec_key);
+
+        return rc;
+    }
+
+    *key = ec_key;
+
+    return CKR_OK;
+}
+
+static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
+                                     CK_ULONG data_len)
+{
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len, field_len, privlen, padlen;
+    CK_BYTE form, *temp = NULL;
+    CK_RV rc;
+
+    /* CKA_EC_POINT contains the EC point as OCTET STRING */
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)data, &ecpoint, &ecpoint_len,
+                                 &field_len);
+    if (rc != CKR_OK || field_len != data_len) {
+        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto out;
+    }
+
+    /* Check for public key without format byte */
+    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+    form  = ecpoint[0] & ~0x01;
+    if (ecpoint_len <= 2 * privlen &&
+        form != POINT_CONVERSION_COMPRESSED &&
+        form != POINT_CONVERSION_UNCOMPRESSED &&
+        form != POINT_CONVERSION_HYBRID) {
+        temp = malloc(1 + 2 * privlen);
+        if (temp == NULL) {
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        padlen = 2 * privlen - ecpoint_len;
+        temp[0] = POINT_CONVERSION_UNCOMPRESSED;
+        memset(temp + 1, 0, padlen);
+        memcpy(temp + 1 + padlen, ecpoint, ecpoint_len);
+
+        ecpoint = temp;
+        ecpoint_len = 1 + 2 * privlen;
+    }
+
+    if (!EC_KEY_oct2key(ec_key, ecpoint, ecpoint_len, NULL)) {
+        TRACE_ERROR("EC_KEY_oct2key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (temp != NULL)
+        free(temp);
+
+    return rc;
+}
+
+static CK_RV fill_ec_key_from_privkey(EC_KEY *ec_key, const CK_BYTE *data,
+                                      CK_ULONG data_len)
+{
+    EC_POINT *point = NULL;
+    CK_RV rc = CKR_OK;
+
+    if (!EC_KEY_oct2priv(ec_key, data, data_len)) {
+        TRACE_ERROR("EC_KEY_oct2priv failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    point = EC_POINT_new(EC_KEY_get0_group(ec_key));
+    if (point == NULL) {
+        TRACE_ERROR("EC_POINT_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_POINT_mul(EC_KEY_get0_group(ec_key), point,
+                      EC_KEY_get0_private_key(ec_key), NULL, NULL, NULL)) {
+        TRACE_ERROR("EC_POINT_mul failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_KEY_set_public_key(ec_key, point)) {
+        TRACE_ERROR("EC_KEY_set_public_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+out:
+    if (point != NULL)
+        EC_POINT_free(point);
+
+    return rc;
+}
+
+static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_OBJECT_CLASS keyclass;
+    EC_KEY *ec_key = NULL;
+    CK_RV rc;
+
+    rc = template_attribute_find(template, CKA_CLASS, &attr);
+    if (rc == FALSE) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto out;
+    }
+
+    keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
+
+    if (!template_attribute_find(template, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS in the template\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto out;
+    }
+
+    rc = make_ec_key_from_params(attr->pValue, attr->ulValueLen, &ec_key);
+    if (rc != CKR_OK)
+        goto out;
+
+    switch (keyclass) {
+    case CKO_PUBLIC_KEY:
+        rc = template_attribute_find(template, CKA_EC_POINT, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_EC_POINT in the template\n");
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto out;
+        }
+
+        rc = fill_ec_key_from_pubkey(ec_key, attr->pValue, attr->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
+            goto out;
+        }
+        break;
+
+    case CKO_PRIVATE_KEY:
+        rc = template_attribute_find(template, CKA_VALUE, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto out;
+        }
+
+        rc = fill_ec_key_from_privkey(ec_key, attr->pValue, attr->ulValueLen);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+            goto out;
+        }
+        break;
+
+    default:
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto out;
+    }
+
+    rc = CKR_OK;
+
+out:
+    if (rc != CKR_OK) {
+        if (ec_key != NULL)
+            EC_KEY_free(ec_key);
+
+        return rc;
+    }
+
+    *key = ec_key;
+
+    return CKR_OK;
+}
+
+CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *publ_tmpl,
+                                         TEMPLATE *priv_tmpl)
+{
+
+    CK_ATTRIBUTE *attr = NULL, *ec_point_attr, *value_attr, *parms_attr;
+    EC_KEY *ec_key = NULL;
+    BN_CTX *ctx = NULL;
+    CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
+    CK_ULONG ecpoint_len, enc_ecpoint_len, d_len;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS in the template\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto out;
+    }
+
+    rc = make_ec_key_from_params(attr->pValue, attr->ulValueLen, &ec_key);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (!EC_KEY_generate_key(ec_key)) {
+        TRACE_ERROR("Failed to generate an EC key.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = BN_CTX_new();
+    if (ctx == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    ecpoint_len = EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED,
+                                 &ecpoint, ctx);
+    if (ecpoint_len == 0) {
+        TRACE_ERROR("Failed to get the EC Point compressed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = ber_encode_OCTET_STRING(FALSE, &enc_ecpoint, &enc_ecpoint_len,
+                                 ecpoint, ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+        goto out;
+    }
+
+    rc = build_attribute(CKA_EC_POINT, enc_ecpoint, enc_ecpoint_len,
+                         &ec_point_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
+        goto out;
+    }
+    template_update_attribute(publ_tmpl, ec_point_attr);
+
+    d_len = EC_KEY_priv2buf(ec_key, &d);
+    if (d_len == 0) {
+        TRACE_ERROR("Failed to get the EC private key.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_attribute(CKA_VALUE, d, d_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_VALUE failed, rc=0x%lx\n", rc);
+        goto out;
+    }
+    template_update_attribute(priv_tmpl, value_attr);
+
+    /* Add CKA_ECDSA_PARAMS to private template also */
+    rc = build_attribute(CKA_ECDSA_PARAMS, attr->pValue, attr->ulValueLen,
+                         &parms_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_ECDSA_PARAMS failed, rc=0x%lx\n",
+                     rc);
+        goto out;
+    }
+    template_update_attribute(priv_tmpl, parms_attr);
+
+    rc = CKR_OK;
+
+out:
+    if (ctx)
+        BN_CTX_free(ctx);
+    if (ec_key != NULL)
+        EC_KEY_free(ec_key);
+    if (ecpoint != NULL)
+        OPENSSL_free(ecpoint);
+    if (enc_ecpoint != NULL)
+        free(enc_ecpoint);
+    if (d != NULL)
+        OPENSSL_free(d);
+
+    return rc;
+}
+
+CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj)
+{
+    EC_KEY *ec_key;
+    ECDSA_SIG *sig;
+    const BIGNUM *r, *s;
+    CK_ULONG privlen, n;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    *out_data_len = 0;
+
+    rc = make_ec_key_from_template(key_obj->template, &ec_key);
+    if (rc != CKR_OK)
+        return rc;
+
+    sig = ECDSA_do_sign(in_data, in_data_len, ec_key);
+    if (sig == NULL) {
+        TRACE_ERROR("ECDSA_do_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ECDSA_SIG_get0(sig, &r, &s);
+
+    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+
+    /* Insert leading 0x00's if r or s shorter than privlen */
+    n = privlen - BN_num_bytes(r);
+    memset(out_data, 0x00, n);
+    BN_bn2bin(r, &out_data[n]);
+
+    n = privlen - BN_num_bytes(s);
+    memset(out_data + privlen, 0x00, n);
+    BN_bn2bin(s, &out_data[privlen + n]);
+
+    *out_data_len = 2 * privlen;
+
+out:
+    if (sig != NULL)
+        ECDSA_SIG_free(sig);
+    if (ec_key != NULL)
+        EC_KEY_free(ec_key);
+
+    return rc;
+}
+
+CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
+                               SESSION *sess,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *signature,
+                               CK_ULONG signature_len, OBJECT *key_obj)
+{
+    EC_KEY *ec_key;
+    CK_ULONG privlen;
+    ECDSA_SIG *sig = NULL;
+    BIGNUM *r = NULL, *s = NULL;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = make_ec_key_from_template(key_obj->template, &ec_key);
+    if (rc != CKR_OK)
+        return rc;
+
+    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+
+    if (signature_len < 2 * privlen) {
+        TRACE_ERROR("Signature is too short\n");
+        rc = CKR_SIGNATURE_INVALID;
+        goto out;
+    }
+
+    sig = ECDSA_SIG_new();
+    if (sig == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    r = BN_bin2bn(signature, privlen, NULL);
+    s = BN_bin2bn(signature + privlen, privlen, NULL);
+    if (r == NULL || s == NULL) {
+        TRACE_ERROR("BN_bin2bn failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!ECDSA_SIG_set0(sig, r, s)) {
+        TRACE_ERROR("ECDSA_SIG_set0 failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = ECDSA_do_verify(in_data, in_data_len, sig, ec_key);
+    switch (rc) {
+    case 0:
+        rc = CKR_SIGNATURE_INVALID;
+        break;
+    case 1:
+        rc = CKR_OK;
+        break;
+    default:
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+out:
+    if (sig != NULL)
+        ECDSA_SIG_free(sig);
+    if (ec_key != NULL)
+        EC_KEY_free(ec_key);
+
+    return rc;
+}
+
+CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                      CK_BYTE *priv_bytes,
+                                      CK_ULONG priv_length,
+                                      CK_BYTE *pub_bytes,
+                                      CK_ULONG pub_length,
+                                      CK_BYTE *secret_value,
+                                      CK_ULONG *secret_value_len,
+                                      CK_BYTE *oid, CK_ULONG oid_length)
+{
+    EC_KEY *ec_pub = NULL, *ec_priv = NULL;
+    CK_ULONG privlen;
+    int secret_len;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = make_ec_key_from_params(oid, oid_length, &ec_priv);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("make_ec_key_from_params failed\n");
+        goto out;
+    }
+
+    rc = fill_ec_key_from_privkey(ec_priv, priv_bytes, priv_length);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+        goto out;
+    }
+
+    rc = make_ec_key_from_params(oid, oid_length, &ec_pub);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("make_ec_key_from_params failed\n");
+        goto out;
+    }
+
+    rc = fill_ec_key_from_pubkey(ec_pub, pub_bytes, pub_length);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+        goto out;
+    }
+
+    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_priv)) + 7) / 8;
+
+    secret_len = ECDH_compute_key(secret_value, privlen,
+                                  EC_KEY_get0_public_key(ec_pub), ec_priv,
+                                  NULL);
+    if (secret_len <= 0) {
+        TRACE_DEVEL("ECDH_compute_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        *secret_value_len = 0;
+        goto out;
+    }
+
+    *secret_value_len = secret_len;
+
+out:
+    if (ec_priv != NULL)
+        EC_KEY_free(ec_priv);
+    if (ec_pub != NULL)
+        EC_KEY_free(ec_pub);
+
+    return rc;
+}
+
+#endif
+
+CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
+                                OBJECT * obj)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE keytype;
+#ifndef NO_EC
+    EC_KEY *ec_key = NULL;
+    CK_RV rc;
+#endif
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    if (template_attribute_find(obj->template, CKA_KEY_TYPE, &attr) == FALSE)
+        return CKR_OK;
+
+    keytype = *(CK_KEY_TYPE *)attr->pValue;
+
+    switch (keytype) {
+#ifndef NO_EC
+    case CKK_EC:
+        /* Check if OpenSSL supports the curve */
+        rc = make_ec_key_from_template(obj->template, &ec_key);
+        if (ec_key != NULL)
+                EC_KEY_free(ec_key);
+        return rc;
+#endif
+
+    default:
+        return CKR_OK;;
+    }
+}
+
