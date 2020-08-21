@@ -418,7 +418,8 @@ CK_RV run_DeriveECDHKey()
                                       &publ_keyA, &priv_keyA);
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
-                rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
@@ -737,6 +738,12 @@ CK_RV run_DeriveECDHKeyKAT()
                                  ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                  &priv_keyA);
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
             testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -747,6 +754,12 @@ CK_RV run_DeriveECDHKeyKAT()
                                 ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                 &publ_keyA);
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
             testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -759,6 +772,12 @@ CK_RV run_DeriveECDHKeyKAT()
                                  ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
                                  &priv_keyB);
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
             testcase_fail("C_CreateObject (EC Private Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -769,6 +788,12 @@ CK_RV run_DeriveECDHKeyKAT()
                                 ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
                                 &publ_keyB);
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ecdh_tv[i].name);
+                goto testcase_next;
+            }
+
             testcase_fail("C_CreateObject (EC Public Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -935,6 +960,7 @@ CK_RV run_DeriveECDHKeyKAT()
 
         testcase_pass("*Derive shared secret i=%lu passed.", i);
 
+testcase_next:
         if (priv_keyA != CK_INVALID_HANDLE)
             funcs->C_DestroyObject(session, priv_keyA);
         if (publ_keyA != CK_INVALID_HANDLE)
@@ -1231,7 +1257,8 @@ CK_RV run_GenerateECCKeyPairSignVerify()
         testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
-                rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+                rc == CKR_ATTRIBUTE_VALUE_INVALID ||
+                rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, der_ec_supported[i].name);
                 continue;
@@ -1342,6 +1369,12 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ec_tv[i].name);
+                continue;
+            }
+
             if (is_ep11_token(SLOT_ID) &&
                 rc == CKR_ENCRYPTED_DATA_INVALID &&
                 (ec_tv[i].curve_type == CURVE_EDWARDS ||
@@ -1365,6 +1398,13 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ec_tv[i].name);
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
             if (is_ep11_token(SLOT_ID) &&
                 rc == CKR_ENCRYPTED_DATA_INVALID &&
                 (ec_tv[i].curve_type == CURVE_EDWARDS ||
@@ -1489,6 +1529,12 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ec_tv[i].name);
+                continue;
+            }
+
             if (is_ep11_token(SLOT_ID) &&
                 rc == CKR_ENCRYPTED_DATA_INVALID &&
                 (ec_tv[i].curve_type == CURVE_EDWARDS ||
@@ -1513,6 +1559,13 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ec_tv[i].name);
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
             if (is_ep11_token(SLOT_ID) &&
                 rc == CKR_ENCRYPTED_DATA_INVALID &&
                 (ec_tv[i].curve_type == CURVE_EDWARDS ||
