@@ -314,6 +314,10 @@ CK_RV sha_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
 // CKM_SHA512_224_HMAC_GENERAL
 // CKM_SHA512_256_HMAC
 // CKM_SHA512_256_HMAC_GENERAL
+// CKM_IBM_SHA3_224_HMAC
+// CKM_IBM_SHA3_256_HMAC
+// CKM_IBM_SHA3_384_HMAC
+// CKM_IBM_SHA3_512_HMAC
 //
 CK_RV sha_hmac_sign(STDLL_TokData_t *tokdata,
                     SESSION *sess, CK_BBOOL length_only,
@@ -528,6 +532,10 @@ done:
 // CKM_SHA512_224_HMAC_GENERAL
 // CKM_SHA512_256_HMAC
 // CKM_SHA512_256_HMAC_GENERAL
+// CKM_IBM_SHA3_224_HMAC
+// CKM_IBM_SHA3_256_HMAC
+// CKM_IBM_SHA3_384_HMAC
+// CKM_IBM_SHA3_512_HMAC
 //
 CK_RV sha_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                       SIGN_VERIFY_CONTEXT *ctx,

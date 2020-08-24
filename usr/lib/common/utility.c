@@ -995,6 +995,22 @@ CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
         *digest_mech = CKM_SHA512_256;
         *general = (mech == CKM_SHA512_256_HMAC_GENERAL);
         break;
+    case CKM_IBM_SHA3_224_HMAC:
+        *digest_mech = CKM_IBM_SHA3_224;
+        *general = FALSE;
+        break;
+    case CKM_IBM_SHA3_256_HMAC:
+        *digest_mech = CKM_IBM_SHA3_256;
+        *general = FALSE;
+        break;
+    case CKM_IBM_SHA3_384_HMAC:
+        *digest_mech = CKM_IBM_SHA3_384;
+        *general = FALSE;
+        break;
+    case CKM_IBM_SHA3_512_HMAC:
+        *digest_mech = CKM_IBM_SHA3_512;
+        *general = FALSE;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }
