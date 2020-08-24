@@ -152,6 +152,18 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #ifdef NID_sha512_256WithRSAEncryption
     {CKM_SHA512_256, {0, 0, CKF_DIGEST}},
 #endif
+#ifdef NID_sha3_224
+    {CKM_IBM_SHA3_224, {0, 0, CKF_DIGEST}},
+#endif
+#ifdef NID_sha3_256
+    {CKM_IBM_SHA3_256, {0, 0, CKF_DIGEST}},
+#endif
+#ifdef NID_sha3_384
+    {CKM_IBM_SHA3_384, {0, 0, CKF_DIGEST}},
+#endif
+#ifdef NID_sha3_512
+    {CKM_IBM_SHA3_512, {0, 0, CKF_DIGEST}},
+#endif
 #if !(NOMD2)
     {CKM_MD2, {0, 0, CKF_DIGEST}},
     {CKM_MD2_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
@@ -2888,6 +2900,26 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 #ifdef NID_sha512_256WithRSAEncryption
     case CKM_SHA512_256:
         md = EVP_sha512_256();
+        break;
+#endif
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224:
+        md = EVP_sha3_224();
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256:
+        md = EVP_sha3_256();
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384:
+        md = EVP_sha3_384();
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512:
+        md = EVP_sha3_512();
         break;
 #endif
     default:
