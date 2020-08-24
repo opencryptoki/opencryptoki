@@ -393,6 +393,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC:
     case CKM_SHA512_224_HMAC:
     case CKM_SHA512_256_HMAC:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
@@ -922,6 +926,10 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
         return sha_hmac_verify(tokdata, sess, ctx,
                                in_data, in_data_len, signature, sig_len);
     case CKM_SSL3_MD5_MAC:
@@ -1045,6 +1053,10 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
         return hmac_verify_update(tokdata, sess, in_data, in_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -1136,6 +1148,10 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_IBM_SHA3_224_HMAC:
+    case CKM_IBM_SHA3_256_HMAC:
+    case CKM_IBM_SHA3_384_HMAC:
+    case CKM_IBM_SHA3_512_HMAC:
         return hmac_verify_final(tokdata, sess, signature, sig_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
