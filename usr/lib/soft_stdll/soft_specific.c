@@ -148,21 +148,29 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #ifdef NID_sha512_224WithRSAEncryption
     {CKM_SHA512_224, {0, 0, CKF_DIGEST}},
+    {CKM_SHA512_224_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA512_224_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef NID_sha512_256WithRSAEncryption
     {CKM_SHA512_256, {0, 0, CKF_DIGEST}},
+    {CKM_SHA512_256_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA512_256_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef NID_sha3_224
     {CKM_IBM_SHA3_224, {0, 0, CKF_DIGEST}},
+    {CKM_IBM_SHA3_224_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef NID_sha3_256
     {CKM_IBM_SHA3_256, {0, 0, CKF_DIGEST}},
+    {CKM_IBM_SHA3_256_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef NID_sha3_384
     {CKM_IBM_SHA3_384, {0, 0, CKF_DIGEST}},
+    {CKM_IBM_SHA3_384_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef NID_sha3_512
     {CKM_IBM_SHA3_512, {0, 0, CKF_DIGEST}},
+    {CKM_IBM_SHA3_512_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #if !(NOMD2)
     {CKM_MD2, {0, 0, CKF_DIGEST}},
@@ -3098,6 +3106,38 @@ static CK_RV softtok_hmac_init(STDLL_TokData_t *tokdata,
     case CKM_SHA512_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512(), NULL, pkey);
         break;
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC_GENERAL:
+    case CKM_SHA512_224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512_224(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA512_256_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512_256(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_224(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_256(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_384(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_512(), NULL, pkey);
+        break;
+#endif
     default:
         EVP_MD_CTX_destroy(mdctx);
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -3167,15 +3207,27 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
         mac_len = SHA1_HASH_SIZE;
         break;
     case CKM_SHA224_HMAC_GENERAL:
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC_GENERAL:
+#endif
         general = TRUE;
         /* fallthrough */
     case CKM_SHA224_HMAC:
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC:
+#endif
         mac_len = SHA224_HASH_SIZE;
         break;
     case CKM_SHA256_HMAC_GENERAL:
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC_GENERAL:
+#endif
         general = TRUE;
         /* fallthrough */
     case CKM_SHA256_HMAC:
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC:
+#endif
         mac_len = SHA256_HASH_SIZE;
         break;
     case CKM_SHA384_HMAC_GENERAL:
@@ -3190,6 +3242,26 @@ static CK_RV softtok_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
     case CKM_SHA512_HMAC:
         mac_len = SHA512_HASH_SIZE;
         break;
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        mac_len = SHA3_224_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        mac_len = SHA3_256_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        mac_len = SHA3_384_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        mac_len = SHA3_512_HASH_SIZE;
+        break;
+#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -3351,6 +3423,26 @@ static CK_RV softtok_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
     case CKM_SHA512_HMAC:
         mac_len = SHA512_HASH_SIZE;
         break;
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        mac_len = SHA3_224_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        mac_len = SHA3_256_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        mac_len = SHA3_384_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        mac_len = SHA3_512_HASH_SIZE;
+        break;
+#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
