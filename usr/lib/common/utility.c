@@ -942,6 +942,65 @@ CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
     return CKR_OK;
 }
 
+CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
+{
+    switch (mech) {
+    case CKM_MD2_HMAC:
+    case CKM_MD2_HMAC_GENERAL:
+        *digest_mech = CKM_MD2;
+        *general = (mech == CKM_MD2_HMAC_GENERAL);
+        break;
+    case CKM_MD5_HMAC:
+    case CKM_MD5_HMAC_GENERAL:
+        *digest_mech = CKM_MD5;
+        *general = (mech == CKM_MD5_HMAC_GENERAL);
+        break;
+    case CKM_RIPEMD128_HMAC:
+    case CKM_RIPEMD128_HMAC_GENERAL:
+        *digest_mech = CKM_RIPEMD128;
+        *general = (mech == CKM_RIPEMD128_HMAC_GENERAL);
+        break;
+    case CKM_SHA_1_HMAC:
+    case CKM_SHA_1_HMAC_GENERAL:
+        *digest_mech = CKM_SHA_1;
+        *general = (mech == CKM_SHA_1_HMAC_GENERAL);
+        break;
+    case CKM_SHA224_HMAC:
+    case CKM_SHA224_HMAC_GENERAL:
+        *digest_mech = CKM_SHA224;
+        *general = (mech == CKM_SHA224_HMAC_GENERAL);
+        break;
+    case CKM_SHA256_HMAC:
+    case CKM_SHA256_HMAC_GENERAL:
+        *digest_mech = CKM_SHA256;
+        *general = (mech == CKM_SHA256_HMAC_GENERAL);
+        break;
+    case CKM_SHA384_HMAC:
+    case CKM_SHA384_HMAC_GENERAL:
+        *digest_mech = CKM_SHA384;
+        *general = (mech == CKM_SHA384_HMAC_GENERAL);
+        break;
+    case CKM_SHA512_HMAC:
+    case CKM_SHA512_HMAC_GENERAL:
+        *digest_mech = CKM_SHA512;
+        *general = (mech == CKM_SHA512_HMAC_GENERAL);
+        break;
+    case CKM_SHA512_224_HMAC:
+    case CKM_SHA512_224_HMAC_GENERAL:
+        *digest_mech = CKM_SHA512_224;
+        *general = (mech == CKM_SHA512_224_HMAC_GENERAL);
+        break;
+    case CKM_SHA512_256_HMAC:
+    case CKM_SHA512_256_HMAC_GENERAL:
+        *digest_mech = CKM_SHA512_256;
+        *general = (mech == CKM_SHA512_256_HMAC_GENERAL);
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+    return CKR_OK;
+}
+
 /* Compute specified SHA using either software or token implementation */
 CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash, CK_ULONG mech)

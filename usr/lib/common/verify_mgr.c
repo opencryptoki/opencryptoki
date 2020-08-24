@@ -910,28 +910,20 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
                                in_data, in_data_len, signature, sig_len);
     case CKM_SHA_1_HMAC:
     case CKM_SHA_1_HMAC_GENERAL:
-        return sha1_hmac_verify(tokdata, sess, ctx,
-                                in_data, in_data_len, signature, sig_len);
     case CKM_SHA224_HMAC:
     case CKM_SHA224_HMAC_GENERAL:
-        return sha224_hmac_verify(tokdata, sess, ctx,
-                                  in_data, in_data_len, signature, sig_len);
     case CKM_SHA256_HMAC:
     case CKM_SHA256_HMAC_GENERAL:
-        return sha256_hmac_verify(tokdata, sess, ctx,
-                                  in_data, in_data_len, signature, sig_len);
     case CKM_SHA384_HMAC:
     case CKM_SHA384_HMAC_GENERAL:
-        return sha384_hmac_verify(tokdata, sess, ctx,
-                                  in_data, in_data_len, signature, sig_len);
     case CKM_SHA512_HMAC:
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
-        return sha512_hmac_verify(tokdata, sess, ctx,
-                                  in_data, in_data_len, signature, sig_len);
+        return sha_hmac_verify(tokdata, sess, ctx,
+                               in_data, in_data_len, signature, sig_len);
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         return ssl3_mac_verify(tokdata, sess, ctx,
