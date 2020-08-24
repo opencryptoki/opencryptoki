@@ -915,28 +915,20 @@ CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
                              in_data, in_data_len, out_data, out_data_len);
     case CKM_SHA_1_HMAC:
     case CKM_SHA_1_HMAC_GENERAL:
-        return sha1_hmac_sign(tokdata, sess, length_only, ctx,
-                              in_data, in_data_len, out_data, out_data_len);
     case CKM_SHA224_HMAC:
     case CKM_SHA224_HMAC_GENERAL:
-        return sha224_hmac_sign(tokdata, sess, length_only, ctx,
-                                in_data, in_data_len, out_data, out_data_len);
     case CKM_SHA256_HMAC:
     case CKM_SHA256_HMAC_GENERAL:
-        return sha256_hmac_sign(tokdata, sess, length_only, ctx,
-                                in_data, in_data_len, out_data, out_data_len);
     case CKM_SHA384_HMAC:
     case CKM_SHA384_HMAC_GENERAL:
-        return sha384_hmac_sign(tokdata, sess, length_only, ctx,
-                                in_data, in_data_len, out_data, out_data_len);
     case CKM_SHA512_HMAC:
     case CKM_SHA512_HMAC_GENERAL:
     case CKM_SHA512_224_HMAC:
     case CKM_SHA512_224_HMAC_GENERAL:
     case CKM_SHA512_256_HMAC:
     case CKM_SHA512_256_HMAC_GENERAL:
-        return sha512_hmac_sign(tokdata, sess, length_only, ctx,
-                                in_data, in_data_len, out_data, out_data_len);
+        return sha_hmac_sign(tokdata, sess, length_only, ctx,
+                             in_data, in_data_len, out_data, out_data_len);
     case CKM_SSL3_MD5_MAC:
     case CKM_SSL3_SHA1_MAC:
         return ssl3_mac_sign(tokdata, sess, length_only, ctx,
