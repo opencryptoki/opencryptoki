@@ -45,7 +45,7 @@
 #endif
 #include <openssl/crypto.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       84
+#define ICA_MAX_MECH_LIST_ENTRIES       98
 
 typedef struct {
     ica_adapter_handle_t adapter_handle;
@@ -161,6 +161,46 @@ typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
 static ica_sha512_256_t                p_ica_sha512_256;
 #endif
 
+#ifdef SHA3_224
+typedef unsigned int (*ica_sha3_224_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_224_context_t *sha_context,
+                                       unsigned char *output_data);
+
+static ica_sha3_224_t                  p_ica_sha3_224;
+#endif
+
+#ifdef SHA3_256
+typedef unsigned int (*ica_sha3_256_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_256_context_t *sha_context,
+                                       unsigned char *output_data);
+
+static ica_sha3_256_t                  p_ica_sha3_256;
+#endif
+
+#ifdef SHA3_384
+typedef unsigned int (*ica_sha3_384_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_384_context_t *sha_context,
+                                       unsigned char *output_data);
+
+static ica_sha3_384_t                  p_ica_sha3_384;
+#endif
+
+#ifdef SHA3_512
+typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
+                                       unsigned int input_length,
+                                       unsigned char *input_data,
+                                       sha3_512_context_t *sha_context,
+                                       unsigned char *output_data);
+
+static ica_sha3_512_t                  p_ica_sha3_512;
+#endif
+
 static CK_RV load_libica(void)
 {
     void *ibmca_dso = NULL;
@@ -190,6 +230,18 @@ static CK_RV load_libica(void)
 #endif
 #ifdef SHA512_256
     BIND(ibmca_dso, ica_sha512_256);
+#endif
+#ifdef SHA3_224
+    BIND(ibmca_dso, ica_sha3_224);
+#endif
+#ifdef SHA3_256
+    BIND(ibmca_dso, ica_sha3_256);
+#endif
+#ifdef SHA3_384
+    BIND(ibmca_dso, ica_sha3_384);
+#endif
+#ifdef SHA3_512
+    BIND(ibmca_dso, ica_sha3_512);
 #endif
 
     return CKR_OK;
@@ -719,6 +771,26 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 #endif
         devctxsize = sizeof(sha512_context_t);
         break;
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        devctxsize = sizeof(sha3_224_context_t);
+        break;
+#endif
+#ifdef SHA3_256
+    case CKM_IBM_SHA3_256:
+        devctxsize = sizeof(sha3_256_context_t);
+        break;
+#endif
+#ifdef SHA3_384
+    case CKM_IBM_SHA3_384:
+        devctxsize = sizeof(sha3_384_context_t);
+        break;
+#endif
+#ifdef SHA3_512
+    case CKM_IBM_SHA3_512:
+        devctxsize = sizeof(sha3_512_context_t);
+        break;
+#endif
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -769,6 +841,30 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     case CKM_SHA512_256:
         sc->hash_len = SHA256_HASH_SIZE;
         sc->hash_blksize = SHA512_BLOCK_SIZE;
+        break;
+#endif
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        sc->hash_len = SHA3_224_HASH_SIZE;
+        sc->hash_blksize = SHA3_224_BLOCK_SIZE;
+        break;
+#endif
+#ifdef SHA3_256
+    case CKM_IBM_SHA3_256:
+        sc->hash_len = SHA3_256_HASH_SIZE;
+        sc->hash_blksize = SHA3_256_BLOCK_SIZE;
+        break;
+#endif
+#ifdef SHA3_384
+    case CKM_IBM_SHA3_384:
+        sc->hash_len = SHA3_384_HASH_SIZE;
+        sc->hash_blksize = SHA3_384_BLOCK_SIZE;
+        break;
+#endif
+#ifdef SHA3_512
+    case CKM_IBM_SHA3_512:
+        sc->hash_len = SHA3_512_HASH_SIZE;
+        sc->hash_blksize = SHA3_512_BLOCK_SIZE;
         break;
 #endif
     }
@@ -860,6 +956,58 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 
             rc = p_ica_sha512_256(sc->message_part, in_data_len,
                                   in_data, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        {
+            sha3_224_context_t *ica_sha3_ctx = (sha3_224_context_t *) dev_ctx;
+
+            if (p_ica_sha3_224 == NULL)
+                 return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha3_224(sc->message_part, in_data_len,
+                                in_data, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_256
+    case CKM_IBM_SHA3_256:
+        {
+            sha3_256_context_t *ica_sha3_ctx = (sha3_256_context_t *) dev_ctx;
+
+            if (p_ica_sha3_256 == NULL)
+                 return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha3_256(sc->message_part, in_data_len,
+                                in_data, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_384
+    case CKM_IBM_SHA3_384:
+        {
+            sha3_384_context_t *ica_sha3_ctx = (sha3_384_context_t *) dev_ctx;
+
+            if (p_ica_sha3_384 == NULL)
+                 return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha3_384(sc->message_part, in_data_len,
+                                in_data, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_512
+    case CKM_IBM_SHA3_512:
+        {
+            sha3_512_context_t *ica_sha3_ctx = (sha3_512_context_t *) dev_ctx;
+
+            if (p_ica_sha3_512 == NULL)
+                 return CKR_MECHANISM_INVALID;
+
+            rc = p_ica_sha3_512(sc->message_part, in_data_len,
+                                in_data, ica_sha3_ctx, sc->hash);
             break;
         }
 #endif
@@ -975,6 +1123,76 @@ static CK_RV ica_sha_call(DIGEST_CONTEXT *ctx, CK_BYTE *data,
                 sc->message_part = SHA_MSG_PART_MIDDLE;
             ret = p_ica_sha512_256(sc->message_part, data_len, data,
                                    ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        {
+            sha3_224_context_t *ica_sha_ctx = (sha3_224_context_t *) dev_ctx;
+
+            if (p_ica_sha3_224 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLength == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha3_224(sc->message_part, data_len, data,
+                                 ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_256
+    case CKM_IBM_SHA3_256:
+        {
+            sha3_256_context_t *ica_sha_ctx = (sha3_256_context_t *) dev_ctx;
+
+            if (p_ica_sha3_256 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLength == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha3_256(sc->message_part, data_len, data,
+                                 ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_384
+    case CKM_IBM_SHA3_384:
+        {
+            sha3_384_context_t *ica_sha_ctx = (sha3_384_context_t *) dev_ctx;
+
+            if (p_ica_sha3_384 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLengthLow == 0 &&
+                ica_sha_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha3_384(sc->message_part, data_len, data,
+                                 ica_sha_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_512
+    case CKM_IBM_SHA3_512:
+        {
+            sha3_512_context_t *ica_sha_ctx = (sha3_512_context_t *) dev_ctx;
+
+            if (p_ica_sha3_512 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            if (ica_sha_ctx->runningLengthLow == 0 &&
+                ica_sha_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_FIRST;
+            else
+                sc->message_part = SHA_MSG_PART_MIDDLE;
+            ret = p_ica_sha3_512(sc->message_part, data_len, data,
+                                 ica_sha_ctx, sc->hash);
             break;
         }
 #endif
@@ -1185,6 +1403,80 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                 sc->message_part = SHA_MSG_PART_ONLY;
             rc = p_ica_sha512_256(sc->message_part, sc->tail_len,
                                   sc->tail, ica_sha5_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_224
+    case CKM_IBM_SHA3_224:
+        {
+            sha3_224_context_t *ica_sha3_ctx = (sha3_224_context_t *) dev_ctx;
+
+            if (p_ica_sha3_224 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha3_ctx->runningLength == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha3_224(sc->message_part, sc->tail_len,
+                                sc->tail, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_256
+    case CKM_IBM_SHA3_256:
+        {
+            sha3_256_context_t *ica_sha3_ctx = (sha3_256_context_t *) dev_ctx;
+
+            if (p_ica_sha3_256 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha3_ctx->runningLength == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha3_256(sc->message_part, sc->tail_len,
+                                sc->tail, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_384
+    case CKM_IBM_SHA3_384:
+        {
+            sha3_384_context_t *ica_sha3_ctx = (sha3_384_context_t *) dev_ctx;
+
+            if (p_ica_sha3_384 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha3_ctx->runningLengthLow == 0
+                && ica_sha3_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha3_384(sc->message_part, sc->tail_len,
+                                sc->tail, ica_sha3_ctx, sc->hash);
+            break;
+        }
+#endif
+#ifdef SHA3_512
+    case CKM_IBM_SHA3_512:
+        {
+            sha3_512_context_t *ica_sha3_ctx = (sha3_512_context_t *) dev_ctx;
+
+            if (p_ica_sha3_512 == NULL)
+                return CKR_MECHANISM_INVALID;
+
+            /* accommodate multi-part when input was so small
+             * that we never got to call into libica until final
+             */
+            if (ica_sha3_ctx->runningLengthLow == 0
+                && ica_sha3_ctx->runningLengthHigh == 0)
+                sc->message_part = SHA_MSG_PART_ONLY;
+            rc = p_ica_sha3_512(sc->message_part, sc->tail_len,
+                                sc->tail, ica_sha3_ctx, sc->hash);
             break;
         }
 #endif
@@ -3364,6 +3656,8 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {01, CKM_SHA_1_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {01, CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {03, CKM_SHA224, {0, 0, CKF_HW | CKF_DIGEST}},
+    {03, CKM_SHA224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {03, CKM_SHA224_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {03, CKM_SHA256, {0, 0, CKF_HW | CKF_DIGEST}},
     {03, CKM_SHA256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {03, CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -3375,9 +3669,29 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {05, CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
 #ifdef SHA512_224
     {95, CKM_SHA512_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {95, CKM_SHA512_224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {95, CKM_SHA512_224_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA512_256
     {96, CKM_SHA512_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {96, CKM_SHA512_256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {96, CKM_SHA512_256_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+#endif
+#ifdef SHA3_224
+    {6, CKM_IBM_SHA3_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {6, CKM_IBM_SHA3_224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+#endif
+#ifdef SHA3_256
+    {7, CKM_IBM_SHA3_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {7, CKM_IBM_SHA3_256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+#endif
+#ifdef SHA3_384
+    {8, CKM_IBM_SHA3_384, {0, 0, CKF_HW|CKF_DIGEST}},
+    {8, CKM_IBM_SHA3_384_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+#endif
+#ifdef SHA3_512
+    {9, CKM_IBM_SHA3_512, {0, 0, CKF_HW|CKF_DIGEST}},
+    {9, CKM_IBM_SHA3_512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
 #endif
 #if !(NOMD5)
     {53, CKM_MD5, {0, 0, CKF_HW | CKF_DIGEST}},
