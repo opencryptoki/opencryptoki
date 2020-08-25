@@ -1734,7 +1734,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
+CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
 {
     unsigned int i;
     int k;
@@ -1749,9 +1749,9 @@ CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
     CK_MAC_GENERAL_PARAMS mac_param;
     CK_ULONG ofs;
     CK_BYTE actual[MAX_KEY_SIZE];
-    CK_ULONG actual_len;
+    CK_ULONG actual_len, mac_len;
 
-    testsuite_begin("%s Sign/Verify CMAC.", tsuite->name);
+    testsuite_begin("%s Sign/Verify MAC.", tsuite->name);
     testcase_rw_session();
     testcase_user_login();
 
@@ -1767,7 +1767,7 @@ CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
 
 
     for (i = 0; i < tsuite->tvcount; i++) {
-        testcase_begin("%s Sign/Verify CMAC with published test vector %d.",
+        testcase_begin("%s Sign/Verify MAC with published test vector %d.",
                                tsuite->name, i);
 
         /** create key handle **/
@@ -1781,10 +1781,25 @@ CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
 
         /** get mech **/
         mech = tsuite->mech;
-        if (mech.mechanism == CKM_AES_CMAC_GENERAL) {
+        switch (mech.mechanism) {
+        case CKM_AES_CMAC_GENERAL:
+        case CKM_AES_MAC_GENERAL:
             mac_param = tsuite->tv[i].tlen;
             mech.pParameter = &mac_param;
             mech.ulParameterLen = sizeof(mac_param);
+            mac_len = mac_param;
+            break;
+        case CKM_AES_CMAC:
+        case CKM_IBM_CMAC:
+            mac_len = AES_BLOCK_SIZE;
+            break;
+        case CKM_AES_MAC:
+            mac_len = AES_BLOCK_SIZE / 2;
+            break;
+        default:
+            testcase_error("Invalid mechanism: %s",
+                           p11_get_ckm(mech.mechanism));
+            goto error;
         }
 
         /** initialize signing **/
@@ -1860,20 +1875,24 @@ CK_RV do_SignVerifyCMAC(struct published_cmac_test_suite_info *tsuite)
         /** compare sign/verify results with expected results **/
         testcase_new_assertion();
 
-        if (mech.mechanism == CKM_AES_CMAC_GENERAL &&
+        if ((mech.mechanism == CKM_AES_CMAC_GENERAL ||
+             mech.mechanism == CKM_AES_MAC_GENERAL) &&
             actual_len != tsuite->tv[i].tlen) {
             testcase_fail("signature length does not match test vector's "
                           "signature length\nexpected length=%d, found "
                           "length=%ld", tsuite->tv[i].tlen, actual_len);
         } else if (mech.mechanism != CKM_AES_CMAC_GENERAL &&
-                   actual_len != AES_BLOCK_SIZE) {
+                   mech.mechanism != CKM_AES_MAC_GENERAL &&
+                   actual_len != mac_len) {
             testcase_fail("signature length does not match test vector's "
-                          "signature length\nexpected length=%d, found "
-                          "length=%ld", AES_BLOCK_SIZE, actual_len);
-        } else if (memcmp(actual, tsuite->tv[i].mac, tsuite->tv[i].tlen)) {
+                          "signature length\nexpected length=%ld, found "
+                          "length=%ld", mac_len, actual_len);
+        } else if (memcmp(actual, tsuite->tv[i].mac,
+                   tsuite->tv[i].tlen < mac_len ? tsuite->tv[i].tlen :
+                                                               mac_len)) {
             testcase_fail("signature does not match test vector's signature");
         } else {
-            testcase_pass("%s Sign/Verify CMAC with test vector %d "
+            testcase_pass("%s Sign/Verify MAC with test vector %d "
                           "passed.", tsuite->name, i);
         }
 
@@ -1949,9 +1968,9 @@ CK_RV aes_funcs()
             break;
     }
 
-    /* CMAC test cases */
-    for (i = 0; i < NUM_OF_PUBLISHED_CMAC_TESTSUITES; i++) {
-        rv = do_SignVerifyCMAC(&published_cmac_test_suites[i]);
+    /* MAC test cases */
+    for (i = 0; i < NUM_OF_PUBLISHED_MAC_TESTSUITES; i++) {
+        rv = do_SignVerifyMAC(&published_mac_test_suites[i]);
         if (rv != CKR_OK && (!no_stop))
             break;
     }
