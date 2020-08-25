@@ -127,6 +127,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_DES3_CBC, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_DES3_MAC, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_DES3_MAC_GENERAL, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_CMAC_GENERAL, {16, 24, CKF_SIGN | CKF_VERIFY}},
 #if !(NOSHA1)
@@ -193,6 +195,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CBC, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC_PAD,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
 #endif
@@ -748,6 +752,30 @@ done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
 #endif
+}
+
+CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                              CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
+{
+    CK_BYTE *out_buf;
+    CK_ULONG out_len;
+    CK_RV rc;
+
+    out_buf = malloc(message_len);
+    if (out_buf == NULL) {
+        TRACE_ERROR("Malloc failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = token_specific_tdes_cbc(tokdata, message, message_len, out_buf,
+                                 &out_len, key, mac, 1);
+
+    if (rc == CKR_OK && out_len >= DES_BLOCK_SIZE)
+        memcpy(mac, out_buf + out_len - DES_BLOCK_SIZE, DES_BLOCK_SIZE);
+
+    free(out_buf);
+
+    return rc;
 }
 
 // convert from the local PKCS11 template representation to
@@ -2454,6 +2482,30 @@ done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
 #endif
+}
+
+CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                             CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
+{
+    CK_BYTE *out_buf;
+    CK_ULONG out_len;
+    CK_RV rc;
+
+    out_buf = malloc(message_len);
+    if (out_buf == NULL) {
+        TRACE_ERROR("Malloc failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = token_specific_aes_cbc(tokdata, message, message_len, out_buf,
+                                &out_len, key, mac, 1);
+
+    if (rc == CKR_OK && out_len >= AES_BLOCK_SIZE)
+        memcpy(mac, out_buf + out_len - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+
+    free(out_buf);
+
+    return rc;
 }
 #endif
 
