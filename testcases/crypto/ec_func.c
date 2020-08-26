@@ -1507,6 +1507,39 @@ CK_RV run_TransferECCKeyPairSignVerify()
         }
     }
 
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, CKM_AES_KEY_GEN, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for AES key gen? skip */
+            testcase_skip("Slot %u doesn't support CKM_AES_KEY_GEN",
+                          (unsigned int) SLOT_ID);
+            goto testcase_cleanup;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, CKM_AES_CBC_PAD, &mech_info);
+    if (rc != CKR_OK) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* no support for AES CBC wrap? skip */
+            testcase_skip("Slot %u doesn't support CKM_AES_CBC_PAD",
+                          (unsigned int) SLOT_ID);
+            goto testcase_cleanup;
+        } else {
+            testcase_error("C_GetMechanismInfo() rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+    if ((mech_info.flags & CKF_WRAP) == 0 ||
+        (mech_info.flags & CKF_UNWRAP) == 0) {
+        /* no support for AES CBC wrap? skip */
+        testcase_skip("Slot %u doesn't support CKM_AES_CBC_PAD for wrapping "
+                      "keys", (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
     for (i = 0; i < EC_TV_NUM; i++) {
         if (!(is_ep11_token(SLOT_ID))) {
             if (strstr((char *)ec_tv[i].name, "t1") != NULL) {
@@ -1670,7 +1703,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
         if (wrapped_key) {
             free(wrapped_key);
             wrapped_key = NULL;
-	}
+        }
 
         /* create signature with unwrapped private key and verify with
          * public key */
