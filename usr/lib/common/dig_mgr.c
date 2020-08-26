@@ -100,7 +100,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    if (mech->ulParameterLen > 0) {
+    if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             digest_mgr_cleanup(ctx);    // to de-initialize context above

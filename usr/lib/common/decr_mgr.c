@@ -586,16 +586,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if ((mech->ulParameterLen > 0) || (mech->mechanism == CKM_AES_CTR) ||
-        (mech->mechanism == CKM_AES_GCM)) {
-        ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
-        if (!ptr) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-        memcpy(ptr, mech->pParameter, mech->ulParameterLen);
-    } else if (mech->ulParameterLen > 0) {
+    if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
