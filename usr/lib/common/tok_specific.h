@@ -49,8 +49,8 @@ CK_RV token_specific_init_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
 CK_RV token_specific_set_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
                              CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
-                                 CK_ULONG);
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *, CK_BYTE **, CK_ULONG *,
+                                 CK_ULONG, CK_BBOOL *);
 
 CK_RV token_specific_des_ecb(STDLL_TokData_t *,
                              CK_BYTE *,
@@ -234,7 +234,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *,
 
 #ifndef NOAES
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *,
-                                 CK_BYTE *, CK_ULONG, CK_ULONG);
+                                 CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *,
                              CK_BYTE *,

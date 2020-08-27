@@ -508,22 +508,25 @@ static CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
     return CKR_OK;
 }
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * des_key,
-                                 CK_ULONG len, CK_ULONG keysize)
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
+                                 CK_ULONG *len, CK_ULONG keysize,
+                                 CK_BBOOL *is_opaque)
 {
     unsigned char key_form[CCA_KEYWORD_SIZE];
     unsigned char key_type_1[CCA_KEYWORD_SIZE];
 
     UNUSED(tokdata);
 
-    /* make sure key is the right size for the token */
-    if (len != CCA_KEY_ID_SIZE)
-        return CKR_FUNCTION_FAILED;
+    *des_key = malloc(CCA_KEY_ID_SIZE);
+    if (*des_key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = CCA_KEY_ID_SIZE;
+    *is_opaque = TRUE;
 
     memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
     memcpy(key_type_1, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
 
-    return cca_key_gen(CCA_DES_KEY, des_key, key_form, key_type_1, keysize);
+    return cca_key_gen(CCA_DES_KEY, *des_key, key_form, key_type_1, keysize);
 }
 
 
@@ -1202,8 +1205,9 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
 
 
 #ifndef NOAES
-CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * aes_key,
-                                 CK_ULONG len, CK_ULONG key_size)
+CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
+                                 CK_ULONG *len, CK_ULONG key_size,
+                                 CK_BBOOL *is_opaque)
 {
     long return_code, reason_code;
     unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
@@ -1218,9 +1222,11 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * aes_key,
 
     UNUSED(tokdata);
 
-    /* make sure key is the right size for the token */
-    if (len != CCA_KEY_ID_SIZE)
-        return CKR_FUNCTION_FAILED;
+    *aes_key = malloc(CCA_KEY_ID_SIZE);
+    if (*aes_key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = CCA_KEY_ID_SIZE;
+    *is_opaque = TRUE;
 
     memcpy(rule_array, "INTERNALAES     NO-KEY  ",
            (size_t) (CCA_KEYWORD_SIZE * 3));
@@ -1263,9 +1269,9 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t * tokdata, CK_BYTE * aes_key,
     }
     memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
     memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
-    memcpy(aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
+    memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
-    return cca_key_gen(CCA_AES_KEY, aes_key, key_form, key_type, key_size);
+    return cca_key_gen(CCA_AES_KEY, *aes_key, key_form, key_type, key_size);
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
