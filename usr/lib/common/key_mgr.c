@@ -864,10 +864,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     CK_ULONG data_len;
     CK_ULONG keyclass = 0, keytype = 0;
     CK_ULONG i;
-    CK_BBOOL found_class, found_type, fromend, isopaque = FALSE;
+    CK_BBOOL found_class, found_type, fromend;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -881,11 +879,6 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
             return CKR_WRAPPING_KEY_HANDLE_INVALID;
         else
             return rc;
-    }
-
-    if (template_attribute_find(tmp_obj->template, CKA_IBM_OPAQUE, &attr) ==
-        TRUE) {
-        isopaque = TRUE;
     }
 
     object_put(tokdata, tmp_obj, TRUE);
@@ -1047,11 +1040,10 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     switch (keyclass) {
     case CKO_SECRET_KEY:
         rc = secret_key_unwrap(tokdata, key_obj->template, keytype, data,
-                               data_len, fromend, isopaque);
+                               data_len, fromend);
         break;
     case CKO_PRIVATE_KEY:
-        rc = priv_key_unwrap(key_obj->template, keytype, data, data_len,
-                             isopaque);
+        rc = priv_key_unwrap(key_obj->template, keytype, data, data_len);
         break;
     default:
         rc = CKR_WRAPPED_KEY_INVALID;

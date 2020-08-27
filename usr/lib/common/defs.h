@@ -81,7 +81,6 @@ enum {
 
 #define MAX_RSA_KEYLEN  1920
 
-#define MAX_AES_KEY_SIZE 64      /* encompasses CCA key size */
 #define AES_KEY_SIZE_256 32
 #define AES_KEY_SIZE_192 24
 #define AES_KEY_SIZE_128 16
@@ -89,7 +88,6 @@ enum {
 #define AES_INIT_VECTOR_SIZE AES_BLOCK_SIZE
 #define AES_COUNTER_SIZE        16
 
-#define MAX_DES_KEY_SIZE 64      /* encompasses CCA key size */
 #define DES_KEY_SIZE    8
 #define DES_BLOCK_SIZE  8
 

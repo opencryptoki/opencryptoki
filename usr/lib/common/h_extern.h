@@ -2325,7 +2325,7 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata,
 CK_RV priv_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV priv_key_unwrap(TEMPLATE *tmpl, CK_ULONG keytype, CK_BYTE *data,
-                      CK_ULONG data_len, CK_BBOOL isopaque);
+                      CK_ULONG data_len);
 CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
 
@@ -2334,7 +2334,7 @@ CK_RV secret_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                         CK_ULONG keytype, CK_BYTE *data, CK_ULONG data_len,
-                        CK_BBOOL fromend, CK_BBOOL isopaque);
+                        CK_BBOOL fromend);
 CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                     CK_ATTRIBUTE *attr, CK_ULONG mode);
 
@@ -2352,8 +2352,7 @@ CK_RV rsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                              CK_BYTE **data, CK_ULONG *data_len);
-CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len,
-                      CK_BBOOL isopaque);
+CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
                               CK_BYTE *data, CK_ULONG total_length);
 
@@ -2389,8 +2388,7 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                                CK_BYTE **data, CK_ULONG *data_len);
 CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
                                  CK_ULONG data_len);
-CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
-                     CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isOpaque);
+CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 
 // Dilithium routines
 //
@@ -2405,7 +2403,7 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *
 CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                                        CK_BYTE **data, CK_ULONG *data_len);
 CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                                CK_ULONG total_length, CK_BBOOL isOpaque);
+                                CK_ULONG total_length);
 CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
                                          CK_BYTE *data, CK_ULONG total_length);
 
@@ -2449,7 +2447,7 @@ CK_RV generic_secret_validate_attribute(STDLL_TokData_t *tokdata,
 CK_RV generic_secret_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                                    CK_BYTE **data, CK_ULONG *data_len);
 CK_RV generic_secret_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len,
-                            CK_BBOOL fromend, CK_BBOOL isopaque);
+                            CK_BBOOL fromend);
 
 // RC2 routines
 CK_RV rc2_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2474,7 +2472,7 @@ CK_RV des_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_BBOOL des_check_weak_key(CK_BYTE *key);
 CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV des_unwrap(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BYTE *data,
-                 CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque);
+                 CK_ULONG data_len, CK_BBOOL fromend);
 CK_RV des_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                              CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV des_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data,
@@ -2490,7 +2488,7 @@ CK_RV des2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 CK_RV des3_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV des3_unwrap(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BYTE *data,
-                  CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque);
+                  CK_ULONG data_len, CK_BBOOL fromend);
 CK_RV des3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                               CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV des3_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data,
@@ -2500,7 +2498,7 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data,
 CK_RV aes_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV aes_unwrap(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BYTE *data,
-                 CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque);
+                 CK_ULONG data_len, CK_BBOOL fromend);
 CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                              CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV aes_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data,
@@ -2628,7 +2626,7 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
                                CK_ATTRIBUTE *prime2,
                                CK_ATTRIBUTE *exponent1,
                                CK_ATTRIBUTE *exponent2,
-                               CK_ATTRIBUTE *coeff, CK_ATTRIBUTE *opaque);
+                               CK_ATTRIBUTE *coeff);
 
 CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
                                CK_ULONG data_len,
@@ -2639,8 +2637,7 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **prime2,
                                CK_ATTRIBUTE **exponent1,
                                CK_ATTRIBUTE **exponent2,
-                               CK_ATTRIBUTE **coeff,
-                               CK_ATTRIBUTE **opaque, CK_BBOOL isopaque);
+                               CK_ATTRIBUTE **coeff);
 
 CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
@@ -2656,14 +2653,13 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_ULONG *data_len,
                               CK_ATTRIBUTE *params,
                               CK_ATTRIBUTE *point,
-                              CK_ATTRIBUTE *opaque, CK_ATTRIBUTE *pubkey);
+                              CK_ATTRIBUTE *pubkey);
 
 CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **params,
                               CK_ATTRIBUTE **pub_key,
-                              CK_ATTRIBUTE **priv_key,
-                              CK_ATTRIBUTE **opaque_key, CK_BBOOL isOpaque);
+                              CK_ATTRIBUTE **priv_key);
 
 CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *params,
@@ -2743,8 +2739,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
                                CK_ATTRIBUTE *s1,
                                CK_ATTRIBUTE *s2,
                                CK_ATTRIBUTE *t0,
-                               CK_ATTRIBUTE *t1,
-                               CK_ATTRIBUTE *opaque);
+                               CK_ATTRIBUTE *t1);
 
 CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                CK_ULONG data_len,
@@ -2754,9 +2749,7 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **s1,
                                CK_ATTRIBUTE **s2,
                                CK_ATTRIBUTE **t0,
-                               CK_ATTRIBUTE **t1,
-                               CK_ATTRIBUTE **opaque,
-                               CK_BBOOL isopaque);
+                               CK_ATTRIBUTE **t1);
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
