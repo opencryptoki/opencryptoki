@@ -1115,15 +1115,12 @@ CK_RV ber_decode_SPKI(CK_BYTE *spki, CK_BYTE **alg_oid, CK_ULONG *alg_oid_len,
 //    version  Version  -- always '0' for now
 //    modulus  INTEGER
 //    publicExponent  INTEGER
-//    if secure key
-//       opaque  OCTET_STRING
-//    else
-//       privateExponent INTEGER
-//       prime1  INTEGER
-//       prime2  INTEGER
-//       exponent1  INTEGER
-//       exponent2  INTEGER
-//       coefficient INTEGER
+//    privateExponent INTEGER
+//    prime1  INTEGER
+//    prime2  INTEGER
+//    exponent1  INTEGER
+//    exponent2  INTEGER
+//    coefficient INTEGER
 // }
 //
 CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
@@ -1136,7 +1133,7 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
                                CK_ATTRIBUTE *prime2,
                                CK_ATTRIBUTE *exponent1,
                                CK_ATTRIBUTE *exponent2,
-                               CK_ATTRIBUTE *coeff, CK_ATTRIBUTE *opaque)
+                               CK_ATTRIBUTE *coeff)
 {
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
@@ -1154,23 +1151,18 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
     offset += len;
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, publ_exp->ulValueLen);
     offset += len;
-    if (opaque != NULL) {
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, opaque->ulValueLen);
-        offset += len;
-    } else {
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, priv_exp->ulValueLen);
-        offset += len;
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime1->ulValueLen);
-        offset += len;
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime2->ulValueLen);
-        offset += len;
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent1->ulValueLen);
-        offset += len;
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent2->ulValueLen);
-        offset += len;
-        rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, coeff->ulValueLen);
-        offset += len;
-    }
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, priv_exp->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime1->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime2->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent1->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, exponent2->ulValueLen);
+    offset += len;
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, coeff->ulValueLen);
+    offset += len;
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_INTEGER failed\n");
@@ -1241,103 +1233,88 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
         buf2 = NULL;
     }
 
-    if (opaque != NULL) {
-        // the CKA_IBM_OPAQUE attrib
-        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                     (CK_BYTE *) opaque +
-                                     sizeof(CK_ATTRIBUTE), opaque->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            goto error;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) priv_exp + sizeof(CK_ATTRIBUTE),
+                            priv_exp->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
         memcpy(buf + offset, buf2, len);
         offset += len;
         free(buf2);
         buf2 = NULL;
-    } else {
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) priv_exp + sizeof(CK_ATTRIBUTE),
-                                priv_exp->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    }
 
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) prime1 + sizeof(CK_ATTRIBUTE),
-                                prime1->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) prime1 + sizeof(CK_ATTRIBUTE),
+                            prime1->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) prime2 + sizeof(CK_ATTRIBUTE),
-                                prime2->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) prime2 + sizeof(CK_ATTRIBUTE),
+                            prime2->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) exponent1 + sizeof(CK_ATTRIBUTE),
-                                exponent1->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) exponent1 + sizeof(CK_ATTRIBUTE),
+                            exponent1->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) exponent2 + sizeof(CK_ATTRIBUTE),
-                                exponent2->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) exponent2 + sizeof(CK_ATTRIBUTE),
+                            exponent2->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
 
-        rc = ber_encode_INTEGER(FALSE, &buf2, &len,
-                                (CK_BYTE *) coeff + sizeof(CK_ATTRIBUTE),
-                                coeff->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len,
+                            (CK_BYTE *) coeff + sizeof(CK_ATTRIBUTE),
+                            coeff->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
     }
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
@@ -1373,8 +1350,7 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **prime2,
                                CK_ATTRIBUTE **exponent1,
                                CK_ATTRIBUTE **exponent2,
-                               CK_ATTRIBUTE **coeff,
-                               CK_ATTRIBUTE **opaque, CK_BBOOL isopaque)
+                               CK_ATTRIBUTE **coeff)
 {
     CK_ATTRIBUTE *n_attr = NULL;
     CK_ATTRIBUTE *e_attr = NULL;
@@ -1384,7 +1360,6 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
     CK_ATTRIBUTE *e1_attr = NULL;
     CK_ATTRIBUTE *e2_attr = NULL;
     CK_ATTRIBUTE *coeff_attr = NULL;
-    CK_ATTRIBUTE *o_attr = NULL;
 
     CK_BYTE *alg = NULL;
     CK_BYTE *rsa_priv_key = NULL;
@@ -1440,75 +1415,63 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
     }
     offset += field_len;
 
-    if (isopaque) {
-        // opaque attribute, the CCA key
-        //
-        rc = ber_decode_OCTET_STRING(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
-    } else {
+    // private exponent
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // private exponent
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
+    // prime #1
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // prime #1
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
+    // prime #2
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // prime #2
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
+    // exponent #1
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // exponent #1
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
+    // exponent #2
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // exponent #2
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
+    // coefficient
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
 
-        // coefficient
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        }
-        offset += field_len;
-
-        if (offset > buf_len) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            return CKR_FUNCTION_FAILED;
-        }
+    if (offset > buf_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
     }
 
     //
@@ -1556,119 +1519,101 @@ CK_RV ber_decode_RSAPrivateKey(CK_BYTE *data,
         offset += field_len;
     }
 
-    if (isopaque) {
-        // opaque attribute, the CCA key
-        //
-        rc = ber_decode_OCTET_STRING(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_OPAQUE, tmp, len, &o_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-        *opaque = o_attr;
+    // private exponent
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
     } else {
-        // private exponent
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+        rc = build_attribute(CKA_PRIVATE_EXPONENT, tmp, len, &d_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
+            TRACE_DEVEL("build_attribute failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_PRIVATE_EXPONENT, tmp, len, &d_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
-
-        // prime #1
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_PRIME_1, tmp, len, &p_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-
-        // prime #2
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_PRIME_2, tmp, len, &q_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-
-        // exponent #1
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_EXPONENT_1, tmp, len, &e1_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-
-        // exponent #2
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_EXPONENT_2, tmp, len, &e2_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-
-        // coefficient
-        //
-        rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_INTEGER failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_COEFFICIENT, tmp, len, &coeff_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += len;
-        }
-        *priv_exp = d_attr;
-        *prime1 = p_attr;
-        *prime2 = q_attr;
-        *exponent1 = e1_attr;
-        *exponent2 = e2_attr;
-        *coeff = coeff_attr;
+        offset += field_len;
     }
+
+    // prime #1
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_PRIME_1, tmp, len, &p_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // prime #2
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_PRIME_2, tmp, len, &q_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // exponent #1
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_EXPONENT_1, tmp, len, &e1_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // exponent #2
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_EXPONENT_2, tmp, len, &e2_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    // coefficient
+    //
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_COEFFICIENT, tmp, len, &coeff_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+        offset += len;
+    }
+    *priv_exp = d_attr;
+    *prime1 = p_attr;
+    *prime2 = q_attr;
+    *exponent1 = e1_attr;
+    *exponent2 = e2_attr;
+    *coeff = coeff_attr;
 
     *modulus = n_attr;
     *publ_exp = e_attr;
@@ -1680,23 +1625,18 @@ cleanup:
         free(n_attr);
     if (e_attr)
         free(e_attr);
-    if (isopaque) {
-        if (o_attr)
-            free(o_attr);
-    } else {
-        if (d_attr)
-            free(d_attr);
-        if (p_attr)
-            free(p_attr);
-        if (q_attr)
-            free(q_attr);
-        if (e1_attr)
-            free(e1_attr);
-        if (e2_attr)
-            free(e2_attr);
-        if (coeff_attr)
-            free(coeff_attr);
-    }
+    if (d_attr)
+        free(d_attr);
+    if (p_attr)
+        free(p_attr);
+    if (q_attr)
+        free(q_attr);
+    if (e1_attr)
+        free(e1_attr);
+    if (e2_attr)
+        free(e2_attr);
+    if (coeff_attr)
+        free(coeff_attr);
 
     return rc;
 }
@@ -2524,7 +2464,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                               CK_ULONG *data_len,
                               CK_ATTRIBUTE *params,
                               CK_ATTRIBUTE *point,
-                              CK_ATTRIBUTE *opaque, CK_ATTRIBUTE *pubkey)
+                              CK_ATTRIBUTE *pubkey)
 {
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
@@ -2548,15 +2488,9 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     offset += len;
 
     // private key octet
-    if (opaque != NULL) {
-        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
-                                      opaque->ulValueLen);
-        offset += len;
-    } else {
-        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
-                                      point->ulValueLen);
-        offset += len;
-    }
+    rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL,
+                                  point->ulValueLen);
+    offset += len;
     if (rc != CKR_OK) {
         TRACE_DEVEL("der encoding failed\n");
         return CKR_FUNCTION_FAILED;
@@ -2616,33 +2550,18 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         buf2 = NULL;
     }
 
-    if (opaque != NULL) {
-        // the CKA_IBM_OPAQUE attrib
-        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                     (CK_BYTE *) opaque +
-                                     sizeof(CK_ATTRIBUTE), opaque->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
-            goto error;
-        }
+    rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
+                                 (CK_BYTE *) point +
+                                 sizeof(CK_ATTRIBUTE), point->ulValueLen);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_INTEGER failed\n");
+        goto error;
+    }
+    if (buf2 != NULL) {
         memcpy(buf + offset, buf2, len);
         offset += len;
         free(buf2);
         buf2 = NULL;
-    } else {
-        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                     (CK_BYTE *) point +
-                                     sizeof(CK_ATTRIBUTE), point->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_encode_INTEGER failed\n");
-            goto error;
-        }
-        if (buf2 != NULL) {
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
     }
 
     /* generate optional bit-string of public key */
@@ -2709,12 +2628,10 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                               CK_ULONG data_len,
                               CK_ATTRIBUTE **params,
                               CK_ATTRIBUTE **pub_key,
-                              CK_ATTRIBUTE **priv_key,
-                              CK_ATTRIBUTE **opaque_key, CK_BBOOL isOpaque)
+                              CK_ATTRIBUTE **priv_key)
 {
     CK_ATTRIBUTE *pub_attr = NULL;
     CK_ATTRIBUTE *priv_attr = NULL;
-    CK_ATTRIBUTE *opaque_attr = NULL;
     CK_ATTRIBUTE *parm_attr = NULL;
     CK_BYTE *alg = NULL;
     CK_BYTE *buf = NULL;
@@ -2834,23 +2751,14 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     }
 
     /* Build attr for private key */
-    if (isOpaque) {
-        rc = build_attribute(CKA_IBM_OPAQUE, priv_buf, priv_len, &opaque_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute for private key failed\n");
-            goto cleanup;
-        }
-    } else {
-        rc = build_attribute(CKA_VALUE, priv_buf, priv_len, &priv_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute for private key failed\n");
-            goto cleanup;
-        }
+    rc = build_attribute(CKA_VALUE, priv_buf, priv_len, &priv_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for private key failed\n");
+        goto cleanup;
     }
 
     *pub_key = pub_attr;        // may be NULL if no BIT_STRING available
-    *priv_key = priv_attr;      // may be NULL if key is opaque
-    *opaque_key = opaque_attr;
+    *priv_key = priv_attr;
     *params = parm_attr;
     if (ecpoint)
         free(ecpoint);
@@ -2862,8 +2770,6 @@ cleanup:
         free(pub_attr);
     if (priv_attr)
         free(priv_attr);
-    if (opaque_attr)
-        free(opaque_attr);
     if (parm_attr)
         free(parm_attr);
     if (ecpoint)
@@ -3847,8 +3753,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
                                CK_ATTRIBUTE *s1,
                                CK_ATTRIBUTE *s2,
                                CK_ATTRIBUTE *t0,
-                               CK_ATTRIBUTE *t1,
-                               CK_ATTRIBUTE *opaque)
+                               CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
     CK_ULONG len, len2, offset;
@@ -3861,27 +3766,22 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
     offset += len;
-    if (opaque != NULL) {
-        rc |= ber_encode_OCTET_STRING(TRUE, NULL, &len, NULL, opaque->ulValueLen);
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, rho->ulValueLen, 0);
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, seed->ulValueLen, 0);
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, tr->ulValueLen, 0);
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s1->ulValueLen, 0);
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s2->ulValueLen, 0);
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, t0->ulValueLen, 0);
+    offset += len;
+    if (t1) {
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, t1->ulValueLen, 0);
+        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
         offset += len;
-    } else {
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, rho->ulValueLen, 0);
-        offset += len;
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, seed->ulValueLen, 0);
-        offset += len;
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, tr->ulValueLen, 0);
-        offset += len;
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s1->ulValueLen, 0);
-        offset += len;
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, s2->ulValueLen, 0);
-        offset += len;
-        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, t0->ulValueLen, 0);
-        offset += len;
-        if (t1) {
-            rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL, t1->ulValueLen, 0);
-            rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
-            offset += len;
-        }
     }
 
     if (rc != CKR_OK) {
@@ -3926,105 +3826,90 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
     free(buf2);
     buf2 = NULL;
 
-    /* Check if key given as opaque blob */
-    if (opaque != NULL) {
-        // the CKA_IBM_OPAQUE attrib
-        rc = ber_encode_OCTET_STRING(FALSE, &buf2, &len,
-                                     opaque->pValue, opaque->ulValueLen);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_OCTET_STRING failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-    } else {
-        /* rho */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                rho->pValue, rho->ulValueLen, 0);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of rho failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
+    /* rho */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                            rho->pValue, rho->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of rho failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
 
-        /* seed */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                seed->pValue, seed->ulValueLen, 0);
+    /* seed */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                            seed->pValue, seed->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of seed failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* tr */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               tr->pValue, tr->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of (tr) failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* s1 */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               s1->pValue, s1->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of (s1) failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* s2 */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               s2->pValue, s2->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of (s2) failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* t0 */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               t0->pValue, t0->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of (t0) failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* (t1) Optional bit-string of public key */
+    if (t1 && t1->pValue) {
+        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2, t1->pValue, t1->ulValueLen, 0);
+        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
         if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of seed failed\n");
+            TRACE_ERROR("encoding of t1 value failed\n");
             goto error;
         }
         memcpy(buf + offset, buf2, len);
         offset += len;
         free(buf2);
         buf2 = NULL;
-
-        /* tr */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                   tr->pValue, tr->ulValueLen, 0);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of (tr) failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-
-        /* s1 */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                   s1->pValue, s1->ulValueLen, 0);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of (s1) failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-
-        /* s2 */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                   s2->pValue, s2->ulValueLen, 0);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of (s2) failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-
-        /* t0 */
-        rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
-                                   t0->pValue, t0->ulValueLen, 0);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("ber_encode_BIT_STRING of (t0) failed\n");
-            goto error;
-        }
-        memcpy(buf + offset, buf2, len);
-        offset += len;
-        free(buf2);
-        buf2 = NULL;
-
-        /* (t1) Optional bit-string of public key */
-        if (t1 && t1->pValue) {
-            rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2, t1->pValue, t1->ulValueLen, 0);
-            rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("encoding of t1 value failed\n");
-                goto error;
-            }
-            memcpy(buf + offset, buf2, len);
-            offset += len;
-            free(buf2);
-            buf2 = NULL;
-        }
     }
 
     /* Encode sequence */
@@ -4076,14 +3961,11 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **s1,
                                CK_ATTRIBUTE **s2,
                                CK_ATTRIBUTE **t0,
-                               CK_ATTRIBUTE **t1,
-                               CK_ATTRIBUTE **opaque,
-                               CK_BBOOL isopaque)
+                               CK_ATTRIBUTE **t1)
 {
     CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
     CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
     CK_ATTRIBUTE *t0_attr = NULL, *t1_attr = NULL;
-    CK_ATTRIBUTE *o_attr = NULL;
     CK_BYTE *alg = NULL;
     CK_BYTE *dilithium_priv_key = NULL;
     CK_BYTE *buf = NULL;
@@ -4121,123 +4003,102 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
     }
     offset += field_len;
 
-    /* Check if key given as opaque blob */
-    if (isopaque) {
-
-        /* Key is opaque */
-        rc = ber_decode_OCTET_STRING(buf + offset, &tmp, &len, &field_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-            goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_OPAQUE, tmp, len, &o_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
-        }
-        *opaque = o_attr;
-
+    /* rho */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (rho) failed\n");
+        goto cleanup;
     } else {
-
-        /* rho */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        rc = build_attribute(CKA_IBM_DILITHIUM_RHO, tmp, len, &rho_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (rho) failed\n");
+            TRACE_DEVEL("build_attribute for (rho) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_RHO, tmp, len, &rho_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (rho) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* seed */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* seed */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (seed) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_SEED, tmp, len, &seed_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (seed) failed\n");
+            TRACE_DEVEL("build_attribute for (seed) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_SEED, tmp, len, &seed_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (seed) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* tr */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* tr */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (tr) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_TR, tmp, len, &tr_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (tr) failed\n");
+            TRACE_DEVEL("build_attribute for (tr) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_TR, tmp, len, &tr_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (tr) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* s1 */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* s1 */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (s1) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_S1, tmp, len, &s1_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (s1) failed\n");
+            TRACE_DEVEL("build_attribute for (s1) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_S1, tmp, len, &s1_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (s1) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* s2 */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* s2 */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (s2) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_S2, tmp, len, &s2_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (s2) failed\n");
+            TRACE_DEVEL("build_attribute for (s2) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_S2, tmp, len, &s2_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (s2) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* t0 */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* t0 */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (t0) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_T0, tmp, len, &t0_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (t0) failed\n");
+            TRACE_DEVEL("build_attribute for (t0) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_T0, tmp, len, &t0_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (t0) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
+    }
 
-        /* t1 */
-        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    /* t1 */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+        goto cleanup;
+    } else {
+        rc = build_attribute(CKA_IBM_DILITHIUM_T1, tmp, len, &t1_attr);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+            TRACE_DEVEL("build_attribute for (t1) failed\n");
             goto cleanup;
-        } else {
-            rc = build_attribute(CKA_IBM_DILITHIUM_T1, tmp, len, &t1_attr);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("build_attribute for (t1) failed\n");
-                goto cleanup;
-            }
-            offset += field_len;
         }
+        offset += field_len;
     }
 
     /* Check if buffer big enough */
@@ -4263,23 +4124,18 @@ cleanup:
         free(seed_attr);
     if (t1_attr)
         free(t1_attr);
-    if (isopaque) {
-        if (o_attr)
-            free(o_attr);
-    } else {
-        if (rho_attr)
-            free(rho_attr);
-        if (seed_attr)
-            free(seed_attr);
-        if (tr_attr)
-            free(tr_attr);
-        if (s1_attr)
-            free(s1_attr);
-        if (s2_attr)
-            free(s2_attr);
-        if (t0_attr)
-            free(t0_attr);
-    }
+    if (rho_attr)
+        free(rho_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (tr_attr)
+        free(tr_attr);
+    if (s1_attr)
+        free(s1_attr);
+    if (s2_attr)
+        free(s2_attr);
+    if (t0_attr)
+        free(t0_attr);
 
     return rc;
 }

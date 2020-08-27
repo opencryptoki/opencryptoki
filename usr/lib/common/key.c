@@ -579,7 +579,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 //
 CK_RV priv_key_unwrap(TEMPLATE *tmpl,
                       CK_ULONG keytype,
-                      CK_BYTE *data, CK_ULONG data_len, CK_BBOOL isopaque)
+                      CK_BYTE *data, CK_ULONG data_len)
 {
     CK_ATTRIBUTE *extractable = NULL;
     CK_ATTRIBUTE *always_sens = NULL;
@@ -592,7 +592,7 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
 
     switch (keytype) {
     case CKK_RSA:
-        rc = rsa_priv_unwrap(tmpl, data, data_len, isopaque);
+        rc = rsa_priv_unwrap(tmpl, data, data_len);
         break;
     case CKK_DSA:
         rc = dsa_priv_unwrap(tmpl, data, data_len);
@@ -601,10 +601,10 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
         rc = dh_priv_unwrap(tmpl, data, data_len);
         break;
     case CKK_EC:
-        rc = ec_priv_unwrap(tmpl, data, data_len, isopaque);
+        rc = ec_priv_unwrap(tmpl, data, data_len);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = ibm_dilithium_priv_unwrap(tmpl, data, data_len, isopaque);
+        rc = ibm_dilithium_priv_unwrap(tmpl, data, data_len);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
@@ -931,7 +931,7 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
                         TEMPLATE *tmpl,
                         CK_ULONG keytype,
                         CK_BYTE *data,
-                        CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque)
+                        CK_ULONG data_len, CK_BBOOL fromend)
 {
     CK_ATTRIBUTE *local = NULL;
     CK_ATTRIBUTE *always_sens = NULL;
@@ -945,13 +945,13 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
     switch (keytype) {
     case CKK_CDMF:
     case CKK_DES:
-        rc = des_unwrap(tokdata, tmpl, data, data_len, fromend, isopaque);
+        rc = des_unwrap(tokdata, tmpl, data, data_len, fromend);
         break;
     case CKK_DES3:
-        rc = des3_unwrap(tokdata, tmpl, data, data_len, fromend, isopaque);
+        rc = des3_unwrap(tokdata, tmpl, data, data_len, fromend);
         break;
     case CKK_AES:
-        rc = aes_unwrap(tokdata, tmpl, data, data_len, fromend, isopaque);
+        rc = aes_unwrap(tokdata, tmpl, data, data_len, fromend);
         break;
     case CKK_GENERIC_SECRET:
     case CKK_RC2:
@@ -960,7 +960,7 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
     case CKK_CAST:
     case CKK_CAST3:
     case CKK_CAST5:
-        rc = generic_secret_unwrap(tmpl, data, data_len, fromend, isopaque);
+        rc = generic_secret_unwrap(tmpl, data, data_len, fromend);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
@@ -1520,7 +1520,6 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL;
     CK_ATTRIBUTE *exponent1 = NULL, *exponent2 = NULL;
     CK_ATTRIBUTE *coeff = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_RV rc;
 
 
@@ -1534,40 +1533,35 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
         TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
         return CKR_FUNCTION_FAILED;
     }
-    // CKA_IBM_OPAQUE is used for secure key, if it is not available, then
-    // assume using clear key and get rest of attributes required for clear key.
-
-    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
-        if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
-            FALSE) {
-            TRACE_ERROR("Could not find private exponent for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE) {
-            TRACE_ERROR("Could not find CKA_PRIME_1 for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE) {
-            TRACE_ERROR("Could not find CKA_PRIME_2 for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE) {
-            TRACE_ERROR("Could not find CKA_EXPONENT_1 for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE) {
-            TRACE_ERROR("Could not find CKA_EXPONENT_2 for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-        if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE) {
-            TRACE_ERROR("Could not find CKA_COEFFICIENT for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
+    if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
+        FALSE) {
+        TRACE_ERROR("Could not find private exponent for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE) {
+        TRACE_ERROR("Could not find CKA_PRIME_1 for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE) {
+        TRACE_ERROR("Could not find CKA_PRIME_2 for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE) {
+        TRACE_ERROR("Could not find CKA_EXPONENT_1 for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE) {
+        TRACE_ERROR("Could not find CKA_EXPONENT_2 for the key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE) {
+        TRACE_ERROR("Could not find CKA_COEFFICIENT for the key.\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     rc = ber_encode_RSAPrivateKey(length_only, data, data_len, modulus,
                                   publ_exp, priv_exp, prime1, prime2,
-                                  exponent1, exponent2, coeff, opaque);
+                                  exponent1, exponent2, coeff);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_RSAPrivateKey failed\n");
     }
@@ -1578,8 +1572,7 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
 
 //
 //
-CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
-                      CK_BYTE *data, CK_ULONG total_length, CK_BBOOL isopaque)
+CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
 {
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *publ_exp = NULL;
@@ -1589,7 +1582,6 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
     CK_ATTRIBUTE *exponent1 = NULL;
     CK_ATTRIBUTE *exponent2 = NULL;
     CK_ATTRIBUTE *coeff = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_RV rc;
 
     rc = ber_decode_RSAPrivateKey(data,
@@ -1600,7 +1592,7 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
                                   &prime1,
                                   &prime2,
                                   &exponent1,
-                                  &exponent2, &coeff, &opaque, isopaque);
+                                  &exponent2, &coeff);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_RSAPrivateKey failed\n");
@@ -1608,29 +1600,21 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl,
     }
     p11_attribute_trim(modulus);
     p11_attribute_trim(publ_exp);
-    if (isopaque) {
-        p11_attribute_trim(opaque);
-    } else {
-        p11_attribute_trim(priv_exp);
-        p11_attribute_trim(prime1);
-        p11_attribute_trim(prime2);
-        p11_attribute_trim(exponent1);
-        p11_attribute_trim(exponent2);
-        p11_attribute_trim(coeff);
-    }
+    p11_attribute_trim(priv_exp);
+    p11_attribute_trim(prime1);
+    p11_attribute_trim(prime2);
+    p11_attribute_trim(exponent1);
+    p11_attribute_trim(exponent2);
+    p11_attribute_trim(coeff);
 
     template_update_attribute(tmpl, modulus);
     template_update_attribute(tmpl, publ_exp);
-    if (isopaque) {
-        template_update_attribute(tmpl, opaque);
-    } else {
-        template_update_attribute(tmpl, priv_exp);
-        template_update_attribute(tmpl, prime1);
-        template_update_attribute(tmpl, prime2);
-        template_update_attribute(tmpl, exponent1);
-        template_update_attribute(tmpl, exponent2);
-        template_update_attribute(tmpl, coeff);
-    }
+    template_update_attribute(tmpl, priv_exp);
+    template_update_attribute(tmpl, prime1);
+    template_update_attribute(tmpl, prime2);
+    template_update_attribute(tmpl, exponent1);
+    template_update_attribute(tmpl, exponent2);
+    template_update_attribute(tmpl, coeff);
 
     return CKR_OK;
 }
@@ -1670,7 +1654,6 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *keyform, *rho = NULL, *seed = NULL;
     CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
     CK_ATTRIBUTE *t0 = NULL, *t1 = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_RV rc;
 
     /* A private Dilithium key must have a keyform value */
@@ -1686,48 +1669,43 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
         return CKR_TEMPLATE_INCONSISTENT;
     }
 
-    /* Check if key given as opaque blob */
-    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_RHO, &rho) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_RHO, &rho) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_SEED, &seed) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_SEED, &seed) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_TR, &tr) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_TR, &tr) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S1, &s1) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S1, &s1) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S2, &s2) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S2, &s2) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T0, &t0) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T0, &t0) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
-
-        if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T1, &t1) == FALSE) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
+    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T1, &t1) == FALSE) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
     rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
-                                  rho, seed, tr, s1, s2, t0, t1,
-                                  opaque);
+                                  rho, seed, tr, s1, s2, t0, t1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_IBM_DilithiumPrivateKey failed\n");
     }
@@ -1765,25 +1743,20 @@ CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
 //
 //
 CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                                CK_ULONG total_length, CK_BBOOL isOpaque)
+                                CK_ULONG total_length)
 {
     CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL;
     CK_ATTRIBUTE *s1 = NULL, *s2 = NULL, *t0 = NULL, *t1 = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_RV rc;
 
     rc = ber_decode_IBM_DilithiumPrivateKey(data, total_length,
-                                 &rho, &seed, &tr, &s1, &s2, &t0, &t1,
-                                 &opaque, isOpaque);
+                                 &rho, &seed, &tr, &s1, &s2, &t0, &t1);
     if (rc != CKR_OK) {
         TRACE_ERROR("der_decode_IBM_DilithiumPrivateKey failed\n");
         return rc;
     }
 
-    if (isOpaque)
-        rc |= template_update_attribute(tmpl, opaque);
-
-    rc |= template_update_attribute(tmpl, rho);
+    rc = template_update_attribute(tmpl, rho);
     rc |= template_update_attribute(tmpl, seed);
     rc |= template_update_attribute(tmpl, tr);
     rc |= template_update_attribute(tmpl, s1);
@@ -2535,7 +2508,6 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
 {
     CK_ATTRIBUTE *params = NULL;
     CK_ATTRIBUTE *point = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_ATTRIBUTE *pubkey = NULL;
     CK_RV rc;
 
@@ -2550,21 +2522,16 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
         TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
         return CKR_FUNCTION_FAILED;
     }
-    // CKA_IBM_OPAQUE is used for secure key, if it is not available, then
-    // assume using clear key and get rest of attributes required for clear key.
-
-    if (template_attribute_find(tmpl, CKA_IBM_OPAQUE, &opaque) == FALSE) {
-        if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
-            TRACE_ERROR("Could not find EC Point for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
+    if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
+        TRACE_ERROR("Could not find EC Point for the key.\n");
+        return CKR_FUNCTION_FAILED;
     }
 
     /* check if optional public-key part was defined */
     template_attribute_find(tmpl, CKA_EC_POINT, &pubkey);
 
     rc = der_encode_ECPrivateKey(length_only, data, data_len, params,
-                                 point, opaque, pubkey);
+                                 point, pubkey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("der_encode_ECPrivateKey failed\n");
     }
@@ -2601,17 +2568,15 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
 
 //
 //
-CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
-                     CK_BYTE *data, CK_ULONG total_length, CK_BBOOL isOpaque)
+CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
 {
     CK_ATTRIBUTE *pubkey = NULL;
     CK_ATTRIBUTE *privkey = NULL;
-    CK_ATTRIBUTE *opaque = NULL;
     CK_ATTRIBUTE *ecparam = NULL;
     CK_RV rc;
 
     rc = der_decode_ECPrivateKey(data, total_length, &ecparam,
-                                 &pubkey, &privkey, &opaque, isOpaque);
+                                 &pubkey, &privkey);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
@@ -2620,8 +2585,6 @@ CK_RV ec_priv_unwrap(TEMPLATE *tmpl,
     p11_attribute_trim(pubkey);
     p11_attribute_trim(privkey);
 
-    if (isOpaque)
-        template_update_attribute(tmpl, opaque);
     if (pubkey)
         template_update_attribute(tmpl, pubkey);
     if (privkey)
@@ -3972,13 +3935,10 @@ CK_RV generic_secret_wrap_get_data(TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr);
+    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (rc == FALSE) {
-        rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-            return CKR_KEY_NOT_WRAPPABLE;
-        }
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+        return CKR_KEY_NOT_WRAPPABLE;
     }
     *data_len = attr->ulValueLen;
 
@@ -4002,7 +3962,7 @@ CK_RV generic_secret_wrap_get_data(TEMPLATE *tmpl,
 CK_RV generic_secret_unwrap(TEMPLATE *tmpl,
                             CK_BYTE *data,
                             CK_ULONG data_len,
-                            CK_BBOOL fromend, CK_BBOOL isopaque)
+                            CK_BBOOL fromend)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
@@ -4035,10 +3995,7 @@ CK_RV generic_secret_unwrap(TEMPLATE *tmpl,
     if (fromend == TRUE)
         ptr -= data_len;
 
-    if (isopaque)
-        rc = build_attribute(CKA_IBM_OPAQUE, ptr, data_len, &value_attr);
-    else
-        rc = build_attribute(CKA_VALUE, ptr, data_len, &value_attr);
+    rc = build_attribute(CKA_VALUE, ptr, data_len, &value_attr);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
@@ -4512,7 +4469,7 @@ CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV des_unwrap(STDLL_TokData_t *tokdata,
                  TEMPLATE *tmpl,
                  CK_BYTE *data,
-                 CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque)
+                 CK_ULONG data_len, CK_BBOOL fromend)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_BYTE *ptr = NULL;
@@ -4523,46 +4480,30 @@ CK_RV des_unwrap(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
         return CKR_WRAPPED_KEY_INVALID;
     }
-    if (fromend == TRUE) {
-        if (isopaque)
-            ptr = data + data_len;
-        else
-            ptr = data + data_len - DES_BLOCK_SIZE;
-    } else {
+    if (fromend == TRUE)
+        ptr = data + data_len - DES_BLOCK_SIZE;
+    else
         ptr = data;
-    }
 
-    if (isopaque) {
-        value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + data_len);
-    } else {
-        if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
-            for (i = 0; i < DES_KEY_SIZE; i++) {
-                if (parity_is_odd(ptr[i]) == FALSE) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                    return CKR_ATTRIBUTE_VALUE_INVALID;
-                }
+    if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
+        for (i = 0; i < DES_KEY_SIZE; i++) {
+            if (parity_is_odd(ptr[i]) == FALSE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
         }
-        value_attr =
-            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + DES_BLOCK_SIZE);
     }
-
+    value_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + DES_BLOCK_SIZE);
     if (!value_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
 
-    if (isopaque) {
-        value_attr->type = CKA_IBM_OPAQUE;
-        value_attr->ulValueLen = data_len;
-        value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-        memcpy(value_attr->pValue, ptr, data_len);
-    } else {
-        value_attr->type = CKA_VALUE;
-        value_attr->ulValueLen = DES_BLOCK_SIZE;
-        value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-        memcpy(value_attr->pValue, ptr, DES_BLOCK_SIZE);
-    }
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = DES_BLOCK_SIZE;
+    value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
+    memcpy(value_attr->pValue, ptr, DES_BLOCK_SIZE);
 
     template_update_attribute(tmpl, value_attr);
 
@@ -4641,13 +4582,10 @@ CK_RV des_wrap_get_data(TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr);
+    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (rc == FALSE) {
-        rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-            return CKR_KEY_NOT_WRAPPABLE;
-        }
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+        return CKR_KEY_NOT_WRAPPABLE;
     }
     *data_len = attr->ulValueLen;
 
@@ -4848,7 +4786,7 @@ CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV des3_unwrap(STDLL_TokData_t *tokdata,
                   TEMPLATE *tmpl,
                   CK_BYTE *data,
-                  CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque)
+                  CK_ULONG data_len, CK_BBOOL fromend)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_BYTE *ptr = NULL;
@@ -4859,47 +4797,31 @@ CK_RV des3_unwrap(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
         return CKR_WRAPPED_KEY_INVALID;
     }
-    if (fromend == TRUE) {
-        if (isopaque)
-            ptr = data + data_len;
-        else
-            ptr = data + data_len - (3 * DES_BLOCK_SIZE);
-    } else {
+    if (fromend == TRUE)
+        ptr = data + data_len - (3 * DES_BLOCK_SIZE);
+    else
         ptr = data;
-    }
 
-    if (isopaque) {
-        value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + data_len);
-    } else {
-        if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
-            for (i = 0; i < 3 * DES_KEY_SIZE; i++) {
-                if (parity_is_odd(ptr[i]) == FALSE) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                    return CKR_ATTRIBUTE_VALUE_INVALID;
-                }
+    if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
+        for (i = 0; i < 3 * DES_KEY_SIZE; i++) {
+            if (parity_is_odd(ptr[i]) == FALSE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
         }
-        value_attr =
-            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) +
-                                    (3 * DES_BLOCK_SIZE));
     }
+    value_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + (3 * DES_BLOCK_SIZE));
 
     if (!value_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
 
-    if (isopaque) {
-        value_attr->type = CKA_IBM_OPAQUE;
-        value_attr->ulValueLen = data_len;
-        value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-        memcpy(value_attr->pValue, ptr, data_len);
-    } else {
-        value_attr->type = CKA_VALUE;
-        value_attr->ulValueLen = 3 * DES_BLOCK_SIZE;
-        value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-        memcpy(value_attr->pValue, ptr, 3 * DES_BLOCK_SIZE);
-    }
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 3 * DES_BLOCK_SIZE;
+    value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
+    memcpy(value_attr->pValue, ptr, 3 * DES_BLOCK_SIZE);
 
     template_update_attribute(tmpl, value_attr);
 
@@ -4972,14 +4894,11 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl,
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
-    // try secure key first, if not found then try clear key...
-    rc = template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr);
+
+    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (rc == FALSE) {
-        rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-            return CKR_KEY_NOT_WRAPPABLE;
-        }
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+        return CKR_KEY_NOT_WRAPPABLE;
     }
     *data_len = attr->ulValueLen;
 
@@ -5918,13 +5837,10 @@ CK_RV aes_wrap_get_data(TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr);
+    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (rc == FALSE) {
-        rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-            return CKR_KEY_NOT_WRAPPABLE;
-        }
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+        return CKR_KEY_NOT_WRAPPABLE;
     }
     *data_len = attr->ulValueLen;
 
@@ -5947,7 +5863,7 @@ CK_RV aes_wrap_get_data(TEMPLATE *tmpl,
 CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
                  TEMPLATE *tmpl,
                  CK_BYTE *data,
-                 CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL isopaque)
+                 CK_ULONG data_len, CK_BBOOL fromend)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *val_len_attr = NULL;
@@ -5961,27 +5877,15 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
      * unwrapping an AES key, but we need it for several reasons:
      *   - because some mechanisms may have added padding
      *   - AES keys come in several sizes
-     *   - secure key size depends on token specifics
-     * If not a secure key, try datalen and see if matches an aes key size.
+     * If not a available, try datalen and see if matches an aes key size.
      * Otherwise, fail because we need to return CKA_VALUE_LEN and we cannot
-     * unless user tells us what it is for secure key.
-     *
-     * Note: since cca token has secure key size of 64, which is a multiple of
-     * aes blocksize, can assume datalen will always be 64.
-     * However, a better solution is to create a token specific wrap and
-     * unwrap and do this kind of stuff in the token.
+     * unless user tells us what it is.
      */
     found = template_attribute_find(tmpl, CKA_VALUE_LEN, &val_len_attr);
-    if (found) {
+    if (found)
         key_size = *(CK_ULONG *) val_len_attr->pValue;
-    } else {
-        if (isopaque) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
-        } else {
-            key_size = data_len;
-        }
-    }
+    else
+        key_size = data_len;
 
     /* key_size should be one of AES's possible sizes */
     if (key_size != AES_KEY_SIZE_128 &&
@@ -5990,19 +5894,10 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
         return CKR_WRAPPED_KEY_LEN_RANGE;
     }
 
-    if (fromend == TRUE) {
-        if (isopaque)
-            ptr = data + data_len;
-        else
-            ptr = data + data_len - key_size;
-    } else {
+    if (fromend == TRUE)
+        ptr = data + data_len - key_size;
+    else
         ptr = data;
-    }
-
-    /* reset key_size for secure key, assuming datalen is the token's secure key
-     * size */
-    if (isopaque)
-        key_size = data_len;
 
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + key_size);
 
@@ -6011,11 +5906,7 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
         return CKR_HOST_MEMORY;
     }
 
-    if (isopaque)
-        value_attr->type = CKA_IBM_OPAQUE;
-    else
-        value_attr->type = CKA_VALUE;
-
+    value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = key_size;
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
     memcpy(value_attr->pValue, ptr, key_size);
