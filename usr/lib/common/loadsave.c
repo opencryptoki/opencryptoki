@@ -1328,15 +1328,16 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
 {
     CK_RV rc = CKR_OK;
     CK_ULONG key_len = 0L;
-    CK_ULONG master_key_len = 0L;
+    CK_ULONG master_key_len;
+    CK_BYTE *master_key = NULL;
+    CK_BBOOL is_opaque = FALSE;
 
     /* Skip it if master key is not needed. */
     if (!token_specific.data_store.use_master_key)
         return CKR_OK;
 
-    if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK ||
-        (rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-        return ERR_FUNCTION_FAILED;
+    if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     /* For secure key tokens, object encrypt/decrypt uses
      * software(openssl), not token. So generate masterkey via RNG.
@@ -1349,14 +1350,32 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
      */
     switch (token_specific.data_store.encryption_algorithm) {
     case CKM_DES3_CBC:
-        return token_specific.t_des_key_gen(tokdata, key,
-                                            master_key_len, key_len);
+        rc = token_specific.t_des_key_gen(tokdata, &master_key,
+                                          &master_key_len, key_len,
+                                          &is_opaque);
+        break;
     case CKM_AES_CBC:
-        return token_specific.t_aes_key_gen(tokdata, key,
-                                            master_key_len, key_len);
+        rc = token_specific.t_aes_key_gen(tokdata, &master_key,
+                                          &master_key_len, key_len,
+                                          &is_opaque);
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
     }
 
-    return ERR_MECHANISM_INVALID;
+    if (rc != CKR_OK)
+        return rc;
+
+    if (master_key_len != key_len) {
+        TRACE_ERROR("Invalid master key size: %lu\n", master_key_len);
+        free(master_key);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(key, master_key, master_key_len);
+    free(master_key);
+
+    return CKR_OK;
 }
 
 CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,

@@ -3360,12 +3360,11 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     CK_ATTRIBUTE *local_attr = NULL;
     CK_ATTRIBUTE *val_len_attr = NULL;
     CK_BYTE *aes_key = NULL;
-    CK_BYTE dummy_key[AES_KEY_SIZE_256] = { 0, };
     CK_ULONG rc;
     CK_ULONG key_size;
     CK_ULONG token_keysize;
     CK_BBOOL found = FALSE;
-
+    CK_BBOOL is_opaque = FALSE;
 
     found = template_attribute_find(tmpl, CKA_VALUE_LEN, &val_len_attr);
     if (found == FALSE)
@@ -3382,26 +3381,14 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         return CKR_MECHANISM_INVALID;
     }
 
-    if (is_secure_key_token())
-        token_keysize = token_specific.token_keysize;
-    else
-        token_keysize = key_size;
-
-    if ((aes_key = (CK_BYTE *) calloc(1, token_keysize)) == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    rc = token_specific.t_aes_key_gen(tokdata, aes_key, token_keysize,
-                                      key_size);
+    rc = token_specific.t_aes_key_gen(tokdata, &aes_key, &token_keysize,
+                                      key_size, &is_opaque);
 
     if (rc != CKR_OK)
         goto err;
 
-    /* For secure-key keys put in CKA_IBM_OPAQUE
-     * and put dummy_key in CKA_VALUE.
-     */
-    if (is_secure_key_token()) {
+    /* For opaque keys put in CKA_IBM_OPAQUE and put dummy_key in CKA_VALUE. */
+    if (is_opaque) {
         opaque_attr =
             (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + token_keysize);
         if (!opaque_attr) {
@@ -3414,6 +3401,11 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         opaque_attr->pValue = (CK_BYTE *) opaque_attr + sizeof(CK_ATTRIBUTE);
         memcpy(opaque_attr->pValue, aes_key, token_keysize);
         template_update_attribute(tmpl, opaque_attr);
+    } else {
+        if (token_keysize != key_size) {
+            TRACE_ERROR("Invalid key size: %lu\n", token_keysize);
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + key_size);
@@ -3442,8 +3434,8 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = key_size;
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-    if (is_secure_key_token())
-        memcpy(value_attr->pValue, dummy_key, key_size);
+    if (is_opaque)
+        memset(value_attr->pValue, 0, key_size);
     else
         memcpy(value_attr->pValue, aes_key, key_size);
     free(aes_key);

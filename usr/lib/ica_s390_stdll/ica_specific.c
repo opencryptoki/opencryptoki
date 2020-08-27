@@ -360,22 +360,27 @@ static void adjust_des_key_parity_bits(CK_BYTE *des_key, CK_ULONG key_size,
     }
 }
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *des_key,
-                                 CK_ULONG len, CK_ULONG keysize)
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
+                                 CK_ULONG *len, CK_ULONG keysize,
+                                 CK_BBOOL *is_opaque)
 {
-    UNUSED(keysize);
+    *des_key = malloc(keysize);
+    if (*des_key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = keysize;
+    *is_opaque = FALSE;
 
     // Nothing different to do for DES or TDES here as this is just
     // random data...  Validation handles the rest
     // Only check for weak keys when DES.
-    if (len == (3 * DES_KEY_SIZE)) {
-        rng_generate(tokdata, des_key, len);
-        adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
+    if (keysize == (3 * DES_KEY_SIZE)) {
+        rng_generate(tokdata, *des_key, keysize);
+        adjust_des_key_parity_bits(*des_key, keysize, ODD_PARITY);
     } else {
         do {
-            rng_generate(tokdata, des_key, len);
-            adjust_des_key_parity_bits(des_key, len, ODD_PARITY);
-        } while (des_check_weak_key(des_key) == TRUE);
+            rng_generate(tokdata, *des_key, keysize);
+            adjust_des_key_parity_bits(*des_key, keysize, ODD_PARITY);
+        } while (des_check_weak_key(*des_key) == TRUE);
     }
 
 
@@ -2861,12 +2866,17 @@ done:
 
 #ifndef NOAES
 
-CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE *key,
-                                 CK_ULONG len, CK_ULONG keysize)
+CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
+                                 CK_ULONG *len, CK_ULONG keysize,
+                                 CK_BBOOL *is_opaque)
 {
-    UNUSED(keysize);
+    *key = malloc(keysize);
+    if (*key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = keysize;
+    *is_opaque = FALSE;
 
-    return rng_generate(tokdata, key, len);
+    return rng_generate(tokdata, *key, keysize);
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,

@@ -1225,33 +1225,22 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     CK_ATTRIBUTE *class_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
     CK_BYTE *des_key = NULL;
-    CK_BYTE dummy_key[DES_KEY_SIZE] = { 0, };
     CK_ULONG rc;
-    CK_ULONG keysize;
+    CK_ULONG keysize = 0;
+    CK_BBOOL is_opaque = FALSE;
 
     if (token_specific.t_des_key_gen == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }
 
-    if (is_secure_key_token())
-        keysize = token_specific.token_keysize;
-    else
-        keysize = DES_KEY_SIZE;
-
-    if ((des_key = (CK_BYTE *) calloc(1, keysize)) == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    rc = token_specific.t_des_key_gen(tokdata, des_key, keysize, DES_KEY_SIZE);
+    rc = token_specific.t_des_key_gen(tokdata, &des_key, &keysize,
+                                      DES_KEY_SIZE, &is_opaque);
     if (rc != CKR_OK)
         goto err;
 
-    /* For secure-key keys put in CKA_IBM_OPAQUE
-     * and put dummy_key in CKA_VALUE.
-     */
-    if (is_secure_key_token()) {
+    /* For opaque keys put in CKA_IBM_OPAQUE and put dummy_key in CKA_VALUE. */
+    if (is_opaque) {
         opaque_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + keysize);
         if (!opaque_attr) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -1263,6 +1252,11 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         opaque_attr->pValue = (CK_BYTE *) opaque_attr + sizeof(CK_ATTRIBUTE);
         memcpy(opaque_attr->pValue, des_key, keysize);
         template_update_attribute(tmpl, opaque_attr);
+    } else {
+        if (keysize != DES_KEY_SIZE) {
+            TRACE_ERROR("Invalid key size: %lu\n", keysize);
+            return CKR_FUNCTION_FAILED;
+        }
     }
 
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + DES_KEY_SIZE);
@@ -1291,8 +1285,8 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     value_attr->type = CKA_VALUE;
     value_attr->ulValueLen = DES_KEY_SIZE;
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
-    if (is_secure_key_token())
-        memcpy(value_attr->pValue, dummy_key, DES_KEY_SIZE);
+    if (is_opaque)
+        memset(value_attr->pValue, 0, DES_KEY_SIZE);
     else
         memcpy(value_attr->pValue, des_key, DES_KEY_SIZE);
     free(des_key);
