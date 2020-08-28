@@ -283,8 +283,7 @@ void final_data_store(STDLL_TokData_t * tokdata)
  * tokversion < 3.12 object store
  */
 
-static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
-                                               CK_ULONG *p_block_size)
+static CK_RV get_encryption_info(CK_ULONG *p_key_len, CK_ULONG *p_block_size)
 {
     CK_ULONG key_len = 0L;
     CK_ULONG block_size = 0L;
@@ -307,25 +306,6 @@ static CK_RV get_encryption_info_for_clear_key(CK_ULONG *p_key_len,
         *p_key_len = key_len;
     if (p_block_size)
         *p_block_size = block_size;
-
-    return CKR_OK;
-}
-
-static CK_RV get_encryption_info(CK_ULONG *p_key_len, CK_ULONG *p_block_size)
-{
-    CK_RV rc;
-
-    rc = get_encryption_info_for_clear_key(p_key_len, p_block_size);
-    if (rc != CKR_OK)
-        return rc;
-
-    /* Tokens that use a secure key have a different size for key because
-     * it's just an indentifier not a real key.
-     */
-    if (is_secure_key_token()) {
-        if (p_key_len)
-            *p_key_len = token_specific.token_keysize;
-    }
 
     return CKR_OK;
 }
@@ -954,19 +934,43 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     CK_ULONG key_len = 0L;
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
+    struct stat sb;
 
-    if ((rc = get_encryption_info_for_clear_key(&key_len,
-                                                &block_size)) != CKR_OK)
+    if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
         goto done;
 
-    if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-        goto done;
-
+    master_key_len = key_len;
     memset(tokdata->master_key, 0x0, master_key_len);
 
     data_len = master_key_len + SHA1_HASH_SIZE;
     clear_len = cipher_len = (data_len + block_size - 1)
         & ~(block_size - 1);
+
+    sprintf(fname, "%s/MK_SO", tokdata->data_store);
+    if (stat(fname, &sb) != 0) {
+        TRACE_ERROR("stat(%s): %s\n", fname, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if ((CK_ULONG)sb.st_size > cipher_len &&
+        token_specific.secure_key_token &&
+        strcmp(token_specific.token_subdir, "ccatok") == 0) {
+        /*
+         * The CCA token used to have a secure master key length of 64, although
+         * it uses clear keys for the master key in the meantime. The master key
+         * length  has an influence on the file size of the MK_SO and MK_USER
+         * files when using the old pin encryption format. Use special handling
+         * for such larger MK_SO files, and accept the larger length. Newly
+         * written MK_SO files will use the clear key master key length, but we
+         * need to be able to read larger files for backwards compatibility.
+         */
+        master_key_len = 64;
+
+        data_len = master_key_len + SHA1_HASH_SIZE;
+        clear_len = cipher_len = (data_len + block_size - 1)
+             & ~(block_size - 1);
+    }
 
     key = malloc(key_len);
     cipher = malloc(cipher_len);
@@ -978,7 +982,6 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     // this file gets created on C_InitToken so we can assume that it always
     // exists
     //
-    sprintf(fname, "%s/MK_SO", tokdata->data_store);
     fp = fopen(fname, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1057,19 +1060,43 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
     CK_ULONG key_len = 0L;
     CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
+    struct stat sb;
 
-    if ((rc =
-         get_encryption_info_for_clear_key(&key_len, &block_size)) != CKR_OK)
+    if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
         goto done;
 
-    if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-        goto done;
-
+    master_key_len = key_len;
     memset(tokdata->master_key, 0x0, master_key_len);
 
     data_len = master_key_len + SHA1_HASH_SIZE;
     clear_len = cipher_len = (data_len + block_size - 1)
         & ~(block_size - 1);
+
+    sprintf(fname, "%s/MK_USER", tokdata->data_store);
+    if (stat(fname, &sb) != 0) {
+        TRACE_ERROR("stat(%s): %s\n", fname, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if ((CK_ULONG)sb.st_size > cipher_len &&
+        token_specific.secure_key_token &&
+        strcmp(token_specific.token_subdir, "ccatok") == 0) {
+        /*
+         * The CCA token used to have a secure master key length of 64, although
+         * it uses clear keys for the master key in the meantime. The master key
+         * length  has an influence on the file size of the MK_SO and MK_USER
+         * files when using the old pin encryption format. Use special handling
+         * for such larger MK_USER files, and accept the larger length. Newly
+         * written MK_USER files will use the clear key master key length, but
+         * we need to be able to read larger files for backwards compatibility.
+         */
+        master_key_len = 64;
+
+        data_len = master_key_len + SHA1_HASH_SIZE;
+        clear_len = cipher_len = (data_len + block_size - 1)
+             & ~(block_size - 1);
+    }
 
     key = malloc(key_len);
     cipher = malloc(cipher_len);
@@ -1155,7 +1182,6 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
     CK_ULONG cipher_len = 0L;
     CK_BYTE *key = NULL;
     CK_ULONG key_len = 0L;
-    CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
     CK_ULONG data_len = 0L;
     char fname[PATH_MAX];
@@ -1165,14 +1191,10 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
     if (!token_specific.data_store.use_master_key)
         return CKR_OK;
 
-    if ((rc = get_encryption_info_for_clear_key(&key_len,
-                                                &block_size)) != CKR_OK)
+    if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
         goto done;
 
-    if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-        goto done;
-
-    data_len = master_key_len + SHA1_HASH_SIZE;
+    data_len = key_len + SHA1_HASH_SIZE;
     cipher_len = clear_len = block_size * (data_len / block_size + 1);
 
     key = malloc(key_len);
@@ -1184,9 +1206,9 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
         goto done;
     }
     // Copy data to buffer (key+hash)
-    memcpy(clear, tokdata->master_key, master_key_len);
+    memcpy(clear, tokdata->master_key, key_len);
     if ((rc = compute_sha1(tokdata, tokdata->master_key,
-                           master_key_len, clear + master_key_len)) != CKR_OK)
+                           key_len, clear + key_len)) != CKR_OK)
         goto done;
     add_pkcs_padding(clear + data_len, block_size, data_len, clear_len);
 
@@ -1247,20 +1269,15 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
     CK_ULONG cipher_len = 0L;
     CK_BYTE *key = NULL;
     CK_ULONG key_len = 0L;
-    CK_ULONG master_key_len = 0L;
     CK_ULONG block_size = 0L;
     CK_ULONG data_len = 0L;
     char fname[PATH_MAX];
     CK_RV rc;
 
-    if ((rc = get_encryption_info_for_clear_key(&key_len,
-                                                &block_size)) != CKR_OK)
+    if ((rc = get_encryption_info(&key_len, &block_size)) != CKR_OK)
         goto done;
 
-    if ((rc = get_encryption_info(&master_key_len, NULL)) != CKR_OK)
-        goto done;
-
-    data_len = master_key_len + SHA1_HASH_SIZE;
+    data_len = key_len + SHA1_HASH_SIZE;
     cipher_len = clear_len = block_size * (data_len / block_size + 1);
 
     key = malloc(key_len);
@@ -1272,9 +1289,9 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
         goto done;
     }
     // Copy data to buffer (key+hash)
-    memcpy(clear, tokdata->master_key, master_key_len);
+    memcpy(clear, tokdata->master_key, key_len);
     if ((rc = compute_sha1(tokdata, tokdata->master_key,
-                           master_key_len, clear + master_key_len)) != CKR_OK)
+                           key_len, clear + key_len)) != CKR_OK)
         goto done;
     add_pkcs_padding(clear + data_len, block_size, data_len, clear_len);
 
@@ -1336,7 +1353,7 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     if (!token_specific.data_store.use_master_key)
         return CKR_OK;
 
-    if ((rc = get_encryption_info_for_clear_key(&key_len, NULL)) != CKR_OK)
+    if ((rc = get_encryption_info(&key_len, NULL)) != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
     /* For secure key tokens, object encrypt/decrypt uses
