@@ -830,7 +830,8 @@ int is_icsf_token(CK_SLOT_ID slot_id)
     if ((strstr((const char *) tokinfo.model, "ICA") == NULL) &&
         (strstr((const char *) tokinfo.model, "EP11") == NULL) &&
         (strstr((const char *) tokinfo.model, "CCA") == NULL) &&
-        (strstr((const char *) tokinfo.model, "Soft") == NULL))
+        (strstr((const char *) tokinfo.model, "Soft") == NULL) &&
+        (strstr((const char *) tokinfo.model, "TPM") == NULL))
         return TRUE;
 
     return FALSE;
