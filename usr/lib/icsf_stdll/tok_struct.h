@@ -32,8 +32,7 @@
 token_spec_t token_specific = {
     ICSF_CONFIG_PATH,
     "icsf",
-    // Key token size (0 is default)
-    0,
+    FALSE,
     // Token data info:
     {
         FALSE,             // Don't use per guest data store

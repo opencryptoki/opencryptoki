@@ -2754,8 +2754,6 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 
-CK_BBOOL is_secure_key_token();
-
 
 /* CKA_HIDDEN will be used to filter return results on a C_FindObjects call.
  * Used for objects internal to a token for management of that token */

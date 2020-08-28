@@ -410,7 +410,7 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    if (!is_secure_key_token() &&
+    if (!token_specific.secure_key_token &&
         token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
         return encrypt_data(tokdata, key, keylen, iv, clear, clear_len,
                             cipher, p_cipher_len);
@@ -526,7 +526,7 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    if (!is_secure_key_token() &&
+    if (!token_specific.secure_key_token &&
         token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
         return decrypt_data(tokdata, key, keylen, iv, cipher,
                             cipher_len, clear, p_clear_len);
@@ -1359,7 +1359,7 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     /* For secure key tokens, object encrypt/decrypt uses
      * software(openssl), not token. So generate masterkey via RNG.
      */
-    if (is_secure_key_token())
+    if (token_specific.secure_key_token)
         return rng_generate(tokdata, key, key_len);
 
     /* For clear key tokens, let token generate masterkey

@@ -51,7 +51,7 @@
 token_spec_t token_specific = {
     SW_CONFIG_PATH,
     "swtok",
-    0,                          // keysize
+    FALSE,
     // Token data info:
     {
         FALSE,                     // Don't use per guest data store

@@ -30,8 +30,8 @@ struct token_specific_struct {
     // Subdirectory
     char token_subdir[PATH_MAX];
 
-    // Set to keysize for secure key tokens
-    int token_keysize;
+    // Specifies if the token is using secure keys
+    CK_BBOOL secure_key_token;
 
     // Information about how token's data should be stored.
     struct {

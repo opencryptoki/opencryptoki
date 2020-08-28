@@ -29,7 +29,7 @@
 token_spec_t token_specific = {
     LITE_CONFIG_PATH,
     "lite",
-    0,                          // keysize
+    FALSE,
     // Token data info:
     {
         FALSE,                     // Don't use per guest data store
