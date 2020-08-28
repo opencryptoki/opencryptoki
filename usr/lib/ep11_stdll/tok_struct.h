@@ -40,7 +40,7 @@
 token_spec_t token_specific = {
     SW_CONFIG_PATH,
     "ep11tok",
-    24,                         // keysize
+    TRUE,                          // secure key token
     // Token data info:
     {
         FALSE,                     // Don't use per guest data store

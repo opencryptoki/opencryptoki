@@ -23,7 +23,7 @@
 struct token_specific_struct token_specific = {
     TPM_CONFIG_PATH,
     "tpm",
-    0,
+    TRUE,
     // Token data info:
     {
         TRUE,                      // Use per guest data store

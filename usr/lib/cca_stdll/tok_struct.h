@@ -32,7 +32,7 @@
 token_spec_t token_specific = {
     CCA_CONFIG_PATH,
     "ccatok",
-    64,
+    TRUE,
     // Token data info:
     {
         FALSE,                     // Don't use per guest data store

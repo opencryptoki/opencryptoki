@@ -1203,10 +1203,3 @@ void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
     pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
 }
 
-CK_BBOOL is_secure_key_token()
-{
-    /*
-     * If token has a specific key size that means that it uses secure keys.
-     */
-    return token_specific.token_keysize > 0 ? TRUE : FALSE;
-}
