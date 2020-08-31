@@ -4033,3 +4033,156 @@ CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
     /* do nothing. */
     return CKR_OK;
 }
+
+CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
+                              CK_MECHANISM *mech, CK_BBOOL length_only,
+                              OBJECT *wrapping_key, OBJECT *key,
+                              CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
+                              CK_BBOOL *not_opaque)
+{
+    CK_ATTRIBUTE *attr;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+
+    UNUSED(tokdata);
+    UNUSED(session);
+    UNUSED(length_only);
+    UNUSED(wrapped_key);
+    UNUSED(wrapped_key_len);
+
+    if (!template_attribute_find(wrapping_key->template, CKA_CLASS, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (class != CKO_SECRET_KEY)
+        return CKR_KEY_NOT_WRAPPABLE;
+
+    if (!template_attribute_find(key->template, CKA_CLASS, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (class != CKO_SECRET_KEY)
+        return CKR_KEY_NOT_WRAPPABLE;
+
+    if (!template_attribute_find(wrapping_key->template, CKA_KEY_TYPE, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (mech->mechanism) {
+    case CKM_DES_ECB:
+    case CKM_DES_CBC:
+    case CKM_DES_CBC_PAD:
+        if (keytype != CKK_DES)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    case CKM_DES3_ECB:
+    case CKM_DES3_CBC:
+    case CKM_DES3_CBC_PAD:
+        if (keytype != CKK_DES2 && keytype != CKK_DES3)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    case CKM_AES_ECB:
+    case CKM_AES_CBC:
+    case CKM_AES_CBC_PAD:
+        if (keytype != CKK_AES)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    default:
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+
+    if (!template_attribute_find(key->template, CKA_KEY_TYPE, &attr))
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (keytype) {
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_GENERIC_SECRET:
+        break;
+    default:
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+
+    /* Symmetric keys are not opaque, so we can let common code do the wrap */
+    *not_opaque = TRUE;
+    return CKR_OK;
+}
+
+CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *wrapped_key, CK_ULONG wrapped_key_len,
+                                OBJECT *unwrapping_key, OBJECT *unwrapped_key,
+                                CK_BBOOL *not_opaque)
+{
+    CK_ATTRIBUTE *attr;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+
+    UNUSED(tokdata);
+    UNUSED(session);
+    UNUSED(wrapped_key);
+    UNUSED(wrapped_key_len);
+
+    if (!template_attribute_find(unwrapping_key->template, CKA_CLASS, &attr))
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (class != CKO_SECRET_KEY)
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+
+    if (!template_attribute_find(unwrapped_key->template, CKA_CLASS, &attr))
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (class != CKO_SECRET_KEY)
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+
+    if (!template_attribute_find(unwrapping_key->template, CKA_KEY_TYPE, &attr))
+            return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (mech->mechanism) {
+    case CKM_DES_ECB:
+    case CKM_DES_CBC:
+    case CKM_DES_CBC_PAD:
+        if (keytype != CKK_DES)
+            return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    case CKM_DES3_ECB:
+    case CKM_DES3_CBC:
+    case CKM_DES3_CBC_PAD:
+        if (keytype != CKK_DES2 && keytype != CKK_DES3)
+            return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    case CKM_AES_ECB:
+    case CKM_AES_CBC:
+    case CKM_AES_CBC_PAD:
+        if (keytype != CKK_AES)
+            return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+        break;
+    default:
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    }
+
+    if (!template_attribute_find(unwrapped_key->template, CKA_KEY_TYPE, &attr))
+            return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (keytype) {
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_AES:
+    case CKK_GENERIC_SECRET:
+        break;
+    default:
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    }
+
+    /* Symmetric keys are not opaque, so we can let common code do the unwrap */
+    *not_opaque = TRUE;
+    return CKR_OK;
+}
