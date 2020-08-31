@@ -141,7 +141,9 @@ token_spec_t token_specific = {
     NULL,                       // dsa_verify
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
-    NULL                        // object_add
+    NULL,                       // object_add
+    NULL,                       // key_wrap
+    NULL,                       // key_unwrap
 };
 
 #endif

@@ -263,6 +263,11 @@ struct token_specific_struct {
 
     CK_RV(*t_object_add) (STDLL_TokData_t *, SESSION *, OBJECT *);
 
+    CK_RV(*t_key_wrap) (STDLL_TokData_t *, SESSION *, CK_MECHANISM *, CK_BBOOL,
+                        OBJECT *, OBJECT *, CK_BYTE *, CK_ULONG *, CK_BBOOL *);
+
+    CK_RV(*t_key_unwrap) (STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
+                          CK_BYTE *, CK_ULONG, OBJECT *, OBJECT *, CK_BBOOL *);
 };
 
 typedef struct token_specific_struct token_spec_t;
