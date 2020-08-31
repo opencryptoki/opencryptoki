@@ -129,8 +129,8 @@ token_spec_t token_specific = {
     &token_specific_get_mechanism_list,
     &token_specific_get_mechanism_info,
     &token_specific_object_add,
-    NULL,                       // key_wrap
-    NULL,                       // key_unwrap
+    &token_specific_key_wrap,
+    &token_specific_key_unwrap,
 };
 
 #endif
