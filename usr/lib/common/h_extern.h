@@ -57,6 +57,8 @@ extern const CK_BYTE ber_idDH[];
 extern const CK_ULONG ber_idDHLen;
 extern const CK_BYTE ber_idEC[];
 extern const CK_ULONG ber_idECLen;
+extern const CK_BYTE ber_idDilithium[];
+extern const CK_ULONG ber_idDilithiumLen;
 
 extern const CK_BYTE ber_md2WithRSAEncryption[];
 extern const CK_ULONG ber_md2WithRSAEncryptionLen;
