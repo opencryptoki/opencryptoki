@@ -126,6 +126,22 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                               "be used with publ_exp.='%s'", s);
                 continue;
             }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 &&
+                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
+                 testcase_skip("CCA Token cannot use RSA OAEP with a hash "
+                              "algorithm other than SHA1 and SHA256");
+                 continue;
+             }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                 tsuite->tv[i].oaep_params.source == CKZ_DATA_SPECIFIED &&
+                 tsuite->tv[i].oaep_params.ulSourceDataLen > 0) {
+                 testcase_skip("CCA Token cannot use RSA OAEP with non empty "
+                               "source data");
+                 continue;
+             }
         }
         // tpm special cases:
         // tpm token can only use public exponent 0x010001 (65537)
@@ -913,6 +929,14 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
             continue;
         }
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+                                     tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                continue;
+            }
+        }
         // free memory
         free(s);
 
@@ -1138,6 +1162,44 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+        if (is_tpm_token(slot_id)) {
+            if ((!is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) ||
+                (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
+                testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'",
+                              s);
+                continue;
+           }
+        }
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+                                     tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                continue;
+            }
+
+            if (tsuite->tv[i].keytype.mechanism == CKM_GENERIC_SECRET_KEY_GEN) {
+                testcase_skip("CCA Token cannot wrap CKK_GENERIC_SECRET keys");
+                continue;
+            }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                tsuite->tv[i].oaep_params.hashAlg != CKM_SHA_1 &&
+                tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
+                testcase_skip("CCA Token cannot use RSA OAEP with a hash "
+                             "algorithm other than SHA1 and SHA256");
+                continue;
+            }
+
+            if (tsuite->mech.mechanism == CKM_RSA_PKCS_OAEP &&
+                 tsuite->tv[i].oaep_params.source == CKZ_DATA_SPECIFIED &&
+                 tsuite->tv[i].oaep_params.ulSourceDataLen > 0) {
+                 testcase_skip("CCA Token cannot use RSA OAEP with non empty "
+                               "source data");
+                 continue;
+             }
+        }
 
         // begin test
         testcase_begin("%s Wrap Unwrap with test vector %d, "
@@ -1198,22 +1260,33 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
          *       by default. So they will not be included in second
          *       assertion.
          */
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
         if (keygen_mech.mechanism != CKM_GENERIC_SECRET_KEY_GEN) {
             switch (keygen_mech.mechanism) {
             case CKM_AES_KEY_GEN:
-                mech.mechanism = CKM_AES_ECB;
+                mech.mechanism = CKM_AES_CBC;
+                mech.ulParameterLen = AES_IV_SIZE;
+                mech.pParameter = &aes_iv;
                 key_type = CKK_AES;
                 break;
             case CKM_DES3_KEY_GEN:
-                mech.mechanism = CKM_DES3_ECB;
+                mech.mechanism = CKM_DES3_CBC;
+                mech.ulParameterLen = DES_IV_SIZE;
+                mech.pParameter = &des_iv;
                 key_type = CKK_DES3;
                 break;
             case CKM_DES_KEY_GEN:
-                mech.mechanism = CKM_DES_ECB;
+                mech.mechanism = CKM_DES_CBC;
+                mech.ulParameterLen = DES_IV_SIZE;
+                mech.pParameter = &des_iv;
                 key_type = CKK_DES;
                 break;
             case CKM_CDMF_KEY_GEN:
-                mech.mechanism = CKM_CDMF_ECB;
+                mech.mechanism = CKM_CDMF_CBC;
+                mech.ulParameterLen = DES_IV_SIZE;
+                mech.pParameter = &des_iv;
                 key_type = CKK_CDMF;
                 break;
             default:
@@ -1221,8 +1294,13 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 goto error;
             }
 
-            mech.ulParameterLen = 0;
-            mech.pParameter = NULL;
+            if (!mech_supported(slot_id, mech.mechanism)) {
+                testcase_skip("Slot %u doesn't support %s (%u)",
+                              (unsigned int) slot_id,
+                              mech_to_str(mech.mechanism),
+                              (unsigned int)mech.mechanism);
+                goto tv_cleanup;
+            }
 
             rc = funcs->C_EncryptInit(session, &mech, secret_key);
             if (rc != CKR_OK) {
@@ -1460,6 +1538,16 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
+                                     tsuite->tv[i].pubexp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with this test vector.");
+                continue;
+            }
+        }
+
         // clear buffers
         memset(message, 0, MAX_MESSAGE_SIZE);
         memset(actual, 0, MAX_SIGNATURE_SIZE);
@@ -1620,6 +1708,16 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
+                                     tsuite->tv[i].pubexp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with this test vector.");
+                continue;
+            }
+        }
+
         // clear buffers
         memset(message, 0, MAX_MESSAGE_SIZE);
         memset(signature, 0, MAX_SIGNATURE_SIZE);

@@ -359,6 +359,16 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
+                                     tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                continue;
+            }
+        }
+
         // free memory
         free(s);
 
@@ -619,6 +629,16 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 continue;
             }
         }
+
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
+                                     tsuite->tv[i].pubexp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                continue;
+            }
+        }
+
         // free memory
         free(s);
 
@@ -810,6 +830,15 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
                 testcase_skip("TPM Token cannot "
                               "be used with pub_exp='%s'.", s);
+                continue;
+            }
+        }
+
+        if (is_cca_token(slot_id)) {
+            if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
+                                     tsuite->tv[i].pubexp_len)) {
+                testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
                 continue;
             }
         }
