@@ -305,4 +305,12 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *,
 
 CK_RV token_specific_object_add(STDLL_TokData_t *, SESSION *, OBJECT *);
 
+CK_RV token_specific_key_wrap(STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
+                              CK_BBOOL, OBJECT *, OBJECT *, CK_BYTE *,
+                              CK_ULONG *, CK_BBOOL *);
+
+CK_RV token_specific_key_unwrap(STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
+                                CK_BYTE *, CK_ULONG, OBJECT *, OBJECT *,
+                                CK_BBOOL *);
+
 #endif
