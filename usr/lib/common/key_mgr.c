@@ -1118,6 +1118,22 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
             return CKR_OK;
         }
     }
+    // Check only the OBJECT IDENTIFIER for DH
+    //
+    if (alg_len >= ber_idDHLen) {
+        if (memcmp(alg, ber_idDH, ber_idDHLen) == 0) {
+            *keytype = CKK_DH;
+            return CKR_OK;
+        }
+    }
+    // Check only the OBJECT IDENTIFIER for DILITHIUM
+    //
+    if (alg_len >= ber_idDilithiumLen) {
+        if (memcmp(alg, ber_idDilithium, ber_idDilithiumLen) == 0) {
+            *keytype = CKK_IBM_PQC_DILITHIUM;
+            return CKR_OK;
+        }
+    }
 
     TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
     return CKR_TEMPLATE_INCOMPLETE;
