@@ -172,7 +172,7 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_DES3_KEY_GEN, {24, 24, CKF_HW | CKF_GENERATE}},
     {CKM_RSA_PKCS_KEY_PAIR_GEN, {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}},
     {CKM_RSA_PKCS, {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_SIGN |
-                    CKF_VERIFY}},
+                    CKF_VERIFY | CKF_WRAP | CKF_UNWRAP}},
     {CKM_MD5_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -3814,4 +3814,375 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     }
 
     return CKR_OK;
+}
+
+static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
+                                      OBJECT *wrapping_key, OBJECT *key,
+                                      CK_BYTE *wrapped_key,
+                                      CK_ULONG *wrapped_key_len)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    CK_BYTE buffer[900] = { 0, };
+    long buffer_len = sizeof(buffer);
+    CK_ATTRIBUTE *attr, *key_opaque, *wrap_key_opaque;
+    CK_OBJECT_CLASS key_class;
+    CK_KEY_TYPE key_type;
+
+    if (!template_attribute_find(key->template, CKA_CLASS, &attr))
+         return CKR_KEY_NOT_WRAPPABLE;
+    key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (key_class != CKO_SECRET_KEY)
+        return CKR_KEY_NOT_WRAPPABLE;
+
+    if (!template_attribute_find(key->template, CKA_KEY_TYPE, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    key_type = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (key_type) {
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+        rule_array_count = 2;
+        switch (mech->mechanism) {
+        case CKM_RSA_PKCS:
+            memcpy(rule_array, "DES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        default:
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+    case CKK_AES:
+        rule_array_count = 2;
+        switch (mech->mechanism) {
+        case CKM_RSA_PKCS:
+            memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        default:
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+    default:
+        return CKR_KEY_NOT_WRAPPABLE;
+    }
+
+    if (!template_attribute_find(key->template, CKA_IBM_OPAQUE, &key_opaque))
+        return CKR_KEY_NOT_WRAPPABLE;
+
+    if (!template_attribute_find(wrapping_key->template, CKA_IBM_OPAQUE,
+                                 &wrap_key_opaque))
+        return CKR_KEY_NOT_WRAPPABLE;
+
+    dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                rule_array, (long *)&key_opaque->ulValueLen,
+                key_opaque->pValue, (long *)&wrap_key_opaque->ulValueLen,
+                wrap_key_opaque->pValue, &buffer_len, buffer);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDSYX (SYMMETRIC KEY EXPORT) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (length_only) {
+        *wrapped_key_len = buffer_len;
+        return CKR_OK;
+    }
+
+    if ((CK_ULONG)buffer_len > *wrapped_key_len) {
+        *wrapped_key_len = buffer_len;
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(wrapped_key, buffer, buffer_len);
+    *wrapped_key_len = buffer_len;
+
+    return CKR_OK;
+}
+
+static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
+                                        OBJECT *wrapping_key, OBJECT *key,
+                                        CK_BYTE *wrapped_key,
+                                        CK_ULONG wrapped_key_len)
+{
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    CK_BYTE buffer[3500] = { 0, };
+    CK_BYTE dummy[AES_KEY_SIZE_256] = { 0, };
+    long buffer_len = sizeof(buffer);
+    CK_ATTRIBUTE *attr, *wrap_key_opaque,*key_opaque = NULL;
+    CK_ATTRIBUTE *value = NULL, *value_len = NULL;
+    CK_OBJECT_CLASS key_class;
+    CK_KEY_TYPE key_type, cca_key_type;
+    CK_ULONG key_size = 0;
+    uint16_t val;
+    CK_RV rc;
+
+    if (!template_attribute_find(key->template, CKA_CLASS, &attr))
+         return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (key_class != CKO_SECRET_KEY)
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+
+    if (!template_attribute_find(key->template, CKA_KEY_TYPE, &attr))
+        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
+    key_type = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (key_type) {
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+        rule_array_count = 2;
+        switch (mech->mechanism) {
+        case CKM_RSA_PKCS:
+            memcpy(rule_array, "DES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        default:
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+    case CKK_AES:
+        rule_array_count = 2;
+        switch (mech->mechanism) {
+        case CKM_RSA_PKCS:
+            memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        default:
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
+    default:
+        return CKR_WRAPPED_KEY_INVALID;
+    }
+
+    if (!template_attribute_find(wrapping_key->template, CKA_IBM_OPAQUE,
+                                 &wrap_key_opaque))
+        return CKR_TEMPLATE_INCONSISTENT;
+
+    dll_CSNDSYI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                rule_array, (long *)&wrapped_key_len, wrapped_key,
+                (long *)&wrap_key_opaque->ulValueLen, wrap_key_opaque->pValue,
+                &buffer_len, buffer);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDSYI (SYMMETRIC KEY IMPORT) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (buffer[0] != 0x01) { /* Internal key token */
+        TRACE_DEVEL("key token invalid\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (buffer[4]) {
+    case 0x00: /* DES key token */
+    case 0x01: /* DES3 key token */
+        switch (buffer[59] & 0x30) {
+        case 0x00:
+            cca_key_type = CKK_DES;
+            key_size = DES_KEY_SIZE;
+            break;
+        case 0x10:
+            cca_key_type = CKK_DES2;
+            key_size = 2 * DES_KEY_SIZE;
+            break;
+        case 0x20:
+            cca_key_type = CKK_DES3;
+            key_size = 3 * DES_KEY_SIZE;
+            break;
+        default:
+            TRACE_DEVEL("key token invalid\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        break;
+    case 0x04:/* AES key token */
+        cca_key_type = CKK_AES;
+        memcpy(&val, &buffer[56], sizeof(val));
+        key_size = ntohs(val) / 8;
+        break;
+    default:
+        TRACE_DEVEL("key token invalid\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (key_type != cca_key_type) {
+        TRACE_DEVEL("Wrong key type\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE, buffer, buffer_len, &key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+
+    rc = build_attribute(CKA_VALUE, dummy, key_size, &value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    switch (key_type) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&key_size,
+                             sizeof(CK_ULONG), &value_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+        }
+        break;
+    default:
+        break;
+    }
+
+    template_update_attribute(key->template, key_opaque);
+    template_update_attribute(key->template, value);
+    if (value_len != NULL)
+        template_update_attribute(key->template, value_len);
+
+    return CKR_OK;
+
+error:
+    if (key_opaque)
+        free(key_opaque);
+    if (value)
+        free(value);
+    if (value_len)
+        free(value_len);
+
+    return rc;
+}
+
+CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
+                              CK_MECHANISM *mech, CK_BBOOL length_only,
+                              OBJECT *wrapping_key, OBJECT *key,
+                              CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
+                              CK_BBOOL *not_opaque)
+{
+    CK_ATTRIBUTE *attr;
+    CK_OBJECT_CLASS wrap_key_class;
+    CK_KEY_TYPE wrap_key_type;
+
+    UNUSED(tokdata);
+    UNUSED(session);
+
+    *not_opaque = FALSE;
+
+    if (!template_attribute_find(wrapping_key->template, CKA_CLASS, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    wrap_key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (!template_attribute_find(wrapping_key->template, CKA_KEY_TYPE, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    wrap_key_type = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (mech->mechanism) {
+    case CKM_RSA_PKCS:
+        if (wrap_key_class != CKO_PUBLIC_KEY && wrap_key_type != CKK_RSA)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+
+        return ccatok_wrap_key_rsa_pkcs(mech, length_only, wrapping_key, key,
+                                        wrapped_key, wrapped_key_len);
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+ }
+
+CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
+                                CK_MECHANISM *mech,
+                                CK_BYTE *wrapped_key, CK_ULONG wrapped_key_len,
+                                OBJECT *unwrapping_key, OBJECT *unwrapped_key,
+                                CK_BBOOL *not_opaque)
+{
+    CK_ATTRIBUTE *attr;
+    CK_ATTRIBUTE *local = NULL, *always_sens = NULL, *sensitive = NULL;
+    CK_ATTRIBUTE *extractable = NULL, *never_extract = NULL;
+    CK_OBJECT_CLASS unwrap_key_class;
+    CK_KEY_TYPE unwrap_keytype;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL false = FALSE;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(session);
+
+    *not_opaque = FALSE;
+
+    if (!template_attribute_find(unwrapping_key->template, CKA_CLASS, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    unwrap_key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+
+    if (!template_attribute_find(unwrapping_key->template, CKA_KEY_TYPE, &attr))
+        return CKR_KEY_NOT_WRAPPABLE;
+    unwrap_keytype = *(CK_KEY_TYPE *) attr->pValue;
+
+    switch (mech->mechanism) {
+    case CKM_RSA_PKCS:
+        if (unwrap_key_class != CKO_PRIVATE_KEY && unwrap_keytype != CKK_RSA)
+            return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
+
+        rc = ccatok_unwrap_key_rsa_pkcs(mech, unwrapping_key, unwrapped_key,
+                                        wrapped_key, wrapped_key_len);
+        if (rc != CKR_OK)
+            goto error;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    /*
+     * make sure
+     *   CKA_LOCAL             == FALSE
+     *    CKA_ALWAYS_SENSITIVE  == FALSE
+     *    CKA_EXTRACTABLE       == TRUE
+     *    CKA_NEVER_EXTRACTABLE == FALSE
+     */
+    rc = build_attribute(CKA_LOCAL, &false, 1, &local);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build attribute failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &false, 1, &always_sens);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build attribute failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_SENSITIVE, &false, 1, &sensitive);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_EXTRACTABLE, &true, 1, &extractable);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &false, 1, &never_extract);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+
+    template_update_attribute(unwrapped_key->template, local);
+    template_update_attribute(unwrapped_key->template, always_sens);
+    template_update_attribute(unwrapped_key->template, sensitive);
+    template_update_attribute(unwrapped_key->template, extractable);
+    template_update_attribute(unwrapped_key->template, never_extract);
+
+    return CKR_OK;
+
+error:
+    if (local)
+        free(local);
+    if (extractable)
+        free(extractable);
+    if (always_sens)
+        free(always_sens);
+    if (never_extract)
+        free(never_extract);
+
+    return rc;
 }
