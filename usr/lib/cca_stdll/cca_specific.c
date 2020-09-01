@@ -185,6 +185,8 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_SHA256_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_RSA_PKCS_OAEP, {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT |
+                                                  CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_CBC,
      {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_DES_CBC_PAD,
@@ -1088,6 +1090,231 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     }
 
     return CKR_OK;
+}
+
+CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
+                                      ENCR_DECR_CONTEXT *ctx,
+                                      CK_BYTE *in_data,
+                                      CK_ULONG in_data_len,
+                                      CK_BYTE *out_data,
+                                      CK_ULONG *out_data_len,
+                                      CK_BYTE *hash,
+                                      CK_ULONG hlen)
+{
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    long return_code, reason_code, rule_array_count, data_structure_length;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    CK_ATTRIBUTE *attr;
+    OBJECT *key_obj = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(hash);
+    UNUSED(hlen);
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
+        goto done;
+    }
+
+    /* Find the secure key token */
+    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    oaep = (CK_RSA_PKCS_OAEP_PARAMS *)ctx->mech.pParameter;
+    if (oaep == NULL ||
+        ctx->mech.ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    if (oaep->source == CKZ_DATA_SPECIFIED && oaep->ulSourceDataLen > 0) {
+        TRACE_ERROR("CCA does not support non-empty OAEP source data\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (*out_data_len > 512)
+        *out_data_len = 512;
+
+    rule_array_count = 2;
+    switch (oaep->hashAlg) {
+    case CKM_SHA_1:
+        if (oaep->mgf != CKG_MGF1_SHA1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCSOAEPSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA256:
+        if (oaep->mgf != CKG_MGF1_SHA256) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCSOAEPSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    data_structure_length = 0;
+
+    dll_CSNDPKE(&return_code,
+                &reason_code,
+                NULL, NULL,
+                &rule_array_count,
+                rule_array,
+                (long *)&in_data_len,
+                in_data,
+                &data_structure_length,  // must be 0
+                NULL,           // ignored
+                (long *)&(attr->ulValueLen),
+                attr->pValue,
+                (long *)out_data_len,
+                out_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    } else if (reason_code != 0) {
+        TRACE_WARNING("CSNDPKE (RSA ENCRYPT) succeeded, but"
+                      " returned reason:%ld\n", reason_code);
+    }
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
+CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
+                                      ENCR_DECR_CONTEXT *ctx,
+                                      CK_BYTE *in_data,
+                                      CK_ULONG in_data_len,
+                                      CK_BYTE *out_data,
+                                      CK_ULONG *out_data_len,
+                                      CK_BYTE *hash,
+                                      CK_ULONG hlen)
+{
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    long return_code, reason_code, rule_array_count, data_structure_length;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    CK_ATTRIBUTE *attr;
+    OBJECT *key_obj = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(hash);
+    UNUSED(hlen);
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
+        goto done;
+    }
+
+    /* Find the secure key token */
+    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    oaep = (CK_RSA_PKCS_OAEP_PARAMS *)ctx->mech.pParameter;
+    if (oaep == NULL ||
+        ctx->mech.ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    if (oaep->source == CKZ_DATA_SPECIFIED && oaep->ulSourceDataLen > 0) {
+        TRACE_ERROR("CCA does not support non-empty OAEP source data\n");
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (*out_data_len > 512)
+        *out_data_len = 512;
+
+    rule_array_count = 2;
+    switch (oaep->hashAlg) {
+    case CKM_SHA_1:
+        if (oaep->mgf != CKG_MGF1_SHA1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCSOAEPSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        break;
+
+    case CKM_SHA256:
+        if (oaep->mgf != CKG_MGF1_SHA256) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCSOAEPSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    data_structure_length = 0;
+
+    dll_CSNDPKD(&return_code,
+                &reason_code,
+                NULL,
+                NULL,
+                &rule_array_count,
+                rule_array,
+                (long *)&in_data_len,
+                in_data,
+                &data_structure_length,  // must be 0
+                NULL,           // ignored
+                (long *) &(attr->ulValueLen),
+                attr->pValue,
+                (long *)out_data_len,
+                out_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    } else if (reason_code != 0) {
+        TRACE_WARNING("CSNDPKD (RSA DECRYPT) succeeded, but"
+                      " returned reason:%ld\n", reason_code);
+    }
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
 }
 
 CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
@@ -4115,6 +4342,7 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
     CK_ATTRIBUTE *attr, *key_opaque, *wrap_key_opaque;
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
 
     if (!template_attribute_find(key->template, CKA_CLASS, &attr))
          return CKR_KEY_NOT_WRAPPABLE;
@@ -4131,20 +4359,81 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
-        rule_array_count = 2;
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            rule_array_count = 2;
             memcpy(rule_array, "DES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        case CKM_RSA_PKCS_OAEP:
+            rule_array_count = 3;
+            oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
+            if (oaep == NULL ||
+                mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS))
+                return CKR_MECHANISM_PARAM_INVALID;
+
+            if (oaep->source == CKZ_DATA_SPECIFIED &&
+                oaep->ulSourceDataLen > 0) {
+                TRACE_ERROR("CCA doesn't support non-empty OAEP source data\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            switch (oaep->hashAlg) {
+            case CKM_SHA_1:
+                if (oaep->mgf != CKG_MGF1_SHA1)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "DES     PKCSOAEPSHA-1   ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            case CKM_SHA256:
+                if (oaep->mgf != CKG_MGF1_SHA256)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "DES     PKCSOAEPSHA-256 ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            default:
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
             break;
         default:
             return CKR_MECHANISM_INVALID;
         }
         break;
     case CKK_AES:
-        rule_array_count = 2;
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            rule_array_count = 2;
             memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        case CKM_RSA_PKCS_OAEP:
+            rule_array_count = 3;
+            oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
+            if (oaep == NULL ||
+                mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS))
+                return CKR_MECHANISM_PARAM_INVALID;
+
+            if (oaep->source == CKZ_DATA_SPECIFIED &&
+                oaep->ulSourceDataLen > 0) {
+                TRACE_ERROR("CCA does not support non-empty OAEP source "
+                            "data\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            switch (oaep->hashAlg) {
+            case CKM_SHA_1:
+                if (oaep->mgf != CKG_MGF1_SHA1)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "AES     PKCSOAEPSHA-1   ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            case CKM_SHA256:
+                if (oaep->mgf != CKG_MGF1_SHA256)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "AES     PKCSOAEPSHA-256 ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            default:
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
             break;
         default:
             return CKR_MECHANISM_INVALID;
@@ -4203,6 +4492,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type, cca_key_type;
     CK_ULONG key_size = 0;
+    CK_RSA_PKCS_OAEP_PARAMS *oaep;
     uint16_t val;
     CK_RV rc;
 
@@ -4221,20 +4511,82 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
-        rule_array_count = 2;
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            rule_array_count = 2;
             memcpy(rule_array, "DES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        case CKM_RSA_PKCS_OAEP:
+            rule_array_count = 3;
+            oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
+            if (oaep == NULL ||
+                mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS))
+                return CKR_MECHANISM_PARAM_INVALID;
+
+            if (oaep->source == CKZ_DATA_SPECIFIED &&
+                oaep->ulSourceDataLen > 0) {
+                TRACE_ERROR("CCA does not support non-empty OAEP source "
+                            "data\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            switch (oaep->hashAlg) {
+            case CKM_SHA_1:
+                if (oaep->mgf != CKG_MGF1_SHA1)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "DES     PKCSOAEPSHA-1   ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            case CKM_SHA256:
+                if (oaep->mgf != CKG_MGF1_SHA256)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "DES     PKCSOAEPSHA-256 ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            default:
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
             break;
         default:
             return CKR_MECHANISM_INVALID;
         }
         break;
     case CKK_AES:
-        rule_array_count = 2;
         switch (mech->mechanism) {
         case CKM_RSA_PKCS:
+            rule_array_count = 2;
             memcpy(rule_array, "AES     PKCS-1.2", 2 * CCA_KEYWORD_SIZE);
+            break;
+        case CKM_RSA_PKCS_OAEP:
+            rule_array_count = 3;
+            oaep = (CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter;
+            if (oaep == NULL ||
+                mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS))
+                return CKR_MECHANISM_PARAM_INVALID;
+
+            if (oaep->source == CKZ_DATA_SPECIFIED &&
+                oaep->ulSourceDataLen > 0) {
+                TRACE_ERROR("CCA does not support non-empty OAEP source "
+                            "data\n");
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
+
+            switch (oaep->hashAlg) {
+            case CKM_SHA_1:
+                if (oaep->mgf != CKG_MGF1_SHA1)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "AES     PKCSOAEPSHA-1   ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            case CKM_SHA256:
+                if (oaep->mgf != CKG_MGF1_SHA256)
+                    return CKR_MECHANISM_PARAM_INVALID;
+                memcpy(rule_array, "AES     PKCSOAEPSHA-256 ",
+                       3 * CCA_KEYWORD_SIZE);
+                break;
+            default:
+                return CKR_MECHANISM_PARAM_INVALID;
+            }
             break;
         default:
             return CKR_MECHANISM_INVALID;
@@ -4368,6 +4720,7 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
 
     switch (mech->mechanism) {
     case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
         if (wrap_key_class != CKO_PUBLIC_KEY && wrap_key_type != CKK_RSA)
             return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
 
@@ -4408,6 +4761,7 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
 
     switch (mech->mechanism) {
     case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
         if (unwrap_key_class != CKO_PRIVATE_KEY && unwrap_keytype != CKK_RSA)
             return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
 
