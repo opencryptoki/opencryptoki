@@ -68,7 +68,9 @@
 #define CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET 2
 #define CCA_RSA_INTTOK_PUBKEY_LENGTH_OFFSET 2
 /* Offset into an RSA private key area of the length of n, the modulus */
-#define CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET 64
+#define CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET 62
+/* Offset into an RSA private key area of n, the modulus */
+#define CCA_RSA_INTTOK_PRIVKEY_N_OFFSET 134
 /* Offset into an RSA public key area of the length of e, the public exponent */
 #define CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET 6
 /* Offset into an RSA public key area of the value of e, the public exponent */

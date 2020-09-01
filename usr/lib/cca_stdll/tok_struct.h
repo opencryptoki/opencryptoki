@@ -78,8 +78,8 @@ token_spec_t token_specific = {
     NULL,                       // rsa_x509_verify_recover
     NULL,                       // rsa_oaep_decrypt
     NULL,                       // rsa_oaep_encrypt
-    NULL,                       // rsa_pss_sign
-    NULL,                       // rsa_pss_verify
+    &token_specific_rsa_pss_sign,
+    &token_specific_rsa_pss_verify,
     &token_specific_rsa_generate_keypair,
     // Elliptic Curve
     &token_specific_ec_sign,
