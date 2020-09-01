@@ -179,6 +179,12 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA1_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA224_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA256_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES_CBC,
      {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_DES_CBC_PAD,
@@ -692,11 +698,9 @@ uint16_t cca_inttok_privkey_get_len(CK_BYTE * tok)
 /* Given a CCA internal token private key object, get the modulus */
 CK_RV cca_inttok_privkey_get_n(CK_BYTE * tok, CK_ULONG * n_len, CK_BYTE * n)
 {
-    uint16_t privkey_length, n_length;
-    uint32_t privkey_n_offset;
+    uint16_t n_length;
 
-    privkey_length = *(uint16_t *) & tok[CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET];
-    n_length = *(uint16_t *) & tok[CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET];
+    n_length = *(uint16_t *) &tok[CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET];
 
     if (n_length > (*n_len)) {
         TRACE_ERROR("Not enough room to return n.(Got %lu, need %hu)\n",
@@ -704,9 +708,7 @@ CK_RV cca_inttok_privkey_get_n(CK_BYTE * tok, CK_ULONG * n_len, CK_BYTE * n)
         return CKR_FUNCTION_FAILED;
     }
 
-    privkey_n_offset = privkey_length - n_length;
-
-    memcpy(n, &tok[privkey_n_offset], (size_t) n_length);
+    memcpy(n, &tok[CCA_RSA_INTTOK_PRIVKEY_N_OFFSET], (size_t) n_length);
     *n_len = n_length;
 
     return CKR_OK;
@@ -904,7 +906,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     rule_array_count = 2;
-    memcpy(rule_array, "RSA-CRT KEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
+    memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
 
     private_key_name_length = 0;
 
@@ -1204,6 +1206,288 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
                       " returned reason:%ld\n", reason_code);
     }
     return CKR_OK;
+}
+
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
+                                  SESSION  *sess,
+                                  SIGN_VERIFY_CONTEXT *ctx,
+                                  CK_BYTE *in_data,
+                                  CK_ULONG in_data_len,
+                                  CK_BYTE *out_data,
+                                  CK_ULONG *out_data_len)
+{
+    CK_RSA_PKCS_PSS_PARAMS *pss;
+    long return_code, reason_code, rule_array_count;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long signature_bit_length, message_len;
+    CK_ATTRIBUTE *attr;
+    OBJECT *key_obj = NULL;
+    CK_BYTE *message = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
+        goto done;
+    }
+
+    /* Find the secure key token */
+    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    pss = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
+    if (pss == NULL ||
+        ctx->mech.ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    message_len = 4 + in_data_len;
+    message = malloc(message_len);
+    if (message == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    *((uint32_t *)message) = htonl(pss->sLen);
+    memcpy(message + 4, in_data, in_data_len);
+
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (*out_data_len > 512)
+        *out_data_len = 512;
+
+    rule_array_count = 2;
+    switch (pss->hashAlg) {
+    case CKM_SHA_1:
+        if (pss->mgf != CKG_MGF1_SHA1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA224:
+        if (pss->mgf != CKG_MGF1_SHA224) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-224 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA256:
+        if (pss->mgf != CKG_MGF1_SHA256) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA384:
+        if (pss->mgf != CKG_MGF1_SHA384) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-384 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA512:
+        if (pss->mgf != CKG_MGF1_SHA512) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-512 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    }
+
+    dll_CSNDDSG(&return_code,
+                &reason_code,
+                NULL,
+                NULL,
+                &rule_array_count,
+                rule_array,
+                (long *)&(attr->ulValueLen),
+                attr->pValue,
+                &message_len,
+                message,
+                (long *)out_data_len, &signature_bit_length, out_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDDSG (RSA PSS SIGN) failed. return :%ld, reason: %ld\n",
+                    return_code, reason_code);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    } else if (reason_code != 0) {
+        TRACE_WARNING("CSNDDSG (RSA PSS SIGN) succeeded, but "
+                      "returned reason: %ld\n", reason_code);
+    }
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    if (message != NULL)
+        free(message);
+
+    return rc;
+}
+
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
+                                    SESSION  *sess,
+                                    SIGN_VERIFY_CONTEXT *ctx,
+                                    CK_BYTE *in_data,
+                                    CK_ULONG in_data_len,
+                                    CK_BYTE *out_data,
+                                    CK_ULONG out_data_len)
+{
+    CK_RSA_PKCS_PSS_PARAMS *pss;
+    long return_code, reason_code, rule_array_count, message_len;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    CK_ATTRIBUTE *attr;
+    OBJECT *key_obj = NULL;
+    CK_BYTE *message = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
+        goto done;
+    }
+
+    /* Find the secure key token */
+    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    pss = (CK_RSA_PKCS_PSS_PARAMS *)ctx->mech.pParameter;
+    if (pss == NULL ||
+        ctx->mech.ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    message_len = 4 + in_data_len;
+    message = malloc(message_len);
+    if (message == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    *((uint32_t *)message) = pss->sLen;
+    memcpy(message + 4, in_data, in_data_len);
+
+    /* The max value allowable by CCA for out_data_len is 512, so cap the
+     * incoming value if its too large. CCA will throw error 8, 72 otherwise.
+     */
+    if (out_data_len > 512)
+        out_data_len = 512;
+
+    rule_array_count = 2;
+    switch (pss->hashAlg) {
+    case CKM_SHA_1:
+        if (pss->mgf != CKG_MGF1_SHA1) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-1   ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA224:
+        if (pss->mgf != CKG_MGF1_SHA224) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-224 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA256:
+        if (pss->mgf != CKG_MGF1_SHA256) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-256 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA384:
+        if (pss->mgf != CKG_MGF1_SHA384) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-384 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    case CKM_SHA512:
+        if (pss->mgf != CKG_MGF1_SHA512) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+        memcpy(rule_array, "PKCS-PSSSHA-512 ", 2 * CCA_KEYWORD_SIZE);
+        break;
+    }
+
+    dll_CSNDDSV(&return_code,
+                &reason_code,
+                NULL,
+                NULL,
+                &rule_array_count,
+                rule_array,
+                (long *)&(attr->ulValueLen),
+                attr->pValue,
+                &message_len,
+                message,
+                (long *)&out_data_len, out_data);
+
+    if (return_code == 4 && reason_code == 429) {
+        rc = CKR_SIGNATURE_INVALID;
+        goto done;
+    } else if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDDSV (RSA PSS VERIFY) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        if (return_code == 8 && reason_code == 72) {
+            /*
+             * Return CKR_SIGNATURE_INVALID in case of return code 8 and
+             * reason code 72 because we dont know why the RSA op failed
+             * and it may have failed due to a tampered signature being
+             * greater or equal to the modulus.
+             */
+            rc = CKR_SIGNATURE_INVALID;
+            goto done;
+        }
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (reason_code != 0) {
+        TRACE_WARNING("CSNDDSV (RSA PSS VERIFY) succeeded, but"
+                      " returned reason:%ld\n", reason_code);
+    }
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    if (message != NULL)
+        free(message);
+
+    return rc;
 }
 
 
@@ -2977,7 +3261,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     /* Now build a key token with the imported public key */
 
     rule_array_count = 2;
-    memcpy(rule_array, "RSA-CRT KEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
+    memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
 
     private_key_name_length = 0;
 
