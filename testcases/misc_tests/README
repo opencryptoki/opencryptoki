@@ -104,3 +104,11 @@ multi_instance
 	tokens) exist.
 
 	Usage: multi_instance -slot1 <slotid1> -slot2 <slotid2>
+
+tok2tok_transport
+	This testcase open sessions on two different tokens within one process.
+	It then generates a keys in the first token, and transports them via
+	various Wrap/Unwrap mechanisms to the other token. It is checked that
+	the transported key can still be used in the receiving token. 
+
+	Usage: tok2tok_transport -slot1 <slotid1> -slot2 <slotid2>
