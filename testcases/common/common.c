@@ -412,6 +412,43 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
     // see rsa_func.c
 }
 
+/** Generate an EC key pair **/
+CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
+                          CK_BYTE* ec_params, CK_ULONG ec_params_len,
+                          CK_OBJECT_HANDLE * publ_key,
+                          CK_OBJECT_HANDLE * priv_key)
+{
+    CK_RV rc;
+    CK_MECHANISM mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE publicKeyTemplate[] = {
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_EC_PARAMS, ec_params, ec_params_len},
+    };
+    CK_ATTRIBUTE privateKeyTemplate[] = {
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+    };
+    CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate)/sizeof(CK_ATTRIBUTE);
+    CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate)/sizeof(CK_ATTRIBUTE);
+
+    // generate keys
+    rc = funcs->C_GenerateKeyPair(session,
+                                  &mech,
+                                  publicKeyTemplate, num_publ_attrs,
+                                  privateKeyTemplate, num_priv_attrs,
+                                  publ_key, priv_key);
+
+    return rc;
+}
+
 /** Create an EC private key using private value 'd'
     and ec parameter values (alg id of curve) **/
 CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
