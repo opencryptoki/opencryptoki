@@ -740,6 +740,9 @@ static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
     case CKM_DES_KEY_GEN:
         *type = CKK_DES;
         break;
+    case CKM_DES2_KEY_GEN:
+        *type = CKK_DES2;
+        break;
     case CKM_DES3_KEY_GEN:
         *type = CKK_DES3;
         break;
