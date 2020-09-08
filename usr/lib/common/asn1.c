@@ -2648,6 +2648,24 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
     CK_ULONG ecpoint_len;
     CK_RV rc;
 
+    /*
+     * For unwrapping, the data passed to this function may be larger than the
+     * actual sequence, due to padding. So look at the data only up to the
+     * length in the first SEQUENCE.
+     * Since an EC private key may include an optional public key, we need to
+     * know the actual length to be able to find out of the optional public key
+     * is present or not.
+     */
+    rc = ber_decode_SEQUENCE(data, &buf, &buf_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+    if (field_len > data_len) {
+        TRACE_DEVEL("passed data is too short\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    data_len = field_len;
 
     /* Decode PrivateKeyInfo into alg and eckey */
     rc = ber_decode_PrivateKeyInfo(data, data_len, &alg, &alg_len, &eckey);
