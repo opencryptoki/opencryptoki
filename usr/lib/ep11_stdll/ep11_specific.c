@@ -1271,10 +1271,11 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
     CK_RV rc = dll_m_GenerateRandom(output, bytes, ep11_data->target);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
                     __func__, (void *)output, bytes, rc);
+    }
     return rc;
 }
 
