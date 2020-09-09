@@ -6211,7 +6211,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_TEMPLATE_INCONSISTENT;
         goto error;
     }
-    switch (*(CK_KEY_TYPE *) cla_attr->pValue) {
+    switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
     case CKO_SECRET_KEY:
         rc = check_key_attributes(tokdata,
                                   *(CK_KEY_TYPE *) keytype_attr->pValue,
@@ -6303,7 +6303,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    switch (*(CK_KEY_TYPE *) cla_attr->pValue) {
+    switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
     case CKO_SECRET_KEY:
         /* card provides bit length in csum last 4 bytes big endian */
         if (cslen < 4) {
@@ -6317,19 +6317,24 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         len = len / 8;              /* comes in bits */
         TRACE_INFO("%s m_UnwrapKey length %lu 0x%lx\n", __func__, len, len);
 
-        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&len, sizeof(CK_ULONG),
-                             &attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
-                        rc);
-            goto error;
-        }
+        switch (*(CK_KEY_TYPE *) keytype_attr->pValue) {
+        case CKK_AES:
+        case CKK_GENERIC_SECRET:
+            rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&len,
+                                 sizeof(CK_ULONG), &attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                            __func__, rc);
+                goto error;
+            }
 
-        rc = template_update_attribute(key_obj->template, attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                        __func__, rc);
-            goto error;
+            rc = template_update_attribute(key_obj->template, attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed with "
+                            "rc=0x%lx\n", __func__, rc);
+                goto error;
+            }
+            break;
         }
         break;
 
