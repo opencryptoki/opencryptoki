@@ -349,6 +349,18 @@ CK_RV run_DeriveECDHKey()
             {CKA_DERIVE, &true, sizeof(true)},
         };
         CK_ULONG prv_attr_len = sizeof(prv_attr)/sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE prv_attr_edwards[] = {
+            {CKA_SIGN, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &true, sizeof(true)},
+        };
+        CK_ULONG prv_attr_edwards_len =
+                            sizeof(prv_attr_edwards)/sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE prv_attr_montgomery[] = {
+            {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &true, sizeof(true)},
+        };
+        CK_ULONG prv_attr_montgomery_len =
+                    sizeof(prv_attr_montgomery)/sizeof(CK_ATTRIBUTE);
 
         CK_ATTRIBUTE pub_attr[] = {
             {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
@@ -357,6 +369,19 @@ CK_RV run_DeriveECDHKey()
             {CKA_MODIFIABLE, &true, sizeof(true)},
         };
         CK_ULONG pub_attr_len = sizeof(pub_attr)/sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE pub_attr_montgomery[] = {
+            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
+             der_ec_supported[i].size},
+            {CKA_MODIFIABLE, &true, sizeof(true)},
+            {CKA_VERIFY, &true, sizeof(true)},
+        };
+        CK_ULONG pub_attr_montgomery_len =
+                            sizeof(pub_attr_montgomery)/sizeof(CK_ATTRIBUTE);
+
+        CK_ATTRIBUTE *prv_attr_gen = prv_attr;
+        CK_ULONG prv_attr_gen_len = prv_attr_len;
+        CK_ATTRIBUTE *pub_attr_gen = pub_attr;
+        CK_ULONG pub_attr_gen_len = pub_attr_len;
 
         CK_ATTRIBUTE  extr1_tmpl[] = {
             {CKA_EC_POINT, pubkeyA_value, sizeof(pubkeyA_value)},
@@ -398,6 +423,14 @@ CK_RV run_DeriveECDHKey()
                 derive_mech_type = CKM_IBM_EC_C25519;
             if (der_ec_supported[i].curve == curve448)
                 derive_mech_type = CKM_IBM_EC_C448;
+
+            prv_attr_gen = prv_attr_montgomery;
+            prv_attr_gen_len = prv_attr_montgomery_len;
+            pub_attr_gen = pub_attr_montgomery;
+            pub_attr_gen_len = pub_attr_montgomery_len;
+        } else if (der_ec_supported[i].type == CURVE_EDWARDS) {
+            prv_attr_gen = prv_attr_edwards;
+            prv_attr_gen_len = prv_attr_edwards_len;
         }
         if (!mech_supported(SLOT_ID, derive_mech_type)) {
             testcase_skip("Slot %u doesn't support %s\n",
@@ -413,8 +446,8 @@ CK_RV run_DeriveECDHKey()
         mech.pParameter = NULL;
 
         rc = funcs->C_GenerateKeyPair(session, &mech,
-                                      pub_attr, pub_attr_len,
-                                      prv_attr, prv_attr_len,
+                                      pub_attr_gen, pub_attr_gen_len,
+                                      prv_attr_gen, prv_attr_gen_len,
                                       &publ_keyA, &priv_keyA);
         if (rc != CKR_OK) {
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
@@ -1001,7 +1034,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
                                 CK_ULONG parts,
                                 CK_OBJECT_HANDLE priv_key,
                                 CK_OBJECT_HANDLE publ_key,
-                                enum curve_type curve_type)
+                                enum curve_type curve_type,
+                                CK_BYTE *params, CK_ULONG params_len)
 {
     CK_MECHANISM mech2;
     CK_BYTE_PTR data = NULL, signature = NULL;
@@ -1035,6 +1069,22 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         if (curve_type != CURVE_EDWARDS) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can only be used with Edwards curves",
+                          p11_get_ckm(mechType));
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (mechType == CKM_IBM_ED25519_SHA512 &&
+            memcmp(params, ed25519, MIN(params_len, sizeof(ed25519))) != 0) {
+            /* Mechanism does not match to curve, skip */
+            testcase_skip("Mechanism %s can only be used with Ed25519 curve",
+                          p11_get_ckm(mechType));
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        if (mechType == CKM_IBM_ED448_SHA3 &&
+            memcmp(params, ed448, MIN(params_len, sizeof(ed448))) != 0) {
+            /* Mechanism does not match to curve, skip */
+            testcase_skip("Mechanism %s can only be used with Ed448 curve",
                           p11_get_ckm(mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
@@ -1278,7 +1328,9 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            priv_key, publ_key,
-                                           der_ec_supported[i].type);
+                                           der_ec_supported[i].type,
+                                           (CK_BYTE *)der_ec_supported[i].curve,
+                                           der_ec_supported[i].size);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
@@ -1432,7 +1484,9 @@ CK_RV run_ImportECCKeyPairSignVerify()
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            priv_key, publ_key,
-                                           ec_tv[i].curve_type);
+                                           ec_tv[i].curve_type,
+                                           ec_tv[i].params,
+                                           ec_tv[i].params_len);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
@@ -1715,7 +1769,9 @@ CK_RV run_TransferECCKeyPairSignVerify()
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            unwrapped_key, publ_key,
-                                           ec_tv[i].curve_type);
+                                           ec_tv[i].curve_type,
+                                           ec_tv[i].params,
+                                           ec_tv[i].params_len);
             if (rc != 0) {
                 testcase_fail("run_GenerateSignVerifyECC failed index=%lu.", j);
                 goto testcase_cleanup;
