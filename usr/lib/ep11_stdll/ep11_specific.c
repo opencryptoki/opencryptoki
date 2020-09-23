@@ -8873,8 +8873,29 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
         }
 
         card_version->card_type = card_type;
+#ifdef EP11_HSMSIM
+#ifdef EP11_HSMSIM_FW_API
+        card_version->firmware_API_version = EP11_HSMSIM_FW_API;
+#else
         card_version->firmware_API_version = xcp_info.firmwareApi;
+#endif
+#else
+        card_version->firmware_API_version = xcp_info.firmwareApi;
+#endif
+#ifdef EP11_HSMSIM
+#ifdef EP11_HSMSIM_FW_VER_MAJOR
+        card_version->firmware_version.major = EP11_HSMSIM_FW_VER_MAJOR;
+#ifdef EP11_HSMSIM_FW_VER_MINOR
+        card_version->firmware_version.minor = EP11_HSMSIM_FW_VER_MINOR;
+#else
+        card_version->firmware_version.minor = 0;
+#endif
+#else
         card_version->firmware_version = xcp_info.firmwareVersion;
+#endif
+#else
+        card_version->firmware_version = xcp_info.firmwareVersion;
+#endif
 
         card_version->next = qv->ep11_data->card_versions;
         qv->ep11_data->card_versions = card_version;
