@@ -336,6 +336,20 @@ static const version_req_t ibm_dilithium_req_versions[] = {
 };
 #define NUM_DILITHIUM_REQ (sizeof(ibm_dilithium_req_versions) / sizeof(version_req_t))
 
+static const CK_VERSION ibm_cex6p_reencrypt_single_support =
+                                                    { .major = 6, .minor = 15 };
+static const CK_VERSION ibm_cex7p_reencrypt_single_support =
+                                                    { .major = 7, .minor = 21 };
+
+static const version_req_t reencrypt_single_req_versions[] = {
+        { .card_type = 6, .min_firmware_version =
+                                        &ibm_cex6p_reencrypt_single_support },
+        { .card_type = 7, .min_firmware_version =
+                                        &ibm_cex7p_reencrypt_single_support }
+};
+#define NUM_REENCRYPT_SINGLE_REQ (sizeof(reencrypt_single_req_versions) / \
+                                                sizeof(version_req_t))
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -3695,6 +3709,61 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     RETRY_START
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
                             out_data, out_data_len, ep11_data->target);
+    RETRY_END(rc, tokdata, session)
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
+        TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
+    } else {
+        TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
+    }
+
+    return rc;
+}
+
+CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
+                                     SESSION *session,
+                                      ENCR_DECR_CONTEXT *decr_ctx,
+                                      CK_MECHANISM *decr_mech,
+                                      OBJECT *decr_key_obj,
+                                      ENCR_DECR_CONTEXT *encr_ctx,
+                                      CK_MECHANISM *encr_mech,
+                                      OBJECT *encr_key_obj,
+                                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_BYTE *decr_key, *encr_key;
+    size_t decr_key_len = 0, encr_key_len = 0;
+    int status;
+
+    UNUSED(decr_ctx);
+    UNUSED(encr_ctx);
+
+    if (dll_m_ReencryptSingle == NULL)
+        return CKR_FUNCTION_NOT_SUPPORTED;
+
+    status = check_required_versions(tokdata, reencrypt_single_req_versions,
+                                     NUM_REENCRYPT_SINGLE_REQ);
+    if (status != 1)
+        return CKR_FUNCTION_NOT_SUPPORTED;
+
+    rc = obj_opaque_2_blob(tokdata, decr_key_obj, &decr_key, &decr_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no decr-blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, encr_key_obj, &encr_key, &encr_key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no encrr-blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    RETRY_START
+    rc = dll_m_ReencryptSingle(decr_key, decr_key_len, encr_key, encr_key_len,
+                               decr_mech, encr_mech, in_data, in_data_len,
+                               out_data, out_data_len, ep11_data->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
