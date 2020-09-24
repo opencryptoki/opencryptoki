@@ -445,7 +445,7 @@ char *p11_ahex_dump(char **dst, CK_BYTE_PTR ptr, CK_ULONG len)
         return NULL;
     }
 
-    *dst = (char *) calloc(2 * len + 1, sizeof(char));
+    *dst = (char *) malloc(2 * len + 1);
     if (*dst == NULL) {
         return NULL;
     }

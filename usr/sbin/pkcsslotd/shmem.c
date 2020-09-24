@@ -41,6 +41,10 @@ int CreateSharedMemory(void)
     struct shmid_ds shm_info;
 
 #if !MMAP
+    /*
+     * getenv() is safe here since we will exclusively create the segment and
+     * make sure only members of "pkcs11" group can attach to it.
+     */
     if (((Path = getenv("PKCS11_SHMEM_FILE")) == NULL) || (Path[0] == '\0')) {
         Path = TOK_PATH;
     }
@@ -117,16 +121,17 @@ int CreateSharedMemory(void)
         if (shmctl(shmid, IPC_SET, &shm_info) == -1) {
             ErrLog("Failed to set group ownership for shm \n");
             shmctl(shmid, IPC_RMID, NULL);
+            // Not safe to use this segment
+            return FALSE;
         }
 
     } else {
         ErrLog("Can't get status of shared memory %d\n", errno);
         // we know it was created... we need to destroy it...
         shmctl(shmid, IPC_RMID, NULL);
-
+        // Not safe to use this segment
+        return FALSE;
     }
-
-
 
     return TRUE;
 #else

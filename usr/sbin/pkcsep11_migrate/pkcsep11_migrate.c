@@ -386,7 +386,7 @@ static int do_GetFunctionList(void)
     char *evar;
     char *evar_default = "libopencryptoki.so";
 
-    evar = getenv("PKCSLIB");
+    evar = secure_getenv("PKCSLIB");
     if (evar == NULL) {
         evar = evar_default;
     }
@@ -486,7 +486,7 @@ static void *ep11_load_host_lib()
     char *ep11_lib_name;
     char *errstr;
 
-    ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
+    ep11_lib_name = secure_getenv(EP11SHAREDLIB_NAME);
     if (ep11_lib_name != NULL) {
         lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 

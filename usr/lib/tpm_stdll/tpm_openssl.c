@@ -170,7 +170,11 @@ int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
         return -1;
     }
 
-    sprintf(loc, "%s/%s/%s", tokdata->pk_dir, pw->pw_name, filename);
+    if (ock_snprintf(loc, PATH_MAX, "%s/%s/%s",
+                        tokdata->pk_dir, pw->pw_name, filename) != 0) {
+        TRACE_ERROR("key path too long\n");
+        return -1;
+    }
 
     b = BIO_new_file(loc, "w");
     if (!b) {
@@ -210,7 +214,11 @@ CK_RV openssl_read_key(STDLL_TokData_t * tokdata, char *filename,
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf(loc, "%s/%s/%s", tokdata->pk_dir, pw->pw_name, filename);
+    if (ock_snprintf(loc, PATH_MAX, "%s/%s/%s",
+                     tokdata->pk_dir, pw->pw_name, filename) != 0) {
+        TRACE_ERROR("key file name too long\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
     /* we can't allow a pin of NULL here, since openssl will try to prompt
      * for a password in PEM_read_bio_RSAPrivateKey */

@@ -13,6 +13,8 @@
      ==========
 ****************************************************************************/
 
+/* Declaration of secure_getenv requires _GNU_SOURCE */
+#define _GNU_SOURCE
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1344,7 +1346,7 @@ static void *ep11_load_host_lib()
     char *ep11_lib_name;
     char *errstr;
 
-    ep11_lib_name = getenv(EP11SHAREDLIB_NAME);
+    ep11_lib_name = secure_getenv(EP11SHAREDLIB_NAME);
     if (ep11_lib_name != NULL) {
         lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
 
@@ -7002,7 +7004,11 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
     int whitemode = 0;
     int anymode = 0;
     int apqn_i = 0;             /* how many APQN numbers */
-    char *conf_dir = getenv("OCK_EP11_TOKEN_DIR");
+    /* Since the ep11 token config contains the path to libica that
+     * will later be dlopen()ed, we cannot use a token config
+     * directory from an untrusted environment.
+     */
+    char *conf_dir = secure_getenv("OCK_EP11_TOKEN_DIR");
     char fname[PATH_MAX];
     int rc = 0;
     char *cfg_dir;

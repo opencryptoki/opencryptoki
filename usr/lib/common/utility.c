@@ -33,6 +33,7 @@
 #include "shared_memory.h"
 #include "trace.h"
 #include "ock_syslog.h"
+#include "slotmgr.h" // for ock_snprintf
 
 #include <sys/file.h>
 #include <syslog.h>
@@ -236,12 +237,13 @@ DL_NODE *dlist_remove_node(DL_NODE *list, DL_NODE *node)
 
 CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
 {
-    char lockfile[2 * PATH_MAX + sizeof(LOCKDIR_PATH) + 6];
-    char lockdir[PATH_MAX + sizeof(LOCKDIR_PATH)];
+    char lockfile[PATH_MAX];
+    char lockdir[PATH_MAX];
     struct group *grp;
     struct stat statbuf;
     mode_t mode = (S_IRUSR | S_IRGRP);
     int ret = -1;
+    char *toklockname;
 
     if (tokdata->spinxplfd == -1) {
 
@@ -253,12 +255,17 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
                 return CKR_FUNCTION_FAILED;
         }
 
+        toklockname = (strlen(tokname) > 0) ? tokname : SUB_DIR;
+            
+
         /** create lock subdir for each token if it doesn't exist.
          *  The root directory should be created in slotmgr daemon **/
-        if (strlen(tokname) > 0)
-            sprintf(lockdir, "%s/%s", LOCKDIR_PATH, tokname);
-        else
-            sprintf(lockdir, "%s/%s", LOCKDIR_PATH, SUB_DIR);
+        if (ock_snprintf(lockdir, PATH_MAX, "%s/%s",
+                         LOCKDIR_PATH, toklockname) != 0) {
+            OCK_SYSLOG(LOG_ERR, "lock directory path too long\n");
+            TRACE_ERROR("lock directory path too long\n");
+            goto err;
+        }
 
         ret = stat(lockdir, &statbuf);
         if (ret != 0 && errno == ENOENT) {
@@ -291,10 +298,12 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
         }
 
         /* create user lock file */
-        if (strlen(tokname) > 0)
-            sprintf(lockfile, "%s/%s/LCK..%s", LOCKDIR_PATH, tokname, tokname);
-        else
-            sprintf(lockfile, "%s/%s/LCK..%s", LOCKDIR_PATH, SUB_DIR, SUB_DIR);
+        if (ock_snprintf(lockfile, sizeof(lockfile), "%s/%s/LCK..%s",
+                         LOCKDIR_PATH, toklockname, toklockname) != 0) {
+            OCK_SYSLOG(LOG_ERR, "lock file path too long\n");
+            TRACE_ERROR("lock file path too long\n");
+            goto err;
+        }        
 
         if (stat(lockfile, &statbuf) == 0) {
             tokdata->spinxplfd = open(lockfile, O_RDONLY, mode);
@@ -831,7 +840,12 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
      * exists. When it's created (ret=0) the region is initialized with
      * zeros.
      */
-    ret = sm_open(get_pk_dir(tokdata, buf), 0666, (void **) shm, sizeof(**shm), 0);
+    if (get_pk_dir(tokdata, buf, PATH_MAX) == NULL) {
+        TRACE_ERROR("pk_dir buffer overflow");
+        rc = CKR_FUNCTION_FAILED;
+        goto err;
+    }
+    ret = sm_open(buf, 0666, (void **) shm, sizeof(**shm), 0);
     if (ret < 0) {
         TRACE_DEVEL("sm_open failed.\n");
         rc = CKR_FUNCTION_FAILED;

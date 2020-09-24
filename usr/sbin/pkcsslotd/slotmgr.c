@@ -54,17 +54,16 @@ extern BOOL IveDaemonized;
 void DumpSharedMemory(void)
 {
     u_int32 *p;
-    char Buf[PATH_MAX];
+    char buf[4 * 8 + 4];
     u_int32 i;
 
     p = (u_int32 *) shmp;
 
     for (i = 0; i < 15; i++) {
-        sprintf(Buf, "%08X %08X %08X %08X", p[0 + (i * 4)], p[1 + (i * 4)],
+        sprintf(buf, "%08X %08X %08X %08X", p[0 + (i * 4)], p[1 + (i * 4)],
                 p[2 + (i * 4)], p[3 + (i * 4)]);
-        LogLog(Buf);
+        LogLog(buf);
     }
-    return;
 }
 
 int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
@@ -214,6 +213,14 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     if (!tokdir || strlen(tokdir) == 0)
         return 0;
 
+    /* Check if the path length fits in the max path length
+       (include 2 * / and 0)
+     */
+    if (strlen(CONFIG_PATH) + strlen(tokdir) + strlen(OBJ_DIR) + 3 > PATH_MAX) {
+        fprintf(stderr, "Path name for token object directory too long!\n");
+        return -1;
+    }
+
     proc_umask = umask(0);
 
     /* get 'PKCS11' group id */
@@ -243,6 +250,7 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
            MD5_HASH_SIZE);
 
     /* Create token specific directory */
+    /* sprintf checked above */
     sprintf(tokendir, "%s/%s", CONFIG_PATH, tokdir);
     rc = stat(tokendir, &sbuf);
     if (rc != 0 && errno == ENOENT) {
@@ -268,6 +276,7 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
     }
 
     /* Create TOK_OBJ directory */
+    /* sprintf checked above */
     sprintf(tokendir, "%s/%s/%s", CONFIG_PATH, tokdir, OBJ_DIR);
     rc = stat(tokendir, &sbuf);
     if (rc != 0 && errno == ENOENT) {
