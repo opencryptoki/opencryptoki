@@ -1696,6 +1696,15 @@ typedef CK_RV (CK_PTR CK_Notify) (CK_SESSION_HANDLE hSession,
 typedef CK_RV (CK_PTR CK_C_WaitForSlotEvent) (CK_FLAGS flags,
                                               CK_SLOT_ID_PTR pSlot,
                                               CK_VOID_PTR pReserved);
+typedef CK_RV (CK_PTR CK_C_IBM_ReencryptSingle) (CK_SESSION_HANDLE hSession,
+                                                 CK_MECHANISM_PTR pDecrMech,
+                                                 CK_OBJECT_HANDLE hDecrKey,
+                                                 CK_MECHANISM_PTR pEncrMech,
+                                                 CK_OBJECT_HANDLE hEncrKey,
+                                                 CK_BYTE_PTR pEncryptedData,
+                                                 CK_ULONG ulEncryptedDataLen,
+                                                 CK_BYTE_PTR pReencryptedData,
+                                                 CK_ULONG_PTR pulReencryptedDataLen);
 
 struct CK_FUNCTION_LIST {
     CK_VERSION version;

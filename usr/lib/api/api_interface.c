@@ -4252,6 +4252,63 @@ CK_RV C_WrapKey(CK_SESSION_HANDLE hSession,
     return rv;
 }
 
+CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE hSession,
+                            CK_MECHANISM_PTR pDecrMech,
+                            CK_OBJECT_HANDLE hDecrKey,
+                            CK_MECHANISM_PTR pEncrMech,
+                            CK_OBJECT_HANDLE hEncrKey,
+                            CK_BYTE_PTR pEncryptedData,
+                            CK_ULONG ulEncryptedDataLen,
+                            CK_BYTE_PTR pReencryptedData,
+                            CK_ULONG_PTR pulReencryptedDataLen)
+{
+    CK_RV rv;
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
+
+    TRACE_INFO("C_IBM_ReencryptSingle\n");
+    if (API_Initialized() == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
+    }
+
+    if (!pDecrMech || !pDecrMech) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_IBM_ReencryptSingle) {
+        // Map the Session to the slot session
+        rv = fcn->ST_IBM_ReencryptSingle(sltp->TokData, &rSession, pDecrMech,
+                                         hDecrKey, pEncrMech, hEncrKey,
+                                         pEncryptedData, ulEncryptedDataLen,
+                                         pReencryptedData,
+                                         pulReencryptedDataLen);
+        TRACE_DEVEL("fcn->ST_IBM_ReencryptSingle returned: 0x%lx\n", rv);
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    return rv;
+}
+
 #ifdef __sun
 #pragma init(api_init)
 #else

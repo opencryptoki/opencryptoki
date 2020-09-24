@@ -68,5 +68,6 @@ OPENCRYPTOKI_3.10 {
         C_VerifyUpdate;
         C_WaitForSlotEvent;
         C_WrapKey;
+        C_IBM_ReencryptSingle;
     local: *;
 };

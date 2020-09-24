@@ -64,6 +64,7 @@ OPENCRYPTOKI_TOK_3.10 {
         SC_VerifyUpdate;
         SC_WaitForSlotEvent;
         SC_WrapKey;
+        SC_IBM_ReencryptSingle;
         ST_Initialize;
     local: *;
 };

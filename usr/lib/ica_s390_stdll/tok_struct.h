@@ -144,6 +144,7 @@ token_spec_t token_specific = {
     NULL,                       // object_add
     NULL,                       // key_wrap
     NULL,                       // key_unwrap
+    NULL,                       // reencrypt_single
 };
 
 #endif

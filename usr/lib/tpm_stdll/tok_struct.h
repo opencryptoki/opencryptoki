@@ -117,4 +117,5 @@ struct token_specific_struct token_specific = {
     NULL,                       // object_add
     &token_specific_key_wrap,
     &token_specific_key_unwrap,
+    NULL,                       // reencrypt_single
 };
