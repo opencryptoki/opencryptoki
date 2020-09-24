@@ -190,6 +190,10 @@ extern "C" {
     CK_RV C_WrapKey(CK_SESSION_HANDLE, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
                     CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
 
+    CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE, CK_MECHANISM_PTR,
+                                CK_OBJECT_HANDLE, CK_MECHANISM_PTR,
+                                CK_OBJECT_HANDLE, CK_BYTE_PTR,
+                                CK_ULONG, CK_BYTE_PTR, CK_ULONG_PTR);
 #ifdef __cplusplus
 }
 #endif

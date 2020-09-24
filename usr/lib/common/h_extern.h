@@ -1802,6 +1802,16 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata, SESSION *sess,
                               CK_BYTE *in_data, CK_ULONG in_data_len,
                               CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
+                                ENCR_DECR_CONTEXT *decr_ctx,
+                                CK_MECHANISM *decr_mech,
+                                CK_OBJECT_HANDLE decr_key,
+                                ENCR_DECR_CONTEXT *encr_ctx,
+                                CK_MECHANISM *encr_mech,
+                                CK_OBJECT_HANDLE encr_key,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 // decryption manager routines
 //
 CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,

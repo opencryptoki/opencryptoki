@@ -313,4 +313,10 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *, SESSION *, CK_MECHANISM *,
                                 CK_BYTE *, CK_ULONG, OBJECT *, OBJECT *,
                                 CK_BBOOL *);
 
+CK_RV token_specific_reencrypt_single(STDLL_TokData_t *, SESSION *,
+                                      ENCR_DECR_CONTEXT *, CK_MECHANISM *,
+                                      OBJECT *, ENCR_DECR_CONTEXT *,
+                                      CK_MECHANISM *, OBJECT *, CK_BYTE *,
+                                      CK_ULONG , CK_BYTE *, CK_ULONG *);
+
 #endif

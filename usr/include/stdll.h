@@ -339,6 +339,16 @@ typedef CK_RV (CK_PTR ST_C_WaitForSlotEvent) (STDLL_TokData_t *tokdata,
                                               CK_SLOT_ID_PTR pSlot,
                                               CK_VOID_PTR pReserved);
 
+typedef CK_RV (CK_PTR ST_C_IBM_ReencryptSingle)(STDLL_TokData_t *tokdata,
+                                                ST_SESSION_T *hSession,
+                                                CK_MECHANISM_PTR pDecrMech,
+                                                CK_OBJECT_HANDLE hDecrKey,
+                                                CK_MECHANISM_PTR pEncrMech,
+                                                CK_OBJECT_HANDLE hEncrKey,
+                                                CK_BYTE_PTR pEncryptedData,
+                                                CK_ULONG ulEncryptedDataLen,
+                                                CK_BYTE_PTR pReencryptedData,
+                                            CK_ULONG_PTR pulReencryptedDataLen);
 
 
 struct ST_FCN_LIST {
@@ -413,6 +423,7 @@ struct ST_FCN_LIST {
     ST_C_GetFunctionStatus ST_GetFunctionStatus;
     ST_C_CancelFunction ST_CancelFunction;
 
+    ST_C_IBM_ReencryptSingle ST_IBM_ReencryptSingle;
 };
 
 typedef struct ST_FCN_LIST STDLL_FcnList_t;

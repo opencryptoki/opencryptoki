@@ -3244,6 +3244,77 @@ CK_RV SC_CancelFunction(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession)
     return CKR_FUNCTION_NOT_PARALLEL;
 }
 
+CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
+                             CK_MECHANISM_PTR pDecrMech,
+                             CK_OBJECT_HANDLE hDecrKey,
+                             CK_MECHANISM_PTR pEncrMech,
+                             CK_OBJECT_HANDLE hEncrKey,
+                             CK_BYTE_PTR pEncryptedData,
+                             CK_ULONG ulEncryptedDataLen,
+                             CK_BYTE_PTR pReencryptedData,
+                             CK_ULONG_PTR pulReencryptedDataLen)
+{
+    SESSION *sess = NULL;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    if (!pDecrMech || !pEncrMech) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    sess = session_mgr_find(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = valid_mech(tokdata, pDecrMech, CKF_DECRYPT);
+    if (rc != CKR_OK)
+        goto done;
+    rc = valid_mech(tokdata, pEncrMech, CKF_ENCRYPT);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (pin_expired(&sess->session_info,
+                    tokdata->nv_token_data->token_info.flags) == TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
+        rc = CKR_PIN_EXPIRED;
+        goto done;
+    }
+
+    if (sess->decr_ctx.active == TRUE || sess->encr_ctx.active == TRUE) {
+        rc = CKR_OPERATION_ACTIVE;
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        goto done;
+    }
+
+    rc = encr_mgr_reencrypt_single(tokdata, sess, &sess->decr_ctx, pDecrMech,
+                                   hDecrKey, &sess->encr_ctx, pEncrMech,
+                                   hEncrKey, pEncryptedData, ulEncryptedDataLen,
+                                   pReencryptedData, pulReencryptedDataLen);
+    if (rc != CKR_OK)
+        TRACE_DEVEL("encr_mgr_reencrypt_single() failed.\n");
+
+done:
+    TRACE_INFO("SC_IBM_ReencryptSingle: rc = 0x%08lx, sess = %ld, "
+               "decrmech = 0x%lx, encrmech = 0x%lx\n",
+               rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle,
+               (pDecrMech ? pDecrMech->mechanism : (CK_ULONG)-1),
+               (pEncrMech ? pEncrMech->mechanism : (CK_ULONG)-1));
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
+}
 
 void SC_SetFunctionList(void)
 {
@@ -3308,4 +3379,6 @@ void SC_SetFunctionList(void)
     function_list.ST_GenerateRandom = SC_GenerateRandom;
     function_list.ST_GetFunctionStatus = NULL;  // SC_GetFunctionStatus;
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
+
+    function_list.ST_IBM_ReencryptSingle = SC_IBM_ReencryptSingle;
 }

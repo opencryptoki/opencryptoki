@@ -24,6 +24,7 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include <openssl/crypto.h>
 
 //
 //
@@ -1046,4 +1047,146 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
     TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
 
     return CKR_FUNCTION_FAILED;
+}
+
+CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
+                                ENCR_DECR_CONTEXT *decr_ctx,
+                                CK_MECHANISM *decr_mech,
+                                CK_OBJECT_HANDLE decr_key,
+                                ENCR_DECR_CONTEXT *encr_ctx,
+                                CK_MECHANISM *encr_mech,
+                                CK_OBJECT_HANDLE encr_key,
+                                CK_BYTE *in_data, CK_ULONG in_data_len,
+                                CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    OBJECT *decr_key_obj = NULL;
+    OBJECT *encr_key_obj = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG decr_data_len = 0;
+    CK_BYTE *decr_data = NULL;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (!sess || !decr_ctx || !encr_ctx || !decr_mech || !encr_mech) {
+        TRACE_ERROR("Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (decr_ctx->active != FALSE || encr_ctx->active != FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
+    }
+
+    if (token_specific.t_reencrypt_single != NULL) {
+        rc = object_mgr_find_in_map1(tokdata, decr_key, &decr_key_obj,
+                                     READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to acquire decr-key from specified handle.\n");
+            if (rc == CKR_OBJECT_HANDLE_INVALID)
+                return CKR_KEY_HANDLE_INVALID;
+            else
+                return rc;
+        }
+
+        rc = object_mgr_find_in_map1(tokdata, encr_key, &encr_key_obj,
+                                     READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to acquire encr-key from specified handle.\n");
+            if (rc == CKR_OBJECT_HANDLE_INVALID)
+                return CKR_KEY_HANDLE_INVALID;
+            else
+                return rc;
+        }
+
+        rc = template_attribute_find(decr_key_obj->template, CKA_DECRYPT,
+                                     &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("Could not find CKA_DECRYPT for the decr-key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        } else {
+            flag = *(CK_BBOOL *)attr->pValue;
+            if (flag != TRUE) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                goto done;
+            }
+        }
+
+         rc = template_attribute_find(encr_key_obj->template, CKA_ENCRYPT,
+                                      &attr);
+         if (rc == FALSE) {
+             TRACE_ERROR("Could not find CKA_ENCRYPT for the encr-key.\n");
+             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+             goto done;
+         } else {
+             flag = *(CK_BBOOL *)attr->pValue;
+             if (flag != TRUE) {
+                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+                 rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                 goto done;
+             }
+         }
+
+        rc = token_specific.t_reencrypt_single(tokdata, sess, decr_ctx,
+                                                decr_mech, decr_key_obj,
+                                                encr_ctx, encr_mech,
+                                                encr_key_obj, in_data,
+                                                in_data_len, out_data,
+                                                out_data_len);
+        if (rc != CKR_OK)
+            TRACE_DEVEL("Token specific reencrypt single failed.\n");
+
+        goto done;
+    }
+
+    /* No token specific reencrypt_single function, perform it manually */
+
+    rc = decr_mgr_init(tokdata, sess, decr_ctx, OP_DECRYPT_INIT, decr_mech,
+                       decr_key);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = encr_mgr_init(tokdata, sess, encr_ctx, OP_ENCRYPT_INIT, encr_mech,
+                       encr_key);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = decr_mgr_decrypt(tokdata, sess, TRUE, decr_ctx, in_data, in_data_len,
+                          NULL, &decr_data_len);
+    if (rc != CKR_OK)
+        goto done;
+
+    decr_data = malloc(decr_data_len);
+    if (decr_data == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    rc = decr_mgr_decrypt(tokdata, sess, FALSE, decr_ctx, in_data, in_data_len,
+                          decr_data, &decr_data_len);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = encr_mgr_encrypt(tokdata, sess, out_data == NULL, encr_ctx, decr_data,
+                          decr_data_len, out_data, out_data_len);
+    if (rc != CKR_OK)
+        goto done;
+
+done:
+    object_put(tokdata, decr_key_obj, TRUE);
+    decr_key_obj = NULL;
+    object_put(tokdata, encr_key_obj, TRUE);
+    encr_key_obj = NULL;
+
+    if (decr_data != NULL) {
+        OPENSSL_cleanse(decr_data, decr_data_len);
+        free(decr_data);
+    }
+
+    decr_mgr_cleanup(decr_ctx);
+    encr_mgr_cleanup(encr_ctx);
+
+    return rc;
 }
