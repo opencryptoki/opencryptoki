@@ -569,11 +569,20 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
         CK_BYTE racf_pass[PIN_SIZE];
         int mk_len = sizeof(mk);
         int racf_pass_len = sizeof(racf_pass);
-        char pk_dir_buf[PATH_MAX];
         char fname[PATH_MAX];
 
         /* Load master key */
-        sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
+        if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+            TRACE_ERROR("pk_dir buffer overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        
+        if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
+            strcat(fname, "/MK_SO");
+        } else {
+            TRACE_ERROR("MK_SO buffer overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
         if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
@@ -624,12 +633,22 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 
     /* Remove user's masterkey */
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-        sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
+        if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+            TRACE_ERROR("pk_dir_buf overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
+            TRACE_ERROR("MK_USER filename buffer overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
         if (unlink(fname) && errno == ENOENT)
             TRACE_WARNING("Failed to remove \"%s\".\n", fname);
 
         /* Load master key */
-        sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
+        if (ock_snprintf(fname, PATH_MAX, "%s/MK_SO", pk_dir_buf) != 0) {
+            TRACE_ERROR("MK_SO filename buffer overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
         if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
@@ -789,7 +808,14 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
      * racf passwd.
      */
     if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
-        sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
+        if (get_pk_dir(tokdata, pk_dir_buf, PATH_MAX) == NULL) {
+            TRACE_ERROR("pk_dir_buf overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
+        if (ock_snprintf(fname, PATH_MAX, "%s/MK_USER", pk_dir_buf) != 0) {
+            TRACE_ERROR("MK_USER filename buffer overflow\n");
+            return CKR_FUNCTION_FAILED;
+        }
 
         rc = secure_masterkey(tokdata->master_key,
                               AES_KEY_SIZE_256, pPin, ulPinLen, fname);
@@ -828,7 +854,6 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_BYTE old_hash_sha[SHA1_HASH_SIZE];
     CK_SLOT_ID sid;
     char fname[PATH_MAX];
-    char pk_dir_buf[PATH_MAX];
 
     /* get slot id */
     sid = sess->session_info.slotID;
@@ -863,7 +888,16 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
         /* if using simple auth, encrypt masterkey with new pin */
         if (slot_data[sid]->mech == ICSF_CFG_MECH_SIMPLE) {
-            sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
+            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+                TRACE_ERROR("pk_dir buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
+            if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
+                strcat(fname, "/MK_USER");
+            } else {
+                TRACE_ERROR("MK_USER buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
             rc = secure_masterkey(tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
@@ -910,7 +944,17 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             /*
              * if using simle auth, encrypt masterkey with new pin
              */
-            sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
+            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+                TRACE_ERROR("pk_dir buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
+            if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
+                strcat(fname, "/MK_SO");
+            } else {
+                TRACE_ERROR("MK_SO buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
+
             rc = secure_masterkey(tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
@@ -1224,7 +1268,6 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
     char fname[PATH_MAX];
     CK_BYTE hash_sha[SHA1_HASH_SIZE];
     int mklen;
-    char pk_dir_buf[PATH_MAX];
     CK_SLOT_ID slot_id = sess->session_info.slotID;
 
     /* Check Slot ID */
@@ -1265,7 +1308,16 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* now load the master key */
         if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
-            sprintf(fname, "%s/MK_USER", get_pk_dir(tokdata, pk_dir_buf));
+            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+                TRACE_ERROR("pk_dir buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
+            if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
+                strcat(fname, "/MK_USER");
+            } else {
+                TRACE_ERROR("MK_USER buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
             rc = get_masterkey(pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {
@@ -1286,7 +1338,16 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
 
         if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
             /* now load the master key */
-            sprintf(fname, "%s/MK_SO", get_pk_dir(tokdata, pk_dir_buf));
+            if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+                TRACE_ERROR("pk_dir buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
+            if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
+                strcat(fname, "/MK_SO");
+            } else {
+                TRACE_ERROR("MK_SO buffer overflow\n");
+                return CKR_FUNCTION_FAILED;
+            }
             rc = get_masterkey(pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {

@@ -19,6 +19,8 @@
 #include <local_types.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include "local_types.h"
 
@@ -246,5 +248,24 @@ typedef Slot_Info_t SLOT_INFO;
 #define LIB_MINOR_V 4
 
 #define RESTART_SYS_CALLS 1
+
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((__format__ (__printf__, 3, 4)))
+#endif
+static inline int ock_snprintf(char *buf, size_t buflen, const char *fmt, ...)
+{
+    va_list ap;
+    int n;
+
+    va_start(ap, fmt);
+    n = vsnprintf(buf, buflen, fmt, ap);
+    va_end(ap);
+
+    if (n < 0 || (size_t)n >= buflen)
+        return -1;
+
+    return 0;
+}
+
 
 #endif                          /* _SLOTMGR_H */

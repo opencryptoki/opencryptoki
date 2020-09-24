@@ -41,6 +41,7 @@
 #include "sw_crypt.h"
 #include "trace.h"
 #include "ock_syslog.h"
+#include "slotmgr.h" // for ock_snprintf
 
 extern void set_perm(int);
 
@@ -50,16 +51,71 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata);
 
-char *get_pk_dir(STDLL_TokData_t *tokdata, char *fname)
+static int get_token_object_path(char *buf, size_t buflen,
+                                 STDLL_TokData_t *tokdata, char *path)
 {
+    if (ock_snprintf(buf, buflen, "%s/" PK_LITE_OBJ_DIR "/%s",
+                     tokdata->data_store, path) != 0) {
+        TRACE_ERROR("buffer overflow for object path %s", path);
+        return -1;
+    }
+    return 0;
+}
+
+static FILE *open_token_object_path(char *buf, size_t buflen,
+                                    STDLL_TokData_t *tokdata, char *path,
+                                    char *mode)
+{
+    if (get_token_object_path(buf, buflen, tokdata, path) < 0)
+        return NULL;
+    return fopen(buf, mode);
+}
+
+static int get_token_data_store_path(char *buf, size_t buflen,
+                                     STDLL_TokData_t *tokdata, char *path)
+{
+    if (ock_snprintf(buf, buflen, "%s/%s", tokdata->data_store, path)) {
+        TRACE_ERROR("buffer overflow for path %s", path);
+        return -1;
+    }
+    return 0;
+}
+
+static FILE *open_token_data_store_path(char *buf, size_t buflen,
+                                        STDLL_TokData_t *tokdata, char *path,
+                                        char *mode)
+{
+    if (get_token_data_store_path(buf, buflen, tokdata, path) < 0)
+        return NULL;
+    return fopen(buf, mode);
+}
+
+static FILE *open_token_object_index(char *buf, size_t buflen,
+                                     STDLL_TokData_t *tokdata, char *mode)
+{
+    return open_token_object_path(buf, buflen, tokdata, PK_LITE_OBJ_IDX, mode);
+}
+
+static FILE *open_token_nvdat(char *buf, size_t buflen,
+                              STDLL_TokData_t *tokdata, char *mode)
+{
+    if (ock_snprintf(buf, buflen, "%s/" PK_LITE_NV, tokdata->data_store)) {
+        TRACE_ERROR("NVDAT.TOK file name buffer overflow\n");
+        return NULL;
+    }
+    return fopen(buf, mode);
+}
+
+char *get_pk_dir(STDLL_TokData_t *tokdata, char *fname, size_t len)
+{
+    int snres;
     struct passwd *pw = NULL;
 
     if (token_specific.data_store.per_user && (pw = getpwuid(getuid())) != NULL)
-        sprintf(fname, "%s/%s", tokdata->pk_dir, pw->pw_name);
+        snres = ock_snprintf(fname, len, "%s/%s", tokdata->pk_dir, pw->pw_name);
     else
-        sprintf(fname, "%s", tokdata->pk_dir);
-
-    return fname;
+        snres = ock_snprintf(fname, len, "%s", tokdata->pk_dir);
+    return snres != 0 ? NULL : fname;
 }
 
 void set_perm(int file)
@@ -112,9 +168,7 @@ CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         return rc;
 
     // update the index file if it exists
-    sprintf(fname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
-            PK_LITE_OBJ_IDX);
-    fp = fopen(fname, "r");
+    fp = open_token_object_index(fname, sizeof(fname), tokdata, "r");
     if (fp) {
         set_perm(fileno(fp));
         while (fgets(line, 50, fp)) {
@@ -151,11 +205,6 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     FILE *fp1, *fp2;
     char objidx[PATH_MAX], idxtmp[PATH_MAX], fname[PATH_MAX], line[256];
 
-    sprintf(objidx, "%s/%s/%s", tokdata->data_store,
-            PK_LITE_OBJ_DIR, PK_LITE_OBJ_IDX);
-    sprintf(idxtmp, "%s/%s/%s", tokdata->data_store,
-            PK_LITE_OBJ_DIR, "IDX.TMP");
-
     // FIXME:  on UNIX, we need to make sure these guys aren't symlinks
     //         before we blindly write to these files...
     //
@@ -163,8 +212,9 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     // remove the object from the index file
     //
 
-    fp1 = fopen(objidx, "r");
-    fp2 = fopen(idxtmp, "w");
+    fp1 = open_token_object_index(objidx, sizeof(objidx), tokdata, "r");
+    fp2 = open_token_object_path(idxtmp, sizeof(idxtmp),
+                                 tokdata, "IDX.TMP", "w");
     if (!fp1 || !fp2) {
         if (fp1)
             fclose(fp1);
@@ -206,9 +256,11 @@ CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     fclose(fp1);
     fclose(fp2);
 
-    sprintf(fname, "%s/%s/%s", tokdata->data_store,
-            PK_LITE_OBJ_DIR, (char *) obj->name);
-    unlink(fname);
+    if (get_token_object_path(fname, sizeof(fname), tokdata,
+                              (char *) obj->name) < 0)
+       TRACE_DEVEL("file name buffer overflow in obj unlink\n");
+    else
+        unlink(fname);
 
     return CKR_OK;
 }
@@ -239,36 +291,43 @@ done:
     return rc;
 }
 
-void init_data_store(STDLL_TokData_t *tokdata, char *directory,
-                     char *data_store)
+CK_RV init_data_store(STDLL_TokData_t *tokdata, char *directory,
+                      char *data_store, size_t len)
 {
     char *pkdir;
+    int pklen;
 
     if (tokdata->pk_dir != NULL) {
         free(tokdata->pk_dir);
         tokdata->pk_dir = NULL;
     }
 
-    if ((pkdir = getenv("PKCS_APP_STORE")) != NULL) {
-        tokdata->pk_dir = (char *) malloc(strlen(pkdir) + 1024);
-        memset(tokdata->pk_dir, 0, strlen(pkdir) + 1024);
-        sprintf(tokdata->pk_dir, "%s/%s", pkdir, SUB_DIR);
-        get_pk_dir(tokdata, data_store);
-        return;
+    if ((pkdir = secure_getenv("PKCS_APP_STORE")) != NULL) {
+        pklen = strlen(pkdir) + 1024;
+        tokdata->pk_dir = (char *) calloc(pklen, 1);
+        if (!(tokdata->pk_dir))
+            return CKR_HOST_MEMORY;
+        if (ock_snprintf(tokdata->pk_dir, pklen, "%s/%s", pkdir, SUB_DIR) != 0)
+            return CKR_FUNCTION_FAILED;
+        return get_pk_dir(tokdata, data_store, len) ? CKR_OK : CKR_FUNCTION_FAILED;
     }
 
     if (directory) {
-        tokdata->pk_dir = (char *) malloc(strlen(directory) + 25);
-        memset(tokdata->pk_dir, 0, strlen(directory) + 25);
-        sprintf(tokdata->pk_dir, "%s", directory);
+        pklen = strlen(directory) + 1;
+        tokdata->pk_dir = (char *) calloc(pklen, 1);
+        if (!(tokdata->pk_dir))
+            return CKR_HOST_MEMORY;
+        if (ock_snprintf(tokdata->pk_dir, pklen, "%s", directory) != 0)
+            return CKR_FUNCTION_FAILED;
     } else {
-        tokdata->pk_dir = (char *) malloc(strlen(PK_DIR) + 25);
-        memset(tokdata->pk_dir, 0, strlen(PK_DIR) + 25);
-        sprintf(tokdata->pk_dir, "%s", PK_DIR);
+        pklen = strlen(PK_DIR) + 1;
+        tokdata->pk_dir = (char *) calloc(pklen, 1);
+        if (!(tokdata->pk_dir))
+            return CKR_HOST_MEMORY;
+        if (ock_snprintf(tokdata->pk_dir, pklen, "%s", PK_DIR) != 0)
+            return CKR_FUNCTION_FAILED;
     }
-    get_pk_dir(tokdata, data_store);
-
-    return;
+    return get_pk_dir(tokdata, data_store, len) ? CKR_OK : CKR_FUNCTION_FAILED;
 }
 
 void final_data_store(STDLL_TokData_t * tokdata)
@@ -580,8 +639,7 @@ CK_RV load_token_data_old(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         goto out_nolock;
     }
 
-    sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen(fname, "r");
+    fp = open_token_nvdat(fname, sizeof(fname), tokdata, "r");
     if (!fp) {
         /* Better error checking added */
         if (errno == ENOENT) {
@@ -654,8 +712,7 @@ CK_RV save_token_data_old(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         goto out_nolock;
     }
 
-    sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen(fname, "w");
+    fp = open_token_nvdat(fname, sizeof(fname), tokdata, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -784,8 +841,12 @@ static CK_RV save_private_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj
         goto error;
     }
 
-    sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-    strncat(fname, (char *) obj->name, 8);
+    if (ock_snprintf(fname, PATH_MAX, "%s/%s/%.8s", tokdata->data_store,
+                     PK_LITE_OBJ_DIR, (char *)obj->name) != 0) {
+        TRACE_ERROR("private token object old name buffer overflow\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
     fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -844,20 +905,14 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
     CK_RV rc;
     size_t read_size;
 
-    sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
-            PK_LITE_OBJ_IDX);
-
-    fp1 = fopen(iname, "r");
+    fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
         tmp[strlen(tmp) - 1] = 0;
 
-        sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-        strcat(fname, tmp);
-
-        fp2 = fopen(fname, "r");
+        fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp, "r");
         if (!fp2)
             continue;
 
@@ -982,9 +1037,8 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     // this file gets created on C_InitToken so we can assume that it always
     // exists
     //
-    fp = fopen(fname, "r");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_SO", "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1108,10 +1162,8 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
     // this file gets created on C_InitToken so we can assume that it always
     // exists
     //
-    sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen(fname, "r");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_USER", "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1227,10 +1279,8 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
     //
     // probably ought to ensure the permissions are correct
     //
-    sprintf(fname, "%s/MK_SO", tokdata->data_store);
-    fp = fopen(fname, "w");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_SO", "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1310,10 +1360,8 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
     //
     // probably ought to ensure the permissions are correct
     //
-    sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen(fname, "w");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_USER", "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1515,12 +1563,12 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
     CK_RV rc;
     size_t read_size;
 
-    memset(fname, 0x0, sizeof(fname));
-
-    sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-
-    strncat(fname, (char *) obj->name, 8);
-
+    if (ock_snprintf(fname, PATH_MAX, "%s/%s/%.8s", tokdata->data_store,
+                     PK_LITE_OBJ_DIR, (char *)obj->name) != 0) {
+        TRACE_ERROR("token object file name buffer overflow\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
     fp = fopen(fname, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1590,13 +1638,18 @@ CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT * obj)
     CK_BBOOL flag = FALSE;
     CK_RV rc;
     CK_ULONG_32 total_len;
+
     rc = object_flatten(obj, &clear, &clear_len);
     if (rc != CKR_OK) {
         goto error;
     }
 
-    sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-    strncat(fname, (char *) obj->name, 8);
+    if (ock_snprintf(fname, PATH_MAX, "%s/%s/%.8s", tokdata->data_store,
+                     PK_LITE_OBJ_DIR, (char *)obj->name) != 0) {
+        TRACE_ERROR("public token object file name buffer overflow\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
     fp = fopen(fname, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
@@ -1640,20 +1693,14 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
     CK_ULONG_32 size;
     size_t read_size;
 
-    sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
-            PK_LITE_OBJ_IDX);
-
-    fp1 = fopen(iname, "r");
+    fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
         tmp[strlen(tmp) - 1] = 0;
 
-        sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-        strcat(fname, tmp);
-
-        fp2 = fopen(fname, "r");
+        fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp, "r");
         if (!fp2)
             continue;
 
@@ -1894,10 +1941,9 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
     //
     // probably ought to ensure the permissions are correct
     //
-    sprintf(fname, "%s/MK_SO", tokdata->data_store);
-    fp = fopen(fname, "w");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_SO",
+                                    "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1932,10 +1978,9 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
     // this file gets created on C_InitToken so we can assume that it always
     // exists
     //
-    sprintf(fname, "%s/MK_SO", tokdata->data_store);
-    fp = fopen(fname, "r");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_SO",
+                                    "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1984,10 +2029,9 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
     //
     // probably ought to ensure the permissions are correct
     //
-    sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen(fname, "w");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_USER",
+                                    "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2023,10 +2067,9 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
     // this file gets created on C_InitToken so we can assume that it always
     // exists
     //
-    sprintf(fname, "%s/MK_USER", tokdata->data_store);
-    fp = fopen(fname, "r");
+    fp = open_token_data_store_path(fname, sizeof(fname), tokdata, "MK_USER",
+                                    "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2068,8 +2111,7 @@ CK_RV save_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         goto out_nolock;
     }
 
-    sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen(fname, "w");
+    fp = open_token_nvdat(fname, sizeof(fname), tokdata, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s): %s\n", fname, strerror(errno));
         rc = CKR_FUNCTION_FAILED;
@@ -2156,8 +2198,7 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         goto out_nolock;
     }
 
-    sprintf(fname, "%s/%s", tokdata->data_store, PK_LITE_NV);
-    fp = fopen(fname, "r");
+    fp = open_token_nvdat(fname, sizeof(fname), tokdata, "r");
     if (!fp) {
         /* Better error checking added */
         if (errno == ENOENT) {
@@ -2282,8 +2323,8 @@ static inline int inc32(unsigned char ctr[4])
  * u8 tag[16]                    | 16-byte footer
  * ----------------           <--+
  */
-#define HEADER_LEN	64
-#define FOOTER_LEN	16
+#define HEADER_LEN  64
+#define FOOTER_LEN  16
 
 //
 // Note: The token lock (XProcLock) must be held when calling this function.
@@ -2451,20 +2492,14 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return load_private_token_objects_old(tokdata);
 
-    sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
-            PK_LITE_OBJ_IDX);
-
-    fp1 = fopen(iname, "r");
+    fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 
     while (fgets(tmp, 50, fp1)) {
         tmp[strlen(tmp) - 1] = 0;
 
-        sprintf(fname, "%s/%s/", tokdata->data_store, PK_LITE_OBJ_DIR);
-        strcat(fname, tmp);
-
-        fp2 = fopen(fname, "r");
+        fp2 = open_token_object_path(fname, sizeof(fname), tokdata, tmp,"r");
         if (!fp2)
             continue;
 
@@ -2680,7 +2715,7 @@ done:
  * u8  object[object_len]        | body
  * ----------------           <--+
  */
-#define PUB_HEADER_LEN	16
+#define PUB_HEADER_LEN  16
 
 //
 // Note: The token lock (XProcLock) must be held when calling this function.
@@ -2759,10 +2794,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return load_public_token_objects_old(tokdata);
 
-    sprintf(iname, "%s/%s/%s", tokdata->data_store, PK_LITE_OBJ_DIR,
-            PK_LITE_OBJ_IDX);
-
-    fp1 = fopen(iname, "r");
+    fp1 = open_token_object_index(iname, sizeof(iname), tokdata, "r");
     if (!fp1)
         return CKR_OK;          // no token objects
 

@@ -39,6 +39,7 @@
 #include "host_defs.h"
 #include "local_types.h"
 #include "h_extern.h"
+#include "slotmgr.h" // for ock_snprintf
 
 #define OCK_TOOL
 #include "pkcs_utils.h"
@@ -55,6 +56,39 @@
 #define PKCSTOK_MIGRATE_MAX_PATH_LEN    (PATH_MAX - 200)
 
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
+
+static FILE *open_datastore_file(char *buf, size_t buflen,
+                                 const char *datastore, const char *file,
+                                 const char *mode)
+{
+    FILE *res;
+
+    if (ock_snprintf(buf, buflen, "%s/%s", datastore, file) != 0) {
+        TRACE_ERROR("Path overflow for datastore file %s\n", file);
+        return NULL;
+    }
+    res = fopen(buf, mode);
+    if (!res)
+        TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    return res;
+}
+
+static FILE *open_tokenobject(char *buf, size_t buflen,
+                              const char *datastore, const char *tokenobj,
+                              const char *file, const char *mode)
+{
+    FILE *res;
+
+    if (ock_snprintf(buf, buflen, "%s/%s/%s", datastore, tokenobj, file) != 0) {
+        TRACE_ERROR("Path overflow for token object file %s for token %s\n",
+                    file, tokenobj);
+        return NULL;
+    }
+    res = fopen(buf, mode);
+    if (!res)
+        TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
+    return res;
+}
 
 /**
  * Make a 3.12 format OBJECT_PUB:
@@ -127,7 +161,7 @@ static CK_RV migrate_public_token_object(const char *data_store, const char *nam
                                          unsigned char *data, unsigned long len)
 {
     const char *tokobj = "TOK_OBJ";
-    char fname[PATH_MAX + 1 + strlen(tokobj) + 1 + strlen(name) + 1];
+    char fname[PATH_MAX];
     char *obj_new = NULL;
     unsigned int obj_new_len;
     FILE *fp = NULL;
@@ -141,10 +175,8 @@ static CK_RV migrate_public_token_object(const char *data_store, const char *nam
     }
 
     /* Setup file name for new object */
-    sprintf(fname, "%s/%s/%s", data_store, tokobj, name);
-    fp = fopen((char *) fname, "w");
+    fp = open_tokenobject(fname, sizeof(fname), data_store, tokobj, name, "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -379,7 +411,7 @@ static CK_RV migrate_private_token_object(const char *data_store, const char *na
                                           const CK_BYTE *masterkey_new)
 {
     const char *tokobj = "TOK_OBJ";
-    char fname[PATH_MAX + 1 + strlen(tokobj) + 1 + strlen(name) + 1];
+    char fname[PATH_MAX];
     unsigned char *clear = NULL;
     unsigned int clear_len;
     unsigned char *obj_new = NULL;
@@ -403,10 +435,8 @@ static CK_RV migrate_private_token_object(const char *data_store, const char *na
     }
 
     /* Create file name for new object */
-    sprintf(fname, "%s/%s/%s", data_store, tokobj, name);
-    fp = fopen((char *)fname, "w");
+    fp = open_tokenobject(fname, sizeof(fname), data_store, tokobj, name, "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -596,10 +626,9 @@ static CK_RV migrate_token_objects(const char *data_store, const CK_BYTE *master
     }
 
     /* Open index file OBJ.IDX */
-    sprintf(iname, "%s/%s/%s", data_store, tokobj, objidx);
-    fp = fopen((char *)iname, "r");
+    fp = open_tokenobject(iname, sizeof(iname),
+                          data_store, tokobj, objidx, "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", iname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -950,12 +979,15 @@ static CK_RV load_MK_SO_00(const char *data_store, const char *sopin,
                            CK_BYTE *masterkey)
 {
     const char *mkso = "MK_SO";
-    char fname[PATH_MAX + 1 + strlen(mkso) + 1];
+    char fname[PATH_MAX];
     CK_RV ret;
 
     /* Get masterkey from MK_SO. This also verifies SO PIN is correct */
     memset(masterkey, 0, MAX_MASTER_KEY_SIZE);
-    sprintf(fname, "%s/%s", data_store, mkso);
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s", data_store, mkso) != 0) {
+        TRACE_ERROR("path name for old MK_SO too long\n");
+        return CKR_FUNCTION_FAILED;
+    }
     ret = load_masterkey_00(fname, sopin, masterkey);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot load old masterkey from MK_SO, ret=%08lX.\n", ret);
@@ -973,12 +1005,15 @@ static CK_RV load_MK_USER_00(const char *data_store, const char *userpin,
                              CK_BYTE *masterkey)
 {
     const char *mkuser = "MK_USER";
-    char fname[PATH_MAX + 1 + strlen(mkuser) + 1];
+    char fname[PATH_MAX];
     CK_RV ret;
 
     /* Get masterkey from MK_USER. This also verifies user PIN is correct */
     memset(masterkey, 0, MAX_MASTER_KEY_SIZE);
-    sprintf(fname, "%s/%s", data_store, mkuser);
+    if (ock_snprintf(fname, sizeof(fname), "%s/%s", data_store, mkuser) != 0) {
+        TRACE_ERROR("path name for old MK_USER too long\n");
+        return CKR_FUNCTION_FAILED;
+    }
     ret = load_masterkey_00(fname, userpin, masterkey);
     if (ret != CKR_OK) {
         TRACE_ERROR("Cannot load old masterkey from MK_USER, ret=%08lX.\n", ret);
@@ -1043,12 +1078,9 @@ static CK_RV load_NVTOK_DAT(const char *data_store, const char *nvtok_name,
     }
 
     /* Read the NVTOK.DAT */
-    snprintf(fname, PATH_MAX, "%s/%s", data_store, nvtok_name);
-    fp = fopen((char *) fname, "r");
-    if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
+    fp = open_datastore_file(fname, sizeof(fname), data_store, nvtok_name, "r");
+    if (!fp)
         return CKR_FUNCTION_FAILED;
-    }
 
     fd = fileno(fp);
     if ((fstat(fd, &stbuf) != 0) || (!S_ISREG(stbuf.st_mode))) {
@@ -1198,7 +1230,11 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir, char *dll_name)
     TRACE_INFO("Identifying the token that belongs to slot %ld ...\n", slot_id);
 
     /* Open conf file */
-    snprintf(conf_file, PATH_MAX, "%s/%s", conf_dir, "opencryptoki.conf");
+    if (ock_snprintf(conf_file, PATH_MAX, "%s/%s",
+                     conf_dir, "opencryptoki.conf") != 0) {
+        TRACE_ERROR("Path name overflow for config file opencryptoki.conf\n");
+        return CKR_FUNCTION_FAILED;
+    }
     fp = fopen(conf_file, "r");
     if (!fp) {
         TRACE_ERROR("fopen(%s) failed, errno=%s\n", conf_file, strerror(errno));
@@ -1208,7 +1244,7 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir, char *dll_name)
 
     /* Get stdll name */
     ret = CKR_FUNCTION_FAILED;
-    snprintf(parm, sizeof(parm), "slot %ld", slot_id);
+    sprintf(parm, "slot %ld", slot_id); /* FIXME: Buggy parser */
     while (fgets(line, sizeof(line), fp)) {
         if (!begins_with(line, '#') && strstr(line, parm)) {
             ret = get_stdll_name(fp, dll_name);
@@ -1427,7 +1463,7 @@ static CK_RV create_MK_USER_312(const char *data_store, const char *userpin,
                                 TOKEN_DATA *tokdata)
 {
     const char *mkuser = "MK_USER_312";
-    char fname[PATH_MAX + 1 + strlen(mkuser) + 1];
+    char fname[PATH_MAX];
     CK_BYTE user_wrap_key[32];
     CK_BYTE outbuf[40];
     FILE *fp = NULL;
@@ -1448,10 +1484,8 @@ static CK_RV create_MK_USER_312(const char *data_store, const char *userpin,
         goto done;
 
     /* Create file MK_USER_312 */
-    sprintf(fname, "%s/%s", data_store, mkuser);
-    fp = fopen(fname, "w");
+    fp = open_datastore_file(fname, sizeof(fname), data_store, mkuser, "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1482,7 +1516,7 @@ static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
                               TOKEN_DATA *tokdata)
 {
     const char *mkso = "MK_SO_312";
-    char fname[PATH_MAX + 1 + strlen(mkso) + 1];
+    char fname[PATH_MAX];
     CK_BYTE outbuf[40];
     CK_BYTE so_wrap_key[32];
     FILE *fp = NULL;
@@ -1505,8 +1539,7 @@ static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
     }
 
     /* Create file MK_SO_312 */
-    sprintf(fname, "%s/%s", data_store, mkso);
-    fp = fopen(fname, "w");
+    fp = open_datastore_file(fname, sizeof(fname), data_store, mkso, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         rv = CKR_FUNCTION_FAILED;
@@ -1538,7 +1571,7 @@ static CK_RV read_NVTOK_DAT_00(const char *data_store, TOKEN_DATA *tokdata)
 {
     FILE *fp;
     const char *nvtok = "NVTOK.DAT";
-    char fname[PATH_MAX + 1 + strlen(nvtok) + 1];
+    char fname[PATH_MAX];
     struct stat stbuf;
     int fd;
     CK_RV ret;
@@ -1549,12 +1582,9 @@ static CK_RV read_NVTOK_DAT_00(const char *data_store, TOKEN_DATA *tokdata)
     }
 
     /* Read the old NVTOK.DAT */
-    sprintf(fname, "%s/%s", data_store, nvtok);
-    fp = fopen((char *) fname, "r");
-    if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
+    fp = open_datastore_file(fname, sizeof(fname), data_store, nvtok, "r");
+    if (!fp)
         return CKR_FUNCTION_FAILED;
-    }
 
     fd = fileno(fp);
     if ((fstat(fd, &stbuf) != 0) || (!S_ISREG(stbuf.st_mode))) {
@@ -1664,7 +1694,7 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
                                   const char *userpin, TOKEN_DATA *tokdata)
 {
     const char *nvtok = "NVTOK.DAT_312";
-    char fname[PATH_MAX + 1 + strlen(nvtok) + 1];
+    char fname[PATH_MAX];
     TOKEN_DATA be_tokdata;
     FILE *fp = NULL;
     CK_RV ret;
@@ -1678,10 +1708,8 @@ static CK_RV create_NVTOK_DAT_312(const char *data_store, const char *sopin,
     }
 
     /* Create new file NVTOK.DAT_312 */
-    sprintf(fname, "%s/%s", data_store, nvtok);
-    fp = fopen(fname, "w");
+    fp = open_datastore_file(fname, sizeof(fname), data_store, nvtok, "w");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }

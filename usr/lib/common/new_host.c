@@ -115,13 +115,24 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     bt_init(&sltp->TokData->publ_token_obj_btree, call_object_free);
 
     if (strlen(sinfp->tokname)) {
-        sprintf(abs_tokdir_name, "%s/%s", CONFIG_PATH, sinfp->tokname);
+        if (ock_snprintf(abs_tokdir_name, PATH_MAX, "%s/%s",
+                         CONFIG_PATH, sinfp->tokname) != 0) {
+            TRACE_ERROR("token directory path buffer overflow\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
         TRACE_DEVEL("Token directory: %s\n", abs_tokdir_name);
-        init_data_store(sltp->TokData, (char *) abs_tokdir_name,
-                        sltp->TokData->data_store);
+        rc = init_data_store(sltp->TokData, (char *) abs_tokdir_name,
+                             sltp->TokData->data_store,
+                             sizeof(sltp->TokData->data_store));
     } else {
-        init_data_store(sltp->TokData, (char *) PK_DIR,
-                        sltp->TokData->data_store);
+        rc = init_data_store(sltp->TokData, (char *) PK_DIR,
+                             sltp->TokData->data_store,
+                             sizeof(sltp->TokData->data_store));
+    }
+    if (rc != CKR_OK) {
+        TRACE_ERROR("init_data_store failed with buffer error.\n");
+        goto done;
     }
 
     sltp->TokData->version = sinfp->version;

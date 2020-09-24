@@ -108,11 +108,11 @@ static BOOL SyslogOpen(pLoggingFacilityInfo pInfo);
 /*************************************************************
  *  GetCurrentTimeString -
  *
- *     Writes the current date & time into *Buffer
+ *     Writes the current date & time into *buf
  *
  *************************************************************/
 
-BOOL GetCurrentTimeString(char *Buffer)
+BOOL GetCurrentTimeString(char *buf)
 {
     /* Note: The specs for ctime_r and asctime_r say that Buffer needs
      * to be 26 characters long.  Not sure if that includes a triling
@@ -121,13 +121,13 @@ BOOL GetCurrentTimeString(char *Buffer)
     time_t t;
     struct tm tm;
 
-    ASSERT(Buffer != NULL);
+    ASSERT(buf != NULL);
 
     time(&t);
     localtime_r(&t, &tm);
-    asctime_r(&tm, &(Buffer[0]));
+    asctime_r(&tm, buf);
     /* asctime_r puts a \n at the end, so we'll remove that */
-    Buffer[strlen(Buffer) - 1] = '\0';
+    buf[strlen(buf) - 1] = '\0';
 
     return TRUE;
 }
@@ -268,11 +268,9 @@ BOOL NewLoggingFacility(char *ID, pLoggingFacility pStuff)
     pInfo->pid = 0;
     pInfo->LogLevel = pStuff->LogLevel;
 
-    sprintf(pInfo->Descrip, "%s %s", pStuff->Label, ID);
-
-    /* ensure that the last character is a NULL */
-    pInfo->Descrip[sizeof(pInfo->Descrip) - 1] = '\0';
-
+    /* truncate description to fit buffer */
+    snprintf(pInfo->Descrip, sizeof(pInfo->Descrip), "%s %s",
+             pStuff->Label, ID);
 
     /* Some sanity checking on filename... */
     if ((pStuff->Filename != NULL) && (strlen(pStuff->Filename) > 0)) {
@@ -401,12 +399,13 @@ static void CloseAllLoggingFacilities(void)
  *
  ***********************************************************************/
 
-BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
+BOOL PKCS_Log(pLogHandle phLog, char *fmt, va_list ap)
 {
-    char Buffer[PATH_MAX];
+    char buf[PATH_MAX];
     pLoggingFacilityInfo pInfo;
+    int snres;
 
-    if (Format == NULL) {
+    if (fmt == NULL) {
         return FALSE;
     }
 
@@ -421,7 +420,8 @@ BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
         }
     }
 
-    if (vsprintf(&(Buffer[0]), Format, ap) < 0) {
+    snres = vsnprintf(buf, PATH_MAX, fmt, ap);
+    if (snres < 0 || snres >= PATH_MAX) {
         /* Error reporting functions should be rather robust,
          * don't you think? */
         /* vsprintf reporting an error */
@@ -431,8 +431,8 @@ BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
     }
 
     /* Get rid of trailing newlines. */
-    while (strlen(Buffer) && (Buffer[strlen(Buffer) - 1] == '\n')) {
-        Buffer[strlen(Buffer) - 1] = '\0';
+    while (strlen(buf) && (buf[strlen(buf) - 1] == '\n')) {
+        buf[strlen(buf) - 1] = '\0';
     }
 
 
@@ -464,7 +464,7 @@ BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
 
         if (WriteNow) {
             fprintf(stderr, "%s[%d.%d]: %s\n", pInfo->Descrip, getpid(),
-                    (int) pthread_self(), Buffer);
+                    (int) pthread_self(), buf);
         }
     }
 
@@ -477,14 +477,14 @@ BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
         if ((fd = fopen(pInfo->Filename, "a+")) == NULL) {
             fprintf(stderr, "PKCS_Log: fopen failed for %s\n", pInfo->Filename);
         } else {
-            char buf[32];       /* Specs say 26-character array */
+            char timebuf[32];       /* Specs say 26-character array */
 
-            GetCurrentTimeString(&(buf[0]));
+            GetCurrentTimeString(timebuf);
 
             /* Date/Time stamp, descrip, Error message */
-            fprintf(fd, "%s %s[%d.%d]: ", buf, pInfo->Descrip, getpid(),
+            fprintf(fd, "%s %s[%d.%d]: ", timebuf, pInfo->Descrip, getpid(),
                     pthread_self());
-            fprintf(fd, "%s\n", Buffer);
+            fprintf(fd, "%s\n", buf);
             fflush(fd);
             fclose(fd);
         }
@@ -496,7 +496,7 @@ BOOL PKCS_Log(pLogHandle phLog, char *Format, va_list ap)
 
     /* Always log to syslog, if we're using it */
     if (pInfo->UseSyslog) {
-        syslog(pInfo->LogLevel, "%s", Buffer);
+        syslog(pInfo->LogLevel, "%s", buf);
     }
 
     return TRUE;

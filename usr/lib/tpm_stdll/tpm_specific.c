@@ -193,17 +193,21 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     tokdata->mech_list_len = tpm_mech_list_len;
 
     // if the user specific directory doesn't exist, create it
-    sprintf(path_buf, "%s", get_pk_dir(tokdata, fname));
-    if (stat(path_buf, &statbuf) < 0) {
-        if (mkdir(path_buf, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
-            TRACE_ERROR("mkdir(%s): %s\n", path_buf, strerror(errno));
+    if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
+        TRACE_ERROR("pk_dir buffer overflow\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (stat(fname, &statbuf) < 0) {
+        if (mkdir(fname, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
+            TRACE_ERROR("mkdir(%s): %s\n", fname, strerror(errno));
             return CKR_FUNCTION_FAILED;
         }
     }
     // now create userdir/TOK_OBJ if it doesn't exist
-    strncat(path_buf, "/", sizeof(path_buf) - (strlen(path_buf) + 1));
-    strncat(path_buf, PK_LITE_OBJ_DIR,
-            sizeof(path_buf) - (strlen(PK_LITE_OBJ_DIR) + 1));
+    if (ock_snprintf(path_buf, PATH_MAX, "%s/%s", fname, PK_LITE_OBJ_DIR) != 0) {
+        TRACE_ERROR("userdir/TOK_OBJ path name overflow\n");
+        return CKR_FUNCTION_FAILED;
+    }
     if (stat(path_buf, &statbuf) < 0) {
         if (mkdir(path_buf, S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
             TRACE_ERROR("mkdir(%s): %s\n", path_buf, strerror(errno));
@@ -1630,10 +1634,9 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
     return CKR_OK;
 }
 
-CK_RV save_masterkey_private(STDLL_TokData_t * tokdata)
+static CK_RV save_masterkey_private(STDLL_TokData_t * tokdata, char *fname)
 {
     tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
-    char fname[PATH_MAX];
     struct stat file_stat;
     int err;
     FILE *fp = NULL;
@@ -1649,9 +1652,6 @@ CK_RV save_masterkey_private(STDLL_TokData_t * tokdata)
         TRACE_ERROR("getpwuid failed: %s\n", strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
-    //fp = fopen("/etc/pkcs11/tpm/MK_PRIVATE", "r");
-    sprintf(fname, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
-            TPMTOK_MASTERKEY_PRIVATE);
 
     /* if file exists, assume its been written correctly before */
     err = stat(fname, &file_stat);
@@ -1735,8 +1735,11 @@ CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
         return CKR_FUNCTION_FAILED;
     }
 
-    sprintf(fname, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
-            TPMTOK_MASTERKEY_PRIVATE);
+    if (ock_snprintf(fname, PATH_MAX, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
+                     TPMTOK_MASTERKEY_PRIVATE) != 0) {
+        TRACE_ERROR("tpm token master key private file buffer overflow\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
     /* if file exists, check its size */
     err = stat(fname, &file_stat);
@@ -1755,7 +1758,7 @@ CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
             return rc;
         }
 
-        return save_masterkey_private(tokdata);
+        return save_masterkey_private(tokdata, fname);
     } else {
         /* some error other than file doesn't exist */
         TRACE_ERROR("stat of private masterkey failed: %s\n", strerror(errno));

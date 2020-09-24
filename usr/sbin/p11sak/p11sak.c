@@ -39,7 +39,7 @@ static void load_pkcs11lib(void)
     const char *libname;
 
     /* check for environment variable PKCSLIB */
-    libname = getenv("PKCSLIB");
+    libname = secure_getenv("PKCSLIB");
     if (libname == NULL || strlen(libname) < 1)
         libname = default_pkcs11lib;
 
