@@ -32,7 +32,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/mman.h>
+#include <regex.h>
 #include <pkcs11types.h>
+#include <configparser.h>
 
 #include "sw_crypt.h"
 #include "defs.h"
@@ -836,39 +838,6 @@ done:
 }
 
 /**
- * Remove any spaces from given string
- */
-static void remove_spaces(char *s)
-{
-    int i, count = 0;
-
-    for (i = 0; s[i]; i++) {
-        if (s[i] != ' ')
-            s[count++] = s[i];
-    }
-
-    s[count] = '\0';
-}
-
-/**
- * gets the stdll name from the given opencryptoki.conf file.
- */
-static CK_RV get_stdll_name(FILE *fp, char *dll_name)
-{
-    char line[PATH_MAX];
-
-    while (fgets(line, sizeof(line), fp)) {
-        remove_spaces(line);
-        if (strstr(line, "stdll=")) {
-            sscanf(line, "stdll=%s", dll_name);
-            return CKR_OK;
-        }
-    }
-
-    return CKR_FUNCTION_FAILED;
-}
-
-/**
  * Check if the given conf_dir exists and contains the opencryptoki.conf.
  */
 static CK_BBOOL conffile_exists(const char *conf_dir)
@@ -1188,37 +1157,53 @@ static CK_BBOOL begins_with(const char *str, const char c)
 /**
  * Identify the token that belongs to the given slot ID.
  */
-static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir, char *dll_name)
+static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
+                            char *dll_name, size_t dll_name_len)
 {
     char conf_file[PATH_MAX];
-    char line[80], parm[80];
-    FILE *fp;
     CK_RV ret;
+    struct config_parse_env *envp = NULL;
+    size_t max_cpy_size;
+
+    max_cpy_size = dll_name_len > sizeof(((Slot_Info_t_64 *)NULL)->dll_location)
+        ? sizeof(((Slot_Info_t_64 *)NULL)->dll_location) : dll_name_len;
+    max_cpy_size--;
 
     TRACE_INFO("Identifying the token that belongs to slot %ld ...\n", slot_id);
 
-    /* Open conf file */
-    snprintf(conf_file, PATH_MAX, "%s/%s", conf_dir, "opencryptoki.conf");
-    fp = fopen(conf_file, "r");
-    if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", conf_file, strerror(errno));
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    /* Get stdll name */
-    ret = CKR_FUNCTION_FAILED;
-    snprintf(parm, sizeof(parm), "slot %ld", slot_id);
-    while (fgets(line, sizeof(line), fp)) {
-        if (!begins_with(line, '#') && strstr(line, parm)) {
-            ret = get_stdll_name(fp, dll_name);
-            goto done;
-        }
+    /* Open conf file */
+    snprintf(conf_file, PATH_MAX, "%s/%s", conf_dir, "opencryptoki.conf");
+
+    envp = calloc(1, sizeof(struct config_parse_env));
+    if (!envp) {
+        TRACE_ERROR("malloc failed for config_parse_env, errno=%s\n",
+                    strerror(errno));
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
     }
+
+    if (load_and_parse(conf_file, envp)) {
+        TRACE_ERROR("failed to parse config file %s\n", conf_file);
+        goto done;
+    }
+
+    /* Get stdll name */
+    if (envp->sinfo[slot_id].present) {
+        strncpy(dll_name, envp->sinfo[slot_id].dll_location, max_cpy_size);
+        // Make sure it is 0-terminated
+        dll_name[max_cpy_size] = 0;
+        ret = CKR_OK;
+    } else
+        ret = CKR_FUNCTION_FAILED;
 
 done:
 
-    fclose(fp);
+    free(envp);
 
     return ret;
 }
@@ -2028,11 +2013,14 @@ done:
 static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 {
     const char *parm = "tokversion = 3.12\n";
-    char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20], line[PATH_MAX];
+    char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20];
     char slot[32];
     FILE *fp_r = NULL, *fp_w = NULL;
     CK_RV ret;
     int rc;
+    regex_t re;
+    char *line = NULL;
+    size_t linelen = 0;
 
     TRACE_INFO("Updating config file ...\n");
 
@@ -2056,12 +2044,16 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
     set_perm(fileno(fp_w));
 
     /* Insert/replace tokversion parm in new file */
-    snprintf(slot, sizeof(slot), "slot %ld", slot_id);
-    while (fgets(line, sizeof(line), fp_r)) {
-        if (!begins_with(line, '#') && strstr(line, slot)) {
+    snprintf(slot, sizeof(slot), "^\\s*slot\\s+%ld\\s*\\{\\s*$", slot_id);
+    if (regcomp(&re, slot, REG_NOSUB | REG_NEWLINE | REG_EXTENDED)) {
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    while (getline(&line, &linelen, fp_r)) {
+        if (!begins_with(line, '#') && regexec(&re, line, 0, 0, 0) != REG_NOMATCH) {
             fputs(line, fp_w); // write "slot n"
             /* insert tokversion before '}' */
-            while (fgets(line, sizeof(line), fp_r)) {
+            while (getline(&line, &linelen, fp_r)) {
                 if (strstr(line, "}")) {
                     fputs(parm, fp_w);
                     fputs(line, fp_w);
@@ -2075,6 +2067,7 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
             fputs(line, fp_w);
     }
 
+    free(line);
     fclose(fp_r);
     fclose(fp_w);
     fp_r = NULL;
@@ -2633,7 +2626,7 @@ int main(int argc, char **argv)
     }
 
     /* Identify token related to given slot ID */
-    ret = identify_token(slot_id, conf_dir, dll_name);
+    ret = identify_token(slot_id, conf_dir, dll_name, sizeof(dll_name));
     if (ret != CKR_OK) {
         warnx("Cannot identify a token related to given slot ID %ld", slot_id);
         goto done;
