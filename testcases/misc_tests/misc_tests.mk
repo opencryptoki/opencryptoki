@@ -5,7 +5,8 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/tok_obj testcases/misc_tests/tok_rsa	\
 	testcases/misc_tests/tok_des					\
 	testcases/misc_tests/fork testcases/misc_tests/multi_instance   \
-	testcases/misc_tests/obj_lock testcases/misc_tests/tok2tok_transport
+	testcases/misc_tests/obj_lock testcases/misc_tests/tok2tok_transport \
+	testcases/misc_tests/obj_lock testcases/misc_tests/reencrypt
 
 testcases_misc_tests_obj_mgmt_tests_CFLAGS = ${testcases_inc}
 testcases_misc_tests_obj_mgmt_tests_LDADD =				\
@@ -60,3 +61,8 @@ testcases_misc_tests_tok2tok_transport_CFLAGS = ${testcases_inc}
 testcases_misc_tests_tok2tok_transport_LDADD = testcases/common/libcommon.la
 testcases_misc_tests_tok2tok_transport_SOURCES = 			\
 	testcases/misc_tests/tok2tok_transport.c
+	
+testcases_misc_tests_reencrypt_CFLAGS = ${testcases_inc}
+testcases_misc_tests_reencrypt_LDADD = testcases/common/libcommon.la
+testcases_misc_tests_reencrypt_SOURCES = 			\
+	testcases/misc_tests/reencrypt.c
