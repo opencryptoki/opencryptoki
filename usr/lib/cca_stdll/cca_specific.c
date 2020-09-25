@@ -165,6 +165,7 @@ static CSNDRKX_t dll_CSNDRKX;
 static CSNBKET_t dll_CSNBKET;
 static CSNBHMG_t dll_CSNBHMG;
 static CSNBHMV_t dll_CSNBHMV;
+static CSNBCTT2_t dll_CSNBCTT2;
 
 /* mechanisms provided by this token */
 static const MECH_LIST_ELEMENT cca_mech_list[] = {
@@ -375,6 +376,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     *(void **)(&dll_CSNBKET) = dlsym(hdl, "CSNBKET");
     *(void **)(&dll_CSNBHMG) = dlsym(hdl, "CSNBHMG");
     *(void **)(&dll_CSNBHMV) = dlsym(hdl, "CSNBHMV");
+    *(void **)(&dll_CSNBCTT2) = dlsym(hdl, "CSNBCTT2");
 
     if ((error = dlerror()) != NULL) {
         OCK_SYSLOG(LOG_ERR, "%s\n", error);
@@ -4822,4 +4824,177 @@ error:
         free(never_extract);
 
     return rc;
+}
+
+CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
+                                      SESSION *session,
+                                      ENCR_DECR_CONTEXT *decr_ctx,
+                                      CK_MECHANISM *decr_mech,
+                                      OBJECT *decr_key_obj,
+                                      ENCR_DECR_CONTEXT *encr_ctx,
+                                      CK_MECHANISM *encr_mech,
+                                      OBJECT *encr_key_obj,
+                                      CK_BYTE *in_data, CK_ULONG in_data_len,
+                                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    CK_ATTRIBUTE *decr_key_opaque, *encr_key_opaque;
+    long return_code, reason_code, rule_array_count = 0;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    CK_BYTE in_iv[AES_BLOCK_SIZE] = { 0 };
+    CK_BYTE out_iv[AES_BLOCK_SIZE] = { 0 };
+    long in_iv_len = 0, out_iv_len = 0;
+    CK_BYTE cv[128] = { 0 };
+    long cv_len = 128, zero = 0;
+    CK_ULONG max_clear_len, req_out_len;
+
+    UNUSED(tokdata);
+    UNUSED(session);
+    UNUSED(decr_ctx);
+    UNUSED(encr_ctx);
+
+    if (!template_attribute_find(decr_key_obj->template, CKA_IBM_OPAQUE,
+                                 &decr_key_opaque)) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the decryption key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!template_attribute_find(encr_key_obj->template, CKA_IBM_OPAQUE,
+                                 &encr_key_opaque)) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the encryption key.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* CCA only supports AES-ECB/CBC, and 3DES-CBC with CSNBCTT2 */
+    switch (decr_mech->mechanism) {
+    case CKM_AES_ECB:
+        rule_array_count = 2;
+        memcpy(rule_array, "IKEY-AESI-ECB   ", 2 * CCA_KEYWORD_SIZE);
+
+        max_clear_len = in_data_len;
+        break;
+    case CKM_AES_CBC:
+        rule_array_count = 2;
+        memcpy(rule_array, "IKEY-AESI-CBC   ", 2 * CCA_KEYWORD_SIZE);
+
+        in_iv_len = decr_mech->ulParameterLen;
+        if (in_iv_len != AES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(in_iv, decr_mech->pParameter, in_iv_len);
+
+        max_clear_len = in_data_len;
+        break;
+    case CKM_AES_CBC_PAD:
+        rule_array_count = 2;
+        memcpy(rule_array, "IKEY-AESIPKCSPAD", 2 * CCA_KEYWORD_SIZE);
+
+        in_iv_len = decr_mech->ulParameterLen;
+        if (in_iv_len != AES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(in_iv, decr_mech->pParameter, in_iv_len);
+
+        /* PKCS#7 pads at least 1 byte in any case */
+        max_clear_len = in_data_len - 1;
+        break;
+    case CKM_DES3_CBC:
+        rule_array_count = 2;
+        memcpy(rule_array, "IKEY-DESI-CBC   ", 2 * CCA_KEYWORD_SIZE);
+
+        in_iv_len = decr_mech->ulParameterLen;
+        if (in_iv_len != DES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(in_iv, decr_mech->pParameter, in_iv_len);
+
+        max_clear_len = in_data_len;
+        break;
+    default:
+        TRACE_DEVEL("Decryption method %lu not supported\n",
+                     decr_mech->mechanism);
+        return CKR_MECHANISM_INVALID;
+    }
+
+    switch (encr_mech->mechanism) {
+    case CKM_AES_ECB:
+        memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+               "OKEY-AESO-ECB   ", 2 * CCA_KEYWORD_SIZE);
+        rule_array_count += 2;
+
+        /* Round up to the next block size */
+        req_out_len = (max_clear_len / AES_BLOCK_SIZE) * AES_BLOCK_SIZE +
+                (max_clear_len % AES_BLOCK_SIZE ? AES_BLOCK_SIZE : 0);
+        break;
+    case CKM_AES_CBC:
+        memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+               "OKEY-AESO-CBC   ", 2 * CCA_KEYWORD_SIZE);
+        rule_array_count += 2;
+
+        out_iv_len = encr_mech->ulParameterLen;
+        if (out_iv_len != AES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(out_iv, encr_mech->pParameter, out_iv_len);
+
+        /* Round up to the next block size */
+        req_out_len = (max_clear_len / AES_BLOCK_SIZE) * AES_BLOCK_SIZE +
+                (max_clear_len % AES_BLOCK_SIZE ? AES_BLOCK_SIZE : 0);
+        break;
+    case CKM_AES_CBC_PAD:
+        memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+               "OKEY-AESOPKCSPAD", 2 * CCA_KEYWORD_SIZE);
+        rule_array_count += 2;
+
+        out_iv_len = encr_mech->ulParameterLen;
+        if (out_iv_len != AES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(out_iv, encr_mech->pParameter, out_iv_len);
+
+        /* PKCS#7 pads a full block, if already a multiple of the block size */
+        req_out_len = AES_BLOCK_SIZE * (max_clear_len / AES_BLOCK_SIZE + 1);
+        break;
+    case CKM_DES3_CBC:
+        memcpy(rule_array + (rule_array_count * CCA_KEYWORD_SIZE),
+               "OKEY-DESO-CBC   ", 2 * CCA_KEYWORD_SIZE);
+        rule_array_count += 2;
+
+        out_iv_len = encr_mech->ulParameterLen;
+        if (out_iv_len != DES_BLOCK_SIZE)
+            return CKR_MECHANISM_PARAM_INVALID;
+        memcpy(out_iv, encr_mech->pParameter, out_iv_len);
+
+        /* Round up to the next block size */
+        req_out_len = (max_clear_len / DES_BLOCK_SIZE) * DES_BLOCK_SIZE +
+                (max_clear_len % DES_BLOCK_SIZE ? DES_BLOCK_SIZE : 0);
+        break;
+    default:
+        TRACE_DEVEL("Encryption method %lu not supported\n",
+                     decr_mech->mechanism);
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (out_data == NULL) {
+        *out_data_len = req_out_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < req_out_len) {
+        *out_data_len = req_out_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    dll_CSNBCTT2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                 rule_array, (long *)&decr_key_opaque->ulValueLen,
+                 decr_key_opaque->pValue, &in_iv_len, in_iv,
+                 (long *)&in_data_len, in_data, &cv_len, cv,
+                 (long *)&encr_key_opaque->ulValueLen, encr_key_opaque->pValue,
+                 &out_iv_len, out_iv, (long *)out_data_len, out_data,
+                 &zero, NULL, &zero, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNBCTT2 (CIPHER TEXT TRANSLATE) failed."
+                    " return:%ld, reason:%ld\n", return_code, reason_code);
+        if (return_code == 8 && reason_code == 72)
+            return CKR_DATA_LEN_RANGE;
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
 }
