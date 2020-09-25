@@ -33,8 +33,9 @@ Slot_Mgr_Shr_t *shmp;           // pointer to the shared memory region.
 int shmid;
 key_t tok;
 Slot_Info_t_64 sinfo[NUMBER_SLOTS_MANAGED];
-Slot_Info_t_64 *psinfo;
 unsigned int NumberSlotsInDB = 0;
+
+Slot_Info_t_64 *psinfo;
 
 int socketfd;
 Slot_Mgr_Socket_t socketData;
@@ -42,6 +43,12 @@ Slot_Mgr_Socket_t socketData;
 struct dircheckinfo_s {
     const char *dir;
     int mode;
+};
+
+struct parse_data {
+    Slot_Info_t_64    sinfo_struct;
+    unsigned long int index;
+    int               slot_has_error;
 };
 
 /*
@@ -322,6 +329,152 @@ static int create_pid_file(pid_t pid)
     return 0;
 }
 
+/*************************
+ * Parser callouts
+ ************************/
+static void slotmgr_begin_slot(void *private, int slot, int nl_before_slot)
+{
+    struct parse_data *d = (struct parse_data *)private;
+
+    UNUSED(nl_before_slot);
+    memset(&d->sinfo_struct, 0, sizeof(d->sinfo_struct));
+    d->sinfo_struct.slot_number = slot;
+    d->index = slot;
+    d->slot_has_error = 0;
+}
+
+static void slotmgr_end_slot(void *private)
+{
+    struct parse_data *d = (struct parse_data *)private;
+
+    /* set some defaults if user hasn't set these. */
+	if (!d->sinfo_struct.pk_slot.slotDescription[0]) {
+		memset(&d->sinfo_struct.pk_slot.slotDescription[0], ' ',
+               sizeof(d->sinfo_struct.pk_slot.slotDescription));
+		memcpy(&d->sinfo_struct.pk_slot.slotDescription[0],
+			   DEF_SLOTDESC, strlen(DEF_SLOTDESC));
+	}
+	if (!d->sinfo_struct.pk_slot.manufacturerID[0]) {
+		memset(&d->sinfo_struct.pk_slot.manufacturerID[0], ' ',
+		       sizeof(d->sinfo_struct.pk_slot.manufacturerID));
+		memcpy(&d->sinfo_struct.pk_slot.manufacturerID[0],
+			   DEF_MANUFID, strlen(DEF_MANUFID));
+	}
+    if (d->index >= NUMBER_SLOTS_MANAGED) {
+        fprintf(stderr, "Skipping slot %ld since only %d slots are supported\n",
+                d->index, NUMBER_SLOTS_MANAGED);
+    } else if (d->slot_has_error) {
+        fprintf(stderr, "Skipping slot %ld due to parse errors in config\n",
+                d->index);
+    } else {
+        memcpy(&(sinfo[d->index]), &d->sinfo_struct, sizeof(d->sinfo_struct));
+        NumberSlotsInDB++;
+    }
+}
+
+static int do_str(char *slotinfo, size_t size, int tok, const char *val)
+{
+	if (strlen(val) > size) {
+        fprintf(stderr, "%s has too many characters\n",
+                keyword_token_to_str(tok));
+		return -1;
+	}
+    memset(slotinfo, ' ', size);
+	memcpy(slotinfo, val, strlen(val));
+	return 0;
+}
+
+static int do_vers(CK_VERSION *slotinfo, int kw, const char *val)
+{
+	char *dot;
+
+	if (!val || !*val) {
+		fprintf(stderr, "%s has no value\n", keyword_token_to_str(kw));
+		return -1 ;
+	}
+
+    dot = strchr(val, '.');
+    slotinfo->major = strtol(val, NULL, 10);
+    slotinfo->minor = dot ? strtol(dot + 1, NULL, 10) : 0;
+	return 0;
+}
+
+static void slotmgr_key_str(void *private, int tok, const char *val)
+{
+    struct parse_data *d = (struct parse_data *)private;
+
+    switch (tok) {
+    case KW_STDLL:
+        if (do_str((char *)&d->sinfo_struct.dll_location,
+                   sizeof(d->sinfo_struct.dll_location), tok, val)) {
+            fprintf(stderr, "STDLL location too long.  Skipping token.");
+            d->slot_has_error = 1;
+        } else {
+            d->sinfo_struct.present = TRUE;
+            d->sinfo_struct.pk_slot.flags |= (CKF_TOKEN_PRESENT);
+        }
+        break;
+    case KW_SLOTDESC:
+        if (do_str((char *)d->sinfo_struct.pk_slot.slotDescription,
+                   sizeof(d->sinfo_struct.pk_slot.slotDescription), tok, val))
+            d->slot_has_error = 1;
+        break;
+    case KW_MANUFID:
+        if (do_str((char *)d->sinfo_struct.pk_slot.manufacturerID,
+                   sizeof(d->sinfo_struct.pk_slot.manufacturerID), tok, val))
+            d->slot_has_error = 1;
+        break;
+    case KW_CONFNAME:
+        if (do_str((char *)d->sinfo_struct.confname,
+                   sizeof(d->sinfo_struct.confname), tok, val))
+            d->slot_has_error = 1;
+        break;
+    case KW_TOKNAME:
+        if (do_str((char *)d->sinfo_struct.pk_slot.slotDescription,
+                   sizeof(d->sinfo_struct.pk_slot.slotDescription), tok, val))
+            d->slot_has_error = 1;
+        break;
+    case KW_HWVERSION:
+        if (do_vers(&d->sinfo_struct.pk_slot.hardwareVersion, tok, val))
+            d->slot_has_error = 1;
+        break;
+    case KW_FWVERSION:
+        if (do_vers(&d->sinfo_struct.pk_slot.firmwareVersion, tok, val))
+            d->slot_has_error = 1;
+        break;
+    default:
+        fprintf(stderr, "Unknown keyword detected\n");
+        break;
+    }
+}
+
+static void slotmgr_key_vers(void *private, int tok, unsigned int vers)
+{
+    struct parse_data *d = (struct parse_data *)private;
+
+    if (tok == KW_TOKVERSION) {
+        d->sinfo_struct.version = vers;
+    } else {
+        d->slot_has_error = 1;
+        fprintf(stderr, "Unkown version keyword detected\n");
+    }
+}
+
+static void slotmgr_parseerror(void*private)
+{
+    struct parse_data *d = (struct parse_data *)private;
+
+    d->slot_has_error = 1;
+}
+
+static struct parsefuncs slotmgr_parsefuncs = {
+    .begin_slot = slotmgr_begin_slot,
+    .end_slot   = slotmgr_end_slot,
+    .key_str    = slotmgr_key_str,
+    .key_vers   = slotmgr_key_vers,
+    .parseerror = slotmgr_parseerror
+};
+
 /*****************************************
  *  main() -
  *      You know what main does.
@@ -333,6 +486,7 @@ static int create_pid_file(pid_t pid)
 int main(int argc, char *argv[], char *envp[])
 {
     int ret, i;
+    struct parse_data parsedata;
 
     /**********************************/
     /* Read in command-line arguments */
@@ -358,7 +512,7 @@ int main(int argc, char *argv[], char *envp[])
                GetDebugLevel(), DEBUG_NONE, DEBUG_LEVEL0, DEBUG_LEVEL1);
     }
 
-    ret = load_and_parse(OCK_CONFIG);
+    ret = load_and_parse(OCK_CONFIG, &slotmgr_parsefuncs, &parsedata);
     if (ret != 0) {
         ErrLog("Failed to read config file.\n");
         return 1;

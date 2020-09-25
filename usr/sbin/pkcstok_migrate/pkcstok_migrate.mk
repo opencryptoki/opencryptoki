@@ -19,4 +19,6 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
 	usr/lib/common/sw_crypt.c			\
 	usr/lib/common/trace.c 				\
 	usr/lib/common/pkcs_utils.c			\
-	usr/sbin/pkcstok_migrate/pkcstok_migrate.c
+	usr/sbin/pkcstok_migrate/pkcstok_migrate.c	\
+	usr/lib/common/parser.y				\
+	usr/lib/common/lexer.l

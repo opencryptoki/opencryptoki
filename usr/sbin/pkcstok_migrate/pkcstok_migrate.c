@@ -33,6 +33,7 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <pkcs11types.h>
+#include <configparser.h>
 
 #include "sw_crypt.h"
 #include "defs.h"
@@ -89,6 +90,20 @@ static FILE *open_tokenobject(char *buf, size_t buflen,
         TRACE_ERROR("fopen(%s) failed, errno=%s\n", buf, strerror(errno));
     return res;
 }
+
+struct findstdll {
+    char *stdll;
+    size_t len;
+    int slotnum;
+    int activeslot;
+    int error;
+};
+
+struct parseupdate {
+    FILE *f;
+    int   slotnum;
+    int   activeslot;
+};
 
 /**
  * Make a 3.12 format OBJECT_PUB:
@@ -865,39 +880,6 @@ done:
 }
 
 /**
- * Remove any spaces from given string
- */
-static void remove_spaces(char *s)
-{
-    int i, count = 0;
-
-    for (i = 0; s[i]; i++) {
-        if (s[i] != ' ')
-            s[count++] = s[i];
-    }
-
-    s[count] = '\0';
-}
-
-/**
- * gets the stdll name from the given opencryptoki.conf file.
- */
-static CK_RV get_stdll_name(FILE *fp, char *dll_name)
-{
-    char line[PATH_MAX];
-
-    while (fgets(line, sizeof(line), fp)) {
-        remove_spaces(line);
-        if (strstr(line, "stdll=")) {
-            sscanf(line, "stdll=%s", dll_name);
-            return CKR_OK;
-        }
-    }
-
-    return CKR_FUNCTION_FAILED;
-}
-
-/**
  * Check if the given conf_dir exists and contains the opencryptoki.conf.
  */
 static CK_BBOOL conffile_exists(const char *conf_dir)
@@ -1198,36 +1180,78 @@ static CK_RV get_token_info(const char *data_store, CK_TOKEN_INFO_32 *tokinfo)
 }
 
 /**
- * returns true, if the given string begins with the given char,
- * false otherwise. The string may contain leading spaces.
+ * Support for finding the right stdll via the parser interface.  The begin
+ * slot callback checks and sets activeslot if the current slot is the target
+ * slot.
  */
-static CK_BBOOL begins_with(const char *str, const char c)
+static int parsefind_begin_slot(void *private, int slot, int nl_before_begin)
 {
-    size_t i;
+    struct findstdll *d = (struct findstdll *)private;
 
-    for (i = 0; i < strlen(str); i++) {
-        if (str[i] == ' ')
-            continue;
-        else if (str[i] == c)
-            return CK_TRUE;
-        else
-            return CK_FALSE;
-    }
-
-    return CK_FALSE;
+    UNUSED(nl_before_begin);
+    if (d->slotnum == slot)
+        d->activeslot = 1;
+    return 0;
 }
+
+/**
+ * Support for finding the right stdll via the parser interface.  The end
+ * slot callback resets activeslot since we are no longer in a slot definition.
+ */
+static int parsefind_end_slot(void *private)
+{
+    struct findstdll *d = (struct findstdll *)private;
+
+    d->activeslot = 0;
+    return 0;
+}
+
+/**
+ * Support for finding the right stdll via the parser interface.  The key-str
+ * callback detects and copies the stdll path for the target slot.
+ */
+static int parsefind_key_str(void *private, int tok, const char *val)
+{
+    struct findstdll *d = (struct findstdll *)private;
+
+    if (d->activeslot && tok == KW_STDLL) {
+        strncpy(d->stdll, val, d->len);
+        // Make sure it is 0-terminated
+        d->stdll[d->len] = 0;
+    }
+    return 0;
+}
+
+static struct parsefuncs parsefindfuncs = {
+    .begin_slot = parsefind_begin_slot,
+    .end_slot   = parsefind_end_slot,
+    .key_str    = parsefind_key_str
+};
 
 /**
  * Identify the token that belongs to the given slot ID.
  */
-static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir, char *dll_name)
+static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
+                            char *dll_name, size_t dll_name_len)
 {
     char conf_file[PATH_MAX];
-    char line[80], parm[80];
-    FILE *fp;
     CK_RV ret;
+    struct findstdll finddll;
+    size_t max_cpy_size;
+
+    max_cpy_size = dll_name_len > sizeof(((Slot_Info_t_64 *)NULL)->dll_location)
+        ? sizeof(((Slot_Info_t_64 *)NULL)->dll_location) : dll_name_len;
+    finddll.stdll = dll_name;
+    finddll.len = max_cpy_size - 1;
+    finddll.slotnum = slot_id;
+    finddll.activeslot = 0;
 
     TRACE_INFO("Identifying the token that belongs to slot %ld ...\n", slot_id);
+
+    if (slot_id >= NUMBER_SLOTS_MANAGED) {
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 
     /* Open conf file */
     if (ock_snprintf(conf_file, PATH_MAX, "%s/%s",
@@ -1235,26 +1259,14 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir, char *dll_name)
         TRACE_ERROR("Path name overflow for config file opencryptoki.conf\n");
         return CKR_FUNCTION_FAILED;
     }
-    fp = fopen(conf_file, "r");
-    if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", conf_file, strerror(errno));
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
 
-    /* Get stdll name */
-    ret = CKR_FUNCTION_FAILED;
-    sprintf(parm, "slot %ld", slot_id); /* FIXME: Buggy parser */
-    while (fgets(line, sizeof(line), fp)) {
-        if (!begins_with(line, '#') && strstr(line, parm)) {
-            ret = get_stdll_name(fp, dll_name);
-            goto done;
-        }
+    ret = CKR_OK;
+    if (load_and_parse(conf_file, &parsefindfuncs, &finddll)) {
+        TRACE_ERROR("failed to parse config file %s\n", conf_file);
+        ret = CKR_FUNCTION_FAILED;
     }
 
 done:
-
-    fclose(fp);
 
     return ret;
 }
@@ -2045,6 +2057,81 @@ done:
 }
 
 /**
+ * Use a parser to create a new config file.  The parser callouts
+ * basically copy the original input and add the new tokversion line
+ * for the token we just migrated.
+ */
+static void parseupdate_ockversion(void *private, const char *version)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    fprintf(u->f, "version %s", version);
+}
+
+static void parseupdate_eol(void *private)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    fputc('\n', u->f);
+}
+
+static void parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    u->activeslot = (slot == u->slotnum);
+    if (nl_before_begin)
+        fprintf(u->f, "slot %d\n{", slot);
+    else
+        fprintf(u->f, "slot %d {", slot);
+}
+
+static void parseupdate_end_slot(void *private)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    if (u->activeslot)
+        fprintf(u->f, "  tokversion = 3.12\n");
+    fputc('}', u->f);
+    u->activeslot = 0;
+}
+
+static void parseupdate_key_str(void *private, int tok, const char *val)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    if (tok != KW_TOKVERSION)
+        fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+}
+
+static void parseupdate_key_vers(void *private, int tok, unsigned int vers)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    if (tok != KW_TOKVERSION)
+        fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
+                vers >> 16, vers & 0xffu);
+}
+
+static void parseupdate_eolcomment(void *private, const char *comment)
+{
+	struct parseupdate *u = (struct parseupdate *)private;
+
+    fprintf(u->f, "#%s", comment);
+}
+
+static struct parsefuncs parseupdatefuncs = {
+    .version    = parseupdate_ockversion,
+    .eol        = parseupdate_eol,
+    .begin_slot = parseupdate_begin_slot,
+    .end_slot   = parseupdate_end_slot,
+    .key_str    = parseupdate_key_str,
+    .key_vers   = parseupdate_key_vers,
+    .eolcomment = parseupdate_eolcomment
+};
+
+
+/**
  * Inserts the new tokversion parm in the token's slot configuration, e.g.
  *
  *   slot 2
@@ -2055,23 +2142,16 @@ done:
  */
 static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 {
-    const char *parm = "tokversion = 3.12\n";
-    char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20], line[PATH_MAX];
-    char slot[32];
-    FILE *fp_r = NULL, *fp_w = NULL;
+    char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20];
+    FILE *fp_w = NULL;
     CK_RV ret;
     int rc;
+    struct parseupdate parseupdate;
 
     TRACE_INFO("Updating config file ...\n");
 
     /* Open current conf file for read */
     snprintf(src_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf");
-    fp_r = fopen(src_file, "r");
-    if (!fp_r) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", src_file, strerror(errno));
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
 
     /* Open new conf file for write */
     snprintf(dst_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf_new");
@@ -2083,29 +2163,17 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
     }
     set_perm(fileno(fp_w));
 
-    /* Insert/replace tokversion parm in new file */
-    snprintf(slot, sizeof(slot), "slot %ld", slot_id);
-    while (fgets(line, sizeof(line), fp_r)) {
-        if (!begins_with(line, '#') && strstr(line, slot)) {
-            fputs(line, fp_w); // write "slot n"
-            /* insert tokversion before '}' */
-            while (fgets(line, sizeof(line), fp_r)) {
-                if (strstr(line, "}")) {
-                    fputs(parm, fp_w);
-                    fputs(line, fp_w);
-                    break;
-                }
-                /* Don't write existing tokversion to new file */
-                if (!strstr(line, "tokversion"))
-                    fputs(line, fp_w);
-            }
-        } else
-            fputs(line, fp_w);
+    parseupdate.f = fp_w;
+    parseupdate.slotnum = slot_id;
+    parseupdate.activeslot = 0;
+
+    if (load_and_parse(src_file, &parseupdatefuncs, &parseupdate)) {
+        TRACE_ERROR("could not update config file\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
-    fclose(fp_r);
     fclose(fp_w);
-    fp_r = NULL;
     fp_w = NULL;
 
     /* Rename old conf file */
@@ -2128,8 +2196,6 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
     ret = CKR_OK;
 
 done:
-    if (fp_r)
-        fclose(fp_r);
     if (fp_w)
         fclose(fp_w);
 
@@ -2661,7 +2727,7 @@ int main(int argc, char **argv)
     }
 
     /* Identify token related to given slot ID */
-    ret = identify_token(slot_id, conf_dir, dll_name);
+    ret = identify_token(slot_id, conf_dir, dll_name, sizeof(dll_name));
     if (ret != CKR_OK) {
         warnx("Cannot identify a token related to given slot ID %ld", slot_id);
         goto done;
