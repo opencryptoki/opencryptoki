@@ -18,13 +18,12 @@
 #include <errno.h>
 #include <string.h>
 
-#include "log.h"
 #include "slotmgr.h"
-#include "pkcsslotd.h"
+#include "configparser.h"
 
 Slot_Info_t_64 sinfo_struct;
 unsigned long int Index;
-int slot_count = 0;
+struct config_parse_env *env;
 
 #define ERRSTRLEN	256
 #define DEF_MANUFID	"IBM"
@@ -78,8 +77,10 @@ int do_vers(CK_VERSION *slotinfo, char *kw, char *val);
 %union {
 	char *str;
 	unsigned int num;
+    int err;
 }
 
+%type <err> keyword_defs
 %token EQUAL DOT SLOT EOL OCKVERSION BEGIN_DEF END_DEF
 %token <str> STRING
 %token <str> KEYWORD
@@ -105,12 +106,17 @@ sections:
 		sinfo_struct.slot_number = $2;
 		Index = $2;
 
-	} keyword_defs END_DEF
+	} keyword_defs[errcnt] END_DEF
 	{
 		/* set some defaults if needed before copying */
 		set_defaults();
-		memcpy(&sinfo[Index], &sinfo_struct, sizeof(sinfo_struct));
-		slot_count++;
+        if (Index >= NUMBER_SLOTS_MANAGED) {
+            yyerror("Slot number too big.  Skipping slot.");
+            /* Should we YYABORT here? */
+        } else if ($errcnt == 0) {
+            memcpy(&env->sinfo[Index], &sinfo_struct, sizeof(sinfo_struct));
+            env->NumberSlotsInDB++;
+        }
 	}
 	| EOL
 	;
@@ -130,50 +136,69 @@ keyword_defs:
 			yyerror("unknown config keyword");
 			break;
 		}
+        $$ = $5;
 	}
 	| STRING EQUAL STRING EOL keyword_defs
 	{
 		int kw;
+        int err = 0;
 
 		kw = lookup_keyword($1);
 
 		switch (kw) {
 		case KW_STDLL:
-			sinfo_struct.present = TRUE;
-			sinfo_struct.pk_slot.flags |= (CKF_TOKEN_PRESENT);
-			memset(sinfo_struct.dll_location, 0, sizeof(sinfo_struct.dll_location));
-			memcpy(sinfo_struct.dll_location, $3, strlen($3));
+            memset(sinfo_struct.dll_location, 0, sizeof(sinfo_struct.dll_location));
+            if (strlen($3) >= sizeof(sinfo_struct.dll_location)) {
+                yyerror("STDLL location too long.  Skipping token.");
+                err = -1;
+            } else {
+                sinfo_struct.present = TRUE;
+                sinfo_struct.pk_slot.flags |= (CKF_TOKEN_PRESENT);
+                memcpy(sinfo_struct.dll_location, $3, strlen($3));
+            }
 			break;
 		case KW_SLOTDESC:
-			do_str((char *)sinfo_struct.pk_slot.slotDescription,
+			err = do_str((char *)sinfo_struct.pk_slot.slotDescription,
 			  sizeof(sinfo_struct.pk_slot.slotDescription), $1, $3);
 			break;
 		case KW_MANUFID:
-			do_str((char *)sinfo_struct.pk_slot.manufacturerID,
+			err = do_str((char *)sinfo_struct.pk_slot.manufacturerID,
 			   sizeof(sinfo_struct.pk_slot.manufacturerID), $1, $3);
 			break;
 		case KW_HWVERSION:
-			do_vers(&sinfo_struct.pk_slot.hardwareVersion, $1, $3);
+			err = do_vers(&sinfo_struct.pk_slot.hardwareVersion, $1, $3);
 			break;
 		case KW_FWVERSION:
-			do_vers(&sinfo_struct.pk_slot.firmwareVersion, $1, $3);
+			err = do_vers(&sinfo_struct.pk_slot.firmwareVersion, $1, $3);
 			break;
 		case KW_CONFNAME:
-			memset(sinfo_struct.confname, 0, sizeof(sinfo_struct.confname));
-			memcpy(sinfo_struct.confname, $3, strlen($3));
+            if (strlen($3) >= sizeof(sinfo_struct.confname)) {
+                yyerror("STDLL configuration name too long.  Skipping token.");
+                err = -1;
+            } else {
+                memset(sinfo_struct.confname, 0, sizeof(sinfo_struct.confname));
+                memcpy(sinfo_struct.confname, $3, strlen($3));
+            }
 			break;
 		case KW_TOKNAME:
-			memset(sinfo_struct.tokname, 0, sizeof(sinfo_struct.tokname));
-			memcpy(sinfo_struct.tokname, $3, strlen($3));
+            if (strlen($3) >= sizeof(sinfo_struct.tokname)) {
+                yyerror("Token name too long.  Skipping token.");
+                err = -1;
+            } else {
+                memset(sinfo_struct.tokname, 0, sizeof(sinfo_struct.tokname));
+                memcpy(sinfo_struct.tokname, $3, strlen($3));
+            }
 			break;
 		default:
 			yyerror("unknown config keyword");
+            /* TODO: Set err? */
 			break;
 		}
 		free ($3);
+        $$ = err + $5;
 	}
 	|
-	;
+	{ $$ = 0; };
 
 %%
 
@@ -213,7 +238,7 @@ do_str(char *slotinfo, size_t size, char* kw, char *val)
 	if (strlen(val) > size) {
 		snprintf(errbuf, ERRSTRLEN, "%s has too many characters\n", kw);
 		yyerror(errbuf);
-		return -1 ;
+		return -1;
 	}
 	memcpy(slotinfo, val, strlen(val));
 	return 0;
@@ -260,7 +285,7 @@ lookup_keyword(const char *key)
 }
 
 int
-load_and_parse(const char *configfile)
+load_and_parse(const char *configfile, struct config_parse_env *envp)
 {
 
 	FILE *conf;
@@ -275,15 +300,15 @@ load_and_parse(const char *configfile)
 	}
 
 	yyin = conf;
-
+    env = envp;
+    env->NumberSlotsInDB = 0;
+    
 	do {
 		yyparse();
 
 	} while (!feof(yyin));
 
 	fclose(conf);
-
-	NumberSlotsInDB = slot_count;
 
 	return 0;
 }

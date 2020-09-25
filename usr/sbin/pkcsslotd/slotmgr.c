@@ -32,9 +32,12 @@ md5_hash_entry tokname_hash_table[NUMBER_SLOTS_MANAGED];
 Slot_Mgr_Shr_t *shmp;           // pointer to the shared memory region.
 int shmid;
 key_t tok;
+#if 0
 Slot_Info_t_64 sinfo[NUMBER_SLOTS_MANAGED];
-Slot_Info_t_64 *psinfo;
 unsigned int NumberSlotsInDB = 0;
+#endif
+Slot_Info_t_64 *psinfo;
+struct config_parse_env parsed_config;
 
 int socketfd;
 Slot_Mgr_Socket_t socketData;
@@ -349,7 +352,7 @@ int main(int argc, char *argv[], char *envp[])
                GetDebugLevel(), DEBUG_NONE, DEBUG_LEVEL0, DEBUG_LEVEL1);
     }
 
-    ret = load_and_parse(OCK_CONFIG);
+    ret = load_and_parse(OCK_CONFIG, &parsed_config);
     if (ret != 0) {
         ErrLog("Failed to read config file.\n");
         return 1;
