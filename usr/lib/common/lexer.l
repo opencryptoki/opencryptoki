@@ -37,17 +37,16 @@ extern void yyerror(const char *s);
 
 \{			return BEGIN_DEF;
 
-\n\{			{
-			  line_num++;
-			  return BEGIN_DEF;
-			}
+\}			return END_DEF;
 
-
-\}			 return END_DEF;
-
-\n|#.*\n		{
+\n			{
 			  line_num++;
 			  return EOL;
+			}
+
+#[^\n]*                 {
+			  yylval.str = strdup(yytext + 1);
+			  return COMMENT;
 			}
 
 [0-9]+"."[0-9]+		{ /* version */

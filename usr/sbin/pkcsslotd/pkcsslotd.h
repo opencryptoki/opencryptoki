@@ -17,6 +17,8 @@
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H  1
 
+#include <configparser.h>
+
 /***********
  * Defines *
  ***********/
@@ -57,7 +59,6 @@ extern int shmid;
 extern key_t tok;
 
 extern Slot_Info_t_64 sinfo[NUMBER_SLOTS_MANAGED];
-
 extern unsigned int NumberSlotsInDB;
 
 extern int socketfd;
@@ -92,7 +93,5 @@ int CreateListenerSocket(void);
 int InitSocketData(Slot_Mgr_Socket_t *sp);
 int SocketConnectionHandler(int socketfd, int timeout_secs);
 void DetachSocketListener(int socketfd);
-
-int load_and_parse(const char *configfile);
 
 #endif                          /* _SLOTMGR_H */
