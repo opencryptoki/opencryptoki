@@ -13,6 +13,7 @@
  * Parse openCryptoki's config file.
  */
 
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -20,6 +21,11 @@
 
 #include "slotmgr.h"
 #include "configparser.h"
+
+static struct strholder {
+    struct strholder *prev;
+    char *str;
+} *strroot;
 
 struct parsefuncs *parsefuncs;
 void *parsedata;
@@ -29,6 +35,9 @@ extern int yyparse();
 extern void yyerror(const char *s);
 extern int line_num;
 extern int yylex();
+
+static void configparse_freestrings(void);
+static void configparse_freestringsfrom(char *str);
 
 struct ock_key {
 	char *name;
@@ -74,21 +83,33 @@ sections:
 	version_def eolcomments
 	| SLOT INTEGER BEGIN_DEF
 	{
-        if (parsefuncs->begin_slot)
-            parsefuncs->begin_slot(parsedata, $2, 0);
+        if (parsefuncs->begin_slot && parsefuncs->begin_slot(parsedata, $2, 0)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            YYERROR;
+        }
 	} eolcomments keyword_defs END_DEF
 	{
-        if (parsefuncs->end_slot)
-            parsefuncs->end_slot(parsedata);
+        if (parsefuncs->end_slot && parsefuncs->end_slot(parsedata)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            YYERROR;
+        }
 	}
 	| SLOT INTEGER EOL BEGIN_DEF
 	{
-        if (parsefuncs->begin_slot)
-            parsefuncs->begin_slot(parsedata, $2, 1);
+        if (parsefuncs->begin_slot && parsefuncs->begin_slot(parsedata, $2, 1)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            YYERROR;
+        }
     } eolcomments keyword_defs END_DEF
 	{
-        if (parsefuncs->end_slot)
-            parsefuncs->end_slot(parsedata);
+        if (parsefuncs->end_slot && parsefuncs->end_slot(parsedata)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            YYERROR;
+        }
 	}
 	| eolcomments
 	;
@@ -96,39 +117,61 @@ sections:
 version_def:
     OCKVERSION STRING
     {
-        if (parsefuncs->version)
-            parsefuncs->version(parsedata, $2);
-        free($2);
+        if (parsefuncs->version && parsefuncs->version(parsedata, $2)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            configparse_freestringsfrom($2);
+            YYERROR;
+        }
+        configparse_freestringsfrom($2);
     }
 
 line_def:
     STRING EQUAL TOKVERSION
     {
         int kw;
+        char errbuf[256];
 
-        if (parsefuncs->key_vers) {
-            kw = lookup_keyword($1);
-            if (kw != -1)
-                parsefuncs->key_vers(parsedata, kw, $3);
-            else if (parsefuncs->parseerror)
-                parsefuncs->parseerror(parsedata);
+        kw = lookup_keyword($1);
+        if (kw == -1) {
+            if (parsefuncs->parseerror) {
+                snprintf(errbuf, sizeof(errbuf), "Unknown keyword: \"%s\"", $1);
+                parsefuncs->parseerror(parsedata, line_num, errbuf);
+            }
+            configparse_freestringsfrom($1);
+            YYERROR;
         }
-        free($1);
+        configparse_freestringsfrom($1);
+        if (parsefuncs->key_vers) {
+            if(parsefuncs->key_vers(parsedata, kw, $3)) {
+                if (parsefuncs->parseerror)
+                    parsefuncs->parseerror(parsedata, line_num, NULL);
+                YYERROR;
+            }
+        }
     }
     |
     STRING EQUAL STRING
     {
         int kw;
+        char errbuf[256];
 
-        if (parsefuncs->key_str) {
-            kw = lookup_keyword($1);
-            if (kw != -1)
-                parsefuncs->key_str(parsedata, kw, $3);
-            else if (parsefuncs->parseerror)
-                parsefuncs->parseerror(parsedata);
+        kw = lookup_keyword($1);
+        if (kw == -1) {
+            if (parsefuncs->parseerror) {
+                snprintf(errbuf, sizeof(errbuf), "Unknown keyword: \"%s\"", $1);
+                parsefuncs->parseerror(parsedata, line_num, errbuf);
+            }
+            configparse_freestringsfrom($3);
+            YYERROR;
         }
-        free($1);
-        free($3);
+        if (parsefuncs->key_str && parsefuncs->key_str(parsedata, kw, $3)) {
+            if (parsefuncs->parseerror)
+                parsefuncs->parseerror(parsedata, line_num, NULL);
+            configparse_freestringsfrom($3);
+            YYERROR;
+        }
+        configparse_freestringsfrom($3); // Will also free $1
     }
 
 keyword_defs:
@@ -150,7 +193,7 @@ eolcomment:
             parsefuncs->eolcomment(parsedata, $1);
         if (parsefuncs->eol)
             parsefuncs->eol(parsedata);
-        free($1);
+        configparse_freestringsfrom($1);
     }
     |
     EOL
@@ -161,10 +204,58 @@ eolcomment:
 
 %%
 
+char *configparse_strdup(char *val)
+{
+    struct strholder *holder;
+    char *res = NULL;
+
+    holder = (struct strholder *)malloc(sizeof(struct strholder));
+    if (holder) {
+        holder->prev = strroot;
+        strroot = holder;
+        holder->str = res = strdup(val);
+    }
+    return res;
+}
+
+static void configparse_freestrings()
+{
+    struct strholder *cur, *next;
+
+    cur = strroot;
+    while (cur) {
+        next = cur->prev;
+        free(cur->str);
+        free(cur);
+        cur = next;
+    }
+    strroot = NULL;
+}
+
+static void configparse_freestringsfrom(char *str)
+{
+    struct strholder *cur, *next, **anchor;
+
+    anchor = &strroot;
+    cur = strroot;
+    while (cur && cur->str != str) {
+        anchor = &cur->prev;
+        cur = cur->prev;
+    }
+    while (cur) {
+        next = cur->prev;
+        free(cur->str);
+        free(cur);
+        cur = next;
+    }
+    *anchor = NULL;
+}
+
 void
 yyerror(const char *s)
 {
-	fprintf(stderr, "parse error on line %d: %s\n", line_num, s);
+    if (parsefuncs->parseerror)
+        parsefuncs->parseerror(parsedata, line_num, s);
 }
 
 int
@@ -190,6 +281,7 @@ load_and_parse(const char *configfile, struct parsefuncs *funcs, void *private)
 {
 
 	FILE *conf;
+	int res;
 
 	extern FILE *yyin;
 
@@ -200,18 +292,18 @@ load_and_parse(const char *configfile, struct parsefuncs *funcs, void *private)
 		return -1;
 	}
 
+    line_num = 1;
 	yyin = conf;
 	parsefuncs = funcs;
 	parsedata = private;
+    strroot = NULL;
     
-	do {
-		yyparse();
-
-	} while (!feof(yyin));
+	res = yyparse();
 
 	fclose(conf);
 	parsefuncs = NULL;
 	parsedata = NULL;
+    configparse_freestrings();
 
-	return 0;
+	return res;
 }

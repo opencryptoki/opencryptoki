@@ -28,14 +28,20 @@ typedef enum {
 	KW_MAX
 } keyword_token;
 
-typedef void (*ockversion_f)(void *private, const char *version);
+typedef int  (*ockversion_f)(void *private, const char *version);
 typedef void (*eol_f)(void *private);
-typedef void (*begin_slot_f)(void *private, int slot, int nl_before_begin);
-typedef void (*end_slot_f)(void *private);
-typedef void (*key_str_f)(void *private, int tok, const char *val);
-typedef void (*key_vers_f)(void *private, int tok, unsigned int vers);
+typedef int  (*begin_slot_f)(void *private, int slot, int nl_before_begin);
+typedef int  (*end_slot_f)(void *private);
+typedef int  (*key_str_f)(void *private, int tok, const char *val);
+typedef int  (*key_vers_f)(void *private, int tok, unsigned int vers);
 typedef void (*eolcomment_f)(void *private, const char *comment);
-typedef void (*error_f)(void *private);
+/*
+ * Report an error.  If the error is not reported by the parser itself
+ * but via one of the parse functions, \c parsermsg will be \c NULL.
+ * In such a case it is the responsibility of the parse functions to
+ * store appropriate error information.
+ */
+typedef void (*error_f)(void *private, int line, const char *parsermsg);
 
 /*
  * Function pointers called by the parser to notify consumer about some parse
@@ -57,6 +63,13 @@ struct parsefuncs {
 
 extern const char *keyword_token_to_str(int tok);
 
+/*
+ * Load and parse a configuration file via the given parser functions
+ * and parser private data.
+ * \return  0 on success,
+ *         -1 if \c configfile could not be opened for reading,
+ *          1 if parsing ended with errors.
+ */
 extern int load_and_parse(const char *configfile,
                           struct parsefuncs *funcs, void *private);
 
