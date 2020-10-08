@@ -2061,11 +2061,12 @@ done:
  * basically copy the original input and add the new tokversion line
  * for the token we just migrated.
  */
-static void parseupdate_ockversion(void *private, const char *version)
+static int parseupdate_ockversion(void *private, const char *version)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
     fprintf(u->f, "version %s", version);
+    return 0;
 }
 
 static void parseupdate_eol(void *private)
@@ -2075,7 +2076,7 @@ static void parseupdate_eol(void *private)
     fputc('\n', u->f);
 }
 
-static void parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
+static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
@@ -2084,9 +2085,10 @@ static void parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
         fprintf(u->f, "slot %d\n{", slot);
     else
         fprintf(u->f, "slot %d {", slot);
+    return 0;
 }
 
-static void parseupdate_end_slot(void *private)
+static int parseupdate_end_slot(void *private)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
@@ -2094,23 +2096,26 @@ static void parseupdate_end_slot(void *private)
         fprintf(u->f, "  tokversion = 3.12\n");
     fputc('}', u->f);
     u->activeslot = 0;
+    return 0;
 }
 
-static void parseupdate_key_str(void *private, int tok, const char *val)
+static int parseupdate_key_str(void *private, int tok, const char *val)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
     if (tok != KW_TOKVERSION)
         fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+    return 0;
 }
 
-static void parseupdate_key_vers(void *private, int tok, unsigned int vers)
+static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
     if (tok != KW_TOKVERSION)
         fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
                 vers >> 16, vers & 0xffu);
+    return 0;
 }
 
 static void parseupdate_eolcomment(void *private, const char *comment)
