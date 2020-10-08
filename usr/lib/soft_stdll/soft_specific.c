@@ -1354,8 +1354,6 @@ done:
         free(ssl_ptr);
     }
 #else
-    if (e != NULL)
-        BN_free(e);
     if (ssl_ptr != NULL) {
         OPENSSL_cleanse(ssl_ptr, BNLength);
         free(ssl_ptr);
