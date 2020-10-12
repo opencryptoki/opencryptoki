@@ -22,8 +22,6 @@
 #include "regress.h"
 #include "common.c"
 
-int do_GetFunctionList(void);
-
 int do_SetPIN(CK_FUNCTION_LIST * funcs, CK_SLOT_ID slot_id,
               CK_USER_TYPE userType, char *old, char *new)
 {

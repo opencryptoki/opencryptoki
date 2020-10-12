@@ -27,7 +27,7 @@
 int do_GetInfo(void);
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);
-int do_GetFunctionList(void);
+CK_BBOOL do_GetFunctionList(void);
 
 int do_inittoken(CK_FUNCTION_LIST * funcs, CK_BYTE * sopass)
 {

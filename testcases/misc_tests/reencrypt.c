@@ -43,8 +43,6 @@ CK_OBJECT_HANDLE priv_key2 = CK_INVALID_HANDLE;
 
 CK_C_IBM_ReencryptSingle _C_IBM_ReencryptSingle;
 
-int do_GetFunctionList(void);
-
 CK_RSA_PKCS_OAEP_PARAMS oaep_params_sha1 = {
         .hashAlg = CKM_SHA_1,
         .mgf = CKG_MGF1_SHA1,

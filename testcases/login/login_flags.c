@@ -32,7 +32,6 @@
 #define BAD_USER_PIN		"534566346"
 #define BAD_USER_PIN_LEN	strlen(BAD_USER_PIN)
 
-int do_GetFunctionList(void);
 int clean_up(void);
 
 CK_SLOT_ID slot_id;

@@ -232,16 +232,12 @@ typedef Slot_Info_t SLOT_INFO;
 #define MFG "IBM                             "
 #define LIB "openCryptoki                    "
 
-
-#define MAJOR_V   1
-#define MINOR_V   2
-
 #ifndef CRYPTOKI_API_MAJOR_V
-#define CRYPTOKI_API_MAJOR_V 0x2
+#define CRYPTOKI_API_MAJOR_V 0x3
 #endif
 
 #ifndef CRYPTOKI_API_MINOR_V
-#define CRYPTOKI_API_MINOR_V 0x14
+#define CRYPTOKI_API_MINOR_V 0x0
 #endif
 
 #define LIB_MAJOR_V 1

@@ -27,9 +27,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-
-int do_GetFunctionList(void);
-
 CK_RV do_GenerateTokenRSAKeyPair(CK_SLOT_ID slot_id, CK_SESSION_HANDLE sess,
                                  CK_BYTE *label, CK_ULONG bits,
                                  CK_OBJECT_HANDLE *hPubKey,

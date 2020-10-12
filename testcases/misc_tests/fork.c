@@ -31,8 +31,6 @@ CK_BYTE user_pin[128];
 CK_ULONG user_pin_len;
 CK_SLOT_ID slot_id = 0;
 
-int do_GetFunctionList(void);
-
 CK_RV do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label,
                                  CK_ULONG bits, CK_OBJECT_HANDLE *hPubKey,
                                  CK_OBJECT_HANDLE *hPrivKey)

@@ -24,8 +24,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-int do_GetFunctionList(void);
-
 CK_RV do_Cleanup(CK_SESSION_HANDLE sess)
 {
     CK_RV rv;

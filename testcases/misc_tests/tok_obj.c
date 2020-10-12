@@ -23,8 +23,6 @@
 #include "regress.h"
 
 int do_GetInfo(void);
-int do_GetFunctionList(void);
-
 void init_coprocessor(void);
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);

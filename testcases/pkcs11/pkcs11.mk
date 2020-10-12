@@ -4,7 +4,8 @@ noinst_PROGRAMS +=							\
 	testcases/pkcs11/attribute testcases/pkcs11/findobjects		\
 	testcases/pkcs11/destroyobjects	testcases/pkcs11/copyobjects	\
 	testcases/pkcs11/generate_keypair testcases/pkcs11/gen_purpose	\
-	testcases/pkcs11/getobjectsize
+	testcases/pkcs11/getobjectsize					\
+	testcases/pkcs11/get_interface
 
 testcases_pkcs11_hw_fn_CFLAGS = ${testcases_inc}
 testcases_pkcs11_hw_fn_LDADD = testcases/common/libcommon.la
@@ -53,3 +54,8 @@ testcases_pkcs11_getobjectsize_CFLAGS = ${testcases_inc}
 testcases_pkcs11_getobjectsize_LDADD = testcases/common/libcommon.la
 testcases_pkcs11_getobjectsize_SOURCES =				\
 	testcases/pkcs11/getobjectsize.c
+
+testcases_pkcs11_get_interface_CFLAGS = ${testcases_inc}
+testcases_pkcs11_get_interface_LDADD = testcases/common/libcommon.la
+testcases_pkcs11_get_interface_SOURCES =				\
+	testcases/pkcs11/get_interface.c

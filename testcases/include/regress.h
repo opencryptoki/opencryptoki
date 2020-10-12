@@ -70,7 +70,7 @@ void process_time(SYSTEMTIME t1, SYSTEMTIME t2);
 void show_error(char *str, CK_RV rc);
 void print_hex(CK_BYTE * buf, CK_ULONG len);
 
-int do_GetFunctionList(void);
+CK_BBOOL do_GetFunctionList(void);
 
 void init_coprocessor(void);
 
@@ -80,6 +80,8 @@ CK_RV DummyFunction(CK_SLOT_ID id);
 int digest_functions(void);
 
 extern CK_FUNCTION_LIST *funcs;
+extern CK_FUNCTION_LIST_3_0 *funcs3;
+extern CK_INTERFACE *ifs;
 extern CK_SLOT_ID SLOT_ID;
 
 void usage(char *fct);
