@@ -29,7 +29,6 @@
 #include "defs.h"
 
 int do_GetInfo(void);
-int do_GetFunctionList(void);
 
 void init_coprocessor(void);
 

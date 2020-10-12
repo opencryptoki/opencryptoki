@@ -25,8 +25,6 @@
 #include "regress.h"
 #include "common.c"
 
-int do_GetFunctionList(void);
-
 CK_RV do_VerifyTokenSymKey(CK_SESSION_HANDLE sess, CK_BYTE * label)
 {
     CK_OBJECT_HANDLE obj_handles[20];

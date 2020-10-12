@@ -17,6 +17,8 @@
 #include "regress.h"
 
 CK_FUNCTION_LIST *funcs;
+CK_FUNCTION_LIST_3_0 *funcs3;
+CK_INTERFACE *ifs;
 CK_SLOT_ID SLOT_ID;
 
 CK_BBOOL skip_token_obj;
@@ -43,6 +45,12 @@ static void unload_pkcslib(void)
     if (pkcs11lib != NULL) {
         dlclose(pkcs11lib);
     }
+}
+
+static void free_ifs(void)
+{
+    free(ifs);
+    ifs = NULL;
 }
 
 int mech_supported(CK_SLOT_ID slot_id, CK_ULONG mechanism)
@@ -1100,36 +1108,84 @@ int do_ParseArgs(int argc, char **argv)
 
 //
 //
-int do_GetFunctionList(void)
+CK_BBOOL do_GetFunctionList(void)
 {
+    CK_INTERFACE *interface;
+    CK_VERSION version;
+    CK_FLAGS flags;
+    CK_BBOOL rv;
     CK_RV rc;
     CK_RV(*pfoo) ();
     char *e;
     char *f = "libopencryptoki.so";
+    CK_ULONG nmemb = 0;
+
+    rv = FALSE;
 
     e = getenv("PKCSLIB");
-    if (e == NULL) {
+    if (e == NULL)
         e = f;
-        // return FALSE;
-    }
+
     pkcs11lib = dlopen(e, RTLD_NOW);
-    if (pkcs11lib == NULL) {
-        return FALSE;
-    }
+    if (pkcs11lib == NULL)
+        goto ret;
 
     *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
-    if (pfoo == NULL) {
-        dlclose(pkcs11lib);
-        return FALSE;
-    }
-    rc = pfoo(&funcs);
+    if (pfoo == NULL)
+        goto ret;
 
+    rc = pfoo(&funcs);
     if (rc != CKR_OK) {
         testcase_error("C_GetFunctionList rc=%s", p11_get_ckr(rc));
-        dlclose(pkcs11lib);
-        return FALSE;
+        goto ret;
     }
 
-    atexit(unload_pkcslib);
-    return TRUE;
+    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetInterfaceList");
+    if (pfoo == NULL) {
+        goto ret;
+    }
+    rc = pfoo(NULL, &nmemb);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetInterfaceList rc=%s", p11_get_ckr(rc));
+        goto ret;
+    }
+    ifs = calloc(nmemb, sizeof(*ifs));
+    if (ifs == NULL) {
+        goto ret;
+    }
+    rc = pfoo(ifs, &nmemb);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetInterfaceList rc=%s", p11_get_ckr(rc));
+        goto ret;
+    }
+
+    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetInterface");
+    if (pfoo == NULL) {
+        goto ret;
+    }
+    version.major = 0x03;
+    version.minor = 0x00;
+    flags = CKF_INTERFACE_FORK_SAFE;
+    rc = pfoo((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetInterface rc=%s", p11_get_ckr(rc));
+        goto ret;
+    }
+    funcs3 = interface->pFunctionList;
+
+    rv = TRUE;
+ret:
+    if (rv == TRUE) {
+        atexit(free_ifs);
+        atexit(unload_pkcslib);
+    } else {
+        free(ifs);
+        ifs = NULL;
+
+        if (pkcs11lib != NULL) {
+            dlclose(pkcs11lib);
+            pkcs11lib = NULL;
+	}
+    }
+    return rv;
 }

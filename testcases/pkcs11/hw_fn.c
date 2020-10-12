@@ -30,7 +30,6 @@
 
 #define AES_KEY_SIZE_128	16
 
-int do_GetFunctionList(void);
 int clean_up(void);
 
 CK_SLOT_ID slot_id;

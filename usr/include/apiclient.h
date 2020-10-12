@@ -14,10 +14,6 @@
 
 #include "pkcs11types.h"
 
-
-#define VERSION_MAJOR  2        // Version 2 of the PKCS library
-#define VERSION_MINOR  01       // minor revision .10 of PKCS11
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -189,6 +185,101 @@ extern "C" {
 
     CK_RV C_WrapKey(CK_SESSION_HANDLE, CK_MECHANISM_PTR, CK_OBJECT_HANDLE,
                     CK_OBJECT_HANDLE, CK_BYTE_PTR, CK_ULONG_PTR);
+
+    CK_RV C_GetInterfaceList(CK_INTERFACE_PTR, CK_ULONG_PTR);
+
+    CK_RV C_GetInterface(CK_UTF8CHAR_PTR, CK_VERSION_PTR,
+                         CK_INTERFACE_PTR_PTR, CK_FLAGS);
+
+    CK_RV C_LoginUser(CK_SESSION_HANDLE, CK_USER_TYPE,
+                      CK_UTF8CHAR *, CK_ULONG,
+                      CK_UTF8CHAR *, CK_ULONG);
+
+    CK_RV C_SessionCancel(CK_SESSION_HANDLE, CK_FLAGS);
+
+    CK_RV C_MessageEncryptInit(CK_SESSION_HANDLE,
+                               CK_MECHANISM *, CK_OBJECT_HANDLE);
+
+    CK_RV C_EncryptMessage(CK_SESSION_HANDLE ,
+                           void *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG *);
+
+    CK_RV C_EncryptMessageBegin(CK_SESSION_HANDLE,
+                                void *, CK_ULONG,
+                                CK_BYTE *,
+                                CK_ULONG);
+
+    CK_RV C_EncryptMessageNext(CK_SESSION_HANDLE,
+                               void *, CK_ULONG,
+                               CK_BYTE *,
+                               CK_ULONG,
+                               CK_BYTE *,
+                               CK_ULONG *,
+                               CK_ULONG);
+
+    CK_RV C_MessageEncryptFinal(CK_SESSION_HANDLE);
+
+    CK_RV C_MessageDecryptInit(CK_SESSION_HANDLE,
+                           CK_MECHANISM *, CK_OBJECT_HANDLE);
+
+    CK_RV C_DecryptMessage(CK_SESSION_HANDLE,
+                           void *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG,
+                           CK_BYTE *, CK_ULONG *);
+
+    CK_RV C_DecryptMessageBegin(CK_SESSION_HANDLE,
+                                void *, CK_ULONG,
+                                CK_BYTE *,
+                                CK_ULONG);
+
+    CK_RV C_DecryptMessageNext(CK_SESSION_HANDLE,
+                               void *, CK_ULONG,
+                               CK_BYTE *,
+                               CK_ULONG,
+                               CK_BYTE *,
+                               CK_ULONG *,
+                               CK_FLAGS);
+
+    CK_RV C_MessageDecryptFinal(CK_SESSION_HANDLE);
+
+    CK_RV C_MessageSignInit(CK_SESSION_HANDLE,
+                            CK_MECHANISM *, CK_OBJECT_HANDLE);
+
+    CK_RV C_SignMessage(CK_SESSION_HANDLE,
+                        void *, CK_ULONG,
+                        CK_BYTE *, CK_ULONG,
+                        CK_BYTE *, CK_ULONG *);
+
+    CK_RV C_SignMessageBegin(CK_SESSION_HANDLE,
+                             void *, CK_ULONG);
+
+    CK_RV C_SignMessageNext(CK_SESSION_HANDLE,
+                            void *, CK_ULONG,
+                            CK_BYTE *, CK_ULONG,
+                            CK_BYTE *, CK_ULONG *);
+
+    CK_RV C_MessageSignFinal(CK_SESSION_HANDLE);
+
+    CK_RV C_MessageVerifyInit(CK_SESSION_HANDLE,
+                              CK_MECHANISM *, CK_OBJECT_HANDLE);
+
+    CK_RV C_VerifyMessage(CK_SESSION_HANDLE,
+                          void *, CK_ULONG,
+                          CK_BYTE *, CK_ULONG,
+                          CK_BYTE *, CK_ULONG);
+
+    CK_RV C_VerifyMessageBegin(CK_SESSION_HANDLE,
+                               void *, CK_ULONG);
+
+    CK_RV C_VerifyMessageNext(CK_SESSION_HANDLE,
+                              void *, CK_ULONG,
+                              CK_BYTE *, CK_ULONG,
+                              CK_BYTE *, CK_ULONG);
+
+    CK_RV C_MessageVerifyFinal(CK_SESSION_HANDLE);
 
     CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE, CK_MECHANISM_PTR,
                                 CK_OBJECT_HANDLE, CK_MECHANISM_PTR,

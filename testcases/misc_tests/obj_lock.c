@@ -28,10 +28,6 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
-
-int do_GetFunctionList(void);
-
-
 void *usage_thread_func(CK_OBJECT_HANDLE *h_key)
 {
     CK_RV rv;

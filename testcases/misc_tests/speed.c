@@ -64,9 +64,6 @@ static inline unsigned long delta_time_us(struct timeval *t1,
     return (d ? d : 1);         // return 1us if delta is 0
 }
 
-
-int do_GetFunctionList(void);
-
 // keylength: 512, 1024, 2048, 4096
 int do_RSA_PKCS_EncryptDecrypt(int keylength)
 {
