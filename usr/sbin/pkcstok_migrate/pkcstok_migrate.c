@@ -564,11 +564,8 @@ static CK_RV read_object(const char *data_store, const char *name,
     *obj_len = 0;
 
     /* Open token object file */
-    snprintf((char *) fname, sizeof(fname), "%s/TOK_OBJ/", data_store);
-    strcat((char *) fname, (char *) name);
-    fp = fopen((char *) fname, "r");
+    fp = open_tokenobject(fname, sizeof(fname), data_store, "TOK_OBJ", name, "r");
     if (!fp) {
-        TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
