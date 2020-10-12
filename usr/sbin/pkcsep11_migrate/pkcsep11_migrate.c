@@ -20,13 +20,14 @@
 #include <string.h>
 #include <memory.h>
 #include <dlfcn.h>
-#include <pkcs11types.h>
-#include <ep11.h>
-#include <ep11adm.h>
-#include <p11util.h>
 #include <ctype.h>
 #include <termios.h>
 #include <errno.h>
+
+#define OCK_NO_EP11_DEFINES
+#include "../../include/pkcs11types.h"
+#include "../../lib/common/p11util.h"
+#include "../../lib/ep11_stdll/ep11_func.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
 #define EP11SHAREDLIB_V3 "libep11.so.3"
@@ -41,23 +42,6 @@ CK_LONG adapter = -1;
 CK_LONG domain = -1;
 CK_OBJECT_HANDLE key_store[4096];
 
-typedef unsigned long int (*m_admin_t) (unsigned char *, size_t *,
-                                        unsigned char *,
-                                        size_t *, const unsigned char *,
-                                        size_t, const unsigned char *,
-                                        size_t, target_t);
-typedef long (*xcpa_cmdblock_t) (unsigned char *, size_t, unsigned int,
-                                 const struct XCPadmresp *,
-                                 const unsigned char *,
-                                 const unsigned char *, size_t);
-typedef long (*xcpa_internal_rv_t) (const unsigned char *, size_t,
-                                    struct XCPadmresp *, CK_RV *);
-typedef int (*m_add_module_t) (XCP_Module_t, target_t *);
-typedef int (*m_rm_module_t) (XCP_Module_t, target_t);
-typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
-                                unsigned int query, unsigned int subquery,
-                                target_t target);
-
 m_get_xcp_info_t _m_get_xcp_info;
 m_admin_t _m_admin;
 xcpa_cmdblock_t _xcpa_cmdblock;
@@ -66,8 +50,6 @@ m_add_module_t _m_add_module;
 m_rm_module_t _m_rm_module;
 
 CK_VERSION lib_version;
-
-#define CK_IBM_XCPHQ_VERSION    0xff000001
 
 typedef struct {
     short format;

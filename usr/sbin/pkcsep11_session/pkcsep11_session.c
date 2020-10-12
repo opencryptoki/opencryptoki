@@ -18,9 +18,6 @@
 #include <string.h>
 #include <memory.h>
 #include <dlfcn.h>
-#include <pkcs11types.h>
-#include <ep11.h>
-#include <p11util.h>
 #include <ctype.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -31,6 +28,11 @@
 #include <libgen.h>
 #include <termios.h>
 #include <errno.h>
+
+#define OCK_NO_EP11_DEFINES
+#include "../../include/pkcs11types.h"
+#include "../../lib/common/p11util.h"
+#include "../../lib/ep11_stdll/ep11_func.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
 #define EP11SHAREDLIB_V3 "libep11.so.3"
@@ -43,28 +45,7 @@
 #define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
 #define CKA_HIDDEN               CKA_VENDOR_DEFINED + 0x01000000
 
-#ifndef XCP_PINBLOB_BYTES
-#define  XCP_HMAC_BYTES ((size_t) (256 /8))     /* SHA-256 */
-#define  XCP_WK_BYTES   ((size_t) (256 /8))     /* keypart and session sizes  */
-#define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
-#define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
-#define  XCP_PINBLOB_BYTES  \
-            (XCP_WK_BYTES +XCP_PIN_SALT_BYTES +XCP_HMAC_BYTES)
-#define  XCP_MIN_PINBYTES          8
-#define  XCP_MAX_PINBYTES         16
-#endif
-
-#define CK_IBM_XCPHQ_VERSION    0xff000001
-
 #define UNUSED(var)            ((void)(var))
-
-typedef unsigned int (*m_Logout_t) (const unsigned char *pin, size_t len,
-                                    target_t target);
-typedef int (*m_add_module_t) (XCP_Module_t module, target_t *target);
-typedef int (*m_rm_module_t) (XCP_Module_t module, target_t target);
-typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
-                                unsigned int query, unsigned int subquery,
-                                target_t target);
 
 #define SHA256_HASH_SIZE        32
 #define EP11_SESSION_ID_SIZE    16

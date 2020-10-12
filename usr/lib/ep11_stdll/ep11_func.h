@@ -8,6 +8,41 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
+#ifndef EP11_FUNC_H
+#define EP11_FUNC_H
+
+/*
+ * I dont see a better way than to ignore this warning for now.
+ * Note that the GCC pragma also works for clang.
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+
+#include "ep11.h"
+#include "ep11adm.h"
+
+#pragma GCC diagnostic pop
+
+#define XCP_MOD_VERSION_1           1
+#define XCP_MOD_VERSION_2           2
+
+/* mechanisms defined by EP11 with an invalid (outdated) ID */
+#define CKM_EP11_SHA512_224                 0x000002B0  // 0x00000048 in PKCS#11
+#define CKM_EP11_SHA512_224_HMAC            0x000002B1  // 0x00000049 in PKCS#11
+#define CKM_EP11_SHA512_224_HMAC_GENERAL    0x000002B2  // 0x0000004A in PKCS#11
+#define CKM_EP11_SHA512_256                 0x000002C0  // 0x0000004C in PKCS#11
+#define CKM_EP11_SHA512_256_HMAC            0x000002C1  // 0x0000004D in PKCS#11
+#define CKM_EP11_SHA512_256_HMAC_GENERAL    0x000002C2  // 0x0000004E in PKCS#11
+
+/* EP11 specific mechanisms unknown by ock, known by EP11, but not in ep11.h */
+#define CKM_IBM_SHA512_256_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010016
+#define CKM_IBM_SHA512_224_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010017
+#define CKM_IBM_EDDSA_PH_SHA512            CKM_VENDOR_DEFINED + 0x0001001D
+#define CKM_IBM_SM3                        CKM_VENDOR_DEFINED + 0x0005000e
+
+#define XCP_CPB_ALG_PQC_DILITHIUM          XCP_CPB_ALG_PQC
+
+/* EP11 function types */
 typedef CK_RV (*m_GenerateRandom_t) (CK_BYTE_PTR rnd, CK_ULONG len,
                                      target_t target);
 typedef CK_RV (*m_SeedRandom_t) (CK_BYTE_PTR pSeed, CK_ULONG ulSeedLen,
@@ -202,246 +237,19 @@ typedef int (*m_init_t) (void);
 typedef int (*m_shutdown_t) (void);
 typedef int (*m_add_module_t) (XCP_Module_t module, target_t *target);
 typedef int (*m_rm_module_t) (XCP_Module_t module, target_t target);
-
-#ifndef XCP_SERIALNR_CHARS
-#define XCP_SERIALNR_CHARS        8
-#endif
-#ifndef XCP_ADMCTR_BYTES
-#define XCP_ADMCTR_BYTES          ((size_t) (128/8))
-#endif
-#ifndef XCP_ADM_QUERY
-#define XCP_ADM_QUERY              0x10000
-#endif
-#ifndef XCP_ADMQ_DOM_CTRLPOINTS
-#define XCP_ADMQ_DOM_CTRLPOINTS    6 | XCP_ADM_QUERY    // domain CP
-#endif
-
-#ifndef __xcpadm_h__
-typedef struct XCPadmresp {
-    uint32_t fn;
-    uint32_t domain;
-    uint32_t domainInst;
-
-    /* module ID || module instance */
-    unsigned char module[XCP_SERIALNR_CHARS + XCP_SERIALNR_CHARS];
-    unsigned char modNr[XCP_SERIALNR_CHARS];
-    unsigned char modInst[XCP_SERIALNR_CHARS];
-
-    unsigned char tctr[XCP_ADMCTR_BYTES];       /* transaction counter */
-
-    CK_RV rv;
-    uint32_t reason;
-
-    // points to original response; NULL if no payload
-    // make sure it's copied if used after releasing response block
-    //
-    const unsigned char *payload;
-    size_t pllen;
-} *XCPadmresp_t;
-#endif
-
-#ifndef XCP_CPB_ADD_CPBS
-#define XCP_CPB_ADD_CPBS           0  // allow addition (activation) of CP bits
-#define XCP_CPB_DELETE_CPBS        1  // allow removal (deactivation) of CP bits
-                                      // remove both ADD_CPBs and DELETE_CPBs
-                                      // to make unit read-only
-#define XCP_CPB_SIGN_ASYMM         2  // sign with private keys
-#define XCP_CPB_SIGN_SYMM          3  // sign with HMAC or CMAC
-#define XCP_CPB_SIGVERIFY_SYMM     4  // verify with HMAC or CMAC
-#define XCP_CPB_ENCRYPT_SYMM       5  // encrypt with symmetric keys
-                                      // No asymmetric counterpart: one
-                                      // may not restrict use of public keys
-#define XCP_CPB_DECRYPT_ASYMM      6  // decrypt with private keys
-#define XCP_CPB_DECRYPT_SYMM       7  // decrypt with symmetric keys
-#define XCP_CPB_WRAP_ASYMM         8  // key export with public keys
-#define XCP_CPB_WRAP_SYMM          9  // key export with symmetric keys
-#define XCP_CPB_UNWRAP_ASYMM       10 // key import with private keys
-#define XCP_CPB_UNWRAP_SYMM        11 // key import with symmetric keys
-#define XCP_CPB_KEYGEN_ASYMM       12 // generate asymmetric keypairs
-#define XCP_CPB_KEYGEN_SYMM        13 // generate or derive symmetric keys
-                                      // including DSA parameters
-#define XCP_CPB_RETAINKEYS         14 // allow backend to save semi/retained
-                                      // keys
-#define XCP_CPB_SKIP_KEYTESTS      15 // disable selftests on new asymmetric
-                                      // keys
-#define XCP_CPB_NON_ATTRBOUND      16 // allow keywrap without attribute-binding
-#define XCP_CPB_MODIFY_OBJECTS     17 // allow changes to objects
-                                      // (Booleans only)
-#define XCP_CPB_RNG_SEED           18 // allow mixing external seed to RNG
-#define XCP_CPB_ALG_RAW_RSA        19 // allow RSA private-key use without
-                                      // padding (highly discouraged)
-#define XCP_CPB_ALG_NFIPS2009      20 // allow non-FIPS-approved algs
-                                      // (as of 2009)
-                                      // including non-FIPS keysizes
-#define XCP_CPB_ALG_NBSI2009       21 // allow non-BSI algorithms (as of 2009)
-                                      // including non-FIPS keysizes
-#define XCP_CPB_KEYSZ_HMAC_ANY     22 // don't enforce minimum keysize on HMAC
-#define XCP_CPB_KEYSZ_BELOW80BIT   23 // allow algorithms below 80-bit strength
-                                      // public-key operations are still allowed
-#define XCP_CPB_KEYSZ_80BIT        24 // allow 80 to 111-bit algorithms
-#define XCP_CPB_KEYSZ_112BIT       25 // allow 112 to 127-bit algorithms
-#define XCP_CPB_KEYSZ_128BIT       26 // allow 128 to 191-bit algorithms
-#define XCP_CPB_KEYSZ_192BIT       27 // allow 192 to 255-bit algorithms
-#define XCP_CPB_KEYSZ_256BIT       28 // allow 256-bit algorithms
-#define XCP_CPB_KEYSZ_RSA65536     29 // allow RSA public exponents below
-                                      // 0x10001
-#define XCP_CPB_ALG_RSA            30 // RSA private-key or key-encrypt use
-#define XCP_CPB_ALG_DSA            31 // DSA private-key use
-#define XCP_CPB_ALG_EC             32 // EC private-key use, see also
-                                      // curve restrictions
-#define XCP_CPB_ALG_EC_BPOOLCRV    33 // Brainpool (E.U.) EC curves
-#define XCP_CPB_ALG_EC_NISTCRV     34 // NIST/SECG EC curves
-#define XCP_CPB_ALG_NFIPS2011      35 // allow non-FIPS-approved algs
-                                      // (as of 2011)
-                                      // including non-FIPS keysizes
-#define XCP_CPB_ALG_NBSI2011       36 // allow non-BSI algorithms (as of 2011)
-                                      // including non-BSI keysizes
-#define XCP_CPB_USER_SET_TRUSTED   37 // allow non-admins to set TRUSTED on a
-                                      // blob/SPKI
-#define XCP_CPB_ALG_SKIP_CROSSCHK  38 // do not double-check sign/decrypt ops
-#define XCP_CPB_WRAP_CRYPT_KEYS    39 // allow keys which can en/decrypt data
-                                      // and also un/wrap other keys
-#define XCP_CPB_SIGN_CRYPT_KEYS    40 // allow keys which can en/decrypt data
-                                      // and also sign/verify
-#define XCP_CPB_WRAP_SIGN_KEYS     41 // allow keys which can un/wrap data
-                                      // and also sign/verify
-#define XCP_CPB_USER_SET_ATTRBOUND 42 // allow non-administrators to
-                                      // Wire format 69/82
-                                      // mark public key objects ATTRBOUND
-#define XCP_CPB_ALLOW_PASSPHRASE   43 // allow host to pass passprases, such as
-                                      // PKCS12 data, in the clear
-#define XCP_CPB_WRAP_STRONGER_KEY  44 // allow wrapping of stronger keys
-                                      // by weaker keys
-#define XCP_CPB_WRAP_WITH_RAW_SPKI 45 // allow wrapping with SPKIs without
-                                      // MAC and attributes
-#define XCP_CPB_ALG_DH             46 // Diffie-Hellman use (private keys)
-#define XCP_CPB_DERIVE             47 // allow key derivation (symmetric+EC/DH)
-#define XCP_CPB_ALG_EC_25519       55 // enable support of curve25519, c41417,
-                                      // c448 and related algorithms incl. EdDSA
-#define XCP_CPB_ALG_NBSI2017       61 // allow non-BSI algorithms (as of 2017)
-                                      // including non-BSI keysizes
-#define XCP_CPB_CPACF_PK           64 // support data key generation and import
-                                      // for protected key
-#define XCP_CPB_ALG_PQC_DILITHIUM  65 // enable support for Dilithium algorithm
-
-#define XCP_CPBITS_MAX             XCP_CPB_ALG_PQC_DILITHIUM // marks last used CPB
-
-#define  XCP_CPBLOCK_BITS          128 // handle CPs in this granularity
-#define  XCP_CPCOUNT                \
-        (((XCP_CPBITS_MAX + XCP_CPBLOCK_BITS-1) / XCP_CPBLOCK_BITS) * \
-         XCP_CPBLOCK_BITS)
-#define  XCP_CP_BYTES     (XCP_CPCOUNT / 8)   // full blocks, incl. unused bits
-
-#endif
-
-typedef long (*xcpa_queryblock_t) (unsigned char *blk, size_t blen,
-                                   unsigned int fn, uint64_t domain,
-                                   const unsigned char *payload, size_t plen);
-typedef long (*xcpa_internal_rv_t) (const unsigned char *rsp, size_t rlen,
-                                    struct XCPadmresp * rspblk, CK_RV * rv);
-
 typedef CK_RV (*m_get_xcp_info_t)(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
                                 unsigned int query, unsigned int subquery,
                                 target_t target);
+typedef long (*xcpa_cmdblock_t) (unsigned char *, size_t, unsigned int,
+                                 const struct XCPadmresp *,
+                                 const unsigned char *,
+                                 const unsigned char *, size_t);
+typedef long (*xcpa_queryblock_t) (unsigned char *blk, size_t blen,
+                                   unsigned int fn, uint64_t domain,
+                                   const unsigned char *payload, size_t plen);
+typedef long (*xcpa_internal_rv_t) (const unsigned char *, size_t,
+                                    struct XCPadmresp *, CK_RV *);
 
-#ifndef CK_IBM_XCP_HOSTQ_IDX
 
-typedef enum {
-    CK_IBM_XCPQ_API         =  0,  /* API and build identifier     */
-    CK_IBM_XCPQ_MODULE      =  1,  /* module-level information     */
-    CK_IBM_XCPQ_DOMAINS     =  2,  /* list active domains & WK IDs */
-    CK_IBM_XCPQ_DOMAIN      =  3,
-    CK_IBM_XCPQ_SELFTEST    =  4,  /* integrity & algorithm tests  */
-    CK_IBM_XCPQ_EXT_CAPS    =  5,  /* extended capabilities, count */
-    CK_IBM_XCPQ_EXT_CAPLIST =  6,  /* extended capabilities, list  */
-    CK_IBM_XCPQ_AUDITLOG    =  8,  /* audit record or records      */
-    CK_IBM_XCPQ_DESCRTEXT   =  9,  /* human-readable text/tokens   */
-    CK_IBM_XCPQ_EC_CURVES   = 10,  /* supported elliptic curves    */
-    CK_IBM_XCPQ_COMPAT      = 11,  /* domains' compatibility modes */
-    CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_COMPAT
-} CK_IBM_XCPQUERY_t;
 
-#define CK_IBM_XCP_HOSTQ_IDX  0xff000000  /* host-only queries index, min. */
-typedef enum {
-    CK_IBM_XCPHQ_COUNT    = (int)0xff000000, /* number of host-query indexes */
-                                             /* including this type itself   */
-    CK_IBM_XCPHQ_VERSION  = (int)0xff000001, /* host-specific package version*/
-                                             /* such as packaging library ID */
-    CK_IBM_XCPHQ_VERSION_HASH
-                          = (int)0xff000002, /* Assumed-unique identifier of */
-                                             /* host code, such as version-  */
-                                             /* identifying cryptographic    */
-					     /* hash (library signature      */
-                                             /* field...)                    */
-    CK_IBM_XCPHQ_DIAGS    = (int)0xff000003, /* Host code diagnostic level.  */
-                                             /* 0 if non-diagnostics host    */
-					     /* code.                        */
-    CK_IBM_XCPHQ_HVERSION = (int)0xff000004, /* Human-readable host version  */
-                                             /* identification (recommended: */
-                                             /* UTF-8 string)                */
-    CK_IBM_XCPHQ_TGT_MODE = (int)0xff000005, /* Host targeting modes         */
-                                             /* returns supported target     */
-                                             /* modes as bitmask.            */
-                                             /* If not available only        */
-                                             /* compat target mode is in     */
-                                             /* use. See                     */
-                                             /* CK_IBM_XCPHQ_TGT_MODES_t.    */
-    CK_IBM_XCPHQ_MAX = CK_IBM_XCPHQ_TGT_MODE
-} CK_IBM_XCPHQUERY_t;
-
-typedef struct CK_IBM_XCPAPI_INFO {
-    CK_ULONG firmwareApi;
-    CK_ULONG firmwareConfig;          /* truncated firmware hash */
-} CK_IBM_XCPAPI_INFO;
-
-typedef CK_IBM_XCPAPI_INFO    CK_PTR   CK_IBM_XCPAPI_INFO_PTR;
-
-typedef struct CK_IBM_XCP_INFO {
-    CK_ULONG   firmwareApi;         /* API ordinal number */
-                                    /* major+minor pairs  */
-    CK_ULONG   firmwareId;          /* truncated firmwareConfig */
-
-    CK_VERSION firmwareVersion;     /* xcp only, matches xcpConfig below */
-    CK_VERSION cspVersion;
-
-                                    /* hashes, possibly truncated */
-    CK_BYTE    firmwareConfig[ 32 ];
-    CK_BYTE    xcpConfig     [ 32 ];
-    CK_BYTE    cspConfig     [ 32 ];
-
-    CK_CHAR    serialNumber[ 16 ];    /* device || instance */
-    CK_CHAR    utcTime     [ 16 ];
-
-    CK_ULONG   opMode2;               /* currently, reserved 0        */
-    CK_ULONG   opMode1;               /* operational mode, card-level */
-
-    CK_FLAGS   flags;               /*     PKCS#11 capabilities */
-    CK_FLAGS   extflags;            /* non-PKCS#11 capabilities */
-
-    CK_ULONG   domains;
-    CK_ULONG   symmStateBytes;
-    CK_ULONG digestStateBytes;
-    CK_ULONG    pinBlockBytes;
-    CK_ULONG     symmKeyBytes;
-    CK_ULONG        spkiBytes;
-    CK_ULONG      prvkeyBytes;
-
-    CK_ULONG  maxPayloadBytes;
-    CK_ULONG   cpProfileBytes;
-    CK_ULONG    controlPoints;
-} CK_IBM_XCP_INFO;
-
-typedef CK_IBM_XCP_INFO    CK_PTR   CK_IBM_XCP_INFO_PTR;
-
-#endif
-
-#ifndef XCP_PINBLOB_BYTES
-#define  XCP_HMAC_BYTES ((size_t) (256 /8))     /* SHA-256 */
-#define  XCP_WK_BYTES   ((size_t) (256 /8))     /* keypart and session sizes  */
-#define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
-#define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
-#define  XCP_PINBLOB_BYTES  \
-            (XCP_WK_BYTES + XCP_PIN_SALT_BYTES + XCP_HMAC_BYTES)
-#define  XCP_MIN_PINBYTES          8
-#define  XCP_MAX_PINBYTES         16
 #endif

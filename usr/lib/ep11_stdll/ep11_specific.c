@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <libgen.h>
 
+#define OCK_NO_EP11_DEFINES
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -55,7 +56,6 @@
 #include <ica_api.h>
 #include <openssl/crypto.h>
 
-#include "ep11.h"
 #include "ep11_func.h"
 #include "ep11_specific.h"
 
@@ -509,43 +509,6 @@ typedef struct const_info {
 
 #define CONSTINFO(_X) { (_X), (#_X) }
 
-/* mechanisms defined by EP11 with an invalid (outdated) ID */
-#define CKM_EP11_SHA512_224                 0x000002B0  // 0x00000048 in PKCS#11
-#define CKM_EP11_SHA512_224_HMAC            0x000002B1  // 0x00000049 in PKCS#11
-#define CKM_EP11_SHA512_224_HMAC_GENERAL    0x000002B2  // 0x0000004A in PKCS#11
-#define CKM_EP11_SHA512_256                 0x000002C0  // 0x0000004C in PKCS#11
-#define CKM_EP11_SHA512_256_HMAC            0x000002C1  // 0x0000004D in PKCS#11
-#define CKM_EP11_SHA512_256_HMAC_GENERAL    0x000002C2  // 0x0000004E in PKCS#11
-
-/* Vendor specific mechanisms unknown by ock, but known by EP11 */
-#define CKM_IBM_ECDSA_SHA224               CKM_VENDOR_DEFINED + 0x00010008
-#define CKM_IBM_ECDSA_SHA256               CKM_VENDOR_DEFINED + 0x00010009
-#define CKM_IBM_ECDSA_SHA384               CKM_VENDOR_DEFINED + 0x0001000A
-#define CKM_IBM_ECDSA_SHA512               CKM_VENDOR_DEFINED + 0x0001000B
-#define CKM_IBM_EC_MULTIPLY                CKM_VENDOR_DEFINED + 0x0001000C
-#define CKM_IBM_EAC                        CKM_VENDOR_DEFINED + 0x0001000D
-#define CKM_IBM_TESTCODE                   CKM_VENDOR_DEFINED + 0x0001000E
-#define CKM_IBM_SHA512_256                 CKM_VENDOR_DEFINED + 0x00010012
-#define CKM_IBM_SHA512_224                 CKM_VENDOR_DEFINED + 0x00010013
-#define CKM_IBM_SHA512_256_HMAC            CKM_VENDOR_DEFINED + 0x00010014
-#define CKM_IBM_SHA512_224_HMAC            CKM_VENDOR_DEFINED + 0x00010015
-#define CKM_IBM_SHA512_256_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010016
-#define CKM_IBM_SHA512_224_KEY_DERIVATION  CKM_VENDOR_DEFINED + 0x00010017
-#define CKM_IBM_EC_X25519                  CKM_VENDOR_DEFINED + 0x0001001B
-#define CKM_IBM_EDDSA_PH_SHA512            CKM_VENDOR_DEFINED + 0x0001001D
-#define CKM_IBM_EC_X448                    CKM_VENDOR_DEFINED + 0x0001001E
-#define CKM_IBM_SIPHASH                    CKM_VENDOR_DEFINED + 0x00010021
-#define CKM_IBM_DILITHIUM                  CKM_VENDOR_DEFINED + 0x00010023
-#define CKM_IBM_CLEARKEY_TRANSPORT         CKM_VENDOR_DEFINED + 0x00020001
-#define CKM_IBM_ATTRIBUTEBOUND_WRAP        CKM_VENDOR_DEFINED + 0x00020004
-#define CKM_IBM_TRANSPORTKEY               CKM_VENDOR_DEFINED + 0x00020005
-#define CKM_IBM_DH_PKCS_DERIVE_RAW         CKM_VENDOR_DEFINED + 0x00020006
-#define CKM_IBM_ECDH1_DERIVE_RAW           CKM_VENDOR_DEFINED + 0x00020007
-#define CKM_IBM_WIRETEST                   CKM_VENDOR_DEFINED + 0x00030004
-#define CKM_IBM_RETAINKEY                  CKM_VENDOR_DEFINED + 0x00040001
-#define CKM_IBM_SM3                        CKM_VENDOR_DEFINED + 0x0005000e
-#define CKM_IBM_CPACF_WRAP                 CKM_VENDOR_DEFINED + 0x00060001
-
 static CK_RV cleanse_attribute(TEMPLATE *template,
                                CK_ATTRIBUTE_TYPE attr_type)
 {
@@ -973,10 +936,12 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_IBM_SHA512_256_KEY_DERIVATION),
     CONSTINFO(CKM_IBM_SHA512_224_KEY_DERIVATION),
     CONSTINFO(CKM_IBM_EC_C25519),
+    CONSTINFO(CKM_IBM_EC_X25519),
     CONSTINFO(CKM_IBM_ED25519_SHA512),
     CONSTINFO(CKM_IBM_EDDSA_SHA512),
     CONSTINFO(CKM_IBM_EDDSA_PH_SHA512),
     CONSTINFO(CKM_IBM_EC_C448),
+    CONSTINFO(CKM_IBM_EC_X448),
     CONSTINFO(CKM_IBM_ED448_SHA3),
     CONSTINFO(CKM_IBM_SIPHASH),
     CONSTINFO(CKM_IBM_CLEARKEY_TRANSPORT),
@@ -1064,23 +1029,6 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                                     const char *conf_name);
 static int read_cp_filter_config_file(const char *conf_name,
                                       cp_config_t ** cp_config);
-
-/*
- * EP11 specific return codes
- */
-#define CKR_IBM_WKID_MISMATCH       CKR_VENDOR_DEFINED + 0x00010001
-#define CKR_IBM_INTERNAL_ERROR      CKR_VENDOR_DEFINED + 0x00010002
-#define CKR_IBM_TRANSPORT_ERROR     CKR_VENDOR_DEFINED + 0x00010003
-#define CKR_IBM_BLOB_ERROR          CKR_VENDOR_DEFINED + 0x00010004
-#define CKR_IBM_BLOBKEY_CONFLICT    CKR_VENDOR_DEFINED + 0x00010005
-#define CKR_IBM_MODE_CONFLICT       CKR_VENDOR_DEFINED + 0x00010006
-#define CKR_IBM_NONCRT_KEY_SIZE     CKR_VENDOR_DEFINED + 0x00010008
-#define CKR_IBM_WK_NOT_INITIALIZED  CKR_VENDOR_DEFINED + 0x00010009
-#define CKR_IBM_OA_API_ERROR        CKR_VENDOR_DEFINED + 0x0001000a
-#define CKR_IBM_REQ_TIMEOUT         CKR_VENDOR_DEFINED + 0x0001000b
-#define CKR_IBM_READONLY            CKR_VENDOR_DEFINED + 0x0001000c
-#define CKR_IBM_STATIC_POLICY       CKR_VENDOR_DEFINED + 0x0001000d
-#define CKR_IBM_TRANSPORT_LIMIT     CKR_VENDOR_DEFINED + 0x00010010
 
 static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
 {
@@ -3794,8 +3742,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     memset(newblob, 0, sizeof(newblob));
 
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
-        mech->mechanism == CKM_IBM_EC_C25519 ||
-        mech->mechanism == CKM_IBM_EC_C448) {
+        mech->mechanism == CKM_IBM_EC_X25519 ||
+        mech->mechanism == CKM_IBM_EC_X448) {
         if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
             TRACE_ERROR("%s Param len for %s wrong: %lu\n",
                         __func__, ep11_get_ckm(mech->mechanism ),
@@ -6950,9 +6898,9 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         break;
 
-    case CKM_IBM_EC_C25519:
+    case CKM_IBM_EC_X25519:
     case CKM_IBM_ED25519_SHA512:
-    case CKM_IBM_EC_C448:
+    case CKM_IBM_EC_X448:
     case CKM_IBM_ED448_SHA3:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
@@ -7799,6 +7747,7 @@ static const_info_t ep11_cps[] = {
     CONSTINFO(XCP_CPB_ALG_NBSI2017),
     CONSTINFO(XCP_CPB_CPACF_PK),
     CONSTINFO(XCP_CPB_ALG_PQC_DILITHIUM),
+    CONSTINFO(XCP_CPB_ALG_PQC),
 };
 
 #ifdef DEBUG
