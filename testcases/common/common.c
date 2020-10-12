@@ -1004,8 +1004,8 @@ int get_user_pin(CK_BYTE * dest)
 
 void process_time(SYSTEMTIME t1, SYSTEMTIME t2)
 {
-    long ms = t2.millitm - t1.millitm;
-    long s = t2.time - t1.time;
+    long ms = (t2.tv_usec - t1.tv_usec) / 1000;
+    long s = t2.tv_sec - t1.tv_sec;
 
     while (ms < 0) {
         ms += 1000;
