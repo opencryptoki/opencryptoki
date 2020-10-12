@@ -30,9 +30,9 @@
 
 #define MIN(a, b)       ( (a) < (b) ? (a) : (b) )
 
-#include <sys/timeb.h>
-#define SYSTEMTIME   struct timeb
-#define GetSystemTime(x) ftime((x))
+#include <sys/time.h>
+#define SYSTEMTIME   struct timeval
+#define GetSystemTime(x) gettimeofday((x), NULL)
 
 #include <sys/time.h>
 
