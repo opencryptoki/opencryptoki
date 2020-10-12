@@ -1,7 +1,9 @@
 nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_ep11.la
 
 noinst_HEADERS +=							\
-	usr/lib/ep11_stdll/ep11.h usr/lib/ep11_stdll/ep11_func.h usr/lib/ep11_stdll/ep11_specific.h usr/lib/ep11_stdll/tok_struct.h
+	usr/lib/ep11_stdll/ep11.h usr/lib/ep11_stdll/ep11adm.h 		\
+	usr/lib/ep11_stdll/ep11_func.h usr/lib/ep11_stdll/ep11_specific.h \
+	usr/lib/ep11_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS =				\
 	-DDEV -D_THREAD_SAFE -DSHALLOW=0 -DEPSWTOK=1 -DLITE=0 -DNOCDMF	\

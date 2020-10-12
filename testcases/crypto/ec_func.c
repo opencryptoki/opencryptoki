@@ -430,9 +430,9 @@ CK_RV run_DeriveECDHKey()
         derive_mech_type = CKM_ECDH1_DERIVE;
         if (der_ec_supported[i].type == CURVE_MONTGOMERY) {
             if (der_ec_supported[i].curve == curve25519)
-                derive_mech_type = CKM_IBM_EC_C25519;
+                derive_mech_type = CKM_IBM_EC_X25519;
             if (der_ec_supported[i].curve == curve448)
-                derive_mech_type = CKM_IBM_EC_C448;
+                derive_mech_type = CKM_IBM_EC_X448;
 
             prv_attr_gen = prv_attr_montgomery;
             prv_attr_gen_len = prv_attr_montgomery_len;

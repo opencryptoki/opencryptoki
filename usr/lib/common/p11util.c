@@ -446,9 +446,9 @@ char *p11_get_ckm(CK_ULONG mechanism)
         _sym2str(CKM_IBM_SHA3_256_HMAC);
         _sym2str(CKM_IBM_SHA3_384_HMAC);
         _sym2str(CKM_IBM_SHA3_512_HMAC);
-        _sym2str(CKM_IBM_EC_C25519);
+        _sym2str(CKM_IBM_EC_X25519);
         _sym2str(CKM_IBM_ED25519_SHA512);
-        _sym2str(CKM_IBM_EC_C448);
+        _sym2str(CKM_IBM_EC_X448);
         _sym2str(CKM_IBM_ED448_SHA3);
         _sym2str(CKM_IBM_DILITHIUM);
     default:
