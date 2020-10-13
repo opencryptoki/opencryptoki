@@ -167,6 +167,7 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_ALWAYS_SENSITIVE:
     case CKA_ALWAYS_AUTHENTICATE:
     case CKA_MODIFIABLE:
+    case CKA_UNIQUE_ID:
     case CKA_ECDSA_PARAMS:
     case CKA_EC_POINT:
     case CKA_HW_FEATURE_TYPE:
