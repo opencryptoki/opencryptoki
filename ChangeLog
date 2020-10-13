@@ -1,4 +1,13 @@
-+ Opencryptoki 3.14
++ openCryptoki 3.15
+- common: conform to PKCS 11 3.0 Baseline Provider profile
+- Introduce new vendor defined interface named "Vendor IBM"
+- Support C_IBM_ReencryptSingle via "Vendor IBM" interface
+- CCA: support key wrapping
+- SOFT: support ECC
+- p11sak tool: add remove-key command
+- Bug fixes
+
++ openCryptoki 3.14
 - EP11: Dilitium support stage 2
 - Common: Rework on process and thread locking
 - Common: Rework on btree and object locking
