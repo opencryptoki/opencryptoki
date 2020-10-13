@@ -193,7 +193,7 @@ CK_RV do_CopyObject(void)
 
     CK_BYTE false = FALSE;
 
-    CK_OBJECT_HANDLE h_data;
+    CK_OBJECT_HANDLE h_data, h_data2;
     CK_OBJECT_CLASS data_class = CKO_DATA;
     CK_BYTE data_application[] = "Test Application";
     CK_BYTE data_value[] = "1234567890abcedfghijklmnopqrstuvwxyz";
@@ -201,6 +201,13 @@ CK_RV do_CopyObject(void)
         {CKA_CLASS, &data_class, sizeof(data_class)},
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_VALUE, &data_value, sizeof(data_value)}
+    };
+    /* Invalid: coannot set CKA_UNIQUE_ID */
+    CK_ATTRIBUTE data_attribs2[] = {
+        {CKA_CLASS, &data_class, sizeof(data_class)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_VALUE, &data_value, sizeof(data_value)},
+        {CKA_UNIQUE_ID, &data_value, sizeof(data_value)}
     };
 
     CK_OBJECT_HANDLE h_copy;
@@ -216,6 +223,16 @@ CK_RV do_CopyObject(void)
     CK_BYTE buf2[100];
     CK_ATTRIBUTE prime_attribs[] = {
         {CKA_PRIME, &buf2, sizeof(buf2)}
+    };
+
+    CK_BYTE buf3[100];
+    CK_ATTRIBUTE unique_id_attribs[] = {
+        {CKA_UNIQUE_ID, &buf3, sizeof(buf3)}
+    };
+
+    CK_BYTE buf4[100];
+    CK_ATTRIBUTE unique_id_attribs2[] = {
+        {CKA_UNIQUE_ID, &buf4, sizeof(buf4)}
     };
 
     testcase_begin("starting...");
@@ -245,6 +262,13 @@ CK_RV do_CopyObject(void)
     /* create the object */
     rc = funcs->C_CreateObject(h_session, data_attribs, 3, &h_data);
     if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        return rc;
+    }
+
+    /* try to create invalid object */
+    rc = funcs->C_CreateObject(h_session, data_attribs2, 4, &h_data2);
+    if (rc != CKR_ATTRIBUTE_READ_ONLY) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         return rc;
     }
@@ -299,6 +323,26 @@ CK_RV do_CopyObject(void)
         testcase_fail("C_GetAttributeValue() rc = %s (expected "
                       "CKR_OBJECT_HANDLE_INVALID)", p11_get_ckr(rc));
         return rc;
+    }
+
+    /* try to extract the CKA_UNIQUE_ID attribute from the original */
+    unique_id_attribs[0].ulValueLen = sizeof(buf3);
+    rc = funcs->C_GetAttributeValue(h_session, h_data, unique_id_attribs, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetAttributeValue() rc=%s", p11_get_ckr(rc));
+        return rc;
+    }
+    /* now, try to extract the CKA_UNIQUE_IDattribute from the copy */
+    unique_id_attribs2[0].ulValueLen = sizeof(buf4);
+    rc = funcs->C_GetAttributeValue(h_session, h_copy, unique_id_attribs2, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetAttributeValue() rc=%s", p11_get_ckr(rc));
+        return rc;
+    }
+    if (memcmp(unique_id_attribs[0].pValue,
+               unique_id_attribs2[0].pValue, 64) == 0) {
+        testcase_fail("unique id attributes match");
+        return -1;
     }
 
     /* now, get the size of the original object */
@@ -381,6 +425,7 @@ CK_RV do_SetAttributeValues(void)
     CK_BYTE cert_id[] = "Certificate ID";
     CK_BYTE cert_value[] =
         "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz";
+    CK_BYTE unique_id[] = "deadbeef";
 
     CK_ATTRIBUTE cert_attribs[] = {
         {CKA_CLASS, &cert_class, sizeof(cert_class)},
@@ -398,6 +443,10 @@ CK_RV do_SetAttributeValues(void)
         {CKA_SERIAL_NUMBER, &cert_ser_no, sizeof(cert_ser_no)},
         {CKA_ISSUER, &cert_issuer, sizeof(cert_issuer)},
         {CKA_ID, &cert_id2, sizeof(cert_id2)}
+    };
+    /* Invalid: update CKA_UNIQUE_ID */
+    CK_ATTRIBUTE update_attr2[] = {
+        {CKA_UNIQUE_ID, &unique_id, sizeof(unique_id)}
     };
 
     CK_BYTE cert_value2[] = "Invalid Value";
@@ -434,6 +483,13 @@ CK_RV do_SetAttributeValues(void)
     rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
     if (rc != CKR_OK) {
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        return rc;
+    }
+
+    /* Try to change the CKA_UNIQUE_ID */
+    rc = funcs->C_SetAttributeValue(h_session, h_cert, update_attr2, 1);
+    if (rc !=  CKR_ATTRIBUTE_READ_ONLY) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
         return rc;
     }
 

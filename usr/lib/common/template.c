@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <openssl/rand.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -40,6 +41,23 @@
 #include "pkcs32.h"
 #include "p11util.h"
 #include "trace.h"
+
+/* Random 32 byte string is unique with overwhelming probability. */
+#define UNIQUE_ID_LEN 32
+
+static CK_RV get_unique_id_str(char unique_id_str[2 * UNIQUE_ID_LEN + 1])
+{
+    unsigned char buf[UNIQUE_ID_LEN];
+    size_t i;
+
+    if (RAND_bytes(buf, sizeof(buf)) != 1)
+        return CKR_FUNCTION_FAILED;
+
+    for (i = 0; i < sizeof(buf); i++)
+        sprintf(&unique_id_str[i * 2], "%02x", buf[i]);
+
+    return CKR_OK;
+}
 
 /* template_add_attributes()
  *
@@ -470,9 +488,17 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
         }
-        memcpy(new_attr, attr, len);
 
+        memcpy(new_attr, attr, len);
         new_attr->pValue = (CK_BYTE *) new_attr + sizeof(CK_ATTRIBUTE);
+
+        if (attr->type == CKA_UNIQUE_ID) {
+            if (get_unique_id_str(new_attr->pValue) != CKR_OK) {
+                free(new_attr);
+                TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+                return CKR_FUNCTION_FAILED;
+	    }
+	}
 
         dest->attribute_list = dlist_add_as_first(dest->attribute_list,
                                                   new_attr);
@@ -952,10 +978,15 @@ CK_RV template_merge(TEMPLATE *dest, TEMPLATE **src)
  */
 CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
 {
+    char unique_id_str[2 * UNIQUE_ID_LEN + 1];
     CK_ATTRIBUTE *token_attr;
     CK_ATTRIBUTE *priv_attr;
     CK_ATTRIBUTE *mod_attr;
     CK_ATTRIBUTE *label_attr;
+    CK_ATTRIBUTE *unique_id_attr;
+
+    if (get_unique_id_str(unique_id_str) != CKR_OK)
+        return CKR_FUNCTION_FAILED;
 
     /* add the default common attributes */
     token_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
@@ -965,8 +996,9 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     mod_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
                                        + sizeof(CK_BBOOL));
     label_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + 0);
+    unique_id_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + UNIQUE_ID_LEN * 2);
 
-    if (!token_attr || !priv_attr || !mod_attr || !label_attr) {
+    if (!token_attr || !priv_attr || !mod_attr || !label_attr || !unique_id_attr) {
         if (token_attr)
             free(token_attr);
         if (priv_attr)
@@ -975,6 +1007,8 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
             free(mod_attr);
         if (label_attr)
             free(label_attr);
+        if (unique_id_attr)
+            free(unique_id_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -999,10 +1033,16 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     label_attr->ulValueLen = 0; // empty string
     label_attr->pValue = NULL;
 
+    unique_id_attr->type = CKA_UNIQUE_ID;
+    unique_id_attr->ulValueLen = UNIQUE_ID_LEN * 2;
+    unique_id_attr->pValue = (CK_BYTE *) unique_id_attr + sizeof(CK_ATTRIBUTE);
+    memcpy(unique_id_attr->pValue, unique_id_str, UNIQUE_ID_LEN * 2);
+
     template_update_attribute(tmpl, token_attr);
     template_update_attribute(tmpl, priv_attr);
     template_update_attribute(tmpl, mod_attr);
     template_update_attribute(tmpl, label_attr);
+    template_update_attribute(tmpl, unique_id_attr);
 
     /* the TEMPLATE 'owns' the attributes now.
      * it is responsible for freeing them upon deletion...
@@ -1247,6 +1287,12 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
+        break;
+    case CKA_UNIQUE_ID:
+        if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
+                     MODE_UNWRAP)) != 0)
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
