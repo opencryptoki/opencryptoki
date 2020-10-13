@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ([2.69])
-AC_INIT([openCryptoki],[3.14.0],[opencryptoki-tech@lists.sourceforge.net],[],[https://github.com/opencryptoki/opencryptoki])
+AC_INIT([openCryptoki],[3.15.0],[opencryptoki-tech@lists.sourceforge.net],[],[https://github.com/opencryptoki/opencryptoki])
 AC_CONFIG_SRCDIR([testcases/common/common.c])
 
 dnl Needed for $target!
