@@ -99,7 +99,8 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
         return CKR_ATTRIBUTE_TYPE_INVALID;
     }
 
-    if (class != CKO_DATA && subclass_given != TRUE) {
+    if (subclass_given != TRUE
+        && class != CKO_DATA && class != CKO_PROFILE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
         return CKR_TEMPLATE_INCOMPLETE;
     }

@@ -230,6 +230,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
+    case CKO_PROFILE:
+        return profile_object_set_default_attributes(tmpl, mode);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
         return CKR_ATTRIBUTE_VALUE_INVALID;
@@ -400,6 +402,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
+    } else if (class == CKO_PROFILE) {
+        return profile_object_check_required_attributes(tmpl, mode);
     }
 
     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -1208,6 +1212,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
+    } else if (class == CKO_PROFILE) {
+        return profile_object_validate_attribute(tmpl, attr, mode);
     }
 
     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));

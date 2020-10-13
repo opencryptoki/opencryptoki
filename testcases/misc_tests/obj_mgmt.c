@@ -1455,6 +1455,169 @@ done:
     return rc;
 }
 
+/*
+ * do_ProfileSearch Test:
+ */
+CK_RV do_ProfileSearch(void)
+{
+    unsigned int i;
+    CK_RV rc, loc_rc;
+    CK_ULONG find_count;
+    CK_SLOT_ID slot_id;
+
+    CK_SESSION_HANDLE h_session = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN] = {0};
+    CK_ULONG user_pin_len = 0;
+
+    /* profile object 1 */
+    CK_OBJECT_CLASS profile1_class = CKO_PROFILE;
+    CK_PROFILE_ID profile1_profile_id = CKP_BASELINE_PROVIDER;
+    CK_ATTRIBUTE profile1_template[] = {
+        {CKA_CLASS, &profile1_class, sizeof(profile1_class)},
+        {CKA_PROFILE_ID, &profile1_profile_id, sizeof(profile1_profile_id)},
+    };
+
+    /* profile object 2 */
+    CK_OBJECT_CLASS profile2_class = CKO_PROFILE;
+    CK_ATTRIBUTE profile2_template[] = {
+        {CKA_CLASS, &profile2_class, sizeof(profile2_class)},
+    };
+
+    CK_OBJECT_HANDLE h_obj1 = 0, h_obj2 = 0, obj_list[10] = {0};
+
+    CK_ATTRIBUTE find_tmpl[] = {
+        {CKA_CLASS, &profile1_class, sizeof(profile1_class)}
+    };
+    CK_ATTRIBUTE find_tmpl2[] = {
+        {CKA_CLASS, &profile1_class, sizeof(profile1_class)},
+        {CKA_PROFILE_ID, &profile1_profile_id, sizeof(profile1_profile_id)}
+    };
+
+    if (skip_token_obj == TRUE) {
+        testcase_notice("Skipping tests that creates token objects");
+        return CKR_OK;
+    }
+
+    slot_id = SLOT_ID;
+
+    testcase_begin("starting...");
+
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
+
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
+
+    /* Open a session with the token */
+    rc = funcs->C_OpenSession(slot_id,
+                              (CKF_SERIAL_SESSION | CKF_RW_SESSION),
+                              NULL_PTR, NULL_PTR, &h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_OpenSession() rc = %s", p11_get_ckr(rc));
+        goto done;
+    }
+
+    // Login correctly
+    rc = funcs->C_Login(h_session, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Login() rc = %s", p11_get_ckr(rc));
+        goto session_close;
+    }
+
+    /* Create the 2 test objects */
+    rc = funcs->C_CreateObject(h_session, profile1_template, 2, &h_obj1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        return rc;
+    }
+    rc = funcs->C_CreateObject(h_session, profile2_template, 1, &h_obj2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto destroy_1;
+    }
+
+    // Now find the profile objects
+    rc = funcs->C_FindObjectsInit(h_session, find_tmpl, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+    if (find_count != 2) {
+        testcase_fail("found %ld objects when expected 1", find_count);
+        funcs->C_FindObjectsFinal(h_session);
+        rc = -1;
+        goto destroy;
+    }
+    /* Make sure we got the right ones */
+    for (i = 0; i < find_count; i++) {
+        if (obj_list[i] != h_obj1 && obj_list[i] != h_obj2) {
+            testcase_fail("found the wrong object handles");
+            rc = -1;
+        }
+    }
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+    }
+
+    // Now find only the first profile object
+    rc = funcs->C_FindObjectsInit(h_session, find_tmpl2, 2);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+    rc = funcs->C_FindObjects(h_session, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+        goto destroy;
+    }
+    if (find_count != 1) {
+        testcase_fail("found %ld objects when expected 1", find_count);
+        funcs->C_FindObjectsFinal(h_session);
+        rc = -1;
+        goto destroy;
+    }
+    /* Make sure we got the right ones */
+    for (i = 0; i < find_count; i++) {
+        if (obj_list[i] != h_obj1) {
+            testcase_fail("found the wrong object handles");
+            rc = -1;
+        }
+    }
+    rc = funcs->C_FindObjectsFinal(h_session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+    }
+
+    testcase_pass("Looks okay...");
+
+destroy:
+    loc_rc = funcs->C_DestroyObject(h_session, h_obj2);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+destroy_1:
+    loc_rc = funcs->C_DestroyObject(h_session, h_obj1);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+
+    loc_rc = funcs->C_Logout(h_session);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_Logout() rc = %s", p11_get_ckr(loc_rc));
+
+session_close:
+    /* Close the session */
+    loc_rc = funcs->C_CloseSession(h_session);
+    if (loc_rc != CKR_OK)
+        testcase_fail("C_CloseSession() rc = %s", p11_get_ckr(loc_rc));
+
+done:
+    return rc;
+}
+
 CK_RV obj_mgmt_functions()
 {
     int rc;
@@ -1476,6 +1639,10 @@ CK_RV obj_mgmt_functions()
         return rc;
 
     rc = do_HWFeatureSearch();
+    if (rc && !no_stop)
+        return rc;
+
+    rc = do_ProfileSearch();
     if (rc && !no_stop)
         return rc;
 

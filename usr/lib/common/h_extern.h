@@ -2305,6 +2305,12 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV data_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                      CK_ULONG mode);
 
+// PROFILE OBJECT ROUTINES
+CK_RV profile_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV profile_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV profile_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+                                        CK_ULONG mode);
+
 // CERTIFICATE ROUTINES
 //
 CK_RV cert_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
