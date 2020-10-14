@@ -473,6 +473,9 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
         memcpy(dat->so_login_key, login_key, 32);
     }
     tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+    tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_INITIALIZED |
+            CKF_USER_PIN_LOCKED | CKF_USER_PIN_FINAL_TRY |
+            CKF_USER_PIN_COUNT_LOW);
     memcpy(tokdata->nv_token_data->token_info.label, pLabel, 32);
 
     rc = save_token_data(tokdata, sid);
@@ -1311,6 +1314,12 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         if (*flags & CKF_USER_PIN_LOCKED) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_LOCKED));
             rc = CKR_PIN_LOCKED;
+            goto done;
+        }
+
+        if (!(*flags & CKF_USER_PIN_INITIALIZED)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+            rc = CKR_USER_PIN_NOT_INITIALIZED;
             goto done;
         }
 
