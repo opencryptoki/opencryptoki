@@ -678,6 +678,9 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     load_token_data(tokdata, slot_id);
     init_slotInfo(&tokdata->slot_info);
     tokdata->nv_token_data->token_info.flags |= CKF_TOKEN_INITIALIZED;
+    tokdata->nv_token_data->token_info.flags &= ~(CKF_USER_PIN_INITIALIZED |
+            CKF_USER_PIN_LOCKED | CKF_USER_PIN_FINAL_TRY |
+            CKF_USER_PIN_COUNT_LOW);
 
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
         /* Save master key */
