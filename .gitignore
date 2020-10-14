@@ -51,6 +51,7 @@ usr/sbin/pkcsep11_session/.deps/
 usr/sbin/pkcsicsf/.deps/
 usr/sbin/pkcsslotd/.deps/
 usr/sbin/p11sak/.deps/
+usr/sbin/pkcstok_migrate/.deps/
 
 
 misc/pkcsslotd
@@ -448,3 +449,4 @@ usr/sbin/pkcsslotd/usr_sbin_pkcsslotd_pkcsslotd-socket_server.o
 usr/sbin/p11sak/.dirstamp
 usr/sbin/p11sak/p11sak
 usr/sbin/p11sak/usr_sbin_p11sak_p11sak-p11sak.o
+usr/sbin/pkcstok_migrate/.dirstamp
