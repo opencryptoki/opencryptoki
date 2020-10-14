@@ -738,8 +738,8 @@ CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession,
 
     // Null mechanism pointer is not good
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
 
     sltp = &(Anchor->SltList[rSession.slotID]);
@@ -908,8 +908,8 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,
     //if (!phKey ) return CKR_ARGUMENTS_BAD;
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     // Null template with attribute count is bad
     //  but we will let a template with len 0 pass through
@@ -1161,8 +1161,8 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1399,8 +1399,8 @@ CK_RV C_EncryptInit(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -1740,8 +1740,8 @@ CK_RV C_GenerateKey(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!phKey) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -1802,8 +1802,8 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!phPublicKey || !phPrivateKey) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -1923,12 +1923,12 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
     }
 
     if (!pTemplate) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (ulCount == 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2020,8 +2020,8 @@ CK_RV C_GetInfo(CK_INFO_PTR pInfo)
     shData = &(Anchor->SocketDataP);
 
     if (!pInfo) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
 
     CK_Info_From_Internal(pInfo, &(shData->ck_info));
@@ -2340,23 +2340,23 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
     shData = &(Anchor->SocketDataP);
 
     if (!pInfo) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
-
-    sinfp = shData->slot_info;
-    sinfp += slotID;
 
     if (slotID >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         return CKR_SLOT_ID_INVALID;
     }
+
+    sinfp = &shData->slot_info[slotID];
+
     // Netscape and others appear to call
     // this for every slot.  If the slot does not have
     // a registered STDLL, then this is a FUnction Failed case
     if (sinfp->present == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
 
     }
 #ifdef __64BIT__
@@ -2385,9 +2385,6 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 
 CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
 {
-    uint16 count;
-    uint16 index;
-    uint16 sindx;
     Slot_Info_t *sinfp;
     Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 
@@ -2398,24 +2395,25 @@ CK_RV C_GetSlotInfo(CK_SLOT_ID slotID, CK_SLOT_INFO_PTR pInfo)
     }
 
     if (!pInfo) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
 
-    sinfp = shData->slot_info;
-    sinfp += slotID;
     count = 0;
 
     if (slotID >= NUMBER_SLOTS_MANAGED) {
         TRACE_ERROR("%s\n", ock_err(ERR_SLOT_ID_INVALID));
         return CKR_SLOT_ID_INVALID;
     }
+
+    sinfp = &shData->slot_info[slotID];
+
     // Netscape and others appear to call
     // this for every slot.  If the slot does not have
     // a registered STDLL, then this is a FUnction Failed case
     if (sinfp->present == FALSE) {
-        TRACE_ERROR("%s: No STDLL present.\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s: No STDLL present.\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
 
     }
     memcpy(pInfo, (char *) &(sinfp->pk_slot), sizeof(CK_SLOT_INFO));
@@ -2458,8 +2456,8 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
 
     // Null pSlotList is valid to get count for array allocation
     if (pulCount == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     TRACE_DEVEL(" Present %d Count %lu\n", tokenPresent, *pulCount);
 
@@ -3284,12 +3282,12 @@ CK_RV C_SetAttributeValue(CK_SESSION_HANDLE hSession,
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
     if (!pTemplate) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!ulCount) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
 
     sltp = &(Anchor->SltList[rSession.slotID]);
@@ -3619,8 +3617,8 @@ CK_RV C_SignInit(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -3722,8 +3720,8 @@ CK_RV C_SignRecoverInit(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -3829,8 +3827,8 @@ CK_RV C_UnwrapKey(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!phKey) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
@@ -3994,8 +3992,8 @@ CK_RV C_VerifyInit(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -4097,8 +4095,8 @@ CK_RV C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -4342,8 +4340,8 @@ CK_RV C_WrapKey(CK_SESSION_HANDLE hSession,
     }
 
     if (!pMechanism) {
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     //   other pointers???
 
