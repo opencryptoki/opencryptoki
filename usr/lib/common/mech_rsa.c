@@ -2633,7 +2633,8 @@ CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,
     }
 
     /* pkcs1v2.2, Step 5: set M' */
-    memcpy(buf + 8, in_data, in_data_len);
+    if (in_data_len > 0)
+        memcpy(buf + 8, in_data, in_data_len);
 
     /* pkcs1v2.2, Step 6: Compute Hash(M') */
     rc = compute_sha(tokdata, buf, 8 + hlen + pssParms->sLen, H,
@@ -2747,7 +2748,8 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
     /* pkcs1v2.2, Step 12: Set M'. Note: Use end of buf. */
     M = buf + (i + pssParms->sLen);
     memset(M, 0, 8);
-    memcpy(M + 8, in_data, in_data_len);        // in_data is mHash.
+    if (in_data_len > 0)
+        memcpy(M + 8, in_data, in_data_len);        // in_data is mHash.
     memcpy(M + (8 + in_data_len), salt, pssParms->sLen);
 
     /* pkcs1v2.2, Step 13: Compute Hash(M'). */

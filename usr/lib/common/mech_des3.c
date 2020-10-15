@@ -294,7 +294,8 @@ CK_RV des3_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
         rc = CKR_HOST_MEMORY;
         goto done;
     }
-    memcpy(clear, in_data, in_data_len);
+    if (in_data != NULL && in_data_len > 0)
+        memcpy(clear, in_data, in_data_len);
 
     add_pkcs_padding(clear + in_data_len,
                      DES_BLOCK_SIZE, in_data_len, padded_len);
@@ -578,7 +579,7 @@ CK_RV des3_cbc_encrypt_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -669,7 +670,7 @@ CK_RV des3_cbc_decrypt_update(STDLL_TokData_t *tokdata,
     total = context->len + in_data_len;
 
     if (total < DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -764,7 +765,7 @@ CK_RV des3_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
     // note, this is subtly different from the other encrypt update routines
     //
     if (total <= DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -864,7 +865,7 @@ CK_RV des3_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
     // note, this is subtly different from the other decrypt update routines
     //
     if (total <= DES_BLOCK_SIZE) {
-        if (length_only == FALSE) {
+        if (length_only == FALSE && in_data_len) {
             memcpy(context->data + context->len, in_data, in_data_len);
             context->len += in_data_len;
         }
@@ -2030,7 +2031,8 @@ CK_RV des3_mac_sign_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        memcpy(context->data + context->len, in_data, in_data_len);
+        if (in_data_len > 0)
+            memcpy(context->data + context->len, in_data, in_data_len);
         context->len += in_data_len;
         return CKR_OK;
     } else {
@@ -2223,7 +2225,8 @@ CK_RV des3_mac_verify_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total < DES_BLOCK_SIZE) {
-        memcpy(context->data + context->len, in_data, in_data_len);
+        if (in_data_len > 0)
+            memcpy(context->data + context->len, in_data, in_data_len);
         context->len += in_data_len;
         return CKR_OK;
     } else {
@@ -2408,7 +2411,8 @@ CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total <= DES_BLOCK_SIZE) {
-        memcpy(context->data + context->len, in_data, in_data_len);
+        if (in_data_len > 0)
+            memcpy(context->data + context->len, in_data, in_data_len);
         context->len += in_data_len;
         return CKR_OK;
     } else {
@@ -2589,7 +2593,8 @@ CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
     total = (context->len + in_data_len);
 
     if (total <= DES_BLOCK_SIZE) {
-        memcpy(context->data + context->len, in_data, in_data_len);
+        if (in_data_len > 0)
+            memcpy(context->data + context->len, in_data, in_data_len);
         context->len += in_data_len;
         return CKR_OK;
     } else {
