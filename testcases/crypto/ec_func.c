@@ -477,8 +477,8 @@ CK_RV run_DeriveECDHKey()
         mech.pParameter = NULL;
 
         rc = funcs->C_GenerateKeyPair(session, &mech,
-                                      pub_attr, pub_attr_len,
-                                      prv_attr, prv_attr_len,
+                                      pub_attr_gen, pub_attr_gen_len,
+                                      prv_attr_gen, prv_attr_gen_len,
                                       &publ_keyB, &priv_keyB);
         if (rc != CKR_OK) {
             testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu "
