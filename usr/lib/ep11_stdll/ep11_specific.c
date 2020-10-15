@@ -562,7 +562,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                                   CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
                                   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
                                   CK_ATTRIBUTE_PTR * p_attrs,
-                                  CK_ULONG * p_attrs_len)
+                                  CK_ULONG * p_attrs_len, int curve_type)
 {
 
     CK_RV rc;
@@ -614,6 +614,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
             check_types = &check_types_pub[0];
             attr_cnt = 1;       /* only CKA_VERIFY */
+            if (kt == CKK_EC && curve_type == MONTGOMERY_CURVE)
+                attr_cnt = 0;
         } else if (kt == CKK_RSA) {
             check_types = &check_types_pub[0];
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
@@ -625,6 +627,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
             check_types = &check_types_priv[0];
             attr_cnt = 1;       /* only CKA_SIGN */
+            if (kt == CKK_EC && curve_type == MONTGOMERY_CURVE)
+                attr_cnt = 0;
         } else if (kt == CKK_RSA) {
             check_types = &check_types_priv[0];
             attr_cnt = sizeof(check_types_priv) / sizeof(CK_ULONG);
@@ -1245,7 +1249,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                __func__, ksize, clen, rc);
 
     rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, p_attrs,
-                              attrs_len, &new_p_attrs, &new_attrs_len);
+                              attrs_len, &new_p_attrs, &new_attrs_len, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -1937,7 +1941,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = check_key_attributes(tokdata, CKK_RSA, CKO_PRIVATE_KEY, p_attrs,
-                                  attrs_len, &new_p_attrs, &new_attrs_len);
+                                  attrs_len, &new_p_attrs, &new_attrs_len, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2149,6 +2153,24 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* imported private EC key goes here */
 
+        CK_ATTRIBUTE *ec_params;
+        int i, curve_type = -1;
+
+        if (!template_attribute_find(ec_key_obj->template,
+                                     CKA_EC_PARAMS, &ec_params)) {
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto import_EC_key_end;
+        }
+
+        for (i = 0; i < NUMEC; i++) {
+            if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
+                memcmp(ec_params->pValue, der_ec_supported[i].data,
+                       ec_params->ulValueLen) == 0) {
+                curve_type = der_ec_supported[i].curve_type;
+                break;
+            }
+        }
+
         /* extract the secret data to be wrapped
          * since this is AES_CBC_PAD, padding is done in mechanism.
          */
@@ -2178,7 +2200,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs,
-                                  attrs_len, &new_p_attrs, &new_attrs_len);
+                                  attrs_len, &new_p_attrs, &new_attrs_len,
+                                  curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2384,7 +2407,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY, p_attrs,
-                                  attrs_len, &new_p_attrs, &new_attrs_len);
+                                  attrs_len, &new_p_attrs, &new_attrs_len, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s DSA check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2578,7 +2601,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY, p_attrs,
-                                  attrs_len, &new_p_attrs, &new_attrs_len);
+                                  attrs_len, &new_p_attrs, &new_attrs_len, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s DH check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2781,7 +2804,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
         rc = check_key_attributes(tokdata, CKK_IBM_PQC_DILITHIUM,
                             CKO_PRIVATE_KEY,
                             p_attrs, attrs_len,
-                            &new_p_attrs, &new_attrs_len);
+                            &new_p_attrs, &new_attrs_len, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2984,7 +3007,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     rc = check_key_attributes(tokdata, ktype, CKO_SECRET_KEY, attrs, attrs_len,
-                              &new_attrs, &new_attrs_len);
+                              &new_attrs, &new_attrs_len, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
                     __func__, rc);
@@ -3900,7 +3923,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     rc = check_key_attributes(tokdata, ktype, class, attrs, attrs_len,
-                              &new_attrs, &new_attrs_len);
+                              &new_attrs, &new_attrs_len, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Check key attributes for derived key failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4125,7 +4148,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
                               pPublicKeyTemplate_new, new_public_attr + 1,
                               &dh_pPublicKeyTemplate,
-                              &dh_ulPublicKeyAttributeCount);
+                              &dh_ulPublicKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s DH check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4135,7 +4158,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
                               pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
                               &dh_pPrivateKeyTemplate,
-                              &dh_ulPrivateKeyAttributeCount);
+                              &dh_ulPrivateKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s DH check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4444,7 +4467,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
                               pPublicKeyTemplate_new, new_public_attr + 1,
                               &dsa_pPublicKeyTemplate,
-                              &dsa_ulPublicKeyAttributeCount);
+                              &dsa_ulPublicKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4454,7 +4477,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
                               pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
                               &dsa_pPrivateKeyTemplate,
-                              &dsa_ulPrivateKeyAttributeCount);
+                              &dsa_ulPrivateKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4611,6 +4634,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    int curve_type = -1;
 
     UNUSED(h);
 
@@ -4625,10 +4649,27 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
+    if (ktype == CKK_EC) {
+        attr = get_attribute_by_type(pPublicKeyTemplate,
+                                      ulPublicKeyAttributeCount,
+                                      CKA_ECDSA_PARAMS);
+        if (attr != NULL) {
+            for (i = 0; i < NUMEC; i++) {
+                if (der_ec_supported[i].data_size == attr->ulValueLen &&
+                    memcmp(attr->pValue, der_ec_supported[i].data,
+                           attr->ulValueLen) == 0) {
+                    curve_type = der_ec_supported[i].curve_type;
+                    break;
+                }
+            }
+        }
+    }
+
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
                               pPublicKeyTemplate, ulPublicKeyAttributeCount,
                               &new_pPublicKeyTemplate,
-                              &new_ulPublicKeyAttributeCount);
+                              &new_ulPublicKeyAttributeCount,
+                              curve_type);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4638,7 +4679,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
                               pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
                               &new_pPrivateKeyTemplate,
-                              &new_ulPrivateKeyAttributeCount);
+                              &new_ulPrivateKeyAttributeCount,
+                              curve_type);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4952,7 +4994,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
                               pPublicKeyTemplate, ulPublicKeyAttributeCount,
                               &new_pPublicKeyTemplate,
-                              &new_ulPublicKeyAttributeCount);
+                              &new_ulPublicKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Dilithium check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -4962,7 +5004,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
                               pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
                               &new_pPrivateKeyTemplate,
-                              &new_ulPrivateKeyAttributeCount);
+                              &new_ulPrivateKeyAttributeCount, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Dilithium check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -6288,19 +6330,19 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = check_key_attributes(tokdata,
                                   *(CK_KEY_TYPE *) keytype_attr->pValue,
                                   CKO_SECRET_KEY, attrs,
-                                  attrs_len, &new_attrs, &new_attrs_len);
+                                  attrs_len, &new_attrs, &new_attrs_len, -1);
         break;
     case CKO_PUBLIC_KEY:
         rc = check_key_attributes(tokdata,
                                   *(CK_KEY_TYPE *) keytype_attr->pValue,
                                   CKO_PUBLIC_KEY, attrs, attrs_len,
-                                  &new_attrs, &new_attrs_len);
+                                  &new_attrs, &new_attrs_len, -1);
         break;
     case CKO_PRIVATE_KEY:
         rc = check_key_attributes(tokdata,
                                   *(CK_KEY_TYPE *) keytype_attr->pValue,
                                   CKO_PRIVATE_KEY, attrs, attrs_len,
-                                  &new_attrs, &new_attrs_len);
+                                  &new_attrs, &new_attrs_len, -1);
         break;
     default:
         TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
