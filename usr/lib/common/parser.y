@@ -80,7 +80,7 @@ config_file:
 	;
 
 sections:
-	version_def eolcomments
+	version_def eolcomment
 	| SLOT INTEGER BEGIN_DEF
 	{
         if (parsefuncs->begin_slot && parsefuncs->begin_slot(parsedata, $2, 0)) {
@@ -88,7 +88,7 @@ sections:
                 parsefuncs->parseerror(parsedata, line_num, NULL);
             YYERROR;
         }
-	} eolcomments keyword_defs END_DEF
+	} eolcomment keyword_defs END_DEF
 	{
         if (parsefuncs->end_slot && parsefuncs->end_slot(parsedata)) {
             if (parsefuncs->parseerror)
@@ -103,7 +103,7 @@ sections:
                 parsefuncs->parseerror(parsedata, line_num, NULL);
             YYERROR;
         }
-    } eolcomments keyword_defs END_DEF
+    } eolcomment keyword_defs END_DEF
 	{
         if (parsefuncs->end_slot && parsefuncs->end_slot(parsedata)) {
             if (parsefuncs->parseerror)
@@ -111,7 +111,7 @@ sections:
             YYERROR;
         }
 	}
-	| eolcomments
+	| eolcomment
 	;
 
 version_def:
@@ -175,16 +175,11 @@ line_def:
     }
 
 keyword_defs:
-    line_def eolcomments keyword_defs
+    line_def eolcomment keyword_defs
     |
-    eolcomments keyword_defs
+    eolcomment keyword_defs
     |
     /* empty */
-
-eolcomments:
-    eolcomment eolcomments
-    |
-    eolcomment
 
 eolcomment:
     COMMENT EOL
