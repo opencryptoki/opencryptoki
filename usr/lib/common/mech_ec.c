@@ -1104,7 +1104,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     rc = pkcs_get_keytype(pTemplate, ulCount, mech, &keytype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("get_keytype failed with rc=0x%lx\n", rc);
-        return rc;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
 
     /* Determine derived key length */
