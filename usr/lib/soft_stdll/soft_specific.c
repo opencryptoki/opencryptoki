@@ -4411,7 +4411,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
 
     if (signature_len < 2 * privlen) {
         TRACE_ERROR("Signature is too short\n");
-        rc = CKR_SIGNATURE_INVALID;
+        rc = CKR_SIGNATURE_LEN_RANGE;
         goto out;
     }
 
