@@ -28,6 +28,55 @@
 
 #include "../api/apiproto.h"
 
+static CK_RV object_mgr_check_session(SESSION *sess, CK_BBOOL priv_obj,
+                                      CK_BBOOL sess_obj)
+{
+    // check whether session has permissions to create the object, etc
+    //
+    // Object                  R/O      R/W      R/O     R/W    R/W
+    // Type                   Public   Public    User    User   SO
+    // -------------------------------------------------------------
+    // Public session          R/W      R/W      R/W     R/W    R/W
+    // Private session                           R/W     R/W
+    // Public token            R/O      R/W      R/O     R/W    R/W
+    // Private token                             R/O     R/W
+    //
+    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
+        if (priv_obj) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+            return CKR_USER_NOT_LOGGED_IN;
+        }
+
+        if (!sess_obj) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
+            return CKR_SESSION_READ_ONLY;
+        }
+    }
+
+    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
+        if (!sess_obj) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
+            return CKR_SESSION_READ_ONLY;
+        }
+    }
+
+    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
+        if (priv_obj) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+            return CKR_USER_NOT_LOGGED_IN;
+        }
+    }
+
+    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
+        if (priv_obj) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
+            return CKR_USER_NOT_LOGGED_IN;
+        }
+    }
+
+    return CKR_OK;
+}
+
 CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      SESSION *sess,
                      CK_ATTRIBUTE *pTemplate,
@@ -57,56 +106,13 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         }
     }
 
-    // check whether session has permissions to create the object, etc
-    //
-    // Object                  R/O      R/W      R/O     R/W    R/W
-    // Type                   Public   Public    User    User   SO
-    // -------------------------------------------------------------
-    // Public session          R/W      R/W      R/W     R/W    R/W
-    // Private session                           R/W     R/W
-    // Public token            R/O      R/W      R/O     R/W    R/W
-    // Private token                             R/O     R/W
-    //
     sess_obj = object_is_session_object(o);
     priv_obj = object_is_private(o);
 
-    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
+    rc = object_mgr_check_session(sess, priv_obj, sess_obj);
+    if (rc != CKR_OK)
+        goto done;
 
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
     // okay, object is created and the session permissions look okay.
     // add the object to the appropriate list and assign an object handle
     //
@@ -346,56 +352,13 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    // check whether session has permissions to create the object, etc
-    //
-    // Object                  R/O      R/W      R/O     R/W    R/W
-    // Type                   Public   Public    User    User   SO
-    // -------------------------------------------------------------
-    // Public session          R/W      R/W      R/W     R/W    R/W
-    // Private session                           R/W     R/W
-    // Public token            R/O      R/W      R/O     R/W    R/W
-    // Private token                             R/O     R/W
-    //
     sess_obj = object_is_session_object(new_obj);
     priv_obj = object_is_private(new_obj);
 
-    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
+    rc = object_mgr_check_session(sess, priv_obj, sess_obj);
+    if (rc != CKR_OK)
+        goto done;
 
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
     // okay, object is created and the session permissions look okay.
     // add the object to the appropriate list and assign an object handle
     //
@@ -767,6 +730,10 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         return CKR_OBJECT_HANDLE_INVALID;
     }
+
+    rc = object_mgr_check_session(sess, map->is_private, map->is_session_obj);
+    if (rc != CKR_OK)
+        goto done;
 
     if (map->is_session_obj) {
         bt_node_free(&tokdata->sess_obj_btree, map->obj_handle, TRUE);
@@ -1683,43 +1650,10 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
         rc = CKR_ATTRIBUTE_READ_ONLY;
         goto done;
     }
-    if (sess->session_info.state == CKS_RO_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
 
-    if (sess->session_info.state == CKS_RO_USER_FUNCTIONS) {
-        if (!sess_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
-            rc = CKR_SESSION_READ_ONLY;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_PUBLIC_SESSION) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
-
-    if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
-        if (priv_obj) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_NOT_LOGGED_IN));
-            rc = CKR_USER_NOT_LOGGED_IN;
-            goto done;
-        }
-    }
-
+    rc = object_mgr_check_session(sess, priv_obj, sess_obj);
+    if (rc != CKR_OK)
+        goto done;
 
     rc = object_set_attribute_values(tokdata, obj, pTemplate, ulCount);
     if (rc != CKR_OK) {
