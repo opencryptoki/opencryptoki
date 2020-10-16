@@ -13,6 +13,8 @@
  * Mechanisms for Elliptic Curve (EC)
  */
 
+#define _GNU_SOURCE
+#include <endian.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -854,7 +856,7 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     CK_BYTE hash[MAX_SUPPORTED_HASH_LENGTH];
     CK_ULONG h_len;
     CK_RV rc;
-    unsigned int i, counter;
+    unsigned int i, counter, counter_en;
 
     /* Check max keylen according to ANSI X9.63 */
     /* digest_len * 2^32 */
@@ -884,7 +886,8 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     /* Provide key bytes according to ANSI X9.63 */
     counter = 1;
     for (i = 0; i < key_len / kdf_digest_len; i++) {
-        memcpy(ctx + z_len, &counter, sizeof(int));
+        counter_en = htobe32(counter);
+        memcpy(ctx + z_len, &counter_en, counter_length);
         rc = ckm_kdf(tokdata, sess, kdf, ctx, ctx_len, hash, &h_len);
         if (rc != 0) {
             free(ctx);
