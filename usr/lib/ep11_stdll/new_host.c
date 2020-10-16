@@ -2968,8 +2968,10 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        sign_mgr_cleanup(&sess->sign_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess != NULL)
+            sign_mgr_cleanup(&sess->sign_ctx);
+    }
 
     TRACE_INFO("C_Sign: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
@@ -3049,7 +3051,7 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("ep11tok_sign_update() failed.\n");
 
 done:
-    if (rc != CKR_OK)
+    if (rc != CKR_OK && sess != NULL)
         sign_mgr_cleanup(&sess->sign_ctx);
 
     TRACE_INFO("C_SignUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
@@ -3129,8 +3131,10 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_ERROR("ep11tok_sign_final() failed.\n");
 
 done:
-    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE))
-        sign_mgr_cleanup(&sess->sign_ctx);
+    if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
+        if (sess != NULL)
+            sign_mgr_cleanup(&sess->sign_ctx);
+    }
 
     TRACE_INFO("C_SignFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
@@ -3336,7 +3340,8 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
 done:
-    verify_mgr_cleanup(&sess->verify_ctx);
+    if (sess != NULL)
+        verify_mgr_cleanup(&sess->verify_ctx);
 
     TRACE_INFO("C_Verify: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
@@ -3416,7 +3421,7 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("ep11tok_verify_update() failed.\n");
 
 done:
-    if (rc != CKR_OK)
+    if (rc != CKR_OK && sess != NULL)
         verify_mgr_cleanup(&sess->verify_ctx);
 
     TRACE_INFO("C_VerifyUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
@@ -3491,7 +3496,8 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("ep11tok_verify_final() failed.\n");
 
 done:
-    verify_mgr_cleanup(&sess->verify_ctx);
+    if (sess != NULL)
+        verify_mgr_cleanup(&sess->verify_ctx);
 
     TRACE_INFO("C_VerifyFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
