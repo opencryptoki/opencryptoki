@@ -136,7 +136,7 @@ CK_RV hwf_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         return template_validate_base_attribute(tmpl, attr, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID), attr->type);
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 

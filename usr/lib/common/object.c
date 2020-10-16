@@ -462,7 +462,8 @@ CK_RV object_get_attribute_values(OBJECT * obj,
     for (i = 0; i < ulCount; i++) {
         flag = template_check_exportability(obj_tmpl, pTemplate[i].type);
         if (flag == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_SENSITIVE));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_SENSITIVE),
+                        pTemplate[i].type);
             rc = CKR_ATTRIBUTE_SENSITIVE;
             pTemplate[i].ulValueLen = (CK_ULONG) - 1;
             continue;
@@ -470,7 +471,8 @@ CK_RV object_get_attribute_values(OBJECT * obj,
 
         flag = template_attribute_find(obj_tmpl, pTemplate[i].type, &attr);
         if (flag == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
+                        pTemplate[i].type);
             rc = CKR_ATTRIBUTE_TYPE_INVALID;
             pTemplate[i].ulValueLen = (CK_ULONG) - 1;
             continue;

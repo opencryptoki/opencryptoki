@@ -73,7 +73,8 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
 
     for (i = 0; i < ulCount; i++) {
         if (!is_attribute_defined(pTemplate[i].type)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
+                        pTemplate[i].type);
             return CKR_ATTRIBUTE_TYPE_INVALID;
         }
         attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) +
@@ -145,7 +146,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_set_default_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
         }
     case CKO_PRIVATE_KEY:
@@ -163,7 +165,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_set_default_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
         }
     case CKO_SECRET_KEY:
@@ -203,7 +206,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKK_AES:
             return aes_set_default_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
         }
     case CKO_HW_FEATURE:
@@ -215,7 +219,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKH_MONOTONIC_COUNTER:
             return counter_set_default_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     case CKO_DOMAIN_PARAMETERS:
@@ -227,13 +232,14 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKK_X9_42_DH:
             return dp_x9dh_set_default_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     case CKO_PROFILE:
         return profile_object_set_default_attributes(tmpl, mode);
     default:
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), class);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 }
@@ -317,7 +323,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_check_required_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown keytype
         }
     } else if (class == CKO_PRIVATE_KEY) {
@@ -335,7 +342,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_check_required_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
         }
     } else if (class == CKO_SECRET_KEY) {
@@ -375,7 +383,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_AES:
             return aes_check_required_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
         }
     } else if (class == CKO_HW_FEATURE) {
@@ -387,7 +396,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKH_MONOTONIC_COUNTER:
             return counter_check_required_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     } else if (class == CKO_DOMAIN_PARAMETERS) {
@@ -399,14 +409,16 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_X9_42_DH:
             return dp_x9dh_check_required_attributes(tmpl, mode);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
     } else if (class == CKO_PROFILE) {
         return profile_object_check_required_attributes(tmpl, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                class);
 
     return CKR_ATTRIBUTE_VALUE_INVALID; // default fallthru
 }
@@ -923,14 +935,16 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
         case CKK_KEA:
             return kea_priv_check_exportability(type);
         default:
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        subclass);
             return TRUE;
         }
     } else if (class == CKO_SECRET_KEY) {
         return secret_key_check_exportability(type);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                class);
 
     return TRUE;
 }
@@ -1301,7 +1315,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         return CKR_ATTRIBUTE_READ_ONLY;
         break;
     default:
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_TEMPLATE_INCONSISTENT),
+                    attr->type);
         return CKR_TEMPLATE_INCONSISTENT;
     }
 

@@ -263,7 +263,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         return template_validate_base_attribute(tmpl, attr, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID), attr->type);
 
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
@@ -400,7 +400,7 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return key_object_validate_attribute(tmpl, attr, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID), attr->type);
 
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
@@ -750,7 +750,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return key_object_validate_attribute(tmpl, attr, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID), attr->type);
 
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
@@ -1099,7 +1099,7 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return key_object_validate_attribute(tmpl, attr, mode);
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+    TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID), attr->type);
 
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
