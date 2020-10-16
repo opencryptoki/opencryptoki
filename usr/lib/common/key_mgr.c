@@ -897,7 +897,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
-            rc = CKR_WRAPPING_KEY_HANDLE_INVALID;
+            rc = CKR_UNWRAPPING_KEY_HANDLE_INVALID;
         goto done;
     }
 
@@ -1025,6 +1025,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                           TRUE,
                           ctx, wrapped_key, wrapped_key_len, data, &data_len);
     if (rc != CKR_OK) {
+        if (rc == CKR_ENCRYPTED_DATA_LEN_RANGE)
+            rc = CKR_WRAPPED_KEY_LEN_RANGE;
         TRACE_DEVEL("decr_mgr_decrypt failed.\n");
         goto done;
     }
@@ -1043,6 +1045,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     free(ctx);
 
     if (rc != CKR_OK) {
+        if (rc == CKR_ENCRYPTED_DATA_LEN_RANGE)
+            rc = CKR_WRAPPED_KEY_LEN_RANGE;
         TRACE_DEVEL("decr_mgr_decrypt failed.\n");
         goto done;
     }
