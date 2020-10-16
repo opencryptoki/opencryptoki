@@ -1581,7 +1581,7 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!phObject || !pulObjectCount) {
+    if (!phObject || !pulObjectCount || ulMaxObjectCount == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         return CKR_ARGUMENTS_BAD;
     }
@@ -3000,14 +3000,11 @@ CK_RV C_Login(CK_SESSION_HANDLE hSession,
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
-#if 0
-    /* Allow incorrect PIN checks to fall into the SC_Login
-     * function, since v2.11 requires flags to be set. - KEY
-     */
+
     if (!pPin) {
-        return CKR_PIN_INCORRECT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
-#endif
 
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -3393,8 +3390,10 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pOldPin || !pNewPin)
-        return CKR_PIN_INVALID;
+    if (!pOldPin || !pNewPin) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
 
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
