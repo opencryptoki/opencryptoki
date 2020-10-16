@@ -326,7 +326,7 @@ int sm_close(void *addr, int destroy, int ignore_ref_count)
 {
     int rc;
     int ref;
-    char name[SM_NAME_LEN + 1] = { 0, };
+    char name[SM_NAME_LEN + 2] = { 0, };
     struct shm_context *ctx = get_shm_context(addr);
 
     if (ctx->ref <= 0) {
@@ -341,7 +341,7 @@ int sm_close(void *addr, int destroy, int ignore_ref_count)
 
     TRACE_DEVEL("close: ref = %d\n", ref);
     if (ref == 0 && destroy) {
-        strncpy(name, ctx->name, SM_NAME_LEN + 1);
+        strncpy(name, ctx->name, SM_NAME_LEN + 2);
         name[SM_NAME_LEN] = '\0';
     }
 
