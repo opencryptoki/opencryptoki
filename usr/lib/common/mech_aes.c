@@ -3409,7 +3409,8 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     } else {
         if (token_keysize != key_size) {
             TRACE_ERROR("Invalid key size: %lu\n", token_keysize);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto err;
         }
     }
 
