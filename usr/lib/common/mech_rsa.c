@@ -1560,6 +1560,13 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
 
     digest_ctx = (DIGEST_CONTEXT *) ctx->context;
 
+    if (digest_ctx->active == FALSE) {
+        rc = rsa_hash_pss_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("rsa_hash_pss_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
     rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -1698,6 +1705,13 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
     digest_ctx = (DIGEST_CONTEXT *) ctx->context;
+
+    if (digest_ctx->active == FALSE) {
+        rc = rsa_hash_pss_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("rsa_hash_pss_update\n");
+        if (rc != 0)
+            return rc;
+    }
 
     rc = get_sha_size(digest_ctx->mech.mechanism, &hlen);
     if (rc != CKR_OK) {
@@ -2145,6 +2159,13 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
 
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
+    if (context->flag == FALSE) {
+        rc = rsa_hash_pkcs_sign_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("rsa_hash_pkcs_sign_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, length_only,
                                  &context->hash_context, hash, &hash_len);
@@ -2252,6 +2273,13 @@ CK_RV rsa_hash_pkcs_verify_final(STDLL_TokData_t *tokdata,
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = rsa_hash_pkcs_verify_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("rsa_hash_pkcs_verify_update\n");
+        if (rc != 0)
+            return rc;
+    }
 
     hash_len = sizeof(hash);
     rc = digest_mgr_digest_final(tokdata, sess, FALSE, &context->hash_context,

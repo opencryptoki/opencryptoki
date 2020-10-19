@@ -228,14 +228,24 @@ _signVerifyParam signVerifyInput[] = {
     {CKM_ECDSA, 64, 0},
     {CKM_ECDSA_SHA1, 100, 0},
     {CKM_ECDSA_SHA1, 100, 4},
+    {CKM_ECDSA_SHA1, 0, 0}, /* Empty Message via C_Sign */
+    {CKM_ECDSA_SHA1, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {CKM_ECDSA_SHA224, 100, 0},
     {CKM_ECDSA_SHA224, 100, 4},
+    {CKM_ECDSA_SHA224, 0, 0}, /* Empty Message via C_Sign */
+    {CKM_ECDSA_SHA224, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {CKM_ECDSA_SHA256, 100, 0},
     {CKM_ECDSA_SHA256, 100, 4},
+    {CKM_ECDSA_SHA256, 0, 0}, /* Empty Message via C_Sign */
+    {CKM_ECDSA_SHA256, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {CKM_ECDSA_SHA384, 100, 0},
     {CKM_ECDSA_SHA384, 100, 4},
+    {CKM_ECDSA_SHA384, 0, 0}, /* Empty Message via C_Sign */
+    {CKM_ECDSA_SHA384, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {CKM_ECDSA_SHA512, 100, 0},
     {CKM_ECDSA_SHA512, 100, 4},
+    {CKM_ECDSA_SHA512, 0, 0}, /* Empty Message via C_Sign */
+    {CKM_ECDSA_SHA512, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
     {CKM_IBM_ED25519_SHA512, 100, 0},
     {CKM_IBM_ED448_SHA3, 100, 0},
 };
@@ -1099,16 +1109,18 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         }
     }
 
-    data = calloc(sizeof(CK_BYTE), inputlen);
-    if (data == NULL) {
-        testcase_error("Can't allocate memory for %lu bytes",
-                       sizeof(CK_BYTE) * inputlen);
-        rc = -1;
-        goto testcase_cleanup;
-    }
+    if (inputlen > 0) {
+        data = calloc(sizeof(CK_BYTE), inputlen);
+        if (data == NULL) {
+            testcase_error("Can't allocate memory for %lu bytes",
+                           sizeof(CK_BYTE) * inputlen);
+            rc = -1;
+            goto testcase_cleanup;
+        }
 
-    for (i = 0; i < inputlen; i++) {
-        data[i] = (i + 1) % 255;
+        for (i = 0; i < inputlen; i++) {
+            data[i] = (i + 1) % 255;
+        }
     }
 
     rc = funcs->C_SignInit(session, &mech2, priv_key);
@@ -1118,7 +1130,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts; i++) {
+        for (i = 0; i < parts && inputlen > 0; i++) {
             rc = funcs->C_SignUpdate(session, data, inputlen);
             if (rc != CKR_OK) {
                 testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
@@ -1133,7 +1145,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         }
     } else {
-        rc = funcs->C_Sign(session, data, inputlen, NULL, &signaturelen);
+        rc = funcs->C_Sign(session, data != NULL ? data : (CK_BYTE *)"",
+                           inputlen, NULL, &signaturelen);
         if (rc != CKR_OK) {
             testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -1155,7 +1168,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         }
     } else {
-        rc = funcs->C_Sign(session, data, inputlen, signature, &signaturelen);
+        rc = funcs->C_Sign(session, data != NULL ? data : (CK_BYTE *)"",
+                           inputlen, signature, &signaturelen);
         if (rc != CKR_OK) {
             testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -1170,7 +1184,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts; i++) {
+        for (i = 0; i < parts && inputlen > 0; i++) {
             rc = funcs->C_VerifyUpdate(session, data, inputlen);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
@@ -1184,7 +1198,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         }
     } else {
-        rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
+        rc = funcs->C_Verify(session, data != NULL ? data : (CK_BYTE *)"",
+                             inputlen, signature, signaturelen);
         if (rc != CKR_OK) {
             testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -1202,7 +1217,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts; i++) {
+        for (i = 0; i < parts && inputlen > 0; i++) {
             rc = funcs->C_VerifyUpdate(session, data, inputlen);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
@@ -1217,7 +1232,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             goto testcase_cleanup;
         }
     } else {
-        rc = funcs->C_Verify(session, data, inputlen, signature, signaturelen);
+        rc = funcs->C_Verify(session, data != NULL ? data : (CK_BYTE *)"",
+                             inputlen, signature, signaturelen);
         if (rc != CKR_SIGNATURE_INVALID) {
             testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
             PRINT_ERR("		Expected CKR_SIGNATURE_INVALID\n");

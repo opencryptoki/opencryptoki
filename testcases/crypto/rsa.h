@@ -1450,6 +1450,34 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
         .chunks = {125, 125, 125, 125, 1},
         .num_chunks = 5,
     },
+    {                           //tv[30]
+        .modbits = 512,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+        .num_chunks = 0,
+    },
+    {                           //tv[31]
+        .modbits = 1024,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+        .num_chunks = 0,
+    },
+    {                           //tv[32]
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+        .num_chunks = 0,
+    },
+    {                           //tv[33]
+        .modbits = 4096,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+        .num_chunks = 0,
+    },
 };
 
 static struct RSA_GENERATED_TEST_VECTOR rsa_x509_generated_tv[] = {
@@ -1632,7 +1660,32 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_x509_generated_tv[] = {
         .publ_exp_len = 3,
         .publ_exp = {0x01, 0x00, 0x01},
         .inputlen = 512,
-    }
+    },
+    {                           //tv[30]
+        .modbits = 512,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+    },
+    {                           //tv[31]
+        .modbits = 1024,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+    },
+    {                           //tv[32]
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+    },
+    {                           //tv[33]
+        .modbits = 4096,
+        .publ_exp_len = 3,
+        .publ_exp = {0x03, 0x00, 0x01},
+        .inputlen = 0,
+    },
+
 };
 
 #define NUM_OF_GENERATED_KEYWRAP_TESTSUITES 2
@@ -1656,43 +1709,43 @@ struct GENERATED_TEST_SUITE_INFO generated_keywrap_test_suites[] = {
 struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
     {
         .name = "RSA PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA SHA1 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA SHA224 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA SHA256 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA MD2 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD2_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA MD5 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD5_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA X.509",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_x509_generated_tv,
         .mech = {CKM_RSA_X_509, 0, 0},
     }
@@ -1703,31 +1756,31 @@ struct GENERATED_TEST_SUITE_INFO generated_sigver_test_suites[] = {
 struct GENERATED_TEST_SUITE_INFO generated_sigver_update_test_suites[] = {
     {
         .name = "RSA SHA1 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA1_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA SHA224 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA224_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA SHA256 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_SHA256_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA MD2 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD2_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA MD5 PKCS",
-        .tvcount = 30,
+        .tvcount = 34,
         .tv = rsa_generated_tv,
         .mech = {CKM_MD5_RSA_PKCS, 0, 0},
     }

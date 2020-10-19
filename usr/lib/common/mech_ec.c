@@ -550,6 +550,13 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
 
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
 
+    if (context->flag == FALSE) {
+        rc = ec_hash_sign_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ec_hash_sign_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
     rc = get_sha_size(context->hash_context.mech.mechanism, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Get SHA Size failed.\n");
@@ -755,6 +762,13 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
     memset(&verify_ctx, 0x0, sizeof(verify_ctx));
 
     context = (RSA_DIGEST_CONTEXT *) ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = ec_hash_verify_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ec_hash_verify_update\n");
+        if (rc != 0)
+            return rc;
+    }
 
     rc = get_sha_size(context->hash_context.mech.mechanism, &hash_len);
     if (rc != CKR_OK) {

@@ -346,6 +346,13 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
 
     context = (SSL3_MAC_CONTEXT *) ctx->context;
 
+    if (context->flag == FALSE) {
+        rc = ssl3_mac_sign_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ssl3_mac_sign_update\n");
+        if (rc != 0)
+            return rc;
+    }
+
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to acquire key from specified handle");
@@ -609,6 +616,13 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     mac_len = *(CK_ULONG *) ctx->mech.pParameter;
 
     context = (SSL3_MAC_CONTEXT *) ctx->context;
+
+    if (context->flag == FALSE) {
+        rc = ssl3_mac_verify_update(tokdata, sess, ctx, NULL, 0);
+        TRACE_DEVEL("ssl3_mac_verify_update\n");
+        if (rc != 0)
+            return rc;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
