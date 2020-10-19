@@ -1256,7 +1256,8 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     } else {
         if (keysize != DES_KEY_SIZE) {
             TRACE_ERROR("Invalid key size: %lu\n", keysize);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            goto err;
         }
     }
 
