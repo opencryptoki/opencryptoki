@@ -3553,7 +3553,7 @@ CK_RV C_SignFinal(CK_SESSION_HANDLE hSession,
     STDLL_FcnList_t *fcn;
     ST_SESSION_T rSession;
 
-    TRACE_INFO("C_SignEncryptUpdate\n");
+    TRACE_INFO("C_SignFinal\n");
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
