@@ -508,8 +508,8 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,
     // Null template is invalid...    An object needs a minimal
     // template for creation.
     if (!pTemplate) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
     // A 0 count for the template is bad
     if (ulCount == 0) {
