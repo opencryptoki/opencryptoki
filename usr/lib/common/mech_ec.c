@@ -1135,7 +1135,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         key_len = keylen_from_keytype(keytype);
         if (key_len == 0) {
             TRACE_ERROR("Derived key length not specified in template.\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+            return CKR_TEMPLATE_INCOMPLETE;
         }
     }
 
