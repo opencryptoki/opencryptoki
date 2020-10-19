@@ -484,6 +484,7 @@ CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount, TEMPLATE *t2)
  */
 CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
 {
+    char unique_id_str[2 * UNIQUE_ID_LEN + 1];
     DL_NODE *node;
 
     if (!dest || !src) {
@@ -509,12 +510,19 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
         new_attr->pValue = (CK_BYTE *) new_attr + sizeof(CK_ATTRIBUTE);
 
         if (attr->type == CKA_UNIQUE_ID) {
-            if (get_unique_id_str(new_attr->pValue) != CKR_OK) {
+            if (attr->ulValueLen < 2 * UNIQUE_ID_LEN) {
+                free(new_attr);
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            if (get_unique_id_str(unique_id_str) != CKR_OK) {
                 free(new_attr);
                 TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
                 return CKR_FUNCTION_FAILED;
-	    }
-	}
+            }
+            memcpy(new_attr->pValue, unique_id_str, 2 * UNIQUE_ID_LEN);
+            new_attr->ulValueLen = 2 * UNIQUE_ID_LEN;
+        }
 
         dest->attribute_list = dlist_add_as_first(dest->attribute_list,
                                                   new_attr);
