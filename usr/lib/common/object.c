@@ -101,8 +101,8 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
 
     if (subclass_given != TRUE
         && class != CKO_DATA && class != CKO_PROFILE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
     rc = object_create_skel(tokdata, pTemplate, ulCount,
