@@ -1716,17 +1716,16 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     //
     rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
     if (rc != CKR_OK) {
+        TRACE_DEVEL("os_specific_rsa_encrypt failed: %lx\n", rc);
         /*
-         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD
-         * because we dont know why the RSA op failed and it may have
-         * failed due to a tampered signature being greater or equal
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD or
+         * CKR_FUNCTION_FAILED because we dont know why the RSA op failed and
+         * it may have failed due to a tampered signature being greater or equal
          * to the modulus.
          */
-        if (rc == CKR_ARGUMENTS_BAD) {
+        if (rc == CKR_ARGUMENTS_BAD || rc == CKR_FUNCTION_FAILED) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
             rc = CKR_SIGNATURE_INVALID;
-        } else {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         }
         return rc;
     }
@@ -1781,7 +1780,17 @@ CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
     //
     rc = os_specific_rsa_encrypt(signature, modulus_bytes, out, key_obj);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
+        TRACE_DEVEL("os_specific_rsa_encrypt failed: %lx\n", rc);
+        /*
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD or
+         * CKR_FUNCTION_FAILED because we dont know why the RSA op failed and
+         * it may have failed due to a tampered signature being greater or equal
+         * to the modulus.
+         */
+        if (rc == CKR_ARGUMENTS_BAD || rc == CKR_FUNCTION_FAILED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rc = CKR_SIGNATURE_INVALID;
+        }
         return rc;
     }
 
@@ -1908,7 +1917,17 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     /* verify is a public key operation ... encrypt */
     rc = os_specific_rsa_encrypt(signature, sig_len, out, key_obj);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
+        TRACE_DEVEL("os_specific_rsa_encrypt failed: %lx\n", rc);
+        /*
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD or
+         * CKR_FUNCTION_FAILED because we dont know why the RSA op failed and
+         * it may have failed due to a tampered signature being greater or equal
+         * to the modulus.
+         */
+        if (rc == CKR_ARGUMENTS_BAD || rc == CKR_FUNCTION_FAILED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rc = CKR_SIGNATURE_INVALID;
+        }
         goto done;
     }
 
@@ -2041,7 +2060,17 @@ CK_RV token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
         memcpy(out_data, sig, modulus_bytes);
         *out_data_len = modulus_bytes;
     } else {
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
+        TRACE_DEVEL("os_specific_rsa_encrypt failed: %lx\n", rc);
+        /*
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD or
+         * CKR_FUNCTION_FAILED because we dont know why the RSA op failed and
+         * it may have failed due to a tampered signature being greater or equal
+         * to the modulus.
+         */
+        if (rc == CKR_ARGUMENTS_BAD || rc == CKR_FUNCTION_FAILED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rc = CKR_SIGNATURE_INVALID;
+        }
     }
 
     return rc;
@@ -2098,7 +2127,17 @@ CK_RV token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata,
         }
         return CKR_OK;
     } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
+        TRACE_DEVEL("os_specific_rsa_encrypt failed: %lx\n", rc);
+        /*
+         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD or
+         * CKR_FUNCTION_FAILED because we dont know why the RSA op failed and
+         * it may have failed due to a tampered signature being greater or equal
+         * to the modulus.
+         */
+        if (rc == CKR_ARGUMENTS_BAD || rc == CKR_FUNCTION_FAILED) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rc = CKR_SIGNATURE_INVALID;
+        }
     }
 
     return rc;
