@@ -721,8 +721,25 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
     OBJECT_MAP *map;
     OBJECT *o = NULL;
     CK_BBOOL locked = FALSE;
+    CK_BBOOL priv_obj;
+    CK_BBOOL sess_obj;
 
     UNUSED(sess);
+
+    rc = object_mgr_find_in_map1(tokdata, handle, &o, READ_LOCK);
+    if (rc != CKR_OK || o == NULL) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
+        return CKR_OBJECT_HANDLE_INVALID;
+    }
+
+    sess_obj = object_is_session_object(o);
+    priv_obj = object_is_private(o);
+
+    rc = object_mgr_check_session(sess, priv_obj, sess_obj);
+    object_put(tokdata, o, TRUE);
+    o = NULL;
+    if (rc != CKR_OK)
+        return rc;
 
     /* Don't use a delete callback, the map will be freed below */
     map = bt_node_free(&tokdata->object_map_btree, handle, FALSE);
@@ -730,10 +747,6 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
         return CKR_OBJECT_HANDLE_INVALID;
     }
-
-    rc = object_mgr_check_session(sess, map->is_private, map->is_session_obj);
-    if (rc != CKR_OK)
-        goto done;
 
     if (map->is_session_obj) {
         bt_node_free(&tokdata->sess_obj_btree, map->obj_handle, TRUE);
