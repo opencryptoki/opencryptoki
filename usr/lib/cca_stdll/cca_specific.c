@@ -526,7 +526,7 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
 
     UNUSED(tokdata);
 
-    *des_key = malloc(CCA_KEY_ID_SIZE);
+    *des_key = calloc(CCA_KEY_ID_SIZE, 1);
     if (*des_key == NULL)
         return CKR_HOST_MEMORY;
     *len = CCA_KEY_ID_SIZE;
@@ -1734,7 +1734,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
 
     UNUSED(tokdata);
 
-    *aes_key = malloc(CCA_KEY_ID_SIZE);
+    *aes_key = calloc(CCA_KEY_ID_SIZE, 1);
     if (*aes_key == NULL)
         return CKR_HOST_MEMORY;
     *len = CCA_KEY_ID_SIZE;
