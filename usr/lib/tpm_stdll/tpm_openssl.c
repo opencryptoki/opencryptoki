@@ -98,8 +98,14 @@ regen_rsa_key:
 
     if (EVP_PKEY_keygen_init(ctx) <= 0
         || EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0
-        || EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, bne) <= 0
-        || EVP_PKEY_keygen(ctx, &pkey) <= 0
+        || EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, bne) <= 0) {
+        fprintf(stderr, "Error generating user's RSA key\n");
+        ERR_load_crypto_strings();
+        ERR_print_errors_fp(stderr);
+        goto err;
+    }
+    bne = NULL; // will be freed as part of the context
+    if (EVP_PKEY_keygen(ctx, &pkey) <= 0
         || (rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
         fprintf(stderr, "Error generating user's RSA key\n");
         ERR_load_crypto_strings();
@@ -109,13 +115,14 @@ regen_rsa_key:
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
     rc = RSA_check_key(rsa);
 #else
-    rc = EVP_PKEY_check(ctx) == 1 ? 1 : 0;
+    rc = (EVP_PKEY_check(ctx) == 1 ? 1 : 0);
 #endif
 #endif
     switch (rc) {
     case 0:
         /* rsa is not a valid RSA key */
         RSA_free(rsa);
+        rsa = NULL;
         counter++;
         if (counter == KEYGEN_RETRY) {
             TRACE_DEVEL("Tried %d times to generate a "
