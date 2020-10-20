@@ -27,7 +27,6 @@
 #include <memory.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 
 #include "pkcs11types.h"
 #include "regress.h"

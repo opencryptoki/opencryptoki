@@ -20,7 +20,6 @@
 #include <unistd.h>
 
 #include <dlfcn.h>
-#include <sys/timeb.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 

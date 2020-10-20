@@ -19,7 +19,6 @@
 #include <memory.h>
 
 #include <dlfcn.h>
-#include <sys/timeb.h>
 
 #include "pkcs11types.h"
 #include "regress.h"
