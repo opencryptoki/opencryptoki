@@ -4120,7 +4120,7 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
                                  &field_len);
     if (rc != CKR_OK || field_len != data_len) {
         TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        rc = CKR_PUBLIC_KEY_INVALID;
         goto out;
     }
 

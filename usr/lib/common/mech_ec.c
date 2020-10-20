@@ -1156,7 +1156,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     if (pParms->kdf == CKD_NULL
         && (pParms->pSharedData != NULL || pParms->ulSharedDataLen != 0)) {
         TRACE_ERROR("No KDF specified, but shared data ptr is not NULL.\n");
-        return CKR_ARGUMENTS_BAD;
+        return CKR_MECHANISM_PARAM_INVALID;
     }
 
     /* Derive the shared secret */
