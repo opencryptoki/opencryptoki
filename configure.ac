@@ -16,7 +16,7 @@ AC_HEADER_STDC
 AC_CHECK_HEADER_STDBOOL
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h libintl.h limits.h locale.h malloc.h \
 		  nl_types.h stddef.h sys/file.h sys/socket.h sys/time.h   \
-		  sys/timeb.h syslog.h termios.h])
+		  syslog.h termios.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_INLINE
