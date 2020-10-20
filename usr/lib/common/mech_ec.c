@@ -924,6 +924,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     OBJECT *base_key_obj = NULL;
     CK_BYTE *oid_p;
     CK_ULONG oid_len;
+    CK_ULONG class = 0, keytype = 0;
 
     if (token_specific.t_ecdh_pkcs_derive == NULL) {
         TRACE_ERROR("ecdh pkcs derive is not supported by this token.\n");
@@ -950,10 +951,22 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     oid_p = attr->pValue;
     oid_len = attr->ulValueLen;
 
+    if (!template_get_class(base_key_obj->template, &class, &keytype)) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    if (class != CKO_PRIVATE_KEY || keytype != CKK_EC) {
+        TRACE_ERROR("Base key is not an EC private key\n");
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
     /* Extract EC private key (D) from base_key */
     if (!template_attribute_find(base_key_obj->template, CKA_VALUE, &attr)) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_TEMPLATE_INCOMPLETE;
         goto done;
     }
 
