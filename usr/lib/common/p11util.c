@@ -108,6 +108,15 @@ char *p11_get_ckr(CK_RV rc)
         _sym2str(CKR_MUTEX_BAD);
         _sym2str(CKR_MUTEX_NOT_LOCKED);
         _sym2str(CKR_FUNCTION_REJECTED);
+        _sym2str(CKR_ACTION_PROHIBITED);
+        _sym2str(CKR_AEAD_DECRYPT_FAILED);
+        _sym2str(CKR_NEW_PIN_MODE);
+        _sym2str(CKR_NEXT_OTP);
+        _sym2str(CKR_EXCEEDED_MAX_ITERATIONS);
+        _sym2str(CKR_FIPS_SELF_TEST_FAILED);
+        _sym2str(CKR_LIBRARY_LOAD_FAILED);
+        _sym2str(CKR_PIN_TOO_WEAK);
+        _sym2str(CKR_PUBLIC_KEY_INVALID);
     default:
         return "UNKNOWN";
     }

@@ -2514,6 +2514,24 @@ char *p11strerror(CK_RV rc)
         return "CKR_MUTEX_BAD";
     case CKR_MUTEX_NOT_LOCKED:
         return "CKR_MUTEX_NOT_LOCKED";
+    case CKR_ACTION_PROHIBITED:
+        return "CKR_ACTION_PROHIBITED";
+    case CKR_AEAD_DECRYPT_FAILED:
+        return "CKR_AEAD_DECRYPT_FAILED";
+    case CKR_NEW_PIN_MODE:
+        return "CKR_NEW_PIN_MODE";
+    case CKR_NEXT_OTP:
+        return "CKR_NEXT_OTP";
+    case CKR_EXCEEDED_MAX_ITERATIONS:
+        return "CKR_EXCEEDED_MAX_ITERATIONS";
+    case CKR_FIPS_SELF_TEST_FAILED:
+        return "CKR_FIPS_SELF_TEST_FAILED";
+    case CKR_LIBRARY_LOAD_FAILED:
+        return "CKR_LIBRARY_LOAD_FAILED";
+    case CKR_PIN_TOO_WEAK:
+        return "CKR_PIN_TOO_WEAK";
+    case CKR_PUBLIC_KEY_INVALID:
+        return "CKR_PUBLIC_KEY_INVALID";
     default:
         return "UNKNOWN";
     }
