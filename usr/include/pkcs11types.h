@@ -988,6 +988,7 @@ typedef CK_ULONG CK_RV;
 #define CKR_ATTRIBUTE_SENSITIVE               0x00000011
 #define CKR_ATTRIBUTE_TYPE_INVALID            0x00000012
 #define CKR_ATTRIBUTE_VALUE_INVALID           0x00000013
+#define CKR_ACTION_PROHIBITED                 0x0000001B
 #define CKR_DATA_INVALID                      0x00000020
 #define CKR_DATA_LEN_RANGE                    0x00000021
 #define CKR_DEVICE_ERROR                      0x00000030
@@ -995,6 +996,7 @@ typedef CK_ULONG CK_RV;
 #define CKR_DEVICE_REMOVED                    0x00000032
 #define CKR_ENCRYPTED_DATA_INVALID            0x00000040
 #define CKR_ENCRYPTED_DATA_LEN_RANGE          0x00000041
+#define CKR_AEAD_DECRYPT_FAILED               0x00000042
 #define CKR_FUNCTION_CANCELED                 0x00000050
 #define CKR_FUNCTION_NOT_PARALLEL             0x00000051
 
@@ -1091,6 +1093,14 @@ typedef CK_ULONG CK_RV;
 #define CKR_CRYPTOKI_ALREADY_INITIALIZED      0x00000191
 #define CKR_MUTEX_BAD                         0x000001A0
 #define CKR_MUTEX_NOT_LOCKED                  0x000001A1
+
+#define CKR_NEW_PIN_MODE                      0x000001B0
+#define CKR_NEXT_OTP                          0x000001B1
+#define CKR_EXCEEDED_MAX_ITERATIONS           0x000001B5
+#define CKR_FIPS_SELF_TEST_FAILED             0x000001B6
+#define CKR_LIBRARY_LOAD_FAILED               0x000001B7
+#define CKR_PIN_TOO_WEAK                      0x000001B8
+#define CKR_PUBLIC_KEY_INVALID                0x000001B9
 
 /* CKR_FUNCTION_REJECTED is new for v2.20 */
 #define CKR_FUNCTION_REJECTED                 0x00000200
