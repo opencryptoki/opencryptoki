@@ -1010,6 +1010,8 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     CK_ATTRIBUTE *mod_attr;
     CK_ATTRIBUTE *label_attr;
     CK_ATTRIBUTE *unique_id_attr;
+    CK_ATTRIBUTE *copy_attr;
+    CK_ATTRIBUTE *destr_attr;
 
     if (get_unique_id_str(unique_id_str) != CKR_OK)
         return CKR_FUNCTION_FAILED;
@@ -1023,8 +1025,13 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
                                        + sizeof(CK_BBOOL));
     label_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + 0);
     unique_id_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + UNIQUE_ID_LEN * 2);
+    copy_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
+                                       + sizeof(CK_BBOOL));
+    destr_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
+                                       + sizeof(CK_BBOOL));
 
-    if (!token_attr || !priv_attr || !mod_attr || !label_attr || !unique_id_attr) {
+    if (!token_attr || !priv_attr || !mod_attr || !label_attr ||
+        !unique_id_attr || !copy_attr || !destr_attr) {
         if (token_attr)
             free(token_attr);
         if (priv_attr)
@@ -1035,6 +1042,10 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
             free(label_attr);
         if (unique_id_attr)
             free(unique_id_attr);
+        if (copy_attr)
+            free(copy_attr);
+        if (destr_attr)
+            free(destr_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -1064,11 +1075,23 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     unique_id_attr->pValue = (CK_BYTE *) unique_id_attr + sizeof(CK_ATTRIBUTE);
     memcpy(unique_id_attr->pValue, unique_id_str, UNIQUE_ID_LEN * 2);
 
+    copy_attr->type = CKA_COPYABLE;
+    copy_attr->ulValueLen = sizeof(CK_BBOOL);
+    copy_attr->pValue = (CK_BYTE *) copy_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) copy_attr->pValue = TRUE;
+
+    destr_attr->type = CKA_DESTROYABLE;
+    destr_attr->ulValueLen = sizeof(CK_BBOOL);
+    destr_attr->pValue = (CK_BYTE *) destr_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) destr_attr->pValue = TRUE;
+
     template_update_attribute(tmpl, token_attr);
     template_update_attribute(tmpl, priv_attr);
     template_update_attribute(tmpl, mod_attr);
     template_update_attribute(tmpl, label_attr);
     template_update_attribute(tmpl, unique_id_attr);
+    template_update_attribute(tmpl, copy_attr);
+    template_update_attribute(tmpl, destr_attr);
 
     /* the TEMPLATE 'owns' the attributes now.
      * it is responsible for freeing them upon deletion...
@@ -1312,8 +1335,19 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_OK;
         break;
     case CKA_MODIFIABLE:
+        /* CKA_MODIFIABLE can only be set on creation and copy */
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
+            return CKR_OK;
+        break;
+    case CKA_DESTROYABLE:
+        return CKR_OK;
+    case CKA_COPYABLE:
+        /* CKA_COPYABLE can not be set to TRUE once it was set to FALSE */
+        if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
+                     MODE_UNWRAP)) != 0)
+            return CKR_OK;
+        if (attr->pValue != NULL && *(CK_BBOOL *)attr->pValue == FALSE)
             return CKR_OK;
         break;
     case CKA_UNIQUE_ID:
