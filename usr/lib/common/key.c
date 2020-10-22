@@ -292,6 +292,7 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *verify_attr = NULL;
     CK_ATTRIBUTE *verify_recover_attr = NULL;
     CK_ATTRIBUTE *wrap_attr = NULL;
+    CK_ATTRIBUTE *trusted_attr = NULL;
 
     CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
     CK_RV rc;
@@ -315,9 +316,11 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     wrap_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    trusted_attr =
+            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!class || !subject_attr || !encrypt_attr ||
-        !verify_attr || !verify_recover_attr || !wrap_attr) {
+        !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr) {
         if (class_attr)
             free(class_attr);
         if (subject_attr)
@@ -330,6 +333,8 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             free(verify_recover_attr);
         if (wrap_attr)
             free(wrap_attr);
+        if (trusted_attr)
+            free(trusted_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -365,12 +370,18 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     wrap_attr->pValue = (CK_BYTE *) wrap_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) wrap_attr->pValue = TRUE;
 
+    trusted_attr->type = CKA_TRUSTED;
+    trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+    trusted_attr->pValue = (CK_BYTE *)trusted_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) trusted_attr->pValue = FALSE;
+
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, subject_attr);
     template_update_attribute(tmpl, encrypt_attr);
     template_update_attribute(tmpl, verify_attr);
     template_update_attribute(tmpl, verify_recover_attr);
     template_update_attribute(tmpl, wrap_attr);
+    template_update_attribute(tmpl, trusted_attr);
 
     return CKR_OK;
 }
@@ -394,6 +405,14 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
+        }
+        return CKR_OK;
+    case CKA_TRUSTED:
+        /* Can only be set to CK_TRUE by the SO user */
+        if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
+            !session_mgr_so_session_exists(tokdata)) {
+            TRACE_ERROR("CKA_TRUSTED can only be set to TRUE by SO\n");
+            return CKR_USER_NOT_LOGGED_IN;
         }
         return CKR_OK;
     default:
@@ -434,6 +453,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *never_extr_attr = NULL;
     CK_ATTRIBUTE *always_sens_attr = NULL;
     CK_ATTRIBUTE *always_auth_attr = NULL;
+    CK_ATTRIBUTE *wrap_trusted_attr = NULL;
     CK_RV rc;
 
 
@@ -465,10 +485,13 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     always_auth_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    wrap_trusted_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
-        !never_extr_attr || !always_sens_attr || !always_auth_attr) {
+        !never_extr_attr || !always_sens_attr || !always_auth_attr ||
+        !wrap_trusted_attr) {
         if (class_attr)
             free(class_attr);
         if (subject_attr)
@@ -491,6 +514,8 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             free(never_extr_attr);
         if (always_auth_attr)
             free(always_auth_attr);
+        if (wrap_trusted_attr)
+            free(wrap_trusted_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -559,6 +584,12 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_BYTE *) always_auth_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) always_auth_attr->pValue = FALSE;
 
+    wrap_trusted_attr->type = CKA_WRAP_WITH_TRUSTED;
+    wrap_trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+    wrap_trusted_attr->pValue =
+        (CK_BYTE *) wrap_trusted_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) wrap_trusted_attr->pValue = FALSE;
+
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, subject_attr);
     template_update_attribute(tmpl, sensitive_attr);
@@ -570,6 +601,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     template_update_attribute(tmpl, never_extr_attr);
     template_update_attribute(tmpl, always_sens_attr);
     template_update_attribute(tmpl, always_auth_attr);
+    template_update_attribute(tmpl, wrap_trusted_attr);
 
     return CKR_OK;
 }
@@ -695,9 +727,12 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
         }
         return CKR_OK;
-        // after key creation, CKA_SENSITIVE may only be set to TRUE
-        //
+        /*
+         * After key creation, CKA_SENSITIVE and CKA_WRAP_WITH_TRUSTED may only
+         * be set to TRUE
+         */
     case CKA_SENSITIVE:
+    case CKA_WRAP_WITH_TRUSTED:
         {
             CK_BBOOL value;
 
@@ -784,6 +819,8 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *extractable_attr = NULL;
     CK_ATTRIBUTE *never_extr_attr = NULL;
     CK_ATTRIBUTE *always_sens_attr = NULL;
+    CK_ATTRIBUTE *trusted_attr = NULL;
+    CK_ATTRIBUTE *wrap_trusted_attr = NULL;
     CK_RV rc;
 
 
@@ -815,11 +852,15 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     always_sens_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    trusted_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    wrap_trusted_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr ||
         !sign_attr || !verify_attr || !wrap_attr ||
         !unwrap_attr || !extractable_attr || !never_extr_attr
-        || !always_sens_attr) {
+        || !always_sens_attr  || !trusted_attr || !wrap_trusted_attr) {
         if (class_attr)
             free(class_attr);
         if (sensitive_attr)
@@ -842,6 +883,10 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             free(never_extr_attr);
         if (always_sens_attr)
             free(always_sens_attr);
+        if (trusted_attr)
+            free(wrap_trusted_attr);
+        if (trusted_attr)
+            free(wrap_trusted_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -909,6 +954,17 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_BYTE *) never_extr_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) never_extr_attr->pValue = FALSE;
 
+    trusted_attr->type = CKA_TRUSTED;
+    trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+    trusted_attr->pValue = (CK_BYTE *)trusted_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) trusted_attr->pValue = FALSE;
+
+    wrap_trusted_attr->type = CKA_WRAP_WITH_TRUSTED;
+    wrap_trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+    wrap_trusted_attr->pValue =
+        (CK_BYTE *) wrap_trusted_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) wrap_trusted_attr->pValue = FALSE;
+
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, sensitive_attr);
     template_update_attribute(tmpl, encrypt_attr);
@@ -920,6 +976,8 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     template_update_attribute(tmpl, extractable_attr);
     template_update_attribute(tmpl, never_extr_attr);
     template_update_attribute(tmpl, always_sens_attr);
+    template_update_attribute(tmpl, trusted_attr);
+    template_update_attribute(tmpl, wrap_trusted_attr);
 
     return CKR_OK;
 }
@@ -1045,9 +1103,20 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_ATTRIBUTE_READ_ONLY;
         }
         return CKR_OK;
-        // after key creation, CKA_SENSITIVE may only be set to TRUE
-        //
+    case CKA_TRUSTED:
+        /* Can only be set to CK_TRUE by the SO user */
+        if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
+            !session_mgr_so_session_exists(tokdata)) {
+            TRACE_ERROR("CKA_TRUSTED can only be set to TRUE by SO\n");
+            return CKR_USER_NOT_LOGGED_IN;
+        }
+        return CKR_OK;
+        /*
+         * After key creation, CKA_SENSITIVE and CKA_WRAP_WITH_TRUSTED may only
+         * be set to TRUE
+         */
     case CKA_SENSITIVE:
+    case CKA_WRAP_WITH_TRUSTED:
         {
             CK_BBOOL value;
 

@@ -63,7 +63,8 @@ CK_RV cert_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
 // cert_validate_attribute()
 //
-CK_RV cert_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+CK_RV cert_validate_attribute(STDLL_TokData_t *tokdata,
+                              TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                               CK_ULONG mode)
 {
     CK_CERTIFICATE_TYPE type;
@@ -80,6 +81,13 @@ CK_RV cert_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
         return CKR_ATTRIBUTE_VALUE_INVALID;
+    case CKA_TRUSTED:
+        /* Can only be set to CK_TRUE by the SO user */
+        if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
+            !session_mgr_so_session_exists(tokdata)) {
+            return CKR_USER_NOT_LOGGED_IN;
+        }
+        return CKR_OK;
     default:
         return template_validate_base_attribute(tmpl, attr, mode);
     }
@@ -121,6 +129,7 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *id_attr = NULL;
     CK_ATTRIBUTE *issuer_attr = NULL;
     CK_ATTRIBUTE *serial_attr = NULL;
+    CK_ATTRIBUTE *trusted_attr = NULL;
 
     // satisfy compiler warning....
     //
@@ -130,14 +139,18 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     id_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     issuer_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     serial_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    trusted_attr =
+            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
-    if (!id_attr || !issuer_attr || !serial_attr) {
+    if (!id_attr || !issuer_attr || !serial_attr || !trusted_attr) {
         if (id_attr)
             free(id_attr);
         if (issuer_attr)
             free(issuer_attr);
         if (serial_attr)
             free(serial_attr);
+        if (trusted_attr)
+            free(trusted_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
 
         return CKR_HOST_MEMORY;
@@ -155,9 +168,15 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     serial_attr->ulValueLen = 0;        // empty byte array
     serial_attr->pValue = NULL;
 
+    trusted_attr->type = CKA_TRUSTED;
+    trusted_attr->ulValueLen = sizeof(CK_BBOOL);
+    trusted_attr->pValue = (CK_BYTE *)trusted_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) trusted_attr->pValue = FALSE;
+
     template_update_attribute(tmpl, id_attr);
     template_update_attribute(tmpl, issuer_attr);
     template_update_attribute(tmpl, serial_attr);
+    template_update_attribute(tmpl, trusted_attr);
 
     return CKR_OK;
 }
@@ -165,7 +184,8 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
 // cert_x509_validate_attributes()
 //
-CK_RV cert_x509_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+CK_RV cert_x509_validate_attribute(STDLL_TokData_t *tokdata,
+                                   TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                    CK_ULONG mode)
 {
     switch (attr->type) {
@@ -186,7 +206,7 @@ CK_RV cert_x509_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         return CKR_OK;
     default:
-        return cert_validate_attribute(tmpl, attr, mode);
+        return cert_validate_attribute(tokdata, tmpl, attr, mode);
     }
 }
 
@@ -203,10 +223,11 @@ CK_RV cert_vendor_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
 // cert_vendor_validate_attribute()
 //
-CK_RV cert_vendor_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
+CK_RV cert_vendor_validate_attribute(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                      CK_ULONG mode)
 {
     // cryptoki specifies no attributes for CKC_VENDOR certificates
     //
-    return cert_validate_attribute(tmpl, attr, mode);
+    return cert_validate_attribute(tokdata, tmpl, attr, mode);
 }
