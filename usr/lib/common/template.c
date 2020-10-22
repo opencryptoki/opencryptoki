@@ -1351,10 +1351,6 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_OK;
         break;
     case CKA_UNIQUE_ID:
-        if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-        return CKR_ATTRIBUTE_READ_ONLY;
         break;
     default:
         TRACE_ERROR("%s: %lx\n", ock_err(ERR_TEMPLATE_INCONSISTENT),
