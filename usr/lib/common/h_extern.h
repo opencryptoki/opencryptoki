@@ -2218,6 +2218,8 @@ CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata,
                                   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount);
 
 CK_BBOOL object_is_modifiable(OBJECT *obj);
+CK_BBOOL object_is_copyable(OBJECT *obj);
+CK_BBOOL object_is_destroyable(OBJECT *obj);
 CK_BBOOL object_is_private(OBJECT *obj);
 CK_BBOOL object_is_public(OBJECT *obj);
 CK_BBOOL object_is_token_object(OBJECT *obj);

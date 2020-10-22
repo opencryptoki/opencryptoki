@@ -328,27 +328,38 @@ void call_object_free(void *ptr)
         object_free((OBJECT *) ptr);
 }
 
-// object_is_modifiable()
-//
 CK_BBOOL object_is_modifiable(OBJECT * obj)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL modifiable;
-    CK_BBOOL found;
 
-    found = template_attribute_find(obj->template, CKA_MODIFIABLE, &attr);
-    if (found == FALSE)
-        return TRUE;            // should always be found but we default to TRUE
+    if (!template_attribute_find(obj->template, CKA_MODIFIABLE, &attr) ||
+        attr == NULL || attr->pValue == NULL)
+        return TRUE;
 
-    //axelrh: prevent dereferencing NULL from bad parse
-    if (attr->pValue == NULL)
-        return TRUE;            //default to TRUE
-
-    modifiable = *(CK_BBOOL *) attr->pValue;
-
-    return modifiable;
+    return *(CK_BBOOL *)attr->pValue;
 }
 
+CK_BBOOL object_is_copyable(OBJECT * obj)
+{
+    CK_ATTRIBUTE *attr = NULL;
+
+    if (!template_attribute_find(obj->template, CKA_COPYABLE, &attr) ||
+        attr == NULL || attr->pValue == NULL)
+        return TRUE;
+
+    return *(CK_BBOOL *)attr->pValue;
+}
+
+CK_BBOOL object_is_destroyable(OBJECT * obj)
+{
+    CK_ATTRIBUTE *attr = NULL;
+
+    if (!template_attribute_find(obj->template, CKA_DESTROYABLE, &attr) ||
+        attr == NULL || attr->pValue == NULL)
+        return TRUE;
+
+    return *(CK_BBOOL *)attr->pValue;
+}
 
 // object_is_private()
 //

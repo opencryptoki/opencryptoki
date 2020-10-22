@@ -346,6 +346,13 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         goto done;
     }
+
+    if (!object_is_copyable(old_obj)) {
+        TRACE_ERROR("Object is not copyable\n");
+        rc = CKR_ACTION_PROHIBITED;
+        goto done;
+    }
+
     rc = object_copy(tokdata, pTemplate, ulCount, old_obj, &new_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Copy failed.\n");
@@ -730,6 +737,13 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK || o == NULL) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return CKR_OBJECT_HANDLE_INVALID;
+    }
+
+    if (!object_is_destroyable(o)) {
+        TRACE_ERROR("Object is not destroyable\n");
+        object_put(tokdata, o, TRUE);
+        o = NULL;
+        return CKR_ACTION_PROHIBITED;
     }
 
     sess_obj = object_is_session_object(o);
@@ -1659,8 +1673,8 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     // is issuing the request...
     //
     if (!modifiable) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-        rc = CKR_ATTRIBUTE_READ_ONLY;
+        TRACE_ERROR("Object is not modifiable\n");
+        rc = CKR_ACTION_PROHIBITED;
         goto done;
     }
 
