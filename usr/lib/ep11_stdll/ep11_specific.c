@@ -3222,7 +3222,8 @@ static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
     key_obj = NULL;
 
     for (i = 0; i < NUMEC; i++) {
-        if ((memcmp(attr->pValue, der_ec_supported[i].data,
+        if (der_ec_supported[i].data_size == attr->ulValueLen &&
+            (memcmp(attr->pValue, der_ec_supported[i].data,
              attr->ulValueLen) == 0)) {
             return CK_TRUE;
         }
