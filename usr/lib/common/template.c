@@ -1131,9 +1131,9 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return data_object_validate_attribute(tmpl, attr, mode);
     } else if (class == CKO_CERTIFICATE) {
         if (subclass == CKC_X_509)
-            return cert_x509_validate_attribute(tmpl, attr, mode);
+            return cert_x509_validate_attribute(tokdata, tmpl, attr, mode);
         else
-            return cert_vendor_validate_attribute(tmpl, attr, mode);
+            return cert_vendor_validate_attribute(tokdata, tmpl, attr, mode);
     } else if (class == CKO_PUBLIC_KEY) {
         switch (subclass) {
         case CKK_RSA:

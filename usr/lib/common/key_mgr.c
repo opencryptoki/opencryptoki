@@ -584,6 +584,20 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
     }
 
+    /* Is a wrapping key with CKA_TRUSTED = CK_TRUE required? */
+    if (template_attribute_find(key_obj->template, CKA_WRAP_WITH_TRUSTED,
+                                &attr) &&
+        attr != NULL && *(CK_BBOOL *)attr->pValue == TRUE) {
+
+        if (template_attribute_find(wrapping_key_obj->template, CKA_TRUSTED,
+                                    &attr) &&
+            attr != NULL && *(CK_BBOOL *)attr->pValue == FALSE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
+            rc = CKR_KEY_NOT_WRAPPABLE;
+            goto done;
+        }
+    }
+
     // what kind of key are we trying to wrap?  make sure the mechanism is
     // allowed to wrap this kind of key
     //
