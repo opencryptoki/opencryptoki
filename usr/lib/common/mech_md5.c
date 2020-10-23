@@ -240,10 +240,9 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
             return rc;
     }
 
-    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 

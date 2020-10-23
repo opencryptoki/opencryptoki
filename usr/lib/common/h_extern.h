@@ -838,6 +838,9 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 #endif
 /* End code contributed by Corrent corp. */
 
+CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+                       CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class);
+
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                  CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
@@ -2243,6 +2246,13 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl,
 
 CK_BBOOL template_attribute_find(TEMPLATE *tmpl,
                                  CK_ATTRIBUTE_TYPE type, CK_ATTRIBUTE **attr);
+
+CK_RV template_attribute_get_ulong(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                      CK_ULONG *value);
+CK_RV template_attribute_get_bool(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                  CK_BBOOL *value);
+CK_RV template_attribute_get_non_empty(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                       CK_ATTRIBUTE **attr);
 
 void template_attribute_find_multiple(TEMPLATE *tmpl,
                                       ATTRIBUTE_PARSE_LIST *parselist,

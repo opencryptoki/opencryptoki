@@ -135,15 +135,16 @@ int util_set_file_mode(char *filename, mode_t mode)
 /* make sure the public exponent attribute is 65537 */
 CK_ULONG util_check_public_exponent(TEMPLATE * tmpl)
 {
-    CK_BBOOL flag;
+    CK_RV rv;
     CK_ATTRIBUTE *publ_exp_attr;
     CK_BYTE pubexp_bytes[] = { 1, 0, 1 };
     CK_ULONG publ_exp, rc = 1;
 
-    flag = template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp_attr);
-    if (!flag) {
+    rv = template_attribute_get_non_empty(tmpl, CKA_PUBLIC_EXPONENT,
+                                          &publ_exp_attr);
+    if (rv != CKR_OK) {
         TRACE_ERROR("Couldn't find public exponent attribute.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rv;
     }
 
     switch (publ_exp_attr->ulValueLen) {

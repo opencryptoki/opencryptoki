@@ -345,14 +345,12 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
     }
     // only allow digesting of CKO_SECRET keys
     //
-    rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
-        rc = CKR_KEY_INDIGESTIBLE;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         goto out;
-    } else {
-        class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
+
 
     if (class != CKO_SECRET_KEY) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
@@ -361,12 +359,12 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
     }
     // every secret key has a CKA_VALUE attribute
     //
-    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-    if (!rc) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_INDIGESTIBLE));
-        rc = CKR_KEY_INDIGESTIBLE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
         goto out;
     }
+
     rc = digest_mgr_digest_update(tokdata, sess, ctx,
                                   attr->pValue, attr->ulValueLen);
     if (rc != CKR_OK) {

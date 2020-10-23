@@ -65,9 +65,9 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     if (recover_mode) {
         // is key allowed to verify signatures where the data can be
         // recovered from the signature?
-        rc = template_attribute_find(key_obj->template, CKA_VERIFY_RECOVER,
-                                     &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_bool(key_obj->template, CKA_VERIFY_RECOVER,
+                                         &flag);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_VERIFY_RECOVER for the key.\n");
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
@@ -75,14 +75,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     } else {
         // is key allowed to verify signatures where the signature is an
         // appendix to the data?
-        rc = template_attribute_find(key_obj->template, CKA_VERIFY, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_bool(key_obj->template, CKA_VERIFY, &flag);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_VERIFY for the key.\n");
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
     }
-    flag = *(CK_BBOOL *) attr->pValue;
     if (flag != TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
         rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
@@ -98,10 +97,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_RSA_PKCS:
     case CKM_RSA_PKCS_PSS:
         if (mech->mechanism == CKM_RSA_PKCS_PSS) {
-            rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
-            if (rc == FALSE) {
+            rc = template_attribute_get_non_empty(key_obj->template,
+                                                  CKA_MODULUS, &attr);
+            if (rc != CKR_OK) {
                 TRACE_ERROR("Could not find CKA_VERIFY for the key.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -118,29 +117,26 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             }
         }
 
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_RSA) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_RSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // must be a PUBLIC key operation
         //
-        flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-        if (flag == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
@@ -164,29 +160,26 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_EC) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_EC) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // must be a PUBLIC key operation
         //
-        flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-        if (flag == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
@@ -221,29 +214,26 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_RSA) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_RSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // must be a PUBLIC key operation
         //
-        flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-        if (flag == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
@@ -265,10 +255,10 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
-        rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                              &attr);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
@@ -278,29 +268,26 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
 
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_RSA) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_RSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // must be a PUBLIC key operation
         //
-        flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-        if (flag == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
@@ -324,29 +311,27 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_DSA) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_DSA) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // must be a PUBLIC key operation
         //
-        flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-        if (flag == FALSE) {
+        rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                          &class);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
         }
 
         if (class != CKO_PUBLIC_KEY) {
@@ -367,18 +352,18 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_GENERIC_SECRET) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_GENERIC_SECRET) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         // PKCS #11 doesn't allow multi-part HMAC operations
@@ -402,18 +387,18 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-        if (rc == FALSE) {
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
-        } else {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_GENERIC_SECRET) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto done;
-            }
+        }
+
+        if (keytype != CKK_GENERIC_SECRET) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
         }
 
         /* Note: It was previously believed that pkcs#11 did not
@@ -452,19 +437,17 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 goto done;
             }
 
-            rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
-                                         &attr);
-            if (rc == FALSE) {
+            rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                              &keytype);
+            if (rc != CKR_OK) {
                 TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
-            } else {
-                keytype = *(CK_KEY_TYPE *) attr->pValue;
-                if (keytype != CKK_GENERIC_SECRET) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                    rc = CKR_KEY_TYPE_INCONSISTENT;
-                    goto done;
-                }
+            }
+
+            if (keytype != CKK_GENERIC_SECRET) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
 
             // PKCS #11 doesn't allow multi-part HMAC operations
@@ -536,19 +519,18 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
-            rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE,
-                                         &attr);
-            if (rc == FALSE) {
+
+            rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                              &keytype);
+            if (rc != CKR_OK) {
                 TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
-            } else {
-                keytype = *(CK_KEY_TYPE *) attr->pValue;
-                if (keytype != CKK_GENERIC_SECRET) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                    rc = CKR_KEY_TYPE_INCONSISTENT;
-                    goto done;
-                }
+            }
+
+            if (keytype != CKK_GENERIC_SECRET) {
+                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+                rc = CKR_KEY_TYPE_INCONSISTENT;
+                goto done;
             }
 
             /* Note: It was previously believed that pkcs#11 did not
@@ -595,18 +577,17 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 }
             }
 
-            rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-            if (rc == FALSE) {
+            rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                              &class);
+            if (rc != CKR_OK) {
                 TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
-            } else {
-                class = *(CK_OBJECT_CLASS *) attr->pValue;
-                if (class != CKO_SECRET_KEY) {
-                    TRACE_ERROR("This operation requires a secret key.\n");
-                    rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-                    goto done;
-                }
+            }
+
+            if (class != CKO_SECRET_KEY) {
+                TRACE_ERROR("This operation requires a secret key.\n");
+                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+                goto done;
             }
 
             ctx->context_len = sizeof(SSL3_MAC_CONTEXT);

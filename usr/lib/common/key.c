@@ -140,14 +140,14 @@
 //
 CK_RV key_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
-    found = template_attribute_find(tmpl, CKA_KEY_TYPE, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_KEY_TYPE\n");
+            return rc;
         }
     }
 
@@ -243,6 +243,11 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 {
     switch (attr->type) {
     case CKA_KEY_TYPE:
+        if (attr->ulValueLen != sizeof(CK_KEY_TYPE) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
             mode == MODE_KEYGEN || mode == MODE_UNWRAP)
             return CKR_OK;
@@ -252,7 +257,12 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_ID:
     case CKA_START_DATE:
     case CKA_END_DATE:
+        return CKR_OK;
     case CKA_DERIVE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         return CKR_OK;
     case CKA_LOCAL:
         // CKA_LOCAL is only set by the key-generate routine
@@ -406,9 +416,17 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         return CKR_OK;
     case CKA_TRUSTED:
         /* Can only be set to CK_TRUE by the SO user */
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
             !session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("CKA_TRUSTED can only be set to TRUE by SO\n");
@@ -717,6 +735,10 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_SIGN:
     case CKA_SIGN_RECOVER:
     case CKA_UNWRAP:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         // we might want to do this for MODE_COPY too
         //
         if (mode == MODE_MODIFY) {
@@ -736,6 +758,11 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_BBOOL value;
 
+            if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+
             if (mode == MODE_CREATE || mode == MODE_KEYGEN)
                 return CKR_OK;
 
@@ -751,6 +778,11 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_EXTRACTABLE:
         {
             CK_BBOOL value;
+
+            if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
 
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_KEYGEN) &&
@@ -1095,6 +1127,10 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_VERIFY:
     case CKA_WRAP:
     case CKA_UNWRAP:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_MODIFY) {
             if (tokdata->nv_token_data->tweak_vector.allow_key_mods == TRUE)
                 return CKR_OK;
@@ -1105,6 +1141,10 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_OK;
     case CKA_TRUSTED:
         /* Can only be set to CK_TRUE by the SO user */
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
             !session_mgr_so_session_exists(tokdata)) {
             TRACE_ERROR("CKA_TRUSTED can only be set to TRUE by SO\n");
@@ -1120,6 +1160,10 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_BBOOL value;
 
+            if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
                  mode != MODE_KEYGEN) && (value != TRUE)) {
@@ -1136,6 +1180,10 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 
             // the unwrap routine will automatically set extractable to TRUE
             //
+            if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             value = *(CK_BBOOL *) attr->pValue;
             if ((mode != MODE_CREATE && mode != MODE_DERIVE &&
                  mode != MODE_KEYGEN) && (value != FALSE)) {
@@ -1194,7 +1242,8 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
-
+    CK_ULONG val;
+    CK_RV rc;
 
     found = template_attribute_find(tmpl, CKA_MODULUS, &attr);
     if (!found) {
@@ -1204,11 +1253,11 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-    found = template_attribute_find(tmpl, CKA_MODULUS_BITS, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_MODULUS_BITS, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_KEYGEN) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_MODULUS_BITS\n");
+            return rc;
         }
     }
 
@@ -1304,7 +1353,8 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     switch (attr->type) {
     case CKA_MODULUS_BITS:
         if (mode == MODE_KEYGEN) {
-            if (attr->ulValueLen != sizeof(CK_ULONG)) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) ||
+                attr->pValue == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             } else {
@@ -1590,42 +1640,92 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *exponent1 = NULL, *exponent2 = NULL;
     CK_ATTRIBUTE *coeff = NULL;
     CK_RV rc;
+    CK_BBOOL is_crt = FALSE;
 
 
     // compute the total length of the BER-encoded data
     //
-    if (template_attribute_find(tmpl, CKA_MODULUS, &modulus) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_MODULUS, &modulus);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
+
+    /*
+     * For MOD-EXPO, the private exponent must be non-empty, otherwise (for
+     * CRT) it may be empty, but must still be valid if non-empty (i.e.
+     * pValue can not be NULL if ulValueLen > 0.
+     */
     if (template_attribute_find(tmpl, CKA_PRIVATE_EXPONENT, &priv_exp) ==
         FALSE) {
         TRACE_ERROR("Could not find private exponent for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+    if (priv_exp->ulValueLen > 0 && priv_exp->pValue == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (priv_exp->ulValueLen == 0)
+        is_crt = TRUE;
+
+    /*
+     * CRT attributes must be non-empty if CRT format, otherwise (for MOD-EXPO)
+     * they can be empty, but must still be valid if non-empty (i.e. pValue can
+     * not be NULL if ulValueLen > 0.
+     */
     if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE) {
         TRACE_ERROR("Could not find CKA_PRIME_1 for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+    if ((prime1->ulValueLen > 0 && prime1->pValue == NULL) ||
+        (prime1->ulValueLen == 0 && is_crt)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE) {
         TRACE_ERROR("Could not find CKA_PRIME_2 for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+    if ((prime2->ulValueLen > 0 && prime2->pValue == NULL) ||
+        (prime2->ulValueLen == 0 && is_crt)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE) {
         TRACE_ERROR("Could not find CKA_EXPONENT_1 for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+    if ((exponent1->ulValueLen > 0 && exponent1->pValue == NULL) ||
+        (exponent1->ulValueLen == 0 && is_crt)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE) {
         TRACE_ERROR("Could not find CKA_EXPONENT_2 for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
+    if ((exponent2->ulValueLen > 0 && exponent2->pValue == NULL) ||
+        (exponent2->ulValueLen == 0 && is_crt)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE) {
         TRACE_ERROR("Could not find CKA_COEFFICIENT for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+    if ((coeff->ulValueLen > 0 && coeff->pValue == NULL) ||
+        (coeff->ulValueLen == 0 && is_crt)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
     rc = ber_encode_RSAPrivateKey(length_only, data, data_len, modulus,
@@ -1720,57 +1820,67 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
                                        CK_BBOOL length_only,
                                        CK_BYTE **data, CK_ULONG *data_len)
 {
-    CK_ATTRIBUTE *keyform, *rho = NULL, *seed = NULL;
+    CK_ATTRIBUTE *rho = NULL, *seed = NULL;
     CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
     CK_ATTRIBUTE *t0 = NULL, *t1 = NULL;
+    CK_ULONG keyform;
     CK_RV rc;
 
     /* A private Dilithium key must have a keyform value */
-    if (!template_attribute_find(tmpl, CKA_IBM_DILITHIUM_KEYFORM, &keyform)) {
+    rc = template_attribute_get_ulong(tmpl, CKA_IBM_DILITHIUM_KEYFORM,
+                                      &keyform);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
 
     /* Check if it's an expected keyform */
-    if (*(CK_ULONG *) keyform->pValue != IBM_DILITHIUM_KEYFORM_ROUND2) {
-        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: %ld \n",
-                    *(CK_ULONG *) keyform->pValue);
+    if (keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
+        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: %ld\n",
+                    keyform);
         return CKR_TEMPLATE_INCONSISTENT;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_RHO, &rho) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_SEED, &seed) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_SEED, &seed);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_SEED for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_TR, &tr) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_TR, &tr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_TR for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S1, &s1) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_S1, &s1);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S1 for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_S2, &s2) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_S2, &s2);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_S2 for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T0, &t0) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T0, &t0);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T0 for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
-    if (template_attribute_find(tmpl, CKA_IBM_DILITHIUM_T1, &t1) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T1, &t1);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
-        return CKR_TEMPLATE_INCONSISTENT;
+        return rc;
     }
 
     rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
@@ -2226,24 +2336,27 @@ CK_RV dsa_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *value = NULL;
     CK_RV rc;
 
-
     // compute the total length of the BER-encoded data
     //
-    if (template_attribute_find(tmpl, CKA_PRIME, &prime) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &prime);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_SUBPRIME, &subprime) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_SUBPRIME, &subprime);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_SUBPRIME for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_BASE, &base) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &base);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_BASE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_VALUE, &value) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
     rc = ber_encode_DSAPrivateKey(length_only, data, data_len,
                                   prime, subprime, base, value);
@@ -2328,22 +2441,21 @@ CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
 CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_RV rc;
 
-
-    found = template_attribute_find(tmpl, CKA_ECDSA_PARAMS, &attr);
-    if (!found) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS\n");
+            return rc;
         }
     }
 
-    found = template_attribute_find(tmpl, CKA_EC_POINT, &attr);
-    if (!found) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &attr);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_EC_POINT\n");
+            return rc;
         }
     }
 
@@ -2432,21 +2544,21 @@ CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_RV rc;
 
-
-    found = template_attribute_find(tmpl, CKA_ECDSA_PARAMS, &attr);
-    if (!found) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS\n");
+            return rc;
         }
     }
 
     found = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (!found) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_VALUE\n");
+            return rc;
         }
     }
 
@@ -2580,24 +2692,26 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *pubkey = NULL;
     CK_RV rc;
 
-
     // compute the total length of the BER-encoded data
     //
-    if (template_attribute_find(tmpl, CKA_EC_PARAMS, &params) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &params);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &point);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_VALUE, &point) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &point);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find EC Point for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     /* check if optional public-key part was defined */
-    template_attribute_find(tmpl, CKA_EC_POINT, &pubkey);
+    template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &pubkey);
 
     rc = der_encode_ECPrivateKey(length_only, data, data_len, params,
                                  point, pubkey);
@@ -2930,6 +3044,10 @@ CK_RV dh_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_VALUE_BITS:
         //   TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         //   return CKR_ATTRIBUTE_READ_ONLY;
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         return CKR_OK;
         break;
     default:
@@ -3043,17 +3161,20 @@ CK_RV dh_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_RV rc;
 
     // compute the total length of the BER-encoded data
-    if (template_attribute_find(tmpl, CKA_PRIME, &prime) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &prime);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_BASE, &base) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &base);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_BASE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-    if (template_attribute_find(tmpl, CKA_VALUE, &value) == FALSE) {
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
     rc = ber_encode_DHPrivateKey(length_only, data, data_len,
                                  prime, base, value);
@@ -3591,6 +3712,10 @@ CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_DILITHIUM_KEYFORM:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             switch (*((CK_ULONG *)attr->pValue)) {
             case IBM_DILITHIUM_KEYFORM_ROUND2:
                 return CKR_OK;
@@ -3626,6 +3751,10 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_IBM_DILITHIUM_KEYFORM:
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             switch (*((CK_ULONG *)attr->pValue)) {
             case IBM_DILITHIUM_KEYFORM_ROUND2:
                 return CKR_OK;
@@ -3647,6 +3776,8 @@ CK_RV generic_secret_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     found = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (!found) {
@@ -3656,9 +3787,8 @@ CK_RV generic_secret_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &val);
+    if (rc != CKR_OK) {
         // here's another place where PKCS #11 deviates from its own
         // specification.
         // the spec states that VALUE_LEN must be present for KEYGEN but later
@@ -3961,6 +4091,10 @@ CK_RV generic_secret_validate_attribute(STDLL_TokData_t *tokdata,
         // attribute when unwrapping.
         //
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_KEYGEN || mode == MODE_DERIVE)
             return CKR_OK;
         if (mode == MODE_UNWRAP) {
@@ -4004,11 +4138,12 @@ CK_RV generic_secret_wrap_get_data(TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+    if (rc !=  CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
     }
+
     *data_len = attr->ulValueLen;
 
     if (length_only == FALSE) {
@@ -4033,7 +4168,6 @@ CK_RV generic_secret_unwrap(TEMPLATE *tmpl,
                             CK_ULONG data_len,
                             CK_BBOOL fromend)
 {
-    CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_BYTE *ptr = NULL;
@@ -4048,9 +4182,8 @@ CK_RV generic_secret_unwrap(TEMPLATE *tmpl,
     // it's possible that the user specified CKA_VALUE_LEN in the
     // template.  if so, try to use it.  by default, CKA_VALUE_LEN is 0
     //
-    rc = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
-    if (rc) {
-        len = *(CK_ULONG *) attr->pValue;
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &len);
+    if (rc == CKR_OK) {
         if (len > data_len) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             rc = CKR_ATTRIBUTE_VALUE_INVALID;
@@ -4102,6 +4235,8 @@ CK_RV rc2_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     found = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (!found) {
@@ -4111,11 +4246,11 @@ CK_RV rc2_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_KEYGEN) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_VALUE_LEN\n");
+            return rc;
         }
     }
 
@@ -4195,6 +4330,10 @@ CK_RV rc2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_ULONG len;
 
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
@@ -4269,6 +4408,8 @@ CK_RV rc4_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     found = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (!found) {
@@ -4278,11 +4419,11 @@ CK_RV rc4_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_KEYGEN) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_VALUE_LEN\n");
+            return rc;
         }
     }
 
@@ -4312,6 +4453,10 @@ CK_RV rc4_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_ULONG len;
 
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
@@ -4335,6 +4480,8 @@ CK_RV rc5_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     found = template_attribute_find(tmpl, CKA_VALUE, &attr);
     if (!found) {
@@ -4344,11 +4491,11 @@ CK_RV rc5_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         }
     }
 
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_KEYGEN) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_VALUE_LEN\n");
+            return rc;
         }
     }
 
@@ -4429,6 +4576,10 @@ CK_RV rc5_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         {
             CK_ULONG len;
 
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
                 return CKR_ATTRIBUTE_READ_ONLY;
@@ -4599,6 +4750,10 @@ CK_RV des_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
                 ptr = attr->pValue;
+                if (ptr == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
                 for (i = 0; i < DES_KEY_SIZE; i++) {
                     if (parity_is_odd(ptr[i]) == FALSE) {
                         TRACE_ERROR("%s\n",
@@ -4614,6 +4769,10 @@ CK_RV des_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_VALUE_LEN:
         // Cryptoki doesn't allow this but Netscape tries uses it
         //
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_DERIVE ||
                 mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
@@ -4645,17 +4804,17 @@ CK_RV des_wrap_get_data(TEMPLATE *tmpl,
     CK_BYTE *ptr = NULL;
     CK_RV rc;
 
-
     if (!tmpl || !data_len) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+    if (rc !=  CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
     }
+
     *data_len = attr->ulValueLen;
 
     if (length_only == FALSE) {
@@ -4753,6 +4912,10 @@ CK_RV des2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
                 ptr = attr->pValue;
+                if (ptr == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
                 for (i = 0; i < 2 * DES_KEY_SIZE; i++) {
                     if (parity_is_odd(ptr[i]) == FALSE) {
                         TRACE_ERROR("%s\n",
@@ -4766,6 +4929,10 @@ CK_RV des2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         // Cryptoki doesn't allow this but Netscape tries uses it
         //
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
@@ -4917,6 +5084,10 @@ CK_RV des3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             }
             if (tokdata->nv_token_data->tweak_vector.check_des_parity == TRUE) {
                 ptr = attr->pValue;
+                if (ptr == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    return CKR_ATTRIBUTE_VALUE_INVALID;
+                }
                 for (i = 0; i < 3 * DES_KEY_SIZE; i++) {
                     if (parity_is_odd(ptr[i]) == FALSE) {
                         TRACE_ERROR("%s\n",
@@ -4930,6 +5101,10 @@ CK_RV des3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         // Cryptoki doesn't allow this but Netscape tries uses it
         //
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
@@ -4958,17 +5133,17 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl,
     CK_BYTE *ptr = NULL;
     CK_RV rc;
 
-
     if (!tmpl || !data_len) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+    if (rc !=  CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
     }
+
     *data_len = attr->ulValueLen;
 
     if (length_only == FALSE) {
@@ -5084,6 +5259,10 @@ CK_RV cast_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         return CKR_OK;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -5200,6 +5379,10 @@ CK_RV cast3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         return CKR_OK;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -5312,6 +5495,10 @@ CK_RV cast5_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         return CKR_OK;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode != MODE_KEYGEN && mode != MODE_DERIVE) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
@@ -5492,7 +5679,7 @@ CK_RV cdmf_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
-        if (attr->ulValueLen != DES_KEY_SIZE) {
+        if (attr->ulValueLen != DES_KEY_SIZE || attr->pValue == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -5520,6 +5707,10 @@ CK_RV cdmf_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return tok_cdmf_transform(attr->pValue, DES_KEY_SIZE);
 #endif
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
             if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
                 len = *(CK_ULONG *) attr->pValue;
@@ -5872,8 +6063,17 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE || mode == MODE_DERIVE ||
             mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) ||
+                attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
             val = *(CK_ULONG *) attr->pValue;
             if (val != AES_KEY_SIZE_128 &&
                 val != AES_KEY_SIZE_192 && val != AES_KEY_SIZE_256) {
@@ -5906,11 +6106,12 @@ CK_RV aes_wrap_get_data(TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    rc = template_attribute_find(tmpl, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+    if (rc !=  CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
     }
+
     *data_len = attr->ulValueLen;
 
     if (length_only == FALSE) {
@@ -5939,6 +6140,7 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
     CK_BYTE *ptr = NULL;
     CK_ULONG key_size;
     CK_BBOOL found = FALSE;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
@@ -5950,9 +6152,13 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
      * Otherwise, fail because we need to return CKA_VALUE_LEN and we cannot
      * unless user tells us what it is.
      */
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &val_len_attr);
-    if (found)
-        key_size = *(CK_ULONG *) val_len_attr->pValue;
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &key_size);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK)
+        found = TRUE;
     else
         key_size = data_len;
 

@@ -32,14 +32,14 @@
 //
 CK_RV hwf_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
-    found = template_attribute_find(tmpl, CKA_HW_FEATURE_TYPE, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_HW_FEATURE_TYPE, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_HW_FEATURE_TYPE\n");
+            return rc;
         }
     }
 
@@ -65,7 +65,8 @@ CK_RV clock_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV counter_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_BBOOL found, val;
+    CK_RV rc;
 
     if (mode == MODE_CREATE) {
         found = template_attribute_find(tmpl, CKA_VALUE, &attr);
@@ -74,16 +75,16 @@ CK_RV counter_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             return CKR_TEMPLATE_INCOMPLETE;
         }
 
-        found = template_attribute_find(tmpl, CKA_HAS_RESET, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_bool(tmpl, CKA_HAS_RESET, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_HAS_RESET\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_RESET_ON_INIT, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_bool(tmpl, CKA_RESET_ON_INIT, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_RESET_ON_INIT\n");
+            return rc;
         }
     }
 
@@ -127,6 +128,11 @@ CK_RV hwf_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 {
     switch (attr->type) {
     case CKA_HW_FEATURE_TYPE:
+        if (attr->ulValueLen != sizeof(CK_HW_FEATURE_TYPE) ||
+            attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE)
             return CKR_OK;
 

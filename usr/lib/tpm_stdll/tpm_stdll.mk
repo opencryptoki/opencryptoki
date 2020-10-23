@@ -33,7 +33,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_SOURCES =				\
 	usr/lib/common/mech_md5.c usr/lib/common/mech_ssl3.c		\
 	usr/lib/common/verify_mgr.c usr/lib/common/mech_list.c		\
 	usr/lib/common/shared_memory.c usr/lib/common/profile_obj.c	\
-	usr/lib/tpm_stdll/tpm_specific.c				\
+	usr/lib/tpm_stdll/tpm_specific.c usr/lib/common/attributes.c	\
 	usr/lib/tpm_stdll/tpm_openssl.c usr/lib/tpm_stdll/tpm_util.c
 
 if ENABLE_LOCKS
