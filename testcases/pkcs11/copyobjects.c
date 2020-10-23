@@ -38,11 +38,15 @@ CK_RV do_CopyObjects(void)
     CK_ATTRIBUTE empty_tmpl;
 
     CK_OBJECT_HANDLE keyobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE keyobj_no_copy = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE keyobj_copy = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE firstobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE secondobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE thirdobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE fourthobj = CK_INVALID_HANDLE;
     CK_OBJECT_HANDLE fifthobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE sixthobj = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE seventhobj = CK_INVALID_HANDLE;
 
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
@@ -54,6 +58,20 @@ CK_RV do_CopyObjects(void)
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
         {CKA_VALUE, &aes_value, sizeof(aes_value)},
         {CKA_SENSITIVE, &false, sizeof(false)}
+    };
+    CK_ATTRIBUTE aes_tmpl_no_copy[] = {
+        {CKA_CLASS, &key_class, sizeof(key_class)},
+        {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
+        {CKA_VALUE, &aes_value, sizeof(aes_value)},
+        {CKA_SENSITIVE, &false, sizeof(false)},
+        {CKA_COPYABLE, &false, sizeof(false)}
+    };
+    CK_ATTRIBUTE aes_tmpl_copy[] = {
+        {CKA_CLASS, &key_class, sizeof(key_class)},
+        {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
+        {CKA_VALUE, &aes_value, sizeof(aes_value)},
+        {CKA_SENSITIVE, &false, sizeof(false)},
+        {CKA_COPYABLE, &true, sizeof(true)}
     };
 
     CK_KEY_TYPE new_aes_type;
@@ -88,12 +106,24 @@ CK_RV do_CopyObjects(void)
     CK_ATTRIBUTE *null_tmpl = NULL;
 
     // Do some setup and login to the token
-    testcase_begin("starting...");
+    testcase_begin("");
     testcase_rw_session();
     testcase_user_login();
 
     // Create an AES Key Object.
     rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_CreateObject(session, aes_tmpl_no_copy, 5, &keyobj_no_copy);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_CreateObject(session, aes_tmpl_copy, 5, &keyobj_copy);
     if (rc != CKR_OK) {
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -249,21 +279,47 @@ CK_RV do_CopyObjects(void)
 
     rc = funcs->C_CopyObject(session, fourthobj,
                              false_sensitive_tmpl, 1, &fifthobj);
-    if (rc != CKR_OK)
-        testcase_pass("C_CopyObject) did not copy the object. rc = %s",
-                      p11_get_ckr(rc));
+    if (rc == CKR_ATTRIBUTE_READ_ONLY)
+        testcase_pass("C_CopyObject() did not copy the object. rc = %s "
+                      "(as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_CopyObject() should have failed.");
 
+    // Testcase #6 - Copy object that has CKA_COPYABLE=FALSE,
+    // this should fail with CKR_ACTION_PROHIBITED
+    testcase_new_assertion();
+
+    rc = funcs->C_CopyObject(session, keyobj_no_copy, null_tmpl, 0, &sixthobj);
+    if (rc == CKR_ACTION_PROHIBITED)
+        testcase_pass("C_CopyObject() did not copy the object. rc = %s "
+                      "(as expected)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_CopyObject() should have failed with "
+                      "CKR_ACTION_PROHIBITED, but got rc = %s.",
+                      p11_get_ckr(rc));
+
+    // Testcase #7 - Copy object that has CKA_COPYABLE=TRUE,
+    // this should be allowed
+    testcase_new_assertion();
+
+    rc = funcs->C_CopyObject(session, keyobj_copy, null_tmpl, 0, &seventhobj);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CopyObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+    testcase_pass("C_CopyObject) succeeded");
 
 testcase_cleanup:
     funcs->C_DestroyObject(session, keyobj);
+    funcs->C_DestroyObject(session, keyobj_no_copy);
+    funcs->C_DestroyObject(session, keyobj_copy);
     funcs->C_DestroyObject(session, firstobj);
     funcs->C_DestroyObject(session, secondobj);
     funcs->C_DestroyObject(session, thirdobj);
     funcs->C_DestroyObject(session, fourthobj);
     funcs->C_DestroyObject(session, fifthobj);
-
+    funcs->C_DestroyObject(session, sixthobj);
+    funcs->C_DestroyObject(session, seventhobj);
 
     testcase_user_logout();
     rc = funcs->C_CloseSession(session);
