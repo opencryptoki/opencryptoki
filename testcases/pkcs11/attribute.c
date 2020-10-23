@@ -21,11 +21,14 @@
 CK_RV do_TestAttributes(void)
 {
     CK_OBJECT_HANDLE obj_handle = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE obj_handle_no_mod = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_RV rc = 0, rv = 0;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
+    CK_BYTE so_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG so_pin_len;
 
     CK_BYTE modulus[] = {
         0xa5, 0x6e, 0x4a, 0x0e, 0x70, 0x10, 0x17, 0x58,
@@ -56,6 +59,7 @@ CK_RV do_TestAttributes(void)
     CK_CHAR newlabel[] = "Updated RSA public key object";
     CK_CHAR labelbuf[100];
     CK_BBOOL false = FALSE;
+    CK_BBOOL true = TRUE;
     CK_BBOOL boolval;
 
     CK_ATTRIBUTE pub_template[] = {
@@ -65,6 +69,16 @@ CK_RV do_TestAttributes(void)
         {CKA_LABEL, label, sizeof(label) - 1},
         {CKA_MODULUS, modulus, modulus_len},
         {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len}
+    };
+
+    CK_ATTRIBUTE pub_template_no_modify[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_LABEL, label, sizeof(label) - 1},
+        {CKA_MODULUS, modulus, modulus_len},
+        {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len},
+        {CKA_MODIFIABLE, &false, sizeof(false)},
     };
 
     CK_ATTRIBUTE new_attrs[] = {
@@ -82,7 +96,39 @@ CK_RV do_TestAttributes(void)
         {CKA_LABEL, labelbuf, sizeof(labelbuf)},
     };
 
-    testcase_begin("starting...");
+    CK_ATTRIBUTE update_modifiable_false[] = {
+        {CKA_MODIFIABLE, &false, sizeof(false)},
+    };
+
+    CK_ATTRIBUTE update_modifiable_true[] = {
+        {CKA_MODIFIABLE, &true, sizeof(true)},
+    };
+
+    CK_ATTRIBUTE update_copyable_false[] = {
+        {CKA_COPYABLE, &false, sizeof(false)},
+    };
+
+    CK_ATTRIBUTE update_copyable_true[] = {
+        {CKA_COPYABLE, &true, sizeof(true)},
+    };
+
+    CK_ATTRIBUTE update_destroyable_false[] = {
+        {CKA_DESTROYABLE, &false, sizeof(false)},
+    };
+
+    CK_ATTRIBUTE update_destroyable_true[] = {
+        {CKA_DESTROYABLE, &true, sizeof(true)},
+    };
+
+    CK_ATTRIBUTE update_trusted_true[] = {
+        {CKA_TRUSTED, &true, sizeof(true)},
+    };
+
+    CK_ATTRIBUTE update_trusted_false[] = {
+        {CKA_TRUSTED, &false, sizeof(false)},
+    };
+
+    testcase_begin("");
     testcase_rw_session();
     testcase_user_login();
 
@@ -138,10 +184,163 @@ CK_RV do_TestAttributes(void)
     else
         testcase_pass("Successfully verified updated attributes.");
 
+    /* Try to update attributes of an object which has CKA_MODIFIABLE=FALSE */
+    testcase_new_assertion();
+
+    /* create a public key object with CKA_MODIFIABLE=FALSE*/
+    rc = funcs->C_CreateObject(session, pub_template_no_modify, 7,
+                               &obj_handle_no_mod);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle_no_mod,
+                                    update_label, 1);
+    if (rc == CKR_ACTION_PROHIBITED)
+        testcase_pass("C_SetAttributeValue() did not update the object rc = %s "
+                      "(as ecpected)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
+                      "have failed with CKR_ACTION_PROHIBITED, but got "
+                      "rc = %s.", p11_get_ckr(rc));
+
+    /*
+     * Try to update CKA_MODIFIABLE on the object that has CKA_MODIFIABLE=TRUE.
+     * This should fail. CKA_MODIFIABLE can not be changed after creation of
+     * the object.
+     */
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_modifiable_false, 1);
+    if (rc == CKR_ATTRIBUTE_READ_ONLY)
+        testcase_pass("C_SetAttributeValue() did not update CKA_MODIFIABLE to "
+                      "FALSE rc = %s (as ecpected)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
+                      "have failed with CKR_ATTRIBUTE_READ_ONLY, but got "
+                      "rc = %s.", p11_get_ckr(rc));
+
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_modifiable_true, 1);
+    if (rc == CKR_ATTRIBUTE_READ_ONLY)
+        testcase_pass("C_SetAttributeValue() did not update CKA_MODIFIABLE to "
+                      "TRUE rc = %s (as ecpected)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
+                      "have failed with CKR_ATTRIBUTE_READ_ONLY, but got"
+                      " rc = %s.", p11_get_ckr(rc));
+
+    /*
+     * Try to update CKA_COPYABLE on the object that has CKA_COPYABLE=TRUE.
+     * CKA_MODIFIABLE can not be changed to TRUE once it has been set to FALSE.
+     */
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_copyable_false, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+    testcase_pass("Successfully set CKA_COPYABLE to FALSE.");
+
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_copyable_true, 1);
+    if (rc == CKR_ATTRIBUTE_READ_ONLY)
+        testcase_pass("C_SetAttributeValue() did not update CKA_COPYABLE to "
+                      "TRUE rc = %s (as ecpected)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_SetAttributeValue() to update CKA_COPYABLE back to "
+                      "TRUE should have failed with CKR_ATTRIBUTE_READ_ONLY, "
+                      "but got rc = %s.", p11_get_ckr(rc));
+
+    /*
+     * Try to update CKA_DESTROYABLE on the object that has CKA_DESTROYABLE=TRUE.
+     */
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_destroyable_false, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully set CKA_DESTROYABLE to FALSE.");
+
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_destroyable_true, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully set CKA_DESTROYABLE to TRUE.");
+
+    /*
+     * Try to update CKA_TRUSTED when logged in a user.
+     * This is expected to fail with CKR_USER_NOT_LOGGED_IN.
+     */
+    testcase_new_assertion();
+
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_trusted_true, 1);
+    if (rc == CKR_USER_NOT_LOGGED_IN)
+        testcase_pass("C_SetAttributeValue() did not update CKA_TRUSTED to "
+                      "TRUE rc = %s (as ecpected, because only SO can set "
+                      "CKA_TRUSTED to TRUE)", p11_get_ckr(rc));
+    else
+        testcase_fail("C_SetAttributeValue() to update CKA_TRUSTED should "
+                      "have failed with CKR_USER_NOT_LOGGED_IN, but got "
+                      "rc = %s.", p11_get_ckr(rc));
+
+    /* Login a SO */
+    testcase_user_logout();
+    testcase_so_login();
+
+    /* Now add new attribute CKA_TRUSTED */
+    testcase_new_assertion();
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_trusted_true, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully added CKA_TRUSTED=TRUE (as SO).");
+
+    /* Login a User */
+    testcase_user_logout();
+    testcase_user_login();
+
+    /* Now set attribute CKA_TRUSTED to FALSE */
+    testcase_new_assertion();
+    rc = funcs->C_SetAttributeValue(session, obj_handle,
+                                    update_trusted_false, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully added CKA_TRUSTED=FALSE (as User).");
+
+
 testcase_cleanup:
     rv = funcs->C_DestroyObject(session, obj_handle);
     if (rv != CKR_OK)
         testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+
+    rv = funcs->C_DestroyObject(session, obj_handle_no_mod);
+     if (rv != CKR_OK)
+         testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
 
     testcase_user_logout();
     rv = funcs->C_CloseSession(session);

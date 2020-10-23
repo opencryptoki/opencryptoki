@@ -37,8 +37,10 @@ CK_RV do_DestroyObjects(void)
     CK_ULONG user_pin_len;
     CK_OBJECT_HANDLE keyobj[8];
     CK_OBJECT_HANDLE obj_list[10];
+    CK_OBJECT_HANDLE keyobj_no_destroy;
     CK_ULONG i, num_objs = 0, find_count, found = 0;
     CK_MECHANISM mech;
+    CK_BBOOL false = CK_FALSE;
 
     CK_BBOOL true = TRUE;
     CK_KEY_TYPE aes_type = CKK_AES;
@@ -54,6 +56,14 @@ CK_RV do_DestroyObjects(void)
         {CKA_VALUE, &aes_value, sizeof(aes_value)}
     };
 
+    CK_ATTRIBUTE aes_tmpl_no_destroy[] = {
+        {CKA_CLASS, &key_class, sizeof(key_class)},
+        {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
+        {CKA_ID, &test_id, sizeof(test_id)},
+        {CKA_VALUE, &aes_value, sizeof(aes_value)},
+        {CKA_DESTROYABLE, &false, sizeof(false)},
+    };
+
     CK_ATTRIBUTE aesgen_tmpl[] = {
         {CKA_CLASS, &key_class, sizeof(key_class)},
         {CKA_KEY_TYPE, &aes_type, sizeof(aes_type)},
@@ -67,7 +77,7 @@ CK_RV do_DestroyObjects(void)
         {CKA_ID, &test_id, sizeof(test_id)}
     };
 
-    testcase_begin("starting...");
+    testcase_begin("");
     testcase_rw_session();
     testcase_user_login();
 
@@ -95,6 +105,8 @@ CK_RV do_DestroyObjects(void)
         }
         num_objs++;
     }
+
+    testcase_new_assertion();
 
     /* Now delete 2 session key objects */
     rc = funcs->C_DestroyObject(session, keyobj[7]);
@@ -149,6 +161,7 @@ CK_RV do_DestroyObjects(void)
     testcase_pass("The 2 objects were successfully deleted.");
 
     /* Testcase 2: Now make sure the other objects are still there */
+    testcase_new_assertion();
 
     for (i = 0; i < find_count; i++) {
         if ((obj_list[i] == keyobj[0]) || (obj_list[i] == keyobj[1]) ||
@@ -165,6 +178,8 @@ CK_RV do_DestroyObjects(void)
     testcase_pass("The other objects are intact.");
 
     /* Testcase 3: Remove all the objects */
+    testcase_new_assertion();
+
     find_count = 0;
 
     /* Now delete the rest of the objects */
@@ -197,10 +212,44 @@ CK_RV do_DestroyObjects(void)
 
     testcase_pass("All objects were deleted.");
 
+    testcase_new_assertion();
+    /* Create a key object with CKA_DESTROYABLE=FALSE */
+    rc = funcs->C_CreateObject(session, aes_tmpl_no_destroy, 5,
+                               &keyobj_no_destroy);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /*
+     * Try to delete the non-destroyable object, should fail with
+     * CKR_ACTION_PROHIBITED
+     */
+    rc = funcs->C_DestroyObject(session, keyobj_no_destroy);
+    if (rc == CKR_ACTION_PROHIBITED) {
+        testcase_pass("C_DestroyObject() did not delete the object. rc = %s "
+                "(as expetded)", p11_get_ckr(rc));
+    } else {
+        testcase_fail("C_DestroyObject() should have failed with "
+                      "CKR_ACTION_PROHIBITED, but got rc = %s.",
+                      p11_get_ckr(rc));
+        keyobj_no_destroy = CK_INVALID_HANDLE;
+    }
+
+
 testcase_cleanup:
     if (num_objs) {
         for (i = 0; i < num_objs; i++)
             funcs->C_DestroyObject(session, keyobj[i]);
+    }
+
+    if (keyobj_no_destroy != CK_INVALID_HANDLE) {
+        CK_ATTRIBUTE update_destroyable_true[] = {
+            {CKA_DESTROYABLE, &true, sizeof(true)},
+        };
+        funcs->C_SetAttributeValue(session, keyobj_no_destroy,
+                                   update_destroyable_true, 1);
+        funcs->C_DestroyObject(session, keyobj_no_destroy);
     }
 
     testcase_user_logout();
