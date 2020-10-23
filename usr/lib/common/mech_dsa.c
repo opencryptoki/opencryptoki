@@ -39,10 +39,8 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
                CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
     OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE sig[DSA_SIGNATURE_SIZE];
     CK_OBJECT_CLASS class;
-    CK_BBOOL flag;
     CK_RV rc;
 
     UNUSED(sess);
@@ -57,13 +55,10 @@ CK_RV dsa_sign(STDLL_TokData_t *tokdata,
     }
     // must be a PRIVATE key operation
     //
-    flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (flag == FALSE) {
-        TRACE_ERROR("Could not find <the_attribute_name> in the template\n");
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         goto done;
-    } else {
-        class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
 
     // if it's not a private DSA key then we have an internal failure...means
@@ -111,9 +106,7 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
                  CK_ULONG in_data_len, CK_BYTE *signature, CK_ULONG sig_len)
 {
     OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS class;
-    CK_BBOOL flag;
     CK_RV rc;
 
     UNUSED(sess);
@@ -128,13 +121,10 @@ CK_RV dsa_verify(STDLL_TokData_t *tokdata,
     }
     // must be a PUBLIC key operation
     //
-    flag = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (flag == FALSE) {
-        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         goto done;
-    } else {
-        class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
 
     if (class != CKO_PUBLIC_KEY) {
@@ -196,16 +186,13 @@ CK_RV ckm_dsa_key_pair_gen(STDLL_TokData_t *tokdata,
 CK_RV ckm_dsa_sign(STDLL_TokData_t *tokdata,
                    CK_BYTE *in_data, CK_BYTE *signature, OBJECT *priv_key)
 {
-    CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
-    rc = template_attribute_find(priv_key->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
-    } else {
-        keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = template_attribute_get_ulong(priv_key->template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     // this had better be a private key
@@ -233,16 +220,13 @@ CK_RV ckm_dsa_sign(STDLL_TokData_t *tokdata,
 CK_RV ckm_dsa_verify(STDLL_TokData_t *tokdata,
                      CK_BYTE *signature, CK_BYTE *data, OBJECT *publ_key)
 {
-    CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
-    rc = template_attribute_find(publ_key->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
-    } else {
-        keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = template_attribute_get_ulong(publ_key->template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     // this had better be a private key

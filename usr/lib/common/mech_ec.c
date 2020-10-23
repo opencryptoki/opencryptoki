@@ -23,6 +23,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
 #include "tok_specific.h"
@@ -161,14 +162,15 @@ const struct _ec der_ec_supported[NUMEC] = {
 
 CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size)
 {
-    CK_BBOOL flag;
     CK_ATTRIBUTE *attr = NULL;
     int i;
+    CK_RV rc;
 
-    flag = template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr);
-    if (flag == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
+                                          &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     /* loop thru supported curves to find the size.
@@ -220,7 +222,6 @@ CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
                   CK_ULONG in_data_len,
                   CK_BYTE *out_data, CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
@@ -229,13 +230,11 @@ CK_RV ckm_ec_sign(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
-
-    keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
 
     // this had better be a private key
     //
@@ -311,7 +310,6 @@ CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
                     CK_ULONG in_data_len,
                     CK_BYTE *out_data, CK_ULONG out_data_len, OBJECT *key_obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
     CK_RV rc;
 
@@ -320,13 +318,11 @@ CK_RV ckm_ec_verify(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
-
-    keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
 
     // this had better be a public key
     //
@@ -942,12 +938,13 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     }
 
     /* Get curve oid from CKA_ECDSA_PARAMS */
-    if (!template_attribute_find
-        (base_key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the base key.\n");
         goto done;
     }
+
     oid_p = attr->pValue;
     oid_len = attr->ulValueLen;
 
@@ -964,9 +961,10 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     }
 
     /* Extract EC private key (D) from base_key */
-    if (!template_attribute_find(base_key_obj->template, CKA_VALUE, &attr)) {
-        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(base_key_obj->template,
+                                          CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the base key.\n");
         goto done;
     }
 
@@ -1018,28 +1016,33 @@ static CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
 {
-    CK_ULONG i;
+    CK_RV rc;
 
     *type = 0;
     *class = 0;
 
-    for (i = 0; i < attrs_len; i++) {
-        if (attrs[i].type == CKA_CLASS) {
-            *class = *(CK_ULONG *) attrs[i].pValue;
-        }
+    rc = get_ulong_attribute_by_type(attrs, attrs_len, CKA_CLASS, class);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    for (i = 0; i < attrs_len; i++) {
-        if (attrs[i].type == CKA_KEY_TYPE) {
-            *type = *(CK_ULONG *) attrs[i].pValue;
-            return CKR_OK;
-        }
+    rc = get_ulong_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE, type);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
+
+    if (rc == CKR_OK)
+        return CKR_OK;
 
     /* no CKA_KEY_TYPE found, derive from mech */
     switch (mech->mechanism) {
     case CKM_DES_KEY_GEN:
         *type = CKK_DES;
+        break;
+    case CKM_DES2_KEY_GEN:
+        *type = CKK_DES2;
         break;
     case CKM_DES3_KEY_GEN:
         *type = CKK_DES3;
@@ -1061,6 +1064,9 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
         break;
     case CKM_DH_PKCS_KEY_PAIR_GEN:
         *type = CKK_DH;
+        break;
+    case CKM_IBM_DILITHIUM:
+        *type = CKK_IBM_PQC_DILITHIUM;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -1110,7 +1116,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG z_len = 0, kdf_digest_len;
     CK_MECHANISM_TYPE digest_mech;
     CK_BYTE *derived_key = NULL;
-    CK_ULONG derived_key_len, i;
+    CK_ULONG derived_key_len;
 
     /* Check parm length */
     if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
@@ -1138,10 +1144,11 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Determine derived key length */
-    for (i = 0; i < ulCount; i++) {
-        if (pTemplate[i].type == CKA_VALUE_LEN) {
-            key_len = *(CK_ULONG *) pTemplate[i].pValue;
-        }
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &key_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
     }
 
     if (key_len == 0) {

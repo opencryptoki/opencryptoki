@@ -746,8 +746,9 @@ CK_RV find_bbool_attribute(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     for (i = 0; i < attrs_len; i++) {
         if (attrs[i].type == type) {
             /* Check size */
-            if (attrs[i].ulValueLen != sizeof(*value))
-                return CKR_ATTRIBUTE_TYPE_INVALID;
+            if (attrs[i].ulValueLen != sizeof(*value) ||
+                attrs[i].pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
 
             /* Get value */
             *value = *((CK_BBOOL *) attrs[i].pValue);
@@ -1098,21 +1099,15 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
 {
     CK_RV rc;
     OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
 
     rc = object_mgr_find_in_map1(tokdata, hkey, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_find_in_map1 failed.\n");
         return rc;
     }
-    rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-        rc = CKR_KEY_TYPE_INCONSISTENT;
-    } else {
-        *keytype = *(CK_KEY_TYPE *) attr->pValue;
-        rc = CKR_OK;
-    }
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                      keytype);
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;

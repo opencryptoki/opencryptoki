@@ -573,13 +573,14 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     /* We need to have 8 bytes more than the in data length in case CCA
@@ -837,27 +838,26 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
     unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
     unsigned char generated_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-
     uint16_t size_of_e;
     uint16_t mod_bits;
-    CK_ATTRIBUTE *pub_exp = NULL, *attr = NULL;
+    CK_ATTRIBUTE *pub_exp = NULL;
     CK_RV rv;
     CK_BYTE_PTR ptr;
-    CK_ULONG tmpsize, tmpexp;
+    CK_ULONG tmpsize, tmpexp, tmpbits;
 
     UNUSED(tokdata);
 
-    if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
+    rv = template_attribute_get_ulong(publ_tmpl, CKA_MODULUS_BITS, &tmpbits);
+    if (rv != CKR_OK) {
         TRACE_ERROR("Could not find CKA_MODULUS_BITS for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rv;
     }
-    mod_bits = *(CK_ULONG *) attr->pValue;
-
+    mod_bits = tmpbits;
 
     /* If e is specified in the template, use it */
-    rv = template_attribute_find(publ_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp);
-    if (rv == TRUE) {
-
+    rv = template_attribute_get_non_empty(publ_tmpl, CKA_PUBLIC_EXPONENT,
+                                          &pub_exp);
+    if (rv == CKR_OK) {
         /* Per CCA manual, we really only support 3 values here:        *
          * * 0 (generate random public exponent)                        *
          * * 3 or                                                       *
@@ -988,13 +988,16 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -1043,13 +1046,16 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count, data_structure_length;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -1117,9 +1123,10 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     }
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         goto done;
     }
 
@@ -1229,9 +1236,10 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     }
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         goto done;
     }
 
@@ -1326,14 +1334,17 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -1379,14 +1390,17 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* The max value allowable by CCA for out_data_len is 512, so cap the
@@ -1460,9 +1474,10 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
     }
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         goto done;
     }
 
@@ -1593,9 +1608,10 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
     }
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         goto done;
     }
 
@@ -1802,13 +1818,14 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     key_len = 64;
@@ -1901,14 +1918,15 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     unsigned char exit_data[1];
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
     // get the key value
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     if (in_data_len % 16 == 0) {
@@ -2081,11 +2099,13 @@ static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *cur
 {
     CK_ATTRIBUTE *attr = NULL;
     unsigned int i;
+    CK_RV rc;
 
     /* Check if curve supported */
-    if (!template_attribute_find(templ, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(templ, CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        return rc;
     }
 
     for (i = 0; i < NUMEC; i++) {
@@ -2191,9 +2211,10 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     free(ecpoint);
 
     /* Add ec params to private key */
-    if (!template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rv = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS, &attr);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        return rv;
     }
 
     if ((rv = build_update_attribute(priv_tmpl, CKA_ECDSA_PARAMS,
@@ -2347,14 +2368,17 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* CCA doc: page 113 */
@@ -2397,14 +2421,17 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     CK_ATTRIBUTE *attr;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(sess);
 
     /* Find the secure key token */
-    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
     }
 
     /* CCA doc: page 118 */
@@ -2866,7 +2893,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                   CK_ULONG * sig_len, CK_BBOOL sign)
 {
     struct cca_sha_ctx *cca_ctx;
-    long keylen, return_code = 0, reason_code = 0, rule_array_count = 3;
+    long return_code = 0, reason_code = 0, rule_array_count = 3;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
     OBJECT *key = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2889,17 +2916,9 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return rc;
     }
 
-    if (template_attribute_find(key->template,
-                                CKA_VALUE, &attr) == FALSE) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    keylen = attr->ulValueLen;
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -2930,7 +2949,6 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         goto done;
     }
 
-    TRACE_INFO("HMAC key length is %ld\n", keylen);
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
@@ -3031,10 +3049,9 @@ CK_RV ccatok_hmac_update(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return rc;
     }
 
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -3226,10 +3243,9 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         return rc;
     }
 
-    if (template_attribute_find(key->template,
-                                CKA_IBM_OPAQUE, &attr) == FALSE) {
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -3361,45 +3377,53 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     CK_RV rc;
 
     /* Look for parameters to set key in the CRT format */
-    if (!template_attribute_find(priv_tmpl, CKA_PRIME_1, &p_prime)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_1, &p_prime);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += p_prime->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_PRIME_2, &q_prime)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_2, &q_prime);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += q_prime->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_EXPONENT_1, &dmp1)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_1, &dmp1);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += dmp1->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_EXPONENT_2, &dmq1)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_2, &dmq1);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += dmq1->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_COEFFICIENT, &iqmp)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_COEFFICIENT, &iqmp);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += iqmp->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PUBLIC_EXPONENT,
+                                          &pub_exp);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += pub_exp->ulValueLen;
 
-    if (!template_attribute_find(priv_tmpl, CKA_MODULUS, &mod)) {
+    rc = template_attribute_get_non_empty(priv_tmpl, CKA_MODULUS, &mod);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_MODULUS attribute missing for CRT.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     total += mod->ulValueLen;
 
@@ -3541,7 +3565,8 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
     OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
     OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
-    if (template_attribute_find(priv_tmpl, CKA_PRIVATE_EXPONENT, &priv_exp)) {
+    if (template_attribute_get_non_empty(priv_tmpl, CKA_PRIVATE_EXPONENT,
+                                         &priv_exp) == CKR_OK) {
         OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
     }
 
@@ -3570,19 +3595,23 @@ static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
     CK_RV rc;
 
     /* check that modulus and public exponent are available */
-    if (!template_attribute_find(publ_tmpl, CKA_PUBLIC_EXPONENT, &pub_exp)) {
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_PUBLIC_EXPONENT,
+                                          &pub_exp);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
 
-    if (!template_attribute_find(publ_tmpl, CKA_MODULUS, &pub_mod)) {
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS, &pub_mod);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_MODULUS attribute missing.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
 
-    if (!template_attribute_find(publ_tmpl, CKA_MODULUS_BITS, &attr)) {
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS_BITS, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("CKA_MODULUS_BITS attribute missing.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
 
     /* check total length does not exceed key_value_structure_length */
@@ -3671,10 +3700,10 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
     CK_ATTRIBUTE *opaque_key = NULL;
     CK_ATTRIBUTE *attr = NULL;
 
-    rc = template_attribute_find(object->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Incomplete key template\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
 
     switch (keytype) {
@@ -3734,10 +3763,10 @@ static CK_RV import_generic_secret_key(OBJECT * object)
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG keylen;
 
-    rc = template_attribute_find(object->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
     keylen = attr->ulValueLen;
     /* key len needs to be 80-2048 bits */
@@ -3927,20 +3956,20 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     }
 
     /* Find private key data in template */
-    rc = template_attribute_find(priv_templ, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(priv_templ, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
     }
 
     privlen = attr->ulValueLen;
     privkey = attr->pValue;
 
     /* Find public key data as BER encoded OCTET STRING in template */
-    rc = template_attribute_find(priv_templ, CKA_EC_POINT, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(priv_templ, CKA_EC_POINT, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+        return rc;
     }
 
     rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
@@ -4053,10 +4082,10 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
     }
 
     /* Find public key data as BER encoded OCTET STRING in template */
-    rc = template_attribute_find(pub_templ, CKA_EC_POINT, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(pub_templ, CKA_EC_POINT, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+        return rc;
     }
 
     rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
@@ -4119,7 +4148,6 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *object)
 {
 	CK_RV rc;
-	CK_ATTRIBUTE *attr = NULL;
 	CK_KEY_TYPE keytype;
 	CK_OBJECT_CLASS keyclass;
 
@@ -4131,24 +4159,21 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 		return CKR_FUNCTION_FAILED;
 	}
 
-	rc = template_attribute_find(object->template, CKA_KEY_TYPE, &attr);
-	if (rc == FALSE) {
+    rc = template_attribute_get_ulong(object->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
 		// not a key, so nothing to do. Just return.
 		TRACE_DEVEL("object not a key, no need to import.\n");
 		return CKR_OK;
 	}
 
-	keytype = *(CK_KEY_TYPE *)attr->pValue;
-
 	switch (keytype) {
 	case CKK_RSA:
-		rc = template_attribute_find(object->template, CKA_CLASS, &attr);
-		if (rc == FALSE) {
-			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-			return CKR_TEMPLATE_INCOMPLETE;
-		}
-
-        keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
+        rc = template_attribute_get_ulong(object->template, CKA_CLASS,
+                                          &keyclass);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            return rc;
+        }
 
 		switch(keyclass) {
 		case CKO_PUBLIC_KEY:
@@ -4179,8 +4204,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 				     rc);
 			return rc;
 		}
-		TRACE_INFO("symmetric key with len=%ld successful imported\n",
-			    attr->ulValueLen);
+		TRACE_INFO("symmetric key successful imported\n");
 		break;
 	case CKK_GENERIC_SECRET:
 		rc = import_generic_secret_key(object);
@@ -4189,17 +4213,15 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
 				    " with rc=0x%lx\n", rc);
 			return rc;
 		}
-		TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
-			   " imported\n", attr->ulValueLen);
+		TRACE_INFO("Generic Secret (HMAC) key successfully imported\n");
 		break;
     case CKK_EC:
-        rc = template_attribute_find(object->template, CKA_CLASS, &attr);
-        if (rc == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(object->template, CKA_CLASS,
+                                          &keyclass);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+            return rc;
         }
-
-        keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
 
         switch(keyclass) {
         case CKO_PUBLIC_KEY:
@@ -4237,7 +4259,6 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     long zero_length = 0;
     long key_name_length = 0, clear_key_length = 0, user_data_length = 0;
     CK_ATTRIBUTE *opaque_key = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_ULONG keylength = 0;
     unsigned char key_type1[8] = { 0 };
     unsigned char key_type2[8] = { 0 };
@@ -4247,16 +4268,14 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
 
     UNUSED(tokdata);
 
-    rc = template_attribute_find(template, CKA_VALUE_LEN, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(template, CKA_VALUE_LEN, &keylength);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("CKA_VALUE_LEN missing in (HMAC) key template\n");
+        return rc;
     }
 
-    keylength = *(CK_ULONG *) attr->pValue;
-
     /* HMAC key length needs to be 80-2048 bits */
-    if (((8 * keylength) < 80) || ((8 * keylength) > 2048)) {
+    if ((keylength < (80 / 8)) || (keylength > (2048 / 8))) {
         TRACE_ERROR("HMAC key size of %lu bits not within CCA required "
                     "range of 80-2048 bits\n", 8 * keylength);
         return CKR_KEY_SIZE_RANGE;
@@ -4337,21 +4356,26 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
     CK_BYTE buffer[900] = { 0, };
     long buffer_len = sizeof(buffer);
-    CK_ATTRIBUTE *attr, *key_opaque, *wrap_key_opaque;
+    CK_ATTRIBUTE *key_opaque, *wrap_key_opaque;
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type;
     CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    CK_RV rc;
 
-    if (!template_attribute_find(key->template, CKA_CLASS, &attr))
-         return CKR_KEY_NOT_WRAPPABLE;
-    key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+    rc = template_attribute_get_ulong(key->template, CKA_CLASS, &key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
 
     if (key_class != CKO_SECRET_KEY)
         return CKR_KEY_NOT_WRAPPABLE;
 
-    if (!template_attribute_find(key->template, CKA_KEY_TYPE, &attr))
-        return CKR_KEY_NOT_WRAPPABLE;
-    key_type = *(CK_KEY_TYPE *) attr->pValue;
+    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
 
     switch (key_type) {
     case CKK_DES:
@@ -4441,12 +4465,19 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
         return CKR_KEY_NOT_WRAPPABLE;
     }
 
-    if (!template_attribute_find(key->template, CKA_IBM_OPAQUE, &key_opaque))
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE,
+                                          &key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
+        return rc;
+    }
 
-    if (!template_attribute_find(wrapping_key->template, CKA_IBM_OPAQUE,
-                                 &wrap_key_opaque))
-        return CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_non_empty(wrapping_key->template,
+                                          CKA_IBM_OPAQUE, &wrap_key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the wrapping key.\n");
+        return rc;
+    }
 
     dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
                 rule_array, (long *)&key_opaque->ulValueLen,
@@ -4485,7 +4516,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     CK_BYTE buffer[3500] = { 0, };
     CK_BYTE dummy[AES_KEY_SIZE_256] = { 0, };
     long buffer_len = sizeof(buffer);
-    CK_ATTRIBUTE *attr, *wrap_key_opaque,*key_opaque = NULL;
+    CK_ATTRIBUTE *wrap_key_opaque,*key_opaque = NULL;
     CK_ATTRIBUTE *value = NULL, *value_len = NULL;
     CK_OBJECT_CLASS key_class;
     CK_KEY_TYPE key_type, cca_key_type;
@@ -4494,16 +4525,20 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     uint16_t val;
     CK_RV rc;
 
-    if (!template_attribute_find(key->template, CKA_CLASS, &attr))
-         return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
-    key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+    rc = template_attribute_get_ulong(key->template, CKA_CLASS, &key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
 
     if (key_class != CKO_SECRET_KEY)
         return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
 
-    if (!template_attribute_find(key->template, CKA_KEY_TYPE, &attr))
-        return CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT;
-    key_type = *(CK_KEY_TYPE *) attr->pValue;
+    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
 
     switch (key_type) {
     case CKK_DES:
@@ -4594,9 +4629,12 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
         return CKR_WRAPPED_KEY_INVALID;
     }
 
-    if (!template_attribute_find(wrapping_key->template, CKA_IBM_OPAQUE,
-                                 &wrap_key_opaque))
-        return CKR_TEMPLATE_INCONSISTENT;
+    rc = template_attribute_get_non_empty(wrapping_key->template,
+                                          CKA_IBM_OPAQUE, &wrap_key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the wrapping key.\n");
+        return rc;
+    }
 
     dll_CSNDSYI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
                 rule_array, (long *)&wrapped_key_len, wrapped_key,
@@ -4699,22 +4737,28 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
                               CK_BYTE *wrapped_key, CK_ULONG *wrapped_key_len,
                               CK_BBOOL *not_opaque)
 {
-    CK_ATTRIBUTE *attr;
     CK_OBJECT_CLASS wrap_key_class;
     CK_KEY_TYPE wrap_key_type;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(session);
 
     *not_opaque = FALSE;
 
-    if (!template_attribute_find(wrapping_key->template, CKA_CLASS, &attr))
-        return CKR_KEY_NOT_WRAPPABLE;
-    wrap_key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+    rc = template_attribute_get_ulong(wrapping_key->template, CKA_CLASS,
+                                      &wrap_key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the wrapping key.\n");
+        return rc;
+    }
 
-    if (!template_attribute_find(wrapping_key->template, CKA_KEY_TYPE, &attr))
-        return CKR_KEY_NOT_WRAPPABLE;
-    wrap_key_type = *(CK_KEY_TYPE *) attr->pValue;
+    rc = template_attribute_get_ulong(wrapping_key->template, CKA_KEY_TYPE,
+                                      &wrap_key_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the wrapping key.\n");
+        return rc;
+    }
 
     switch (mech->mechanism) {
     case CKM_RSA_PKCS:
@@ -4735,7 +4779,6 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
                                 OBJECT *unwrapping_key, OBJECT *unwrapped_key,
                                 CK_BBOOL *not_opaque)
 {
-    CK_ATTRIBUTE *attr;
     CK_ATTRIBUTE *local = NULL, *always_sens = NULL, *sensitive = NULL;
     CK_ATTRIBUTE *extractable = NULL, *never_extract = NULL;
     CK_OBJECT_CLASS unwrap_key_class;
@@ -4749,13 +4792,20 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
 
     *not_opaque = FALSE;
 
-    if (!template_attribute_find(unwrapping_key->template, CKA_CLASS, &attr))
-        return CKR_KEY_NOT_WRAPPABLE;
-    unwrap_key_class = *(CK_OBJECT_CLASS *)attr->pValue;
+    rc = template_attribute_get_ulong(unwrapping_key->template, CKA_CLASS,
+                                      &unwrap_key_class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
 
-    if (!template_attribute_find(unwrapping_key->template, CKA_KEY_TYPE, &attr))
-        return CKR_KEY_NOT_WRAPPABLE;
-    unwrap_keytype = *(CK_KEY_TYPE *) attr->pValue;
+    rc = template_attribute_get_ulong(unwrapping_key->template, CKA_KEY_TYPE,
+                                      &unwrap_keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        return rc;
+    }
+
 
     switch (mech->mechanism) {
     case CKM_RSA_PKCS:
@@ -4846,22 +4896,25 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     CK_BYTE cv[128] = { 0 };
     long cv_len = 128, zero = 0;
     CK_ULONG max_clear_len, req_out_len;
+    CK_RV rc;
 
     UNUSED(tokdata);
     UNUSED(session);
     UNUSED(decr_ctx);
     UNUSED(encr_ctx);
 
-    if (!template_attribute_find(decr_key_obj->template, CKA_IBM_OPAQUE,
-                                 &decr_key_opaque)) {
+    rc = template_attribute_get_non_empty(decr_key_obj->template,
+                                          CKA_IBM_OPAQUE, &decr_key_opaque);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the decryption key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
-    if (!template_attribute_find(encr_key_obj->template, CKA_IBM_OPAQUE,
-                                 &encr_key_opaque)) {
+    rc = template_attribute_get_non_empty(encr_key_obj->template,
+                                          CKA_IBM_OPAQUE, &encr_key_opaque);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the encryption key.\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     /* CCA only supports AES-ECB/CBC, and 3DES-CBC with CSNBCTT2 */

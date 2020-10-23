@@ -23,6 +23,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
 
@@ -1180,8 +1181,8 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
     OBJECT *obj = (OBJECT *) node;
     struct find_build_list_args *fa = (struct find_build_list_args *) p3;
     CK_OBJECT_HANDLE map_handle;
-    CK_ATTRIBUTE *attr;
-    CK_BBOOL match = FALSE;
+    CK_BBOOL match = FALSE, flag = FALSE;
+    CK_OBJECT_CLASS class;
     CK_RV rc;
 
     if (object_lock(obj, READ_LOCK) != CKR_OK)
@@ -1210,23 +1211,19 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
         }
         // If hw_feature is false here, we need to filter out all objects
         // that have the CKO_HW_FEATURE attribute set. - KEY
-        if ((fa->hw_feature == FALSE) &&
-            (template_attribute_find(obj->template, CKA_CLASS, &attr) ==
-             TRUE)) {
-            if (attr->pValue == NULL) {
-                TRACE_DEVEL("%s\n", ock_err(ERR_GENERAL_ERROR));
-                goto done;
-            }
-            if (*(CK_OBJECT_CLASS *) attr->pValue == CKO_HW_FEATURE)
+        if (fa->hw_feature == FALSE &&
+            template_attribute_get_ulong(obj->template, CKA_CLASS,
+                                         &class) == CKR_OK) {
+             if (class == CKO_HW_FEATURE)
                 goto done;
         }
 
         /* Don't find objects that have been created with the CKA_HIDDEN
          * attribute set */
-        if ((fa->hidden_object == FALSE) &&
-            (template_attribute_find(obj->template, CKA_HIDDEN, &attr) ==
-             TRUE)) {
-            if (*(CK_BBOOL *) attr->pValue == TRUE)
+        if (fa->hidden_object == FALSE &&
+            template_attribute_get_bool(obj->template, CKA_HIDDEN,
+                                        &flag) == CKR_OK) {
+            if (flag == TRUE)
                 goto done;
         }
 
@@ -1255,7 +1252,8 @@ CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
                            CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
     struct find_build_list_args fa;
-    CK_ULONG i;
+    CK_OBJECT_CLASS class = 0;
+    CK_BBOOL flag = FALSE;
     CK_RV rc;
     // it is possible the pTemplate == NULL
     //
@@ -1319,20 +1317,21 @@ CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
     // unless the CKA_CLASS attribute in the template has the value
     // CKO_HW_FEATURE." So, we check for CKO_HW_FEATURE and if its set,
     // we'll find these objects below. - KEY
-    for (i = 0; i < ulCount; i++) {
-        if (pTemplate[i].type == CKA_CLASS) {
-            if (*(CK_ULONG *) pTemplate[i].pValue == CKO_HW_FEATURE) {
-                fa.hw_feature = TRUE;
-            }
-        }
-
-        /* only find CKA_HIDDEN objects if its specified in the template. */
-        if (pTemplate[i].type == CKA_HIDDEN) {
-            if (*(CK_BBOOL *) pTemplate[i].pValue == TRUE) {
-                fa.hidden_object = TRUE;
-            }
-        }
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS, &class);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
+    if (rc == CKR_OK && class == CKO_HW_FEATURE)
+        fa.hw_feature = TRUE;
+
+    rc = get_bool_attribute_by_type(pTemplate, ulCount, CKA_HIDDEN, &flag);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && flag == TRUE)
+        fa.hidden_object = TRUE;
 
     switch (sess->session_info.state) {
     case CKS_RO_PUBLIC_SESSION:

@@ -31,6 +31,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "trace.h"
@@ -51,12 +52,9 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
                     CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount, OBJECT ** obj)
 {
     OBJECT *o = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL class_given = FALSE;
     CK_BBOOL subclass_given = FALSE;
-    CK_ULONG class = 0xFFFFFFFF, subclass = 0xFFFFFFFF;
+    CK_ULONG class, subclass = 0xFFFFFFFF;
     CK_RV rc;
-    unsigned int i;
 
     if (!pTemplate) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -64,33 +62,39 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
     }
     // extract the object class and subclass
     //
-    attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
-        if (attr->type == CKA_CLASS) {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
-            class_given = TRUE;
-        }
-
-        if (attr->type == CKA_CERTIFICATE_TYPE) {
-            subclass = *(CK_CERTIFICATE_TYPE *) attr->pValue;
-            subclass_given = TRUE;
-        }
-
-        if (attr->type == CKA_KEY_TYPE) {
-            subclass = *(CK_KEY_TYPE *) attr->pValue;
-            subclass_given = TRUE;
-        }
-
-        if (attr->type == CKA_HW_FEATURE_TYPE) {
-            subclass = *(CK_HW_FEATURE_TYPE *) attr->pValue;
-            subclass_given = TRUE;
-        }
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS,
+                                     &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
-    if (class_given == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CERTIFICATE_TYPE,
+                                     &subclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
+    if (rc == CKR_OK)
+        subclass_given = TRUE;
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &subclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK)
+        subclass_given = TRUE;
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_HW_FEATURE_TYPE,
+                                     &subclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK)
+        subclass_given = TRUE;
 
     // Return CKR_ATTRIBUTE_TYPE_INVALID when trying to create a
     // vendor-defined object.
@@ -330,35 +334,39 @@ void call_object_free(void *ptr)
 
 CK_BBOOL object_is_modifiable(OBJECT * obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL val;
+    CK_RV rc;
 
-    if (!template_attribute_find(obj->template, CKA_MODIFIABLE, &attr) ||
-        attr == NULL || attr->pValue == NULL)
+    rc = template_attribute_get_bool(obj->template, CKA_MODIFIABLE, &val);
+    if (rc != CKR_OK)
         return TRUE;
 
-    return *(CK_BBOOL *)attr->pValue;
+    return val;
+
 }
 
 CK_BBOOL object_is_copyable(OBJECT * obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL val;
+    CK_RV rc;
 
-    if (!template_attribute_find(obj->template, CKA_COPYABLE, &attr) ||
-        attr == NULL || attr->pValue == NULL)
-        return TRUE;
+    rc = template_attribute_get_bool(obj->template, CKA_COPYABLE, &val);
+     if (rc != CKR_OK)
+         return TRUE;
 
-    return *(CK_BBOOL *)attr->pValue;
+    return val;
 }
 
 CK_BBOOL object_is_destroyable(OBJECT * obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL val;
+    CK_RV rc;
 
-    if (!template_attribute_find(obj->template, CKA_DESTROYABLE, &attr) ||
-        attr == NULL || attr->pValue == NULL)
-        return TRUE;
+    rc = template_attribute_get_bool(obj->template, CKA_DESTROYABLE, &val);
+     if (rc != CKR_OK)
+         return TRUE;
 
-    return *(CK_BBOOL *)attr->pValue;
+    return val;
 }
 
 // object_is_private()
@@ -367,27 +375,14 @@ CK_BBOOL object_is_destroyable(OBJECT * obj)
 //
 CK_BBOOL object_is_private(OBJECT * obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL priv;
-    CK_BBOOL found;
+    CK_BBOOL val;
+    CK_RV rc;
 
-    found = template_attribute_find(obj->template, CKA_PRIVATE, &attr);
-    if (found == FALSE) {
-        return TRUE;            // should always be found but we default to TRUE
-    }
-    if (attr == NULL)
-        return TRUE;
+    rc = template_attribute_get_bool(obj->template, CKA_PRIVATE, &val);
+     if (rc != CKR_OK)
+         return TRUE;
 
-
-    //axelrh: prevent segfault caused by 0-len attribute
-    //that has a null pValue
-    CK_BBOOL *bboolPtr = (CK_BBOOL *) attr->pValue;
-    if (bboolPtr == NULL)
-        return TRUE;            //default
-
-    priv = *(bboolPtr);
-
-    return priv;
+    return val;
 }
 
 
@@ -410,21 +405,14 @@ CK_BBOOL object_is_public(OBJECT * obj)
 //
 CK_BBOOL object_is_token_object(OBJECT * obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL is_token;
-    CK_BBOOL found;
+    CK_BBOOL val;
+    CK_RV rc;
 
-    found = template_attribute_find(obj->template, CKA_TOKEN, &attr);
-    if (found == FALSE)
+    rc = template_attribute_get_bool(obj->template, CKA_TOKEN, &val);
+    if (rc != CKR_OK)
         return FALSE;
 
-    //axelrh: prevent dereferencing NULL from bad parse
-    if (attr->pValue == NULL)
-        return FALSE;
-
-    is_token = *(CK_BBOOL *) attr->pValue;
-
-    return is_token;
+    return val;
 }
 
 

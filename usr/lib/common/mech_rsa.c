@@ -35,21 +35,20 @@ CK_RV rsa_get_key_info(OBJECT *key_obj, CK_ULONG *mod_bytes,
     CK_RV rc;
     CK_ATTRIBUTE *attr;
 
-    rc = template_attribute_find(key_obj->template, CKA_MODULUS, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                          &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_MODULUS in the template\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     *mod_bytes = attr->ulValueLen;
 
-    rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, keyclass);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_CLASS in the template\n");
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
-
-    *keyclass = *(CK_OBJECT_CLASS *) attr->pValue;
 
     return CKR_OK;
 }

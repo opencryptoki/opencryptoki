@@ -550,7 +550,7 @@ static CK_RV cleanse_attribute(TEMPLATE *template,
 {
     CK_ATTRIBUTE *attr;
 
-    if (!template_attribute_find(template, attr_type, &attr))
+    if (template_attribute_get_non_empty(template, attr_type, &attr) != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
     OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
@@ -705,8 +705,11 @@ static CK_RV override_key_attributes(STDLL_TokData_t *tokdata,
         CK_ATTRIBUTE_PTR attr = get_attribute_by_type(attrs,
                                                       attrs_len,
                                                       *override_types);
-        if (attr != NULL)
+        if (attr != NULL) {
+            if (attr->ulValueLen != sizeof (CK_BBOOL) || attr->pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
             *(CK_BBOOL *)(attr->pValue) = *override_values[i];
+        }
     }
 
     return CKR_OK;
@@ -715,85 +718,22 @@ static CK_RV override_key_attributes(STDLL_TokData_t *tokdata,
 static CK_RV check_key_restriction(OBJECT *key_obj, CK_ATTRIBUTE_TYPE type)
 {
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL flag;
 
-    rc = template_attribute_find(key_obj->template, type, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_bool(key_obj->template, type, &flag);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID)
+        return rc;
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find attribute 0x%lx for the key.\n", type);
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
-    flag = *(CK_BBOOL *) attr->pValue;
     if (flag != TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
     return CKR_OK;
-}
-
-static CK_RV ep11_get_keytype(CK_ATTRIBUTE * attrs, CK_ULONG attrs_len,
-                              CK_MECHANISM_PTR mech, CK_ULONG * type, CK_ULONG * class)
-{
-    CK_ULONG i;
-    CK_RV rc = CKR_TEMPLATE_INCONSISTENT;
-
-    *type = 0;
-    *class = 0;
-
-    for (i = 0; i < attrs_len; i++) {
-        if (attrs[i].type == CKA_CLASS)
-            *class = *(CK_ULONG *) attrs[i].pValue;
-    }
-
-    for (i = 0; i < attrs_len; i++) {
-        if (attrs[i].type == CKA_KEY_TYPE) {
-            *type = *(CK_ULONG *) attrs[i].pValue;
-            return CKR_OK;
-        }
-    }
-
-    /* no CKA_KEY_TYPE found, derive from mech */
-
-    switch (mech->mechanism) {
-    case CKM_DES_KEY_GEN:
-        *type = CKK_DES;
-        break;
-    case CKM_DES2_KEY_GEN:
-        *type = CKK_DES2;
-        break;
-    case CKM_DES3_KEY_GEN:
-        *type = CKK_DES3;
-        break;
-    case CKM_CDMF_KEY_GEN:
-        *type = CKK_CDMF;
-        break;
-    case CKM_AES_KEY_GEN:
-        *type = CKK_AES;
-        break;
-    case CKM_RSA_PKCS_KEY_PAIR_GEN:
-        *type = CKK_RSA;
-        break;
-    case CKM_EC_KEY_PAIR_GEN:
-        *type = CKK_EC;
-        break;
-    case CKM_DSA_KEY_PAIR_GEN:
-        *type = CKK_DSA;
-        break;
-    case CKM_DH_PKCS_KEY_PAIR_GEN:
-        *type = CKK_DH;
-        break;
-    case CKM_IBM_DILITHIUM:
-        *type = CKK_IBM_PQC_DILITHIUM;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
-    }
-
-    rc = CKR_OK;
-
-    return rc;
 }
 
 static const_info_t ep11_mechanisms[] = {
@@ -1176,6 +1116,46 @@ static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
     }
 }
 
+/*
+ * Build an array of attributes to be passed to EP11. Some attributes are
+ * handled 'read-only' by EP11, and would cause an error if passed to EP11.
+ */
+static CK_RV build_ep11_attrs(TEMPLATE *template, CK_ATTRIBUTE_PTR *p_attrs,
+                              CK_ULONG_PTR p_attrs_len)
+{
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR attr;
+    CK_RV rc;
+
+    node = template->attribute_list;
+    while (node != NULL) {
+        attr = node->data;
+
+        /* EP11 handles this as 'read only' and reports an error if specified */
+        switch (attr->type) {
+        case CKA_NEVER_EXTRACTABLE:
+        case CKA_MODIFIABLE:
+        case CKA_LOCAL:
+            break;
+        default:
+            if (attr->ulValueLen > 0 && attr->pValue == NULL)
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+
+            rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                        attr->pValue, attr->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
+                            attr->type, rc);
+                return rc;
+            }
+        }
+
+        node = node->next;
+    }
+
+    return CKR_OK;
+}
+
 /* import a DES/AES key, that is, make a blob for a DES/AES key
  * that was not created by EP11 hardware, encrypt the key by the wrap key,
  * unwrap it by the wrap key
@@ -1192,7 +1172,6 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     size_t cslen = sizeof(csum);
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
-    DL_NODE *node = key_obj->template->attribute_list;
     CK_RV rc;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
@@ -1203,28 +1182,9 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
     /* tell ep11 the attributes the user specified */
-    node = key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' and reports
-         * an error if specified
-         */
-        if (CKA_NEVER_EXTRACTABLE == a->type || CKA_MODIFIABLE == a->type
-            || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto rawkey_2_blob_end;
-            }
-        }
-
-        node = node->next;
-    }
+    rc = build_ep11_attrs(key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto rawkey_2_blob_end;
 
     memset(cipher, 0, sizeof(cipher));
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
@@ -1711,12 +1671,12 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
     CK_KEY_TYPE keytype;
     CK_RV rc;
 
-    rc = template_attribute_find(pub_key_obj->template, CKA_KEY_TYPE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_ulong(pub_key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-        return CKR_TEMPLATE_INCOMPLETE;
+        return rc;
     }
-    keytype = *(CK_KEY_TYPE *)attr->pValue;
 
     /*
      * m_UnwrapKey with CKM_IBM_TRANSPORTKEY allows boolean attributes only to
@@ -1730,6 +1690,12 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
         case CKA_ENCRYPT:
         case CKA_VERIFY:
         case CKA_VERIFY_RECOVER:
+            if (attr->ulValueLen != sizeof(CK_BOOL) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                goto make_maced_spki_end;
+            }
+
             /*
              * EP11 does not allow to restrict public RSA/DSA/EC keys with
              * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
@@ -1761,6 +1727,10 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
         case CKA_IBM_NEVER_MODIFIABLE:
         case CKA_IBM_ATTRBOUND:
         case CKA_IBM_USE_AS_DATA:
+            if (attr->ulValueLen > 0 && attr->pValue == NULL) {
+                rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                goto make_maced_spki_end;
+            }
             rc = add_to_attribute_array(&p_attrs, &attrs_len, attr->type,
                                         attr->pValue, attr->ulValueLen);
             if (rc != CKR_OK) {
@@ -1813,12 +1783,10 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
-    DL_NODE *node;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
@@ -1835,36 +1803,19 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for private/public key info */
-    if (!template_attribute_find(rsa_key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(rsa_key_obj->template, CKA_CLASS,
+                                      &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    node = rsa_key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' */
-        if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto import_RSA_key_end;
-            }
-        }
-
-        node = node->next;
-    }
-
-    class = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = build_ep11_attrs(rsa_key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto import_RSA_key_end;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -1873,14 +1824,17 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         CK_ATTRIBUTE *modulus;
         CK_ATTRIBUTE *publ_exp;
 
-        if (!template_attribute_find(rsa_key_obj->template,
-                                     CKA_MODULUS, &modulus)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(rsa_key_obj->template,
+                                              CKA_MODULUS, &modulus);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
             goto import_RSA_key_end;
         }
-        if (!template_attribute_find(rsa_key_obj->template,
-                                     CKA_PUBLIC_EXPONENT, &publ_exp)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(rsa_key_obj->template,
+                                              CKA_PUBLIC_EXPONENT, &publ_exp);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
             goto import_RSA_key_end;
         }
 
@@ -2002,12 +1956,10 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
-    DL_NODE *node;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
@@ -2026,36 +1978,18 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for private/public key info */
-    if (!template_attribute_find(ec_key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(ec_key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    node = ec_key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' */
-        if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto import_EC_key_end;
-            }
-        }
-
-        node = node->next;
-    }
-
-    class = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = build_ep11_attrs(ec_key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto import_EC_key_end;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -2067,14 +2001,17 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         CK_BYTE *ecpoint;
         CK_ULONG ecpoint_len, field_len;
 
-        if (!template_attribute_find(ec_key_obj->template,
-                                     CKA_EC_PARAMS, &ec_params)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(ec_key_obj->template,
+                                              CKA_EC_PARAMS, &ec_params);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
             goto import_EC_key_end;
         }
-        if (!template_attribute_find(ec_key_obj->template,
-                                     CKA_EC_POINT, &ec_point_attr)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(ec_key_obj->template,
+                                              CKA_EC_POINT, &ec_point_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
             goto import_EC_key_end;
         }
 
@@ -2156,9 +2093,10 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         CK_ATTRIBUTE *ec_params;
         int i, curve_type = -1;
 
-        if (!template_attribute_find(ec_key_obj->template,
-                                     CKA_EC_PARAMS, &ec_params)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(ec_key_obj->template,
+                                              CKA_EC_PARAMS, &ec_params);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
             goto import_EC_key_end;
         }
 
@@ -2261,12 +2199,10 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
-    DL_NODE *node;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
@@ -2283,36 +2219,18 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for private/public key info */
-    if (!template_attribute_find(dsa_key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(dsa_key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    node = dsa_key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' */
-        if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto import_DSA_key_end;
-            }
-        }
-
-        node = node->next;
-    }
-
-    class = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = build_ep11_attrs(dsa_key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto import_DSA_key_end;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -2323,23 +2241,31 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         CK_ATTRIBUTE *base;
         CK_ATTRIBUTE *value;
 
-        if (!template_attribute_find(dsa_key_obj->template,
-                                     CKA_PRIME, &prime)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(dsa_key_obj->template,
+                                              CKA_PRIME, &prime);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
             goto import_DSA_key_end;
         }
-        if (!template_attribute_find(dsa_key_obj->template,
-                                     CKA_SUBPRIME, &subprime)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(dsa_key_obj->template,
+                                              CKA_SUBPRIME, &subprime);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SUBPRIME for the key.\n");
             goto import_DSA_key_end;
         }
-        if (!template_attribute_find(dsa_key_obj->template, CKA_BASE, &base)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(dsa_key_obj->template, CKA_BASE,
+                                              &base);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_BASE for the key.\n");
             goto import_DSA_key_end;
         }
-        if (!template_attribute_find(dsa_key_obj->template,
-                                     CKA_VALUE, &value)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(dsa_key_obj->template,
+                                              CKA_VALUE, &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
             goto import_DSA_key_end;
         }
 
@@ -2465,12 +2391,10 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
-    DL_NODE *node;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
@@ -2487,36 +2411,18 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for private/public key info */
-    if (!template_attribute_find(dh_key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(dh_key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    node = dh_key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' */
-        if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto import_DH_key_end;
-            }
-        }
-
-        node = node->next;
-    }
-
-    class = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = build_ep11_attrs(dh_key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto import_DH_key_end;
 
     if (class != CKO_PRIVATE_KEY) {
 
@@ -2526,16 +2432,24 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         CK_ATTRIBUTE *base;
         CK_ATTRIBUTE *value;
 
-        if (!template_attribute_find(dh_key_obj->template, CKA_PRIME, &prime)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(dh_key_obj->template, CKA_PRIME,
+                                              &prime);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
             goto import_DH_key_end;
         }
-        if (!template_attribute_find(dh_key_obj->template, CKA_BASE, &base)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(dh_key_obj->template, CKA_BASE,
+                                              &base);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_BASE for the key.\n");
             goto import_DH_key_end;
         }
-        if (!template_attribute_find(dh_key_obj->template, CKA_VALUE, &value)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
+
+        rc = template_attribute_get_non_empty(dh_key_obj->template, CKA_VALUE,
+                                              &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
             goto import_DH_key_end;
         }
 
@@ -2659,12 +2573,10 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE iv[AES_BLOCK_SIZE];
     CK_MECHANISM mech_w = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
     CK_BYTE cipher[MAX_BLOBSIZE];
     CK_ULONG cipher_l = sizeof(cipher);
-    DL_NODE *node;
     CK_ATTRIBUTE_PTR p_attrs = NULL;
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
@@ -2682,69 +2594,58 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for secret/public key info */
-    if (!template_attribute_find(dilithium_key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s no CKA_CLASS\n", __func__);
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(dilithium_key_obj->template, CKA_CLASS,
+                                      &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
     }
 
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    node = dilithium_key_obj->template->attribute_list;
-    while (node != NULL) {
-        CK_ATTRIBUTE_PTR a = node->data;
-
-        /* ep11 handles this as 'read only' */
-        if (CKA_NEVER_EXTRACTABLE == a->type ||
-            CKA_MODIFIABLE == a->type || CKA_LOCAL == a->type) {
-            ;
-        } else {
-            rc = add_to_attribute_array(&p_attrs, &attrs_len,
-                                        a->type, a->pValue, a->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s adding attribute failed type=0x%lx rc=0x%lx\n",
-                            __func__, a->type, rc);
-                goto done;
-            }
-        }
-
-        node = node->next;
-    }
-
-    class = *(CK_OBJECT_CLASS *) attr->pValue;
+    rc = build_ep11_attrs(dilithium_key_obj->template, &p_attrs, &attrs_len);
+    if (rc != CKR_OK)
+        goto done;
 
     if (class != CKO_PRIVATE_KEY) {
 
         /* Make an SPKI for the public IBM Dilithium key */
-        CK_ATTRIBUTE *keyform;
+        CK_ULONG keyform;
         CK_ATTRIBUTE *rho;
         CK_ATTRIBUTE *t1;
 
         /* A public IBM Dilithium key must have a keyform value */
-        if (!template_attribute_find(dilithium_key_obj->template,
-                                     CKA_IBM_DILITHIUM_KEYFORM, &keyform)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
-            goto done;
+        rc = template_attribute_get_ulong(dilithium_key_obj->template,
+                                          CKA_IBM_DILITHIUM_KEYFORM,
+                                          &keyform);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the "
+                        "key.\n");
+             goto done;
         }
 
         /* Check if it's an expected keyform */
-        if (*(CK_ULONG *) keyform->pValue != IBM_DILITHIUM_KEYFORM_ROUND2) {
+        if (keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
+            TRACE_ERROR("Keyform is not supported\n");
             rc = CKR_TEMPLATE_INCONSISTENT;
             goto done;
         }
 
         /* A public IBM Dilithium key must have a rho value */
-        if (!template_attribute_find(dilithium_key_obj->template,
-                                     CKA_IBM_DILITHIUM_RHO, &rho)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
-            goto done;
+        rc = template_attribute_get_non_empty(dilithium_key_obj->template,
+                                              CKA_IBM_DILITHIUM_RHO, &rho);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+             goto done;
         }
 
         /* A public IBM Dilithium key must have a t1 value */
-        if (!template_attribute_find(dilithium_key_obj->template,
-                                     CKA_IBM_DILITHIUM_T1, &t1)) {
-            rc = CKR_TEMPLATE_INCOMPLETE;
-            goto done;
+        rc = template_attribute_get_non_empty(dilithium_key_obj->template,
+                                              CKA_IBM_DILITHIUM_T1, &t1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
+             goto done;
         }
 
         /* Encode the public key */
@@ -2865,12 +2766,11 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_RV rc;
 
     /* get key type */
-    if (template_attribute_find(obj->template, CKA_KEY_TYPE, &attr) == FALSE) {
+    rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
         /* not a key, so nothing to do. Just return. */
         return CKR_OK;
     }
-
-    keytype = *(CK_KEY_TYPE *) attr->pValue;
 
     memset(blob, 0, sizeof(blob));
 
@@ -2931,10 +2831,10 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKK_AES:
     case CKK_GENERIC_SECRET:
         /* get key value */
-        if (template_attribute_find(obj->template, CKA_VALUE, &attr) == FALSE) {
-            TRACE_ERROR("%s token_specific_object_add incomplete template\n",
-                        __func__);
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(obj->template, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return rc;
         }
         /* attr holds key value specified by user,
          * import that key (make a blob)
@@ -3000,7 +2900,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     memset(csum, 0, sizeof(csum));
 
     /* Get the keytype to use when creating the key object */
-    rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+    rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -3210,9 +3110,10 @@ static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
         return CK_FALSE;
     }
 
-    if (!template_attribute_find(key_obj->template, CKA_ECDSA_PARAMS, &attr)) {
-        TRACE_ERROR("%s Could not find CKA_ECDSA_PARAMS for the key.\n",
-                   __func__);
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
+                                         &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
         object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
         return CK_FALSE;
@@ -3917,7 +3818,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* Get the keytype to use when creating the key object */
-    rc = ep11_get_keytype(attrs, attrs_len, mech, &ktype, &class);
+    rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -4831,7 +4732,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         }
 
         /* copy CKA_EC_PARAMS/CKA_ECDSA_PARAMS to private template  */
-        if (template_attribute_find(publ_tmpl, CKA_EC_PARAMS, &attr)) {
+        rc = template_attribute_get_non_empty(publ_tmpl, CKA_EC_PARAMS, &attr);
+        if (rc == CKR_OK) {
             rc = build_attribute(attr->type, attr->pValue,
                                  attr->ulValueLen, &n_attr);
             if (rc != CKR_OK) {
@@ -4848,7 +4750,9 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
             }
         }
 
-        if (template_attribute_find(publ_tmpl, CKA_ECDSA_PARAMS, &attr)) {
+        rc = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS,
+                                              &attr);
+        if (rc == CKR_OK) {
             rc = build_attribute(attr->type, attr->pValue,
                                  attr->ulValueLen, &n_attr);
             if (rc != CKR_OK) {
@@ -5198,14 +5102,14 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ATTRIBUTE *n_attr = NULL;
 
     /* Get the keytype to use when creating the key object */
-    rc = ep11_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+    rc = pkcs_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
                           pMechanism, &priv_ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
 
-    rc = ep11_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
+    rc = pkcs_get_keytype(pPublicKeyTemplate, ulPublicKeyAttributeCount,
                           pMechanism, &publ_ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
@@ -5371,23 +5275,24 @@ static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                                CK_BYTE **blob, size_t *blobsize)
 {
     CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
 
     UNUSED(tokdata);
 
     /* blob already exists */
-    if (template_attribute_find(key_obj->template, CKA_IBM_OPAQUE, &attr) &&
-        (attr->ulValueLen > 0)) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                          &attr);
+    if (rc == CKR_OK) {
         *blob = attr->pValue;
         *blobsize = (size_t) attr->ulValueLen;
         TRACE_INFO("%s blob found blobsize=0x%zx\n", __func__, *blobsize);
         return CKR_OK;
     } else {
-
         /* should not happen, imported key types not supported
          * should cause a failing token_specific_object_add
          */
         TRACE_ERROR("%s no blob\n", __func__);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
+        return rc;
     }
 }
 
@@ -6171,12 +6076,11 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_RV rc;
     CK_BYTE *wrapping_blob;
     size_t wrapping_blob_len;
-
+    CK_OBJECT_CLASS class;
     CK_BYTE *wrap_target_blob;
     size_t wrap_target_blob_len;
     int size_query = 0;
     OBJECT *key_obj = NULL, *wrap_key_obj = NULL;
-    CK_ATTRIBUTE *attr;
 
     /* ep11 weakness:
      * it does not set *p_wrapped_key_len if wrapped_key == NULL
@@ -6217,14 +6121,13 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     /* check if wrap mechanism is allowed for the key to be wrapped.
      * AES_ECB and AES_CBC is only allowed to wrap secret keys.
      */
-    if (!template_attribute_find(key_obj->template, CKA_CLASS, &attr)) {
-        TRACE_ERROR("%s No CKA_CLASS attribute found in key template\n",
-                    __func__);
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         goto done;
     }
 
-    if ((*(CK_OBJECT_CLASS *) attr->pValue != CKO_SECRET_KEY) &&
+    if (class != CKO_SECRET_KEY &&
         ((mech->mechanism == CKM_AES_ECB) ||
          (mech->mechanism == CKM_AES_CBC))) {
         TRACE_ERROR("%s Wrap mechanism does not match to target key type\n",
@@ -6390,7 +6293,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                __func__, rc, keyblobsize, mech->mechanism);
 
     /* Get the keytype to use when creating the key object */
-    rc = ep11_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
+    rc = pkcs_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
         goto error;

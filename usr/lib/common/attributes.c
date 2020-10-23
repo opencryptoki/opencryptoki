@@ -86,13 +86,17 @@ CK_RV dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
     for (it = dest; it != (dest + orig_len); it++, orig++) {
         it->type = orig->type;
         it->ulValueLen = orig->ulValueLen;
-        it->pValue = malloc(it->ulValueLen);
-        if (it->pValue == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
+        if (it->ulValueLen > 0) {
+            it->pValue = malloc(it->ulValueLen);
+            if (it->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+            memcpy(it->pValue, orig->pValue, orig->ulValueLen);
+        } else {
+            it->pValue = NULL;
         }
-        memcpy(it->pValue, orig->pValue, orig->ulValueLen);
     }
 
 done:
@@ -122,6 +126,49 @@ CK_ATTRIBUTE_PTR get_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
 }
 
 /*
+ * Return the ULONG attribute value for a given type
+ */
+CK_RV get_ulong_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
+                                   CK_ULONG attrs_len, CK_ULONG type,
+                                   CK_ULONG *value)
+{
+    CK_ATTRIBUTE_PTR attr;
+
+    attr = get_attribute_by_type(attrs, attrs_len, type);
+    if (attr == NULL)
+        return CKR_TEMPLATE_INCOMPLETE;
+
+    if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    *value = *(CK_ULONG *)attr->pValue;
+    return CKR_OK;
+}
+
+/*
+ * Return the BOOL attribute value for a given type
+ */
+CK_RV get_bool_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
+                                   CK_ULONG attrs_len, CK_ULONG type,
+                                   CK_BBOOL *value)
+{
+    CK_ATTRIBUTE_PTR attr;
+
+    attr = get_attribute_by_type(attrs, attrs_len, type);
+    if (attr == NULL)
+        return CKR_TEMPLATE_INCOMPLETE;
+
+    if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    *value = *(CK_BBOOL *)attr->pValue;
+    return CKR_OK;
+}
+/*
  * Reallocate the attribute array and add the new element.
  */
 CK_RV add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs,
@@ -129,14 +176,16 @@ CK_RV add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs,
                              CK_BYTE_PTR value, CK_ULONG value_len)
 {
     CK_ATTRIBUTE_PTR attrs;
-    CK_BYTE_PTR copied_value;
+    CK_BYTE_PTR copied_value = NULL;
 
-    copied_value = malloc(value_len);
-    if (copied_value == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+    if (value_len > 0) {
+        copied_value = malloc(value_len);
+        if (copied_value == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        memcpy(copied_value, value, value_len);
     }
-    memcpy(copied_value, value, value_len);
 
     attrs = realloc(*p_attrs, sizeof(**p_attrs) * (*p_attrs_len + 1));
     if (attrs == NULL) {

@@ -75,6 +75,11 @@ CK_RV cert_validate_attribute(STDLL_TokData_t *tokdata,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
+        if (attr->ulValueLen != sizeof(CK_CERTIFICATE_TYPE) ||
+            attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         type = *(CK_CERTIFICATE_TYPE *) attr->pValue;
         if (type == CKC_X_509 || type >= CKC_VENDOR_DEFINED) {
             return CKR_OK;
@@ -83,6 +88,11 @@ CK_RV cert_validate_attribute(STDLL_TokData_t *tokdata,
         return CKR_ATTRIBUTE_VALUE_INVALID;
     case CKA_TRUSTED:
         /* Can only be set to CK_TRUE by the SO user */
+        if (attr->ulValueLen != sizeof(CK_BBOOL) ||
+            attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (*((CK_BBOOL *)attr->pValue) == CK_TRUE &&
             !session_mgr_so_session_exists(tokdata)) {
             return CKR_USER_NOT_LOGGED_IN;

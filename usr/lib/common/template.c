@@ -77,6 +77,12 @@ CK_RV template_add_attributes(TEMPLATE *tmpl, CK_ATTRIBUTE *pTemplate,
                         pTemplate[i].type);
             return CKR_ATTRIBUTE_TYPE_INVALID;
         }
+        if (pTemplate[i].ulValueLen > 0 && pTemplate[i].pValue == NULL) {
+            TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
+                        pTemplate[i].type);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
         attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) +
                                        pTemplate[i].ulValueLen);
         if (!attr) {
@@ -276,6 +282,85 @@ CK_BBOOL template_attribute_find(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
     return FALSE;
 }
 
+/*
+ * Find the ULONG attribute in the list and check that the value length is
+ * sizeof(CK_ULONG) and that it is non-empty.
+ * Returns CKR_TEMPLATE_INCOMPLETE if the attribute is not found.
+ * Returns CKR_ATTRIBUTE_VALUE_INVALID if the attribute value is empty or of
+ * invalid size.
+ */
+CK_RV template_attribute_get_ulong(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                      CK_ULONG *value)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL found;
+
+    found = template_attribute_find(tmpl, type, &attr);
+    if (!found || attr == NULL)
+        return CKR_TEMPLATE_INCOMPLETE;
+
+    if (attr->ulValueLen != sizeof(CK_LONG) || attr->pValue == NULL) {
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    *value = *(CK_ULONG *)attr->pValue;
+    return CKR_OK;
+}
+
+/*
+ * Find the BOOL attribute in the list and check that the value length is
+ * sizeof(CK_ULONG) and that it is non-empty.
+ * Returns CKR_TEMPLATE_INCOMPLETE if the attribute is not found.
+ * Returns CKR_ATTRIBUTE_VALUE_INVALID if the attribute value is empty or of
+ * invalid size.
+ */
+CK_RV template_attribute_get_bool(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                  CK_BBOOL *value)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL found;
+
+    found = template_attribute_find(tmpl, type, &attr);
+    if (!found || attr == NULL)
+        return CKR_TEMPLATE_INCOMPLETE;
+
+    if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    *value = *(CK_BBOOL *)attr->pValue;
+    return CKR_OK;
+}
+
+/*
+ * Find the attribute in the list and check that the value length is > 0  and
+ * that it is non-empty.
+ * Returns CKR_TEMPLATE_INCOMPLETE if the attribute is not found.
+ * Returns CKR_ATTRIBUTE_VALUE_INVALID if the attribute value is empty or of
+ * invalid size.
+ */
+CK_RV template_attribute_get_non_empty(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type,
+                                       CK_ATTRIBUTE **attr)
+{
+    CK_BBOOL found;
+
+    found = template_attribute_find(tmpl, type, attr);
+    if (!found || *attr == NULL) {
+        *attr = NULL;
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    if ((*attr)->ulValueLen == 0 || (*attr)->pValue == NULL) {
+        *attr = NULL;
+        TRACE_DEVEL("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID), type);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 /* template_attribute_find_multiple()
  *
  * find the attributes in the list and return their values
@@ -291,8 +376,12 @@ void template_attribute_find_multiple(TEMPLATE *tmpl,
         parselist[i].found = template_attribute_find(tmpl,
                                                      parselist[i].type, &attr);
 
-        if (parselist[i].found && parselist[i].ptr != NULL)
-            memcpy(parselist[i].ptr, attr->pValue, parselist[i].len);
+        if (parselist[i].found && parselist[i].ptr != NULL) {
+            if (attr->ulValueLen <= parselist[i].len)
+                parselist[i].len = attr->ulValueLen;
+            if (attr->pValue != NULL)
+                memcpy(parselist[i].ptr, attr->pValue, parselist[i].len);
+        }
     }
 }
 
@@ -432,11 +521,11 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
  */
 CK_RV template_check_required_base_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
-    found = template_attribute_find(tmpl, CKA_CLASS, &attr);
-    if (mode == MODE_CREATE && found == FALSE)
+    rc = template_attribute_get_ulong(tmpl, CKA_CLASS, &val);
+    if (mode == MODE_CREATE && rc != CKR_OK)
         return CKR_TEMPLATE_INCOMPLETE;
 
     return CKR_OK;
@@ -461,6 +550,13 @@ CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount, TEMPLATE *t2)
             return FALSE;
 
         if (attr1->ulValueLen != attr2->ulValueLen)
+            return FALSE;
+
+        if (attr1->ulValueLen == 0)
+            return TRUE;
+
+        if ((attr1->pValue == NULL && attr1->ulValueLen > 0) ||
+            (attr2->pValue == NULL && attr2->ulValueLen > 0))
             return FALSE;
 
         if (memcmp(attr1->pValue, attr2->pValue, attr1->ulValueLen) != 0)
@@ -795,7 +891,9 @@ CK_BBOOL template_get_class(TEMPLATE *tmpl, CK_ULONG *class,
     while (node) {
         CK_ATTRIBUTE *attr = (CK_ATTRIBUTE *) node->data;
 
-        if (attr->type == CKA_CLASS) {
+        if (attr->type == CKA_CLASS &&
+            attr->ulValueLen == sizeof(CK_OBJECT_CLASS) &&
+            attr->pValue != NULL) {
             *class = *(CK_OBJECT_CLASS *) attr->pValue;
             found = TRUE;
         }
@@ -803,10 +901,14 @@ CK_BBOOL template_get_class(TEMPLATE *tmpl, CK_ULONG *class,
         /* underneath, these guys are both CK_ULONG so we
          * could combine this
          */
-        if (attr->type == CKA_CERTIFICATE_TYPE)
+        if (attr->type == CKA_CERTIFICATE_TYPE &&
+            attr->ulValueLen == sizeof(CK_CERTIFICATE_TYPE) &&
+            attr->pValue != NULL)
             *subclass = *(CK_CERTIFICATE_TYPE *) attr->pValue;
 
-        if (attr->type == CKA_KEY_TYPE)
+        if (attr->type == CKA_KEY_TYPE &&
+            attr->ulValueLen == sizeof(CK_KEY_TYPE) &&
+            attr->pValue != NULL)
             *subclass = *(CK_KEY_TYPE *) attr->pValue;
 
         node = node->next;
@@ -884,8 +986,6 @@ CK_ULONG template_get_compressed_size(TEMPLATE *tmpl)
  */
 CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
 {
-    CK_ATTRIBUTE *sensitive = NULL;
-    CK_ATTRIBUTE *extractable = NULL;
     CK_ULONG class;
     CK_ULONG subclass;
     CK_BBOOL sensitive_val;
@@ -910,18 +1010,14 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
     if (class != CKO_PRIVATE_KEY && class != CKO_SECRET_KEY)
         return TRUE;
 
-    sensitive_val = template_attribute_find(tmpl, CKA_SENSITIVE, &sensitive);
-    extractable_val = template_attribute_find(tmpl, CKA_EXTRACTABLE,
-                                              &extractable);
-    if (sensitive_val && extractable_val) {
-        sensitive_val = *(CK_BBOOL *) sensitive->pValue;
-        extractable_val = *(CK_BBOOL *) extractable->pValue;
-        if (sensitive_val == FALSE && extractable_val == TRUE)
-            return TRUE;
-    } else {
-        /* technically, we should throw an error here... */
+    if (template_attribute_get_bool(tmpl, CKA_SENSITIVE,
+                                    &sensitive_val) != CKR_OK)
         return FALSE;
-    }
+    if (template_attribute_get_bool(tmpl, CKA_EXTRACTABLE,
+                                    &extractable_val) != CKR_OK)
+        return FALSE;
+    if (sensitive_val == FALSE && extractable_val == TRUE)
+        return TRUE;
 
     /* at this point, we know the object must have CKA_SENSITIVE = TRUE
      * or CKA_EXTRACTABLE = FALSE (or both).
@@ -1150,6 +1246,11 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG class,
                                   CK_ULONG subclass, CK_ULONG mode)
 {
+    if (attr->ulValueLen > 0 && attr->pValue == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
     if (class == CKO_DATA) {
         return data_object_validate_attribute(tmpl, attr, mode);
     } else if (class == CKO_CERTIFICATE) {
@@ -1306,21 +1407,38 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     }
     switch (attr->type) {
     case CKA_CLASS:
+        if (attr->ulValueLen != sizeof(CK_OBJECT_CLASS) ||
+            attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN | MODE_UNWRAP)) !=
             0)
             return CKR_OK;
         break;
     case CKA_TOKEN:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
         break;
     case CKA_PRIVATE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
         break;
     case CKA_ALWAYS_AUTHENTICATE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
@@ -1335,15 +1453,27 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_OK;
         break;
     case CKA_MODIFIABLE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         /* CKA_MODIFIABLE can only be set on creation and copy */
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
         break;
     case CKA_DESTROYABLE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         return CKR_OK;
     case CKA_COPYABLE:
         /* CKA_COPYABLE can not be set to TRUE once it was set to FALSE */
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;

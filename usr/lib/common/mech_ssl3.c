@@ -22,6 +22,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
 
@@ -101,10 +102,9 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
             return rc;
     }
 
-    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -241,10 +241,10 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
             else
                 return rc;
         }
-        rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                              &attr);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
@@ -361,10 +361,9 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
-    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -525,10 +524,11 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
             else
                 return rc;
         }
-        rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-        if (rc == FALSE) {
+
+        rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                              &attr);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
@@ -632,10 +632,9 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
-    rc = template_attribute_find(key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
@@ -989,8 +988,11 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *extract_attr = NULL;
     CK_BYTE *base_key_value = NULL;
     CK_BYTE key_data[48];
-    CK_ULONG i, base_key_len;
+    CK_ULONG base_key_len;
     CK_BBOOL flag;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_ULONG value_len;
     CK_RV rc;
 
     CK_SSL3_MASTER_KEY_DERIVE_PARAMS *params = NULL;
@@ -1011,22 +1013,22 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
-    rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find <the_attribute_name> in the template\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto error;
-    } else {
-        base_key_len = attr->ulValueLen;
-        base_key_value = attr->pValue;
 
-        if (base_key_len != 48) {
-            TRACE_ERROR("The base key's length is not 48.\n");
-            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-            goto error;
-        }
+    rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+        goto error;
     }
 
+    base_key_len = attr->ulValueLen;
+    base_key_value = attr->pValue;
+
+    if (base_key_len != 48) {
+        TRACE_ERROR("The base key's length is not 48.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
 
     // this mechanism implies the following attributes:
     //    CKA_CLASS     : CKO_SECRET_KEY
@@ -1036,33 +1038,40 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // wacky values.  it would have been better if Cryptoki had forbidden
     // these attributes from appearing in the template
     //
-    for (i = 0, attr = pTemplate; i < ulCount; i++, attr++) {
-        CK_OBJECT_CLASS class;
-        CK_KEY_TYPE keytype;
-        CK_ULONG value_len;
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS,
+                                     &class);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && class != CKO_SECRET_KEY) {
+        TRACE_ERROR("This operation requires a secret key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
 
-        if (attr->type == CKA_CLASS) {
-            class = *(CK_OBJECT_CLASS *) attr->pValue;
-            if (class != CKO_SECRET_KEY) {
-                TRACE_ERROR("This operation requires a secret key.\n");
-                rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-                goto error;
-            }
-        } else if (attr->type == CKA_KEY_TYPE) {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-            if (keytype != CKK_GENERIC_SECRET) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-                rc = CKR_KEY_TYPE_INCONSISTENT;
-                goto error;
-            }
-        } else if (attr->type == CKA_VALUE_LEN) {
-            value_len = *(CK_ULONG *) attr->pValue;
-            if (value_len != 48) {
-                TRACE_ERROR("The derived key's length is not 48.\n");
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        }
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &keytype);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && keytype != CKK_GENERIC_SECRET) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto error;
+    }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &value_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && value_len != 48) {
+        TRACE_ERROR("The derived key's length is not 48.\n");
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
     }
 
     memset(key_data, 0x0, sizeof(key_data));
@@ -1136,24 +1145,20 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // if base key has ALWAYS_SENSITIVE = FALSE, then new key does too
     // otherwise, the value of CKA_ALWAYS_SENSITIVE = CKA_SENSITIVE
     //
-    rc = template_attribute_find(base_key_obj->template, CKA_ALWAYS_SENSITIVE,
-                                 &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                    CKA_ALWAYS_SENSITIVE, &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_ALWAYS_SENSITIVE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto error;
     }
 
-    flag = *(CK_BBOOL *) attr->pValue;
     if (flag == TRUE) {
-        rc = template_attribute_find(derived_key_obj->template, CKA_SENSITIVE,
-                                     &attr);
-        if (rc == FALSE) {
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_SENSITIVE, &flag);
+        if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_SENSITIVE in the template\n");
-            rc = CKR_FUNCTION_FAILED;
             goto error;
         }
-        flag = *(CK_BBOOL *) attr->pValue;
     }
 
     rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
@@ -1165,25 +1170,20 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // if base key has NEVER_EXTRACTABLE = FASE, the new key does too
     // otherwise, the value of CKA_NEVER_EXTRACTABLE = !CKA_EXTRACTABLE
     //
-    rc = template_attribute_find(base_key_obj->template, CKA_NEVER_EXTRACTABLE,
-                                 &attr);
-    if (rc == FALSE) {
-        TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                     CKA_NEVER_EXTRACTABLE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Could not find CKA_NEVER_EXTRACTABLE in the template.\n");
         goto error;
     }
 
-    flag = *(CK_BBOOL *) attr->pValue;
     if (flag == TRUE) {
-        rc = template_attribute_find(derived_key_obj->template, CKA_EXTRACTABLE,
-                                     &attr);
-        if (rc == FALSE) {
-            TRACE_DEVEL("Failed to build CKA_EXTRACTABLE attribute.\n");
-            rc = CKR_FUNCTION_FAILED;
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_EXTRACTABLE, &flag);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Could not find CKA_EXTRACTABLE in the template.\n");
             goto error;
         }
-
-        flag = *(CK_BBOOL *) attr->pValue;
 
         flag = (~flag) & 0x1;
     }
@@ -1256,11 +1256,13 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     CK_BYTE *server_write_key_value = NULL;
     CK_BYTE *client_IV = NULL;
     CK_BYTE *server_IV = NULL;
-    CK_KEY_TYPE keytype = 0xFFFFFFFF;
+    CK_KEY_TYPE keytype;
     CK_BYTE variable_data[26];
     CK_BYTE key_block[(16 * 26) + (4 * 16)];
     CK_ULONG i, key_material_loop_count;
     CK_ULONG iv_len = 0, MAC_len, write_len;
+    CK_BBOOL tmp;
+    CK_OBJECT_CLASS cl;
     CK_RV rc;
 
     CK_BYTE *base_key_value = NULL;
@@ -1299,10 +1301,10 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
-    rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
+                                          &attr);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
         goto error;
     }
 
@@ -1333,56 +1335,73 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     // CKA_NEVER_EXTRACTABLE, if present, are not allowed to differ from
     // the base key.  We also check for stupid stuff.
     //
-    for (i = 0, attr = pTemplate; i < ulCount; i++, attr++) {
-        CK_BBOOL tmp;
-
-        if (attr->type == CKA_KEY_TYPE) {
-            keytype = *(CK_KEY_TYPE *) attr->pValue;
-        } else if (attr->type == CKA_SENSITIVE) {
-            tmp = *(CK_BBOOL *) attr->pValue;
-            if (tmp != base_sensitive) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        } else if (attr->type == CKA_ALWAYS_SENSITIVE) {
-            tmp = *(CK_BBOOL *) attr->pValue;
-            if (tmp != base_always_sensitive) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        } else if (attr->type == CKA_EXTRACTABLE) {
-            tmp = *(CK_BBOOL *) attr->pValue;
-            if (tmp != base_extractable) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        } else if (attr->type == CKA_NEVER_EXTRACTABLE) {
-            tmp = *(CK_BBOOL *) attr->pValue;
-            if (tmp != base_never_extractable) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        } else if (attr->type == CKA_CLASS) {
-            CK_OBJECT_CLASS cl = *(CK_OBJECT_CLASS *) attr->pValue;
-            if (cl != CKO_SECRET_KEY) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                rc = CKR_TEMPLATE_INCONSISTENT;
-                goto error;
-            }
-        }
-    }
-
-    // a key type must be specified for the client and server write keys
-    //
-    if (keytype == 0xFFFFFFFF) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
         goto error;
     }
+
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS,
+                                     &cl);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && cl != CKO_SECRET_KEY) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
+    }
+
+    rc = get_bool_attribute_by_type(pTemplate, ulCount, CKA_SENSITIVE,
+                                    &tmp);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && tmp != base_sensitive) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
+    }
+
+    rc = get_bool_attribute_by_type(pTemplate, ulCount, CKA_ALWAYS_SENSITIVE,
+                                    &tmp);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && tmp != base_always_sensitive) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
+    }
+
+    rc = get_bool_attribute_by_type(pTemplate, ulCount, CKA_EXTRACTABLE,
+                                    &tmp);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && tmp != base_extractable) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
+    }
+
+    rc = get_bool_attribute_by_type(pTemplate, ulCount, CKA_NEVER_EXTRACTABLE,
+                                    &tmp);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && tmp != base_never_extractable) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto error;
+    }
+
     // figure out how much key material we need to generate
     //
     key_material_loop_count = 2 * ((params->ulMacSizeInBits + 7) / 8) +
@@ -1629,13 +1648,22 @@ CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
             pTemplate[i].type != CKA_VALUE_LEN) {
             attr->type = pTemplate[i].type;
             attr->ulValueLen = pTemplate[i].ulValueLen;
-            attr->pValue = (char *) malloc(attr->ulValueLen);
-            if (!attr->pValue) {
-                rc = CKR_HOST_MEMORY;
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                goto error;
+            if (attr->ulValueLen > 0) {
+                if (pTemplate[i].pValue == NULL) {
+                    rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    goto error;
+                }
+                attr->pValue = (char *) malloc(attr->ulValueLen);
+                if (!attr->pValue) {
+                    rc = CKR_HOST_MEMORY;
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    goto error;
+                }
+                memcpy(attr->pValue, pTemplate[i].pValue, attr->ulValueLen);
+            } else {
+                attr->pValue = NULL;
             }
-            memcpy(attr->pValue, pTemplate[i].pValue, attr->ulValueLen);
             cnt++;
             attr++;
         }
@@ -1828,12 +1856,21 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
             pTemplate[i].type != CKA_VALUE_LEN) {
             attr->type = pTemplate[i].type;
             attr->ulValueLen = pTemplate[i].ulValueLen;
-            attr->pValue = (char *) malloc(attr->ulValueLen);
-            if (!attr->pValue) {
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                goto error;
+            if (attr->ulValueLen > 0) {
+                if (pTemplate[i].pValue == NULL) {
+                    rc = CKR_ATTRIBUTE_VALUE_INVALID;
+                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                    goto error;
+                }
+                attr->pValue = (char *) malloc(attr->ulValueLen);
+                if (!attr->pValue) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    goto error;
+                }
+                memcpy(attr->pValue, pTemplate[i].pValue, attr->ulValueLen);
+            } else {
+                attr->pValue = NULL;
             }
-            memcpy(attr->pValue, pTemplate[i].pValue, attr->ulValueLen);
             cnt++;
             attr++;
         }

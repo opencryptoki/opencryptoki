@@ -511,7 +511,7 @@ void p11_attribute_trim(CK_ATTRIBUTE *attr)
     CK_BYTE_PTR ptr;
     CK_ULONG size;
 
-    if (attr != NULL) {
+    if (attr != NULL && attr->ulValueLen > 0 && attr->pValue != NULL) {
         size = attr->ulValueLen;
         ptr = p11_bigint_trim(attr->pValue, &size);
 

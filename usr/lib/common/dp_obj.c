@@ -32,14 +32,14 @@
 //
 CK_RV dp_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
-    found = template_attribute_find(tmpl, CKA_KEY_TYPE, &attr);
-    if (!found) {
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &val);
+    if (rc != CKR_OK) {
         if (mode == MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+            TRACE_ERROR("Could not find CKA_KEY_TYPE\n");
+            return rc;
         }
     }
 
@@ -112,6 +112,8 @@ CK_RV dp_x9dh_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     if (mode == MODE_CREATE) {
         found = template_attribute_find(tmpl, CKA_PRIME, &attr);
@@ -132,15 +134,15 @@ CK_RV dp_x9dh_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             return CKR_TEMPLATE_INCOMPLETE;
         }
     } else if (mode == MODE_KEYGEN) {
-        found = template_attribute_find(tmpl, CKA_PRIME_BITS, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(tmpl, CKA_PRIME_BITS, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME_BITS\n");
+            return rc;
         }
-        found = template_attribute_find(tmpl, CKA_SUBPRIME_BITS, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(tmpl, CKA_SUBPRIME_BITS, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SUBPRIME_BITS\n");
+            return rc;
         }
     }
 
@@ -182,12 +184,20 @@ CK_RV dp_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 {
     switch (attr->type) {
     case CKA_KEY_TYPE:
+        if (attr->ulValueLen != sizeof(CK_KEY_TYPE) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_LOCAL:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
                         attr->type);
@@ -212,6 +222,10 @@ CK_RV dp_dsa_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         return CKR_OK;
     case CKA_PRIME_BITS:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE) {
             TRACE_ERROR("%s\n", ock_err(ERR_DOMAIN_PARAMS_INVALID));
             return CKR_DOMAIN_PARAMS_INVALID;
@@ -247,6 +261,10 @@ CK_RV dp_dh_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         return CKR_OK;
     case CKA_PRIME_BITS:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE) {
             TRACE_ERROR("%s\n", ock_err(ERR_DOMAIN_PARAMS_INVALID));
             return CKR_DOMAIN_PARAMS_INVALID;
@@ -276,6 +294,10 @@ CK_RV dp_x9dh_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         return CKR_OK;
     case CKA_PRIME_BITS:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE) {
             TRACE_ERROR("%s\n", ock_err(ERR_DOMAIN_PARAMS_INVALID));
             return CKR_DOMAIN_PARAMS_INVALID;
@@ -294,6 +316,10 @@ CK_RV dp_x9dh_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         }
         return CKR_OK;
     case CKA_SUBPRIME_BITS:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
         if (mode == MODE_CREATE) {
             TRACE_ERROR("%s\n", ock_err(ERR_DOMAIN_PARAMS_INVALID));
             return CKR_DOMAIN_PARAMS_INVALID;

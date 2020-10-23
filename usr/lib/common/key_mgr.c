@@ -32,6 +32,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
 
@@ -48,9 +49,8 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
                            CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
-    CK_ULONG i, keyclass, subclass = 0;
+    CK_ULONG keyclass, subclass = 0;
     CK_BBOOL flag;
     CK_RV rc;
 
@@ -70,19 +70,23 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     // it would have been more logical for Cryptoki to forbid specifying
     // the CKA_CLASS attribute when generating a key
     //
-    for (i = 0; i < ulCount; i++) {
-        if (pTemplate[i].type == CKA_CLASS) {
-            keyclass = *(CK_OBJECT_CLASS *) pTemplate[i].pValue;
-            if (keyclass != CKO_SECRET_KEY) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
-            }
-        }
-
-        if (pTemplate[i].type == CKA_KEY_TYPE)
-            subclass = *(CK_ULONG *) pTemplate[i].pValue;
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS,
+                                     &keyclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && keyclass != CKO_SECRET_KEY) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &subclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
 
     switch (mech->mechanism) {
     case CKM_DES_KEY_GEN:
@@ -194,45 +198,36 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     // to their appropriate values.  this only applies to CKO_SECRET_KEY
     // and CKO_PRIVATE_KEY objects
     //
-    flag = template_attribute_find(key_obj->template, CKA_SENSITIVE, &attr);
-    if (flag == TRUE) {
-        flag = *(CK_BBOOL *) attr->pValue;
-
-        rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
-                             &new_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build attribute failed.\n");
-            goto error;
-        }
-        template_update_attribute(key_obj->template, new_attr);
-
-    } else {
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_bool(key_obj->template, CKA_SENSITIVE, &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
         goto error;
     }
 
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build attribute failed.\n");
+        goto error;
+    }
+    template_update_attribute(key_obj->template, new_attr);
 
-    flag = template_attribute_find(key_obj->template, CKA_EXTRACTABLE, &attr);
-    if (flag == TRUE) {
-        flag = *(CK_BBOOL *) attr->pValue;
-
-        rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
-                             &new_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed\n");
-            goto error;
-        }
-        if (flag == TRUE)
-            *(CK_BBOOL *) new_attr->pValue = FALSE;
-
-        template_update_attribute(key_obj->template, new_attr);
-
-    } else {
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
         goto error;
     }
+
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    if (flag == TRUE)
+        *(CK_BBOOL *) new_attr->pValue = FALSE;
+
+    template_update_attribute(key_obj->template, new_attr);
 
     /* add/update CKA_LOCAL with value true to the template */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
@@ -277,9 +272,9 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 {
     OBJECT *publ_key_obj = NULL;
     OBJECT *priv_key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
-    CK_ULONG i, keyclass, subclass = 0;
+    CK_ULONG keyclass, subclass = 0;
+    CK_ULONG temp;
     CK_BBOOL flag;
     CK_RV rc;
 
@@ -302,38 +297,45 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     // it would have been more logical for Cryptoki to forbid specifying
     // the CKA_CLASS attribute when generating a key
     //
-    for (i = 0; i < publ_count; i++) {
-        if (publ_tmpl[i].type == CKA_CLASS) {
-            keyclass = *(CK_OBJECT_CLASS *) publ_tmpl[i].pValue;
-            if (keyclass != CKO_PUBLIC_KEY) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
-            }
-        }
-
-        if (publ_tmpl[i].type == CKA_KEY_TYPE)
-            subclass = *(CK_ULONG *) publ_tmpl[i].pValue;
+    rc = get_ulong_attribute_by_type(publ_tmpl, publ_count, CKA_CLASS,
+                                     &keyclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && keyclass != CKO_PUBLIC_KEY) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
     }
 
-
-    for (i = 0; i < priv_count; i++) {
-        if (priv_tmpl[i].type == CKA_CLASS) {
-            keyclass = *(CK_OBJECT_CLASS *) priv_tmpl[i].pValue;
-            if (keyclass != CKO_PRIVATE_KEY) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
-            }
-        }
-
-        if (priv_tmpl[i].type == CKA_KEY_TYPE) {
-            CK_ULONG temp = *(CK_ULONG *) priv_tmpl[i].pValue;
-            if (temp != subclass) {
-                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-                return CKR_TEMPLATE_INCONSISTENT;
-            }
-        }
+    rc = get_ulong_attribute_by_type(publ_tmpl, publ_count, CKA_KEY_TYPE,
+                                     &subclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
+    rc = get_ulong_attribute_by_type(priv_tmpl, priv_count, CKA_CLASS,
+                                     &keyclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && keyclass != CKO_PRIVATE_KEY) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    rc = get_ulong_attribute_by_type(priv_tmpl, priv_count, CKA_KEY_TYPE,
+                                     &temp);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && temp != subclass) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
 
     switch (mech->mechanism) {
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
@@ -437,47 +439,37 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     // to their appropriate values.  this only applies to CKO_SECRET_KEY
     // and CKO_PRIVATE_KEY objects
     //
-    flag =
-        template_attribute_find(priv_key_obj->template, CKA_SENSITIVE, &attr);
-    if (flag == TRUE) {
-        flag = *(CK_BBOOL *) attr->pValue;
-
-        rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
-                             &new_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed.\n");
-            goto error;
-        }
-        template_update_attribute(priv_key_obj->template, new_attr);
-
-    } else {
+    rc = template_attribute_get_bool(priv_key_obj->template, CKA_SENSITIVE,
+                                     &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find CKA_SENSITIVE in key object template.\n");
-        rc = CKR_FUNCTION_FAILED;
         goto error;
     }
 
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed.\n");
+        goto error;
+    }
+    template_update_attribute(priv_key_obj->template, new_attr);
 
-    flag =
-        template_attribute_find(priv_key_obj->template, CKA_EXTRACTABLE, &attr);
-    if (flag == TRUE) {
-        flag = *(CK_BBOOL *) attr->pValue;
-
-        rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
-                             &new_attr);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed.\n");
-            goto error;
-        }
-        if (flag == TRUE)
-            *(CK_BBOOL *) new_attr->pValue = false;
-
-        template_update_attribute(priv_key_obj->template, new_attr);
-
-    } else {
+    rc = template_attribute_get_bool(priv_key_obj->template, CKA_EXTRACTABLE,
+                                     &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key object template.\n");
-        rc = CKR_FUNCTION_FAILED;
         goto error;
     }
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, &true, sizeof(CK_BBOOL),
+                         &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed.\n");
+        goto error;
+    }
+    if (flag == TRUE)
+        *(CK_BBOOL *) new_attr->pValue = false;
+
+    template_update_attribute(priv_key_obj->template, new_attr);
 
     /* add/update CKA_LOCAL with value true to the keypair templates */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
@@ -537,14 +529,12 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *wrapping_key_obj = NULL;
     OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
     CK_BBOOL flag, not_opaque = FALSE;
     CK_RV rc;
-
 
     if (!sess || !wrapped_key_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -569,29 +559,35 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     }
     // is the key-to-be-wrapped EXTRACTABLE?
     //
-    rc = template_attribute_find(key_obj->template, CKA_EXTRACTABLE, &attr);
-    if (rc == FALSE) {
+    rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
+    if (rc != CKR_OK) {
         TRACE_ERROR("Failed to find CKA_EXTRACTABLE in key template.\n");
         // could happen if user tries to wrap a public key
         rc = CKR_KEY_NOT_WRAPPABLE;
         goto done;
-    } else {
-        flag = *(CK_BBOOL *) attr->pValue;
-        if (flag == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_UNEXTRACTABLE));
-            rc = CKR_KEY_UNEXTRACTABLE;
-            goto done;
-        }
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_UNEXTRACTABLE));
+        rc = CKR_KEY_UNEXTRACTABLE;
+        goto done;
     }
 
     /* Is a wrapping key with CKA_TRUSTED = CK_TRUE required? */
-    if (template_attribute_find(key_obj->template, CKA_WRAP_WITH_TRUSTED,
-                                &attr) &&
-        attr != NULL && *(CK_BBOOL *)attr->pValue == TRUE) {
-
-        if (template_attribute_find(wrapping_key_obj->template, CKA_TRUSTED,
-                                    &attr) &&
-            attr != NULL && *(CK_BBOOL *)attr->pValue == FALSE) {
+    rc = template_attribute_get_bool(key_obj->template, CKA_WRAP_WITH_TRUSTED,
+                                     &flag);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        goto done;
+    }
+    if (rc == CKR_OK && flag == TRUE) {
+        rc = template_attribute_get_bool(wrapping_key_obj->template,
+                                        CKA_TRUSTED, &flag);
+        if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            goto done;
+        }
+         if (rc != CKR_OK || flag == FALSE) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_WRAPPABLE));
             rc = CKR_KEY_NOT_WRAPPABLE;
             goto done;
@@ -601,13 +597,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     // what kind of key are we trying to wrap?  make sure the mechanism is
     // allowed to wrap this kind of key
     //
-    rc = template_attribute_find(key_obj->template, CKA_CLASS, &attr);
-    if (rc == FALSE) {
-        TRACE_DEVEL("CKA_CLASS is missing for key to be wrapped.\n");
-        rc = CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         goto done;
-    } else {
-        class = *(CK_OBJECT_CLASS *) attr->pValue;
     }
 
     // pkcs11v2-20rc3, page 178
@@ -686,13 +679,11 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
     // extract the secret data to be wrapped
     //
-    rc = template_attribute_find(key_obj->template, CKA_KEY_TYPE, &attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Failed to find CKA_KEY_TYPE in key template.\n");
-        rc = CKR_KEY_NOT_WRAPPABLE;
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
         goto done;
-    } else {
-        keytype = *(CK_KEY_TYPE *) attr->pValue;
     }
 
     switch (keytype) {
@@ -897,8 +888,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
     CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
-    CK_ULONG i;
-    CK_BBOOL found_class, found_type, fromend, not_opaque = FALSE;
+    CK_BBOOL fromend, not_opaque = FALSE;
     CK_RV rc;
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
@@ -915,9 +905,6 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    found_class = FALSE;
-    found_type = FALSE;
-
     /*
      * pkcs11v2-20
      * C_WrapKey can be used in following situations:
@@ -930,27 +917,17 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
      *
      * extract key type and key class from the passed in attributes
      */
-
-    for (i = 0; i < attrib_count; i++) {
-        switch (attributes[i].type) {
-        case CKA_CLASS:
-            keyclass = *(CK_OBJECT_CLASS *) attributes[i].pValue;
-            found_class = TRUE;
-            break;
-        case CKA_KEY_TYPE:
-            keytype = *(CK_KEY_TYPE *) attributes[i].pValue;
-            found_type = TRUE;
-            break;
-        }
+    rc = get_ulong_attribute_by_type(attributes, attrib_count, CKA_CLASS,
+                                     &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        goto done;
     }
 
-    // we need both key class and key type in template.
-    // we can be a bit lenient for private key since can extract key type
-    // from BER-encoded information.
-
-    if (found_class == FALSE || found_type == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = get_ulong_attribute_by_type(attributes, attrib_count, CKA_KEY_TYPE,
+                                     &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
         goto done;
     }
 

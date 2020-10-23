@@ -35,6 +35,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
 
@@ -50,7 +51,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     CK_RV rc;
-    CK_ULONG i, keyclass = 0, keytype = 0;
+    CK_ULONG keyclass = 0, keytype = 0;
     CK_ATTRIBUTE *new_attr;
     OBJECT *temp_obj = NULL;
 
@@ -72,17 +73,22 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
         return CKR_KEY_HANDLE_INVALID;
     }
     // Extract the object class and keytype from the supplied template.
-    for (i = 0; i < ulCount; i++) {
-        if (pTemplate[i].type == CKA_CLASS) {
-            keyclass = *(CK_OBJECT_CLASS *) pTemplate[i].pValue;
-            if (keyclass != CKO_SECRET_KEY) {
-                TRACE_ERROR("This operation requires a secret key.\n");
-                return CKR_KEY_FUNCTION_NOT_PERMITTED;
-            }
-        }
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_CLASS,
+                                     &keyclass);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+    if (rc == CKR_OK && keyclass != CKO_SECRET_KEY) {
+        TRACE_ERROR("This operation requires a secret key.\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
 
-        if (pTemplate[i].type == CKA_KEY_TYPE)
-            keytype = *(CK_ULONG *) pTemplate[i].pValue;
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_KEY_TYPE,
+                                     &keytype);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
     // Extract public-key from mechanism parameters. base-key contains the
@@ -158,28 +164,40 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
             return rc;
     }
     // Extract secret (x) from base_key
-    rc = template_attribute_find(base_key_obj->template, CKA_VALUE, &temp_attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        rc = CKR_FUNCTION_FAILED;
+    rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
+                                          &temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the base key\n");
         goto done;
-    } else {
-        memset(x, 0, sizeof(x));
-        x_len = temp_attr->ulValueLen;
-        memcpy(x, (CK_BYTE *) temp_attr->pValue, x_len);
     }
 
-    // Extract prime (p) from base_key
-    rc = template_attribute_find(base_key_obj->template, CKA_PRIME, &temp_attr);
-    if (rc == FALSE) {
-        TRACE_ERROR("Could not find CKA_PRIME in the template\n");
-        rc = CKR_FUNCTION_FAILED;
+    if (temp_attr->ulValueLen > sizeof(x)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
         goto done;
-    } else {
-        memset(p, 0, sizeof(p));
-        p_len = temp_attr->ulValueLen;
-        memcpy(p, (CK_BYTE *) temp_attr->pValue, p_len);
     }
+
+    memset(x, 0, sizeof(x));
+    x_len = temp_attr->ulValueLen;
+    memcpy(x, (CK_BYTE *) temp_attr->pValue, x_len);
+
+    // Extract prime (p) from base_key
+    rc = template_attribute_get_non_empty(base_key_obj->template, CKA_PRIME,
+                                          &temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PRIME for the base key\n");
+        goto done;
+    }
+
+    if (temp_attr->ulValueLen > sizeof(p)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        rc = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto done;
+    }
+
+    memset(p, 0, sizeof(p));
+    p_len = temp_attr->ulValueLen;
+    memcpy(p, (CK_BYTE *) temp_attr->pValue, p_len);
 
     p_other_pubkey = (CK_BYTE *) other_pubkey;
 

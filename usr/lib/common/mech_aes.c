@@ -3363,19 +3363,18 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     CK_ATTRIBUTE *key_type_attr = NULL;
     CK_ATTRIBUTE *class_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
-    CK_ATTRIBUTE *val_len_attr = NULL;
     CK_BYTE *aes_key = NULL;
     CK_ULONG rc;
     CK_ULONG key_size;
     CK_ULONG token_keysize;
-    CK_BBOOL found = FALSE;
     CK_BBOOL is_opaque = FALSE;
 
-    found = template_attribute_find(tmpl, CKA_VALUE_LEN, &val_len_attr);
-    if (found == FALSE)
-        return CKR_TEMPLATE_INCONSISTENT;
+    rc = template_attribute_get_ulong(tmpl, CKA_VALUE_LEN, &key_size);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE_LEN for the key.\n");
+        return rc;
+    }
 
-    key_size = *(CK_ULONG *) val_len_attr->pValue;
     if (key_size != AES_KEY_SIZE_128 &&
         key_size != AES_KEY_SIZE_192 && key_size != AES_KEY_SIZE_256) {
         return CKR_ATTRIBUTE_VALUE_INVALID;

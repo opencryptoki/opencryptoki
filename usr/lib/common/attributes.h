@@ -30,6 +30,14 @@ CK_RV dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
 CK_ATTRIBUTE_PTR get_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
                                        CK_ULONG attrs_len, CK_ULONG type);
 
+CK_RV get_ulong_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
+                                   CK_ULONG attrs_len, CK_ULONG type,
+                                   CK_ULONG *value);
+
+CK_RV get_bool_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
+                                   CK_ULONG attrs_len, CK_ULONG type,
+                                   CK_BBOOL *value);
+
 CK_RV add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs,
                              CK_ULONG_PTR p_attrs_len, CK_ULONG type,
                              CK_BYTE_PTR value, CK_ULONG value_len);
