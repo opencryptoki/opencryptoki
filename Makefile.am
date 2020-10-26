@@ -165,6 +165,8 @@ if ENABLE_EP11TOK
 	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
 		cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		rm -f PKCS11_EP11.so; fi
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf 
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11cpfilter.conf
 endif
 if ENABLE_ICATOK
 	if test -d $(DESTDIR)$(libdir)/opencryptoki/stdll; then \
