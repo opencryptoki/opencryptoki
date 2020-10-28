@@ -1483,9 +1483,9 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_UNIQUE_ID:
         break;
     default:
-        TRACE_ERROR("%s: %lx\n", ock_err(ERR_TEMPLATE_INCONSISTENT),
+        TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
                     attr->type);
-        return CKR_TEMPLATE_INCONSISTENT;
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     }
 
     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
