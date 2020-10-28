@@ -1,8 +1,8 @@
 %global _hardened_build 1
 
 Name:			opencryptoki
-Summary:		Implementation of the PKCS#11 (Cryptoki) specification v2.20
-Version:		3.15.0
+Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0
+Version:		3.15.1
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base

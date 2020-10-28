@@ -1,3 +1,6 @@
++ openCryptoki 3.15.1
+- Bug fixes
+
 + openCryptoki 3.15
 - common: conform to PKCS 11 3.0 Baseline Provider profile
 - Introduce new vendor defined interface named "Vendor IBM"
