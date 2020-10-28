@@ -1196,10 +1196,18 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-slot1") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id1 = atoi(argv[i]);
         }
         else if (strcmp(argv[i], "-slot2") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id2 = atoi(argv[i]);
         }
 

@@ -92,12 +92,24 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-old") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             old = argv[i];
         } else if (strcmp(argv[i], "-new") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             new = argv[i];
         } else if (strcmp(argv[i], "-slot") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id = atoi(argv[i]);
         } else if (strcmp(argv[i], "-so") == 0) {
             userType = CKU_SO;

@@ -89,12 +89,24 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-sopass") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             sopass = argv[i];
         } else if (strcmp(argv[i], "-userpass") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             userpass = argv[i];
         } else if (strcmp(argv[i], "-slot") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id = atoi(argv[i]);
         } else {
             init_pin_usage(argv[0]);

@@ -77,9 +77,17 @@ int main(int argc, char **argv)
 
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-slot") == 0) {
+            if (i + 1 >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             SLOT_ID = atoi(argv[i + 1]);
             i++;
         } else if (strcmp(argv[i], "-pass") == 0) {
+            if (i + 1 >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             pass = (CK_BYTE_PTR) strdup(argv[i + 1]);
             i++;
         } else {

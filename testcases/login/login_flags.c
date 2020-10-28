@@ -55,6 +55,10 @@ int main(int argc, char **argv)
     /* Parse the command line */
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "-slot", 5) == 0) {
+            if (i + 1 >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id = atoi(argv[i + 1]);
             i++;
             break;

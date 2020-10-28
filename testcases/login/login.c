@@ -26,6 +26,11 @@ int do_LoginLogout(CK_FUNCTION_LIST * funcs, CK_SLOT_ID slot_id,
     CK_SESSION_HANDLE session;
     CK_FLAGS flags = CKF_SERIAL_SESSION;
 
+    if (pass == NULL) {
+        printf("No PIN specified. Use -pass option to specify the PIN\n");
+        return -1;
+    }
+
     if (userType == CKU_SO) {
         flags |= CKF_RW_SESSION;
     }
@@ -72,9 +77,17 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-pass") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("PIN argument missing\n");
+                return -1;
+            }
             pass = argv[i];
         } else if (strcmp(argv[i], "-slot") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             slot_id = atoi(argv[i]);
         } else if (strcmp(argv[i], "-user") == 0) {
             userType = CKU_USER;
