@@ -4116,7 +4116,7 @@ out:
 }
 
 static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
-                                     CK_ULONG data_len)
+                                     CK_ULONG data_len, CK_BBOOL allow_raw)
 {
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, field_len, privlen, padlen;
@@ -4126,10 +4126,17 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
     /* CKA_EC_POINT contains the EC point as OCTET STRING */
     rc = ber_decode_OCTET_STRING((CK_BYTE *)data, &ecpoint, &ecpoint_len,
                                  &field_len);
-    if (rc != CKR_OK || field_len != data_len) {
-        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-        rc = CKR_PUBLIC_KEY_INVALID;
-        goto out;
+    if (rc != CKR_OK || field_len != data_len || ecpoint_len > data_len - 2) {
+        if (!allow_raw) {
+            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+            rc = CKR_PUBLIC_KEY_INVALID;
+            goto out;
+        }
+
+        /* no valid BER OCTET STRING encoding, assume raw octet string */
+        ecpoint = (CK_BYTE *)data;
+        ecpoint_len = data_len;
+        rc = CKR_OK;
     }
 
     /* Check for public key without format byte */
@@ -4237,7 +4244,8 @@ static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
             goto out;
         }
 
-        rc = fill_ec_key_from_pubkey(ec_key, attr->pValue, attr->ulValueLen);
+        rc = fill_ec_key_from_pubkey(ec_key, attr->pValue, attr->ulValueLen,
+                                     FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
             goto out;
@@ -4531,7 +4539,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    rc = fill_ec_key_from_pubkey(ec_pub, pub_bytes, pub_length);
+    rc = fill_ec_key_from_pubkey(ec_pub, pub_bytes, pub_length, TRUE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
         goto out;
