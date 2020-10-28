@@ -552,7 +552,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, h_key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             rc = CKR_KEY_HANDLE_INVALID;
         goto done;
@@ -899,7 +899,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     rc = object_mgr_find_in_map1(tokdata, h_unwrapping_key, &unwrapping_key_obj,
                                  READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             rc = CKR_UNWRAPPING_KEY_HANDLE_INVALID;
         goto done;

@@ -352,7 +352,7 @@ CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -429,7 +429,7 @@ CK_RV rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -514,7 +514,7 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -660,7 +660,7 @@ CK_RV rsa_pkcs_sign(STDLL_TokData_t *tokdata,
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -737,7 +737,7 @@ CK_RV rsa_pkcs_verify(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -806,7 +806,7 @@ CK_RV rsa_pkcs_verify_recover(STDLL_TokData_t *tokdata,
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -877,7 +877,7 @@ CK_RV rsa_x509_encrypt(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -954,7 +954,7 @@ CK_RV rsa_x509_decrypt(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1046,7 +1046,7 @@ CK_RV rsa_x509_sign(STDLL_TokData_t *tokdata,
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1122,7 +1122,7 @@ CK_RV rsa_x509_verify(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1192,7 +1192,7 @@ CK_RV rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
     }
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1271,7 +1271,7 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1355,7 +1355,7 @@ CK_RV rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else

@@ -392,7 +392,7 @@ CK_RV sha_hmac_sign(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else

@@ -4533,7 +4533,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     rc = fill_ec_key_from_pubkey(ec_pub, pub_bytes, pub_length);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+        TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
         goto out;
     }
 
