@@ -160,6 +160,10 @@ int main(int argc, char **argv)
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-slot") == 0) {
             ++i;
+            if (i >= argc) {
+                printf("Slot number missing\n");
+                return -1;
+            }
             SLOT_ID = atoi(argv[i]);
         }
 
