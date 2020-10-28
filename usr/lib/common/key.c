@@ -1838,7 +1838,7 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
     if (keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
         TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: %ld\n",
                     keyform);
-        return CKR_TEMPLATE_INCONSISTENT;
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
     rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
@@ -4786,8 +4786,8 @@ CK_RV des_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     default:
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
@@ -4948,8 +4948,8 @@ CK_RV des2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     default:
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
@@ -5115,8 +5115,8 @@ CK_RV des3_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     default:
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
@@ -5723,8 +5723,8 @@ CK_RV cdmf_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     default:
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
@@ -6077,13 +6077,13 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             val = *(CK_ULONG *) attr->pValue;
             if (val != AES_KEY_SIZE_128 &&
                 val != AES_KEY_SIZE_192 && val != AES_KEY_SIZE_256) {
-                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-                return CKR_TEMPLATE_INCONSISTENT;
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             return CKR_OK;
         }
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
