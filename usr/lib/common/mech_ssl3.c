@@ -95,7 +95,7 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -235,7 +235,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
     if (context->flag == FALSE) {
         rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to acquire key from specified handle");
+            TRACE_ERROR("Failed to acquire key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
                 return CKR_KEY_HANDLE_INVALID;
             else
@@ -355,7 +355,7 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -518,7 +518,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
     if (context->flag == FALSE) {
         rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to acquire key from specified handle");
+            TRACE_ERROR("Failed to acquire key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
                 return CKR_KEY_HANDLE_INVALID;
             else
@@ -626,7 +626,7 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1007,7 +1007,7 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else
@@ -1295,7 +1295,7 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
 
     rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle");
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             return CKR_KEY_HANDLE_INVALID;
         else

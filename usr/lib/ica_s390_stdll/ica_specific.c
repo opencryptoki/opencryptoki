@@ -4322,7 +4322,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     /* Plausibility check */
     if (privlen != attr2->ulValueLen) {
         TRACE_ERROR("Private key length for curve %i mismatch: length from "
-                    "ica_ec_key_new() = %i, length from attribute = %ld",
+                    "ica_ec_key_new() = %i, length from attribute = %ld\n",
                     nid, privlen, attr2->ulValueLen);
         ret = CKR_ATTRIBUTE_VALUE_INVALID;
         goto end;
