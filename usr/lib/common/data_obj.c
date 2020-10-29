@@ -52,6 +52,7 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *class_attr = NULL;
     CK_ATTRIBUTE *app_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
+    CK_ATTRIBUTE *objid_attr = NULL;
 
     // satisfy the compiler
     //
@@ -64,14 +65,17 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_OBJECT_CLASS));
     app_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    objid_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
-    if (!class_attr || !app_attr || !value_attr) {
+    if (!class_attr || !app_attr || !value_attr || !objid_attr) {
         if (class_attr)
             free(class_attr);
         if (app_attr)
             free(app_attr);
         if (value_attr)
             free(value_attr);
+        if (objid_attr)
+            free(objid_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
@@ -84,6 +88,10 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr->ulValueLen = 0; // empty byte array
     value_attr->pValue = NULL;
 
+    objid_attr->type = CKA_OBJECT_ID;
+    objid_attr->ulValueLen = 0; // empty byte array
+    objid_attr->pValue = NULL;
+
     class_attr->type = CKA_CLASS;
     class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
     class_attr->pValue = (CK_BYTE *) class_attr + sizeof(CK_ATTRIBUTE);
@@ -92,6 +100,7 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, app_attr);
     template_update_attribute(tmpl, value_attr);
+    template_update_attribute(tmpl, objid_attr);
 
     return CKR_OK;
 }
@@ -111,6 +120,7 @@ CK_RV data_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     switch (attr->type) {
     case CKA_APPLICATION:
     case CKA_VALUE:
+    case CKA_OBJECT_ID:
         return CKR_OK;
     default:
         return template_validate_base_attribute(tmpl, attr, mode);
