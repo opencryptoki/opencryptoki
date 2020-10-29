@@ -1745,6 +1745,10 @@ CK_RV ec_uncompress_public_key(CK_BYTE *curve, CK_ULONG curve_len,
                                CK_ULONG privkey_len,
                                CK_BYTE *out_pubkey, CK_ULONG *out_len);
 
+CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
+                             CK_BYTE *d, CK_ULONG d_len,
+                             CK_BYTE **point, CK_ULONG *point_len);
+
 // linked-list routines
 //
 DL_NODE *dlist_add_as_first(DL_NODE *list, void *data);
@@ -2355,6 +2359,8 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata,
                                   TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len);
 
 CK_RV priv_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2379,6 +2385,8 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
 CK_RV rsa_publ_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
                                       CK_ULONG mode);
+CK_RV rsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len);
 CK_BBOOL rsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
 CK_RV rsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV rsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2396,6 +2404,8 @@ CK_RV dsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len);
 CK_BBOOL dsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
 CK_RV dsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2413,6 +2423,8 @@ CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                     CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                       CK_BYTE **data, CK_ULONG *data_len);
 CK_BBOOL ecdsa_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
 CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
@@ -2430,6 +2442,8 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
 CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                             CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                  CK_BYTE **data, CK_ULONG *data_len);
 CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
@@ -2447,6 +2461,8 @@ CK_RV dh_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dh_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dh_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                  CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV dh_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                       CK_BYTE **data, CK_ULONG *data_len);
 CK_BBOOL dh_priv_check_exportability(CK_ATTRIBUTE_TYPE type);
 CK_RV dh_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);

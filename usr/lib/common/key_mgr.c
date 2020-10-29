@@ -274,7 +274,8 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     OBJECT *priv_key_obj = NULL;
     CK_ATTRIBUTE *new_attr = NULL;
     CK_ULONG keyclass, subclass = 0;
-    CK_ULONG temp;
+    CK_BYTE *spki = NULL;
+    CK_ULONG temp, spki_length = 0;
     CK_BBOOL flag;
     CK_RV rc;
 
@@ -474,16 +475,38 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     /* add/update CKA_LOCAL with value true to the keypair templates */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed\n");
-            goto error;
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
     }
     template_update_attribute(publ_key_obj->template, new_attr);
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed\n");
-            goto error;
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
     }
     template_update_attribute(priv_key_obj->template, new_attr);
+
+    /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
+    rc = publ_key_get_spki(publ_key_obj->template, subclass, FALSE,
+                           &spki, &spki_length);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("publ_key_get_spki failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(publ_key_obj->template, new_attr);
+    rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(priv_key_obj->template, new_attr);
+    free(spki);
+    spki = NULL;
 
     // at this point, the keys should be fully constructed...assign
     // object handles and store the keys
@@ -508,6 +531,8 @@ error:
         object_free(publ_key_obj);
     if (priv_key_obj)
         object_free(priv_key_obj);
+    if (spki != NULL)
+        free(spki);
 
     *publ_key_handle = 0;
     *priv_key_handle = 0;
