@@ -154,6 +154,7 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *temp_attr;
     OBJECT *base_key_obj = NULL;
     CK_BYTE *p_other_pubkey;
+    CK_BBOOL flag;
 
     rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -163,6 +164,20 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
+
+    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
     // Extract secret (x) from base_key
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
                                           &temp_attr);

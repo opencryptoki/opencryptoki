@@ -1014,6 +1014,19 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
             return rc;
     }
 
+    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
                                           &attr);
     if (rc != CKR_OK) {
@@ -1261,7 +1274,7 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     CK_BYTE key_block[(16 * 26) + (4 * 16)];
     CK_ULONG i, key_material_loop_count;
     CK_ULONG iv_len = 0, MAC_len, write_len;
-    CK_BBOOL tmp;
+    CK_BBOOL tmp, flag;
     CK_OBJECT_CLASS cl;
     CK_RV rc;
 
@@ -1301,6 +1314,20 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         else
             return rc;
     }
+
+    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
                                           &attr);
     if (rc != CKR_OK) {

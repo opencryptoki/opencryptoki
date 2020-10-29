@@ -921,6 +921,7 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     CK_BYTE *oid_p;
     CK_ULONG oid_len;
     CK_ULONG class = 0, keytype = 0;
+    CK_BBOOL flag;
 
     if (token_specific.t_ecdh_pkcs_derive == NULL) {
         TRACE_ERROR("ecdh pkcs derive is not supported by this token.\n");
@@ -935,6 +936,19 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
             return CKR_KEY_HANDLE_INVALID;
         else
             return rc;
+    }
+
+    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
     }
 
     /* Get curve oid from CKA_ECDSA_PARAMS */
