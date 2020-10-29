@@ -1424,3 +1424,98 @@ end:
 
     return rc;
 }
+
+/*
+ * Calculate the EC public key (ECPoint) from the EC private key.
+ */
+CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
+                             CK_BYTE *d, CK_ULONG d_len,
+                             CK_BYTE **point, CK_ULONG *point_len)
+{
+    EC_KEY *eckey = NULL;
+    EC_POINT *pub_key = NULL;
+    const EC_GROUP *group = NULL;
+    int nid, p_len;
+    BIGNUM *bn_d = NULL, *bn_x = NULL, *bn_y = NULL;
+    CK_RV rc = CKR_OK;
+    CK_BYTE *ec_point = NULL;
+    CK_ULONG ec_point_len;
+
+    nid = ec_nid_from_oid(parms, parms_len);
+    if (nid == -1)
+        return CKR_CURVE_NOT_SUPPORTED;
+
+    bn_d = BN_bin2bn(d, d_len, NULL);
+    if (bn_d == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    eckey = EC_KEY_new_by_curve_name(nid);
+    if (eckey == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    if (EC_KEY_set_private_key(eckey, bn_d) != 1) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    group = EC_KEY_get0_group(eckey);
+    if (group == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    p_len = (EC_GROUP_get_degree(group) + 7) / 8;
+
+    pub_key = EC_POINT_new(group);
+    if (pub_key == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    if (!EC_POINT_mul(group, pub_key, bn_d, NULL, NULL, NULL)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Get (X,Y) as BIGNUMs */
+    bn_x = BN_new();
+    bn_y = BN_new();
+    if (bn_x == NULL || bn_y == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+    if (!EC_POINT_get_affine_coordinates_GFp(group, pub_key, bn_x, bn_y, NULL)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    ec_point_len = 1 + 2 * p_len;
+    ec_point = malloc(ec_point_len);
+    if (ec_point == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    ec_point[0] = POINT_CONVERSION_UNCOMPRESSED;
+    BN_bn2binpad(bn_x, ec_point + 1, p_len);
+    BN_bn2binpad(bn_y, ec_point + 1 + p_len, p_len);
+
+    *point = ec_point;
+    *point_len = ec_point_len;
+    ec_point = NULL;
+
+done:
+    if (pub_key)
+        EC_POINT_free(pub_key);
+    if (eckey)
+        EC_KEY_free(eckey);
+    BN_clear_free(bn_x);
+    BN_clear_free(bn_y);
+    BN_clear_free(bn_d);
+    if (ec_point != NULL)
+        free(ec_point);
+
+    return rc;
+}

@@ -303,6 +303,7 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *verify_recover_attr = NULL;
     CK_ATTRIBUTE *wrap_attr = NULL;
     CK_ATTRIBUTE *trusted_attr = NULL;
+    CK_ATTRIBUTE *pki_attr = NULL;
 
     CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
     CK_RV rc;
@@ -328,9 +329,11 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     trusted_attr =
             (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class || !subject_attr || !encrypt_attr ||
-        !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr) {
+        !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr ||
+        !pki_attr) {
         if (class_attr)
             free(class_attr);
         if (subject_attr)
@@ -345,6 +348,8 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             free(wrap_attr);
         if (trusted_attr)
             free(trusted_attr);
+        if (pki_attr)
+            free(pki_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -385,6 +390,10 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     trusted_attr->pValue = (CK_BYTE *)trusted_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) trusted_attr->pValue = FALSE;
 
+    pki_attr->type = CKA_PUBLIC_KEY_INFO;
+    pki_attr->ulValueLen = 0;       // empty string
+    pki_attr->pValue = NULL;
+
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, subject_attr);
     template_update_attribute(tmpl, encrypt_attr);
@@ -392,6 +401,7 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     template_update_attribute(tmpl, verify_recover_attr);
     template_update_attribute(tmpl, wrap_attr);
     template_update_attribute(tmpl, trusted_attr);
+    template_update_attribute(tmpl, pki_attr);
 
     return CKR_OK;
 }
@@ -433,6 +443,10 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return CKR_USER_NOT_LOGGED_IN;
         }
         return CKR_OK;
+    case CKA_PUBLIC_KEY_INFO:
+        if (mode == MODE_CREATE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
     }
@@ -442,6 +456,37 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
+/*
+ * Extract the SubjectPublicKeyInfo from the public key
+ */
+CK_RV publ_key_get_spki(TEMPLATE *tmpl, CK_ULONG keytype, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_RV rc;
+
+    switch (keytype) {
+    case CKK_RSA:
+        rc = rsa_publ_get_spki(tmpl, length_only, data, data_len);
+        break;
+    case CKK_DSA:
+        rc = dsa_publ_get_spki(tmpl, length_only, data, data_len);
+        break;
+    case CKK_DH:
+        rc = dh_publ_get_spki(tmpl, length_only, data, data_len);
+        break;
+    case CKK_EC:
+        rc = ec_publ_get_spki(tmpl, length_only, data, data_len);
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+        rc = ibm_dilithium_publ_get_spki(tmpl, length_only, data, data_len);
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    return rc;
+}
 
 // priv_key_check_required_attributes()
 //
@@ -472,6 +517,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *always_sens_attr = NULL;
     CK_ATTRIBUTE *always_auth_attr = NULL;
     CK_ATTRIBUTE *wrap_trusted_attr = NULL;
+    CK_ATTRIBUTE *pki_attr = NULL;
     CK_RV rc;
 
 
@@ -505,11 +551,12 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     wrap_trusted_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
+    pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
         !never_extr_attr || !always_sens_attr || !always_auth_attr ||
-        !wrap_trusted_attr) {
+        !wrap_trusted_attr || !pki_attr) {
         if (class_attr)
             free(class_attr);
         if (subject_attr)
@@ -534,6 +581,8 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
             free(always_auth_attr);
         if (wrap_trusted_attr)
             free(wrap_trusted_attr);
+        if (pki_attr)
+            free(pki_attr);
 
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
@@ -608,6 +657,10 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_BYTE *) wrap_trusted_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) wrap_trusted_attr->pValue = FALSE;
 
+    pki_attr->type = CKA_SUBJECT;
+    pki_attr->ulValueLen = 0;       // empty string
+    pki_attr->pValue = NULL;
+
     template_update_attribute(tmpl, class_attr);
     template_update_attribute(tmpl, subject_attr);
     template_update_attribute(tmpl, sensitive_attr);
@@ -620,6 +673,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     template_update_attribute(tmpl, always_sens_attr);
     template_update_attribute(tmpl, always_auth_attr);
     template_update_attribute(tmpl, wrap_trusted_attr);
+    template_update_attribute(tmpl, pki_attr);
 
     return CKR_OK;
 }
@@ -636,8 +690,11 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
     CK_ATTRIBUTE *never_extract = NULL;
     CK_ATTRIBUTE *sensitive = NULL;
     CK_ATTRIBUTE *local = NULL;
+    CK_ATTRIBUTE *pub_key_info = NULL;
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_length = 0;
     CK_RV rc;
 
     switch (keytype) {
@@ -701,11 +758,31 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
         goto cleanup;
     }
 
+    /*
+     * Try to extract the SPKI and add CKA_PUBLIC_KEY_INFO to the key.
+     * This may fail if the public key info can not be reconstructed from
+     * the private key (e.g. because its a secure key token).
+     */
+    rc = publ_key_get_spki(tmpl, keytype, FALSE, &spki, &spki_length);
+    if (rc == CKR_OK && spki != NULL && spki_length > 0) {
+        rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length,
+                             &pub_key_info);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto cleanup;
+        }
+
+        template_update_attribute(tmpl, pub_key_info);
+    }
+
     template_update_attribute(tmpl, local);
     template_update_attribute(tmpl, always_sens);
     template_update_attribute(tmpl, sensitive);
     template_update_attribute(tmpl, extractable);
     template_update_attribute(tmpl, never_extract);
+
+    if (spki != NULL)
+        free(spki);
 
     return CKR_OK;
 
@@ -718,6 +795,10 @@ cleanup:
         free(extractable);
     if (never_extract)
         free(never_extract);
+    if (pub_key_info)
+        free(pub_key_info);
+    if (spki != NULL)
+        free(spki);
 
     return rc;
 }
@@ -813,6 +894,11 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     case CKA_NEVER_EXTRACTABLE:
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_PUBLIC_KEY_INFO:
+        if (mode == MODE_CREATE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        return CKR_ATTRIBUTE_READ_ONLY;
+
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
     }
@@ -1409,6 +1495,35 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 }
 
+/*
+ * Extract the SubjectPublicKeyInfo from the RSA public key
+ */
+CK_RV rsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *modulus = NULL;
+    CK_ATTRIBUTE *publ_exp = NULL;
+    CK_RV rc;
+
+    rc = template_attribute_get_non_empty(tmpl, CKA_MODULUS, &modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_PUBLIC_EXPONENT, &publ_exp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
+        return rc;
+    }
+
+    rc = ber_encode_RSAPublicKey(length_only, data,data_len, modulus, publ_exp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_RSAPublicKey failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
 
 // rsa_priv_check_required_attributes()
 //
@@ -1832,6 +1947,51 @@ CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+/*
+ * Extract the SubjectPublicKeyInfo from the Dilithium public key
+ */
+CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                  CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *rho = NULL;
+    CK_ATTRIBUTE *t1 = NULL;
+    CK_ULONG keyform;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(tmpl, CKA_IBM_DILITHIUM_KEYFORM,
+                                      &keyform);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the key.\n");
+        return rc;
+    }
+
+    if ( keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
+        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: "
+                    "%ld \n", keyform);
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_T1, &t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PUBLIC_EXPONENT for the key.\n");
+        return rc;
+    }
+
+    rc = ber_encode_IBM_DilithiumPublicKey(length_only, data,data_len, rho, t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_IBM_DilithiumPublicKey failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+
 CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
                                        CK_BBOOL length_only,
                                        CK_BYTE **data, CK_ULONG *data_len)
@@ -2136,6 +2296,48 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 }
 
+/*
+ * Extract the SubjectPublicKeyInfo from the DSA public key
+ */
+CK_RV dsa_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                        CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *prime = NULL;
+    CK_ATTRIBUTE *subprime = NULL;
+    CK_ATTRIBUTE *base = NULL;
+    CK_ATTRIBUTE *value = NULL;
+    CK_RV rc;
+
+    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &prime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &base);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_BASE for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_SUBPRIME, &subprime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_SUBPRIME for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    rc = ber_encode_DSAPublicKey(length_only, data,data_len, prime, subprime,
+                                 base, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_DSAPublicKey failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
 
 // dsa_priv_check_required_attributes()
 //
@@ -2553,6 +2755,80 @@ CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 }
 
+/*
+ * Extract the SubjectPublicKeyInfo from the EC public key
+ */
+CK_RV ec_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                       CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *ec_parms = NULL;
+    CK_ATTRIBUTE *ec_point = NULL;
+    CK_ATTRIBUTE *value = NULL;
+    CK_BYTE *buf = NULL;
+    CK_ULONG buf_len = 0;
+    CK_ATTRIBUTE point = { .type = CKA_EC_POINT,
+                           .pValue = NULL, .ulValueLen = 0 };
+    CK_RV rc;
+
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ec_parms);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
+        return rc;
+    }
+    /* CKA_EC_POINT is optional in EC private keys */
+    rc = template_attribute_get_non_empty(tmpl, CKA_EC_POINT, &ec_point);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Could not find CKA_EC_POINT, possibly EC private key.\n");
+
+        /*
+         * For a secure key token, we can't calculate the public key from the
+         * private key
+         */
+        if (token_specific.secure_key_token) {
+            TRACE_DEVEL("Its a secure key token, no SPKI avaiable.\n");
+            *data = NULL;
+            *data_len = 0;
+            return CKR_OK;
+        }
+
+        rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return rc;
+        }
+
+        rc = ec_point_from_priv_key(ec_parms->pValue, ec_parms->ulValueLen,
+                                    value->pValue, value->ulValueLen,
+                                    &buf, &buf_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ec_point_from_priv_key failed.\n");
+            return rc;
+        }
+
+        rc = ber_encode_OCTET_STRING(FALSE, (CK_BYTE **)&point.pValue,
+                                     &point.ulValueLen, buf, buf_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            goto out;
+        }
+
+        ec_point = &point;
+    }
+
+    rc = ber_encode_ECPublicKey(length_only, data,data_len, ec_parms, ec_point);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_ECPublicKey failed.\n");
+        goto out;
+    }
+
+out:
+    if (buf != NULL)
+        free(buf);
+    if (point.pValue != NULL)
+        free(point.pValue);
+
+    return rc;
+}
 
 // ecdsa_priv_check_required_attributes()
 //
@@ -2915,6 +3191,42 @@ CK_RV dh_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     default:
         return publ_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
+}
+
+/*
+ * Extract the SubjectPublicKeyInfo from the DH public key
+ */
+CK_RV dh_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                       CK_BYTE **data, CK_ULONG *data_len)
+{
+    CK_ATTRIBUTE *prime = NULL;
+    CK_ATTRIBUTE *base = NULL;
+    CK_ATTRIBUTE *value = NULL;
+    CK_RV rc;
+
+    rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &prime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &base);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_BASE for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    rc = ber_encode_DHPublicKey(length_only, data,data_len, prime, base, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_DHPublicKey failed.\n");
+        return rc;
+    }
+
+    return CKR_OK;
 }
 
 

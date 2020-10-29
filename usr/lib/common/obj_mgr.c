@@ -86,6 +86,11 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
     OBJECT *o = NULL;
     CK_BBOOL priv_obj, sess_obj, added = FALSE, locked = FALSE;
     CK_RV rc;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_len = 0;
+    CK_ATTRIBUTE *spki_attr = NULL;
     unsigned long obj_handle;
 
     if (!sess || !pTemplate || !handle) {
@@ -105,6 +110,41 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
             TRACE_DEVEL("Token specific object add failed.\n");
             goto done;
         }
+    }
+
+    rc = template_attribute_get_ulong(o->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the object.\n");
+        goto done;
+    }
+
+    switch(class) {
+    case CKO_PUBLIC_KEY:
+    case CKO_PRIVATE_KEY:
+        rc = template_attribute_get_ulong(o->template, CKA_KEY_TYPE, &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key object.\n");
+            goto done;
+        }
+
+        /*
+         * Try to extract the SPKI and add CKA_PUBLIC_KEY_INFO to the key.
+         * This may fail if the public key info can not be reconstructed from
+         * the private key (e.g. because its a secure key token).
+         */
+        rc = publ_key_get_spki(o->template, keytype, FALSE, &spki, &spki_len);
+        if (rc == CKR_OK && spki != NULL && spki_len > 0) {
+            rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_len,
+                                 &spki_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute failed\n");
+                goto done;
+            }
+            template_update_attribute(o->template, spki_attr);
+        }
+        break;
+    default:
+        break;
     }
 
     sess_obj = object_is_session_object(o);
@@ -239,6 +279,8 @@ done:
             object_put(tokdata, o, FALSE);
         o = NULL;
     }
+    if (spki != NULL)
+        free(spki);
 
     if (locked) {
         if (rc == CKR_OK) {
