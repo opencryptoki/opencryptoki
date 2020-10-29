@@ -252,6 +252,9 @@ done:
         }
     }
 
+    if (rc == CKR_OK)
+        TRACE_DEVEL("Object created: handle: %lu\n", *handle);
+
     return rc;
 }
 
@@ -719,6 +722,9 @@ done:
         }
     }
 
+    if (rc == CKR_OK)
+        TRACE_DEVEL("Object created: handle: %lu\n", *handle);
+
     return rc;
 }
 
@@ -968,7 +974,8 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
 
     map = bt_get_node_value(&tokdata->object_map_btree, handle);
     if (!map) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        TRACE_ERROR("%s handle: %lu\n", ock_err(ERR_OBJECT_HANDLE_INVALID),
+                    handle);
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
@@ -983,7 +990,8 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
     map = NULL;
 
     if (!obj) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        TRACE_ERROR("%s handle: %lu\n", ock_err(ERR_OBJECT_HANDLE_INVALID),
+                    handle);
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
@@ -994,6 +1002,7 @@ CK_RV object_mgr_find_in_map_nocache(STDLL_TokData_t *tokdata,
         return rc;
     }
 
+    TRACE_DEVEL("Object found: handle: %lu\n", handle);
     *ptr = obj;
 
     return rc;
@@ -1025,7 +1034,8 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
 
     map = bt_get_node_value(&tokdata->object_map_btree, handle);
     if (!map) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        TRACE_ERROR("%s handle: %lu\n", ock_err(ERR_OBJECT_HANDLE_INVALID),
+                    handle);
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
@@ -1041,7 +1051,8 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
     map = NULL;
 
     if (!obj) {
-        TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+        TRACE_ERROR("%s handle: %lu\n", ock_err(ERR_OBJECT_HANDLE_INVALID),
+                    handle);
         return CKR_OBJECT_HANDLE_INVALID;
     }
 
@@ -1088,6 +1099,7 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
 
 done:
     if (rc == CKR_OK) {
+        TRACE_DEVEL("Object found: handle: %lu\n", handle);
         *ptr = obj;
     } else {
         object_put(tokdata, obj, locked);
