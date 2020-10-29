@@ -573,6 +573,20 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    rc = template_attribute_get_bool(wrapping_key_obj->template, CKA_WRAP,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_WRAP for the wrapping key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_WRAP is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
     /* Is a wrapping key with CKA_TRUSTED = CK_TRUE required? */
     rc = template_attribute_get_bool(key_obj->template, CKA_WRAP_WITH_TRUSTED,
                                      &flag);
@@ -888,7 +902,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
     CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
-    CK_BBOOL fromend, not_opaque = FALSE;
+    CK_BBOOL fromend, not_opaque = FALSE, flag;
     CK_RV rc;
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
@@ -902,6 +916,20 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             rc = CKR_UNWRAPPING_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(unwrapping_key_obj->template, CKA_UNWRAP,
+                                     &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_UNWRAP for the key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_UNWRAP is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
         goto done;
     }
 
