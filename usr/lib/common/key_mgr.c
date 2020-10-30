@@ -763,6 +763,16 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
 #endif
+#if !(NODH)
+    case CKK_DH:
+        rc = dh_priv_wrap_get_data(key_obj->template, length_only, &data,
+                                   &data_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("dh_priv_wrap_get_data failed.\n");
+            goto done;
+        }
+        break;
+#endif
     case CKK_GENERIC_SECRET:
         rc = generic_secret_wrap_get_data(key_obj->template, length_only,
                                           &data, &data_len);
