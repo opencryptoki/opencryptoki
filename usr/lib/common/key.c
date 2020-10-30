@@ -2930,7 +2930,6 @@ CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_EC_POINT:
         if (mode == MODE_CREATE) {
-            p11_attribute_trim(attr);
             return CKR_OK;
         }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -3028,9 +3027,6 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
         return rc;
     }
 
-    p11_attribute_trim(params);
-    p11_attribute_trim(point);
-
     rc = template_update_attribute(tmpl, params);
     if (rc != CKR_OK)
         TRACE_DEVEL("template_update_attribute(CKA_EC_PARAMS) failed\n");
@@ -3057,7 +3053,6 @@ CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
         TRACE_DEVEL("der_decode_ECPrivateKey failed\n");
         return rc;
     }
-    p11_attribute_trim(pubkey);
     p11_attribute_trim(privkey);
 
     if (pubkey)
