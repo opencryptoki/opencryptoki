@@ -2996,6 +2996,16 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         attr = NULL;
     }
 
+    /* add CKA_KEY_GEN_MECHANISM */
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &attr);
+    if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute failed\n");
+            goto error;
+    }
+    template_update_attribute(key_obj->template, attr);
+    attr = NULL;
+
     /* key should be fully constructed.
      * Assign an object handle and store key
      */
@@ -5282,6 +5292,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                         "rc=0x%lx\n", __func__, rc);
             goto error;
         }
+        n_attr = NULL;
     }
 
     if (template_attribute_find(public_key_obj->template,
@@ -5300,7 +5311,43 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                         "rc=0x%lx\n", __func__, rc);
             goto error;
         }
+        n_attr = NULL;
     }
+
+    /* add CKA_KEY_GEN_MECHANISM */
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM,
+                         (CK_BYTE *)&pMechanism->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                                __func__, rc);
+         goto error;
+    }
+
+    rc = template_update_attribute(public_key_obj->template, n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    n_attr = NULL;
+
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM,
+                         (CK_BYTE *)&pMechanism->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                                __func__, rc);
+         goto error;
+    }
+
+    rc = template_update_attribute(private_key_obj->template, n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    n_attr = NULL;
 
     /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
     rc = publ_key_get_spki(public_key_obj->template, publ_ktype, FALSE,
@@ -5315,12 +5362,14 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         goto error;
     }
     template_update_attribute(public_key_obj->template, n_attr);
+    n_attr = NULL;
     rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &n_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
     template_update_attribute(private_key_obj->template, n_attr);
+    n_attr = NULL;
     free(spki);
     spki = NULL;
 
@@ -5349,6 +5398,8 @@ error:
         object_free(private_key_obj);
     if (spki != NULL)
         free(spki);
+    if (n_attr != NULL)
+        free(n_attr);
 
     *phPublicKey = 0;
     *phPrivateKey = 0;

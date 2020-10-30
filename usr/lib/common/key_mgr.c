@@ -232,8 +232,17 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     /* add/update CKA_LOCAL with value true to the template */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed\n");
-            goto error;
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(key_obj->template, new_attr);
+
+    /* add CKA_KEY_GEN_MECHANISM */
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
     }
     template_update_attribute(key_obj->template, new_attr);
 
@@ -480,6 +489,23 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     }
     template_update_attribute(publ_key_obj->template, new_attr);
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(priv_key_obj->template, new_attr);
+
+    /* add CKA_KEY_GEN_MECHANISM */
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(publ_key_obj->template, new_attr);
+
+    rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
+                         sizeof(CK_MECHANISM_TYPE), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto error;

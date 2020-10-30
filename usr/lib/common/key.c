@@ -264,9 +264,12 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
         return CKR_OK;
+    case CKA_KEY_GEN_MECHANISM:
     case CKA_LOCAL:
-        // CKA_LOCAL is only set by the key-generate routine
-        //
+        /*
+         * CKA_LOCAL and CKA_KEY_GEN_MECHANISM are only set by the
+         * key-generate routine
+         */
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     default:
