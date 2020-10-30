@@ -4277,6 +4277,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
     unsigned int privlen;
+    unsigned char *d = NULL;
     int rc, nid;
 
     UNUSED(sess);
@@ -4319,17 +4320,21 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
         goto end;
     }
 
-    /* Plausibility check */
-    if (privlen != attr2->ulValueLen) {
-        TRACE_ERROR("Private key length for curve %i mismatch: length from "
-                    "ica_ec_key_new() = %i, length from attribute = %ld\n",
-                    nid, privlen, attr2->ulValueLen);
-        ret = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto end;
+    /* Add zero padding if needed */
+    if (privlen > attr2->ulValueLen) {
+        d = calloc(privlen, 1);
+        if (d == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            ret = CKR_HOST_MEMORY;
+            goto end;
+        }
+
+        memcpy(d + privlen - attr2->ulValueLen, attr2->pValue,
+               attr2->ulValueLen);
     }
 
     /* Initialize ICA_EC_KEY with private key (D) */
-    rc = p_ica_ec_key_init(NULL, NULL, attr2->pValue, eckey);
+    rc = p_ica_ec_key_init(NULL, NULL, d != NULL ? d : attr2->pValue, eckey);
     if (rc != 0) {
         TRACE_ERROR("ica_ec_key_init() failed with rc = %d \n", rc);
         ret = CKR_FUNCTION_FAILED;
@@ -4352,6 +4357,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
 
 end:
     p_ica_ec_key_free(eckey);
+    if (d != NULL)
+        free(d);
 
     return ret;
 }
