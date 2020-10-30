@@ -179,6 +179,7 @@ const char label[] = "ep11tok";
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
 #define MAX_BLOBSIZE 8192
 #define MAX_CSUMSIZE 64
+#define EP11_CSUMSIZE 3
 #define MAX_DIGEST_STATE_BYTES 1024
 #define MAX_CRYPT_STATE_BYTES 8192
 #define MAX_SIGN_STATE_BYTES 8192
@@ -1177,6 +1178,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
+    CK_ATTRIBUTE *chk_attr = NULL;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
@@ -1235,6 +1237,25 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
+
+        if (cslen >= EP11_CSUMSIZE) {
+            /* First 3 bytes of csum is the check value */
+            rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE,
+                                 &chk_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                            __func__, rc);
+                goto rawkey_2_blob_end;
+            }
+
+            rc = template_update_attribute(key_obj->template, chk_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed with "
+                            "rc=0x%lx\n", __func__, rc);
+                goto rawkey_2_blob_end;
+            }
+            chk_attr = NULL;
+        }
     }
 
 rawkey_2_blob_end:
@@ -1242,6 +1263,8 @@ rawkey_2_blob_end:
         free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
         free_attribute_array(new_p_attrs, new_attrs_len);
+    if (chk_attr != NULL)
+        free(chk_attr);
     return rc;
 }
 
@@ -2953,6 +2976,25 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         goto error;
     }
+    attr = NULL;
+
+    if (class == CKO_SECRET_KEY && csum_len >= EP11_CSUMSIZE) {
+        /* First 3 bytes of csum is the check value */
+        rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        attr = NULL;
+    }
 
     /* key should be fully constructed.
      * Assign an object handle and store key
@@ -2967,6 +3009,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 error:
     if (key_obj)
         object_free(key_obj);
+    if (attr != NULL)
+        free(attr);
     *handle = 0;
 done:
     if (new_attrs)
@@ -3715,7 +3759,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     size_t newblobsize = sizeof(newblob);
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
-    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL, *chk_attr = NULL;
     OBJECT *base_key_obj = NULL;
     OBJECT *key_obj = NULL;
     CK_ULONG ktype;
@@ -3872,6 +3916,24 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
+        /* First 3 bytes of csum is the check value */
+        rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &chk_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, chk_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        chk_attr = NULL;
+    }
+
     /* key should be fully constructed.
      * Assign an object handle and store key
      */
@@ -3892,6 +3954,8 @@ error:
     *handle = 0;
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+    if (chk_attr != NULL)
+        free(chk_attr);
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
@@ -5100,6 +5164,8 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG class;
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *n_attr = NULL;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_length = 0;
 
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
@@ -5236,6 +5302,28 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         }
     }
 
+    /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
+    rc = publ_key_get_spki(public_key_obj->template, publ_ktype, FALSE,
+                           &spki, &spki_length);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("publ_key_get_spki failed\n");
+        goto error;
+    }
+    rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &n_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(public_key_obj->template, n_attr);
+    rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &n_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    template_update_attribute(private_key_obj->template, n_attr);
+    free(spki);
+    spki = NULL;
+
     /* Keys should be fully constructed,
      * assign object handles and store keys.
      */
@@ -5259,6 +5347,8 @@ error:
         object_free(public_key_obj);
     if (private_key_obj)
         object_free(private_key_obj);
+    if (spki != NULL)
+        free(spki);
 
     *phPublicKey = 0;
     *phPrivateKey = 0;
@@ -6181,10 +6271,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    CK_BYTE *wrapping_blob;
+    CK_BYTE *wrapping_blob, *temp;
     size_t wrapping_blob_len;
     CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
+    CK_ULONG cslen = sizeof(csum), temp_len;
     OBJECT *key_obj = NULL;
     CK_BYTE keyblob[MAX_BLOBSIZE];
     size_t keyblobsize = sizeof(keyblob);
@@ -6320,11 +6410,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         goto error;
     }
+    attr = NULL;
 
     switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
     case CKO_SECRET_KEY:
         /* card provides bit length in csum last 4 bytes big endian */
-        if (cslen < 4) {
+        if (cslen < EP11_CSUMSIZE + 4) {
             rc = CKR_FUNCTION_FAILED;
             TRACE_ERROR("%s Invalid csum length cslen=%lu\n", __func__, cslen);
             goto error;
@@ -6352,8 +6443,25 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                             "rc=0x%lx\n", __func__, rc);
                 goto error;
             }
+            attr = NULL;
             break;
         }
+
+        /* First 3 bytes of csum is the check value */
+        rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        attr = NULL;
         break;
 
     case CKO_PRIVATE_KEY:
@@ -6384,6 +6492,27 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                         __func__, rc);
             goto error;
         }
+
+        /* csum is a MACed SPKI, get length of SPKI part only */
+        rc = ber_decode_SEQUENCE(csum, &temp, &temp_len, &cslen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ber_decode_SEQUENCE failed rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        rc = build_attribute(CKA_PUBLIC_KEY_INFO, csum, cslen, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        attr = NULL;
         break;
     }
 
@@ -6401,6 +6530,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 error:
     if (key_obj)
         object_free(key_obj);
+    if (attr != NULL)
+        free(attr);
     *p_key = 0;
 done:
     if (new_attrs)
