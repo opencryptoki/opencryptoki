@@ -210,7 +210,12 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build attribute failed.\n");
         goto error;
     }
-    template_update_attribute(key_obj->template, new_attr);
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
     if (rc != CKR_OK) {
@@ -227,7 +232,12 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     if (flag == TRUE)
         *(CK_BBOOL *) new_attr->pValue = FALSE;
 
-    template_update_attribute(key_obj->template, new_attr);
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     /* add/update CKA_LOCAL with value true to the template */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
@@ -235,7 +245,12 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(key_obj->template, new_attr);
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     /* add CKA_KEY_GEN_MECHANISM */
     rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
@@ -244,7 +259,12 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(key_obj->template, new_attr);
+    rc = template_update_attribute(key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     // at this point, the key should be fully constructed...assign
     // an object handle and store the key
@@ -260,6 +280,8 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 error:
     if (key_obj)
         object_free(key_obj);
+    if (new_attr != NULL)
+        free(new_attr);
 
     *handle = 0;
 
@@ -462,7 +484,12 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed.\n");
         goto error;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     rc = template_attribute_get_bool(priv_key_obj->template, CKA_EXTRACTABLE,
                                      &flag);
@@ -479,7 +506,12 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     if (flag == TRUE)
         *(CK_BBOOL *) new_attr->pValue = false;
 
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     /* add/update CKA_LOCAL with value true to the keypair templates */
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
@@ -487,13 +519,24 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(publ_key_obj->template, new_attr);
+    rc = template_update_attribute(publ_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
+
     rc = build_attribute(CKA_LOCAL, &true, sizeof(CK_BBOOL), &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     /* add CKA_KEY_GEN_MECHANISM */
     rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
@@ -502,7 +545,12 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(publ_key_obj->template, new_attr);
+    rc = template_update_attribute(publ_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
                          sizeof(CK_MECHANISM_TYPE), &new_attr);
@@ -510,7 +558,12 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
 
     /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to both keys */
     rc = publ_key_get_spki(publ_key_obj->template, subclass, FALSE,
@@ -524,13 +577,24 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(publ_key_obj->template, new_attr);
+    rc = template_update_attribute(publ_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
+
     rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    new_attr = NULL;
     free(spki);
     spki = NULL;
 
@@ -559,6 +623,8 @@ error:
         object_free(priv_key_obj);
     if (spki != NULL)
         free(spki);
+    if (new_attr != NULL)
+        free(new_attr);
 
     *publ_key_handle = 0;
     *priv_key_handle = 0;

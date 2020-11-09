@@ -581,7 +581,7 @@ CK_BBOOL template_compare(CK_ATTRIBUTE *t1, CK_ULONG ulCount, TEMPLATE *t2)
 CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
 {
     char unique_id_str[2 * UNIQUE_ID_LEN + 1];
-    DL_NODE *node;
+    DL_NODE *node, *list;
 
     if (!dest || !src) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -620,8 +620,12 @@ CK_RV template_copy(TEMPLATE *dest, TEMPLATE *src)
             new_attr->ulValueLen = 2 * UNIQUE_ID_LEN;
         }
 
-        dest->attribute_list = dlist_add_as_first(dest->attribute_list,
-                                                  new_attr);
+        list = dlist_add_as_first(dest->attribute_list, new_attr);
+        if (list == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            return CKR_HOST_MEMORY;
+        }
+        dest->attribute_list = list;
         node = node->next;
     }
 
@@ -1108,6 +1112,7 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     CK_ATTRIBUTE *unique_id_attr;
     CK_ATTRIBUTE *copy_attr;
     CK_ATTRIBUTE *destr_attr;
+    CK_RV rc;
 
     if (get_unique_id_str(unique_id_str) != CKR_OK)
         return CKR_FUNCTION_FAILED;
@@ -1128,23 +1133,9 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
 
     if (!token_attr || !priv_attr || !mod_attr || !label_attr ||
         !unique_id_attr || !copy_attr || !destr_attr) {
-        if (token_attr)
-            free(token_attr);
-        if (priv_attr)
-            free(priv_attr);
-        if (mod_attr)
-            free(mod_attr);
-        if (label_attr)
-            free(label_attr);
-        if (unique_id_attr)
-            free(unique_id_attr);
-        if (copy_attr)
-            free(copy_attr);
-        if (destr_attr)
-            free(destr_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     token_attr->type = CKA_TOKEN;
@@ -1181,18 +1172,71 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
     destr_attr->pValue = (CK_BYTE *) destr_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) destr_attr->pValue = TRUE;
 
-    template_update_attribute(tmpl, token_attr);
-    template_update_attribute(tmpl, priv_attr);
-    template_update_attribute(tmpl, mod_attr);
-    template_update_attribute(tmpl, label_attr);
-    template_update_attribute(tmpl, unique_id_attr);
-    template_update_attribute(tmpl, copy_attr);
-    template_update_attribute(tmpl, destr_attr);
+    rc = template_update_attribute(tmpl, token_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    token_attr = NULL;
+    rc = template_update_attribute(tmpl, priv_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    priv_attr = NULL;
+    rc = template_update_attribute(tmpl, mod_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    mod_attr = NULL;
+    rc = template_update_attribute(tmpl, label_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    label_attr = NULL;
+    rc = template_update_attribute(tmpl, unique_id_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    unique_id_attr = NULL;
+    rc = template_update_attribute(tmpl, copy_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    copy_attr = NULL;
+    rc = template_update_attribute(tmpl, destr_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    destr_attr = NULL;
 
     /* the TEMPLATE 'owns' the attributes now.
      * it is responsible for freeing them upon deletion...
      */
     return CKR_OK;
+
+error:
+    if (token_attr)
+        free(token_attr);
+    if (priv_attr)
+        free(priv_attr);
+    if (mod_attr)
+        free(mod_attr);
+    if (label_attr)
+        free(label_attr);
+    if (unique_id_attr)
+        free(unique_id_attr);
+    if (copy_attr)
+        free(copy_attr);
+    if (destr_attr)
+        free(destr_attr);
+
+    return rc;
 }
 
 
@@ -1204,7 +1248,7 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl)
  */
 CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
 {
-    DL_NODE *node = NULL;
+    DL_NODE *node = NULL, *list;
     CK_ATTRIBUTE *attr = NULL;
 
     if (!tmpl || !new_attr) {
@@ -1231,8 +1275,13 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
     }
 
     /* add the new attribute */
-    tmpl->attribute_list = dlist_add_as_first(tmpl->attribute_list, new_attr);
+    list = dlist_add_as_first(tmpl->attribute_list, new_attr);
+    if (list == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
 
+    tmpl->attribute_list = list;
     return CKR_OK;
 }
 

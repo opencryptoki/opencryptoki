@@ -638,7 +638,13 @@ CK_RV token_wrap_key_object(STDLL_TokData_t * tokdata,
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         goto done;
     }
-    template_update_attribute(obj->template, new_attr);
+    rc = template_update_attribute(obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        goto done;
+    }
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
 
     /* if this is a token object, save it with the new attribute so that we
@@ -1065,7 +1071,17 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
+        free(key_id);
+        object_free(priv_key_obj);
+        return rc;
+    }
+
     free(key_id);
 
     /* add the key blob to the PKCS#11 object template */
@@ -1077,7 +1093,16 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
+        object_free(priv_key_obj);
+        return rc;
+    }
+
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
 
     /* add the private key blob to the PKCS#11 object template */
@@ -1088,7 +1113,15 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
+        object_free(priv_key_obj);
+        return rc;
+    }
+
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbPrivBlob);
 
     /* add the HIDDEN attribute */
@@ -1099,7 +1132,13 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(priv_key_obj);
+        return rc;
+    }
 
     /*  set CKA_ALWAYS_SENSITIVE to true */
     rc = build_attribute(CKA_ALWAYS_SENSITIVE, &flag,
@@ -1109,7 +1148,14 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(priv_key_obj);
+        return rc;
+    }
+
 
     /*  set CKA_NEVER_EXTRACTABLE to true */
     rc = build_attribute(CKA_NEVER_EXTRACTABLE,
@@ -1119,7 +1165,13 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(priv_key_obj);
+        return rc;
+    }
 
     /* make the object reside on the token, as if that were possible */
     rc = build_attribute(CKA_TOKEN, &flag, sizeof(CK_BBOOL), &new_attr);
@@ -1128,7 +1180,13 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(priv_key_obj);
+        return rc;
+    }
 
     flag = FALSE;
     rc = build_attribute(CKA_PRIVATE, &flag, sizeof(CK_BBOOL), &new_attr);
@@ -1137,7 +1195,13 @@ CK_RV token_store_priv_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(priv_key_obj);
         return rc;
     }
-    template_update_attribute(priv_key_obj->template, new_attr);
+    rc = template_update_attribute(priv_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(priv_key_obj);
+        return rc;
+    }
 
     rc = object_mgr_create_final(tokdata, &dummy_sess, priv_key_obj, ckKey);
     if (rc != CKR_OK) {
@@ -1209,7 +1273,13 @@ CK_RV token_store_pub_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(pub_key_obj);
         goto done;
     }
-    template_update_attribute(pub_key_obj->template, new_attr);
+    rc = template_update_attribute(pub_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(pub_key_obj);
+        goto done;
+    }
 
     /* set the object to be hidden */
     rc = build_attribute(CKA_HIDDEN, &flag, sizeof(CK_BBOOL), &new_attr);
@@ -1218,7 +1288,13 @@ CK_RV token_store_pub_key(STDLL_TokData_t * tokdata, TSS_HKEY hKey,
         object_free(pub_key_obj);
         goto done;
     }
-    template_update_attribute(pub_key_obj->template, new_attr);
+    rc = template_update_attribute(pub_key_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        object_free(pub_key_obj);
+        goto done;
+    }
 
     rc = object_mgr_create_final(tokdata, &dummy_sess, pub_key_obj, ckKey);
     if (rc != CKR_OK) {
@@ -3067,14 +3143,24 @@ CK_RV token_wrap_auth_data(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("build_attribute failed.\n");
         return rc;
     }
-    template_update_attribute(publ_tmpl, new_attr);
+    rc = template_update_attribute(publ_tmpl, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        return rc;
+    }
 
     rc = build_attribute(CKA_ENC_AUTHDATA, blob, blob_size, &new_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed.\n");
         return rc;
     }
-    template_update_attribute(priv_tmpl, new_attr);
+    rc = template_update_attribute(priv_tmpl, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        return rc;
+    }
 
     return rc;
 }
@@ -3246,15 +3332,26 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         return rc;
     }
-    template_update_attribute(priv_tmpl, attr);
-
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        return rc;
+    }
     rc = build_attribute(CKA_IBM_OPAQUE, rgbBlob, ulBlobLen, &attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed.\n");
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         return rc;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        return rc;
+    }
 
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
 
@@ -3274,7 +3371,13 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         return rc;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        return rc;
+    }
 
     /* add the public key blob to the object template */
     rc = build_attribute(CKA_MODULUS, rgbBlob, ulBlobLen, &attr);
@@ -3283,7 +3386,13 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
         return rc;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
+        return rc;
+    }
     Tspi_Context_FreeMemory(tpm_data->tspContext, rgbBlob);
 
     /* put the public exponent into the private key object */
@@ -3293,7 +3402,12 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("build_attribute(CKA_PUBLIC_EXPONENT) failed.\n");
         return rc;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        return rc;
+    }
 
     /* wrap the authdata and put it into an object */
     if (authData != NULL) {

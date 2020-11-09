@@ -98,6 +98,7 @@ CK_RV hwf_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
 #if 0
     CK_ATTRIBUTE *local_attr = NULL;
+    CK_RV rc;
 
     local_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
@@ -112,7 +113,13 @@ CK_RV hwf_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     local_attr->pValue = (CK_BYTE *) local_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) local_attr->pValue = FALSE;
 
-    template_update_attribute(tmpl, local_attr);
+    rc = template_update_attribute(tmpl, local_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        free(local_attr);
+        return rc;
+    }
+
 #endif
     UNUSED(tmpl);
     UNUSED(mode);
@@ -200,7 +207,12 @@ CK_RV clock_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr->ulValueLen = 0;
     value_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        free(value_attr);
+        return rc;
+    }
 
     return CKR_OK;
 }
@@ -223,14 +235,9 @@ CK_RV counter_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!value_attr || !hasreset_attr || !resetoninit_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (hasreset_attr)
-            free(hasreset_attr);
-        if (resetoninit_attr)
-            free(resetoninit_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -249,9 +256,34 @@ CK_RV counter_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_BYTE *) resetoninit_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) resetoninit_attr->pValue = FALSE;
 
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, hasreset_attr);
-    template_update_attribute(tmpl, resetoninit_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, hasreset_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    hasreset_attr = NULL;
+    rc = template_update_attribute(tmpl, resetoninit_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    resetoninit_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (value_attr)
+        free(value_attr);
+    if (hasreset_attr)
+        free(hasreset_attr);
+    if (resetoninit_attr)
+        free(resetoninit_attr);
+
+    return rc;
 }

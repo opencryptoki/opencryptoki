@@ -140,7 +140,12 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                 TRACE_DEVEL("build_attribute failed\n");
                 goto done;
             }
-            template_update_attribute(o->template, spki_attr);
+            rc = template_update_attribute(o->template, spki_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_update_attribute failed\n");
+                free(spki_attr);
+                goto done;
+            }
         }
         break;
     default:

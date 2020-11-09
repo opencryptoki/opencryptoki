@@ -750,21 +750,9 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
 
     if (!value_attr || !value_len_attr || !key_type_attr ||
         !class_attr || !local_attr || !derive_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-        if (key_type_attr)
-            free(key_type_attr);
-        if (class_attr)
-            free(class_attr);
-        if (local_attr)
-            free(local_attr);
-        if (derive_attr)
-            free(derive_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     version = (CK_VERSION *) mech->pParameter;
@@ -801,14 +789,60 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
     derive_attr->pValue = (CK_BYTE *) derive_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) derive_attr->pValue = TRUE;
 
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
-    template_update_attribute(tmpl, key_type_attr);
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, local_attr);
-    template_update_attribute(tmpl, derive_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
+    rc = template_update_attribute(tmpl, key_type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    key_type_attr = NULL;
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, local_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    local_attr = NULL;
+    rc = template_update_attribute(tmpl, derive_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    derive_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+    if (key_type_attr)
+        free(key_type_attr);
+    if (class_attr)
+        free(class_attr);
+    if (local_attr)
+        free(local_attr);
+    if (derive_attr)
+        free(derive_attr);
+
+    return rc;
 }
 
 
@@ -1207,10 +1241,31 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Failed to build CKA_NEVER_EXTRACTABLE attribute.\n");
         goto error;
     }
-    template_update_attribute(derived_key_obj->template, value_attr);
-    template_update_attribute(derived_key_obj->template, value_len_attr);
-    template_update_attribute(derived_key_obj->template, always_sens_attr);
-    template_update_attribute(derived_key_obj->template, extract_attr);
+
+    rc = template_update_attribute(derived_key_obj->template, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(derived_key_obj->template, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
+    rc = template_update_attribute(derived_key_obj->template, always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    always_sens_attr = NULL;
+    rc = template_update_attribute(derived_key_obj->template, extract_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    extract_attr = NULL;
 
     // at this point, the derived key is fully constructed...assign an
     // object handle and store the key
@@ -1747,16 +1802,30 @@ CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Failed to build CKA_VALUE_LEN attribute.\n");
         goto error;
     }
-    template_update_attribute(client_obj->template, client_val_attr);
-    template_update_attribute(client_obj->template, client_val_len_attr);
-    // the object owns the attributes now...
+    rc = template_update_attribute(client_obj->template, client_val_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
     client_val_attr = NULL;
+    rc = template_update_attribute(client_obj->template, client_val_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
     client_val_len_attr = NULL;
 
-    template_update_attribute(server_obj->template, server_val_attr);
-    template_update_attribute(server_obj->template, server_val_len_attr);
-    // the object owns the attributes now...
+    rc = template_update_attribute(server_obj->template, server_val_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
     server_val_attr = NULL;
+    rc = template_update_attribute(server_obj->template, server_val_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
     server_val_len_attr = NULL;
 
     rc = object_mgr_create_final(tokdata, sess, client_obj, client_handle);
@@ -1778,17 +1847,11 @@ error:
     *client_handle = 0;
     *server_handle = 0;
 
-    if (client_obj) {
+    if (client_obj)
         object_free(client_obj);
-        client_val_attr = NULL; // these get freed with the object
-        client_val_len_attr = NULL;
-    }
 
-    if (server_obj) {
+    if (server_obj)
         object_free(server_obj);
-        server_val_attr = NULL; // these get freed with the object
-        server_val_len_attr = NULL;
-    }
 
     if (client_val_attr)
         free(client_val_attr);
@@ -1976,16 +2039,31 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
             TRACE_DEVEL("template_validate_attribute failed.\n");
             goto error;
         }
-        template_update_attribute(client_obj->template, client_val_attr);
-        template_update_attribute(server_obj->template, server_val_attr);
-        template_update_attribute(client_obj->template, client_val_len_attr);
-        template_update_attribute(server_obj->template, server_val_len_attr);
-
-        // the object owns the attributes now...
-        //
+        rc = template_update_attribute(client_obj->template, client_val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         client_val_attr = NULL;
+        rc = template_update_attribute(server_obj->template, server_val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         server_val_attr = NULL;
+        rc = template_update_attribute(client_obj->template,
+                                       client_val_len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         client_val_len_attr = NULL;
+        rc = template_update_attribute(server_obj->template,
+                                       server_val_len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         server_val_len_attr = NULL;
         break;
     default:
@@ -1999,12 +2077,17 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
             TRACE_DEVEL("template_validate_attribute failed.\n");
             goto error;
         }
-        template_update_attribute(client_obj->template, client_val_attr);
-        template_update_attribute(server_obj->template, server_val_attr);
-
-        // the object owns the attributes now...
-        //
+        rc = template_update_attribute(client_obj->template, client_val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         client_val_attr = NULL;
+        rc = template_update_attribute(server_obj->template, server_val_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
         server_val_attr = NULL;
     }
 

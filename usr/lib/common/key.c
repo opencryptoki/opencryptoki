@@ -165,6 +165,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *derive_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
     CK_ATTRIBUTE *keygenmech_attr = NULL;
+    CK_RV rc;
 
     // satisfy the compiler
     //
@@ -183,20 +184,9 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr
         || !keygenmech_attr) {
-        if (id_attr)
-            free(id_attr);
-        if (sdate_attr)
-            free(sdate_attr);
-        if (edate_attr)
-            free(edate_attr);
-        if (derive_attr)
-            free(derive_attr);
-        if (local_attr)
-            free(local_attr);
-        if (keygenmech_attr)
-            free(keygenmech_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     id_attr->type = CKA_ID;
@@ -226,13 +216,60 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keygenmech_attr->pValue = (CK_BYTE *) keygenmech_attr + sizeof(CK_ATTRIBUTE);
     *(CK_MECHANISM_TYPE *) keygenmech_attr->pValue = CK_UNAVAILABLE_INFORMATION;
 
-    template_update_attribute(tmpl, id_attr);
-    template_update_attribute(tmpl, sdate_attr);
-    template_update_attribute(tmpl, edate_attr);
-    template_update_attribute(tmpl, derive_attr);
-    template_update_attribute(tmpl, local_attr);
-    template_update_attribute(tmpl, keygenmech_attr);
+    rc = template_update_attribute(tmpl, id_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    id_attr = NULL;
+    rc = template_update_attribute(tmpl, sdate_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sdate_attr = NULL;
+    rc = template_update_attribute(tmpl, edate_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    edate_attr = NULL;
+    rc = template_update_attribute(tmpl, derive_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    derive_attr = NULL;
+    rc = template_update_attribute(tmpl, local_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    local_attr = NULL;
+    rc = template_update_attribute(tmpl, keygenmech_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    keygenmech_attr = NULL;
+
     return CKR_OK;
+
+error:
+    if (id_attr)
+        free(id_attr);
+    if (sdate_attr)
+        free(sdate_attr);
+    if (edate_attr)
+        free(edate_attr);
+    if (derive_attr)
+        free(derive_attr);
+    if (local_attr)
+        free(local_attr);
+    if (keygenmech_attr)
+        free(keygenmech_attr);
+
+    return rc;
 }
 
 
@@ -337,25 +374,9 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     if (!class || !subject_attr || !encrypt_attr ||
         !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr ||
         !pki_attr) {
-        if (class_attr)
-            free(class_attr);
-        if (subject_attr)
-            free(subject_attr);
-        if (encrypt_attr)
-            free(encrypt_attr);
-        if (verify_attr)
-            free(verify_attr);
-        if (verify_recover_attr)
-            free(verify_recover_attr);
-        if (wrap_attr)
-            free(wrap_attr);
-        if (trusted_attr)
-            free(trusted_attr);
-        if (pki_attr)
-            free(pki_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     class_attr->type = CKA_CLASS;
@@ -397,16 +418,76 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr->ulValueLen = 0;       // empty string
     pki_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, subject_attr);
-    template_update_attribute(tmpl, encrypt_attr);
-    template_update_attribute(tmpl, verify_attr);
-    template_update_attribute(tmpl, verify_recover_attr);
-    template_update_attribute(tmpl, wrap_attr);
-    template_update_attribute(tmpl, trusted_attr);
-    template_update_attribute(tmpl, pki_attr);
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, subject_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    subject_attr = NULL;
+    rc = template_update_attribute(tmpl, encrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    encrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, verify_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    verify_attr = NULL;
+    rc = template_update_attribute(tmpl, verify_recover_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    verify_recover_attr = NULL;
+    rc = template_update_attribute(tmpl, wrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    wrap_attr = NULL;
+    rc = template_update_attribute(tmpl, trusted_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    trusted_attr = NULL;
+    rc = template_update_attribute(tmpl, pki_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    pki_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (class_attr)
+        free(class_attr);
+    if (subject_attr)
+        free(subject_attr);
+    if (encrypt_attr)
+        free(encrypt_attr);
+    if (verify_attr)
+        free(verify_attr);
+    if (verify_recover_attr)
+        free(verify_recover_attr);
+    if (wrap_attr)
+        free(wrap_attr);
+    if (trusted_attr)
+        free(trusted_attr);
+    if (pki_attr)
+        free(pki_attr);
+
+    return rc;
 }
 
 
@@ -560,35 +641,9 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
         !never_extr_attr || !always_sens_attr || !always_auth_attr ||
         !wrap_trusted_attr || !pki_attr) {
-        if (class_attr)
-            free(class_attr);
-        if (subject_attr)
-            free(subject_attr);
-        if (sensitive_attr)
-            free(sensitive_attr);
-        if (decrypt_attr)
-            free(decrypt_attr);
-        if (sign_attr)
-            free(sign_attr);
-        if (sign_recover_attr)
-            free(sign_recover_attr);
-        if (unwrap_attr)
-            free(unwrap_attr);
-        if (extractable_attr)
-            free(extractable_attr);
-        if (always_sens_attr)
-            free(always_sens_attr);
-        if (never_extr_attr)
-            free(never_extr_attr);
-        if (always_auth_attr)
-            free(always_auth_attr);
-        if (wrap_trusted_attr)
-            free(wrap_trusted_attr);
-        if (pki_attr)
-            free(pki_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     class_attr->type = CKA_CLASS;
@@ -664,21 +719,116 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr->ulValueLen = 0;       // empty string
     pki_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, subject_attr);
-    template_update_attribute(tmpl, sensitive_attr);
-    template_update_attribute(tmpl, decrypt_attr);
-    template_update_attribute(tmpl, sign_attr);
-    template_update_attribute(tmpl, sign_recover_attr);
-    template_update_attribute(tmpl, unwrap_attr);
-    template_update_attribute(tmpl, extractable_attr);
-    template_update_attribute(tmpl, never_extr_attr);
-    template_update_attribute(tmpl, always_sens_attr);
-    template_update_attribute(tmpl, always_auth_attr);
-    template_update_attribute(tmpl, wrap_trusted_attr);
-    template_update_attribute(tmpl, pki_attr);
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, subject_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    subject_attr = NULL;
+    rc = template_update_attribute(tmpl, sensitive_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sensitive_attr = NULL;
+    rc = template_update_attribute(tmpl, decrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    decrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, sign_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sign_attr = NULL;
+    rc = template_update_attribute(tmpl, sign_recover_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sign_recover_attr = NULL;
+    rc = template_update_attribute(tmpl, unwrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    unwrap_attr = NULL;
+    rc = template_update_attribute(tmpl, extractable_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    extractable_attr = NULL;
+    rc = template_update_attribute(tmpl, never_extr_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    never_extr_attr = NULL;
+    rc = template_update_attribute(tmpl, always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    always_sens_attr = NULL;
+    rc = template_update_attribute(tmpl, always_auth_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    always_auth_attr = NULL;
+    rc = template_update_attribute(tmpl, wrap_trusted_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    wrap_trusted_attr = NULL;
+    rc = template_update_attribute(tmpl, pki_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    pki_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (class_attr)
+        free(class_attr);
+    if (subject_attr)
+        free(subject_attr);
+    if (sensitive_attr)
+        free(sensitive_attr);
+    if (decrypt_attr)
+        free(decrypt_attr);
+    if (sign_attr)
+        free(sign_attr);
+    if (sign_recover_attr)
+        free(sign_recover_attr);
+    if (unwrap_attr)
+        free(unwrap_attr);
+    if (extractable_attr)
+        free(extractable_attr);
+    if (always_sens_attr)
+        free(always_sens_attr);
+    if (never_extr_attr)
+        free(never_extr_attr);
+    if (always_auth_attr)
+        free(always_auth_attr);
+    if (wrap_trusted_attr)
+        free(wrap_trusted_attr);
+    if (pki_attr)
+        free(pki_attr);
+
+    return rc;
 }
 
 
@@ -775,14 +925,44 @@ CK_RV priv_key_unwrap(TEMPLATE *tmpl,
             goto cleanup;
         }
 
-        template_update_attribute(tmpl, pub_key_info);
+        rc = template_update_attribute(tmpl, pub_key_info);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed.\n");
+            goto cleanup;
+        }
+        pub_key_info = NULL;
     }
 
-    template_update_attribute(tmpl, local);
-    template_update_attribute(tmpl, always_sens);
-    template_update_attribute(tmpl, sensitive);
-    template_update_attribute(tmpl, extractable);
-    template_update_attribute(tmpl, never_extract);
+    rc = template_update_attribute(tmpl, local);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    local = NULL;
+    rc = template_update_attribute(tmpl, always_sens);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    always_sens = NULL;
+    rc = template_update_attribute(tmpl, sensitive);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    sensitive = NULL;
+    rc = template_update_attribute(tmpl, extractable);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    extractable = NULL;
+    rc = template_update_attribute(tmpl, never_extract);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    never_extract = NULL;
 
     if (spki != NULL)
         free(spki);
@@ -812,6 +992,8 @@ cleanup:
 CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode)
 {
+    CK_RV rc;
+
     switch (attr->type) {
     case CKA_SUBJECT:
         return CKR_OK;
@@ -889,7 +1071,12 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                 attr->pValue = (CK_BYTE *) attr + sizeof(CK_ATTRIBUTE);
                 *(CK_BBOOL *) attr->pValue = FALSE;
 
-                template_update_attribute(tmpl, attr);
+                rc = template_update_attribute(tmpl, attr);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("template_update_attribute failed.\n");
+                    free(attr);
+                    return rc;
+                }
             }
             return CKR_OK;
         }
@@ -985,37 +1172,9 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         !unwrap_attr || !extractable_attr || !never_extr_attr
         || !always_sens_attr  || !trusted_attr || !wrap_trusted_attr ||
         !chkval_attr) {
-        if (class_attr)
-            free(class_attr);
-        if (sensitive_attr)
-            free(sensitive_attr);
-        if (encrypt_attr)
-            free(encrypt_attr);
-        if (decrypt_attr)
-            free(decrypt_attr);
-        if (sign_attr)
-            free(sign_attr);
-        if (verify_attr)
-            free(verify_attr);
-        if (wrap_attr)
-            free(wrap_attr);
-        if (unwrap_attr)
-            free(unwrap_attr);
-        if (extractable_attr)
-            free(extractable_attr);
-        if (never_extr_attr)
-            free(never_extr_attr);
-        if (always_sens_attr)
-            free(always_sens_attr);
-        if (trusted_attr)
-            free(wrap_trusted_attr);
-        if (trusted_attr)
-            free(wrap_trusted_attr);
-        if (chkval_attr)
-            free(chkval_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     class_attr->type = CKA_CLASS;
@@ -1095,22 +1254,124 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     chkval_attr->ulValueLen = 0;
     chkval_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, sensitive_attr);
-    template_update_attribute(tmpl, encrypt_attr);
-    template_update_attribute(tmpl, decrypt_attr);
-    template_update_attribute(tmpl, sign_attr);
-    template_update_attribute(tmpl, verify_attr);
-    template_update_attribute(tmpl, wrap_attr);
-    template_update_attribute(tmpl, unwrap_attr);
-    template_update_attribute(tmpl, extractable_attr);
-    template_update_attribute(tmpl, never_extr_attr);
-    template_update_attribute(tmpl, always_sens_attr);
-    template_update_attribute(tmpl, trusted_attr);
-    template_update_attribute(tmpl, wrap_trusted_attr);
-    template_update_attribute(tmpl, chkval_attr);
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, sensitive_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sensitive_attr = NULL;
+    rc = template_update_attribute(tmpl, encrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    encrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, decrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    decrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, sign_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    sign_attr = NULL;
+    rc = template_update_attribute(tmpl, verify_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    verify_attr = NULL;
+    rc = template_update_attribute(tmpl, wrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    wrap_attr = NULL;
+    rc = template_update_attribute(tmpl, unwrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    unwrap_attr = NULL;
+    rc = template_update_attribute(tmpl, extractable_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    extractable_attr = NULL;
+    rc = template_update_attribute(tmpl, never_extr_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    never_extr_attr = NULL;
+    rc = template_update_attribute(tmpl, always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    always_sens_attr = NULL;
+    rc = template_update_attribute(tmpl, trusted_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    trusted_attr = NULL;
+    rc = template_update_attribute(tmpl, wrap_trusted_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    wrap_trusted_attr = NULL;
+    rc = template_update_attribute(tmpl, chkval_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    chkval_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (class_attr)
+        free(class_attr);
+    if (sensitive_attr)
+        free(sensitive_attr);
+    if (encrypt_attr)
+        free(encrypt_attr);
+    if (decrypt_attr)
+        free(decrypt_attr);
+    if (sign_attr)
+        free(sign_attr);
+    if (verify_attr)
+        free(verify_attr);
+    if (wrap_attr)
+        free(wrap_attr);
+    if (unwrap_attr)
+        free(unwrap_attr);
+    if (extractable_attr)
+        free(extractable_attr);
+    if (never_extr_attr)
+        free(never_extr_attr);
+    if (always_sens_attr)
+        free(always_sens_attr);
+    if (trusted_attr)
+        free(wrap_trusted_attr);
+    if (trusted_attr)
+        free(wrap_trusted_attr);
+    if (chkval_attr)
+        free(chkval_attr);
+
+    return rc;
 }
 
 
@@ -1190,11 +1451,36 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto cleanup;
     }
-    template_update_attribute(tmpl, local);
-    template_update_attribute(tmpl, always_sens);
-    template_update_attribute(tmpl, sensitive);
-    template_update_attribute(tmpl, extractable);
-    template_update_attribute(tmpl, never_extract);
+    rc = template_update_attribute(tmpl, local);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    local = NULL;
+    rc = template_update_attribute(tmpl, always_sens);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    always_sens = NULL;
+    rc = template_update_attribute(tmpl, sensitive);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    sensitive = NULL;
+    rc = template_update_attribute(tmpl, extractable);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    extractable = NULL;
+    rc = template_update_attribute(tmpl, never_extract);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto cleanup;
+    }
+    never_extract = NULL;
 
     return CKR_OK;
 
@@ -1219,6 +1505,8 @@ cleanup:
 CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                     CK_ATTRIBUTE *attr, CK_ULONG mode)
 {
+    CK_RV rc;
+
     switch (attr->type) {
     case CKA_ENCRYPT:
     case CKA_DECRYPT:
@@ -1303,7 +1591,12 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                 attr->pValue = (CK_BYTE *) attr + sizeof(CK_ATTRIBUTE);
                 *(CK_BBOOL *) attr->pValue = FALSE;
 
-                template_update_attribute(tmpl, attr);
+                rc = template_update_attribute(tmpl, attr);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("template_update_attribute failed.\n");
+                    free(attr);
+                    return rc;
+                }
             }
             return CKR_OK;
         }
@@ -1390,6 +1683,7 @@ CK_RV rsa_publ_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
     CK_ATTRIBUTE *tmpattr = NULL;
     CK_ULONG bits = 0L;
     CK_BYTE pubExp[3] = { 0x01, 0x00, 0x01 };
+    CK_RV rc;
 
     publ_key_set_default_attributes(tmpl, mode);
 
@@ -1402,17 +1696,9 @@ CK_RV rsa_publ_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(pubExp));
 
     if (!type_attr || !modulus_attr || !modulus_bits_attr || !public_exp_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (modulus_attr)
-            free(modulus_attr);
-        if (modulus_bits_attr)
-            free(modulus_bits_attr);
-        if (public_exp_attr)
-            free(public_exp_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     type_attr->type = CKA_KEY_TYPE;
@@ -1441,12 +1727,44 @@ CK_RV rsa_publ_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         (CK_BYTE *) public_exp_attr + sizeof(CK_ATTRIBUTE);
     memcpy(public_exp_attr->pValue, pubExp, sizeof(pubExp));
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, modulus_attr);
-    template_update_attribute(tmpl, modulus_bits_attr);
-    template_update_attribute(tmpl, public_exp_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, modulus_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    modulus_attr = NULL;
+    rc = template_update_attribute(tmpl, modulus_bits_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    modulus_bits_attr = NULL;
+    rc = template_update_attribute(tmpl, public_exp_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    public_exp_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (modulus_attr)
+        free(modulus_attr);
+    if (modulus_bits_attr)
+        free(modulus_bits_attr);
+    if (public_exp_attr)
+        free(public_exp_attr);
+
+    return rc;
 }
 
 
@@ -1633,6 +1951,7 @@ CK_RV rsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *public_exp_attr = NULL;
     CK_ATTRIBUTE *private_exp_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     // satisfy the compiler
     //
@@ -1648,17 +1967,9 @@ CK_RV rsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     private_exp_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !modulus_attr || !public_exp_attr || !private_exp_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (modulus_attr)
-            free(modulus_attr);
-        if (public_exp_attr)
-            free(public_exp_attr);
-        if (private_exp_attr)
-            free(private_exp_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     modulus_attr->type = CKA_MODULUS;
@@ -1678,12 +1989,44 @@ CK_RV rsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_RSA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, modulus_attr);
-    template_update_attribute(tmpl, public_exp_attr);
-    template_update_attribute(tmpl, private_exp_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, modulus_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    modulus_attr = NULL;
+    rc = template_update_attribute(tmpl, private_exp_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    private_exp_attr = NULL;
+    rc = template_update_attribute(tmpl, public_exp_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    public_exp_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (modulus_attr)
+        free(modulus_attr);
+    if (public_exp_attr)
+        free(public_exp_attr);
+    if (public_exp_attr)
+        free(public_exp_attr);
+
+    return rc;
 }
 
 
@@ -1910,16 +2253,76 @@ CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     p11_attribute_trim(exponent2);
     p11_attribute_trim(coeff);
 
-    template_update_attribute(tmpl, modulus);
-    template_update_attribute(tmpl, publ_exp);
-    template_update_attribute(tmpl, priv_exp);
-    template_update_attribute(tmpl, prime1);
-    template_update_attribute(tmpl, prime2);
-    template_update_attribute(tmpl, exponent1);
-    template_update_attribute(tmpl, exponent2);
-    template_update_attribute(tmpl, coeff);
+    rc = template_update_attribute(tmpl, modulus);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    modulus = NULL;
+    rc = template_update_attribute(tmpl, publ_exp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    publ_exp = NULL;
+    rc = template_update_attribute(tmpl, priv_exp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    priv_exp = NULL;
+    rc = template_update_attribute(tmpl, prime1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    prime1 = NULL;
+    rc = template_update_attribute(tmpl, prime2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    prime2 = NULL;
+    rc = template_update_attribute(tmpl, exponent1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    exponent1 = NULL;
+    rc = template_update_attribute(tmpl, exponent2);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    exponent2 = NULL;
+    rc = template_update_attribute(tmpl, coeff);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    coeff = NULL;
 
     return CKR_OK;
+
+error:
+    if (modulus)
+        free(modulus);
+    if (publ_exp)
+        free(publ_exp);
+    if (priv_exp)
+        free(priv_exp);
+    if (prime1)
+        free(prime1);
+    if (prime2)
+        free(prime2);
+    if (exponent1)
+        free(exponent1);
+    if (exponent2)
+        free(exponent2);
+    if (coeff)
+        free(coeff);
+
+    return rc;
 }
 
 
@@ -1941,13 +2344,27 @@ CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     p11_attribute_trim(publ_exp);
 
     rc = template_update_attribute(tmpl, modulus);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_MODULUS) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    modulus = NULL;
     rc = template_update_attribute(tmpl, publ_exp);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_PUBLIC_EXPONENT) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    publ_exp = NULL;
 
     return CKR_OK;
+
+error:
+    if (modulus)
+        free(modulus);
+    if (publ_exp)
+        free(publ_exp);
+
+    return rc;
 }
 
 /*
@@ -2086,16 +2503,26 @@ CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
 
     rc = template_update_attribute(tmpl, rho);
     if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute(CKA_IBM_DILITHIUM_RHO) failed\n");
-        return rc;
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
     }
+    rho = NULL;
     rc = template_update_attribute(tmpl, t1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute(CKA_IBM_DILITHIUM_T1) failed\n");
-        return rc;
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
     }
+    t1 = NULL;
 
     return CKR_OK;
+
+error:
+    if (rho)
+        free(rho);
+    if (t1)
+        free(t1);
+
+    return rc;
 }
 
 //
@@ -2115,19 +2542,67 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
     }
 
     rc = template_update_attribute(tmpl, rho);
-    rc |= template_update_attribute(tmpl, seed);
-    rc |= template_update_attribute(tmpl, tr);
-    rc |= template_update_attribute(tmpl, s1);
-    rc |= template_update_attribute(tmpl, s2);
-    rc |= template_update_attribute(tmpl, t0);
-    rc |= template_update_attribute(tmpl, t1);
-
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
-        return rc;
+        goto error;
     }
+    rho = NULL;
+    rc = template_update_attribute(tmpl, seed);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    seed = NULL;
+    rc = template_update_attribute(tmpl, tr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    tr = NULL;
+    rc = template_update_attribute(tmpl, s1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    s1 = NULL;
+    rc = template_update_attribute(tmpl, s2);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    s2 = NULL;
+    rc = template_update_attribute(tmpl, t0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    t0 = NULL;
+    rc = template_update_attribute(tmpl, t1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    t1 = NULL;
 
     return CKR_OK;
+
+error:
+    if (rho)
+        free(rho);
+    if (seed)
+        free(seed);
+    if (tr)
+        free(tr);
+    if (s1)
+        free(s1);
+    if (s2)
+        free(s2);
+    if (t0)
+        free(t0);
+    if (t1)
+        free(t1);
+
+    return rc;
 }
 
 // dsa_publ_check_required_attributes()
@@ -2182,6 +2657,7 @@ CK_RV dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         prime_attr = NULL;
@@ -2197,19 +2673,9 @@ CK_RV dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !prime_attr || !subprime_attr || !base_attr
         || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (subprime_attr)
-            free(subprime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -2233,13 +2699,52 @@ CK_RV dsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DSA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, subprime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, subprime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (subprime_attr)
+        free(subprime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -2395,6 +2900,7 @@ CK_RV dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         prime_attr = NULL;
@@ -2410,20 +2916,9 @@ CK_RV dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !prime_attr || !subprime_attr || !base_attr
         || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (subprime_attr)
-            free(subprime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -2447,13 +2942,52 @@ CK_RV dsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DSA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, subprime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, subprime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (subprime_attr)
+        free(subprime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -2610,12 +3144,44 @@ CK_RV dsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     p11_attribute_trim(base);
     p11_attribute_trim(value);
 
-    template_update_attribute(tmpl, prime);
-    template_update_attribute(tmpl, subprime);
-    template_update_attribute(tmpl, base);
-    template_update_attribute(tmpl, value);
+    rc = template_update_attribute(tmpl, prime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime = NULL;
+    rc = template_update_attribute(tmpl, subprime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime = NULL;
+    rc = template_update_attribute(tmpl, base);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base = NULL;
+    rc = template_update_attribute(tmpl, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
 
     return CKR_OK;
+
+error:
+    if (prime)
+        free(prime);
+    if (subprime)
+        free(subprime);
+    if (base)
+        free(base);
+    if (value)
+        free(value);
+
+    return rc;
 }
 
 CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
@@ -2641,19 +3207,43 @@ CK_RV dsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     p11_attribute_trim(value);
 
     rc = template_update_attribute(tmpl, prime);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_PRIME) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime = NULL;
     rc = template_update_attribute(tmpl, subprime);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_SUBPRIME) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime = NULL;
     rc = template_update_attribute(tmpl, base);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_BASE) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base = NULL;
     rc = template_update_attribute(tmpl, value);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
 
     return CKR_OK;
+
+error:
+    if (prime)
+        free(prime);
+    if (subprime)
+        free(subprime);
+    if (base)
+        free(base);
+    if (value)
+        free(value);
+
+    return rc;
 }
 
 
@@ -2691,6 +3281,7 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *ec_point_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         params_attr = NULL;
@@ -2703,15 +3294,9 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     ec_point_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !params_attr || !ec_point_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (params_attr)
-            free(params_attr);
-        if (ec_point_attr)
-            free(ec_point_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     params_attr->type = CKA_ECDSA_PARAMS;
@@ -2727,11 +3312,36 @@ CK_RV ecdsa_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_ECDSA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, params_attr);
-    template_update_attribute(tmpl, ec_point_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, params_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    params_attr = NULL;
+    rc = template_update_attribute(tmpl, ec_point_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    ec_point_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (params_attr)
+        free(params_attr);
+    if (ec_point_attr)
+        free(ec_point_attr);
+
+    return rc;
 }
 
 
@@ -2868,6 +3478,7 @@ CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *params_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         params_attr = NULL;
@@ -2904,11 +3515,36 @@ CK_RV ecdsa_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_ECDSA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, params_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, params_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    params_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (params_attr)
+        free(params_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -3031,13 +3667,27 @@ CK_RV ecdsa_priv_unwrap_get_data(TEMPLATE *tmpl,
     }
 
     rc = template_update_attribute(tmpl, params);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_EC_PARAMS) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    params = NULL;
     rc = template_update_attribute(tmpl, point);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_EC_POINT) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    point = NULL;
 
     return CKR_OK;
+
+error:
+    if (params)
+        free(params);
+    if (point)
+        free(point);
+
+    return rc;
 }
 
 //
@@ -3058,13 +3708,40 @@ CK_RV ec_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     }
     p11_attribute_trim(privkey);
 
-    if (pubkey)
-        template_update_attribute(tmpl, pubkey);
-    if (privkey)
-        template_update_attribute(tmpl, privkey);
-    template_update_attribute(tmpl, ecparam);
+    if (pubkey) {
+        rc = template_update_attribute(tmpl, pubkey);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        pubkey = NULL;
+    }
+    if (privkey) {
+        rc = template_update_attribute(tmpl, privkey);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        privkey = NULL;
+    }
+    rc = template_update_attribute(tmpl, ecparam);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    ecparam = NULL;
 
     return CKR_OK;
+
+error:
+    if (pubkey)
+        free(pubkey);
+    if (privkey)
+        free(privkey);
+    if (ecparam)
+        free(ecparam);
+
+    return rc;
 }
 
 // dh_publ_check_required_attributes()
@@ -3111,6 +3788,7 @@ CK_RV dh_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         prime_attr = NULL;
@@ -3124,17 +3802,9 @@ CK_RV dh_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !prime_attr || !base_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -3154,12 +3824,44 @@ CK_RV dh_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DH;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -3282,6 +3984,7 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG bits = 0L;
+    CK_RV rc;
 
     priv_key_set_default_attributes(tmpl, mode);
 
@@ -3295,19 +3998,9 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !prime_attr || !base_attr || !value_attr
         || !value_bits_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_bits_attr)
-            free(value_bits_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc =  CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -3333,13 +4026,52 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DH;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_bits_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_bits_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_bits_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_bits_attr)
+        free(value_bits_attr);
+
+    return rc;
 }
 
 
@@ -3413,11 +4145,36 @@ CK_RV dh_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG total_length)
     p11_attribute_trim(base);
     p11_attribute_trim(value);
 
-    template_update_attribute(tmpl, prime);
-    template_update_attribute(tmpl, base);
-    template_update_attribute(tmpl, value);
+    rc = template_update_attribute(tmpl, prime);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime = NULL;
+    rc = template_update_attribute(tmpl, base);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base = NULL;
+    rc = template_update_attribute(tmpl, value);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
 
     return CKR_OK;
+
+error:
+    if (prime)
+        free(prime);
+    if (base)
+        free(base);
+    if (value)
+        free(value);
+
+    return rc;
 }
 
 CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
@@ -3440,16 +4197,35 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     p11_attribute_trim(value);
 
     rc = template_update_attribute(tmpl, prime);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_PRIME) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime = NULL;
     rc = template_update_attribute(tmpl, base);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_BASE) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base = NULL;
     rc = template_update_attribute(tmpl, value);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
 
     return CKR_OK;
+
+error:
+    if (prime)
+        free(prime);
+    if (base)
+        free(base);
+    if (value)
+        free(value);
+
+    return rc;
 }
 
 // create the ASN.1 encoding for the private key for wrapping as defined
@@ -3564,6 +4340,7 @@ CK_RV kea_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         prime_attr = NULL;
@@ -3580,19 +4357,9 @@ CK_RV kea_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !prime_attr || !subprime_attr || !base_attr
         || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (subprime_attr)
-            free(subprime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -3616,13 +4383,52 @@ CK_RV kea_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_KEA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, subprime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, subprime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (subprime_attr)
+        free(subprime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -3707,6 +4513,7 @@ CK_RV kea_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *base_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         prime_attr = NULL;
@@ -3722,19 +4529,9 @@ CK_RV kea_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !prime_attr || !base_attr || !value_attr
         || !subprime_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (prime_attr)
-            free(prime_attr);
-        if (subprime_attr)
-            free(subprime_attr);
-        if (base_attr)
-            free(base_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     prime_attr->type = CKA_PRIME;
@@ -3758,13 +4555,52 @@ CK_RV kea_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_KEA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, prime_attr);
-    template_update_attribute(tmpl, subprime_attr);
-    template_update_attribute(tmpl, base_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    prime_attr = NULL;
+    rc = template_update_attribute(tmpl, subprime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    subprime_attr = NULL;
+    rc = template_update_attribute(tmpl, base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    base_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (prime_attr)
+        free(prime_attr);
+    if (subprime_attr)
+        free(subprime_attr);
+    if (base_attr)
+        free(base_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -3810,6 +4646,7 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *rho_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
     CK_ATTRIBUTE *keyform_attr = NULL;
+    CK_RV rc;
 
     publ_key_set_default_attributes(tmpl, mode);
 
@@ -3819,17 +4656,9 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !rho_attr || !t1_attr || !keyform_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (rho_attr)
-            free(rho_attr);
-        if (t1_attr)
-            free(t1_attr);
-        if (keyform_attr)
-            free(keyform_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     type_attr->type = CKA_KEY_TYPE;
@@ -3850,12 +4679,44 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     t1_attr->ulValueLen = 0;
     t1_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, rho_attr);
-    template_update_attribute(tmpl, t1_attr);
-    template_update_attribute(tmpl, keyform_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, rho_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    rho_attr = NULL;
+    rc = template_update_attribute(tmpl, t1_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    t1_attr = NULL;
+    rc = template_update_attribute(tmpl, keyform_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    keyform_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (rho_attr)
+        free(rho_attr);
+    if (t1_attr)
+        free(t1_attr);
+    if (keyform_attr)
+        free(keyform_attr);
+
+   return rc;
 }
 
 //  ibm_dilithium_priv_set_default_attributes()
@@ -3871,6 +4732,7 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *t0_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
     CK_ATTRIBUTE *keyform_attr = NULL;
+    CK_RV rc;
 
     priv_key_set_default_attributes(tmpl, mode);
 
@@ -3886,27 +4748,9 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!type_attr || !rho_attr || !seed_attr || !tr_attr || !s1_attr
         || !s2_attr || !t0_attr || !t1_attr || !keyform_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (rho_attr)
-            free(rho_attr);
-        if (seed_attr)
-            free(seed_attr);
-        if (tr_attr)
-            free(tr_attr);
-        if (s1_attr)
-            free(s1_attr);
-        if (s2_attr)
-            free(s2_attr);
-        if (t0_attr)
-            free(t0_attr);
-        if (t1_attr)
-            free(t1_attr);
-        if (keyform_attr)
-            free(keyform_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     type_attr->type = CKA_KEY_TYPE;
@@ -3947,17 +4791,84 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     t1_attr->ulValueLen = 0;
     t1_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, keyform_attr);
-    template_update_attribute(tmpl, rho_attr);
-    template_update_attribute(tmpl, seed_attr);
-    template_update_attribute(tmpl, tr_attr);
-    template_update_attribute(tmpl, s1_attr);
-    template_update_attribute(tmpl, s2_attr);
-    template_update_attribute(tmpl, t0_attr);
-    template_update_attribute(tmpl, t1_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, keyform_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    keyform_attr = NULL;
+    rc = template_update_attribute(tmpl, rho_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    rho_attr = NULL;
+    rc = template_update_attribute(tmpl, seed_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    seed_attr = NULL;
+    rc = template_update_attribute(tmpl, tr_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    tr_attr = NULL;
+    rc = template_update_attribute(tmpl, s1_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    s1_attr = NULL;
+    rc = template_update_attribute(tmpl, s2_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    s2_attr = NULL;
+    rc = template_update_attribute(tmpl, t0_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    t0_attr = NULL;
+    rc = template_update_attribute(tmpl, t1_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    t1_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (rho_attr)
+        free(rho_attr);
+    if (seed_attr)
+        free(seed_attr);
+    if (tr_attr)
+        free(tr_attr);
+    if (s1_attr)
+        free(s1_attr);
+    if (s2_attr)
+        free(s2_attr);
+    if (t0_attr)
+        free(t0_attr);
+    if (t1_attr)
+        free(t1_attr);
+    if (keyform_attr)
+        free(keyform_attr);
+
+    return rc;
 }
 
 // ibm_dilithium_publ_check_required_attributes()
@@ -4163,6 +5074,7 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *derive_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     if (mode) {
         value_attr = NULL;
@@ -4180,19 +5092,9 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr) {
-        if (id_attr)
-            free(id_attr);
-        if (sdate_attr)
-            free(sdate_attr);
-        if (edate_attr)
-            free(edate_attr);
-        if (derive_attr)
-            free(derive_attr);
-        if (local_attr)
-            free(local_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     id_attr->type = CKA_ID;
@@ -4221,11 +5123,36 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     else
         *(CK_BBOOL *) local_attr->pValue = FALSE;
 
-    template_update_attribute(tmpl, id_attr);
-    template_update_attribute(tmpl, sdate_attr);
-    template_update_attribute(tmpl, edate_attr);
-    template_update_attribute(tmpl, derive_attr);
-    template_update_attribute(tmpl, local_attr);
+    rc = template_update_attribute(tmpl, id_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    id_attr = NULL;
+    rc = template_update_attribute(tmpl, sdate_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    sdate_attr = NULL;
+    rc = template_update_attribute(tmpl, edate_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    edate_attr = NULL;
+    rc = template_update_attribute(tmpl, derive_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    derive_attr = NULL;
+    rc = template_update_attribute(tmpl, local_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    local_attr = NULL;
 
     /* Next, set the Common Secret Key Attributes and defaults for
      * Generic Secret Keys.
@@ -4256,31 +5183,9 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr
         || !sign_attr || !verify_attr | !wrap_attr || !unwrap_attr
         || !extractable_attr || !never_extr_attr || !always_sens_attr) {
-        if (class_attr)
-            free(class_attr);
-        if (sensitive_attr)
-            free(sensitive_attr);
-        if (encrypt_attr)
-            free(encrypt_attr);
-        if (decrypt_attr)
-            free(decrypt_attr);
-        if (sign_attr)
-            free(sign_attr);
-        if (verify_attr)
-            free(verify_attr);
-        if (wrap_attr)
-            free(wrap_attr);
-        if (unwrap_attr)
-            free(unwrap_attr);
-        if (extractable_attr)
-            free(extractable_attr);
-        if (never_extr_attr)
-            free(never_extr_attr);
-        if (always_sens_attr)
-            free(always_sens_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     class_attr->type = CKA_CLASS;
@@ -4345,17 +5250,72 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_BYTE *) never_extr_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) never_extr_attr->pValue = FALSE;
 
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, sensitive_attr);
-    template_update_attribute(tmpl, encrypt_attr);
-    template_update_attribute(tmpl, decrypt_attr);
-    template_update_attribute(tmpl, sign_attr);
-    template_update_attribute(tmpl, verify_attr);
-    template_update_attribute(tmpl, wrap_attr);
-    template_update_attribute(tmpl, unwrap_attr);
-    template_update_attribute(tmpl, extractable_attr);
-    template_update_attribute(tmpl, never_extr_attr);
-    template_update_attribute(tmpl, always_sens_attr);
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, sensitive_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    sensitive_attr = NULL;
+    rc = template_update_attribute(tmpl, encrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    encrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, decrypt_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    decrypt_attr = NULL;
+    rc = template_update_attribute(tmpl, sign_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    sign_attr = NULL;
+    rc = template_update_attribute(tmpl, verify_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    verify_attr = NULL;
+    rc = template_update_attribute(tmpl, wrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    wrap_attr = NULL;
+    rc = template_update_attribute(tmpl, unwrap_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    unwrap_attr = NULL;
+    rc = template_update_attribute(tmpl, extractable_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    extractable_attr = NULL;
+    rc = template_update_attribute(tmpl, never_extr_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    never_extr_attr = NULL;
+    rc = template_update_attribute(tmpl, always_sens_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    always_sens_attr = NULL;
 
     /* Now set the type, value and value_len */
     type_attr =
@@ -4365,15 +5325,9 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -4390,11 +5344,68 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_GENERIC_SECRET;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (id_attr)
+        free(id_attr);
+    if (sdate_attr)
+        free(sdate_attr);
+    if (edate_attr)
+        free(edate_attr);
+    if (derive_attr)
+        free(derive_attr);
+    if (local_attr)
+        free(local_attr);
+    if (class_attr)
+        free(class_attr);
+    if (sensitive_attr)
+        free(sensitive_attr);
+    if (encrypt_attr)
+        free(encrypt_attr);
+    if (decrypt_attr)
+        free(decrypt_attr);
+    if (sign_attr)
+        free(sign_attr);
+    if (verify_attr)
+        free(verify_attr);
+    if (wrap_attr)
+        free(wrap_attr);
+    if (unwrap_attr)
+        free(unwrap_attr);
+    if (extractable_attr)
+        free(extractable_attr);
+    if (never_extr_attr)
+        free(never_extr_attr);
+    if (always_sens_attr)
+        free(always_sens_attr);
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 // generic_secret_validate_attribute()
@@ -4538,10 +5549,21 @@ CK_RV generic_secret_unwrap(TEMPLATE *tmpl,
         }
     }
 
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
-    if (data_len != len)
-        template_update_attribute(tmpl, value_len_attr);
+    if (data_len != len) {
+        rc = template_update_attribute(tmpl, value_len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        value_len_attr = NULL;
+    }
 
     return CKR_OK;
 
@@ -4592,6 +5614,7 @@ CK_RV rc2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -4602,15 +5625,9 @@ CK_RV rc2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -4627,11 +5644,36 @@ CK_RV rc2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_RC2;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -4685,6 +5727,7 @@ CK_RV rc4_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -4695,15 +5738,9 @@ CK_RV rc4_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -4720,11 +5757,36 @@ CK_RV rc4_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_RC4;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -4837,6 +5899,7 @@ CK_RV rc5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -4847,15 +5910,9 @@ CK_RV rc5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -4872,11 +5929,36 @@ CK_RV rc5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_RC5;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -4974,6 +6056,7 @@ CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -4985,13 +6068,9 @@ CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
 
     if (!value_attr || !type_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (type_attr)
-            free(type_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5003,10 +6082,28 @@ CK_RV des_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DES;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (value_attr)
+        free(value_attr);
+    if (type_attr)
+        free(type_attr);
+
+    return rc;
 }
 
 
@@ -5020,7 +6117,7 @@ CK_RV des_unwrap(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *value_attr = NULL;
     CK_BYTE *ptr = NULL;
     CK_ULONG i;
-
+    CK_RV rc;
 
     if (data_len < DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
@@ -5051,7 +6148,12 @@ CK_RV des_unwrap(STDLL_TokData_t *tokdata,
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
     memcpy(value_attr->pValue, ptr, DES_BLOCK_SIZE);
 
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_attr);
+        return rc;
+    }
 
     return CKR_OK;
 }
@@ -5183,6 +6285,7 @@ CK_RV des2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -5194,13 +6297,9 @@ CK_RV des2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
 
     if (!value_attr || !type_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (type_attr)
-            free(type_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5212,10 +6311,28 @@ CK_RV des2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DES2;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (value_attr)
+        free(value_attr);
+    if (type_attr)
+        free(type_attr);
+
+    return rc;
 }
 
 
@@ -5307,6 +6424,7 @@ CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -5318,13 +6436,9 @@ CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
 
     if (!value_attr || !type_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (type_attr)
-            free(type_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5336,10 +6450,28 @@ CK_RV des3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_DES3;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (value_attr)
+        free(value_attr);
+    if (type_attr)
+        free(type_attr);
+
+    return rc;
 }
 
 
@@ -5353,7 +6485,7 @@ CK_RV des3_unwrap(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *value_attr = NULL;
     CK_BYTE *ptr = NULL;
     CK_ULONG i;
-
+    CK_RV rc;
 
     if (data_len < 3 * DES_BLOCK_SIZE) {
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_INVALID));
@@ -5385,7 +6517,12 @@ CK_RV des3_unwrap(STDLL_TokData_t *tokdata,
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
     memcpy(value_attr->pValue, ptr, 3 * DES_BLOCK_SIZE);
 
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_attr);
+        return rc;
+    }
 
     return CKR_OK;
 }
@@ -5522,7 +6659,7 @@ CK_RV cast_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
-
+    CK_RV rc;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -5533,15 +6670,9 @@ CK_RV cast_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5558,11 +6689,36 @@ CK_RV cast_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_CAST;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -5640,6 +6796,7 @@ CK_RV cast3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -5653,15 +6810,9 @@ CK_RV cast3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5678,11 +6829,36 @@ CK_RV cast3_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_CAST3;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -5759,6 +6935,7 @@ CK_RV cast5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *value_len_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ULONG len = 0L;
+    CK_RV rc;
 
     secret_key_set_default_attributes(tmpl, mode);
 
@@ -5769,15 +6946,9 @@ CK_RV cast5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
     if (!type_attr || !value_attr || !value_len_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-        if (value_len_attr)
-            free(value_len_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5794,11 +6965,37 @@ CK_RV cast5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_CAST5;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, value_len_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, value_len_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_len_attr = NULL;
+
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+    if (value_len_attr)
+        free(value_len_attr);
+
+    return rc;
 }
 
 
@@ -5866,6 +7063,7 @@ CK_RV idea_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -5876,13 +7074,9 @@ CK_RV idea_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     if (!type_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5894,10 +7088,28 @@ CK_RV idea_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_IDEA;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -5949,6 +7161,7 @@ CK_RV cdmf_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -5960,13 +7173,9 @@ CK_RV cdmf_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -5978,10 +7187,28 @@ CK_RV cdmf_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_CDMF;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -6083,6 +7310,7 @@ CK_RV skipjack_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -6094,13 +7322,9 @@ CK_RV skipjack_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -6112,10 +7336,28 @@ CK_RV skipjack_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_SKIPJACK;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -6166,6 +7408,7 @@ CK_RV baton_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -6177,13 +7420,9 @@ CK_RV baton_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -6195,10 +7434,28 @@ CK_RV baton_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_BATON;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -6249,6 +7506,7 @@ CK_RV juniper_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -6260,13 +7518,9 @@ CK_RV juniper_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !value_attr) {
-        if (type_attr)
-            free(type_attr);
-        if (value_attr)
-            free(value_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -6278,10 +7532,28 @@ CK_RV juniper_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_JUNIPER;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 
@@ -6313,6 +7585,7 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_RV rc;
 
     if (mode)
         value_attr = NULL;
@@ -6324,13 +7597,9 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
 
     if (!value_attr || !type_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (type_attr)
-            free(type_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     value_attr->type = CKA_VALUE;
@@ -6342,10 +7611,28 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_AES;
 
-    template_update_attribute(tmpl, type_attr);
-    template_update_attribute(tmpl, value_attr);
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
 }
 
 // aes_check_required_attributes()
@@ -6512,8 +7799,12 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
     value_attr->pValue = (CK_BYTE *) value_attr + sizeof(CK_ATTRIBUTE);
     memcpy(value_attr->pValue, ptr, key_size);
 
-    template_update_attribute(tmpl, value_attr);
-
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_attr);
+        return rc;
+    }
 
     /* pkcs11v2-20: CKA_VALUE and CKA_VALUE_LEN given for aes key object. */
     if (!found) {
@@ -6529,7 +7820,12 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
         val_len_attr->pValue = (CK_BYTE *) val_len_attr + sizeof(CK_ATTRIBUTE);
         *((CK_ULONG *) val_len_attr->pValue) = key_size;
 
-        template_update_attribute(tmpl, val_len_attr);
+        rc = template_update_attribute(tmpl, val_len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            free(val_len_attr);
+            return rc;
+        }
     }
 
     return CKR_OK;
