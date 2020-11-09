@@ -79,6 +79,7 @@ CK_RV cert_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *start_attr = NULL;
     CK_ATTRIBUTE *end_attr = NULL;
     CK_ATTRIBUTE *pki_attr = NULL;
+    CK_RV rc;
 
     UNUSED(mode);
 
@@ -93,21 +94,9 @@ CK_RV cert_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 
     if (!trusted_attr || !category_attr || !chkval_attr || !start_attr ||
         !end_attr || !pki_attr) {
-        if (trusted_attr)
-            free(trusted_attr);
-        if (category_attr)
-            free(category_attr);
-        if (chkval_attr)
-            free(chkval_attr);
-        if (start_attr)
-            free(start_attr);
-        if (end_attr)
-            free(end_attr);
-        if (pki_attr)
-            free(pki_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     trusted_attr->type = CKA_TRUSTED;
@@ -137,14 +126,60 @@ CK_RV cert_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr->ulValueLen = 0;        // empty byte array
     pki_attr->pValue = NULL;
 
-    template_update_attribute(tmpl, trusted_attr);
-    template_update_attribute(tmpl, category_attr);
-    template_update_attribute(tmpl, chkval_attr);
-    template_update_attribute(tmpl, start_attr);
-    template_update_attribute(tmpl, end_attr);
-    template_update_attribute(tmpl, pki_attr);
+    rc = template_update_attribute(tmpl, trusted_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    trusted_attr = NULL;
+    rc = template_update_attribute(tmpl, category_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    category_attr = NULL;
+    rc = template_update_attribute(tmpl, chkval_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    chkval_attr = NULL;
+    rc = template_update_attribute(tmpl, start_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    start_attr = NULL;
+    rc = template_update_attribute(tmpl, end_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    end_attr = NULL;
+    rc = template_update_attribute(tmpl, pki_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    pki_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (trusted_attr != NULL)
+        free(trusted_attr);
+    if (category_attr != NULL)
+        free(category_attr);
+    if (chkval_attr != NULL)
+        free(chkval_attr);
+    if (start_attr != NULL)
+        free(start_attr);
+    if (end_attr != NULL)
+        free(end_attr);
+    if (pki_attr != NULL)
+        free(pki_attr);
+
+    return rc;
 }
 
 // cert_validate_attribute()
@@ -300,25 +335,9 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     if (!id_attr || !issuer_attr || !serial_attr || !url_attr ||
         !subject_hash_attr || !issuer_hash_attr || !sec_domain_attr ||
         !hash_mech_attr) {
-        if (id_attr)
-            free(id_attr);
-        if (issuer_attr)
-            free(issuer_attr);
-        if (serial_attr)
-            free(serial_attr);
-        if (url_attr)
-            free(url_attr);
-        if (subject_hash_attr)
-            free(subject_hash_attr);
-        if (issuer_hash_attr)
-            free(issuer_hash_attr);
-        if (sec_domain_attr)
-            free(sec_domain_attr);
-        if (hash_mech_attr)
-            free(hash_mech_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     id_attr->type = CKA_ID;
@@ -356,16 +375,76 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     hash_mech_attr->pValue = (CK_BYTE *)hash_mech_attr + sizeof(CK_ATTRIBUTE);
     *(CK_MECHANISM_TYPE *) hash_mech_attr->pValue = CKM_SHA_1;
 
-    template_update_attribute(tmpl, id_attr);
-    template_update_attribute(tmpl, issuer_attr);
-    template_update_attribute(tmpl, serial_attr);
-    template_update_attribute(tmpl, url_attr);
-    template_update_attribute(tmpl, subject_hash_attr);
-    template_update_attribute(tmpl, issuer_hash_attr);
-    template_update_attribute(tmpl, sec_domain_attr);
-    template_update_attribute(tmpl, hash_mech_attr);
+    rc = template_update_attribute(tmpl, id_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    id_attr = NULL;
+    rc = template_update_attribute(tmpl, issuer_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    issuer_attr = NULL;
+    rc = template_update_attribute(tmpl, serial_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    serial_attr = NULL;
+    rc = template_update_attribute(tmpl, url_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    url_attr = NULL;
+    rc = template_update_attribute(tmpl, subject_hash_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    subject_hash_attr = NULL;
+    rc = template_update_attribute(tmpl, issuer_hash_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    issuer_hash_attr = NULL;
+    rc = template_update_attribute(tmpl, sec_domain_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    sec_domain_attr = NULL;
+    rc = template_update_attribute(tmpl, hash_mech_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    hash_mech_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (id_attr)
+        free(id_attr);
+    if (issuer_attr)
+        free(issuer_attr);
+    if (serial_attr)
+        free(serial_attr);
+    if (url_attr)
+        free(url_attr);
+    if (subject_hash_attr)
+        free(subject_hash_attr);
+    if (issuer_hash_attr)
+        free(issuer_hash_attr);
+    if (sec_domain_attr)
+        free(sec_domain_attr);
+    if (hash_mech_attr)
+        free(hash_mech_attr);
+
+    return rc;
 }
 
 

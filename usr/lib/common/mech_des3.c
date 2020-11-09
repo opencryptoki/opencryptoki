@@ -2739,7 +2739,12 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         opaque_attr->ulValueLen = keysize;
         opaque_attr->pValue = (CK_BYTE *) opaque_attr + sizeof(CK_ATTRIBUTE);
         memcpy(opaque_attr->pValue, des_key, keysize);
-        template_update_attribute(tmpl, opaque_attr);
+        rc = template_update_attribute(tmpl, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            free(opaque_attr);
+            goto err;
+        }
     } else {
         if (keysize != 3 * DES_KEY_SIZE) {
             TRACE_ERROR("Invalid key size: %lu\n", keysize);
@@ -2758,15 +2763,6 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!value_attr || !key_type_attr || !class_attr || !local_attr) {
-        if (value_attr)
-            free(value_attr);
-        if (key_type_attr)
-            free(key_type_attr);
-        if (class_attr)
-            free(class_attr);
-        if (local_attr)
-            free(local_attr);
-
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto err;
@@ -2796,16 +2792,44 @@ CK_RV ckm_des3_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     local_attr->pValue = (CK_BYTE *) local_attr + sizeof(CK_ATTRIBUTE);
     *(CK_BBOOL *) local_attr->pValue = TRUE;
 
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, key_type_attr);
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, local_attr);
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto err;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, key_type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto err;
+    }
+    key_type_attr = NULL;
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto err;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, local_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto err;
+    }
+    local_attr = NULL;
 
     return CKR_OK;
 
 err:
     if (des_key)
         free(des_key);
+    if (value_attr)
+        free(value_attr);
+    if (key_type_attr)
+        free(key_type_attr);
+    if (class_attr)
+        free(class_attr);
+    if (local_attr)
+        free(local_attr);
 
     return rc;
 }

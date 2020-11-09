@@ -1854,7 +1854,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // public exponent
     //
@@ -1865,7 +1870,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
 
     // local = TRUE
@@ -1876,7 +1886,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     //
     // now, do the private key
@@ -1891,7 +1906,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // modulus: n
     //
@@ -1908,7 +1928,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // exponent 1: d mod(p-1)
     //
@@ -1919,7 +1944,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // exponent 2: d mod(q-1)
     //
@@ -1930,7 +1960,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // prime #1: p
     //
@@ -1941,8 +1976,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
-
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // prime #2: q
     //
@@ -1954,8 +1993,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
-
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
     // CRT coefficient:  q_inverse mod(p)
     //
@@ -1966,7 +2009,12 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("build_attribute failed\n");
         goto privkey_cleanup;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc= template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto privkey_cleanup;
+    }
+    attr = NULL;
 
 privkey_cleanup:
     free(privKey->p);
@@ -1979,6 +2027,9 @@ pubkey_cleanup:
     free(publKey->modulus);
     free(publKey->exponent);
     free(publKey);
+
+    if (attr != NULL)
+        free(attr);
 
     return rc;
 }
@@ -4054,8 +4105,10 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
         return rc;
     }
     rc = template_update_attribute(tmpl, value_attr);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed\n");
+        free(value_attr);
+    }
 
     return rc;
 }
@@ -4071,7 +4124,11 @@ static CK_RV build_update_attribute(TEMPLATE *tmpl,
     if ((rv = build_attribute(type, data, data_len, &attr)))
         return rv;
 
-    template_update_attribute(tmpl, attr);
+    rv = template_update_attribute(tmpl, attr);
+    if (rv != CKR_OK) {
+        free(attr);
+        return rv;
+    }
 
     return CKR_OK;
 }

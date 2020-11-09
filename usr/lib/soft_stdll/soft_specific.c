@@ -1109,7 +1109,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -1133,7 +1138,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
 
     /* add public exponent to the private template. Its already an attribute in
      * the private template at this point, we're just making its value correct
@@ -1143,7 +1153,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -1155,7 +1170,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(publ_tmpl, attr);
+    rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
 
     //
     // now, do the private key
@@ -1182,7 +1202,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
     free(ssl_ptr);
     ssl_ptr = NULL;
 
@@ -1205,7 +1230,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1230,7 +1261,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1255,7 +1292,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1280,7 +1323,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1305,7 +1354,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1330,7 +1385,13 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        OPENSSL_cleanse(attr, sizeof(CK_ATTRIBUTE) + attr->ulValueLen);
+        free(attr);
+        goto done;
+    }
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
@@ -1341,7 +1402,12 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         TRACE_DEVEL("build_attribute failed\n");
         goto done;
     }
-    template_update_attribute(priv_tmpl, attr);
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(attr);
+        goto done;
+    }
 
 done:
 #ifdef OLDER_OPENSSL
@@ -2725,7 +2791,14 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         free(temp_byte);
         return CKR_FUNCTION_FAILED;
     }
-    template_update_attribute(publ_tmpl, temp_attr);
+    rc = template_update_attribute(publ_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        DH_free(dh);
+        free(temp_byte);
+        return rc;
+    }
     free(temp_byte);
 
     //
@@ -2744,18 +2817,36 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         free(temp_byte);
         return CKR_FUNCTION_FAILED;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        DH_free(dh);
+        free(temp_byte);
+        return rc;
+    }
     free(temp_byte);
 
     // Update CKA_VALUE_BITS attribute in the private key
     value_bits_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+    if (value_bits_attr == NULL) {
+        TRACE_ERROR("malloc failed\n");
+        DH_free(dh);
+        return CKR_HOST_MEMORY;
+    }
     value_bits_attr->type = CKA_VALUE_BITS;
     value_bits_attr->ulValueLen = sizeof(CK_ULONG);
     value_bits_attr->pValue =
         (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
     *(CK_ULONG *) value_bits_attr->pValue = 8 * temp_bn_len;
-    template_update_attribute(priv_tmpl, value_bits_attr);
+    rc = template_update_attribute(priv_tmpl, value_bits_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_bits_attr);
+        DH_free(dh);
+        return rc;
+    }
 
     // Add prime and base to the private key template
     rc = build_attribute(CKA_PRIME,
@@ -2766,7 +2857,13 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         DH_free(dh);
         return CKR_FUNCTION_FAILED;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        DH_free(dh);
+        return rc;
+    }
 
     rc = build_attribute(CKA_BASE,
                          (unsigned char *) base_attr->pValue,
@@ -2776,7 +2873,13 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         DH_free(dh);
         return CKR_FUNCTION_FAILED;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        DH_free(dh);
+        return rc;
+    }
 
     // Cleanup DH key
     DH_free(dh);
@@ -2885,10 +2988,14 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     rc = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
-        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
-    template_update_attribute(publ_tmpl, temp_attr);
+    rc = template_update_attribute(publ_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        goto done;
+    }
 
     //
     // priv_key
@@ -2902,10 +3009,14 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     OPENSSL_cleanse(temp_byte2, temp_bn_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
-        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        goto done;
+    }
 
     // Update CKA_VALUE_BITS attribute in the private key
     value_bits_attr =
@@ -2920,7 +3031,12 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     value_bits_attr->pValue =
         (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
     *(CK_ULONG *) value_bits_attr->pValue = 8 * temp_bn_len;
-    template_update_attribute(priv_tmpl, value_bits_attr);
+    rc = template_update_attribute(priv_tmpl, value_bits_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        goto done;
+    }
 
     // Add prime and base to the private key template
     rc = build_attribute(CKA_PRIME,
@@ -2928,20 +3044,28 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                          prime_attr->ulValueLen, &temp_attr);  // in bytes
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
-        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        goto done;
+    }
 
     rc = build_attribute(CKA_BASE,
                          (unsigned char *) base_attr->pValue,
                          base_attr->ulValueLen, &temp_attr);     // in bytes
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
-        rv = CKR_FUNCTION_FAILED;
         goto done;
     }
-    template_update_attribute(priv_tmpl, temp_attr);
+    rc = template_update_attribute(priv_tmpl, temp_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(temp_attr);
+        goto done;
+    }
 
     rv = CKR_OK;
 done:
@@ -3660,8 +3784,10 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
     }
 
     rc = template_update_attribute(tmpl, gkey);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_VALUE) failed.\n");
+        free(gkey);
+    }
 
     return rc;
 }
@@ -4341,7 +4467,12 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
         goto out;
     }
-    template_update_attribute(publ_tmpl, ec_point_attr);
+    rc = template_update_attribute(publ_tmpl, ec_point_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(ec_point_attr);
+        goto out;
+    }
 
     d_len = EC_KEY_priv2buf(ec_key, &d);
     if (d_len == 0) {
@@ -4355,7 +4486,13 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         TRACE_ERROR("build_attribute for CKA_VALUE failed, rc=0x%lx\n", rc);
         goto out;
     }
-    template_update_attribute(priv_tmpl, value_attr);
+    rc = template_update_attribute(priv_tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_attr);
+        goto out;
+    }
+
 
     /* Add CKA_ECDSA_PARAMS to private template also */
     rc = build_attribute(CKA_ECDSA_PARAMS, attr->pValue, attr->ulValueLen,
@@ -4365,7 +4502,12 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
                      rc);
         goto out;
     }
-    template_update_attribute(priv_tmpl, parms_attr);
+    rc = template_update_attribute(priv_tmpl, parms_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(parms_attr);
+        goto out;
+    }
 
     rc = CKR_OK;
 

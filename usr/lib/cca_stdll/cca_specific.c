@@ -740,7 +740,7 @@ CK_RV token_create_keypair_object(TEMPLATE * tmpl, CK_ULONG tok_len,
     uint16_t privkey_len, pubkey_offset;
     CK_BYTE n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
     CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
-    CK_ATTRIBUTE *modulus, *pub_exp, *opaque_key;
+    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL, *opaque_key = NULL;
     CK_RV rv;
 
     privkey_len =
@@ -763,25 +763,47 @@ CK_RV token_create_keypair_object(TEMPLATE * tmpl, CK_ULONG tok_len,
     /* Add n's value to the template */
     if ((rv = build_attribute(CKA_MODULUS, n, n_len, &modulus))) {
         TRACE_DEVEL("build_attribute for n failed. rv=0x%lx\n", rv);
-        return rv;
+        goto error;
     }
-    template_update_attribute(tmpl, modulus);
+    if ((rv = template_update_attribute(tmpl, modulus))) {
+        TRACE_DEVEL("template_update_attribute for n failed. rv=0x%lx\n", rv);
+        goto error;
+    }
+    modulus = NULL;
 
     /* Add e's value to the template */
     if ((rv = build_attribute(CKA_PUBLIC_EXPONENT, e, e_len, &pub_exp))) {
         TRACE_DEVEL("build_attribute for e failed. rv=0x%lx\n", rv);
-        return rv;
+        goto error;
     }
-    template_update_attribute(tmpl, pub_exp);
+    if ((rv = template_update_attribute(tmpl, pub_exp))) {
+        TRACE_DEVEL("template_update_attribute for e failed. rv=0x%lx\n", rv);
+        goto error;
+    }
+    pub_exp = NULL;
 
     /* Add the opaque key object to the template */
     if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
         TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx\n", rv);
-        return rv;
+        goto error;
     }
-    template_update_attribute(tmpl, opaque_key);
+    if ((rv = template_update_attribute(tmpl, opaque_key))) {
+        TRACE_DEVEL("template_update_attribute for opaque key failed. "
+                    "rv=0x%lx\n", rv);
+        goto error;
+    }
+    opaque_key = NULL;
 
     return CKR_OK;
+
+error:
+    if (modulus != NULL)
+        free(modulus);
+    if (pub_exp != NULL)
+        free(pub_exp);
+    if (opaque_key != NULL)
+        free(opaque_key);
+    return rv;
 }
 
 #if 0
@@ -808,16 +830,32 @@ token_create_priv_key(TEMPLATE * priv_tmpl, CK_ULONG tok_len, CK_BYTE * tok)
         TRACE_DEVEL("build_attribute for n failed. rv=0x%lx", rv);
         return rv;
     }
-    template_update_attribute(priv_tmpl, modulus);
+    if ((rv = template_update_attribute(priv_tmpl, modulus))) {
+        TRACE_DEVEL("template_update_attribute for n failed. rv=0x%lx\n", rv);
+        goto error;
+    }
+    modulus = NULL;
 
     /* Add the opaque key object to the template */
     if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
         TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx", rv);
         return rv;
     }
-    template_update_attribute(priv_tmpl, opaque_key);
+    if ((rv = template_update_attribute(priv_tmpl, opaque_key))) {
+        TRACE_DEVEL("template_update_attribute for opaque key failed. "
+                    "rv=0x%lx\n", rv);
+        goto error;
+    }
+    opaque_key = NULL;
 
     return CKR_OK;
+
+error:
+    if (modulus != NULL)
+        free(modulus);
+    if (opaque_key != NULL)
+        free(opaque_key);
+    return rv;
 }
 #endif
 
@@ -2065,7 +2103,12 @@ CK_RV build_update_attribute(TEMPLATE * tmpl,
         TRACE_DEVEL("Build attribute for type=%lu failed rv=0x%lx\n", type, rv);
         return rv;
     }
-    template_update_attribute(tmpl, attr);
+    if ((rv = template_update_attribute(tmpl, attr))) {
+        TRACE_DEVEL("template_update_attribute for type=%lu failed "
+                    "rv=0x%lx\n", type, rv);
+        free(attr);
+        return rv;
+    }
 
     return CKR_OK;
 }
@@ -3557,6 +3600,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
     rc = template_update_attribute(priv_tmpl, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute failed\n");
+        free(opaque_key);
         goto err;
     }
 
@@ -3570,7 +3614,7 @@ static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
         OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
     }
 
-    rc =CKR_OK;
+    rc = CKR_OK;
 
 err:
     OPENSSL_cleanse(key_value_structure, sizeof(key_value_structure));
@@ -3685,6 +3729,7 @@ static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
     rc = template_update_attribute(publ_tmpl, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute failed\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -3739,6 +3784,7 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
     rc = template_update_attribute(object->template, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -3826,6 +3872,7 @@ static CK_RV import_generic_secret_key(OBJECT * object)
     rc = template_update_attribute(object->template, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -4044,6 +4091,7 @@ static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
     rc = template_update_attribute(priv_templ, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -4132,13 +4180,15 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 
     /* Public keys do not need to be wrapped, so just add public
        key token to template as CKA_IBM_OPAQUE */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length, &opaque_key))) {
+    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length,
+                              &opaque_key))) {
         TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
         return rc;
     }
     rc = template_update_attribute(pub_templ, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -4341,6 +4391,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     rc = template_update_attribute(template, opaque_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed.\n");
+        free(opaque_key);
         return rc;
     }
 
@@ -4713,10 +4764,26 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
         break;
     }
 
-    template_update_attribute(key->template, key_opaque);
-    template_update_attribute(key->template, value);
-    if (value_len != NULL)
-        template_update_attribute(key->template, value_len);
+    rc = template_update_attribute(key->template, key_opaque);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    key_opaque = NULL;
+    rc = template_update_attribute(key->template, value);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    value = NULL;
+    if (value_len != NULL) {
+        rc = template_update_attribute(key->template, value_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("template_update_attribute failed\n");
+            goto error;
+        }
+        value_len = NULL;
+    }
 
     return CKR_OK;
 
@@ -4855,11 +4922,36 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
         goto error;
     }
 
-    template_update_attribute(unwrapped_key->template, local);
-    template_update_attribute(unwrapped_key->template, always_sens);
-    template_update_attribute(unwrapped_key->template, sensitive);
-    template_update_attribute(unwrapped_key->template, extractable);
-    template_update_attribute(unwrapped_key->template, never_extract);
+    rc = template_update_attribute(unwrapped_key->template, local);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    local = NULL;
+    rc = template_update_attribute(unwrapped_key->template, always_sens);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    always_sens = NULL;
+    rc = template_update_attribute(unwrapped_key->template, sensitive);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    sensitive = NULL;
+    rc = template_update_attribute(unwrapped_key->template, extractable);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    extractable = NULL;
+    rc = template_update_attribute(unwrapped_key->template, never_extract);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    never_extract = NULL;
 
     return CKR_OK;
 
@@ -4868,6 +4960,8 @@ error:
         free(local);
     if (extractable)
         free(extractable);
+    if (sensitive)
+        free(sensitive);
     if (always_sens)
         free(always_sens);
     if (never_extract)

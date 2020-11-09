@@ -234,7 +234,7 @@ CK_RV template_free(TEMPLATE *tmpl)
  */
 CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
 {
-    DL_NODE *node = NULL;
+    DL_NODE *node = NULL, *list;
     CK_ATTRIBUTE *attr = NULL;
 
     if (!tmpl || !new_attr) {
@@ -261,8 +261,11 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
     }
 
     /* add the new attribute */
-    tmpl->attribute_list = dlist_add_as_first(tmpl->attribute_list, new_attr);
+    list = dlist_add_as_first(tmpl->attribute_list, new_attr);
+    if (list == NULL)
+        return CKR_HOST_MEMORY;
 
+    tmpl->attribute_list = list;
     return CKR_OK;
 }
 
@@ -808,6 +811,7 @@ int adjust_secret_key_attributes(OBJECT *obj, CK_ULONG key_type)
     rc = template_update_attribute(obj->template, ibm_opaque_attr);
     if (rc != CKR_OK)
         goto cleanup;
+    ibm_opaque_attr = NULL;
 
     /* Provide dummy CKA_VAUE attribute in (clear) key size */
     key_size = aes_token->bitsize / 8;
@@ -825,6 +829,7 @@ int adjust_secret_key_attributes(OBJECT *obj, CK_ULONG key_type)
     rc = template_update_attribute(obj->template, value_attr);
     if (rc != CKR_OK)
         goto cleanup;
+    value_attr = NULL;
 
     free(zero);
 
@@ -833,6 +838,8 @@ int adjust_secret_key_attributes(OBJECT *obj, CK_ULONG key_type)
 cleanup:
     if (ibm_opaque_attr)
         free(ibm_opaque_attr);
+    if (value_attr)
+        free(value_attr);
     if (zero)
         free(zero);
     return rc;

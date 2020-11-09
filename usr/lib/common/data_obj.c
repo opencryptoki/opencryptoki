@@ -53,6 +53,7 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *app_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *objid_attr = NULL;
+    CK_RV rc;
 
     // satisfy the compiler
     //
@@ -68,16 +69,9 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     objid_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !app_attr || !value_attr || !objid_attr) {
-        if (class_attr)
-            free(class_attr);
-        if (app_attr)
-            free(app_attr);
-        if (value_attr)
-            free(value_attr);
-        if (objid_attr)
-            free(objid_attr);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
+        goto error;
     }
 
     app_attr->type = CKA_APPLICATION;
@@ -97,12 +91,44 @@ CK_RV data_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     class_attr->pValue = (CK_BYTE *) class_attr + sizeof(CK_ATTRIBUTE);
     *(CK_OBJECT_CLASS *) class_attr->pValue = CKO_DATA;
 
-    template_update_attribute(tmpl, class_attr);
-    template_update_attribute(tmpl, app_attr);
-    template_update_attribute(tmpl, value_attr);
-    template_update_attribute(tmpl, objid_attr);
+    rc = template_update_attribute(tmpl, class_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    class_attr = NULL;
+    rc = template_update_attribute(tmpl, app_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    app_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+    rc = template_update_attribute(tmpl, objid_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed\n");
+        goto error;
+    }
+    objid_attr = NULL;
 
     return CKR_OK;
+
+error:
+    if (class_attr)
+        free(class_attr);
+    if (app_attr)
+        free(app_attr);
+    if (value_attr)
+        free(value_attr);
+    if (objid_attr)
+        free(objid_attr);
+
+    return rc;
 }
 
 

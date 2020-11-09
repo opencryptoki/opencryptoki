@@ -2892,6 +2892,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         return rc;
     }
 
@@ -3003,7 +3004,12 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
             TRACE_DEVEL("build_attribute failed\n");
             goto error;
     }
-    template_update_attribute(key_obj->template, attr);
+    rc = template_update_attribute(key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
     attr = NULL;
 
     /* key should be fully constructed.
@@ -3925,6 +3931,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         goto error;
     }
+    opaque_attr = NULL;
 
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
@@ -3964,6 +3971,8 @@ error:
     *handle = 0;
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+    if (opaque_attr != NULL)
+        free(opaque_attr);
     if (chk_attr != NULL)
         free(chk_attr);
 
@@ -4077,6 +4086,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto dh_generate_keypair_end;
     }
     rc = build_attribute(CKA_BASE, base_attr->pValue,
@@ -4089,6 +4099,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto dh_generate_keypair_end;
     }
 
@@ -4195,6 +4206,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(opaque_attr);
         goto dh_generate_keypair_end;
     }
 
@@ -4208,6 +4220,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(opaque_attr);
         goto dh_generate_keypair_end;
     }
 #ifdef DEBUG
@@ -4258,6 +4271,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(value_attr);
+        goto dh_generate_keypair_end;
     }
 
 dh_generate_keypair_end:
@@ -4374,6 +4389,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto dsa_generate_keypair_end;
     }
 
@@ -4388,6 +4404,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto dsa_generate_keypair_end;
     }
 
@@ -4402,6 +4419,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto dsa_generate_keypair_end;
     }
 
@@ -4517,6 +4535,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(opaque_attr);
         goto dsa_generate_keypair_end;
     }
 
@@ -4530,6 +4549,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(opaque_attr);
         goto dsa_generate_keypair_end;
     }
 
@@ -4563,6 +4583,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(value_attr);
+        goto dsa_generate_keypair_end;
     }
 
 dsa_generate_keypair_end:
@@ -4733,6 +4755,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -4745,6 +4768,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -4802,6 +4826,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                         __func__, rc);
+            free(attr);
             goto error;
         }
 
@@ -4820,6 +4845,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s template_update_attribute failed with "
                             "rc=0x%lx\n", __func__, rc);
+                free(n_attr);
                 goto error;
             }
         }
@@ -4839,6 +4865,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s template_update_attribute failed with "
                             "rc=0x%lx\n", __func__, rc);
+                free(n_attr);
                 goto error;
             }
         }
@@ -4889,6 +4916,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                         __func__, rc);
+            free(attr);
             goto error;
         }
 
@@ -4916,6 +4944,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                         __func__, rc);
+            free(attr);
             goto error;
         }
     }
@@ -5060,6 +5089,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -5072,6 +5102,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                     __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -5116,6 +5147,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                 __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -5144,6 +5176,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                 __func__, rc);
+        free(attr);
         goto error;
     }
 
@@ -5361,14 +5394,24 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(public_key_obj->template, n_attr);
+    rc = template_update_attribute(public_key_obj->template, n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
     n_attr = NULL;
     rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &n_attr);
     if (rc != CKR_OK) {
         TRACE_DEVEL("build_attribute failed\n");
         goto error;
     }
-    template_update_attribute(private_key_obj->template, n_attr);
+    rc = template_update_attribute(private_key_obj->template, n_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
     n_attr = NULL;
     free(spki);
     spki = NULL;

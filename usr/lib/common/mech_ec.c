@@ -1248,7 +1248,12 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Update the template in the object with the new attribute */
-    template_update_attribute(temp_obj->template, new_attr);
+    rc = template_update_attribute(temp_obj->template, new_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(new_attr);
+        goto end;
+    }
 
     /* At this point, the derived key is fully constructed...assign an object
      * handle and store the key */
