@@ -3723,7 +3723,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     size_t newblobsize = sizeof(newblob);
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
-    CK_ATTRIBUTE *opaque_attr = NULL, *chk_attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL, *chk_attr = NULL, *ec_parms_attr = NULL;
     OBJECT *base_key_obj = NULL;
     OBJECT *key_obj = NULL;
     CK_ULONG ktype;
@@ -3733,11 +3733,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
-    CK_ECDH1_DERIVE_PARAMS *ecdh1_parms;
+    CK_ECDH1_DERIVE_PARAMS *ecdh1_parms = NULL;
     CK_ECDH1_DERIVE_PARAMS ecdh1_parms2;
     CK_MECHANISM ecdh1_mech, ecdh1_mech2;
     CK_BYTE *ecpoint;
-    CK_ULONG ecpoint_len, field_len;
+    CK_ULONG ecpoint_len, field_len, key_len = 0;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -3838,6 +3838,44 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s Check key attributes for derived key failed with "
                     "rc=0x%lx\n", __func__, rc);
         goto error;
+    }
+
+    if (mech->mechanism == CKM_ECDH1_DERIVE ||
+        mech->mechanism == CKM_IBM_EC_X25519 ||
+        mech->mechanism == CKM_IBM_EC_X448) {
+        /* Determine derived key length */
+        rc = template_attribute_get_non_empty(base_key_obj->template,
+                                              CKA_EC_PARAMS,
+                                              &ec_parms_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_PARAMS in base key\n");
+            return rc;
+        }
+
+        /* Get CKA_VALUE_LEN if , otherwise key_len remains 0 */
+        get_ulong_attribute_by_type(new_attrs, new_attrs_len, CKA_VALUE_LEN,
+                                    &key_len);
+
+        rc = ecdh_get_derived_key_size(0, ec_parms_attr->pValue,
+                                       ec_parms_attr->ulValueLen,
+                                       ecdh1_parms->kdf, ktype,
+                                       key_len, &key_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Can not determine the derived key length\n");
+            goto error;
+        }
+
+        /* Add CKA_VALUE_LEN attribute, since EP11 needs this attribute */
+        if (get_attribute_by_type(new_attrs, new_attrs_len,
+                                  CKA_VALUE_LEN) == NULL) {
+            rc = add_to_attribute_array(&new_attrs, &new_attrs_len,
+                                        CKA_VALUE_LEN, (CK_BYTE *)&key_len,
+                                        sizeof(CK_ULONG));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("add_to_attribute_array failed\n");
+                goto error;
+            }
+        }
     }
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),

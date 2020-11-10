@@ -1116,6 +1116,88 @@ static CK_ULONG keylen_from_keytype(CK_ULONG keytype)
     }
 }
 
+CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
+                                CK_ULONG curve_oid_len, CK_EC_KDF_TYPE kdf,
+                                CK_ULONG key_type, CK_ULONG value_len,
+                                CK_ULONG *key_len)
+{
+    CK_RV rc;
+    CK_ULONG key_len_type;
+    CK_MECHANISM_TYPE digest_mech;
+    int i;
+
+    *key_len = value_len;
+    key_len_type = keylen_from_keytype(key_type);
+
+    if (*key_len == 0) {
+        *key_len = key_len_type;
+    } else if (key_len_type != 0 && *key_len != key_len_type) {
+        TRACE_ERROR("Derived key length does not work for the key type\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (prime_len == 0) {
+        for (i = 0; i < NUMEC; i++) {
+            if (der_ec_supported[i].data_size == curve_oid_len &&
+                memcmp(der_ec_supported[i].data, curve_oid,
+                       curve_oid_len) == 0)
+                prime_len = (der_ec_supported[i].len_bits + 7) / 8;
+        }
+
+        if (prime_len == 0) {
+            TRACE_ERROR("Curve not supported\n");
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+    }
+
+    /*
+     * If no CKA_VALUE_LEN is specified and the key type does also not dictate
+     * a certain length, then take then digest length of the used KDF, or if
+     * no KDF, the size of the derived shared secret.
+     */
+    if (*key_len == 0) {
+        /* Determine digest length */
+        if (kdf != CKD_NULL) {
+            rc = digest_from_kdf(kdf, &digest_mech);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Cannot determine mech from kdf.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+            rc = get_sha_size(digest_mech, key_len);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Cannot determine SHA digest size.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+        } else {
+            *key_len = prime_len;
+        }
+
+        switch (key_type) {
+        case CKK_AES:
+            if (*key_len != AES_KEY_SIZE_128 &&
+                *key_len != AES_KEY_SIZE_192 &&
+                *key_len != AES_KEY_SIZE_256) {
+                TRACE_ERROR("Derived key length does not work for the key "
+                            "type\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+            break;
+        default:
+            /* DES/DES2/DE3 has already been checked above */
+            break;
+        }
+    }
+
+    /* If no KDF used, max possible key length is the prime_len */
+    if (kdf == CKD_NULL && *key_len > prime_len) {
+        TRACE_ERROR("Can only provide %ld key bytes without a KDF, "
+                    "but %ld bytes requested.\n", prime_len, *key_len);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
@@ -1157,21 +1239,6 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    /* Determine derived key length */
-    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
-                                     &key_len);
-    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-        return rc;
-    }
-
-    if (key_len == 0) {
-        key_len = keylen_from_keytype(keytype);
-        if (key_len == 0) {
-            TRACE_ERROR("Derived key length not specified in template.\n");
-            return CKR_TEMPLATE_INCOMPLETE;
-        }
-    }
 
     /* Optional shared data can only be provided together with a KDF */
     if (pParms->kdf == CKD_NULL
@@ -1189,12 +1256,19 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         return rc;
     }
 
-    /* If no KDF used, max possible key length is the shared_secret length */
-    if (pParms->kdf == CKD_NULL && key_len > z_len) {
-        TRACE_ERROR("Can only provide %ld key bytes without a KDF, "
-                    "but %ld bytes requested.\n",
-                    (pParms->ulPublicDataLen / 2), key_len);
-        return CKR_ARGUMENTS_BAD;
+    /* Determine derived key length */
+    rc = get_ulong_attribute_by_type(pTemplate, ulCount, CKA_VALUE_LEN,
+                                     &key_len);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return rc;
+    }
+
+    rc = ecdh_get_derived_key_size(z_len, NULL, 0, pParms->kdf, keytype,
+                                   key_len, &key_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Can not determine the derived key length\n");
+        return rc;
     }
 
     /* Determine digest length */
