@@ -2231,12 +2231,6 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2245,6 +2239,12 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pData || !pulSignatureLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->sign_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2285,12 +2285,6 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pPart && ulPartLen != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2299,6 +2293,12 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pPart && ulPartLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->sign_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2335,12 +2335,6 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2349,6 +2343,12 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pulSignatureLen) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->sign_ctx.active == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
@@ -2488,12 +2488,6 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pData || !pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2502,6 +2496,12 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pData || !pSignature) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->verify_ctx.active == FALSE) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -2540,12 +2540,6 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pPart && ulPartLen != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2554,6 +2548,12 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pPart && ulPartLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->verify_ctx.active == FALSE) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
@@ -2591,12 +2591,6 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (!pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
     sess = session_mgr_find(tokdata, sSession->sessionh);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
@@ -2605,6 +2599,12 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
     //set the handle into the session.
     sess->handle = sSession->sessionh;
+
+    if (!pSignature) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
 
     if (sess->verify_ctx.active == FALSE) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
