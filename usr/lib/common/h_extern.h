@@ -841,6 +841,11 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class);
 
+CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
+                                CK_ULONG curve_oid_len, CK_EC_KDF_TYPE kdf,
+                                CK_ULONG key_type, CK_ULONG value_len,
+                                CK_ULONG *key_len);
+
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                  CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
