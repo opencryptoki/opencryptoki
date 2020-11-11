@@ -165,6 +165,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *derive_attr = NULL;
     CK_ATTRIBUTE *local_attr = NULL;
     CK_ATTRIBUTE *keygenmech_attr = NULL;
+    CK_ATTRIBUTE *allowedmechs_attr = NULL;
     CK_RV rc;
 
     // satisfy the compiler
@@ -181,9 +182,10 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     keygenmech_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
                                               + sizeof(CK_MECHANISM_TYPE));
+    allowedmechs_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr
-        || !keygenmech_attr) {
+        || !keygenmech_attr || !allowedmechs_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -215,6 +217,10 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keygenmech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
     keygenmech_attr->pValue = (CK_BYTE *) keygenmech_attr + sizeof(CK_ATTRIBUTE);
     *(CK_MECHANISM_TYPE *) keygenmech_attr->pValue = CK_UNAVAILABLE_INFORMATION;
+
+    allowedmechs_attr->type = CKA_ALLOWED_MECHANISMS;
+    allowedmechs_attr->ulValueLen = 0;
+    allowedmechs_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, id_attr);
     if (rc != CKR_OK) {
@@ -252,6 +258,12 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     keygenmech_attr = NULL;
+    rc = template_update_attribute(tmpl, allowedmechs_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    allowedmechs_attr = NULL;
 
     return CKR_OK;
 
@@ -268,6 +280,8 @@ error:
         free(local_attr);
     if (keygenmech_attr)
         free(keygenmech_attr);
+    if (allowedmechs_attr)
+        free(allowedmechs_attr);
 
     return rc;
 }
@@ -295,6 +309,13 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_START_DATE:
     case CKA_END_DATE:
         return CKR_OK;
+    case CKA_ALLOWED_MECHANISMS:
+        if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
+            attr->ulValueLen % sizeof(CK_MECHANISM_TYPE)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        return CKR_OK;
     case CKA_DERIVE:
         if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -318,6 +339,33 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     return CKR_ATTRIBUTE_TYPE_INVALID;
 }
 
+/*
+ * Check if the specified mechanism is contained in the CKA_ALLOWED_MECHANISMS
+ * attribute. If CKA_ALLOWED_MECHANISMS is not existing, or empty, then all
+ * mechanisms are allowed.
+ */
+CK_BBOOL key_object_is_mechanism_allowed(TEMPLATE *tmpl, CK_MECHANISM_TYPE mech)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_MECHANISM_TYPE *mechs;
+    CK_ULONG num_mechs, i;
+
+    if (!template_attribute_find(tmpl, CKA_ALLOWED_MECHANISMS, &attr))
+        return TRUE;
+
+    if (attr->ulValueLen == 0 || attr->pValue == NULL)
+        return TRUE;
+
+    mechs = (CK_MECHANISM_TYPE *)attr->pValue;
+    num_mechs = attr->ulValueLen / sizeof(CK_MECHANISM_TYPE);
+
+    for (i = 0; i < num_mechs; i++) {
+        if (mechs[i] == mech)
+            return TRUE;
+    }
+
+    return FALSE;
+}
 
 // publ_key_check_required_attributes()
 //

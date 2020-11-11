@@ -3825,6 +3825,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(base_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto error;
+    }
+
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
@@ -5523,7 +5530,15 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                          READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        free(ep11_sign_state);
         return rc;
+    }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        free(ep11_sign_state);
+        goto done;
     }
 
     RETRY_START
@@ -5549,6 +5564,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                    __func__, rc, keyblobsize, key, mech->mechanism);
     }
 
+done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -5655,6 +5671,12 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     RETRY_START
     rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
                           signature, sig_len, ep11_data->target);
@@ -5666,6 +5688,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -5694,7 +5717,15 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        free(ep11_sign_state);
         return rc;
+    }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        free(ep11_sign_state);
+        goto done;
     }
 
     /*
@@ -5706,6 +5737,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                                recover_mode ? CKA_VERIFY_RECOVER : CKA_VERIFY);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
+        free(ep11_sign_state);
         goto done;
     }
 
@@ -5719,6 +5751,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                     "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
                     rc, spki_len, key, ep11_sign_state_l, mech->mechanism);
+        free(ep11_sign_state);
     } else {
         ctx->key = key;
         ctx->active = TRUE;
@@ -5827,6 +5860,11 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
     /*
      * Enforce key usage restrictions. EP11 does not allow to restrict
      * public keys with CKA_VERIFY=FALSE. Thus we need to enforce the
@@ -5957,6 +5995,12 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     RETRY_START
     rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
                              input_data_len, output_data, p_output_data_len,
@@ -5969,6 +6013,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+ done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -6076,6 +6121,12 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     /*
      * Enforce key usage restrictions. EP11 does not allow to restrict
      * public keys with CKA_ENCRYPT=FALSE. Thus we need to enforce the
@@ -6127,6 +6178,12 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
         goto error;
     }
 
@@ -6277,6 +6334,15 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(wrap_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        if (size_query)
+            free(wrapped_key);
+        goto done;
+    }
+
     /* the key to be wrapped */
     rc = h_opaque_2_blob(tokdata, key, &wrap_target_blob,
                          &wrap_target_blob_len, &key_obj, READ_LOCK);
@@ -6384,6 +6450,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                 wrapping_key);
     for (i = 0; i < attrs_len; i++) {
         TRACE_DEVEL(" attribute attrs.type=0x%lx\n", attrs[i].type);
+    }
+
+    if (!key_object_is_mechanism_allowed(kobj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto error;
     }
 
     memset(keyblob, 0, sizeof(keyblob));

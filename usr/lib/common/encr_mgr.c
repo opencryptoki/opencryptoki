@@ -103,6 +103,12 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     // is the mechanism supported?  is the key type correct?  is a
     // parameter present if required?  is the key size allowed?
     // does the key support encryption?
@@ -1078,9 +1084,24 @@ CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to acquire encr-key from specified handle.\n");
             if (rc == CKR_OBJECT_HANDLE_INVALID)
-                return CKR_KEY_HANDLE_INVALID;
-            else
-                return rc;
+                rc = CKR_KEY_HANDLE_INVALID;
+            goto done;
+        }
+
+        if (!key_object_is_mechanism_allowed(decr_key_obj->template,
+                                             decr_mech->mechanism)) {
+            TRACE_ERROR("Decrypt mechanism not allwed per "
+                        "CKA_ALLOWED_MECHANISMS.\n");
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
+        }
+
+        if (!key_object_is_mechanism_allowed(encr_key_obj->template,
+                                             encr_mech->mechanism)) {
+            TRACE_ERROR("Encrypt mechanism not allwed per "
+                        "CKA_ALLOWED_MECHANISMS.\n");
+            rc = CKR_MECHANISM_INVALID;
+            goto done;
         }
 
         rc = template_attribute_get_bool(decr_key_obj->template, CKA_DECRYPT,

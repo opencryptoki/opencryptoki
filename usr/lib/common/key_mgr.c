@@ -674,6 +674,14 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_HANDLE_INVALID;
         goto done;
     }
+
+    if (!key_object_is_mechanism_allowed(wrapping_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     // is the key-to-be-wrapped EXTRACTABLE?
     //
     rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
@@ -1043,6 +1051,13 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         TRACE_ERROR("Failed to acquire key from specified handle.\n");
         if (rc == CKR_OBJECT_HANDLE_INVALID)
             rc = CKR_UNWRAPPING_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(unwrapping_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
         goto done;
     }
 

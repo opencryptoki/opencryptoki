@@ -87,6 +87,12 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     // is the mechanism supported?  is the key type correct?  is a
     // parameter present if required?  is the key size allowed?
     // is the key allowed to generate signatures?
