@@ -584,7 +584,7 @@ struct EC_TEST_VECTOR ec_tv[] = {
 
 // EC test vectors for ECDH
 #define NUM_SECRET_KEY_LENGTHS sizeof(secret_key_len)/sizeof(CK_ULONG)
-CK_ULONG secret_key_len[] = { 8, 16, 24, 32, 48, 64, 66, 80, 123, 3456, 56789 };
+CK_ULONG secret_key_len[] = { 0, 8, 16, 24, 32, 48, 64, 66, 80, 123, 3456, 56789 };
 
 #define NUM_SHARED_DATA (sizeof(shared_data)/sizeof(shared_data_t))
 

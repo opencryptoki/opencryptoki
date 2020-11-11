@@ -524,10 +524,17 @@ CK_RV run_DeriveECDHKey()
                                   der_ec_supported[i].name);
                     continue;
                 }
-                if (is_ep11_token(SLOT_ID) && k > 8) {
+                if (is_ep11_token(SLOT_ID) && k > 9) {
                     testcase_skip("EP11 cannot provide %lu key bytes with "
                                   "curve %s\n", secret_key_len[k],
                                   der_ec_supported[i].name);
+                    continue;
+                }
+                if (secret_key_len[k] == 0 &&
+                    der_ec_supported[i].type == CURVE_MONTGOMERY) {
+                    testcase_skip("Curve %s can not be used without the "
+                                  "derived key size specified in "
+                                  "CKA_VALUE_LEN\n", der_ec_supported[i].name);
                     continue;
                 }
 
@@ -546,11 +553,14 @@ CK_RV run_DeriveECDHKey()
                 CK_ATTRIBUTE  derive_tmpl[] = {
                     {CKA_CLASS, &class, sizeof(class)},
                     {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
-                    {CKA_VALUE_LEN, &(secret_key_len[k]), sizeof(CK_ULONG)},
                     {CKA_SENSITIVE, &false, sizeof(false)},
+                    {CKA_VALUE_LEN, &(secret_key_len[k]), sizeof(CK_ULONG)},
                 };
                 CK_ULONG secret_tmpl_len =
                     sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+                if (secret_key_len[k] == 0)
+                    secret_tmpl_len--;
 
                 for (m=0; m < (kdfs[j] == CKD_NULL ? 1 : NUM_SHARED_DATA); m++) {
 
