@@ -170,6 +170,13 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
             return rc;
     }
 
+    if (!key_object_is_mechanism_allowed(base_key_obj->template,
+                                         CKM_DH_PKCS_DERIVE)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");

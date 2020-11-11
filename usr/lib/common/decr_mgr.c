@@ -98,6 +98,13 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     // is the mechanism supported?  is the key type correct?  is a
     // parameter present if required?  is the key size allowed?
     // does the key support decryption?
