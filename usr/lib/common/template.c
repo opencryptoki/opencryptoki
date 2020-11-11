@@ -1488,10 +1488,10 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
-                     MODE_UNWRAP)) != 0)
+        if (*(CK_BBOOL *)attr->pValue == FALSE)
             return CKR_OK;
-        break;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
     case CKA_LABEL:
         return CKR_OK;
     case CKA_IBM_OPAQUE:
