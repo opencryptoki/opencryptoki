@@ -626,12 +626,6 @@ CK_RV C_DecryptDigestUpdate(CK_SESSION_HANDLE hSession,
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
-    // This may have to go to the STDLL for validation
-    if (!pEncryptedPart || !pulPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
@@ -844,12 +838,6 @@ CK_RV C_DecryptVerifyUpdate(CK_SESSION_HANDLE hSession,
     }
     TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
 
-    // May have to let these go through and let the STDLL handle them
-    if (!pEncryptedPart || !pulPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
     sltp = &(Anchor->SltList[rSession.slotID]);
     if (sltp->DLLoaded == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
@@ -1058,11 +1046,6 @@ CK_RV C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-    // May have to pass on through to the STDLL
-    if (!pPart || !pulEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
     }
 
     if (!Valid_Session(hSession, &rSession)) {
@@ -3449,10 +3432,6 @@ CK_RV C_Sign(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pData || !pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -3503,10 +3482,6 @@ CK_RV C_SignEncryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pPart || !pulEncryptedPartLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -3557,11 +3532,6 @@ CK_RV C_SignFinal(CK_SESSION_HANDLE hSession,
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
-
-    if (!pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
     }
 
     if (!Valid_Session(hSession, &rSession)) {
@@ -3667,10 +3637,6 @@ CK_RV C_SignRecover(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pData || !pulSignatureLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -3888,10 +3854,6 @@ CK_RV C_Verify(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pData || !pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -3939,10 +3901,6 @@ CK_RV C_VerifyFinal(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pSignature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
@@ -4042,10 +4000,7 @@ CK_RV C_VerifyRecover(CK_SESSION_HANDLE hSession,
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
-    if (!pSignature || !pulDataLen) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
+
     if (!Valid_Session(hSession, &rSession)) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
         TRACE_ERROR("Session handle id: %lu\n", hSession);
