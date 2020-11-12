@@ -178,6 +178,7 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
 {
     CK_ULONG i;
     CK_RV rc = CKR_OK;
+    int found = 0;
 
     if (!in_data || !out_data || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -230,9 +231,13 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
      */
     case 0:
         for (i = 2; i <= (in_data_len - 2); i++) {
-            if (in_data[i] != (CK_BYTE) 0)
+            if (in_data[i] != (CK_BYTE) 0) {
+                found = 1;
                 break;
+            }
         }
+        if (!found)
+            i++;
         break;
     /*
      * For block type 01, they shall have value FF.
@@ -243,6 +248,7 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
             if (in_data[i] != (CK_BYTE) 0xff) {
                 if (in_data[i] == (CK_BYTE) 0) {
                     i++;
+                    found = 1;
                     break;
                 }
 
@@ -250,6 +256,8 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
                 return CKR_ENCRYPTED_DATA_INVALID;
             }
         }
+        if (!found)
+            i++;
         break;
     /*
      * For block type 02, they shall be pseudorandomly generated and
@@ -261,9 +269,12 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
         for (i = 2; i <= (in_data_len - 2); i++) {
             if (in_data[i] == (CK_BYTE) 0) {
                 i++;
+                found = 1;
                 break;
             }
         }
+        if (!found)
+            i++;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
@@ -281,7 +292,7 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
         return CKR_ENCRYPTED_DATA_INVALID;
     }
 
-    if (in_data_len <= i) {
+    if (in_data_len < 2) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         return CKR_ENCRYPTED_DATA_INVALID;
     }
