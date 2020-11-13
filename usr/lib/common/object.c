@@ -32,6 +32,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "attributes.h"
+#include "p11util.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "trace.h"
@@ -442,6 +443,63 @@ CK_ULONG object_get_size(OBJECT * obj)
     return size;
 }
 
+static CK_RV object_get_attribute_array(CK_ATTRIBUTE *array_attr,
+                                        CK_ATTRIBUTE *tmpl_attr)
+{
+    CK_RV rc = CKR_OK, rc2;
+    CK_ULONG num_elemets, i;
+    CK_ATTRIBUTE_PTR array_elements;
+    CK_ATTRIBUTE_PTR tmpl_elements;
+
+    if (!is_attribute_attr_array(array_attr->type))
+        return CKR_ATTRIBUTE_TYPE_INVALID;
+
+    if (tmpl_attr->pValue == NULL) {
+        tmpl_attr->ulValueLen = array_attr->ulValueLen;
+        return CKR_OK;
+    }
+    if (tmpl_attr->ulValueLen < array_attr->ulValueLen) {
+        tmpl_attr->ulValueLen = CK_UNAVAILABLE_INFORMATION;
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    num_elemets = array_attr->ulValueLen / sizeof(CK_ATTRIBUTE);
+    array_elements = (CK_ATTRIBUTE_PTR)array_attr->pValue;
+    tmpl_elements = (CK_ATTRIBUTE_PTR)tmpl_attr->pValue;
+
+    for (i = 0; i < num_elemets; i++) {
+        tmpl_elements[i].type = array_elements[i].type;
+
+        if (tmpl_elements[i].pValue == NULL) {
+            tmpl_elements[i].ulValueLen = array_elements[i].ulValueLen;
+        } else if (tmpl_elements[i].ulValueLen >=
+                                            array_elements[i].ulValueLen) {
+            if (array_elements[i].pValue != NULL) {
+                if (is_attribute_attr_array(array_elements[i].type)) {
+                    rc2 = object_get_attribute_array(&array_elements[i],
+                                                     &tmpl_elements[i]);
+                    if (rc2 == CKR_BUFFER_TOO_SMALL)
+                        rc = rc2;
+                    else if (rc2 != CKR_OK) {
+                        TRACE_ERROR("object_get_attribute_array failed\n");
+                        rc = rc2;
+                        break;
+                    }
+                } else {
+                    memcpy(tmpl_elements[i].pValue, array_elements[i].pValue,
+                           array_elements[i].ulValueLen);
+                }
+            }
+            tmpl_elements[i].ulValueLen = array_elements[i].ulValueLen;
+        } else {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            rc = CKR_BUFFER_TOO_SMALL;
+            tmpl_elements[i].ulValueLen = CK_UNAVAILABLE_INFORMATION;
+        }
+    }
+
+    return rc;
+}
 
 //
 //
@@ -452,7 +510,7 @@ CK_RV object_get_attribute_values(OBJECT * obj,
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG i;
     CK_BBOOL flag;
-    CK_RV rc;
+    CK_RV rc, rc2;
 
     rc = CKR_OK;
 
@@ -464,7 +522,7 @@ CK_RV object_get_attribute_values(OBJECT * obj,
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_SENSITIVE),
                         pTemplate[i].type);
             rc = CKR_ATTRIBUTE_SENSITIVE;
-            pTemplate[i].ulValueLen = (CK_ULONG) - 1;
+            pTemplate[i].ulValueLen = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
             continue;
         }
 
@@ -473,20 +531,32 @@ CK_RV object_get_attribute_values(OBJECT * obj,
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID),
                         pTemplate[i].type);
             rc = CKR_ATTRIBUTE_TYPE_INVALID;
-            pTemplate[i].ulValueLen = (CK_ULONG) - 1;
+            pTemplate[i].ulValueLen = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
             continue;
         }
 
         if (pTemplate[i].pValue == NULL) {
             pTemplate[i].ulValueLen = attr->ulValueLen;
         } else if (pTemplate[i].ulValueLen >= attr->ulValueLen) {
-            if (attr->pValue != NULL)
-                memcpy(pTemplate[i].pValue, attr->pValue, attr->ulValueLen);
+            if (attr->pValue != NULL) {
+                if (is_attribute_attr_array(attr->type)) {
+                    rc2 = object_get_attribute_array(attr, &pTemplate[i]);
+                    if (rc2 == CKR_BUFFER_TOO_SMALL)
+                        rc = rc2;
+                    else if (rc2 != CKR_OK) {
+                        TRACE_ERROR("object_get_attribute_array failed\n");
+                        rc = rc2;
+                        break;
+                    }
+                } else {
+                    memcpy(pTemplate[i].pValue, attr->pValue, attr->ulValueLen);
+                }
+            }
             pTemplate[i].ulValueLen = attr->ulValueLen;
         } else {
             TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
             rc = CKR_BUFFER_TOO_SMALL;
-            pTemplate[i].ulValueLen = (CK_ULONG) - 1;
+            pTemplate[i].ulValueLen = (CK_ULONG)CK_UNAVAILABLE_INFORMATION;
         }
     }
 

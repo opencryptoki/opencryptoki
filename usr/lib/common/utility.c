@@ -28,6 +28,8 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "p11util.h"
+#include "attributes.h"
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "shared_memory.h"
@@ -710,6 +712,7 @@ CK_RV build_attribute(CK_ATTRIBUTE_TYPE type,
                       CK_BYTE *data, CK_ULONG data_len, CK_ATTRIBUTE **attrib)
 {
     CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
 
     attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + data_len);
     if (!attr) {
@@ -721,7 +724,18 @@ CK_RV build_attribute(CK_ATTRIBUTE_TYPE type,
 
     if (data_len > 0) {
         attr->pValue = (CK_BYTE *) attr + sizeof(CK_ATTRIBUTE);
-        memcpy(attr->pValue, data, data_len);
+        if (is_attribute_attr_array(type)) {
+            rc = dup_attribute_array_no_alloc((CK_ATTRIBUTE_PTR)data,
+                                               data_len / sizeof(CK_ATTRIBUTE),
+                                               (CK_ATTRIBUTE_PTR)attr->pValue);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("dup_attribute_array_no_alloc failed\n");
+                free(attr);
+                return rc;
+            }
+        } else {
+            memcpy(attr->pValue, data, data_len);
+        }
     } else {
         attr->pValue = NULL;
     }
