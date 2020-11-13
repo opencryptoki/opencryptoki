@@ -21,12 +21,14 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "p11util.h"
 #include "trace.h"
 #include <openssl/crypto.h>
 
 static void __cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
                                                CK_ULONG attrs_len,
-                                               CK_BBOOL cleanse)
+                                               CK_BBOOL cleanse,
+                                               CK_BBOOL free_array)
 {
     CK_ULONG i;
 
@@ -35,11 +37,19 @@ static void __cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
 
     for (i = 0; i < attrs_len; i++)
         if (attrs[i].pValue) {
+            if (is_attribute_attr_array(attrs[i].type)) {
+                __cleanse_and_free_attribute_array(
+                        (CK_ATTRIBUTE_PTR)attrs[i].pValue,
+                        attrs[i].ulValueLen / sizeof(CK_ATTRIBUTE), cleanse,
+                        TRUE);
+                continue;
+            }
             if (cleanse)
                 OPENSSL_cleanse(attrs[i].pValue, attrs[i].ulValueLen);
             free(attrs[i].pValue);
         }
-    free(attrs);
+    if (free_array)
+        free(attrs);
 }
 
 /*
@@ -47,7 +57,18 @@ static void __cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
  */
 void free_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 {
-    __cleanse_and_free_attribute_array(attrs, attrs_len, FALSE);
+    __cleanse_and_free_attribute_array(attrs, attrs_len, FALSE, TRUE);
+}
+
+/*
+ * Free an array of attributes allocated with dup_attribute_array() and cleanse
+ * all attribute values.
+ */
+void cleanse_and_free_attribute_array2(CK_ATTRIBUTE_PTR attrs,
+                                       CK_ULONG attrs_len,
+                                       CK_BBOOL free_array)
+{
+    __cleanse_and_free_attribute_array(attrs, attrs_len, TRUE, free_array);
 }
 
 /*
@@ -57,7 +78,56 @@ void free_attribute_array(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
 void cleanse_and_free_attribute_array(CK_ATTRIBUTE_PTR attrs,
                                       CK_ULONG attrs_len)
 {
-    __cleanse_and_free_attribute_array(attrs, attrs_len, TRUE);
+    __cleanse_and_free_attribute_array(attrs, attrs_len, TRUE, TRUE);
+}
+
+/*
+ * Duplicate an array of attributes and all its values.
+ * The array itself must have been allocated by the caller, and must be the
+ * same size as the original array.
+ *
+ * The returned array must be freed with free_attribute_array().
+ */
+CK_RV dup_attribute_array_no_alloc(CK_ATTRIBUTE_PTR orig, CK_ULONG num_attrs,
+                                   CK_ATTRIBUTE_PTR dest)
+{
+    CK_RV rc = CKR_OK;
+    CK_ATTRIBUTE_PTR it;
+
+    memset(dest, 0, num_attrs * sizeof(CK_ATTRIBUTE));
+
+    /* Copy each element */
+    for (it = dest; it != (dest + num_attrs); it++, orig++) {
+        it->type = orig->type;
+        it->ulValueLen = orig->ulValueLen;
+        if (it->ulValueLen > 0) {
+            if (is_attribute_attr_array(it->type)) {
+                rc = dup_attribute_array((CK_ATTRIBUTE_PTR)orig->pValue,
+                                orig->ulValueLen / sizeof(CK_ATTRIBUTE),
+                                (CK_ATTRIBUTE_PTR *)&it->pValue,
+                                &it->ulValueLen);
+                if (rc != CKR_OK)
+                    goto done;
+                it->ulValueLen *= sizeof(CK_ATTRIBUTE);
+            } else {
+                it->pValue = malloc(it->ulValueLen);
+                if (it->pValue == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    goto done;
+                }
+                memcpy(it->pValue, orig->pValue, orig->ulValueLen);
+            }
+        } else {
+            it->pValue = NULL;
+        }
+    }
+
+done:
+    if (rc != CKR_OK)
+        __cleanse_and_free_attribute_array(dest, num_attrs, TRUE, FALSE);
+
+    return rc;
 }
 
 /*
@@ -71,7 +141,6 @@ CK_RV dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
     CK_RV rc = CKR_OK;
     CK_ATTRIBUTE_PTR dest;
     CK_ULONG dest_len;
-    CK_ATTRIBUTE_PTR it;
 
     /* Allocate the new array */
     dest_len = orig_len;
@@ -80,34 +149,17 @@ CK_RV dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
-    memset(dest, 0, dest_len);
 
-    /* Copy each element */
-    for (it = dest; it != (dest + orig_len); it++, orig++) {
-        it->type = orig->type;
-        it->ulValueLen = orig->ulValueLen;
-        if (it->ulValueLen > 0) {
-            it->pValue = malloc(it->ulValueLen);
-            if (it->pValue == NULL) {
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                rc = CKR_HOST_MEMORY;
-                goto done;
-            }
-            memcpy(it->pValue, orig->pValue, orig->ulValueLen);
-        } else {
-            it->pValue = NULL;
-        }
+    rc = dup_attribute_array_no_alloc(orig, orig_len, dest);
+    if (rc != CKR_OK) {
+        free(dest);
+        return rc;
     }
 
-done:
-    if (rc == CKR_OK) {
-        *p_dest = dest;
-        *p_dest_len = dest_len;
-    } else {
-        free_attribute_array(dest, dest_len);
-    }
+    *p_dest = dest;
+    *p_dest_len = dest_len;
 
-    return rc;
+    return CKR_OK;
 }
 
 /*
@@ -177,19 +229,34 @@ CK_RV add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs,
 {
     CK_ATTRIBUTE_PTR attrs;
     CK_BYTE_PTR copied_value = NULL;
+    CK_RV rc;
 
     if (value_len > 0) {
-        copied_value = malloc(value_len);
-        if (copied_value == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            return CKR_HOST_MEMORY;
+        if (is_attribute_attr_array(type)) {
+            rc = dup_attribute_array((CK_ATTRIBUTE_PTR)value,
+                                     value_len / sizeof(CK_ATTRIBUTE),
+                                     (CK_ATTRIBUTE_PTR *)&copied_value,
+                                     &value_len);
+            if (rc != CKR_OK)
+                return rc;
+            value_len *= sizeof(CK_ATTRIBUTE);
+        } else {
+            copied_value = malloc(value_len);
+            if (copied_value == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                return CKR_HOST_MEMORY;
+            }
+            memcpy(copied_value, value, value_len);
         }
-        memcpy(copied_value, value, value_len);
     }
 
     attrs = realloc(*p_attrs, sizeof(**p_attrs) * (*p_attrs_len + 1));
     if (attrs == NULL) {
-        free(copied_value);
+        if (is_attribute_attr_array(type))
+            free_attribute_array((CK_ATTRIBUTE_PTR)copied_value,
+                                 value_len / sizeof(CK_ATTRIBUTE));
+        else
+            free(copied_value);
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
@@ -201,4 +268,61 @@ CK_RV add_to_attribute_array(CK_ATTRIBUTE_PTR *p_attrs,
     *p_attrs_len += 1;
 
     return CKR_OK;
+}
+
+CK_BBOOL compare_attribute(CK_ATTRIBUTE_PTR a1, CK_ATTRIBUTE_PTR a2)
+{
+    if (a1->type != a2->type)
+         return FALSE;
+
+    if (a1->ulValueLen != a2->ulValueLen)
+         return FALSE;
+
+     if (a1->ulValueLen == 0)
+         return TRUE;
+
+     if (a1->pValue == NULL || a2->pValue == NULL)
+         return FALSE;
+
+     if (is_attribute_attr_array(a1->type)) {
+         if (!compare_attribute_array((CK_ATTRIBUTE_PTR)a1->pValue,
+                             a1->ulValueLen / sizeof(CK_ATTRIBUTE),
+                             (CK_ATTRIBUTE_PTR)a2->pValue,
+                             a2->ulValueLen / sizeof(CK_ATTRIBUTE)))
+             return FALSE;
+     } else {
+         if (memcmp(a1->pValue, a2->pValue, a1->ulValueLen) != 0)
+             return FALSE;
+     }
+
+     return TRUE;
+}
+
+/*
+ * Compares two attribute arrays. Returns true if a1 and a2 contain the same
+ * attributes. The order of the attributes does not care.
+ */
+CK_BBOOL compare_attribute_array(CK_ATTRIBUTE_PTR a1, CK_ULONG a1_len,
+                                 CK_ATTRIBUTE_PTR a2, CK_ULONG a2_len)
+{
+    CK_ATTRIBUTE_PTR attr;
+    CK_ULONG i;
+
+    if (a1_len != a2_len)
+        return FALSE;
+    if (a1_len == 0)
+        return TRUE;
+    if (a1 == NULL || a2 == NULL)
+        return FALSE;
+
+    for (i = 0; i < a1_len; i++) {
+        attr = get_attribute_by_type(a2, a2_len, a1[i].type);
+        if (attr == NULL)
+            return FALSE;
+
+        if (!compare_attribute(&a1[i], attr))
+            return FALSE;
+    }
+
+    return TRUE;
 }

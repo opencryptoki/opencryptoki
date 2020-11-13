@@ -192,6 +192,8 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_ATTR_TYPES:
     case CKA_TRUSTED:
     case CKA_WRAP_WITH_TRUSTED:
+    case CKA_WRAP_TEMPLATE:
+    case CKA_UNWRAP_TEMPLATE:
     case CKA_CERTIFICATE_CATEGORY:
     case CKA_JAVA_MIDP_SECURITY_DOMAIN:
     case CKA_URL:
@@ -223,6 +225,23 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_IBM_DILITHIUM_T0:
     case CKA_IBM_DILITHIUM_T1:
         return TRUE;
+    }
+
+    return FALSE;
+}
+
+/*
+ * Returns true if the attribute is an attribute array type.
+ */
+CK_BBOOL is_attribute_attr_array(CK_ATTRIBUTE_TYPE type)
+{
+    if (!is_attribute_defined(type))
+        return FALSE;
+
+    switch (type) {
+    case CKA_WRAP_TEMPLATE:
+    case CKA_UNWRAP_TEMPLATE:
+         return TRUE;
     }
 
     return FALSE;

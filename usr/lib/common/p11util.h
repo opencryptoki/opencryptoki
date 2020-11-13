@@ -31,6 +31,8 @@ char *p11_get_ckm(CK_ULONG);
 //
 CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type);
 
+CK_BBOOL is_attribute_attr_array(CK_ATTRIBUTE_TYPE type);
+
 // Allocates memory on *dst and puts hex dump from ptr
 // with len bytes.
 // *dst must be freed by the caller
