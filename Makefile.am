@@ -199,17 +199,23 @@ endif
 
 
 if ENABLE_TESTCASES
+PKCS11_SO_PIN ?= 76543210
+PKCS11_USER_PIN ?= 01234567
+
 installcheck-local: all
 	killall -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
 	if test ! -z ${PKCS11_TEST_USER}; then				\
 		chmod 777 ${srcdir}/testcases &&			\
-		cd ${srcdir}/testcases &&   				\
-		su ${PKCS11_TEST_USER} -c "PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so sh ./ock_tests.sh"; \
+		cd ${srcdir}/testcases &&                               \
+		su ${PKCS11_TEST_USER} -s /bin/bash -c "PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so sh ./ock_tests.sh"; \
 	else								\
 		cd ${srcdir}/testcases && 				\
-		PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so sh ./ock_tests.sh; \
+		PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so sh ./ock_tests.sh; \
 	fi
 	killall -HUP pkcsslotd
+
+ci-installcheck: installcheck
+	@echo "done"
 endif
 
