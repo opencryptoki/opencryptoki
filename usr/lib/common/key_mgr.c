@@ -1045,6 +1045,8 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     CK_ULONG data_len;
     CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
     CK_BBOOL fromend, not_opaque = FALSE, flag;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
     CK_RV rc;
 
     if (!sess || !wrapped_key || !h_unwrapped_key) {
@@ -1149,7 +1151,15 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = object_mgr_create_skel(tokdata, sess, attributes, attrib_count,
+    rc = key_object_apply_unwrap_template(unwrapping_key_obj->template,
+                                          attributes, attrib_count,
+                                          &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_unwrap_template failed.\n");
+        goto done;
+    }
+
+    rc = object_mgr_create_skel(tokdata, sess, new_attrs, new_attr_count,
                                 MODE_UNWRAP, keyclass, keytype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_skel failed.\n");
@@ -1287,6 +1297,8 @@ done:
         object_put(tokdata, unwrapping_key_obj, TRUE);
         unwrapping_key_obj = NULL;
     }
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
     if (data) {
         OPENSSL_cleanse(data, data_len);
         free(data);
