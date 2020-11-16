@@ -1705,13 +1705,28 @@ CK_RV run_TransferECCKeyPairSignVerify()
         CK_ULONG keylen = 32;
         CK_BBOOL true = TRUE;
         CK_BYTE wrap_key_label[] = "Wrap_Key";
+        CK_OBJECT_CLASS wclass = CKO_PRIVATE_KEY;
+        CK_KEY_TYPE keyType = CKK_EC;
+        CK_ATTRIBUTE cka_wrap_tmpl[] = {
+            {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_CLASS, &wclass, sizeof(wclass)},
+            {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        };
+        CK_ATTRIBUTE cka_unwrap_tmpl[] = {
+            {CKA_DECRYPT, &true, sizeof(true)},
+            {CKA_SIGN, &true, sizeof(true)},
+            {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_PRIVATE, &true, sizeof(true)},
+        };
         CK_ATTRIBUTE secret_tmpl[] = {
             {CKA_CLASS, &wkclass, sizeof(wkclass)},
             {CKA_VALUE_LEN, &keylen, sizeof(keylen)},
             {CKA_LABEL, &wrap_key_label, sizeof(wrap_key_label)},
             {CKA_TOKEN, &true, sizeof(true)},
             {CKA_WRAP, &true, sizeof(true)},
-            {CKA_UNWRAP, &true, sizeof(true)}
+            {CKA_UNWRAP, &true, sizeof(true)},
+            {CKA_WRAP_TEMPLATE, &cka_wrap_tmpl, sizeof(cka_wrap_tmpl)},
+            {CKA_UNWRAP_TEMPLATE, &cka_unwrap_tmpl, sizeof(cka_unwrap_tmpl)},
         };
 
         rc = funcs->C_GenerateKey(session, &aes_keygen_mech, secret_tmpl,
