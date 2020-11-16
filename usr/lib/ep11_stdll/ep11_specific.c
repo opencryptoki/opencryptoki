@@ -6438,8 +6438,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ktype;
     CK_ULONG class;
     CK_ULONG len;
-    CK_ATTRIBUTE_PTR new_attrs = NULL;
-    CK_ULONG new_attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_attrs = NULL, tmp_attrs = NULL;
+    CK_ULONG new_attrs_len = 0, tmp_attrs_len = 0;
     OBJECT *kobj = NULL;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
@@ -6519,6 +6519,18 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    tmp_attrs = new_attrs;
+    tmp_attrs_len = new_attrs_len;
+    new_attrs = NULL;
+    new_attrs_len = 0;
+    rc = key_object_apply_unwrap_template(kobj->template,
+                                          tmp_attrs, tmp_attrs_len,
+                                          &new_attrs, &new_attrs_len);
+    free_attribute_array(tmp_attrs, tmp_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_unwrap_template failed.\n");
+        goto done;
+    }
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);

@@ -129,6 +129,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "attributes.h"
 #include "trace.h"
 
 #include "tok_spec_struct.h"
@@ -383,6 +384,60 @@ CK_BBOOL key_object_wrap_template_matches(TEMPLATE *wrap_tmpl, TEMPLATE *tmpl)
 
     return template_compare((CK_ATTRIBUTE_PTR)attr->pValue,
                             attr->ulValueLen / sizeof(CK_ATTRIBUTE), tmpl);
+}
+
+CK_RV key_object_apply_unwrap_template(TEMPLATE *unwrap_tmpl,
+                                       CK_ATTRIBUTE_PTR attrs,
+                                       CK_ULONG attrs_count,
+                                       CK_ATTRIBUTE_PTR *new_attrs,
+                                       CK_ULONG *new_attrs_count)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE_PTR unwrap_attrs;
+    CK_ULONG num_unwrap_attrs, i;
+    CK_RV rc;
+
+    rc = dup_attribute_array(attrs, attrs_count, new_attrs, new_attrs_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("dup_attribute_array failed\n");
+        return rc;
+    }
+
+    if (!template_attribute_find(unwrap_tmpl, CKA_UNWRAP_TEMPLATE, &attr))
+       return CKR_OK;
+
+    if (attr->ulValueLen == 0 || attr->pValue == NULL)
+        return CKR_OK;
+
+    unwrap_attrs = (CK_ATTRIBUTE_PTR)attr->pValue;
+    num_unwrap_attrs = attr->ulValueLen / sizeof (CK_ATTRIBUTE);
+
+    for (i = 0; i < num_unwrap_attrs; i++) {
+        /*
+         * If the attribute to apply is already in the user supplied template,
+         * make sure that it does not conflict.
+         */
+        attr = get_attribute_by_type(attrs, attrs_count, unwrap_attrs[i].type);
+        if (attr != NULL) {
+            if (compare_attribute(attr, &unwrap_attrs[i]) == FALSE) {
+                TRACE_DEVEL("%s: %lu conflicts\n",
+                            ock_err(ERR_TEMPLATE_INCONSISTENT),
+                            unwrap_attrs[i].type);
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        } else {
+            rc = add_to_attribute_array(new_attrs, new_attrs_count,
+                                        unwrap_attrs[i].type,
+                                        unwrap_attrs[i].pValue,
+                                        unwrap_attrs[i].ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("add_to_attribute_array failed\n");
+                return rc;
+            }
+        }
+    }
+
+    return CKR_OK;
 }
 
 // publ_key_check_required_attributes()
@@ -689,6 +744,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *always_auth_attr = NULL;
     CK_ATTRIBUTE *wrap_trusted_attr = NULL;
     CK_ATTRIBUTE *pki_attr = NULL;
+    CK_ATTRIBUTE *unwraptmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -723,11 +779,12 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     wrap_trusted_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    unwraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
         !never_extr_attr || !always_sens_attr || !always_auth_attr ||
-        !wrap_trusted_attr || !pki_attr) {
+        !wrap_trusted_attr || !pki_attr || !unwraptmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -805,6 +862,10 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr->type = CKA_SUBJECT;
     pki_attr->ulValueLen = 0;       // empty string
     pki_attr->pValue = NULL;
+
+    unwraptmpl_attr->type = CKA_UNWRAP_TEMPLATE;
+    unwraptmpl_attr->ulValueLen = 0;
+    unwraptmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -884,6 +945,12 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     pki_attr = NULL;
+    rc = template_update_attribute(tmpl, unwraptmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    unwraptmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -914,6 +981,8 @@ error:
         free(wrap_trusted_attr);
     if (pki_attr)
         free(pki_attr);
+    if (unwraptmpl_attr)
+        free(unwraptmpl_attr);
 
     return rc;
 }
@@ -1175,6 +1244,13 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         if (mode == MODE_CREATE || mode == MODE_UNWRAP)
             return CKR_OK;
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_UNWRAP_TEMPLATE:
+        if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
+            attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        return CKR_OK;
 
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
@@ -1218,6 +1294,7 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *wrap_trusted_attr = NULL;
     CK_ATTRIBUTE *chkval_attr = NULL;
     CK_ATTRIBUTE *wraptmpl_attr = NULL;
+    CK_ATTRIBUTE *unwraptmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -1255,12 +1332,13 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     chkval_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     wraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    unwraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr ||
         !sign_attr || !verify_attr || !wrap_attr ||
         !unwrap_attr || !extractable_attr || !never_extr_attr
         || !always_sens_attr  || !trusted_attr || !wrap_trusted_attr ||
-        !chkval_attr || !wraptmpl_attr) {
+        !chkval_attr || !wraptmpl_attr || !unwraptmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -1346,6 +1424,10 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     wraptmpl_attr->type = CKA_WRAP_TEMPLATE;
     wraptmpl_attr->ulValueLen = 0;
     wraptmpl_attr->pValue = NULL;
+
+    unwraptmpl_attr->type = CKA_UNWRAP_TEMPLATE;
+    unwraptmpl_attr->ulValueLen = 0;
+    unwraptmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -1437,6 +1519,12 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     wraptmpl_attr = NULL;
+    rc = template_update_attribute(tmpl, unwraptmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    unwraptmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -1471,6 +1559,8 @@ error:
         free(chkval_attr);
     if (wraptmpl_attr)
         free(wraptmpl_attr);
+    if (unwraptmpl_attr)
+        free(unwraptmpl_attr);
 
     return rc;
 }
@@ -1712,6 +1802,7 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         return CKR_OK;
     case CKA_WRAP_TEMPLATE:
+    case CKA_UNWRAP_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
