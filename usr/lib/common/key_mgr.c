@@ -682,6 +682,13 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (!key_object_wrap_template_matches(wrapping_key_obj->template,
+                                          key_obj->template)) {
+        TRACE_ERROR("Wrap template does not match.\n");
+        rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
     // is the key-to-be-wrapped EXTRACTABLE?
     //
     rc = template_attribute_get_bool(key_obj->template, CKA_EXTRACTABLE, &flag);
