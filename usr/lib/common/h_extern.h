@@ -2360,6 +2360,7 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                     CK_ULONG mode);
 CK_BBOOL key_object_is_mechanism_allowed(TEMPLATE *tmpl,
                                          CK_MECHANISM_TYPE mech);
+CK_BBOOL key_object_wrap_template_matches(TEMPLATE *wrap_tmpl, TEMPLATE *tmpl);
 
 CK_RV publ_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);

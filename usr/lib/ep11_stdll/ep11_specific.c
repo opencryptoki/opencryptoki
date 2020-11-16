@@ -6354,6 +6354,15 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    if (!key_object_wrap_template_matches(wrap_key_obj->template,
+                                          key_obj->template)) {
+        TRACE_ERROR("Wrap template does not match.\n");
+        rc = CKR_KEY_HANDLE_INVALID;
+        if (size_query)
+            free(wrapped_key);
+        goto done;
+    }
+
     /* check if wrap mechanism is allowed for the key to be wrapped.
      * AES_ECB and AES_CBC is only allowed to wrap secret keys.
      */
