@@ -20,13 +20,8 @@
 
 #include <stdint.h>
 
-#define CCA_LIBRARY "libcsulcca.so"
-#define TOK_DATASTORE   CONFIG_PATH "/ccatok"
-#define MASTER_KEY_SIZE     64
-#define SHA1_HASH_SIZE      20
-#define MD5_HASH_SIZE       16
-#define DES_BLOCK_SIZE      8
-#define DES_KEY_SIZE        8
+#define CCA_LIBRARY         "libcsulcca.so"
+#define TOK_DATASTORE       CONFIG_PATH "/ccatok"
 #define CCA_SUCCESS         0
 
 #define AES_NAME    "AES"
@@ -42,22 +37,6 @@
 #define MK_APKA     2
 #define MK_ASYM     3
 #define MK_SYM      4
-
-int compute_hash(int hash_type, int buf_size, char *buf, char *digest);
-
-#define compute_sha1(a,b,c)     compute_hash(HASH_SHA1,b,a,c)
-#define compute_md5(a,b,c)      compute_hash(HASH_MD5,b,a,c)
-#define HASH_SHA1   1
-#define HASH_MD5    2
-
-CK_RV sw_des3_cbc(CK_BYTE *, CK_ULONG, CK_BYTE *, CK_ULONG *, CK_BYTE *,
-                  CK_BYTE *, CK_BYTE);
-
-#define sw_des3_cbc_encrypt(clear, len, cipher, len2, iv, key) \
-                sw_des3_cbc(clear, len, cipher, len2, iv, key, 1)
-
-#define sw_des3_cbc_decrypt(clear, len, cipher, len2, iv, key) \
-                sw_des3_cbc(clear, len, cipher, len2, iv, key, 0)
 
 #define EVP_SUCCESS 1
 #define print_openssl_errors() \
@@ -78,7 +57,7 @@ static inline void _print_error(const char *file, int line,
     va_list ap;
 
     snprintf(buf, sizeof(buf), "%s:%d ", file, line);
-    off = strlen("%s:%d ");
+    off = strlen(buf);
 
     va_start(ap, fmt);
     vsnprintf(buf + off, sizeof(buf) - off, fmt, ap);
@@ -103,61 +82,6 @@ static inline void _print_error(const char *file, int line,
                     printf(" "); \
             } \
         } while (0)
-
-
-typedef struct _MASTER_KEY_FILE_T {
-    CK_BYTE key[MASTER_KEY_SIZE];
-    CK_BYTE sha_hash[SHA1_HASH_SIZE];
-} MASTER_KEY_FILE_T;
-
-/* from host_defs.h */
-#include "pkcs32.h"
-typedef struct _TWEAK_VEC {
-    int allow_weak_des;
-    int check_des_parity;
-    int allow_key_mods;
-    int netscape_mods;
-} TWEAK_VEC;
-
-typedef struct _TOKEN_DATA_VERSION {
-    uint32_t version; /* major<<16|minor */
-    /* --- PBKDF2 --- */
-    /* SO login */
-    uint64_t so_login_it;
-    unsigned char so_login_salt[64];
-    unsigned char so_login_key[32];
-    /* User login */
-    uint64_t user_login_it;
-    unsigned char user_login_salt[64];
-    unsigned char user_login_key[32];
-    /* SO MK wrap */
-    uint64_t so_wrap_it;
-    unsigned char so_wrap_salt[64];
-    /* User MK wrap */
-    uint64_t user_wrap_it;
-    unsigned char user_wrap_salt[64];
-} TOKEN_DATA_VERSION;
-
-typedef struct _TOKEN_DATA {
-    CK_TOKEN_INFO_32 token_info;
-
-    CK_BYTE user_pin_sha[3 * DES_BLOCK_SIZE];
-    CK_BYTE so_pin_sha[3 * DES_BLOCK_SIZE];
-    CK_BYTE next_token_object_name[8];
-    TWEAK_VEC tweak_vector;
-
-    /* new for tokversion >= 3.12 */
-    TOKEN_DATA_VERSION dat;
-} TOKEN_DATA;
-
-typedef struct _TOKEN_DATA_OLD {
-    CK_TOKEN_INFO_32 token_info;
-
-    CK_BYTE user_pin_sha[3 * DES_BLOCK_SIZE];
-    CK_BYTE so_pin_sha[3 * DES_BLOCK_SIZE];
-    CK_BYTE next_token_object_name[8];
-    TWEAK_VEC tweak_vector;
-} TOKEN_DATA_OLD;
 
 struct key {
     CK_OBJECT_HANDLE handle;
@@ -184,33 +108,6 @@ struct key_count {
     int hmac;
     int rsa;
 };
-
-typedef struct _DL_NODE
-{
-    struct _DL_NODE   *next;
-    struct _DL_NODE   *prev;
-    void              *data;
-} DL_NODE;
-
-typedef struct _TEMPLATE
-{
-    DL_NODE  *attribute_list;
-} TEMPLATE;
-
-typedef void *SESSION;
-
-typedef struct _OBJECT
-{
-    CK_OBJECT_CLASS   class;
-    CK_BYTE           name[8];   // for token objects
-
-    SESSION          *session;   // creator; only for session objects
-    TEMPLATE         *template;
-    CK_ULONG          count_hi;  // only significant for token objects
-    CK_ULONG          count_lo;  // only significant for token objects
-    CK_ULONG      index;  // SAB  Index into the SHM
-    CK_OBJECT_HANDLE  map_handle;
-} OBJECT;
 
 struct secaeskeytoken {
     unsigned char  type;     /* 0x01 for internal key token */
