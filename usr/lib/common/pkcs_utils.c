@@ -136,6 +136,8 @@ done:
     return rc;
 }
 
+#ifndef OCK_NO_LOCAL_RNG
+
 CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes)
 {
     int ranfd;
@@ -156,6 +158,8 @@ CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes)
 
     return CKR_FUNCTION_FAILED;
 }
+
+#endif
 
 CK_RV aes_256_wrap(unsigned char out[40], const unsigned char in[32],
                    const unsigned char kek[32])
@@ -453,6 +457,8 @@ done:
     return ret;
 }
 
+#ifndef OCK_NO_SET_PERM
+
 void set_perm(int file)
 {
     struct group *grp;
@@ -475,3 +481,5 @@ void set_perm(int file)
 error:
     TRACE_DEVEL("Unable to set permissions on file.\n");
 }
+
+#endif
