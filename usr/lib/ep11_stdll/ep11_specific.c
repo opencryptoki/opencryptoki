@@ -9552,3 +9552,111 @@ static void free_ep11_target_for_apqn(target_t target)
     }
 }
 
+CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                          TEMPLATE *new_tmpl)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_OBJECT_CLASS class;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    DL_NODE *node;
+    CK_ATTRIBUTE *ibm_opaque_attr = NULL;
+    CK_ATTRIBUTE_PTR attributes = NULL;
+    CK_ULONG num_attributes = 0;
+    CK_ATTRIBUTE *attr;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s CKA_CLASS is missing\n", __func__);
+        return rc;
+    }
+
+    switch (class) {
+    case CKO_SECRET_KEY:
+    case CKO_PRIVATE_KEY:
+    case CKO_PUBLIC_KEY:
+        break;
+    default:
+        /* Not a key, nothing to do */
+        return CKR_OK;
+    }
+
+    rc = obj_opaque_2_blob(tokdata, obj, &keyblob, &keyblobsize);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no key-blob rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    node = new_tmpl->attribute_list;
+    while (node) {
+        attr = (CK_ATTRIBUTE *)node->data;
+
+        /* EP11 can set certain boolean attributes only */
+        switch (attr->type) {
+        case CKA_EXTRACTABLE:
+        case CKA_MODIFIABLE:
+        case CKA_SIGN:
+        case CKA_SIGN_RECOVER:
+        case CKA_DECRYPT:
+        case CKA_ENCRYPT:
+        case CKA_DERIVE:
+        case CKA_UNWRAP:
+        case CKA_WRAP:
+        case CKA_VERIFY:
+        case CKA_VERIFY_RECOVER:
+        case CKA_WRAP_WITH_TRUSTED:
+        case CKA_TRUSTED:
+        case CKA_IBM_RESTRICTABLE:
+        case CKA_IBM_USE_AS_DATA:
+            rc = add_to_attribute_array(&attributes, &num_attributes,
+                                        attr->type, attr->pValue,
+                                        attr->ulValueLen);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s add_to_attribute_array failed rc=0x%lx\n",
+                            __func__, rc);
+                goto out;
+            }
+            break;
+        default:
+            /* Either non-boolean, or read-only */
+            break;
+        }
+
+        node = node->next;
+    }
+
+    if (attributes != NULL && num_attributes > 0) {
+        rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize,
+                             &ibm_opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed rc=0x%lx\n", __func__, rc);
+            goto out;
+        }
+
+        rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
+                                     ibm_opaque_attr->ulValueLen, attributes,
+                                     num_attributes, ep11_data->target);
+        if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
+            TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+
+        rc = template_update_attribute(new_tmpl, ibm_opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed rc=0x%lx\n",
+                        __func__, rc);
+            free(ibm_opaque_attr);
+            goto out;
+        }
+    }
+
+out:
+    if (attributes)
+        free_attribute_array(attributes, num_attributes);
+
+    return rc;
+}
+
