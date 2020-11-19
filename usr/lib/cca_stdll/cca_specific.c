@@ -874,7 +874,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         /* make pValue into CK_ULONG so we can compare */
         tmpexp = 0;
         memcpy((unsigned char *) &tmpexp + sizeof(CK_ULONG) - tmpsize,
-               ptr, tmpsize);	/* right align */
+               ptr, tmpsize);   /* right align */
 
         /* Check for one of the three allowed values */
         if ((tmpexp != 0) && (tmpexp != 3) && (tmpexp != 65537))
@@ -3155,7 +3155,7 @@ send:
     if (sign) {
         dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
                     &rule_array_count, rule_array,
-		    (long int *)&attr->ulValueLen, attr->pValue,
+                    (long int *)&attr->ulValueLen, attr->pValue,
                     use_buffer ? &buffer_len : (long int *) &in_data_len,
                     use_buffer ? buffer : in_data,
                     &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
@@ -3807,9 +3807,10 @@ static CK_RV import_generic_secret_key(OBJECT * object)
 }
 
 static CK_RV build_private_EC_key_value_structure(CK_BYTE *privkey, CK_ULONG privlen,
-        CK_BYTE *pubkey, CK_ULONG publen,
-        uint8_t curve_type, uint16_t curve_bitlen,
-        unsigned char *key_value_structure, long *key_value_structure_length)
+                                                  CK_BYTE *pubkey, CK_ULONG publen,
+                                                  uint8_t curve_type, uint16_t curve_bitlen,
+                                                  unsigned char *key_value_structure,
+                                                  long *key_value_structure_length)
 {
     ECC_PAIR ecc_pair;
 
@@ -3860,8 +3861,9 @@ static unsigned int bitlen2bytelen(uint16_t bitlen)
 }
 
 static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
-        uint8_t curve_type, uint16_t curve_bitlen,
-        unsigned char *key_value_structure, long *key_value_structure_length)
+                                                 uint8_t curve_type, uint16_t curve_bitlen,
+                                                 unsigned char *key_value_structure,
+                                                 long *key_value_structure_length)
 {
     ECC_PUBL ecc_publ;
 
@@ -4118,80 +4120,80 @@ static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
 
 CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *object)
 {
-	CK_RV rc;
-	CK_ATTRIBUTE *attr = NULL;
-	CK_KEY_TYPE keytype;
-	CK_OBJECT_CLASS keyclass;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE keytype;
+    CK_OBJECT_CLASS keyclass;
 
-	UNUSED(tokdata);
-	UNUSED(sess);
+    UNUSED(tokdata);
+    UNUSED(sess);
 
-	if (!object) {
-		TRACE_ERROR("Invalid argument\n");
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!object) {
+        TRACE_ERROR("Invalid argument\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
-	rc = template_attribute_find(object->template, CKA_KEY_TYPE, &attr);
-	if (rc == FALSE) {
-		// not a key, so nothing to do. Just return.
-		TRACE_DEVEL("object not a key, no need to import.\n");
-		return CKR_OK;
-	}
+    rc = template_attribute_find(object->template, CKA_KEY_TYPE, &attr);
+    if (rc == FALSE) {
+        // not a key, so nothing to do. Just return.
+        TRACE_DEVEL("object not a key, no need to import.\n");
+        return CKR_OK;
+    }
 
-	keytype = *(CK_KEY_TYPE *)attr->pValue;
+    keytype = *(CK_KEY_TYPE *)attr->pValue;
 
-	switch (keytype) {
-	case CKK_RSA:
-		rc = template_attribute_find(object->template, CKA_CLASS, &attr);
-		if (rc == FALSE) {
-			TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-			return CKR_TEMPLATE_INCOMPLETE;
-		}
+    switch (keytype) {
+    case CKK_RSA:
+        rc = template_attribute_find(object->template, CKA_CLASS, &attr);
+        if (rc == FALSE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
 
         keyclass = *(CK_OBJECT_CLASS *)attr->pValue;
 
-		switch(keyclass) {
-		case CKO_PUBLIC_KEY:
-			// do import public key and create opaque object
-			rc = rsa_import_pubkey(object->template);
-			break;
-		case CKO_PRIVATE_KEY:
-			// do import keypair and create opaque object
-			rc = rsa_import_privkey_crt(object->template);
-			break;
-		default:
-			TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-			return CKR_KEY_TYPE_INCONSISTENT;
-		}
+        switch(keyclass) {
+        case CKO_PUBLIC_KEY:
+            // do import public key and create opaque object
+            rc = rsa_import_pubkey(object->template);
+            break;
+        case CKO_PRIVATE_KEY:
+            // do import keypair and create opaque object
+            rc = rsa_import_privkey_crt(object->template);
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
 
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("rsa import failed\n");
-			return rc;
-		}
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("rsa import failed\n");
+            return rc;
+        }
 
-		break;
-	case CKK_AES:
-	case CKK_DES:
-	case CKK_DES3:
-		rc = import_symmetric_key(object, keytype);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
-				     rc);
-			return rc;
-		}
-		TRACE_INFO("symmetric key with len=%ld successful imported\n",
-			    attr->ulValueLen);
-		break;
-	case CKK_GENERIC_SECRET:
-		rc = import_generic_secret_key(object);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Generic Secret (HMAC) key import failed "
-				    " with rc=0x%lx\n", rc);
-			return rc;
-		}
-		TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
-			   " imported\n", attr->ulValueLen);
-		break;
+        break;
+    case CKK_AES:
+    case CKK_DES:
+    case CKK_DES3:
+        rc = import_symmetric_key(object, keytype);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
+                        rc);
+            return rc;
+        }
+        TRACE_INFO("symmetric key with len=%ld successful imported\n",
+                   attr->ulValueLen);
+        break;
+    case CKK_GENERIC_SECRET:
+        rc = import_generic_secret_key(object);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Generic Secret (HMAC) key import failed "
+                        " with rc=0x%lx\n", rc);
+            return rc;
+        }
+        TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
+                   " imported\n", attr->ulValueLen);
+        break;
     case CKK_EC:
         rc = template_attribute_find(object->template, CKA_CLASS, &attr);
         if (rc == FALSE) {
@@ -4220,13 +4222,13 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             return rc;
         }
         break;
-	default:
-		/* unknown/unsupported key type */
-		TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
-		return CKR_KEY_FUNCTION_NOT_PERMITTED;
-	}
+    default:
+        /* unknown/unsupported key type */
+        TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
