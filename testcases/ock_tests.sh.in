@@ -48,6 +48,11 @@ NONEED_TOKEN_INIT=0
 # login/login MUST come last if it appears in this list
 #
 OCK_TESTS="crypto/*tests"
+OCK_TESTS+=" pkcs11/attribute pkcs11/copyobjects pkcs11/destroyobjects"
+OCK_TESTS+=" pkcs11/findobjects pkcs11/generate_keypair"
+OCK_TESTS+=" pkcs11/get_interface pkcs11/getobjectsize"
+OCK_TESTS+=" misc_tests/fork misc_tests/obj_mgmt_tests" 
+OCK_TESTS+=" misc_tests/obj_mgmt_lock_tests misc_tests/reencrypt"
 OCK_TEST=""
 OCK_BENCHS="pkcs11/*bench"
 
