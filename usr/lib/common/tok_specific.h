@@ -319,4 +319,7 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *, SESSION *,
                                       CK_MECHANISM *, OBJECT *, CK_BYTE *,
                                       CK_ULONG , CK_BYTE *, CK_ULONG *);
 
+CK_RV token_specific_set_attribute_values(STDLL_TokData_t *, OBJECT *,
+                                          TEMPLATE *);
+
 #endif

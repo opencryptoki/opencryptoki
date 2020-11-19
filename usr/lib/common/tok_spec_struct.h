@@ -273,6 +273,8 @@ struct token_specific_struct {
                                 ENCR_DECR_CONTEXT *, CK_MECHANISM *, OBJECT *,
                                 ENCR_DECR_CONTEXT *, CK_MECHANISM *, OBJECT *,
                                 CK_BYTE *, CK_ULONG , CK_BYTE *, CK_ULONG *);
+
+    CK_RV(*t_set_attribute_values) (STDLL_TokData_t *, OBJECT *, TEMPLATE *);
 };
 
 typedef struct token_specific_struct token_spec_t;

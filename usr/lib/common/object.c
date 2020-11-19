@@ -143,8 +143,7 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
                   CK_ATTRIBUTE * pTemplate,
                   CK_ULONG ulCount, OBJECT * old_obj, OBJECT ** new_obj)
 {
-    TEMPLATE *tmpl = NULL;
-    TEMPLATE *new_tmpl = NULL;
+    TEMPLATE *tmpl, *new_tmpl;
     OBJECT *o = NULL;
     CK_BBOOL found;
     CK_ULONG class, subclass;
@@ -175,6 +174,7 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
     memset(o, 0x0, sizeof(OBJECT));
     memset(tmpl, 0x0, sizeof(TEMPLATE));
     memset(new_tmpl, 0x0, sizeof(TEMPLATE));
+    o->template = tmpl;
 
     rc = object_init_lock(o);
     if (rc != CKR_OK)
@@ -182,11 +182,12 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
 
     // copy the original object's attribute template
     //
-    rc = template_copy(tmpl, old_obj->template);
+    rc = template_copy(o->template, old_obj->template);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Failed to copy template.\n");
         goto error;
     }
+
     rc = template_add_attributes(new_tmpl, pTemplate, ulCount);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_add_attributes failed.\n");
@@ -200,7 +201,7 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
     //    4) conflicting attributes/values
     //
 
-    found = template_get_class(tmpl, &class, &subclass);
+    found = template_get_class(o->template, &class, &subclass);
     if (found == FALSE) {
         TRACE_ERROR("Could not find CKA_CLASS in object's template.\n");
         rc = CKR_TEMPLATE_INCONSISTENT;
@@ -220,9 +221,23 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("template_validate_attributes failed.\n");
         goto error;
     }
+
+    /*
+     * Let the token know that attributes of the copied object have been
+     * changed.
+     */
+    if (token_specific.t_set_attribute_values != NULL) {
+        rc = token_specific.t_set_attribute_values(tokdata, o, new_tmpl);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token_specific_set_attribute_values failed with %lu\n",
+                        rc);
+            goto error;
+        }
+   }
+
     // merge in the new attributes
     //
-    rc = template_merge(tmpl, &new_tmpl);
+    rc = template_merge(o->template, &new_tmpl);
     if (rc != CKR_OK) {
         TRACE_DEVEL("template_merge failed.\n");
         goto error;
@@ -231,21 +246,19 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
     // object's template (contained in tmpl) already has the required attributes
     // present
     //
-    rc = template_check_required_attributes(tmpl, class, subclass, MODE_COPY);
+    rc = template_check_required_attributes(o->template, class, subclass,
+                                            MODE_COPY);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_check_required_attributes failed.\n");
         goto error;
     }
     // at this point, we should have a valid object with correct attributes
     //
-    o->template = tmpl;
     *new_obj = o;
 
     return CKR_OK;
 
 error:
-    if (tmpl)
-        template_free(tmpl);
     if (new_tmpl)
         template_free(new_tmpl);
     if (o)
@@ -612,6 +625,16 @@ CK_RV object_set_attribute_values(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("template_validate_attributes failed.\n");
         goto error;
     }
+
+    if (token_specific.t_set_attribute_values != NULL) {
+        rc = token_specific.t_set_attribute_values(tokdata, obj, new_tmpl);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("token_specific_set_attribute_values failed with %lu\n",
+                        rc);
+            goto error;
+        }
+   }
+
     // merge in the new attributes
     //
     rc = template_merge(obj->template, &new_tmpl);
