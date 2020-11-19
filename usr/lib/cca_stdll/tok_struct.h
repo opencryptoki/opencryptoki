@@ -132,6 +132,7 @@ token_spec_t token_specific = {
     &token_specific_key_wrap,
     &token_specific_key_unwrap,
     &token_specific_reencrypt_single,
+    NULL,                       // set_attribute_values
 };
 
 #endif
