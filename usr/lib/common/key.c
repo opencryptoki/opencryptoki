@@ -1126,6 +1126,15 @@ CK_RV rsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr) == TRUE) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for public key templates.
+         */
+        return publ_key_check_required_attributes(tmpl, mode);
+    }
 
     found = template_attribute_find(tmpl, CKA_MODULUS, &attr);
     if (!found) {
@@ -1282,6 +1291,15 @@ CK_RV rsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr) == TRUE) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for private key templates.
+         */
+        return priv_key_check_required_attributes(tmpl, mode);
+    }
 
     found = template_attribute_find(tmpl, CKA_MODULUS, &attr);
     if (!found) {
@@ -2261,6 +2279,15 @@ CK_RV ecdsa_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr) == TRUE) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for a public key templates.
+         */
+        return publ_key_check_required_attributes(tmpl, mode);
+    }
 
     found = template_attribute_find(tmpl, CKA_ECDSA_PARAMS, &attr);
     if (!found) {
@@ -2364,6 +2391,15 @@ CK_RV ecdsa_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *attr = NULL;
     CK_BBOOL found;
 
+    if (mode == MODE_CREATE &&
+        token_specific.secure_key_token == TRUE &&
+        template_attribute_find(tmpl, CKA_IBM_OPAQUE, &attr) == TRUE) {
+        /*
+         * Import of an already existing secure key. Only
+         * do the base checks for private key templates.
+         */
+        return priv_key_check_required_attributes(tmpl, mode);
+    }
 
     found = template_attribute_find(tmpl, CKA_ECDSA_PARAMS, &attr);
     if (!found) {
