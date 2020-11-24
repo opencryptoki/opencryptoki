@@ -2192,10 +2192,8 @@ static CK_RV confirm_destroy(char **user_input, char* label)
     while (1){
         nread = getline(user_input, &buflen, stdin);
         if (nread == -1) {
-            printf("User input failed (error code 0x%lX: %s)\n",
-                    rc, p11_get_ckr(rc));
-            rc = -1;
-            return rc;
+            printf("User input: EOF\n");
+            return CKR_CANCEL;
         }
 
         if (user_input_ok(*user_input)) {
@@ -2210,17 +2208,16 @@ static CK_RV confirm_destroy(char **user_input, char* label)
     return rc;
 }
 
-
 static CK_RV finalize_destroy_object(char *label, CK_SESSION_HANDLE *session,
-                                   CK_OBJECT_HANDLE *hkey)
+                                   CK_OBJECT_HANDLE *hkey, CK_BBOOL *boolDestroyFlag)
 {
     char *user_input = NULL;
     CK_RV rc = CKR_OK;
 
     rc = confirm_destroy(&user_input, label);
     if (rc != CKR_OK) {
-        printf("User input failed (error code 0x%lX: %s)\n",
-                rc, p11_get_ckr(rc));
+        printf("Skip deleting Key. User input %s\n", p11_get_ckr(rc));
+        rc = CKR_CANCEL;
         goto done;
     }
 
@@ -2232,9 +2229,11 @@ static CK_RV finalize_destroy_object(char *label, CK_SESSION_HANDLE *session,
                    label, rc, p11_get_ckr(rc));
             goto done;
         }
+        *boolDestroyFlag = CK_TRUE;
         printf("DONE - Destroy Object with Label: %s\n", label);
     } else if (strncmp(user_input, "n", 1) == 0) {
         printf("Skip deleting Key\n");
+        *boolDestroyFlag = CK_FALSE;
     } else {
         printf("Please just enter (y) for yes or (n) for no.\n");
     }
@@ -2254,6 +2253,8 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
     CK_OBJECT_HANDLE hkey;
     char *keytype = NULL;
     char *label = NULL;
+    CK_BBOOL boolDestroyFlag = CK_FALSE;
+    CK_BBOOL boolSkipFlag = CK_FALSE;
     CK_RV rc = CKR_OK;
 
     rc = tok_key_list_init(session, kt, label);
@@ -2290,6 +2291,7 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
         if (*forceAll) {
             if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
                 printf("Destroy Object with Label: %s\n", label);
+
                 rc = funcs->C_DestroyObject(session, hkey);
                 if (rc != CKR_OK) {
                     printf(
@@ -2297,13 +2299,17 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
                             label, rc, p11_get_ckr(rc));
                     goto done;
                 }
-                printf("DONE - Destroy Object with Label: %s\n", label);
+                boolDestroyFlag = CK_TRUE;
             }
         } else {
             if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
-                rc = finalize_destroy_object(label, &session, &hkey);
+                rc = finalize_destroy_object(label, &session, &hkey, &boolDestroyFlag);
                 if (rc != CKR_OK) {
                     goto done;
+                }
+
+                if (!boolDestroyFlag) {
+                    boolSkipFlag = CK_TRUE;
                 }
             }
         }
@@ -2320,6 +2326,16 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
     }
 
 done:
+
+    if (strlen(rm_label) > 0) {
+        if (boolDestroyFlag) {
+            printf("Object with Label: %s found and destroyed \n", rm_label);
+        } else if (boolSkipFlag) {
+            printf("Object with Label: %s not deleted\n", rm_label);
+        } else if (rc == CKR_OK) {
+            printf("Object with Label: %s not found\n", rm_label);
+        }
+    }
 
     if (rc != CKR_OK) {
         free(label);
@@ -2494,8 +2510,11 @@ int main(int argc, char *argv[])
     /* Execute command */
     rc = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
             label, attr_string, long_print, &forceAll);
-    if (rc != CKR_OK) {
-        printf("Failed to execute p11sak command (error code 0x%lX: %s)\n", rc,
+    if (rc == CKR_CANCEL) {
+        printf("Cancel execution: p11sak %s command (error code 0x%lX: %s)\n", cmd2str(cmd), rc,
+                p11_get_ckr(rc));
+    } else if (rc != CKR_OK) {
+        printf("Failed to execute p11sak %s command (error code 0x%lX: %s)\n", cmd2str(cmd), rc,
                 p11_get_ckr(rc));
         goto done;
     }
