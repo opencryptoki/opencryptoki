@@ -67,10 +67,14 @@
 /* Offset into an RSA key area of the total length */
 #define CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET 2
 #define CCA_RSA_INTTOK_PUBKEY_LENGTH_OFFSET 2
-/* Offset into an RSA private key area of the length of n, the modulus */
-#define CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET 62
-/* Offset into an RSA private key area of n, the modulus */
-#define CCA_RSA_INTTOK_PRIVKEY_N_OFFSET 134
+/* Offset into an RSA private key (4096 bits, ME format) area of the length of n, the modulus */
+#define CCA_RSA_INTTOK_PRIVKEY_ME_N_LENGTH_OFFSET 52
+/* Offset into an RSA private key (4096 bits, ME format) area of n, the modulus */
+#define CCA_RSA_INTTOK_PRIVKEY_ME_N_OFFSET 122
+/* Offset into an RSA private key (4096 bits, CRT format) area of the length of n, the modulus */
+#define CCA_RSA_INTTOK_PRIVKEY_CRT_N_LENGTH_OFFSET 62
+/* Offset into an RSA private key (4096 bits, CRT format) area of n, the modulus */
+#define CCA_RSA_INTTOK_PRIVKEY_CRT_N_OFFSET 134
 /* Offset into an RSA public key area of the length of e, the public exponent */
 #define CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET 6
 /* Offset into an RSA public key area of the value of e, the public exponent */
@@ -81,6 +85,13 @@
 /* Offset into the rule_array returned by the STATCCAE command for the
  * Current Asymmetric Master Key register status */
 #define CCA_STATCCAE_ASYM_CMK_OFFSET  56
+/* Offset to start of public RSA key section for an external public RSA key token */
+#define CCA_RSA_EXTTOK_PUBKEY_OFFSET  8
+/* Offset to length of n within an public RSA key section in an ext public RSA key token */
+#define CCA_RSA_EXTTOK_PUBKEY_N_LENGTH_OFFSET 10
+
+/* CCA internal HMAC token payload bit length field offset */
+#define CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET 38
 
 /* CCA STDLL constants */
 

@@ -238,6 +238,164 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
 static const CK_ULONG cca_mech_list_len =
                         (sizeof(cca_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
+/* cca token type enum, used with analyse_cca_key_token() */
+enum cca_token_type {
+    sec_des_data_key,
+    sec_aes_data_key,
+    sec_aes_cipher_key,
+    sec_hmac_key,
+    sec_rsa_priv_key,
+    sec_rsa_publ_key,
+    sec_ecc_priv_key,
+    sec_ecc_publ_key
+};
+
+/*
+ * Helper function: Analyse given CCA token.
+ * returns TRUE and keytype and keybitsize if token is known and seems
+ * to be valid (only basic checks are done), otherwise FALSE.
+ */
+static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
+                                      enum cca_token_type *keytype,
+                                      unsigned int *keybitsize)
+{
+    if (t[0] == 0x01 && (t[4] == 0x00 || t[4] == 0x01)) {
+        /* internal secure cca des data key with exact 64 bytes */
+        if (tlen != 64) {
+            TRACE_DEVEL("CCA DES token has invalid token size %lu != 64\n", tlen);
+            return FALSE;
+        }
+        *keytype = sec_des_data_key;
+        if (t[4] == 0x00)
+            *keybitsize = 8 * 8;
+        else if (t[59] == 0x10)
+            *keybitsize = 16 * 8;
+        else if (t[59] == 0x20)
+            *keybitsize = 24 * 8;
+        else {
+            TRACE_DEVEL("CCA DES data key token has invalid/unknown keysize 0x%02x\n", (int)t[59]);
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    if (t[0] == 0x01 && t[4] == 0x04) {
+        /* internal secure cca aes data key with exact 64 bytes */
+        if (tlen != 64) {
+            TRACE_DEVEL("CCA AES data key token has invalid token size %lu != 64\n", tlen);
+            return FALSE;
+        }
+        *keytype = sec_aes_data_key;
+        *keybitsize = *((uint16_t *)(t + 56));
+        if (*keybitsize != 128 && *keybitsize != 192 && *keybitsize != 256) {
+            TRACE_DEVEL("CCA AES data key token has invalid/unknown keybitsize %u\n", *keybitsize);
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    if (t[0] == 0x01 && t[4] == 0x05 && t[41] == 0x02) {
+        /* internal variable length secure cca aes cipher key */
+        uint16_t key_type = *((uint16_t*)(t + 42));
+        if (key_type != 0x0001) {
+            TRACE_DEVEL("CCA AES cipher key token has invalid/unknown keytype 0x%04hx\n", key_type);
+            return FALSE;
+        }
+        *keytype = sec_aes_cipher_key;
+        *keybitsize = 0; /* no chance to find out the key bit size */
+        return TRUE;
+    }
+
+    if (t[0] == 0x01 && t[4] == 0x05 && t[41] == 0x03) {
+        /* internal variable length HMAC key */
+        uint16_t key_type = *((uint16_t*)(t + 42));
+        if (key_type != 0x0002) {
+            TRACE_DEVEL("CCA HMAC key token has invalid/unknown keytype 0x%04hx\n", key_type);
+            return FALSE;
+        }
+        if (t[8] != 0x03) {
+            TRACE_DEVEL("CCA HMAC key token has unsupported format t[8]=%hhu != 0x03\n", t[8]);
+            return FALSE;
+        }
+        if (t[26] != 0x02) {
+            TRACE_DEVEL("CCA HMAC key token has unsupported format t[26]=%hhu != 0x02\n", t[26]);
+            return FALSE;
+        }
+        if (t[27] != 0x02) {
+            TRACE_DEVEL("CCA HMAC key token has unsupported format t[27]=%hhu != 0x02\n", t[26]);
+            return FALSE;
+        }
+        if (t[28] != 0x00) {
+            TRACE_DEVEL("CCA HMAC key token has unsupported format t[28]=%hhu != 0x00\n", t[26]);
+            return FALSE;
+        }
+        *keytype = sec_hmac_key;
+        *keybitsize = *((uint16_t *)(t + CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET));
+        /* this is not really the bitsize but the bitsize of the payload */
+        if (*keybitsize < 80 || *keybitsize > 2432) {
+            TRACE_DEVEL("CCA HMAC key token has invalid/unknown payload bit size %u\n", *keybitsize);
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    if (t[0] == 0x1f &&
+        (t[CCA_RSA_INTTOK_PRIVKEY_OFFSET] == 0x30 ||
+         t[CCA_RSA_INTTOK_PRIVKEY_OFFSET] == 0x31)) {
+        /* internal secure cca private rsa key, ME or CRT format */
+        uint16_t n, privsec_len;
+        privsec_len = *((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + 2));
+        if (CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len >= (int) tlen) {
+            TRACE_DEVEL("CCA RSA key token has invalid priv section len or token size\n");
+            return FALSE;
+        }
+        if (t[CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len] != 0x04) {
+            TRACE_DEVEL("CCA RSA key token has invalid pub section marker\n");
+            return FALSE;
+        }
+        n = *((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len + 8));
+        *keytype = sec_rsa_priv_key;
+        *keybitsize = n;
+        return TRUE;
+    }
+
+    if (t[0] == 0x1e && t[CCA_RSA_INTTOK_HDR_LENGTH] == 0x04) {
+        /* external RSA public key token */
+        uint16_t n;
+        n = *((uint16_t *)(t + CCA_RSA_INTTOK_HDR_LENGTH + 8));
+        *keytype = sec_rsa_publ_key;
+        *keybitsize = n;
+        return TRUE;
+    }
+
+    if (t[0] == 0x1f && t[8] == 0x20) {
+        /* internal secure cca private ecc key */
+        uint16_t ec_curve_bits;
+        if (t[8+4] != 0x01) {
+            TRACE_DEVEL("CCA private ECC key token has invalid wrapping method 0x%02hhx\n", t[8+4]);
+            return FALSE;
+        }
+        if (t[8+10] != 0x08) {
+            TRACE_DEVEL("CCA private ECC key token has invalid key format 0x%02hhx\n", t[8+10]);
+            return FALSE;
+        }
+        ec_curve_bits = *((uint16_t *)(t + 8 + 12));
+        *keytype = sec_ecc_priv_key;
+        *keybitsize = ec_curve_bits;
+        return TRUE;
+    }
+
+    if (t[0] == 0x1e && t[8] == 0x21) {
+        /* external ECC public key token */
+        uint16_t ec_curve_bits;
+        ec_curve_bits = *((uint16_t *)(t + 8 + 10));
+        *keytype = sec_ecc_publ_key;
+        *keybitsize = ec_curve_bits;
+        return TRUE;
+    }
+
+    return FALSE;
+}
 
 /* Helper function: build attribute and update template */
 static CK_RV build_update_attribute(TEMPLATE * tmpl,
@@ -252,7 +410,7 @@ static CK_RV build_update_attribute(TEMPLATE * tmpl,
         return rv;
     }
     if ((rv = template_update_attribute(tmpl, attr))) {
-	TRACE_DEVEL("Template update for type=%lu failed, rv=0x%lx\n", type, rv);
+        TRACE_DEVEL("Template update for type=%lu failed, rv=0x%lx\n", type, rv);
         return rv;
     }
 
@@ -712,52 +870,122 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
                                   out_data_len, key, init_v, encrypt);
 }
 
-uint16_t cca_inttok_privkey_get_len(CK_BYTE * tok)
+static uint16_t cca_rsa_inttok_privkey_get_len(CK_BYTE * tok)
 {
     return *(uint16_t *) & tok[CCA_RSA_INTTOK_PRIVKEY_LENGTH_OFFSET];
 }
 
-/* Given a CCA internal token private key object, get the modulus */
-CK_RV cca_inttok_privkey_get_n(CK_BYTE * tok, CK_ULONG * n_len, CK_BYTE * n)
+/* Extract modulus n from a priv key section within an CCA internal RSA private key token */
+static CK_RV cca_rsa_inttok_privkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_BYTE *n)
 {
+    int n_len_offset, n_value_offset;
     uint16_t n_length;
 
-    n_length = *(uint16_t *) &tok[CCA_RSA_INTTOK_PRIVKEY_N_LENGTH_OFFSET];
+    if (sec[0] == 0x30) {
+        /* internal CCA RSA key token, 4096 bits, ME format */
+        n_len_offset = CCA_RSA_INTTOK_PRIVKEY_ME_N_LENGTH_OFFSET;
+        n_value_offset = CCA_RSA_INTTOK_PRIVKEY_ME_N_OFFSET;
+    } else if (sec[0] == 0x31) {
+        /* internal CCA RSA key token, 4096 bits, CRT format */
+        n_len_offset = CCA_RSA_INTTOK_PRIVKEY_CRT_N_LENGTH_OFFSET;
+        n_value_offset = CCA_RSA_INTTOK_PRIVKEY_CRT_N_OFFSET;
+    } else {
+        TRACE_ERROR("Invalid private key section identifier 0x%02hhx\n", sec[0]);
+        return CKR_FUNCTION_FAILED;
+    }
 
+    n_length = *(uint16_t *) &sec[n_len_offset];
     if (n_length > (*n_len)) {
-        TRACE_ERROR("Not enough room to return n.(Got %lu, need %hu)\n",
+        TRACE_ERROR("Not enough room to return n (Got %lu, need %hu).\n",
                     *n_len, n_length);
         return CKR_FUNCTION_FAILED;
     }
 
-    memcpy(n, &tok[CCA_RSA_INTTOK_PRIVKEY_N_OFFSET], (size_t) n_length);
+    memcpy(n, &sec[n_value_offset], (size_t) n_length);
     *n_len = n_length;
 
     return CKR_OK;
 }
 
-/* Given a CCA internal token pubkey object, get the public exponent */
-static CK_RV cca_inttok_pubkey_get_e(CK_BYTE * tok, CK_ULONG * e_len, CK_BYTE * e)
+/* Extract exponent e from a pubkey section within an CCA internal RSA private key token */
+static CK_RV cca_rsa_inttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BYTE *e)
 {
     uint16_t e_length;
 
-    e_length = *(uint16_t *) & tok[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET];
+    if (sec[0] != 0x04) {
+        TRACE_ERROR("Invalid public key section identifier 0x%02hhx\n", sec[0]);
+        return CKR_FUNCTION_FAILED;
+    }
 
+    e_length = *((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
     if (e_length > (*e_len)) {
-        TRACE_ERROR("Not enough room to return e.(Got %lu, need %hu)\n",
+        TRACE_ERROR("Not enough room to return e (Got %lu, need %hu).\n",
                     *e_len, e_length);
         return CKR_FUNCTION_FAILED;
     }
 
-    memcpy(e, &tok[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], (size_t) e_length);
+    memcpy(e, &sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], (size_t) e_length);
+    *e_len = (CK_ULONG) e_length;
+
+    return CKR_OK;
+}
+
+/* Get modulus n from an CCA external public RSA key token's pub key section  */
+static CK_RV cca_rsa_exttok_pubkeysec_get_n(CK_BYTE *sec, CK_ULONG *n_len, CK_BYTE *n)
+{
+    uint16_t e_length, n_length, n_offset;
+
+    if (sec[0] != 0x04) {
+        TRACE_ERROR("Invalid public key section identifier 0x%02hhx\n", sec[0]);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    n_length = *((uint16_t *)&sec[CCA_RSA_EXTTOK_PUBKEY_N_LENGTH_OFFSET]);
+    e_length = *((uint16_t *)&sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
+    n_offset = CCA_RSA_INTTOK_PUBKEY_E_OFFSET + e_length;
+
+    if (n_length == 0) {
+        TRACE_ERROR("n_length is 0 - pub section from priv key given ?!?.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (n_length > (*n_len)) {
+        TRACE_ERROR("Not enough room to return n (Got %lu, need %hu).\n",
+                    *n_len, n_length);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(n, &sec[n_offset], (size_t) n_length);
+    *n_len = n_length;
+
+    return CKR_OK;
+}
+
+/* Get exponent e from an CCA external public RSA key token's pub key section  */
+static CK_RV cca_rsa_exttok_pubkeysec_get_e(CK_BYTE *sec, CK_ULONG *e_len, CK_BYTE *e)
+{
+    uint16_t e_length;
+
+    if (sec[0] != 0x04) {
+        TRACE_ERROR("Invalid public key section identifier 0x%02hhx\n", sec[0]);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    e_length = *((uint16_t *) &sec[CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET]);
+    if (e_length > (*e_len)) {
+        TRACE_ERROR("Not enough room to return e (Got %lu, need %hu).\n",
+                    *e_len, e_length);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(e, &sec[CCA_RSA_INTTOK_PUBKEY_E_OFFSET], (size_t) e_length);
     *e_len = (CK_ULONG) e_length;
 
     return CKR_OK;
 }
 
 /* Pull n and e from RSA priv key token and add to template */
-static CK_RV add_n_and_e_to_rsa_key_template(TEMPLATE * tmpl,
-                                             CK_BYTE *cca_rsa_priv_key_token)
+static CK_RV add_n_and_e_from_rsa_priv_key_to_templ(TEMPLATE *tmpl,
+                                                    CK_BYTE *cca_rsa_priv_key_token)
 {
     uint16_t privkey_len, pubkey_offset;
     CK_BYTE n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
@@ -765,19 +993,25 @@ static CK_RV add_n_and_e_to_rsa_key_template(TEMPLATE * tmpl,
     CK_RV rv;
     CK_BYTE *tok = cca_rsa_priv_key_token;
 
+    if (tok[0] != 0x1F) {
+        TRACE_ERROR("Invalid cca rsa private key token identifier 0x%02hhx\n", tok[0]);
+        return CKR_FUNCTION_FAILED;
+    }
+
     privkey_len =
-        cca_inttok_privkey_get_len(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET]);
+        cca_rsa_inttok_privkey_get_len(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET]);
     pubkey_offset = privkey_len + CCA_RSA_INTTOK_HDR_LENGTH;
 
     /* That's right, n is stored in the private key area. Get it there */
-    if ((rv = cca_inttok_privkey_get_n(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET],
-                                       &n_len, n))) {
+    rv = cca_rsa_inttok_privkeysec_get_n(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET],
+                                         &n_len, n);
+    if (rv != CKR_OK) {
         TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rv=0x%lx\n", rv);
         return rv;
     }
 
     /* Get e */
-    if ((rv = cca_inttok_pubkey_get_e(&tok[pubkey_offset], &e_len, e))) {
+    if ((rv = cca_rsa_inttok_pubkeysec_get_e(&tok[pubkey_offset], &e_len, e))) {
         TRACE_DEVEL("cca_inttok_pubkey_get_e() failed. rv=0x%lx\n", rv);
         return rv;
     }
@@ -1000,9 +1234,9 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
                 publ_key_token_length);
 
     /* update priv template, add n, e and ibm opaque attr with priv key token */
-    rv = add_n_and_e_to_rsa_key_template(priv_tmpl, priv_key_token);
+    rv = add_n_and_e_from_rsa_priv_key_to_templ(priv_tmpl, priv_key_token);
     if (rv != CKR_OK) {
-        TRACE_DEVEL("add_n_and_e_to_rsa_key_template failed. rv:%lu\n", rv);
+        TRACE_DEVEL("add_n_and_e_from_rsa_priv_key_to_templ failed. rv:%lu\n", rv);
         return rv;
     }
     rv = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
@@ -1014,9 +1248,9 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     /* update pub template, add n, e and ibm opaque attr with pub key token */
-    rv = add_n_and_e_to_rsa_key_template(publ_tmpl, priv_key_token);
+    rv = add_n_and_e_from_rsa_priv_key_to_templ(publ_tmpl, priv_key_token);
     if (rv != CKR_OK) {
-        TRACE_DEVEL("add_n_and_e_to_rsa_key_template failed. rv:%lu\n", rv);
+        TRACE_DEVEL("add_n_and_e_from_rsa_priv_key_to_templ failed. rv:%lu\n", rv);
         return rv;
     }
     rv = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
@@ -1026,6 +1260,11 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_DEVEL("add CKA_IBM_OPAQUE attribute to publ template failed, rv:%lu\n", rv);
         return rv;
     }
+
+    TRACE_DEBUG("%s: priv template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
+    TRACE_DEBUG("%s: publ template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(publ_tmpl);
 
     return CKR_OK;
 }
@@ -1879,8 +2118,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         return rc;
     }
+    key_len = attr->ulValueLen;
 
-    key_len = 64;
     rule_array_count = 4;
     memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ",
            rule_array_count * (size_t) CCA_KEYWORD_SIZE);
@@ -1980,7 +2219,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
         TRACE_ERROR("Could not find CKA_IBM_OPAQUE for the key.\n");
         return rc;
     }
-
+    key_len = attr->ulValueLen;
+    
     if (in_data_len % 16 == 0) {
         rule_array_count = 3;
         memcpy(rule_array, "AES     KEYIDENTINITIAL ",
@@ -2000,7 +2240,6 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     }
 
     length = in_data_len;
-    key_len = 64;
     if (encrypt) {
         dll_CSNBSAE(&return_code,
                     &reason_code,
@@ -2411,6 +2650,11 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return rv;
     }
 
+    TRACE_DEBUG("%s: priv template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
+    TRACE_DEBUG("%s: publ template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(publ_tmpl);
+
     return rv;
 }
 
@@ -2441,6 +2685,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     /* CCA doc: page 113 */
     rule_array_count = 1;
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
+    *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
 
     dll_CSNDDSG(&return_code,
                 &reason_code,
@@ -3412,340 +3657,473 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t * tokdata,
                              &sig_len, FALSE);
 }
 
-static CK_RV rsa_import_privkey_crt(TEMPLATE * priv_tmpl)
+static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
 {
-    long return_code, reason_code, rule_array_count, total = 0;
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-
-    long offset, key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-    long private_key_name_length, key_token_length, target_key_token_length;
-
-    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
-    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
-    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
-
-    uint16_t size_of_e;
-    uint16_t mod_bits, mod_bytes, bytes;
-    CK_ATTRIBUTE *opaque_key = NULL, *pub_exp = NULL, *mod = NULL,
-        *p_prime = NULL, *q_prime = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp =
-        NULL, *priv_exp = NULL;
     CK_RV rc;
+    CK_ATTRIBUTE *opaque_attr = NULL;
 
-    /* Look for parameters to set key in the CRT format */
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_1, &p_prime);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.\n");
-        return rc;
-    }
-    total += p_prime->ulValueLen;
+    rc = template_attribute_find(priv_tmpl, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure rsa private key which
+         * is stored in the CKA_IBM_OPAQUE attribute.
+         */
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_2, &q_prime);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.\n");
-        return rc;
-    }
-    total += q_prime->ulValueLen;
+        enum cca_token_type token_type;
+        unsigned int token_keybitsize;
+        CK_BYTE *t, n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
+        CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
+        uint16_t privkey_len, pubkey_offset;
+        CK_BBOOL true = TRUE;
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_1, &dmp1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.\n");
-        return rc;
-    }
-    total += dmp1->ulValueLen;
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_keybitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (token_type != sec_rsa_priv_key) {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_RSA\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_2, &dmq1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.\n");
-        return rc;
-    }
-    total += dmq1->ulValueLen;
+        t = opaque_attr->pValue;
+        privkey_len = cca_rsa_inttok_privkey_get_len(&t[CCA_RSA_INTTOK_PRIVKEY_OFFSET]);
+        pubkey_offset = CCA_RSA_INTTOK_HDR_LENGTH + privkey_len;
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_COEFFICIENT, &iqmp);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.\n");
-        return rc;
-    }
-    total += iqmp->ulValueLen;
+        /* modulus n is stored in the private (!) key area, get it there */
+        rc =  cca_rsa_inttok_privkeysec_get_n(&t[CCA_RSA_INTTOK_PRIVKEY_OFFSET], &n_len, n);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("cca_inttok_privkey_get_n() failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_PUBLIC_EXPONENT,
-                                          &pub_exp);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.\n");
-        return rc;
-    }
-    total += pub_exp->ulValueLen;
+        /* Add/update CKA_SENSITIVE */
+        rc = build_update_attribute(priv_tmpl, CKA_SENSITIVE, &true, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for CKA_SENSITIVE failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    rc = template_attribute_get_non_empty(priv_tmpl, CKA_MODULUS, &mod);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_MODULUS attribute missing for CRT.\n");
-        return rc;
-    }
-    total += mod->ulValueLen;
+        /* get public exponent e */
+        rc = cca_rsa_inttok_pubkeysec_get_e(&t[pubkey_offset], &e_len, e);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("cca_inttok_pubkey_get_e() failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    /* check total length does not exceed key_value_structure_length */
-    if ((total + 18) > key_value_structure_length) {
-        TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
-        return CKR_KEY_SIZE_RANGE;
-    }
+        /* add n's value to the template */
+        rc = build_update_attribute(priv_tmpl, CKA_MODULUS, n, n_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for n failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    /* Build key token for RSA-PRIV format.
-     * Fields according to Table 9.
-     * PKA_Key_Token_Build key-values-structure
-     */
+        /* Add e's value to the template */
+        rc = build_update_attribute(priv_tmpl, CKA_PUBLIC_EXPONENT, e, e_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for e failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    memset(key_value_structure, 0, key_value_structure_length);
+        /* Add dummy attributes to satisfy PKCS#11 */
+        build_update_attribute(priv_tmpl, CKA_PRIVATE_EXPONENT, NULL, 0);
 
-    /* Field #1 - Length of modulus in bits */
-    mod_bits = htons(mod->ulValueLen * 8);
-    memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
+    } else {
+        /*
+         * This is an import of a clear key value which is to be transfered
+         * into a CCA RSA private key.
+         */
 
-    /* Field #2 - Length of modulus field in bytes */
-    mod_bytes = htons(mod->ulValueLen);
-    memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
+        long return_code, reason_code, rule_array_count, total = 0;
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
-    /* Field #3 - Length of public exponent field in bytes */
-    size_of_e = htons(pub_exp->ulValueLen);
-    memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
+        long offset, key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+        long private_key_name_length, key_token_length, target_key_token_length;
 
-    /* Field #4 - Reserved, binary zero, two bytes */
+        unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+        unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+        unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+        unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+        unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
 
-    /* Field #5 - Length of prime P */
-    bytes = htons(p_prime->ulValueLen);
-    memcpy(&key_value_structure[8], &bytes, sizeof(uint16_t));
+        uint16_t size_of_e;
+        uint16_t mod_bits, mod_bytes, bytes;
+        CK_ATTRIBUTE *pub_exp = NULL, *mod = NULL,
+            *p_prime = NULL, *q_prime = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp =
+            NULL, *priv_exp = NULL;
 
-    /* Field #6 - Length of prime Q */
-    bytes = htons(q_prime->ulValueLen);
-    memcpy(&key_value_structure[10], &bytes, sizeof(uint16_t));
+        /* Look for parameters to set key in the CRT format */
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_1, &p_prime);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_PRIME_1 attribute missing for CRT.\n");
+            return rc;
+        }
+        total += p_prime->ulValueLen;
 
-    /* Field #7 - Length of dp in bytes */
-    bytes = htons(dmp1->ulValueLen);
-    memcpy(&key_value_structure[12], &bytes, sizeof(uint16_t));
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_PRIME_2, &q_prime);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_PRIME_2 attribute missing for CRT.\n");
+            return rc;
+        }
+        total += q_prime->ulValueLen;
 
-    /* Field #8 - Length of dq in bytes */
-    bytes = htons(dmq1->ulValueLen);
-    memcpy(&key_value_structure[14], &bytes, sizeof(uint16_t));
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_1, &dmp1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_EXPONENT_1 attribute missing for CRT.\n");
+            return rc;
+        }
+        total += dmp1->ulValueLen;
 
-    /* Field #9 - Length of U in bytes */
-    bytes = htons(iqmp->ulValueLen);
-    memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_EXPONENT_2, &dmq1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_EXPONENT_2 attribute missing for CRT.\n");
+            return rc;
+        }
+        total += dmq1->ulValueLen;
 
-    /* Field #10 - Modulus */
-    memcpy(&key_value_structure[18], mod->pValue, mod_bytes);
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_COEFFICIENT, &iqmp);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_COEFFICIENT attribute missing for CRT.\n");
+            return rc;
+        }
+        total += iqmp->ulValueLen;
 
-    offset = 18 + mod_bytes;
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_PUBLIC_EXPONENT,
+                                              &pub_exp);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing for CRT.\n");
+            return rc;
+        }
+        total += pub_exp->ulValueLen;
 
-    /* Field #11 - Public Exponent */
-    memcpy(&key_value_structure[offset], pub_exp->pValue, pub_exp->ulValueLen);
+        rc = template_attribute_get_non_empty(priv_tmpl, CKA_MODULUS, &mod);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_MODULUS attribute missing for CRT.\n");
+            return rc;
+        }
+        total += mod->ulValueLen;
 
-    offset += pub_exp->ulValueLen;
+        /* check total length does not exceed key_value_structure_length */
+        if ((total + 18) > key_value_structure_length) {
+            TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
+            return CKR_KEY_SIZE_RANGE;
+        }
 
-    /* Field #12 - Prime numer, p */
-    memcpy(&key_value_structure[offset], p_prime->pValue, p_prime->ulValueLen);
+        /* Build key token for RSA-PRIV format.
+         * Fields according to Table 9.
+         * PKA_Key_Token_Build key-values-structure
+         */
 
-    offset += p_prime->ulValueLen;
+        memset(key_value_structure, 0, key_value_structure_length);
 
-    /* Field #13 - Prime numer, q */
-    memcpy(&key_value_structure[offset], q_prime->pValue, q_prime->ulValueLen);
+        /* Field #1 - Length of modulus in bits */
+        mod_bits = htons(mod->ulValueLen * 8);
+        memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
 
-    offset += q_prime->ulValueLen;
+        /* Field #2 - Length of modulus field in bytes */
+        mod_bytes = htons(mod->ulValueLen);
+        memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
 
-    /* Field #14 - dp = dmod(p-1) */
-    memcpy(&key_value_structure[offset], dmp1->pValue, dmp1->ulValueLen);
+        /* Field #3 - Length of public exponent field in bytes */
+        size_of_e = htons(pub_exp->ulValueLen);
+        memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
 
-    offset += dmp1->ulValueLen;
+        /* Field #4 - Reserved, binary zero, two bytes */
 
-    /* Field #15 - dq = dmod(q-1) */
-    memcpy(&key_value_structure[offset], dmq1->pValue, dmq1->ulValueLen);
+        /* Field #5 - Length of prime P */
+        bytes = htons(p_prime->ulValueLen);
+        memcpy(&key_value_structure[8], &bytes, sizeof(uint16_t));
 
-    offset += dmq1->ulValueLen;
+        /* Field #6 - Length of prime Q */
+        bytes = htons(q_prime->ulValueLen);
+        memcpy(&key_value_structure[10], &bytes, sizeof(uint16_t));
 
-    /* Field #16 - U = (q^-1)mod(p)  */
-    memcpy(&key_value_structure[offset], iqmp->pValue, iqmp->ulValueLen);
+        /* Field #7 - Length of dp in bytes */
+        bytes = htons(dmp1->ulValueLen);
+        memcpy(&key_value_structure[12], &bytes, sizeof(uint16_t));
 
-    /* Now build a key token with the imported public key */
+        /* Field #8 - Length of dq in bytes */
+        bytes = htons(dmq1->ulValueLen);
+        memcpy(&key_value_structure[14], &bytes, sizeof(uint16_t));
 
-    rule_array_count = 2;
-    memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
+        /* Field #9 - Length of U in bytes */
+        bytes = htons(iqmp->ulValueLen);
+        memcpy(&key_value_structure[16], &bytes, sizeof(uint16_t));
 
-    private_key_name_length = 0;
+        /* Field #10 - Modulus */
+        memcpy(&key_value_structure[18], mod->pValue, mod_bytes);
 
-    key_token_length = CCA_KEY_TOKEN_SIZE;
+        offset = 18 + mod_bytes;
 
-    dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &key_value_structure_length, key_value_structure,
-                &private_key_name_length, private_key_name, 0, NULL, 0, NULL,
-                0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+        /* Field #11 - Public Exponent */
+        memcpy(&key_value_structure[offset], pub_exp->pValue, pub_exp->ulValueLen);
 
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        rc = CKR_FUNCTION_FAILED;
-        goto err;
-    }
+        offset += pub_exp->ulValueLen;
 
-    /* Now import the PKA key token */
-    rule_array_count = 0;
-    /* memcpy(rule_array, "        ", (size_t)(CCA_KEYWORD_SIZE * 1)); */
+        /* Field #12 - Prime numer, p */
+        memcpy(&key_value_structure[offset], p_prime->pValue, p_prime->ulValueLen);
 
-    target_key_token_length = CCA_KEY_TOKEN_SIZE;
+        offset += p_prime->ulValueLen;
 
-    key_token_length = CCA_KEY_TOKEN_SIZE;
+        /* Field #13 - Prime numer, q */
+        memcpy(&key_value_structure[offset], q_prime->pValue, q_prime->ulValueLen);
 
-    dll_CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &key_token_length, key_token,
-                transport_key_identifier, &target_key_token_length,
-                target_key_token);
+        offset += q_prime->ulValueLen;
 
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        rc = CKR_FUNCTION_FAILED;
-        goto err;
-    }
+        /* Field #14 - dp = dmod(p-1) */
+        memcpy(&key_value_structure[offset], dmp1->pValue, dmp1->ulValueLen);
 
-    /* Add the key object to the template */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_token,
-                              target_key_token_length, &opaque_key))) {
-        TRACE_DEVEL("build_attribute failed\n");
-        goto err;
-    }
-    rc = template_update_attribute(priv_tmpl, opaque_key);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed\n");
-        free(opaque_key);
-        goto err;
-    }
+        offset += dmp1->ulValueLen;
 
-    OPENSSL_cleanse(p_prime->pValue, p_prime->ulValueLen);
-    OPENSSL_cleanse(q_prime->pValue, q_prime->ulValueLen);
-    OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
-    OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
-    OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
-    if (template_attribute_get_non_empty(priv_tmpl, CKA_PRIVATE_EXPONENT,
-                                         &priv_exp) == CKR_OK) {
-        OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
-    }
+        /* Field #15 - dq = dmod(q-1) */
+        memcpy(&key_value_structure[offset], dmq1->pValue, dmq1->ulValueLen);
 
-    rc = CKR_OK;
+        offset += dmq1->ulValueLen;
+
+        /* Field #16 - U = (q^-1)mod(p)  */
+        memcpy(&key_value_structure[offset], iqmp->pValue, iqmp->ulValueLen);
+
+        /* Now build a key token with the imported public key */
+
+        rule_array_count = 2;
+        memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
+
+        private_key_name_length = 0;
+
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+
+        dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name, 0, NULL, 0, NULL,
+                    0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            rc = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        /* Now import the PKA key token */
+        rule_array_count = 0;
+        /* memcpy(rule_array, "        ", (size_t)(CCA_KEYWORD_SIZE * 1)); */
+
+        target_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+
+        dll_CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, &key_token_length, key_token,
+                    transport_key_identifier, &target_key_token_length,
+                    target_key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            rc = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        /* Add the key object to the template */
+        if ((rc = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
+                                         target_key_token,
+                                         target_key_token_length))) {
+            TRACE_DEVEL("build_update_attribute failed\n");
+            goto err;
+        }
+
+        OPENSSL_cleanse(p_prime->pValue, p_prime->ulValueLen);
+        OPENSSL_cleanse(q_prime->pValue, q_prime->ulValueLen);
+        OPENSSL_cleanse(dmp1->pValue, dmp1->ulValueLen);
+        OPENSSL_cleanse(dmq1->pValue, dmq1->ulValueLen);
+        OPENSSL_cleanse(iqmp->pValue, iqmp->ulValueLen);
+        if (template_attribute_get_non_empty(priv_tmpl, CKA_PRIVATE_EXPONENT,
+                                             &priv_exp) == CKR_OK) {
+            OPENSSL_cleanse(priv_exp->pValue, priv_exp->ulValueLen);
+        }
+
+        rc = CKR_OK;
 
 err:
-    OPENSSL_cleanse(key_value_structure, sizeof(key_value_structure));
+        OPENSSL_cleanse(key_value_structure, sizeof(key_value_structure));
+    }
+
+    if (rc == CKR_OK) {
+        TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+	TRACE_DEBUG_DUMPTEMPL(priv_tmpl);
+    }
+
     return rc;
 }
 
-static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
+static CK_RV import_rsa_pubkey(TEMPLATE * publ_tmpl)
 {
-    long return_code, reason_code, rule_array_count;
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-
-    long key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-    long private_key_name_length, key_token_length;
-    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
-    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
-    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-
-    uint16_t size_of_e;
-    uint16_t mod_bits, mod_bytes;
-    CK_ATTRIBUTE *opaque_key = NULL, *pub_exp = NULL;
-    CK_ATTRIBUTE *pub_mod = NULL, *attr = NULL;
     CK_RV rc;
+    CK_ATTRIBUTE *opaque_attr = NULL;
 
-    /* check that modulus and public exponent are available */
-    rc = template_attribute_get_non_empty(publ_tmpl, CKA_PUBLIC_EXPONENT,
-                                          &pub_exp);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing.\n");
-        return rc;
+    rc = template_attribute_find(publ_tmpl, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure rsa public key which
+         * is stored in the CKA_IBM_OPAQUE attribute.
+         */
+
+        enum cca_token_type token_type;
+        unsigned int token_keybitsize;
+        CK_BYTE *t, n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
+        CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
+
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_keybitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (token_type != sec_rsa_publ_key) {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_RSA\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        t = opaque_attr->pValue;
+
+        /* extract modulus n from public key section */
+        rc = cca_rsa_exttok_pubkeysec_get_n(&t[CCA_RSA_EXTTOK_PUBKEY_OFFSET], &n_len, n);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("cca_exttok_pubkey_get_n() failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+        /* extract exponent e from public key section */
+        rc = cca_rsa_exttok_pubkeysec_get_e(&t[CCA_RSA_EXTTOK_PUBKEY_OFFSET], &e_len, e);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("cca_exttok_pubkey_get_e() failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+        /* add n's value to the template */
+        rc = build_update_attribute(publ_tmpl, CKA_MODULUS, n, n_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for n failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+        /* Add e's value to the template */
+        rc = build_update_attribute(publ_tmpl, CKA_PUBLIC_EXPONENT, e, e_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for e failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+    } else {
+        /*
+         * This is an import of a clear key value which is to be transfered
+         * into a CCA RSA public key.
+         */
+
+        long return_code, reason_code, rule_array_count;
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+
+        long key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+        long private_key_name_length, key_token_length;
+        unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+        unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+        unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+
+        uint16_t size_of_e;
+        uint16_t mod_bits, mod_bytes;
+        CK_ATTRIBUTE *pub_exp = NULL;
+        CK_ATTRIBUTE *pub_mod = NULL, *attr = NULL;
+
+        /* check that modulus and public exponent are available */
+        rc = template_attribute_get_non_empty(publ_tmpl, CKA_PUBLIC_EXPONENT,
+                                              &pub_exp);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_PUBLIC_EXPONENT attribute missing.\n");
+            return rc;
+        }
+
+        rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS, &pub_mod);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_MODULUS attribute missing.\n");
+            return rc;
+        }
+
+        rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS_BITS, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_MODULUS_BITS attribute missing.\n");
+            return rc;
+        }
+
+        /* check total length does not exceed key_value_structure_length */
+        if ((pub_mod->ulValueLen + 8) > (CK_ULONG)key_value_structure_length) {
+            TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
+            return CKR_KEY_SIZE_RANGE;
+        }
+
+        /* In case the application hasn't filled it */
+        if (*(CK_ULONG *) attr->pValue == 0)
+            mod_bits = htons(pub_mod->ulValueLen * 8);
+        else
+            mod_bits = htons(*(CK_ULONG *) attr->pValue);
+
+        /* Build key token for RSA-PUBL format */
+        memset(key_value_structure, 0, key_value_structure_length);
+
+        /* Fields according to Table 9.
+         * PKA_Key_Token_Build key-values-structure
+         */
+
+        /* Field #1 - Length of modulus in bits */
+        memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
+
+        /* Field #2 - Length of modulus field in bytes */
+        mod_bytes = htons(pub_mod->ulValueLen);
+        memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
+
+        /* Field #3 - Length of public exponent field in bytes */
+        size_of_e = htons((uint16_t) pub_exp->ulValueLen);
+        memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
+
+        /* Field #4 - private key exponent length; skip */
+
+        /* Field #5 - Modulus */
+        memcpy(&key_value_structure[8], pub_mod->pValue,
+               (size_t) pub_mod->ulValueLen);
+
+        /* Field #6 - Public exponent. Its offset depends on modulus size */
+        memcpy(&key_value_structure[8 + mod_bytes],
+               pub_exp->pValue, (size_t) pub_exp->ulValueLen);
+
+        /* Field #7 - Private exponent. Skip */
+
+        rule_array_count = 1;
+        memcpy(rule_array, "RSA-PUBL", (size_t) (CCA_KEYWORD_SIZE * 1));
+
+        private_key_name_length = 0;
+
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+
+        // Create a key token for the public key.
+        // Public keys do not need to be wrapped, so just call PKB.
+        dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name, 0, NULL, 0,
+                    NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+        // Add the key object to the template.
+        if ((rc = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
+                                         key_token, key_token_length))) {
+            TRACE_DEVEL("build_update_attribute failed\n");
+            return rc;
+        }
     }
 
-    rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS, &pub_mod);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_MODULUS attribute missing.\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(publ_tmpl, CKA_MODULUS_BITS, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("CKA_MODULUS_BITS attribute missing.\n");
-        return rc;
-    }
-
-    /* check total length does not exceed key_value_structure_length */
-    if ((pub_mod->ulValueLen + 8) > (CK_ULONG)key_value_structure_length) {
-        TRACE_ERROR("total length of key exceeds CCA_KEY_VALUE_STRUCT_SIZE.\n");
-        return CKR_KEY_SIZE_RANGE;
-    }
-
-    /* In case the application hasn't filled it */
-    if (*(CK_ULONG *) attr->pValue == 0)
-        mod_bits = htons(pub_mod->ulValueLen * 8);
-    else
-        mod_bits = htons(*(CK_ULONG *) attr->pValue);
-
-    /* Build key token for RSA-PUBL format */
-    memset(key_value_structure, 0, key_value_structure_length);
-
-    /* Fields according to Table 9.
-     * PKA_Key_Token_Build key-values-structure
-     */
-
-    /* Field #1 - Length of modulus in bits */
-    memcpy(&key_value_structure[0], &mod_bits, sizeof(uint16_t));
-
-    /* Field #2 - Length of modulus field in bytes */
-    mod_bytes = htons(pub_mod->ulValueLen);
-    memcpy(&key_value_structure[2], &mod_bytes, sizeof(uint16_t));
-
-    /* Field #3 - Length of public exponent field in bytes */
-    size_of_e = htons((uint16_t) pub_exp->ulValueLen);
-    memcpy(&key_value_structure[4], &size_of_e, sizeof(uint16_t));
-
-    /* Field #4 - private key exponent length; skip */
-
-    /* Field #5 - Modulus */
-    memcpy(&key_value_structure[8], pub_mod->pValue,
-           (size_t) pub_mod->ulValueLen);
-
-    /* Field #6 - Public exponent. Its offset depends on modulus size */
-    memcpy(&key_value_structure[8 + mod_bytes],
-           pub_exp->pValue, (size_t) pub_exp->ulValueLen);
-
-    /* Field #7 - Private exponent. Skip */
-
-    rule_array_count = 1;
-    memcpy(rule_array, "RSA-PUBL", (size_t) (CCA_KEYWORD_SIZE * 1));
-
-    private_key_name_length = 0;
-
-    key_token_length = CCA_KEY_TOKEN_SIZE;
-
-    // Create a key token for the public key.
-    // Public keys do not need to be wrapped, so just call PKB.
-    dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &key_value_structure_length, key_value_structure,
-                &private_key_name_length, private_key_name, 0, NULL, 0,
-                NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
-    // Add the key object to the template.
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length,
-                              &opaque_key))) {
-        TRACE_DEVEL("build_attribute failed\n");
-        return rc;
-    }
-
-    rc = template_update_attribute(publ_tmpl, opaque_key);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute failed\n");
-        free(opaque_key);
-        return rc;
-    }
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(publ_tmpl);
 
     return CKR_OK;
 }
@@ -3753,145 +4131,269 @@ static CK_RV rsa_import_pubkey(TEMPLATE * publ_tmpl)
 static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
 {
     CK_RV rc;
-    long return_code, reason_code, rule_array_count;
-    unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
-    CK_ATTRIBUTE *opaque_key = NULL;
-    CK_ATTRIBUTE *attr = NULL;
+    CK_ATTRIBUTE *opaque_attr = NULL;
 
-    rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Incomplete key template\n");
-        return rc;
+    rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure key which is stored in
+         * the CKA_IBM_OPAQUE attribute. The CKA_VALUE attribute is only
+         * a dummy reflecting the clear key byte size. However, let's
+         * check if the template attributes match to the cca key in the
+         * CKA_IBM_OPAQUE attribute.
+         */
+
+        enum cca_token_type token_type;
+        unsigned int token_keybitsize;
+        CK_BYTE zorro[32] = { 0 };
+        CK_BBOOL true = TRUE;
+
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_keybitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        if (keytype == CKK_DES) {
+            if (token_type != sec_des_data_key) {
+                TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_DES\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+            if (token_keybitsize != 8 * 8) {
+                TRACE_ERROR("CCA token keybitsize %u does not match to keytype CKK_DES\n",
+                            token_keybitsize);
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        } else if (keytype == CKK_DES3) {
+            if (token_type != sec_des_data_key) {
+                TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_DES3\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+            if (token_keybitsize != 8 * 24) {
+                TRACE_ERROR("CCA token keybitsize %u does not match to keytype CKK_DES3\n",
+                            token_keybitsize);
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        } else if (keytype == CKK_AES) {
+            if (token_type == sec_aes_data_key) {
+                /* keybitsize has been checked by the analyse_cca_key_token() function */
+                ;
+            } else if (token_type == sec_aes_cipher_key) {
+                /* not supported yet */
+                TRACE_ERROR("CCA AES cipher key import is not supported\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            } else {
+                TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_AES\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+        } else {
+            TRACE_DEBUG("Unknown/unsupported keytype in function %s line %d\n", __func__, __LINE__);
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        /* create a dummy CKA_VALUE attribute with the key bit size but all zero */
+        if ((rc = build_update_attribute(object->template, CKA_VALUE,
+                                         zorro, token_keybitsize / 8))) {
+            TRACE_DEVEL("build_update_attribute(CKA_VALUE) failed\n");
+            return rc;
+        }
+
+        /* Add/update CKA_SENSITIVE */
+        rc = build_update_attribute(object->template, CKA_SENSITIVE, &true, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for CKA_SENSITIVE failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+    } else {
+        /*
+         * This is an import of a clear key value which is to be transfered
+         * into a CCA Data AES or DES key now.
+         */
+
+        long return_code, reason_code, rule_array_count;
+        unsigned char target_key_id[CCA_KEY_ID_SIZE] = { 0 };
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+        CK_ATTRIBUTE *value_attr = NULL;
+
+        rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &value_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Incomplete key template\n");
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+
+        switch (keytype) {
+        case CKK_AES:
+            memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
+            break;
+        case CKK_DES:
+        case CKK_DES3:
+            memcpy(rule_array, "DES     ", CCA_KEYWORD_SIZE);
+            break;
+        default:
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        rule_array_count = 1;
+
+        dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                    &rule_array_count, rule_array,
+                    (long int *)&value_attr->ulValueLen, value_attr->pValue,
+                    target_key_id);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
+                        return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Add the key object to the template */
+        if ((rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
+                                         target_key_id, CCA_KEY_ID_SIZE))) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
+            return rc;
+        }
+
+        /* zero clear key value */
+        OPENSSL_cleanse(value_attr->pValue, value_attr->ulValueLen);
     }
 
-    switch (keytype) {
-    case CKK_AES:
-        memcpy(rule_array, "AES     ", CCA_KEYWORD_SIZE);
-        break;
-    case CKK_DES:
-    case CKK_DES3:
-        memcpy(rule_array, "DES     ", CCA_KEYWORD_SIZE);
-        break;
-    default:
-        return CKR_KEY_FUNCTION_NOT_PERMITTED;
-    }
-
-    rule_array_count = 1;
-
-    dll_CSNBCKM(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, (long int *)&attr->ulValueLen, attr->pValue,
-                target_key_id);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
-                    return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Add the key object to the template */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_id,
-                              CCA_KEY_ID_SIZE, &opaque_key))) {
-        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
-        return rc;
-    }
-    rc = template_update_attribute(object->template, opaque_key);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
-        free(opaque_key);
-        return rc;
-    }
-
-    /* zero clear key value */
-    OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(object->template);
 
     return CKR_OK;
 }
 
-
 static CK_RV import_generic_secret_key(OBJECT * object)
 {
     CK_RV rc;
-    long return_code, reason_code, rule_array_count;
-    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
-    long key_name_len = 0, clr_key_len = 0;
-    long user_data_len = 0, key_part_len = 0;
-    long token_data_len = 0, verb_data_len = 0;
-    long key_token_len = sizeof(key_token);
-    CK_ATTRIBUTE *opaque_key = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG keylen;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_ULONG keylen, keybitlen;
 
-    rc = template_attribute_get_non_empty(object->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
+    rc = template_attribute_find(object->template, CKA_VALUE, &value_attr);
+    if (rc == FALSE) {
         TRACE_ERROR("Incomplete Generic Secret (HMAC) key template\n");
-        return rc;
+        return CKR_TEMPLATE_INCOMPLETE;
     }
-    keylen = attr->ulValueLen;
-    /* key len needs to be 80-2048 bits */
-    if (8 * keylen < 80 || 8 * keylen > 2048) {
-        TRACE_ERROR("HMAC key size of %lu bits not within"
-                    " CCA required range of 80-2048 bits\n", 8 * keylen);
+    keylen = value_attr->ulValueLen;
+    keybitlen = 8 * keylen;
+
+    /* key bit length needs to be 80-2048 bits */
+    if (keybitlen < 80 || keybitlen > 2048) {
+        TRACE_ERROR("HMAC key bit size of %lu not within CCA range (80-2048 bits)\n", keybitlen);
         return CKR_KEY_SIZE_RANGE;
     }
 
-    memcpy(rule_array, "INTERNALNO-KEY  HMAC    MAC     GENERATE",
-           5 * CCA_KEYWORD_SIZE);
-    rule_array_count = 5;
+    rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure key which is stored in
+         * the CKA_IBM_OPAQUE attribute. The CKA_VALUE attribute is only
+         * a dummy reflecting the clear key byte size. However, let's
+         * check if the template attributes match to the cca key in the
+         * CKA_IBM_OPAQUE attribute.
+         */
 
-    dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                 rule_array, &clr_key_len, NULL, &key_name_len, NULL,
-                 &user_data_len, NULL, &token_data_len, NULL, &verb_data_len,
-                 NULL, &key_token_len, key_token);
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
+        enum cca_token_type token_type;
+        unsigned int token_payloadbitsize, plbitsize;
+        CK_BBOOL true = TRUE;
 
-    memcpy(rule_array, "HMAC    FIRST   MIN1PART", 3 * CCA_KEYWORD_SIZE);
-    rule_array_count = 3;
-    key_part_len = keylen * 8;
-    key_token_len = sizeof(key_token);
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_payloadbitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
 
-    dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                 rule_array, &key_part_len, attr->pValue, &key_token_len,
-                 key_token);
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT FIRST) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
+        if (token_type != sec_hmac_key) {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to"
+                        " keytype CKK_GENERIC_SECRET\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
 
-    memcpy(rule_array, "HMAC    COMPLETE", 2 * CCA_KEYWORD_SIZE);
-    rule_array_count = 2;
-    key_part_len = 0;
-    key_token_len = sizeof(key_token);
+        /* calculate expected payload size from the given keybitlen */
+        plbitsize = (((keybitlen + 32) + 63) & (~63)) + 320;
+        /* and check with the payload size within the cca hmac token */
+        if (plbitsize != token_payloadbitsize) {
+            TRACE_ERROR("CCA HMAC token payload size and keysize do not match\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
 
-    dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                 rule_array, &key_part_len, NULL, &key_token_len, key_token);
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
-                    " return:%ld, reason:%ld\n", return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
+        /* Add/update CKA_SENSITIVE */
+        rc = build_update_attribute(object->template, CKA_SENSITIVE, &true, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for CKA_SENSITIVE failed. rc=0x%lx\n", rc);
+            return rc;
+        }
 
-    /* Add the key object to the template */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_len,
-                              &opaque_key))) {
-        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
-        return rc;
-    }
-    rc = template_update_attribute(object->template, opaque_key);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
-        free(opaque_key);
-        return rc;
+    } else {
+        /*
+         * This is an import of a clear key value which is to be transfered
+         * into a CCA HMAC key now.
+         */
+
+        long return_code, reason_code, rule_array_count;
+        unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+        long key_name_len = 0, clr_key_len = 0;
+        long user_data_len = 0, key_part_len = 0;
+        long token_data_len = 0, verb_data_len = 0;
+        long key_token_len = sizeof(key_token);
+
+        memcpy(rule_array, "INTERNALNO-KEY  HMAC    MAC     GENERATE",
+               5 * CCA_KEYWORD_SIZE);
+        rule_array_count = 5;
+
+        dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                     rule_array, &clr_key_len, NULL, &key_name_len, NULL,
+                     &user_data_len, NULL, &token_data_len, NULL, &verb_data_len,
+                     NULL, &key_token_len, key_token);
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(rule_array, "HMAC    FIRST   MIN1PART", 3 * CCA_KEYWORD_SIZE);
+        rule_array_count = 3;
+        key_part_len = keylen * 8;
+        key_token_len = sizeof(key_token);
+
+        dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                     rule_array, &key_part_len, value_attr->pValue,
+                     &key_token_len, key_token);
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT FIRST) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(rule_array, "HMAC    COMPLETE", 2 * CCA_KEYWORD_SIZE);
+        rule_array_count = 2;
+        key_part_len = 0;
+        key_token_len = sizeof(key_token);
+
+        dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                     rule_array, &key_part_len, NULL, &key_token_len, key_token);
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
+                        " return:%ld, reason:%ld\n", return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Add the key object to the template */
+        if ((rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
+                                         key_token, key_token_len))) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
+            return rc;
+        }
     }
 
     /* zero clear key value */
-    OPENSSL_cleanse(attr->pValue, attr->ulValueLen);
+    OPENSSL_cleanse(value_attr->pValue, value_attr->ulValueLen);
+
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(object->template);
 
     return CKR_OK;
 }
@@ -3988,331 +4490,557 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
     return CKR_OK;
 }
 
-static CK_RV ec_import_privkey(TEMPLATE *priv_templ)
+/* helper function, check cca ec type, keybits and add the CKA_EC_PARAMS attribute */
+static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
+                                              uint16_t cca_ec_bits,
+                                              TEMPLATE *templ)
 {
-    long private_key_name_length, key_token_length, target_key_token_length;
-    long return_code, reason_code, rule_array_count, exit_data_len = 0;
-    long key_value_structure_length, param1=0;
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
-    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
-    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
-    unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    unsigned char *exit_data = NULL;
-    unsigned char *param2=NULL;
-    CK_BYTE *privkey = NULL, *pubkey = NULL;
-    CK_ATTRIBUTE *attr = NULL, *opaque_key;
-    CK_ULONG privlen = 0, publen = 0;
     CK_RV rc;
-    uint8_t curve_type;
-    uint16_t curve_bitlen;
-    CK_ULONG field_len;
 
-    /* Check if curve supported and determine curve type and bitlen */
-    rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Curve not supported by this token.\n");
-        return rc;
-    }
-
-    /* Find private key data in template */
-    rc = template_attribute_get_non_empty(priv_templ, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    privlen = attr->ulValueLen;
-    privkey = attr->pValue;
-
-    /* Find public key data as BER encoded OCTET STRING in template */
-    rc = template_attribute_get_non_empty(priv_templ, CKA_EC_POINT, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
-        return rc;
-    }
-
-    rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
-                                 &field_len);
-    if (rc != CKR_OK || attr->ulValueLen != field_len) {
-        TRACE_DEVEL("ber decoding of public key failed\n");
+    switch (cca_ec_type) {
+    case 0x00: /* Prime curve */
+        switch (cca_ec_bits) {
+        case 192:
+            {
+                CK_BYTE curve[] = OCK_PRIME192V1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 224:
+            {
+                CK_BYTE curve[] = OCK_SECP224R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 256:
+            {
+                CK_BYTE curve[] = OCK_PRIME256V1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 384:
+            {
+                CK_BYTE curve[] = OCK_SECP384R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 521:
+            {
+                CK_BYTE curve[] = OCK_SECP521R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        default:
+            TRACE_ERROR("CCA token type with unknown prime curve bits %hu\n", cca_ec_bits);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+    case 0x01: /* Brainpool curve */
+        switch (cca_ec_bits) {
+        case 160:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P160R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 192:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P192R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 224:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P224R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 256:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P256R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 320:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P320R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 384:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P384R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 512:
+            {
+                CK_BYTE curve[] = OCK_BRAINPOOL_P512R1;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        default:
+            TRACE_ERROR("CCA token type with unknown brainpool curve bits %hu\n", cca_ec_bits);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+    case 0x02: /* Edwards curve */
+        switch (cca_ec_bits) {
+        case 255:
+            {
+                CK_BYTE curve[] = OCK_ED25519;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        case 448:
+            {
+                CK_BYTE curve[] = OCK_ED448;
+                rc = build_update_attribute(templ, CKA_EC_PARAMS, curve, sizeof(curve));
+            }
+            break;
+        default:
+            TRACE_ERROR("CCA token type with unknown edwards curve bits %hu\n", cca_ec_bits);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        break;
+    default:
+        TRACE_ERROR("CCA token type with invalid/unknown curve type %hhu\n", cca_ec_type);
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
-    /* Build key_value_structure */
-    memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
-
-    rc = build_private_EC_key_value_structure(privkey, privlen,
-            pubkey, publen, curve_type, curve_bitlen,
-            (unsigned char *)&key_value_structure,
-            &key_value_structure_length);
-    if (rc != CKR_OK)
-        return rc;
-
-    /* Build key token */
-    rule_array_count = 1;
-    memcpy(rule_array, "ECC-PAIR", (size_t)(CCA_KEYWORD_SIZE));
-    private_key_name_length = 0;
-    key_token_length = CCA_KEY_TOKEN_SIZE;
-    key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-
-    dll_CSNDPKB(&return_code, &reason_code,
-            &exit_data_len, exit_data,
-            &rule_array_count, rule_array,
-            &key_value_structure_length, key_value_structure,
-            &private_key_name_length, private_key_name,
-            &param1, param2, &param1, param2, &param1, param2,
-            &param1, param2, &param1, param2,
-            &key_token_length,
-            key_token);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
-                " reason:%ld\n", return_code, reason_code);
-        if (is_curve_error(return_code, reason_code))
-            return CKR_CURVE_NOT_SUPPORTED;
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Now import the PKA key token */
-    rule_array_count = 1;
-    memcpy(rule_array, "ECC     ", (size_t)(CCA_KEYWORD_SIZE));
-    key_token_length = CCA_KEY_TOKEN_SIZE;
-    target_key_token_length = CCA_KEY_TOKEN_SIZE;
-
-    dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
-            &rule_array_count, rule_array,
-            &key_token_length, key_token,
-            transport_key_identifier,
-            &target_key_token_length, target_key_token);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
-                return_code, reason_code);
-        if (is_curve_error(return_code, reason_code))
-            return CKR_CURVE_NOT_SUPPORTED;
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Add key token to template as CKA_IBM_OPAQUE */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, target_key_token,
-                        target_key_token_length, &opaque_key))) {
-        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
-        return rc;
-    }
-
-    rc = template_update_attribute(priv_templ, opaque_key);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
-        free(opaque_key);
+        TRACE_DEVEL("build_update_attribute(CKA_EC_PARAMS) failed\n");
         return rc;
     }
-
-    /* zero clear key values */
-    OPENSSL_cleanse(privkey, privlen);
 
     return CKR_OK;
 }
 
-static CK_RV ec_import_pubkey(TEMPLATE *pub_templ)
+static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
 {
     CK_RV rc;
-    long return_code, reason_code, rule_array_count, exit_data_len = 0;
-    long private_key_name_length, key_token_length;
-    unsigned char *exit_data = NULL;
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-    long key_value_structure_length;
-    unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
-    unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
-    unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    CK_ATTRIBUTE *opaque_key;
-    long param1=0;
-    unsigned char *param2=NULL;
-    uint8_t curve_type;
-    uint16_t curve_bitlen;
-    CK_BYTE *pubkey = NULL;
-    CK_ULONG publen = 0;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG field_len;
+    CK_ATTRIBUTE *opaque_attr = NULL;
 
-    /* Check if curve supported and determine curve type and bitlen */
-    rc = curve_supported(pub_templ, &curve_type, &curve_bitlen);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Curve not supported by this token.\n");
-        return rc;
+    rc = template_attribute_find(priv_templ, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure ecc private key which
+         * is stored in the CKA_IBM_OPAQUE attribute.
+         */
+        enum cca_token_type token_type;
+        unsigned int token_keybitsize;
+        CK_BBOOL true = TRUE;
+        CK_BYTE *t;
+
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_keybitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (token_type != sec_ecc_priv_key) {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_EC\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        /* check curve and add CKA_EC_PARAMS attribute */
+        t = opaque_attr->pValue;
+        rc = check_cca_ec_type_and_add_params(t[8+9], token_keybitsize, priv_templ);
+        if (rc != CKR_OK)
+            return rc;
+
+        /* Add/update CKA_SENSITIVE */
+        rc = build_update_attribute(priv_templ, CKA_SENSITIVE, &true, sizeof(CK_BBOOL));
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute for CKA_SENSITIVE failed. rc=0x%lx\n", rc);
+            return rc;
+        }
+
+    } else {
+        /*
+         * This is an import of a clear ecc private key which is to be transfered
+         * into a CCA ECC private key.
+         */
+
+        long private_key_name_length, key_token_length, target_key_token_length;
+        long return_code, reason_code, rule_array_count, exit_data_len = 0;
+        long key_value_structure_length, param1=0;
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+        unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+        unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+        unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+        unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
+        unsigned char target_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+        unsigned char *exit_data = NULL;
+        unsigned char *param2=NULL;
+        CK_BYTE *privkey = NULL, *pubkey = NULL;
+        CK_ATTRIBUTE *attr = NULL;
+        CK_ULONG privlen = 0, publen = 0;
+        uint8_t curve_type;
+        uint16_t curve_bitlen;
+        CK_ULONG field_len;
+
+        /* Check if curve supported and determine curve type and bitlen */
+        rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Curve not supported by this token.\n");
+            return rc;
+        }
+
+        /* Find private key data in template */
+        rc = template_attribute_get_non_empty(priv_templ, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            return rc;
+        }
+
+        privlen = attr->ulValueLen;
+        privkey = attr->pValue;
+
+        /* Find public key data as BER encoded OCTET STRING in template */
+        rc = template_attribute_get_non_empty(priv_templ, CKA_EC_POINT, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
+                                     &field_len);
+        if (rc != CKR_OK || attr->ulValueLen != field_len) {
+            TRACE_DEVEL("ber decoding of public key failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /* Build key_value_structure */
+        memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
+
+        rc = build_private_EC_key_value_structure(privkey, privlen,
+                                                  pubkey, publen, curve_type, curve_bitlen,
+                                                  (unsigned char *)&key_value_structure,
+                                                  &key_value_structure_length);
+        if (rc != CKR_OK)
+            return rc;
+
+        /* Build key token */
+        rule_array_count = 1;
+        memcpy(rule_array, "ECC-PAIR", (size_t)(CCA_KEYWORD_SIZE));
+        private_key_name_length = 0;
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+        key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+        dll_CSNDPKB(&return_code, &reason_code,
+                    &exit_data_len, exit_data,
+                    &rule_array_count, rule_array,
+                    &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name,
+                    &param1, param2, &param1, param2, &param1, param2,
+                    &param1, param2, &param1, param2,
+                    &key_token_length,
+                    key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+                        " reason:%ld\n", return_code, reason_code);
+            if (is_curve_error(return_code, reason_code))
+                return CKR_CURVE_NOT_SUPPORTED;
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Now import the PKA key token */
+        rule_array_count = 1;
+        memcpy(rule_array, "ECC     ", (size_t)(CCA_KEYWORD_SIZE));
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+        target_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+        dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &key_token_length, key_token,
+                    transport_key_identifier,
+                    &target_key_token_length, target_key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
+                        return_code, reason_code);
+            if (is_curve_error(return_code, reason_code))
+                return CKR_CURVE_NOT_SUPPORTED;
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Add key token to template as CKA_IBM_OPAQUE */
+        if ((rc = build_update_attribute(priv_templ, CKA_IBM_OPAQUE,
+                                         target_key_token, target_key_token_length))) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
+            return rc;
+        }
+
+        /* zero clear key values */
+        OPENSSL_cleanse(privkey, privlen);
     }
 
-    /* Find public key data as BER encoded OCTET STRING in template */
-    rc = template_attribute_get_non_empty(pub_templ, CKA_EC_POINT, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
-        return rc;
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(priv_templ);
+
+    return CKR_OK;
+}
+
+static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
+{
+    CK_RV rc;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+
+    rc = template_attribute_find(pub_templ, CKA_IBM_OPAQUE, &opaque_attr);
+    if (rc == TRUE) {
+        /*
+         * This is an import of an existing secure ecc public key which
+         * is stored in the CKA_IBM_OPAQUE attribute.
+         */
+        enum cca_token_type token_type;
+        unsigned int token_keybitsize;
+        CK_BYTE *t, *q;
+        uint16_t q_len;
+        CK_BYTE *ecpoint = NULL;
+        CK_ULONG ecpoint_len;
+
+        if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                                  &token_type, &token_keybitsize) != TRUE) {
+            TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (token_type != sec_ecc_publ_key) {
+            TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_EC\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        /* check curve and add CKA_EC_PARAMS attribute */
+        t = opaque_attr->pValue;
+        rc = check_cca_ec_type_and_add_params(t[8+8], token_keybitsize, pub_templ);
+        if (rc != CKR_OK)
+            return rc;
+
+        /* we need to add the CKA_EC_POINT attribute */
+        q = (CK_BYTE *)(t + 8 + 14);
+        q_len = ntohs(*((uint16_t *)(t + 8 + 12)));
+        if (q_len > CCATOK_EC_MAX_Q_LEN) {
+            TRACE_ERROR("Invalid Q len %hu\n", q_len);
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        rc = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+            return rc;
+        }
+        rc = build_update_attribute(pub_templ, CKA_EC_POINT, ecpoint, ecpoint_len);
+        free(ecpoint);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_update_attribute(CKA_EC_POINT) failed\n");
+            return rc;
+        }
+
+    } else {
+        /*
+         * This is an import of a clear ecc public key which is to be transfered
+         * into a CCA ECC public key.
+         */
+
+        long return_code, reason_code, rule_array_count, exit_data_len = 0;
+        long private_key_name_length, key_token_length;
+        unsigned char *exit_data = NULL;
+        unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+        long key_value_structure_length;
+        unsigned char key_value_structure[CCA_KEY_VALUE_STRUCT_SIZE] = { 0, };
+        unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
+        unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+        long param1=0;
+        unsigned char *param2=NULL;
+        uint8_t curve_type;
+        uint16_t curve_bitlen;
+        CK_BYTE *pubkey = NULL;
+        CK_ULONG publen = 0;
+        CK_ATTRIBUTE *attr = NULL;
+        CK_ULONG field_len;
+
+        /* Check if curve supported and determine curve type and bitlen */
+        rc = curve_supported(pub_templ, &curve_type, &curve_bitlen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Curve not supported by this token.\n");
+            return rc;
+        }
+
+        /* Find public key data as BER encoded OCTET STRING in template */
+        rc = template_attribute_get_non_empty(pub_templ, CKA_EC_POINT, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+            return rc;
+        }
+
+        rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
+                                     &field_len);
+        if (rc != CKR_OK || attr->ulValueLen != field_len) {
+            TRACE_DEVEL("ber decoding of public key failed\n");
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+
+        /* Build key_value_structure */
+        memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
+
+        rc = build_public_EC_key_value_structure(pubkey, publen,
+                                                 curve_type, curve_bitlen,
+                                                 (unsigned char *)&key_value_structure,
+                                                 &key_value_structure_length);
+        if (rc != CKR_OK)
+            return rc;
+
+        /* Build public key token */
+        rule_array_count = 1;
+        memcpy(rule_array, "ECC-PUBL", (size_t)(CCA_KEYWORD_SIZE));
+        private_key_name_length = 0;
+        key_token_length = CCA_KEY_TOKEN_SIZE;
+        key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+        dll_CSNDPKB(&return_code, &reason_code,
+                    &exit_data_len, exit_data,
+                    &rule_array_count, rule_array,
+                    &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name,
+                    &param1, param2, &param1, param2, &param1, param2,
+                    &param1, param2, &param1, param2,
+                    &key_token_length,
+                    key_token);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
+                        " reason:%ld\n", return_code, reason_code);
+            if (is_curve_error(return_code, reason_code))
+                return CKR_CURVE_NOT_SUPPORTED;
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Public keys do not need to be wrapped, so just add public
+           key token to template as CKA_IBM_OPAQUE */
+        if ((rc = build_update_attribute(pub_templ, CKA_IBM_OPAQUE,
+                                         key_token, key_token_length))) {
+            TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE) failed\n");
+            return rc;
+        }
     }
 
-    rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
-                                 &field_len);
-    if (rc != CKR_OK || attr->ulValueLen != field_len) {
-        TRACE_DEVEL("ber decoding of public key failed\n");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-
-    /* Build key_value_structure */
-    memset(key_value_structure, 0, CCA_KEY_VALUE_STRUCT_SIZE);
-
-    rc = build_public_EC_key_value_structure(pubkey, publen,
-            curve_type, curve_bitlen,
-            (unsigned char *)&key_value_structure,
-            &key_value_structure_length);
-    if (rc != CKR_OK)
-        return rc;
-
-    /* Build public key token */
-    rule_array_count = 1;
-    memcpy(rule_array, "ECC-PUBL", (size_t)(CCA_KEYWORD_SIZE));
-    private_key_name_length = 0;
-    key_token_length = CCA_KEY_TOKEN_SIZE;
-    key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
-
-    dll_CSNDPKB(&return_code, &reason_code,
-            &exit_data_len, exit_data,
-            &rule_array_count, rule_array,
-            &key_value_structure_length, key_value_structure,
-            &private_key_name_length, private_key_name,
-            &param1, param2, &param1, param2, &param1, param2,
-            &param1, param2, &param1, param2,
-            &key_token_length,
-            key_token);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
-                " reason:%ld\n", return_code, reason_code);
-        if (is_curve_error(return_code, reason_code))
-            return CKR_CURVE_NOT_SUPPORTED;
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Public keys do not need to be wrapped, so just add public
-       key token to template as CKA_IBM_OPAQUE */
-    if ((rc = build_attribute(CKA_IBM_OPAQUE, key_token, key_token_length,
-                              &opaque_key))) {
-        TRACE_DEVEL("build_attribute(CKA_IBM_OPAQUE) failed\n");
-        return rc;
-    }
-    rc = template_update_attribute(pub_templ, opaque_key);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("template_update_attribute(CKA_IBM_OPAQUE) failed\n");
-        free(opaque_key);
-        return rc;
-    }
+    TRACE_DEBUG("%s: imported object template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(pub_templ);
 
     return CKR_OK;
 }
 
 CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT *object)
 {
-	CK_RV rc;
-	CK_KEY_TYPE keytype;
-	CK_OBJECT_CLASS keyclass;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_KEY_TYPE keytype;
+    CK_OBJECT_CLASS keyclass;
 
-	UNUSED(tokdata);
-	UNUSED(sess);
+    UNUSED(tokdata);
+    UNUSED(sess);
 
-	if (!object) {
-		TRACE_ERROR("Invalid argument\n");
-		return CKR_FUNCTION_FAILED;
-	}
+    if (!object) {
+        TRACE_ERROR("Invalid argument\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
+    /* we only deal with key objects here */
     rc = template_attribute_get_ulong(object->template, CKA_KEY_TYPE, &keytype);
     if (rc != CKR_OK) {
-		// not a key, so nothing to do. Just return.
-		TRACE_DEVEL("object not a key, no need to import.\n");
-		return CKR_OK;
-	}
+        // not a key, so nothing to do. Just return.
+        TRACE_DEVEL("object not a key, no need to import.\n");
+        return CKR_OK;
+    }
 
-	switch (keytype) {
-	case CKK_RSA:
-        rc = template_attribute_get_ulong(object->template, CKA_CLASS,
-                                          &keyclass);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return rc;
-        }
+    /* CKA_CLASS is mandatory */
+    rc = template_attribute_get_ulong(object->template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("object has no CKA_CLASS value %s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
 
-		switch(keyclass) {
-		case CKO_PUBLIC_KEY:
-			// do import public key and create opaque object
-			rc = rsa_import_pubkey(object->template);
-			break;
-		case CKO_PRIVATE_KEY:
-			// do import keypair and create opaque object
-			rc = rsa_import_privkey_crt(object->template);
-			break;
-		default:
-			TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-			return CKR_KEY_TYPE_INCONSISTENT;
-		}
+    /* fetch CKA_VALUE if available */
+    template_attribute_find(object->template, CKA_VALUE, &attr);
 
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("rsa import failed\n");
-			return rc;
-		}
-
-		break;
-	case CKK_AES:
-	case CKK_DES:
-	case CKK_DES3:
-		rc = import_symmetric_key(object, keytype);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n",
-				     rc);
-			return rc;
-		}
-		TRACE_INFO("symmetric key successful imported\n");
-		break;
-	case CKK_GENERIC_SECRET:
-		rc = import_generic_secret_key(object);
-		if (rc != CKR_OK) {
-			TRACE_DEVEL("Generic Secret (HMAC) key import failed "
-				    " with rc=0x%lx\n", rc);
-			return rc;
-		}
-		TRACE_INFO("Generic Secret (HMAC) key successfully imported\n");
-		break;
-    case CKK_EC:
-        rc = template_attribute_get_ulong(object->template, CKA_CLASS,
-                                          &keyclass);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
-            return rc;
-        }
-
+    switch (keytype) {
+    case CKK_RSA:
         switch(keyclass) {
         case CKO_PUBLIC_KEY:
             // do import public key and create opaque object
-            rc = ec_import_pubkey(object->template);
+            rc = import_rsa_pubkey(object->template);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("RSA public key import failed, rc=0x%lx\n", rc);
+                return rc;
+            }
+            TRACE_INFO("RSA public key imported\n");
             break;
         case CKO_PRIVATE_KEY:
             // do import keypair and create opaque object
-            rc = ec_import_privkey(object->template);
+            rc = import_rsa_privkey(object->template);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("RSA private key import failed, rc=0x%lx\n", rc);
+                return rc;
+            }
+            TRACE_INFO("RSA private key imported\n");
             break;
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             return CKR_KEY_TYPE_INCONSISTENT;
         }
-
+        break;
+    case CKK_AES:
+    case CKK_DES:
+    case CKK_DES3:
+        rc = import_symmetric_key(object, keytype);
         if (rc != CKR_OK) {
-            TRACE_DEVEL("ec import failed\n");
+            TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n", rc);
             return rc;
         }
+        TRACE_INFO("symmetric key with len=%ld successful imported\n",
+                   attr->ulValueLen);
         break;
-	default:
-		/* unknown/unsupported key type */
-		TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
-		return CKR_KEY_FUNCTION_NOT_PERMITTED;
-	}
+    case CKK_GENERIC_SECRET:
+        rc = import_generic_secret_key(object);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("Generic Secret (HMAC) key import failed "
+                        " with rc=0x%lx\n", rc);
+            return rc;
+        }
+        TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
+                   " imported\n", attr->ulValueLen);
+        break;
+    case CKK_EC:
+        switch(keyclass) {
+        case CKO_PUBLIC_KEY:
+            // do import public key and create opaque object
+            rc = import_ec_pubkey(object->template);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("ECpublic key import failed, rc=0x%lx\n", rc);
+                return rc;
+            }
+            TRACE_INFO("EC public key imported\n");
+            break;
+        case CKO_PRIVATE_KEY:
+            // do import keypair and create opaque object
+            rc = import_ec_privkey(object->template);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("EC private key import failed, rc=0x%lx\n", rc);
+                return rc;
+            }
+            TRACE_INFO("EC private key imported\n");
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        break;
+    default:
+        /* unknown/unsupported key type */
+        TRACE_ERROR("Unknown/unsupported key type 0x%lx\n", keytype);
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
 
-	return CKR_OK;
+    return CKR_OK;
 }
 
 CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
@@ -4408,6 +5136,9 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
         free(opaque_key);
         return rc;
     }
+
+    TRACE_DEBUG("%s: secret key template attributes:\n", __func__);
+    TRACE_DEBUG_DUMPTEMPL(template);
 
     return CKR_OK;
 }

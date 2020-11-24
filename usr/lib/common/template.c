@@ -1859,7 +1859,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
         /* Allow this attribute to be modified in order to support
          * migratable keys on secure key tokens.
          */
-        if ((mode & (MODE_COPY | MODE_MODIFY)) != 0)
+        if ((mode & (MODE_CREATE | MODE_COPY | MODE_MODIFY)) != 0)
             return CKR_OK;
         break;
     case CKA_MODIFIABLE:
