@@ -3629,7 +3629,7 @@ done:
     }
 
     TRACE_DEBUG("Private Template:\n");
-    attr = pPublicKeyTemplate;
+    attr = pPrivateKeyTemplate;
     for (i = 0; i < ulPrivateKeyAttributeCount; i++, attr++) {
         TRACE_DEBUG_DUMPATTR(attr);
     }
