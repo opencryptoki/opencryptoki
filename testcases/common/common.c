@@ -149,6 +149,9 @@ int create_AESKey(CK_SESSION_HANDLE session,
     };
 
     rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
 
     return rc;
 }
@@ -167,6 +170,9 @@ int generate_AESKey(CK_SESSION_HANDLE session,
                                     key_gen_tmpl,
                                     1,
                                     h_key);
+    if (rc != CKR_OK) {
+	testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+    }
 
     return rc;
 }
