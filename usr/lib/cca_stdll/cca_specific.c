@@ -238,6 +238,27 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
 static const CK_ULONG cca_mech_list_len =
                         (sizeof(cca_mech_list) / sizeof(MECH_LIST_ELEMENT));
 
+
+/* Helper function: build attribute and update template */
+static CK_RV build_update_attribute(TEMPLATE * tmpl,
+                                    CK_ATTRIBUTE_TYPE type,
+                                    CK_BYTE * data, CK_ULONG data_len)
+{
+    CK_ATTRIBUTE *attr;
+    CK_RV rv;
+
+    if ((rv = build_attribute(type, data, data_len, &attr))) {
+        TRACE_DEVEL("Build attribute for type=%lu failed, rv=0x%lx\n", type, rv);
+        return rv;
+    }
+    if ((rv = template_update_attribute(tmpl, attr))) {
+	TRACE_DEVEL("Template update for type=%lu failed, rv=0x%lx\n", type, rv);
+        return rv;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                          CK_ULONG bytes)
 {
@@ -716,7 +737,7 @@ CK_RV cca_inttok_privkey_get_n(CK_BYTE * tok, CK_ULONG * n_len, CK_BYTE * n)
 }
 
 /* Given a CCA internal token pubkey object, get the public exponent */
-CK_RV cca_inttok_pubkey_get_e(CK_BYTE * tok, CK_ULONG * e_len, CK_BYTE * e)
+static CK_RV cca_inttok_pubkey_get_e(CK_BYTE * tok, CK_ULONG * e_len, CK_BYTE * e)
 {
     uint16_t e_length;
 
@@ -734,14 +755,15 @@ CK_RV cca_inttok_pubkey_get_e(CK_BYTE * tok, CK_ULONG * e_len, CK_BYTE * e)
     return CKR_OK;
 }
 
-CK_RV token_create_keypair_object(TEMPLATE * tmpl, CK_ULONG tok_len,
-                                  CK_BYTE * tok)
+/* Pull n and e from RSA priv key token and add to template */
+static CK_RV add_n_and_e_to_rsa_key_template(TEMPLATE * tmpl,
+                                             CK_BYTE *cca_rsa_priv_key_token)
 {
     uint16_t privkey_len, pubkey_offset;
     CK_BYTE n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
     CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
-    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL, *opaque_key = NULL;
     CK_RV rv;
+    CK_BYTE *tok = cca_rsa_priv_key_token;
 
     privkey_len =
         cca_inttok_privkey_get_len(&tok[CCA_RSA_INTTOK_PRIVKEY_OFFSET]);
@@ -761,49 +783,20 @@ CK_RV token_create_keypair_object(TEMPLATE * tmpl, CK_ULONG tok_len,
     }
 
     /* Add n's value to the template */
-    if ((rv = build_attribute(CKA_MODULUS, n, n_len, &modulus))) {
-        TRACE_DEVEL("build_attribute for n failed. rv=0x%lx\n", rv);
-        goto error;
+    rv = build_update_attribute(tmpl, CKA_MODULUS, n, n_len);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("add CKA_MODULUS attribute to template failed, rv=0x%lx\n", rv);
+        return rv;
     }
-    if ((rv = template_update_attribute(tmpl, modulus))) {
-        TRACE_DEVEL("template_update_attribute for n failed. rv=0x%lx\n", rv);
-        goto error;
-    }
-    modulus = NULL;
 
     /* Add e's value to the template */
-    if ((rv = build_attribute(CKA_PUBLIC_EXPONENT, e, e_len, &pub_exp))) {
-        TRACE_DEVEL("build_attribute for e failed. rv=0x%lx\n", rv);
-        goto error;
+    rv = build_update_attribute(tmpl, CKA_PUBLIC_EXPONENT, e, e_len);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("add CKA_PUBLIC_EXPONENT attribute to template failed, rv=0x%lx\n", rv);
+        return rv;
     }
-    if ((rv = template_update_attribute(tmpl, pub_exp))) {
-        TRACE_DEVEL("template_update_attribute for e failed. rv=0x%lx\n", rv);
-        goto error;
-    }
-    pub_exp = NULL;
-
-    /* Add the opaque key object to the template */
-    if ((rv = build_attribute(CKA_IBM_OPAQUE, tok, tok_len, &opaque_key))) {
-        TRACE_DEVEL("build_attribute for opaque key failed. rv=0x%lx\n", rv);
-        goto error;
-    }
-    if ((rv = template_update_attribute(tmpl, opaque_key))) {
-        TRACE_DEVEL("template_update_attribute for opaque key failed. "
-                    "rv=0x%lx\n", rv);
-        goto error;
-    }
-    opaque_key = NULL;
 
     return CKR_OK;
-
-error:
-    if (modulus != NULL)
-        free(modulus);
-    if (pub_exp != NULL)
-        free(pub_exp);
-    if (opaque_key != NULL)
-        free(opaque_key);
-    return rv;
 }
 
 #if 0
@@ -872,10 +865,13 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
     unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
 
-    long regeneration_data_length, generated_key_token_length;
+    long regeneration_data_length;
+    long priv_key_token_length, publ_key_token_length;
     unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
     unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
-    unsigned char generated_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char priv_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+
     uint16_t size_of_e;
     uint16_t mod_bits;
     CK_ATTRIBUTE *pub_exp = NULL;
@@ -945,25 +941,16 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
 
     rule_array_count = 2;
     memcpy(rule_array, "RSA-AESCKEY-MGMT", (size_t) (CCA_KEYWORD_SIZE * 2));
-
     private_key_name_length = 0;
-
     key_token_length = CCA_KEY_TOKEN_SIZE;
 
-    dll_CSNDPKB(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &key_value_structure_length,
-                key_value_structure,
-                &private_key_name_length,
-                private_key_name,
-                0,
-                NULL,
-                0,
-                NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+    dll_CSNDPKB(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &key_value_structure_length, key_value_structure,
+                &private_key_name_length, private_key_name,
+                0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL,
+                &key_token_length, key_token);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD) failed. return:%ld,"
@@ -974,23 +961,16 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memset(rule_array, 0, sizeof(rule_array));
     memcpy(rule_array, "MASTER  ", (size_t) CCA_KEYWORD_SIZE);
-
-    generated_key_token_length = CCA_KEY_TOKEN_SIZE;
-
+    priv_key_token_length = CCA_KEY_TOKEN_SIZE;
     regeneration_data_length = 0;
 
-    dll_CSNDPKG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &regeneration_data_length,
-                regeneration_data,
-                &key_token_length,
-                key_token,
+    dll_CSNDPKG(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &regeneration_data_length, regeneration_data,
+                &key_token_length, key_token,
                 transport_key_identifier,
-                &generated_key_token_length, generated_key_token);
+                &priv_key_token_length, priv_key_token);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return:%ld,"
@@ -999,21 +979,55 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     TRACE_DEVEL("RSA secure key token generated. size: %ld\n",
-                generated_key_token_length);
+                priv_key_token_length);
 
-    rv = token_create_keypair_object(publ_tmpl, generated_key_token_length,
-                                     generated_key_token);
+    rule_array_count = 0;
+    publ_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    dll_CSNDPKX(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &priv_key_token_length, priv_key_token,
+                &publ_key_token_length, publ_key_token);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKX (PUBLIC KEY TOKEN EXTRACT) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEVEL("RSA public key token extracted. size: %ld\n",
+                publ_key_token_length);
+
+    /* update priv template, add n, e and ibm opaque attr with priv key token */
+    rv = add_n_and_e_to_rsa_key_template(priv_tmpl, priv_key_token);
     if (rv != CKR_OK) {
-        TRACE_DEVEL("token_create_keypair_object failed. rv:%lu\n", rv);
+        TRACE_DEVEL("add_n_and_e_to_rsa_key_template failed. rv:%lu\n", rv);
+        return rv;
+    }
+    rv = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
+                                priv_key_token,
+                                priv_key_token_length);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("add CKA_IBM_OPAQUE attribute to priv template failed, rv:%lu\n", rv);
         return rv;
     }
 
-    rv = token_create_keypair_object(priv_tmpl, generated_key_token_length,
-                                     generated_key_token);
-    if (rv != CKR_OK)
-        TRACE_DEVEL("token_create_keypair_object failed. rv:%lu\n", rv);
+    /* update pub template, add n, e and ibm opaque attr with pub key token */
+    rv = add_n_and_e_to_rsa_key_template(publ_tmpl, priv_key_token);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("add_n_and_e_to_rsa_key_template failed. rv:%lu\n", rv);
+        return rv;
+    }
+    rv = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
+                                publ_key_token,
+                                publ_key_token_length);
+    if (rv != CKR_OK) {
+        TRACE_DEVEL("add CKA_IBM_OPAQUE attribute to publ template failed, rv:%lu\n", rv);
+        return rv;
+    }
 
-    return rv;
+    return CKR_OK;
 }
 
 
@@ -2093,26 +2107,6 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t * tokdata,
     return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
 
-CK_RV build_update_attribute(TEMPLATE * tmpl,
-                             CK_ATTRIBUTE_TYPE type,
-                             CK_BYTE * data, CK_ULONG data_len)
-{
-    CK_ATTRIBUTE *attr;
-    CK_RV rv;
-    if ((rv = build_attribute(type, data, data_len, &attr))) {
-        TRACE_DEVEL("Build attribute for type=%lu failed rv=0x%lx\n", type, rv);
-        return rv;
-    }
-    if ((rv = template_update_attribute(tmpl, attr))) {
-        TRACE_DEVEL("template_update_attribute for type=%lu failed "
-                    "rv=0x%lx\n", type, rv);
-        free(attr);
-        return rv;
-    }
-
-    return CKR_OK;
-}
-
 CK_BBOOL is_curve_error(long return_code, long reason_code)
 {
     if (return_code == 8) {
@@ -2199,7 +2193,8 @@ uint16_t cca_ec_publkey_offset(CK_BYTE * tok)
 
 CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
                               TEMPLATE * priv_tmpl,
-                              CK_ULONG tok_len, CK_BYTE * tok)
+                              CK_ULONG priv_tok_len, CK_BYTE *priv_tok,
+                              CK_ULONG publ_tok_len, CK_BYTE *publ_tok)
 {
     uint16_t pubkey_offset, qlen_offset, q_offset;
     CK_ULONG q_len;
@@ -2224,10 +2219,10 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     /*
      * Get Q data for public key.
      */
-    pubkey_offset = cca_ec_publkey_offset(tok);
+    pubkey_offset = cca_ec_publkey_offset(priv_tok);
 
     qlen_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_LEN_OFFSET;
-    q_len = *(uint16_t *) & tok[qlen_offset];
+    q_len = *(uint16_t *) & priv_tok[qlen_offset];
     q_len = ntohs(q_len);
 
     if (q_len > CCATOK_EC_MAX_Q_LEN) {
@@ -2237,7 +2232,7 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
     }
 
     q_offset = pubkey_offset + CCA_EC_INTTOK_PUBKEY_Q_OFFSET;
-    memcpy(q, &tok[q_offset], (size_t) q_len);
+    memcpy(q, &priv_tok[q_offset], (size_t) q_len);
 
     rv = ber_encode_OCTET_STRING(FALSE, &ecpoint, &ecpoint_len, q, q_len);
     if (rv != CKR_OK) {
@@ -2267,18 +2262,17 @@ CK_RV token_create_ec_keypair(TEMPLATE * publ_tmpl,
         return rv;
     }
 
-    /*
-     * Save the CKA_IBM_OPAQUE for both keys.
-     */
-    if ((rv = build_update_attribute(publ_tmpl,
-                                     CKA_IBM_OPAQUE, tok, tok_len))) {
-        TRACE_DEVEL("build_update_attribute for tok failed rv=0x%lx\n", rv);
+    /* store publ key token into CKA_IBM_OPAQUE of the public key object */
+    if ((rv = build_update_attribute(publ_tmpl, CKA_IBM_OPAQUE,
+                                     publ_tok, publ_tok_len))) {
+        TRACE_DEVEL("build_update_attribute for publ_tok failed rv=0x%lx\n", rv);
         return rv;
     }
 
-    if ((rv = build_update_attribute(priv_tmpl,
-                                     CKA_IBM_OPAQUE, tok, tok_len))) {
-        TRACE_DEVEL("build_update_attribute for tok failed rv=0x%lx\n", rv);
+    /* store priv key token into CKA_IBM_OPAQUE of the private key object */
+    if ((rv = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
+                                     priv_tok, priv_tok_len))) {
+        TRACE_DEVEL("build_update_attribute for priv_tok failed rv=0x%lx\n", rv);
         return rv;
     }
 
@@ -2296,10 +2290,12 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char key_value_structure[CCA_EC_KEY_VALUE_STRUCT_SIZE] = { 0, };
     unsigned char private_key_name[CCA_PRIVATE_KEY_NAME_SIZE] = { 0, };
     unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
-    long regeneration_data_length, generated_key_token_length;
+    long regeneration_data_length;
+    long priv_key_token_length, publ_key_token_length;
     unsigned char regeneration_data[CCA_REGENERATION_DATA_SIZE] = { 0, };
     unsigned char transport_key_identifier[CCA_KEY_ID_SIZE] = { 0, };
-    unsigned char generated_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char priv_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    unsigned char publ_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
     CK_RV rv;
     long param1 = 0;
     unsigned char *param2 = NULL;
@@ -2361,7 +2357,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     memset(rule_array, 0, sizeof(rule_array));
     memcpy(rule_array, "MASTER  ", (size_t) CCA_KEYWORD_SIZE);
 
-    generated_key_token_length = CCA_KEY_TOKEN_SIZE;
+    priv_key_token_length = CCA_KEY_TOKEN_SIZE;
 
     regeneration_data_length = 0;
 
@@ -2376,7 +2372,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
                 &key_token_length,
                 key_token,
                 transport_key_identifier,
-                &generated_key_token_length, generated_key_token);
+                &priv_key_token_length, priv_key_token);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (EC KEY GENERATE) failed."
@@ -2386,12 +2382,30 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    TRACE_DEVEL("ECC secure key token generated. size: %ld\n",
-                generated_key_token_length);
+    TRACE_DEVEL("ECC secure private key token generated. size: %ld\n",
+                priv_key_token_length);
+
+    rule_array_count = 0;
+    publ_key_token_length = CCA_KEY_TOKEN_SIZE;
+
+    dll_CSNDPKX(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &priv_key_token_length, priv_key_token,
+                &publ_key_token_length, publ_key_token);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSNDPKX (PUBLIC KEY TOKEN EXTRACT) failed. return:%ld,"
+                    " reason:%ld\n", return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEVEL("ECC secure public key token generated. size: %ld\n",
+                publ_key_token_length);
 
     rv = token_create_ec_keypair(publ_tmpl, priv_tmpl,
-                                 generated_key_token_length,
-                                 generated_key_token);
+                                 priv_key_token_length, priv_key_token,
+                                 publ_key_token_length, publ_key_token);
     if (rv != CKR_OK) {
         TRACE_DEVEL("token_create_ec_keypair failed. rv: %lu\n", rv);
         return rv;
