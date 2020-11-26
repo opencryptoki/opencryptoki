@@ -623,6 +623,7 @@ CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sb
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
+AC_PROG_CXX
 
 AC_CONFIG_MACRO_DIRS([m4])
 

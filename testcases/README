@@ -31,6 +31,11 @@ misc_tests
 This directory contains tests to test various functionality and operations
 in opencryptoki.
 
+build
+-----
+This directory contains build tests: a failed test is indicated by a build
+break.
+
 ock_test.sh
 -----------
 This driver runs the various testcases on various tokens.
