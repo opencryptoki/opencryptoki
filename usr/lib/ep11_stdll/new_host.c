@@ -2058,10 +2058,21 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->encr_ctx.key = hKey;
 
         sess->encr_ctx.mech.mechanism = pMechanism->mechanism;
-        sess->encr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
-        memcpy(sess->encr_ctx.mech.pParameter, pMechanism->pParameter,
-               pMechanism->ulParameterLen);
-        sess->encr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+        if (pMechanism->pParameter && pMechanism->ulParameterLen > 0) {
+            sess->encr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+            if (sess->encr_ctx.mech.pParameter) {
+                memcpy(sess->encr_ctx.mech.pParameter, pMechanism->pParameter,
+                       pMechanism->ulParameterLen);
+                sess->encr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+            } else {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            sess->encr_ctx.mech.pParameter = NULL;
+            sess->encr_ctx.mech.ulParameterLen = 0;
+        }
     } else {
         rc = ep11tok_encrypt_init(tokdata, sess, pMechanism, hKey);
         if (rc != CKR_OK)
@@ -2363,10 +2374,21 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->decr_ctx.key = hKey;
 
         sess->decr_ctx.mech.mechanism = pMechanism->mechanism;
-        sess->decr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
-        memcpy(sess->decr_ctx.mech.pParameter, pMechanism->pParameter,
-               pMechanism->ulParameterLen);
-        sess->decr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+        if (pMechanism->pParameter && pMechanism->ulParameterLen > 0) {
+            sess->decr_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+            if (sess->decr_ctx.mech.pParameter) {
+                memcpy(sess->decr_ctx.mech.pParameter, pMechanism->pParameter,
+                       pMechanism->ulParameterLen);
+                sess->decr_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+            } else {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            sess->decr_ctx.mech.pParameter = NULL;
+            sess->decr_ctx.mech.ulParameterLen = 0;
+        }
     } else {
         rc = ep11tok_decrypt_init(tokdata, sess, pMechanism, hKey);
         if (rc != CKR_OK)
@@ -2885,10 +2907,21 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->sign_ctx.key = hKey;
 
         sess->sign_ctx.mech.mechanism = pMechanism->mechanism;
-        sess->sign_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
-        memcpy(sess->sign_ctx.mech.pParameter, pMechanism->pParameter,
-              pMechanism->ulParameterLen);
-        sess->sign_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+        if (pMechanism->pParameter && pMechanism->ulParameterLen > 0) {
+            sess->sign_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+            if (sess->sign_ctx.mech.pParameter) {
+                memcpy(sess->sign_ctx.mech.pParameter, pMechanism->pParameter,
+                       pMechanism->ulParameterLen);
+                sess->sign_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+            } else {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            sess->sign_ctx.mech.pParameter = NULL;
+            sess->sign_ctx.mech.ulParameterLen = 0;
+        }
     } else {
         rc = ep11tok_sign_init(tokdata, sess, pMechanism, FALSE, hKey);
         if (rc != CKR_OK)
@@ -3261,10 +3294,21 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         sess->verify_ctx.key = hKey;
 
         sess->verify_ctx.mech.mechanism = pMechanism->mechanism;
-        sess->verify_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
-        memcpy(sess->verify_ctx.mech.pParameter, pMechanism->pParameter,
-               pMechanism->ulParameterLen);
-        sess->verify_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+        if (pMechanism->pParameter && pMechanism->ulParameterLen > 0) {
+            sess->verify_ctx.mech.pParameter = malloc(pMechanism->ulParameterLen);
+            if (sess->verify_ctx.mech.pParameter) {
+                memcpy(sess->verify_ctx.mech.pParameter, pMechanism->pParameter,
+                       pMechanism->ulParameterLen);
+                sess->verify_ctx.mech.ulParameterLen = pMechanism->ulParameterLen;
+            } else {
+                TRACE_ERROR("%s Memory allocation failed\n", __func__);
+                rc = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            sess->verify_ctx.mech.pParameter = NULL;
+            sess->verify_ctx.mech.ulParameterLen = 0;
+        }
     } else {
         rc = ep11tok_verify_init(tokdata, sess, pMechanism, FALSE, hKey);
         if (rc != CKR_OK)
