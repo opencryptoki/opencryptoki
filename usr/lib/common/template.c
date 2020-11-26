@@ -1599,7 +1599,7 @@ error:
  *
  * modifies an existing attribute or adds a new attribute to the template
  *
- * Returns:  TRUE on success, FALSE on failure
+ * Returns:  CKR_OK on success, other CKR error on failure
  */
 CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
 {
@@ -1608,7 +1608,7 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
 
     if (!tmpl || !new_attr) {
         TRACE_ERROR("Invalid function arguments.\n");
-        return CKR_FUNCTION_FAILED;
+        return CKR_ARGUMENTS_BAD;
     }
     node = tmpl->attribute_list;
 
