@@ -1050,7 +1050,6 @@ static CK_RV build_ep11_attrs(TEMPLATE *template, CK_ATTRIBUTE_PTR *p_attrs,
         /* EP11 handles this as 'read only' and reports an error if specified */
         switch (attr->type) {
         case CKA_NEVER_EXTRACTABLE:
-        case CKA_MODIFIABLE:
         case CKA_LOCAL:
             break;
         default:
@@ -1655,11 +1654,11 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
             break;
 
         case CKA_EXTRACTABLE:
-        //case CKA_NEVER_EXTRACTABLE:
-        //case CKA_MODIFIABLE:
+
+        case CKA_MODIFIABLE:
         case CKA_DERIVE:
         case CKA_WRAP:
-        //case CKA_LOCAL:
+
         case CKA_TRUSTED:
         case CKA_IBM_RESTRICTABLE:
         case CKA_IBM_NEVER_MODIFIABLE:
