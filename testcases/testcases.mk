@@ -10,6 +10,7 @@ include testcases/crypto/crypto.mk
 include testcases/login/login.mk
 include testcases/misc_tests/misc_tests.mk
 include testcases/pkcs11/pkcs11.mk
+include testcases/build/build.mk
 
 noinst_SCRIPTS += testcases/ock_tests.sh testcases/init_token.sh
 CLEANFILES += testcases/ock_tests.sh testcases/init_token.sh
