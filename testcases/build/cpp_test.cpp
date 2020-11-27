@@ -12,9 +12,11 @@
  * Test if our public header files can be savely included from C++.
  */
 
+// pkcs11.h:
 #include "apiclient.h"
 #include "pkcs11types.h"
-#include "pkcs11.h"
+
+// Additional ECC stuff:
 #include "ec_curves.h"
 
 int main(void)
