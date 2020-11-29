@@ -2316,7 +2316,12 @@ CK_RV template_validate_attributes(STDLL_TokData_t *tokdata,
 
 CK_RV template_validate_base_attribute(TEMPLATE *tmpl,
                                        CK_ATTRIBUTE *attr, CK_ULONG mode);
-
+#ifdef DEBUG
+void dump_template(TEMPLATE *tmpl);
+#define TRACE_DEBUG_DUMPTEMPL(x) dump_template(x)
+#else
+#define TRACE_DEBUG_DUMPTEMPL(...)
+#endif
 
 
 // DATA OBJECT ROUTINES

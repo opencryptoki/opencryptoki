@@ -326,3 +326,36 @@ CK_BBOOL compare_attribute_array(CK_ATTRIBUTE_PTR a1, CK_ULONG a1_len,
 
     return TRUE;
 }
+
+#ifdef DEBUG
+void dump_attr(CK_ATTRIBUTE_PTR a)
+{
+    const char *typestr = p11_get_cka(a->type);
+
+    switch (a->ulValueLen) {
+    case 0:
+        TRACE_DEBUG("  %s: len=0 pValue=%p\n", typestr, a->pValue);
+        break;
+    case 1:
+        TRACE_DEBUG("  %s: len=%lu value=0x%02hhx\n",
+                    typestr, a->ulValueLen, *((uint8_t *)(a->pValue)));
+        break;
+    case 2:
+        TRACE_DEBUG("  %s: len=%lu value=0x%04hx\n",
+                    typestr, a->ulValueLen, *((uint16_t *)(a->pValue)));
+        break;
+    case 4:
+        TRACE_DEBUG("  %s: len=%lu value=0x%08x\n",
+                    typestr, a->ulValueLen, *((uint32_t *)(a->pValue)));
+        break;
+    case 8:
+        TRACE_DEBUG("  %s: len=%lu value=0x%016lx\n",
+                    typestr, a->ulValueLen, *((uint64_t *)(a->pValue)));
+        break;
+    default:
+        TRACE_DEBUG("  %s: len=%lu value:\n", typestr, a->ulValueLen);
+        TRACE_DEBUG_DUMP("  ", a->pValue, a->ulValueLen);
+        break;
+    }
+}
+#endif

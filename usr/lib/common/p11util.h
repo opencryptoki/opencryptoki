@@ -18,12 +18,19 @@
 // p11_get_ckr - return textual interpretation of a CKR_ error code
 // @rc is the CKR_.. error
 //
-char *p11_get_ckr(CK_RV rc);
+const char *p11_get_ckr(CK_RV rc);
 //
 // p11_get_ckm - return textual interpretation of a CKM_ mechanism code
 // @rc is the CKM_.. as a string
 //
-char *p11_get_ckm(CK_ULONG);
+const char *p11_get_ckm(CK_ULONG);
+
+//
+// p11_get_cka - return textual interpretation of an attribute type
+// only simple types - no arrays. For unknown a ptr to a static
+// buffer is returned. So be carefull this is not thread safe then.
+//
+const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype);
 
 // is_attribute_defined()
 //

@@ -138,39 +138,6 @@ static xcpa_internal_rv_t dll_xcpa_internal_rv;
 
 static m_get_xcp_info_t dll_m_get_xcp_info;
 
-#ifdef DEBUG
-
-/* a simple function for dumping out a memory area */
-static inline void hexdump(void *buf, size_t buflen)
-{
-    /*           1         2         3         4         5         6
-       0123456789012345678901234567890123456789012345678901234567890123456789
-       xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
-     */
-
-    size_t i, j;
-    char line[68];
-    for (i = 0; i < buflen; i += 16) {
-        for (j = 0; j < 16; j++) {
-            if (i + j < buflen) {
-                unsigned char b = ((unsigned char *) buf)[i + j];
-                sprintf(line + j * 3, "%02hhx ", b);
-                line[51 + j] = (isalnum(b) ? b : '.');
-            } else {
-                sprintf(line + j * 3, "   ");
-                line[51 + j] = ' ';
-            }
-        }
-        line[47] = line[48] = line[49] = line[50] = ' ';
-        line[67] = '\0';
-        TRACE_DEBUG("%s\n", line);
-    }
-}
-
-#define TRACE_DEBUG_DUMP(_buf, _buflen) hexdump(_buf, _buflen)
-
-#endif                          /* DEBUG */
-
 const char manuf[] = "IBM";
 const char model[] = "EP11";
 const char descr[] = "IBM EP11 token";
@@ -4113,9 +4080,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
 
 #ifdef DEBUG
     TRACE_DEBUG("%s P:\n", __func__);
-    TRACE_DEBUG_DUMP(&dh_pgs.pg[0], p_len);
+    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[0], p_len);
     TRACE_DEBUG("%s G:\n", __func__);
-    TRACE_DEBUG_DUMP(&dh_pgs.pg[p_len], p_len);
+    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[p_len], p_len);
 #endif
 
     /* add special attribute, do not add it to ock's pPublicKeyTemplate */
@@ -4218,7 +4185,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     }
 #ifdef DEBUG
     TRACE_DEBUG("%s DH SPKI\n", __func__);
-    TRACE_DEBUG_DUMP(publblob, publblobsize);
+    TRACE_DEBUG_DUMP("   ", publblob, publblobsize);
 #endif
 
     /* CKA_VALUE of the public key must hold 'y' */
@@ -4436,11 +4403,11 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
 
 #ifdef DEBUG
     TRACE_DEBUG("%s P:\n", __func__);
-    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[0], p_len);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[0], p_len);
     TRACE_DEBUG("%s Q:\n", __func__);
-    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[p_len], p_len);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[p_len], p_len);
     TRACE_DEBUG("%s G:\n", __func__);
-    TRACE_DEBUG_DUMP(&dsa_pqgs.pqg[2 * p_len], p_len);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[2 * p_len], p_len);
 #endif
 
     CK_ATTRIBUTE pqgs[] = { {CKA_IBM_STRUCT_PARAMS,
@@ -4563,7 +4530,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     }
 #ifdef DEBUG
     TRACE_DEBUG("%s dsa_generate_keypair public key:\n", __func__);
-    TRACE_DEBUG_DUMP(data, data_len);
+    TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
     rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
@@ -4770,7 +4737,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
 #ifdef DEBUG
         TRACE_DEBUG("%s ec_generate_keypair spki:\n", __func__);
-        TRACE_DEBUG_DUMP(spki, spki_len);
+        TRACE_DEBUG_DUMP("    ", spki, spki_len);
 #endif
         rc = ber_decode_SPKI(spki, &oid, &oid_len, &parm, &parm_len,
                              &key, &bit_str_len);
@@ -4797,7 +4764,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
 #ifdef DEBUG
         TRACE_DEBUG("%s ec_generate_keypair ecpoint:\n", __func__);
-        TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
         /* build and add CKA_EC_POINT as BER encoded OCTET STRING */
@@ -4895,7 +4862,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         }
 #ifdef DEBUG
         TRACE_DEBUG("%s rsa_generate_keypair modulus:\n", __func__);
-        TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
         /* build and add CKA_MODULUS */
@@ -4923,7 +4890,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         }
 #ifdef DEBUG
         TRACE_DEBUG("%s rsa_generate_keypair public exponent:\n", __func__);
-        TRACE_DEBUG_DUMP(data, data_len);
+        TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
         /* build and add CKA_PUBLIC_EXPONENT */
@@ -5127,7 +5094,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     data_len--;
 #ifdef DEBUG
     TRACE_DEBUG("%s dilithium_generate_keypair (rho):\n", __func__);
-    TRACE_DEBUG_DUMP(data, data_len);
+    TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
     /* build and add CKA_IBM_DILITHIUM_RHO */
@@ -5156,7 +5123,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     data_len--;
 #ifdef DEBUG
     TRACE_DEBUG("%s dilithium_generate_keypair (t1):\n", __func__);
-    TRACE_DEBUG_DUMP(data, data_len);
+    TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
     /* build and add CKA_IBM_DILITHIUM_T1 */
@@ -8246,7 +8213,7 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
     }
 #ifdef DEBUG
     TRACE_DEBUG("Control points from adapter %02X.%04X\n", adapter, domain);
-    TRACE_DEBUG_DUMP(cp, cp_len);
+    TRACE_DEBUG_DUMP("    ", cp, cp_len);
 #endif
 
     if (data->first) {
@@ -8329,7 +8296,7 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
 #ifdef DEBUG
     TRACE_DEBUG("Combined control points from all cards (%lu CPs):\n",
                 data.max_cp_index);
-    TRACE_DEBUG_DUMP(cp, *cp_len);
+    TRACE_DEBUG_DUMP("    ", cp, *cp_len);
     print_control_points(cp, *cp_len, data.max_cp_index);
 #endif
 
@@ -8563,7 +8530,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
         }
 #ifdef DEBUG
         TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP("    ", pin_blob, XCP_PINBLOB_BYTES);
 #endif
 
         if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
@@ -8603,7 +8570,7 @@ strict_mode:
         }
 #ifdef DEBUG
         TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP(pin_blob, XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP("    ", pin_blob, XCP_PINBLOB_BYTES);
 #endif
 
         if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
@@ -8646,7 +8613,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
 #ifdef DEBUG
         TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP("    ", ep11_session->session_pin_blob, XCP_PINBLOB_BYTES);
 #endif
 
         rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
@@ -8661,7 +8628,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
     if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
 #ifdef DEBUG
         TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES);
+        TRACE_DEBUG_DUMP("    ", ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES);
 #endif
 
         rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
@@ -8739,7 +8706,7 @@ CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
     }
 #ifdef DEBUG
     TRACE_DEBUG("EP11 Session-ID for PKCS#11 session %lu:\n", session->handle);
-    TRACE_DEBUG_DUMP(ep11_session->session_id,
+    TRACE_DEBUG_DUMP("    ", ep11_session->session_id,
                      sizeof(ep11_session->session_id));
 #endif
 
