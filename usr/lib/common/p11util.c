@@ -19,7 +19,7 @@
 // p11_get_ckr - return textual interpretation of a CKR_ error code
 // @rc is the CKR_.. error
 //
-char *p11_get_ckr(CK_RV rc)
+const char *p11_get_ckr(CK_RV rc)
 {
     switch (rc) {
         _sym2str(CKR_OK);
@@ -119,6 +119,106 @@ char *p11_get_ckr(CK_RV rc)
         _sym2str(CKR_PUBLIC_KEY_INVALID);
     default:
         return "UNKNOWN";
+    }
+}
+
+//
+// p11_get_cka - return textual interpretation of an attribute type
+// only simple types - no arrays. For unknown a ptr to a static
+// buffer is returned. So be carefull this is not thread safe then.
+//
+const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
+{
+    static char buf[40];
+
+    switch (atype) {
+        _sym2str(CKA_CLASS);
+        _sym2str(CKA_TOKEN);
+        _sym2str(CKA_PRIVATE);
+        _sym2str(CKA_LABEL);
+        _sym2str(CKA_UNIQUE_ID);
+        _sym2str(CKA_VALUE);
+        _sym2str(CKA_OBJECT_ID);
+        _sym2str(CKA_CERTIFICATE_TYPE);
+        _sym2str(CKA_ISSUER);
+        _sym2str(CKA_SERIAL_NUMBER);
+        _sym2str(CKA_ATTR_TYPES);
+        _sym2str(CKA_TRUSTED);
+        _sym2str(CKA_KEY_TYPE);
+        _sym2str(CKA_SUBJECT);
+        _sym2str(CKA_CERTIFICATE_CATEGORY);
+        _sym2str(CKA_JAVA_MIDP_SECURITY_DOMAIN);
+        _sym2str(CKA_URL);
+        _sym2str(CKA_HASH_OF_SUBJECT_PUBLIC_KEY);
+        _sym2str(CKA_HASH_OF_ISSUER_PUBLIC_KEY);
+        _sym2str(CKA_NAME_HASH_ALGORITHM);
+        _sym2str(CKA_CHECK_VALUE);
+        _sym2str(CKA_ID);
+        _sym2str(CKA_SENSITIVE);
+        _sym2str(CKA_ENCRYPT);
+        _sym2str(CKA_DECRYPT);
+        _sym2str(CKA_WRAP);
+        _sym2str(CKA_UNWRAP);
+        _sym2str(CKA_SIGN);
+        _sym2str(CKA_SIGN_RECOVER);
+        _sym2str(CKA_VERIFY);
+        _sym2str(CKA_VERIFY_RECOVER);
+        _sym2str(CKA_DERIVE);
+        _sym2str(CKA_START_DATE);
+        _sym2str(CKA_END_DATE);
+        _sym2str(CKA_MODULUS);
+        _sym2str(CKA_MODULUS_BITS);
+        _sym2str(CKA_PUBLIC_EXPONENT);
+        _sym2str(CKA_PRIVATE_EXPONENT);
+        _sym2str(CKA_PRIME_1);
+        _sym2str(CKA_PRIME_2);
+        _sym2str(CKA_EXPONENT_1);
+        _sym2str(CKA_EXPONENT_2);
+        _sym2str(CKA_COEFFICIENT);
+        _sym2str(CKA_PUBLIC_KEY_INFO);
+        _sym2str(CKA_PRIME);
+        _sym2str(CKA_SUBPRIME);
+        _sym2str(CKA_BASE);
+        _sym2str(CKA_PRIME_BITS);
+        _sym2str(CKA_SUBPRIME_BITS);
+        _sym2str(CKA_VALUE_BITS);
+        _sym2str(CKA_VALUE_LEN);
+        _sym2str(CKA_EXTRACTABLE);
+        _sym2str(CKA_LOCAL);
+        _sym2str(CKA_NEVER_EXTRACTABLE);
+        _sym2str(CKA_ALWAYS_SENSITIVE);
+        _sym2str(CKA_KEY_GEN_MECHANISM);
+        _sym2str(CKA_MODIFIABLE);
+        _sym2str(CKA_COPYABLE);
+        _sym2str(CKA_DESTROYABLE);
+        _sym2str(CKA_EC_PARAMS);
+        _sym2str(CKA_EC_POINT);
+        _sym2str(CKA_SECONDARY_AUTH);
+        _sym2str(CKA_AUTH_PIN_FLAGS);
+        _sym2str(CKA_ALWAYS_AUTHENTICATE);
+        _sym2str(CKA_WRAP_WITH_TRUSTED);
+        _sym2str(CKA_HW_FEATURE_TYPE);
+        _sym2str(CKA_RESET_ON_INIT);
+        _sym2str(CKA_HAS_RESET);
+        _sym2str(CKA_WRAP_TEMPLATE);
+        _sym2str(CKA_UNWRAP_TEMPLATE);
+        _sym2str(CKA_DERIVE_TEMPLATE);
+        _sym2str(CKA_ALLOWED_MECHANISMS);
+        _sym2str(CKA_PROFILE_ID);
+        _sym2str(CKA_IBM_OPAQUE);
+        _sym2str(CKA_IBM_RESTRICTABLE);
+        _sym2str(CKA_IBM_NEVER_MODIFIABLE);
+        _sym2str(CKA_IBM_RETAINKEY);
+        _sym2str(CKA_IBM_ATTRBOUND);
+        _sym2str(CKA_IBM_KEYTYPE);
+        _sym2str(CKA_IBM_CV);
+        _sym2str(CKA_IBM_MACKEY);
+        _sym2str(CKA_IBM_USE_AS_DATA);
+        _sym2str(CKA_IBM_STRUCT_PARAMS);
+        _sym2str(CKA_IBM_STD_COMPLIANCE1);
+    default:
+        sprintf(buf, "unknown attribute type 0x%08lx", atype);
+        return buf;
     }
 }
 
@@ -248,7 +348,7 @@ CK_BBOOL is_attribute_attr_array(CK_ATTRIBUTE_TYPE type)
 }
 
 
-char *p11_get_ckm(CK_ULONG mechanism)
+const char *p11_get_ckm(CK_ULONG mechanism)
 {
     switch (mechanism) {
         _sym2str(CKM_RSA_PKCS_KEY_PAIR_GEN);

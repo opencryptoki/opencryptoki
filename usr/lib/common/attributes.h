@@ -52,4 +52,13 @@ CK_BBOOL compare_attribute(CK_ATTRIBUTE_PTR a1, CK_ATTRIBUTE_PTR a2);
 
 CK_BBOOL compare_attribute_array(CK_ATTRIBUTE_PTR a1, CK_ULONG a1_len,
                                  CK_ATTRIBUTE_PTR a2, CK_ULONG a2_len);
+
+#ifdef DEBUG
+/* Debug function: dump one attribute */
+void dump_attr(CK_ATTRIBUTE_PTR a);
+#define TRACE_DEBUG_DUMPATTR(x) dump_attr(x)
+#else
+#define TRACE_DEBUG_DUMPATTR(...)
+#endif
+
 #endif

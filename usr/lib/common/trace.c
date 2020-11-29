@@ -9,6 +9,7 @@
  */
 
 #define _GNU_SOURCE
+#include <ctype.h>
 #include <errno.h>
 #include <grp.h>
 #include <pthread.h>
@@ -300,3 +301,37 @@ const char *ock_err(int num)
 
     return ock_err_msg[num];
 }
+
+#ifdef DEBUG
+
+/* a simple function for dumping out a memory area */
+void hexdump(const char *prestr, void *buf, size_t buflen)
+{
+    /*           1         2         3         4         5         6
+       0123456789012345678901234567890123456789012345678901234567890123456789
+       xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx xx    ................
+     */
+
+    size_t i, j;
+    char line[68];
+    for (i = 0; i < buflen; i += 16) {
+        for (j = 0; j < 16; j++) {
+            if (i + j < buflen) {
+                unsigned char b = ((unsigned char *) buf)[i + j];
+                sprintf(line + j * 3, "%02hhx ", b);
+                line[51 + j] = (isalnum(b) ? b : '.');
+            } else {
+                sprintf(line + j * 3, "   ");
+                line[51 + j] = ' ';
+            }
+        }
+        line[47] = line[48] = line[49] = line[50] = ' ';
+        line[67] = '\0';
+	if (prestr)
+            TRACE_DEBUG("%s%s\n", prestr, line);
+        else
+            TRACE_DEBUG("%s\n", line);
+    }
+}
+
+#endif /* DEBUG */

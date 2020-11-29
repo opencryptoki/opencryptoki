@@ -1902,3 +1902,19 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 
     return CKR_ATTRIBUTE_READ_ONLY;
 }
+
+#ifdef DEBUG
+/* Debug function: dump list of attribues from a template */
+void dump_template(TEMPLATE *tmpl)
+{
+    DL_NODE *node = NULL;
+    CK_ATTRIBUTE *a = NULL;
+
+    node = tmpl->attribute_list;
+    while (node) {
+        a = (CK_ATTRIBUTE *) node->data;
+	TRACE_DEBUG_DUMPATTR(a);
+        node = node->next;
+    }
+}
+#endif
