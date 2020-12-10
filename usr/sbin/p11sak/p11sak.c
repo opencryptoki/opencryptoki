@@ -2230,7 +2230,6 @@ static CK_RV finalize_destroy_object(char *label, CK_SESSION_HANDLE *session,
             goto done;
         }
         *boolDestroyFlag = CK_TRUE;
-        printf("DONE - Destroy Object with Label: %s\n", label);
     } else if (strncmp(user_input, "n", 1) == 0) {
         printf("Skip deleting Key\n");
         *boolDestroyFlag = CK_FALSE;
