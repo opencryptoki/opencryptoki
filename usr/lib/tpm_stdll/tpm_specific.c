@@ -63,8 +63,6 @@
 #include "../api/apiproto.h"
 
 typedef struct {
-    CK_BYTE master_key_private[MK_SIZE];
-
     /* The context we'll use globally to connect to the TSP */
     TSS_HCONTEXT tspContext;
 
@@ -146,7 +144,6 @@ static void clear_internal_structures(STDLL_TokData_t * tokdata)
     tpm_data->hPrivateRootKey = NULL_HKEY;
     tpm_data->hPublicRootKey = NULL_HKEY;
 
-    memset(tpm_data->master_key_private, 0, MK_SIZE);
     memset(tpm_data->current_so_pin_sha, 0, SHA1_HASH_SIZE);
     memset(tpm_data->current_user_pin_sha, 0, SHA1_HASH_SIZE);
 }
@@ -1702,189 +1699,6 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
     return CKR_OK;
 }
 
-static CK_RV save_masterkey_private(STDLL_TokData_t * tokdata, char *fname)
-{
-    tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
-    struct stat file_stat;
-    int err;
-    FILE *fp = NULL;
-    struct passwd *pw = NULL;
-
-    TSS_RESULT result;
-    TSS_HENCDATA hEncData;
-    BYTE *encrypted_masterkey;
-    UINT32 encrypted_masterkey_size;
-
-    pw = getpwuid(getuid());
-    if (pw == NULL) {
-        TRACE_ERROR("getpwuid failed: %s\n", strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* if file exists, assume its been written correctly before */
-    err = stat(fname, &file_stat);
-    if (err == 0) {
-        return CKR_OK;
-    } else if (errno != ENOENT) {
-        /* some error other than file doesn't exist */
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* encrypt the private masterkey using the private leaf key */
-    result = Tspi_Context_CreateObject(tpm_data->tspContext,
-                                       TSS_OBJECT_TYPE_ENCDATA,
-                                       TSS_ENCDATA_BIND, &hEncData);
-    if (result) {
-        TRACE_ERROR("Tspi_Context_CreateObject failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    result = Tspi_Data_Bind(hEncData, tpm_data->hPrivateLeafKey,
-                            MK_SIZE, tpm_data->master_key_private);
-    if (result) {
-        TRACE_ERROR("Tspi_Data_Bind failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    result = Tspi_GetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-                                TSS_TSPATTRIB_ENCDATABLOB_BLOB,
-                                &encrypted_masterkey_size,
-                                &encrypted_masterkey);
-    if (result) {
-        TRACE_ERROR("Tspi_GetAttribData failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (encrypted_masterkey_size > 256) {
-        Tspi_Context_FreeMemory(tpm_data->tspContext, encrypted_masterkey);
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    /* write the encrypted key to disk */
-    if ((fp = fopen(fname, "w")) == NULL) {
-        TRACE_ERROR("Error opening %s for write: %s\n", fname, strerror(errno));
-        Tspi_Context_FreeMemory(tpm_data->tspContext, encrypted_masterkey);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    err = fwrite(encrypted_masterkey, encrypted_masterkey_size, 1, fp);
-    if (err == 0) {
-        TRACE_ERROR("Error writing %s: %s\n", fname, strerror(errno));
-        Tspi_Context_FreeMemory(tpm_data->tspContext, encrypted_masterkey);
-        fclose(fp);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    Tspi_Context_FreeMemory(tpm_data->tspContext, encrypted_masterkey);
-    fclose(fp);
-
-    return CKR_OK;
-}
-
-CK_RV load_masterkey_private(STDLL_TokData_t * tokdata)
-{
-    tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
-    FILE *fp = NULL;
-    int err;
-    struct stat file_stat;
-    CK_BYTE encrypted_masterkey[256];
-    char fname[PATH_MAX];
-    CK_RV rc;
-    struct passwd *pw = NULL;
-
-    TSS_RESULT result;
-    TSS_HENCDATA hEncData;
-    BYTE *masterkey;
-    UINT32 masterkey_size, encrypted_masterkey_size = 256;
-
-    pw = getpwuid(getuid());
-    if (pw == NULL) {
-        TRACE_ERROR("getpwuid failed: %s\n", strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (ock_snprintf(fname, PATH_MAX, "%s/%s/%s", tokdata->pk_dir, pw->pw_name,
-                     TPMTOK_MASTERKEY_PRIVATE) != 0) {
-        TRACE_ERROR("tpm token master key private file buffer overflow\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* if file exists, check its size */
-    err = stat(fname, &file_stat);
-    if (err == 0) {
-        if (file_stat.st_size != 256) {
-            TRACE_ERROR("Private master key has been corrupted\n");
-            return CKR_FUNCTION_FAILED;
-        }
-    } else if (errno == ENOENT) {
-        TRACE_INFO("Private master key doesn't exist, creating it...\n");
-
-        /* create the private master key, then save */
-        rc = token_specific_rng(tokdata, tpm_data->master_key_private, MK_SIZE);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("token_rng failed. rc=0x%lx\n", rc);
-            return rc;
-        }
-
-        return save_masterkey_private(tokdata, fname);
-    } else {
-        /* some error other than file doesn't exist */
-        TRACE_ERROR("stat of private masterkey failed: %s\n", strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    //fp = fopen("/etc/pkcs11/tpm/MK_PUBLIC", "r");
-    if ((fp = fopen(fname, "r")) == NULL) {
-        TRACE_ERROR("Error opening %s: %s\n", fname, strerror(errno));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (fread(encrypted_masterkey, encrypted_masterkey_size, 1, fp) == 0) {
-        TRACE_ERROR("Error reading %s: %s\n", fname, strerror(errno));
-        fclose(fp);
-        return CKR_FUNCTION_FAILED;
-    }
-    fclose(fp);
-
-    /* decrypt the private masterkey using the private leaf key */
-    result = Tspi_Context_CreateObject(tpm_data->tspContext,
-                                       TSS_OBJECT_TYPE_ENCDATA,
-                                       TSS_ENCDATA_BIND, &hEncData);
-    if (result) {
-        TRACE_ERROR("Tspi_Context_CreateObject failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    result = Tspi_SetAttribData(hEncData, TSS_TSPATTRIB_ENCDATA_BLOB,
-                                TSS_TSPATTRIB_ENCDATABLOB_BLOB,
-                                encrypted_masterkey_size,
-                                encrypted_masterkey);
-    if (result) {
-        TRACE_ERROR("Tspi_SetAttribData failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    result = Tspi_Data_Unbind(hEncData, tpm_data->hPrivateLeafKey,
-                              &masterkey_size, &masterkey);
-    if (result) {
-        TRACE_ERROR("Tspi_Data_Unbind failed. rc=0x%x\n", result);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (masterkey_size != MK_SIZE) {
-        TRACE_ERROR("decrypted private master key size is %u, "
-                    "should be %u\n", masterkey_size, MK_SIZE);
-        Tspi_Context_FreeMemory(tpm_data->tspContext, masterkey);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    memcpy(tpm_data->master_key_private, masterkey, MK_SIZE);
-    Tspi_Context_FreeMemory(tpm_data->tspContext, masterkey);
-
-    return CKR_OK;
-}
-
-
 CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
                            CK_USER_TYPE userType, CK_CHAR_PTR pPin,
                            CK_ULONG ulPinLen)
@@ -1979,15 +1793,6 @@ CK_RV token_specific_login(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         memcpy(tpm_data->current_user_pin_sha, hash_sha, SHA1_HASH_SIZE);
-
-        /* load private data encryption key here */
-        rc = load_masterkey_private(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("load_masterkey_private failed. rc=0x%lx\n", rc);
-            Tspi_Key_UnloadKey(tpm_data->hPrivateLeafKey);
-            tpm_data->hPrivateLeafKey = NULL_HKEY;
-            return rc;
-        }
 
         rc = XProcLock(tokdata);
         if (rc != CKR_OK) {
