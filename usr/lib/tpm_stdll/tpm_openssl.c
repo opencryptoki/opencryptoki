@@ -115,6 +115,10 @@ regen_rsa_key:
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
     rc = RSA_check_key(rsa);
 #else
+    EVP_PKEY_CTX_free(ctx);
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (ctx == NULL)
+        goto err;
     rc = (EVP_PKEY_check(ctx) == 1 ? 1 : 0);
 #endif
 #endif
