@@ -1312,12 +1312,6 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             goto done;
         }
 
-        if (!(*flags & CKF_USER_PIN_INITIALIZED)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
-            rc = CKR_USER_PIN_NOT_INITIALIZED;
-            goto done;
-        }
-
         /* Check if token has a specific handler for this, otherwise
          * fall back to default behaviour.
          */
@@ -1331,6 +1325,12 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             } else if (rc == CKR_PIN_INCORRECT) {
                 set_login_flags(userType, flags);
             }
+            goto done;
+        }
+
+        if (!(*flags & CKF_USER_PIN_INITIALIZED)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_USER_PIN_NOT_INITIALIZED));
+            rc = CKR_USER_PIN_NOT_INITIALIZED;
             goto done;
         }
 
