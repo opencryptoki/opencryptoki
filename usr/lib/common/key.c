@@ -316,7 +316,11 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        return CKR_OK;
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_DERIVE:
         if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -672,7 +676,11 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        return CKR_OK;
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
     }
@@ -1250,7 +1258,11 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        return CKR_OK;
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
 
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
@@ -1808,7 +1820,11 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        return CKR_OK;
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
+            mode == MODE_DERIVE || mode == MODE_UNWRAP)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return key_object_validate_attribute(tmpl, attr, mode);
     }
