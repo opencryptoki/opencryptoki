@@ -180,19 +180,27 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         signature_len = 0;
 
         // do SignUpdate
-        len = message_len;
-        for (count = 0; len > 0; count += inc) {
-            if (len < CHUNK)
-                inc = len;
-            else
-                inc = CHUNK;
+        if (message_len > 0) {
+            len = message_len;
+            for (count = 0; len > 0; count += inc) {
+                if (len < CHUNK)
+                    inc = len;
+                else
+                    inc = CHUNK;
 
-            rc = funcs->C_SignUpdate(session, message + count, inc);
+                rc = funcs->C_SignUpdate(session, message + count, inc);
+                if (rc != CKR_OK) {
+                    testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
+                    goto error;
+                }
+                len -= inc;
+            }
+        } else {
+            rc = funcs->C_SignUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_SignUpdate(), rc=%s.", p11_get_ckr(rc));
                 goto error;
             }
-            len -= inc;
         }
 
         /* get the required length */
@@ -224,18 +232,26 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         }
         // do VerifyUpdate
         len = message_len;
-        for (count = 0; len > 0; count += inc) {
-            if (len < CHUNK)
-                inc = len;
-            else
-                inc = CHUNK;
+        if (message_len > 0) {
+            for (count = 0; len > 0; count += inc) {
+                if (len < CHUNK)
+                    inc = len;
+                else
+                    inc = CHUNK;
 
-            rc = funcs->C_VerifyUpdate(session, message + count, inc);
+                rc = funcs->C_VerifyUpdate(session, message + count, inc);
+                if (rc != CKR_OK) {
+                    testcase_error("C_VerifyUpdate(), rc=%s.", p11_get_ckr(rc));
+                    goto error;
+                }
+                len -= inc;
+            }
+        } else {
+            rc = funcs->C_VerifyUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate(), rc=%s.", p11_get_ckr(rc));
                 goto error;
             }
-            len -= inc;
         }
         rc = funcs->C_VerifyFinal(session, signature, signature_len);
 
