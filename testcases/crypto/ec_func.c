@@ -1140,8 +1140,16 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts && inputlen > 0; i++) {
-            rc = funcs->C_SignUpdate(session, data, inputlen);
+        if (inputlen > 0) {
+            for (i = 0; i < parts && inputlen > 0; i++) {
+                rc = funcs->C_SignUpdate(session, data, inputlen);
+                if (rc != CKR_OK) {
+                    testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
+                    goto testcase_cleanup;
+                }
+            }
+        } else {
+            rc = funcs->C_SignUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
@@ -1194,8 +1202,16 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts && inputlen > 0; i++) {
-            rc = funcs->C_VerifyUpdate(session, data, inputlen);
+        if (inputlen > 0) {
+            for (i = 0; i < parts && inputlen > 0; i++) {
+                rc = funcs->C_VerifyUpdate(session, data, inputlen);
+                if (rc != CKR_OK) {
+                    testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+                    goto testcase_cleanup;
+                }
+            }
+        } else {
+            rc = funcs->C_VerifyUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
@@ -1227,8 +1243,16 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     if (parts > 0) {
-        for (i = 0; i < parts && inputlen > 0; i++) {
-            rc = funcs->C_VerifyUpdate(session, data, inputlen);
+        if (inputlen > 0) {
+            for (i = 0; i < parts && inputlen > 0; i++) {
+                rc = funcs->C_VerifyUpdate(session, data, inputlen);
+                if (rc != CKR_OK) {
+                    testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+                    goto testcase_cleanup;
+                }
+            }
+        } else {
+            rc = funcs->C_VerifyUpdate(session, NULL, 0);
             if (rc != CKR_OK) {
                 testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;

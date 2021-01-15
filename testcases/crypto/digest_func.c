@@ -1360,6 +1360,12 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
                     goto error;
                 }
             }
+        } else {
+            rc = funcs->C_SignUpdate(session, NULL, 0);
+            if (rc != CKR_OK) {
+                testcase_error("C_SignUpdate rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
         rc = funcs->C_SignFinal(session, actual, &actual_len);
         if (rc != CKR_OK) {
@@ -1388,6 +1394,12 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
                     testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
                     goto error;
                 }
+            }
+        } else {
+            rc = funcs->C_VerifyUpdate(session, NULL, 0);
+            if (rc != CKR_OK) {
+                testcase_error("C_VerifyUpdate rc=%s", p11_get_ckr(rc));
+                goto error;
             }
         }
         rc = funcs->C_VerifyFinal(session, actual, actual_len);
