@@ -1074,11 +1074,7 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
-    if (ctx->multi_init == FALSE) {
-        ctx->multi = TRUE;
-        ctx->multi_init = TRUE;
-    }
-    if (ctx->multi == FALSE) {
+    if (ctx->multi_init == FALSE || ctx->multi == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
         return CKR_OPERATION_ACTIVE;
     }
