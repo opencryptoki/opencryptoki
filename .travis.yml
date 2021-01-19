@@ -64,4 +64,4 @@ script:
     - sudo pkcsconf -s
     - sudo pkcsconf -t
     - cd testcases
-    - sudo PKCS11_SO_PIN=87654321 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
+    - sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
