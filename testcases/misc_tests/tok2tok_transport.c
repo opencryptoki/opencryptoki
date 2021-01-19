@@ -754,6 +754,20 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         goto testcase_cleanup;
     }
 
+    switch (wrap_mech->mechanism) {
+    case CKM_RSA_X_509:
+    case CKM_AES_ECB:
+    case CKM_AES_CBC:
+    case CKM_DES_ECB:
+    case CKM_DES_CBC:
+    case CKM_DES3_ECB:
+    case CKM_DES3_CBC:
+        break;
+    default:
+        unwrap_tmpl_num = 2;
+        break;
+    }
+
     /* Unwrap the key on slot 2 */
     rc = funcs->C_UnwrapKey(session2, wrap_mech,
                             sym_wrap_key2 != CK_INVALID_HANDLE ?

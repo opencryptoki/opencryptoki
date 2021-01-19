@@ -1369,6 +1369,20 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             unwrap_tmpl_len = 2;
         }
 
+        switch (wrap_mech.mechanism) {
+        case CKM_RSA_X_509:
+        case CKM_AES_ECB:
+        case CKM_AES_CBC:
+        case CKM_DES_ECB:
+        case CKM_DES_CBC:
+        case CKM_DES3_ECB:
+        case CKM_DES3_CBC:
+            break;
+        default:
+            unwrap_tmpl_len = 2;
+            break;
+        }
+
         // unwrap key
         rc = funcs->C_UnwrapKey(session, &wrap_mech, priv_key,
                                 wrapped_key, wrapped_keylen,
