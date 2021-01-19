@@ -1042,7 +1042,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     ENCR_DECR_CONTEXT *ctx = NULL;
     OBJECT *key_obj = NULL, *unwrapping_key_obj = NULL;
     CK_BYTE *data = NULL;
-    CK_ULONG data_len;
+    CK_ULONG data_len, value_len = 0;
     CK_ULONG keyclass = 0, keytype = 0, priv_keytype = 0;
     CK_BBOOL fromend, not_opaque = FALSE, flag;
     CK_ATTRIBUTE *new_attrs = NULL;
@@ -1157,6 +1157,45 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_DEVEL("key_object_apply_unwrap_template failed.\n");
         goto done;
+    }
+
+    rc = get_ulong_attribute_by_type(new_attrs, new_attr_count, CKA_VALUE_LEN,
+                                     &value_len);
+    if (rc == CKR_OK) {
+        /*
+         * Only some wrapping mechanisms allow CKA_VALUE_LEN to be specified
+         * in the unwrapping template for certain key types.
+         */
+        switch (mech->mechanism) {
+        case CKM_RSA_X_509:
+        case CKM_CDMF_ECB:
+        case CKM_DES_ECB:
+        case CKM_AES_ECB:
+        case CKM_AES_CBC:
+#if !(NOCMF)
+        case CKM_CDMF_CBC:
+#endif
+        case CKM_DES_CBC:
+        case CKM_DES3_ECB:
+        case CKM_DES3_CBC:
+        case CKM_AES_CTR:
+        case CKM_AES_OFB:
+        case CKM_AES_CFB8:
+        case CKM_AES_CFB64:
+        case CKM_AES_CFB128:
+            if (keytype != CKK_AES && keytype != CKK_GENERIC_SECRET) {
+                TRACE_ERROR("The key type does not allow CKA_VALUE_LEN to be "
+                            "specified in the unwrapping template.\n");
+                rc = CKR_TEMPLATE_INCONSISTENT;
+                goto done;
+            }
+            break;
+        default:
+            TRACE_ERROR("The specified mechanism does not allow CKA_VALUE_LEN "
+                        "to be specified in the unwrapping template.\n");
+            rc = CKR_TEMPLATE_INCONSISTENT;
+            goto done;
+        }
     }
 
     rc = object_mgr_create_skel(tokdata, sess, new_attrs, new_attr_count,
