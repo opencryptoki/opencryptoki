@@ -1249,9 +1249,13 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     case CKA_PUBLIC_KEY_INFO:
-        if (mode == MODE_CREATE || mode == MODE_UNWRAP)
-            return CKR_OK;
-        return CKR_ATTRIBUTE_READ_ONLY;
+        /*
+         * PKCS#11: A token MAY choose not to support the CKA_PUBLIC_KEY_INFO
+         * attribute for commands which create new private keys. If it does not
+         * support the attribute, the command SHALL return
+         * CKR_ATTRIBUTE_TYPE_INVALID.
+         */
+        return CKR_ATTRIBUTE_TYPE_INVALID;
     case CKA_UNWRAP_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
