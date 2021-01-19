@@ -1980,7 +1980,6 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, char *userpin, int masterkey)
 {
     CK_FUNCTION_LIST *funcs;
     CK_KEY_TYPE key_type = 0;
-    CK_ULONG slot_count;
     CK_SESSION_HANDLE sess;
     CK_RV rv;
     struct key_count count = { 0, 0, 0, 0, 0, 0, 0 };
@@ -1990,19 +1989,6 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, char *userpin, int masterkey)
     funcs = p11_init();
     if (!funcs) {
         return 2;
-    }
-
-    rv = funcs->C_GetSlotList(TRUE, NULL_PTR, &slot_count);
-    if (rv != CKR_OK) {
-        p11_error("C_GetSlotList", rv);
-        exit_code = 3;
-        goto finalize;
-    }
-
-    if (slot_id >= slot_count) {
-        print_error("%lu is not a valid slot ID.", slot_id);
-        exit_code = 4;
-        goto finalize;
     }
 
     rv = funcs->C_OpenSession(slot_id, CKF_RW_SESSION |
