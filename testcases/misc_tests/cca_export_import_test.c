@@ -218,7 +218,7 @@ static CK_RV import_cca_gen_sec_key(CK_SESSION_HANDLE session,
     // pull payloadbitsize from the cca hmac token
     pl = *((uint16_t *)(ccatoken + 38));
     if (calc_pl != pl) {
-	testcase_error("mismatch keybitsize %u - expected pl bitsize %u / cca pl bitsize %hu",
+	testcase_error("mismatch keybitsize %u - expected pl bitsize %u / cca pl bitsize %u",
 		       keybitsize, calc_pl, pl);
 	return CKR_ATTRIBUTE_VALUE_INVALID;
     }
