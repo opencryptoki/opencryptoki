@@ -1345,8 +1345,8 @@ CK_ULONG template_get_compressed_size(TEMPLATE *tmpl)
  */
 CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
 {
-    CK_ULONG class;
-    CK_ULONG subclass;
+    CK_ULONG class = 0;
+    CK_ULONG subclass = 0;
     CK_BBOOL sensitive_val;
     CK_BBOOL extractable_val;
 
