@@ -51,7 +51,7 @@ const char descr[] = "IBM CCA Token";
 const char label[] = "ccatok";
 
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
-token_spec_t token_specific = { 0 };
+token_spec_t token_specific;
 
 int v_level = 0;
 void *p11_lib = NULL;
@@ -1393,6 +1393,8 @@ int main(int argc, char **argv)
 
     int m_version = 0;
     int m_keys = 0;
+
+    memset(&token_specific, 0, sizeof(token_specific));
 
     struct option long_opts[] = {
         {"datastore", required_argument, NULL, 'd'},
