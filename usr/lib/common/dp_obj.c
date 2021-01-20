@@ -49,31 +49,32 @@ CK_RV dp_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV dp_dsa_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_PRIME, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_SUBPRIME, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_SUBPRIME, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SUBPRIME\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_BASE, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_BASE\n");
+            return rc;
         }
     } else if (mode == MODE_KEYGEN) {
-        found = template_attribute_find(tmpl, CKA_PRIME_BITS, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(tmpl, CKA_PRIME_BITS, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME_BITS\n");
+            return rc;
         }
     }
 
@@ -83,25 +84,26 @@ CK_RV dp_dsa_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV dp_dh_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_PRIME, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_BASE, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_BASE\n");
+            return rc;
         }
     } else if (mode == MODE_KEYGEN) {
-        found = template_attribute_find(tmpl, CKA_PRIME_BITS, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(tmpl, CKA_PRIME_BITS, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME_BITS\n");
+            return rc;
         }
     }
 
@@ -111,27 +113,26 @@ CK_RV dp_dh_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV dp_x9dh_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
     CK_ULONG val;
     CK_RV rc;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_PRIME, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_PRIME, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_PRIME\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_SUBPRIME, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_SUBPRIME, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SUBPRIME\n");
+            return rc;
         }
 
-        found = template_attribute_find(tmpl, CKA_BASE, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_BASE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_BASE\n");
+            return rc;
         }
     } else if (mode == MODE_KEYGEN) {
         rc = template_attribute_get_ulong(tmpl, CKA_PRIME_BITS, &val);

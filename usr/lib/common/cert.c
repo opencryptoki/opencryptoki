@@ -41,17 +41,17 @@
 //
 CK_RV cert_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_ULONG val;
+    CK_RV rc;
 
     if (!tmpl)
         return CKR_FUNCTION_FAILED;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_CERTIFICATE_TYPE, &attr);
-        if (found == FALSE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_ulong(tmpl, CKA_CERTIFICATE_TYPE, &val);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_CERTIFICATE_TYPE\n");
+            return rc;
         }
         // don't bother checking the value.  it was checked in the 'validate'
         // routine.
@@ -253,13 +253,12 @@ CK_RV cert_validate_attribute(STDLL_TokData_t *tokdata,
 CK_RV cert_x509_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
     CK_RV rc;
 
-    found = template_attribute_find(tmpl, CKA_SUBJECT, &attr);
-    if (!found) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
+    rc = template_attribute_get_non_empty(tmpl, CKA_SUBJECT, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_SUBJECT\n");
+        return rc;
     }
     rc = template_attribute_get_non_empty(tmpl, CKA_URL, &attr);
     if (rc != CKR_OK) {

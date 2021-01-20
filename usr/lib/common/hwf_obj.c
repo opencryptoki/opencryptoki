@@ -49,13 +49,13 @@ CK_RV hwf_object_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV clock_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found;
+    CK_RV rc;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE\n");
+            return rc;
         }
     }
 
@@ -65,14 +65,14 @@ CK_RV clock_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 CK_RV counter_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_BBOOL found, val;
+    CK_BBOOL val;
     CK_RV rc;
 
     if (mode == MODE_CREATE) {
-        found = template_attribute_find(tmpl, CKA_VALUE, &attr);
-        if (!found) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
+        rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE\n");
+            return rc;
         }
 
         rc = template_attribute_get_bool(tmpl, CKA_HAS_RESET, &val);
