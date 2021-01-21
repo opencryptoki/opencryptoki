@@ -147,7 +147,9 @@ CK_RV data_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_APPLICATION:
     case CKA_VALUE:
     case CKA_OBJECT_ID:
-        return CKR_OK;
+        if (mode == MODE_CREATE)
+            return CKR_OK;
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return template_validate_base_attribute(tmpl, attr, mode);
     }
