@@ -1908,7 +1908,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        if ((mode & (MODE_CREATE | MODE_COPY | MODE_DERIVE | MODE_KEYGEN |
+        if ((mode & (MODE_CREATE | MODE_DERIVE | MODE_KEYGEN |
                      MODE_UNWRAP)) != 0)
             return CKR_OK;
         if (attr->pValue != NULL && *(CK_BBOOL *)attr->pValue == FALSE)
