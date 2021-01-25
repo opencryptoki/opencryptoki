@@ -158,7 +158,7 @@ CK_RV do_CopyObject(void)
 
     CK_OBJECT_HANDLE h_data;
     CK_OBJECT_CLASS data_class = CKO_DATA;
-    CK_BYTE data_application[] = "Test Application";
+    CK_BYTE data_label[] = "Test Application";
     CK_BYTE data_value[] = "1234567890abcedfghijklmnopqrstuvwxyz";
     CK_ATTRIBUTE data_attribs[] = {
         {CKA_CLASS, &data_class, sizeof(data_class)},
@@ -168,12 +168,12 @@ CK_RV do_CopyObject(void)
 
     CK_OBJECT_HANDLE h_copy;
     CK_ATTRIBUTE copy_attribs[] = {
-        {CKA_APPLICATION, &data_application, sizeof(data_application)}
+        {CKA_LABEL, &data_label, sizeof(data_label)}
     };
 
     CK_BYTE buf1[100];
     CK_ATTRIBUTE verify_attribs[] = {
-        {CKA_APPLICATION, &buf1, sizeof(buf1)}
+        {CKA_LABEL, &buf1, sizeof(buf1)}
     };
 
     CK_BYTE buf2[100];
@@ -236,8 +236,8 @@ CK_RV do_CopyObject(void)
         goto destroy;
     }
 
-    if (memcmp(&data_application,
-               verify_attribs[0].pValue, sizeof(data_application)) != 0) {
+    if (memcmp(&data_label,
+               verify_attribs[0].pValue, sizeof(data_label)) != 0) {
         testcase_fail("extracted attribute doesn't match");
         rc = -1;
         goto destroy;
