@@ -596,7 +596,7 @@ CK_RV run_TransferDilithiumKeyPairSignVerify()
         wkey_mech.mechanism = CKM_AES_KEY_GEN;
         wkey_mech.pParameter = NULL;
         wkey_mech.ulParameterLen = 0;
-        rc = generate_AESKey(session, 32, &wkey_mech, &secret_key);
+        rc = generate_AESKey(session, 32, CK_TRUE, &wkey_mech, &secret_key);
         if (rc != CKR_OK) {
             testcase_error("generate_AESKey, rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
