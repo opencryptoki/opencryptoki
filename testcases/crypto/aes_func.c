@@ -51,6 +51,13 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip tests if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(3,
@@ -65,12 +72,12 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
     /** iterate over test key sizes **/
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s Encryption/Decryption with key len=%ld.",
-                       tsuite->name, key_lens[i]);
+        testcase_begin("%s Encryption/Decryption with key len=%ld and pkey=%X.",
+                       tsuite->name, key_lens[i], pkey);
 
         /** generate key **/
         mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+        rc = generate_AESKey(session, key_lens[i], !pkey,
                              &mechkey, &h_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
@@ -185,6 +192,13 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testcase_skip("Slot %u doesn't support %s (%u)",
@@ -198,11 +212,11 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
     for (i = 0; i < 3; i++) {
 
         testcase_begin("%s Multipart Encryption/Decryption with "
-                       "key len=%ld.", tsuite->name, key_lens[i]);
+                       "key len=%ld and pkey=%X.", tsuite->name, key_lens[i], pkey);
 
         /** generate key **/
         mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+        rc = generate_AESKey(session, key_lens[i], !pkey,
                              &mechkey, &h_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
@@ -403,6 +417,13 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
@@ -415,13 +436,13 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
 
     for (i = 0; i < tsuite->tvcount; i++) {
 
-        testcase_begin("%s Encryption with published test vector %d.",
-                       tsuite->name, i);
+        testcase_begin("%s Encryption with published test vector %d and pkey=%X.",
+                       tsuite->name, i, pkey);
 
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
+        rc = create_AESKey(session, !pkey,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -533,6 +554,13 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
@@ -546,12 +574,12 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Multipart Encryption with published test "
-                       "vector %d.", tsuite->name, i);
+                       "vector %d and pkey=%X.", tsuite->name, i, pkey);
 
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
+        rc = create_AESKey(session, !pkey,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -704,6 +732,13 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
@@ -716,13 +751,13 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
 
     for (i = 0; i < tsuite->tvcount; i++) {
 
-        testcase_begin("%s Decryption with published test vector %d.",
-                       tsuite->name, i);
+        testcase_begin("%s Decryption with published test vector %d and pkey=%X.",
+                       tsuite->name, i, pkey);
 
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
+        rc = create_AESKey(session, !pkey,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -833,6 +868,13 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip tests if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
@@ -846,10 +888,10 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Multipart Decryption with published test "
-                       "vector %d.", tsuite->name, i);
+                       "vector %d and pkey=%X.", tsuite->name, i, pkey);
 
         /** create key handle **/
-        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
+        rc = create_AESKey(session, !pkey,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -1010,6 +1052,13 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(3,
@@ -1036,8 +1085,8 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         if (key_lens[i] % AES_BLOCK_SIZE != 0)
             continue;
 
-        testcase_begin("%s Wrap/Unwrap key test with keylength=%ld.",
-                       tsuite->name, key_lens[i]);
+        testcase_begin("%s Wrap/Unwrap key test with keylength=%ld and pkey=%X.",
+                       tsuite->name, key_lens[i], pkey);
 
         /** set mechanisms **/
         mech = tsuite->mech;
@@ -1059,7 +1108,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         }
 
         /** generate wrapping key **/
-        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+        rc = generate_AESKey(session, key_lens[i], !pkey,
                              &mechkey, &w_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
@@ -1267,6 +1316,13 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip AES_EBC/AES_CBC (only supported for symmetric keys) **/
     if ((tsuite->mech.mechanism == CKM_AES_ECB) ||
         (tsuite->mech.mechanism == CKM_AES_CBC)) {
@@ -1297,8 +1353,8 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
 
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
-                       tsuite->name, key_lens[i]);
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+                       tsuite->name, key_lens[i], pkey);
 
         key_size = key_lens[i];
 
@@ -1490,6 +1546,13 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(3, "Slot %u doesn't support %s (%u)",
@@ -1501,8 +1564,8 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
 
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
-                       tsuite->name, key_lens[i]);
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+                       tsuite->name, key_lens[i], pkey);
 
         key_size = key_lens[i];
 
@@ -1637,6 +1700,13 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(3,
@@ -1649,8 +1719,8 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
 
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld.",
-                       tsuite->name, key_lens[i]);
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+                       tsuite->name, key_lens[i], pkey);
 
         key_size = key_lens[i];
 
@@ -1769,6 +1839,13 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     testcase_rw_session();
     testcase_user_login();
 
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(slot_id)) {
+        testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
     /** skip tests if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(3,
@@ -1781,11 +1858,11 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
 
 
     for (i = 0; i < tsuite->tvcount; i++) {
-        testcase_begin("%s Sign/Verify MAC with published test vector %d.",
-                               tsuite->name, i);
+        testcase_begin("%s Sign/Verify MAC with published test vector %d and pkey=%X.",
+                               tsuite->name, i, pkey);
 
         /** create key handle **/
-        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
+        rc = create_AESKey(session, !pkey,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -1929,6 +2006,307 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_SetAttributeValuesPkey()
+{
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_FLAGS flags;
+    CK_ULONG user_pin_len;
+    CK_SLOT_ID slot_id = SLOT_ID;
+
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM keygen_mech = { CKM_AES_KEY_GEN, 0, 0 };
+    CK_RV rc;
+
+    CK_BBOOL pkey_extr;
+    CK_ATTRIBUTE tmpl[] = {
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_extr, sizeof(CK_BBOOL)},
+    };
+    CK_ULONG tmpl_len = sizeof(tmpl) / sizeof(CK_ATTRIBUTE);
+
+
+    testsuite_begin("do_SetAttributeValuesPkey");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if the slot doesn't support protected keys*/
+    if (!is_ep11_token(slot_id)) {
+        testsuite_skip(1, "Slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    testcase_begin("Generate AES key and change CKA_IBM_PROTKEY_EXTRACTABLE");
+    testcase_new_assertion();
+
+    /* Generate a test key */
+    rc = generate_AESKey(session, 16, CK_FALSE, &keygen_mech, &h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("generate_AESKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Check value of CKA_IBM_PROTKEY_EXTRACTABLE */
+    rc = funcs->C_GetAttributeValue(session, h_key, tmpl, tmpl_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetAttributeValue rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Change CKA_IBM_PROTKEY_EXTRACTABLE to false if it's true. This requires
+     * token option PKEY_MODE = ENABLE4xxx. It cannot be changed from false
+     * to true via C_SetAttributeValue. */
+    if (pkey_extr) {
+        pkey_extr = CK_FALSE;
+        rc = funcs->C_SetAttributeValue(session, h_key, tmpl, tmpl_len);
+        if (rc != CKR_OK) {
+            testcase_fail("C_SetAttributeValue rc = %s", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+    }
+
+    /* Verify that the attempted change from false to true fails. The attribute
+     * is false when using PKEY_MODE = DISABLED or DEFAULT. On older systems,
+     * not supporting CKM_IBM_CPACF_WRAP, we get CKR_ATTRIBUTE_TYPE_INVALID
+     * here.*/
+    if (!pkey_extr) {
+        pkey_extr = CK_TRUE;
+        rc = funcs->C_SetAttributeValue(session, h_key, tmpl, tmpl_len);
+        if (rc != CKR_ATTRIBUTE_READ_ONLY) {
+            testcase_fail("Expected CKR_ATTRIBUTE_READ_ONLY, trying to change CKA_IBM_PROTKEY_EXTRACTABLE to true.");
+            goto testcase_cleanup;
+        }
+    }
+
+    testcase_pass("Generate AES key and change CKA_IBM_PROTKEY_EXTRACTABLE");
+
+testcase_cleanup:
+
+    if (h_key != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, h_key);
+        if (rc != CKR_OK)
+            testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    }
+
+    testcase_user_logout();
+    rc = funcs->C_CloseAllSessions(slot_id);
+    if (rc != CKR_OK)
+        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+
+    return rc;
+}
+
+CK_RV do_EncryptDecryptAESPkey()
+{
+    CK_ULONG keylen = 16;
+    CK_BBOOL btrue = CK_TRUE;
+    CK_BBOOL bfalse = CK_FALSE;
+    CK_RV rc = CKR_OK;
+    CK_MECHANISM keygen_mech = { CKM_AES_KEY_GEN, 0, 0 };
+    CK_MECHANISM encr_mech = { CKM_AES_ECB, 0, 0 };
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE h_key2[2] = {CK_INVALID_HANDLE, CK_INVALID_HANDLE};
+    CK_SESSION_HANDLE session;
+    CK_UTF8CHAR label[] = "A test key for protected key support";
+    CK_ATTRIBUTE keygen_tmpl[] = {
+        {CKA_TOKEN, &btrue, sizeof(CK_BBOOL)},
+        {CKA_LABEL, &label, sizeof(label)},
+        {CKA_EXTRACTABLE, &bfalse, sizeof(CK_BBOOL)},
+        {CKA_VALUE_LEN, &keylen, sizeof(CK_ULONG)}
+    };
+    CK_ULONG keygen_tmpl_len = sizeof(keygen_tmpl) / sizeof(CK_ATTRIBUTE);
+
+    CK_ATTRIBUTE find_tmpl[] = {
+        {CKA_LABEL, &label, sizeof(label)},
+    };
+    CK_ULONG find_tmpl_len = sizeof(find_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ULONG count = 0;
+
+    CK_BYTE input[] =
+        { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+          0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f };
+    CK_BYTE output[32];
+    CK_BYTE decrypted[32];
+    CK_ULONG outlen = sizeof(output), decrlen = sizeof(decrypted);
+
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_FLAGS flags;
+    CK_ULONG user_pin_len;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    int i;
+
+    testsuite_begin("do_EncryptDecryptAESPkey");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if the slot doesn't support protected keys*/
+    if (!is_ep11_token(slot_id)) {
+        testsuite_skip(6, "Slot %u doesn't support protected keys",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    testcase_begin("Generate token key object and encrypt");
+    testcase_new_assertion();
+
+    /* Generate token object */
+    rc = funcs->C_GenerateKey(session, &keygen_mech, keygen_tmpl, keygen_tmpl_len, &h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GenerateKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Encrypt some data with this key object */
+    rc = funcs->C_EncryptInit(session, &encr_mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_fail("C_EncryptInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    memset(output, 0, sizeof(output));
+    rc = funcs->C_Encrypt(session, input, sizeof(input), output, &outlen);
+    if (rc != CKR_OK) {
+        testcase_fail("C_Encrypt rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Generate token key object and encrypt");
+    testcase_begin("Log out, close session, and login in again in new session");
+    testcase_new_assertion();
+
+    /* Log out and close session */
+    testcase_user_logout();
+    rc = funcs->C_CloseAllSessions(slot_id);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Log in again read/only, ok for just decrypt with an existing pkey */
+    testcase_rw_session();
+    testcase_user_login();
+
+    testcase_pass("Log out, close session, and login in again in new session");
+    testcase_begin("Retrieve the key from repository");
+    testcase_new_assertion();
+
+    /* Retrieve the key from repository */
+    rc = funcs->C_FindObjectsInit(session, find_tmpl, find_tmpl_len);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_FindObjects(session, h_key2, 2, &count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+    if (count == 0) {
+        testcase_fail("Didn't find key with label '%s'in repository", label);
+        goto testcase_cleanup;
+    } else if (count > 1) {
+        testcase_skip("Found %ld objs with label '%s', only expected one. "
+                      "Skipping this test.\n", count, label);
+        rc = funcs->C_FindObjectsFinal(session);
+        goto testcase_cleanup;
+    }
+
+    /* h_key2[0] points to the same object as h_key in our first session,
+     * so invalidate h_key to avoid a double destroy obj later. */
+    h_key = CK_INVALID_HANDLE;
+
+    rc = funcs->C_FindObjectsFinal(session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Retrieve the key from repository");
+    testcase_begin("Decrypt encrypted data with retrieved token object");
+    testcase_new_assertion();
+
+    /* Decrypt encrypted data with the retrieved token object */
+    rc = funcs->C_DecryptInit(session, &encr_mech, h_key2[0]);
+    if (rc != CKR_OK) {
+        testcase_fail("C_DecryptInit rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    memset(decrypted, 0, sizeof(decrypted));
+    rc = funcs->C_Decrypt(session, output, sizeof(input), decrypted, &decrlen);
+    if (rc != CKR_OK) {
+        testcase_error("C_Decrypt rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Decrypt encrypted data with retrieved token object");
+    testcase_begin("Check if result correct");
+    testcase_new_assertion();
+
+    /* Check if result correct */
+    if (memcmp(input, decrypted, decrlen) != 0) {
+        testcase_fail("Decrypted data incorrect");
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Check if result correct");
+    testcase_begin("Try to retrieve the protected key attribute");
+    testcase_new_assertion();
+
+    /* Try to retrieve the protected key attribute from token object*/
+    CK_BYTE pkey_buf[64];
+    CK_ATTRIBUTE extr_tmpl[] = {
+        {CKA_IBM_OPAQUE_PKEY, &pkey_buf, sizeof(pkey_buf)},
+    };
+    CK_ULONG extr_tmpl_len = sizeof(extr_tmpl) / sizeof(CK_ATTRIBUTE);
+    memset(&pkey_buf, 0, sizeof(pkey_buf));
+    rc = funcs->C_GetAttributeValue(session, h_key2[0], extr_tmpl, extr_tmpl_len);
+    if (rc != CKR_ATTRIBUTE_SENSITIVE) {
+        testcase_fail("C_GetAttributeValue rc = %s, expected CKR_ATTRIBUTE_SENSITIVE", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Try to retrieve the protected key attribute");
+
+testcase_cleanup:
+
+    if (h_key != CK_INVALID_HANDLE) {
+        rc = funcs->C_DestroyObject(session, h_key);
+        if (rc != CKR_OK)
+            testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    }
+
+    for (i = 0; i < 2; i++) {
+        if (h_key2[i] != CK_INVALID_HANDLE) {
+            rc = funcs->C_DestroyObject(session, h_key2[i]);
+            if (rc != CKR_OK)
+                testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+        }
+    }
+
+    testcase_user_logout();
+    rc = funcs->C_CloseAllSessions(slot_id);
+    if (rc != CKR_OK)
+        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+
+    return rc;
+}
+
+/**
+ * Special tests for protected key support.
+ */
+CK_RV aes_funcs_pkey()
+{
+    CK_RV rv;
+
+    rv = do_EncryptDecryptAESPkey();
+
+    rv += do_SetAttributeValuesPkey();
+
+    return rv;
+}
+
 CK_RV aes_funcs()
 {
     unsigned int i;
@@ -2034,6 +2412,11 @@ int main(int argc, char **argv)
 
     pkey = CK_FALSE;
     rv = aes_funcs();
+
+    pkey = CK_TRUE;
+    rv += aes_funcs();
+    rv += aes_funcs_pkey();
+
     testcase_print_result();
 
     funcs->C_Finalize(NULL);
