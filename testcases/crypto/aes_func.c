@@ -1248,18 +1248,19 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
     CK_SLOT_ID slot_id = SLOT_ID;
 
     CK_ATTRIBUTE pub_tmpl[] = {
-        {CKA_MODULUS_BITS, &bits, sizeof(bits)}
-        ,
-        {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
+        {CKA_MODULUS_BITS, &bits, sizeof(bits)},
+        {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)},
     };
+    CK_ULONG pub_tmpl_len = sizeof(pub_tmpl) / sizeof(CK_ATTRIBUTE);
+
     CK_ATTRIBUTE uw_tmpl[] = {
-        {CKA_CLASS, &keyclass, sizeof(keyclass)}
-        ,
-        {CKA_KEY_TYPE, &keytype, sizeof(keytype)}
+        {CKA_CLASS, &keyclass, sizeof(keyclass)},
+        {CKA_KEY_TYPE, &keytype, sizeof(keytype)},
     };
     CK_ATTRIBUTE key_gen_tmpl[] = {
-        {CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}
+        {CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)},
     };
+    CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 
     testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
     testcase_rw_session();
@@ -1311,10 +1312,9 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         mech2.pParameter = NULL;
 
         /** generate an RSA key pair. **/
-        rc = funcs->C_GenerateKeyPair(session,
-                                      &mech2,
-                                      pub_tmpl,
-                                      2, NULL, 0, &publ_key, &priv_key);
+        rc = funcs->C_GenerateKeyPair(session, &mech2,
+                                      pub_tmpl, pub_tmpl_len,
+                                      NULL, 0, &publ_key, &priv_key);
 
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
@@ -1322,7 +1322,9 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         }
 
         /** generate the wrapping key **/
-        rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
+        rc = funcs->C_GenerateKey(session, &mech,
+                                  key_gen_tmpl, key_gen_tmpl_len,
+                                  &w_key);
 
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
@@ -1473,13 +1475,15 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
     CK_SLOT_ID slot_id = SLOT_ID;
 
     CK_ATTRIBUTE pub_tmpl[] = {
-        {CKA_MODULUS_BITS, &bits, sizeof(bits)}
-        ,
+        {CKA_MODULUS_BITS, &bits, sizeof(bits)},
         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
     };
+    CK_ULONG pub_tmpl_len = sizeof(pub_tmpl) / sizeof(CK_ATTRIBUTE);
+
     CK_ATTRIBUTE key_gen_tmpl[] = {
         {CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}
     };
+    CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 
     testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
     testcase_rw_session();
@@ -1512,15 +1516,19 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
         mech2.pParameter = NULL;
 
         /** generate an RSA key pair. **/
-        rc = funcs->C_GenerateKeyPair(session, &mech2, pub_tmpl, 2, NULL,
-                                      0, &publ_key, &priv_key);
+        rc = funcs->C_GenerateKeyPair(session, &mech2,
+                                      pub_tmpl, pub_tmpl_len,
+                                      NULL, 0,
+                                      &publ_key, &priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
         /** generate the wrapping key **/
-        rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
+        rc = funcs->C_GenerateKey(session, &mech, 
+                                  key_gen_tmpl, key_gen_tmpl_len,
+                                  &w_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -1610,18 +1618,19 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
     memset(&mech_info, 0, sizeof(mech_info));
 
     CK_ATTRIBUTE pub_tmpl[] = {
-        {CKA_MODULUS_BITS, &bits, sizeof(bits)}
-        ,
+        {CKA_MODULUS_BITS, &bits, sizeof(bits)},
         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
     };
+    CK_ULONG pub_tmpl_len = sizeof(pub_tmpl) / sizeof(CK_ATTRIBUTE);
+
     CK_ATTRIBUTE uw_tmpl[] = {
-        {CKA_CLASS, &keyclass, sizeof(keyclass)}
-        ,
+        {CKA_CLASS, &keyclass, sizeof(keyclass)},
         {CKA_KEY_TYPE, &keytype, sizeof(keytype)}
     };
     CK_ATTRIBUTE key_gen_tmpl[] = {
         {CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)}
     };
+    CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 
     testsuite_begin("%s wrap/unwrap of RSA key.", tsuite->name);
     testcase_rw_session();
@@ -1655,15 +1664,19 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
         mech2.pParameter = NULL;
 
         /** generate an RSA key pair. **/
-        rc = funcs->C_GenerateKeyPair(session, &mech2, pub_tmpl, 2, NULL,
-                                      0, &publ_key, &priv_key);
+        rc = funcs->C_GenerateKeyPair(session, &mech2,
+                                      pub_tmpl, pub_tmpl_len,
+                                      NULL, 0,
+                                      &publ_key, &priv_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
         /** generate the wrapping key **/
-        rc = funcs->C_GenerateKey(session, &mech, key_gen_tmpl, 1, &w_key);
+        rc = funcs->C_GenerateKey(session, &mech,
+                                  key_gen_tmpl, key_gen_tmpl_len,
+                                  &w_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
