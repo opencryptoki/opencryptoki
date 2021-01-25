@@ -591,6 +591,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = TRUE;
+    ctx->pkey_active = FALSE;
 
     rc = CKR_OK;
 
@@ -617,6 +618,7 @@ CK_RV encr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
     ctx->active = FALSE;
     ctx->init_pending = FALSE;
     ctx->context_len = 0;
+    ctx->pkey_active = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);

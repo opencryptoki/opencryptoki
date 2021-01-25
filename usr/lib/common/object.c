@@ -444,6 +444,47 @@ CK_BBOOL object_is_session_object(OBJECT * obj)
         return TRUE;
 }
 
+// object_is_extractable()
+//
+CK_BBOOL object_is_extractable(OBJECT * obj)
+{
+    CK_BBOOL val;
+    CK_RV rc;
+
+    rc = template_attribute_get_bool(obj->template, CKA_EXTRACTABLE, &val);
+    if (rc != CKR_OK)
+        return TRUE;
+
+    return val;
+}
+
+// object_is_pkey_extractable()
+//
+CK_BBOOL object_is_pkey_extractable(OBJECT * obj)
+{
+    CK_BBOOL val;
+    CK_RV rc;
+
+    rc = template_attribute_get_bool(obj->template, CKA_IBM_PROTKEY_EXTRACTABLE, &val);
+    if (rc != CKR_OK)
+        return FALSE;
+
+    return val;
+}
+
+// object_is_attr_bound()
+//
+CK_BBOOL object_is_attr_bound(OBJECT * obj)
+{
+    CK_BBOOL val;
+    CK_RV rc;
+
+    rc = template_attribute_get_bool(obj->template, CKA_IBM_ATTRBOUND, &val);
+    if (rc != CKR_OK)
+        return FALSE;
+
+    return val;
+}
 
 // object_get_size()
 //
@@ -795,6 +836,14 @@ CK_RV object_create_skel(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK)
         goto done;
 
+    if (token_specific.t_set_attrs_for_new_object != NULL) {
+        rc = token_specific.t_set_attrs_for_new_object(tokdata, class,
+                                                       mode, tmpl2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("token_specific.t_set_pkey_attr failed with rc=%lx\n",rc);
+            goto done;
+        }
+    }
 
     rc = template_merge(tmpl, &tmpl2);
     if (rc != CKR_OK) {

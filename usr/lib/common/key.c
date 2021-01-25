@@ -167,6 +167,7 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *local_attr = NULL;
     CK_ATTRIBUTE *keygenmech_attr = NULL;
     CK_ATTRIBUTE *allowedmechs_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL;
     CK_RV rc;
 
     // satisfy the compiler
@@ -184,9 +185,11 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keygenmech_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE)
                                               + sizeof(CK_MECHANISM_TYPE));
     allowedmechs_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    pkey_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
 
     if (!id_attr || !sdate_attr || !edate_attr || !derive_attr || !local_attr
-        || !keygenmech_attr || !allowedmechs_attr) {
+        || !keygenmech_attr || !allowedmechs_attr || !pkey_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -222,6 +225,11 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     allowedmechs_attr->type = CKA_ALLOWED_MECHANISMS;
     allowedmechs_attr->ulValueLen = 0;
     allowedmechs_attr->pValue = NULL;
+
+    pkey_attr->type = CKA_IBM_PROTKEY_EXTRACTABLE;
+    pkey_attr->ulValueLen = sizeof(CK_BBOOL);
+    pkey_attr->pValue = (CK_BBOOL *) pkey_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_BBOOL *) pkey_attr->pValue = FALSE;
 
     rc = template_update_attribute(tmpl, id_attr);
     if (rc != CKR_OK) {
@@ -265,6 +273,12 @@ CK_RV key_object_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     allowedmechs_attr = NULL;
+    rc = template_update_attribute(tmpl, pkey_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    pkey_attr = NULL;
 
     return CKR_OK;
 
@@ -283,6 +297,8 @@ error:
         free(keygenmech_attr);
     if (allowedmechs_attr)
         free(allowedmechs_attr);
+    if (pkey_attr)
+        free(pkey_attr);
 
     return rc;
 }
@@ -335,6 +351,20 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
          */
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_PROTKEY_EXTRACTABLE:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        CK_BBOOL value = *(CK_BBOOL *) attr->pValue;
+        if (mode != MODE_CREATE && mode != MODE_DERIVE &&
+            mode != MODE_KEYGEN && mode != MODE_UNWRAP &&
+            value != FALSE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+            return CKR_ATTRIBUTE_READ_ONLY;
+        }
+        return CKR_OK;
+        break;
     default:
         return template_validate_base_attribute(tmpl, attr, mode);
     }
@@ -7859,10 +7889,12 @@ CK_RV juniper_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 
 //  aes_set_default_attributes()
 //
-CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *len_attr = NULL;
+    CK_ULONG keysize;
     CK_RV rc;
 
     if (mode)
@@ -7901,6 +7933,23 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     value_attr = NULL;
+
+    /* If CKA_VALUE specified in base tmpl, add CKA_VALUE_LEN to tmpl. */
+    if (template_attribute_find(basetmpl, CKA_VALUE, &value_attr) &&
+        !template_attribute_find(basetmpl, CKA_VALUE_LEN, &len_attr)) {
+        keysize = value_attr->ulValueLen;
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&keysize, sizeof(CK_ULONG), &len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_attribute failed\n");
+            goto error;
+        }
+        rc = template_update_attribute(tmpl, len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        value_attr = NULL;
+    }
 
     return CKR_OK;
 
