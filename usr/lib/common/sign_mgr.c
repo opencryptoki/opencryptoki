@@ -780,6 +780,7 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
     ctx->multi = FALSE;
     ctx->active = TRUE;
     ctx->recover = recover_mode;
+    ctx->pkey_active = FALSE;
 
     rc = CKR_OK;
 
@@ -808,6 +809,7 @@ CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
     ctx->init_pending = FALSE;
     ctx->recover = FALSE;
     ctx->context_len = 0;
+    ctx->pkey_active = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);

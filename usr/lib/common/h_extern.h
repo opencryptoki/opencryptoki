@@ -2148,6 +2148,8 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata,
                                       CK_BYTE *data, OBJECT *oldObj,
                                       int data_size);
 
+CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
+
 CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
                                       SESSION *sess,
                                       CK_OBJECT_HANDLE handle,
@@ -2236,6 +2238,9 @@ CK_BBOOL object_is_private(OBJECT *obj);
 CK_BBOOL object_is_public(OBJECT *obj);
 CK_BBOOL object_is_token_object(OBJECT *obj);
 CK_BBOOL object_is_session_object(OBJECT *obj);
+CK_BBOOL object_is_extractable(OBJECT *obj);
+CK_BBOOL object_is_pkey_extractable(OBJECT *obj);
+CK_BBOOL object_is_attr_bound(OBJECT *obj);
 
 CK_RV object_init_lock(OBJECT *obj);
 CK_RV object_destroy_lock(OBJECT *obj);
@@ -2564,7 +2569,7 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only, CK_BYTE **data,
 
 // AES routines
 CK_RV aes_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV aes_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode);
 CK_RV aes_unwrap(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BYTE *data,
                  CK_ULONG data_len, CK_BBOOL fromend);
 CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,

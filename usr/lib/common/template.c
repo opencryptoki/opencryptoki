@@ -225,7 +225,7 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
         case CKK_JUNIPER:
             return juniper_set_default_attributes(tmpl, mode);
         case CKK_AES:
-            return aes_set_default_attributes(tmpl, mode);
+            return aes_set_default_attributes(tmpl, basetmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -1363,6 +1363,14 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
     CK_BBOOL extractable_val;
 
     if (!tmpl)
+        return FALSE;
+
+    /*
+     * Early exit: A protected key shall not be exported. Otherwise an application
+     * could use the protected key outside of this environment and separately
+     * from the secure key object.
+     */
+    if (type == CKA_IBM_OPAQUE_PKEY)
         return FALSE;
 
     /* since 'tmpl' belongs to a validated object, it's safe

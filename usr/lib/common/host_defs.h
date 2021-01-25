@@ -31,6 +31,7 @@ typedef struct _ENCR_DECR_CONTEXT {
     CK_BBOOL init_pending;      // indicate init request pending
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
+    CK_BBOOL pkey_active;
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {
@@ -54,6 +55,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL init_pending;      // indicate init request pending
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
+    CK_BBOOL pkey_active;
 } SIGN_VERIFY_CONTEXT;
 
 

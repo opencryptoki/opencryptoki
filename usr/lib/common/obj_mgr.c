@@ -1696,6 +1696,85 @@ unlock:
     return rc;
 }
 
+/**
+ * Save the token object to disk and update the shared memory segment.
+ */
+CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
+{
+    TOK_OBJ_ENTRY *entry = NULL;
+    CK_ULONG index;
+    CK_RV rc;
+
+    obj->count_lo++;
+    if (obj->count_lo == 0)
+        obj->count_hi++;
+
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+        goto done;
+    }
+
+    rc = save_token_object(tokdata, obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to save token object, rc=0x%lx.\n",rc);
+        XProcUnLock(tokdata);
+        goto done;
+    }
+
+    if (object_is_private(obj)) {
+        if (tokdata->global_shm->num_priv_tok_obj == 0) {
+            TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+            rc = CKR_OBJECT_HANDLE_INVALID;
+            XProcUnLock(tokdata);
+            goto done;
+        }
+        rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
+                                           priv_tok_objs, 0,
+                                           tokdata->global_shm->
+                                           num_priv_tok_obj - 1, obj,
+                                           &index);
+
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
+            XProcUnLock(tokdata);
+            goto done;
+        }
+
+        entry = &tokdata->global_shm->priv_tok_objs[index];
+    } else {
+        if (tokdata->global_shm->num_publ_tok_obj == 0) {
+            TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
+            rc = CKR_OBJECT_HANDLE_INVALID;
+            XProcUnLock(tokdata);
+            goto done;
+        }
+        rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
+                                           publ_tok_objs, 0,
+                                           tokdata->global_shm->
+                                           num_publ_tok_obj - 1, obj,
+                                           &index);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
+            XProcUnLock(tokdata);
+            goto done;
+        }
+
+        entry = &tokdata->global_shm->publ_tok_objs[index];
+    }
+
+    entry->count_lo = obj->count_lo;
+    entry->count_hi = obj->count_hi;
+
+    rc = XProcUnLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to release Process Lock.\n");
+        goto done;
+    }
+
+done:
+    return rc;
+}
 
 //
 //
@@ -1750,72 +1829,9 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     // non-volatile storage.
     //
     if (!sess_obj) {
-        TOK_OBJ_ENTRY *entry = NULL;
-        CK_ULONG index;
-
-        // I still think there's a race condition here if two processes are
-        // updating the same token object at the same time.  I don't know how
-        // to solve this short of assigning each token object it's own mutex...
-        //
-        obj->count_lo++;
-        if (obj->count_lo == 0)
-            obj->count_hi++;
-
-        rc = XProcLock(tokdata);
+        rc = object_mgr_save_token_object(tokdata, obj);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to get Process Lock.\n");
-            goto done;
-        }
-
-        save_token_object(tokdata, obj);
-
-        if (priv_obj) {
-            if (tokdata->global_shm->num_priv_tok_obj == 0) {
-                TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-                rc = CKR_OBJECT_HANDLE_INVALID;
-                XProcUnLock(tokdata);
-                goto done;
-            }
-            rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
-                                               priv_tok_objs, 0,
-                                               tokdata->global_shm->
-                                               num_priv_tok_obj - 1, obj,
-                                               &index);
-
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
-                XProcUnLock(tokdata);
-                goto done;
-            }
-
-            entry = &tokdata->global_shm->priv_tok_objs[index];
-        } else {
-            if (tokdata->global_shm->num_publ_tok_obj == 0) {
-                TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-                rc = CKR_OBJECT_HANDLE_INVALID;
-                XProcUnLock(tokdata);
-                goto done;
-            }
-            rc = object_mgr_search_shm_for_obj(tokdata->global_shm->
-                                               publ_tok_objs, 0,
-                                               tokdata->global_shm->
-                                               num_publ_tok_obj - 1, obj,
-                                               &index);
-            if (rc != CKR_OK) {
-                TRACE_DEVEL("object_mgr_search_shm_for_obj failed.\n");
-                XProcUnLock(tokdata);
-                goto done;
-            }
-
-            entry = &tokdata->global_shm->publ_tok_objs[index];
-        }
-
-        entry->count_lo = obj->count_lo;
-        entry->count_hi = obj->count_hi;
-
-        rc = XProcUnLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to release Process Lock.\n");
+            TRACE_ERROR("Failed to save token object, rc=%lx.\n",rc);
             goto done;
         }
     }
