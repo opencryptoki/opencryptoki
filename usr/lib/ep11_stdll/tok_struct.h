@@ -114,8 +114,8 @@ token_spec_t token_specific = {
     NULL,                       // generic_secret_key_gen
     // AES
     NULL,                       // aes_key_gen,
-    NULL,                       // aes_ecb,
-    NULL,                       // aes_cbc,
+    &token_specific_aes_ecb,
+    &token_specific_aes_cbc,
     NULL,                       // aes_ctr
     NULL,                       // aes_gcm_init
     NULL,                       // aes_gcm
@@ -124,7 +124,7 @@ token_spec_t token_specific = {
     NULL,                       // aes_ofb
     NULL,                       // aes_cfb
     NULL,                       // aes_mac
-    NULL,                       // aes_cmac
+    &token_specific_aes_cmac,
     // DSA
     NULL,                       // dsa_generate_keypair,
     NULL,                       // dsa_sign
@@ -136,7 +136,7 @@ token_spec_t token_specific = {
     NULL,                       // key_unwrap
     &token_specific_reencrypt_single,
     &token_specific_set_attribute_values,
-    NULL,                       // set_attrs_for_new_object
+    &token_specific_set_attrs_for_new_object,
 };
 
 #endif

@@ -58,6 +58,7 @@
 
 #include "ep11_func.h"
 #include "ep11_specific.h"
+#include "pkey_utils.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
 #define EP11SHAREDLIB_V3 "libep11.so.3"
@@ -263,6 +264,16 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
                                    const version_req_t req[],
                                    CK_ULONG num_req);
 
+typedef CK_RV(*adapter_handler_t) (uint_32 adapter, uint_32 domain,
+                                   void *handler_data);
+
+static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
+                             CK_BYTE ** blob, size_t * blob_len,
+                             OBJECT ** kobj, OBJ_LOCK_TYPE lock_type);
+
+static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                               CK_BYTE **blob, size_t *blobsize);
+
 /* EP11 Firmware levels that contain the HMAC min/max keysize fix */
 static const CK_VERSION cex4p_hmac_fix = { .major = 4, .minor = 20 };
 static const CK_VERSION cex5p_hmac_fix = { .major = 6, .minor = 3 };
@@ -323,6 +334,12 @@ static const version_req_t reencrypt_single_req_versions[] = {
 };
 #define NUM_REENCRYPT_SINGLE_REQ (sizeof(reencrypt_single_req_versions) / \
                                                 sizeof(version_req_t))
+
+static const CK_VERSION ibm_cex7p_cpacf_wrap_support = { .major = 7, .minor = 15 };
+static const version_req_t ibm_cpacf_wrap_req_versions[] = {
+        { .card_type = 7, .min_firmware_version = &ibm_cex7p_cpacf_wrap_support }
+};
+#define NUM_CPACF_WRAP_REQ (sizeof(ibm_cpacf_wrap_req_versions) / sizeof(version_req_t))
 
 /* Definitions for loading libica dynamically */
 
@@ -438,7 +455,17 @@ typedef struct {
     short apqns[2 * MAX_APQN];
 } __attribute__ ((packed)) ep11_target_t;
 
+static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
+                                   adapter_handler_t handler,
+                                   void *handler_data);
+
 /* EP11 token private data */
+#define PKEY_MK_VP_LENGTH           32
+
+#define PKEY_MODE_DISABLED          0
+#define PKEY_MODE_DEFAULT           1
+#define PKEY_MODE_ENABLE4NONEXTR    2
+
 typedef struct {
     target_t target;
     ep11_target_t target_list;
@@ -453,6 +480,9 @@ typedef struct {
     int strict_mode;
     int vhsm_mode;
     int optimize_single_ops;
+    int pkey_mode;
+    int pkey_wrap_supported;
+    char pkey_mk_vp[PKEY_MK_VP_LENGTH];
     int digest_libica;
     char digest_libica_path[PATH_MAX];
     libica_t libica;
@@ -465,7 +495,7 @@ typedef struct {
 static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata);
 
 static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
-                                      target_t *target);
+                                      target_t *target, uint64_t flags);
 static void free_ep11_target_for_apqn(target_t target);
 
 
@@ -492,6 +522,519 @@ static CK_RV cleanse_attribute(TEMPLATE *template,
 
     return CKR_OK;
 }
+
+/*******************************************************************************
+ *
+ *                    Begin EP11 protected key option
+ */
+
+typedef struct {
+    CK_BBOOL wrap_was_successful;
+    CK_VOID_PTR secure_key;
+    CK_ULONG secure_key_len;
+    CK_BYTE *pkey_buf;
+    size_t *pkey_buflen_p;
+} pkey_wrap_handler_data_t;
+
+/* A wrapped key can have max 132 bytes for an EC-p521 key */
+#define EP11_MAX_WRAPPED_KEY_SIZE      (2 * (521 / 8 + 1))
+#define EP11_WRAPPED_KEY_VERSION_1     0x0001
+#define EP11_WRAPPED_KEY_TYPE_AES      0x1
+#define EP11_WRAPPED_KEY_TYPE_DES      0x2
+#define EP11_WRAPPED_KEY_TYPE_EC       0x3
+#define EP11_WRAPPED_KEY_TYPE_ED       0x4
+typedef struct {
+    uint16_t version;
+    uint8_t res0[16];
+    uint32_t wrapped_key_type;
+    uint32_t bit_length;
+    uint64_t token_size;
+    uint8_t res1[8];
+    uint8_t wrapped_key[EP11_MAX_WRAPPED_KEY_SIZE];
+    uint8_t res2[50];
+} __attribute__((packed)) wrapped_key_t;
+
+/**
+ * Callback function used by handle_all_ep11_cards() for creating a protected
+ * key via the given APQN (adaper,domain).
+ * Note that this function only works with an ep11 host lib v3 or later,
+ * because since v3 the target is a numeric value and we can OR the
+ * XCP_TGTFL_SET_SCMD flag with it. Before calling this function, it has been
+ * checked if running with v3 or later and the CPACF_WRAP mechanism is
+ * supported by the hw.
+ */
+static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
+                                       void *handler_data)
+{
+    CK_BYTE iv[16] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
+    };
+    CK_MECHANISM mech = { CKM_IBM_CPACF_WRAP, &iv, sizeof(iv) };
+    pkey_wrap_handler_data_t *data = (pkey_wrap_handler_data_t *) handler_data;
+    target_t target = 0;
+    CK_RV ret;
+
+    if (data->wrap_was_successful)
+        goto done;
+
+    ret = get_ep11_target_for_apqn(adapter, domain, &target, XCP_MFL_PROBE);
+    if (ret != CKR_OK)
+        goto done;
+
+    /* Create the protected key via CKM_IBM_CPACF_WRAP */
+    ret = dll_m_WrapKey(data->secure_key, data->secure_key_len,
+                        NULL, 0, NULL, 0, &mech,
+                        data->pkey_buf, data->pkey_buflen_p,
+                        target | XCP_TGTFL_SET_SCMD);
+    if (ret == CKR_OK)
+        data->wrap_was_successful = CK_TRUE;
+
+    free_ep11_target_for_apqn(target);
+
+done:
+
+    /* Always return ok, calling function loops over this handler until
+     * data->wrap_was_successful = true, or no more APQN left */
+    return CKR_OK;
+}
+
+/**
+ * Creates a protected key from the given secure key object via the ep11 lib
+ * CKM_IBM_CPACF_WRAP mechanism.
+ */
+static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
+                                    CK_ATTRIBUTE *skey_attr,
+                                    CK_ATTRIBUTE **pkey_attr)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ATTRIBUTE *tmp_attr = NULL;
+    CK_BYTE ep11_buf[sizeof(wrapped_key_t)];
+    size_t ep11_buflen = sizeof(ep11_buf);
+    pkey_wrap_handler_data_t pkey_wrap_handler_data;
+    wrapped_key_t *wk;
+    CK_RV ret;
+
+    /* Create the protected key via CKM_IBM_CPACF_WRAP */
+    memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
+    pkey_wrap_handler_data.secure_key = skey_attr->pValue;
+    pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
+    pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&ep11_buf;
+    pkey_wrap_handler_data.pkey_buflen_p = &ep11_buflen;
+    ret = handle_all_ep11_cards(&ep11_data->target_list, ep11tok_pkey_wrap_handler,
+                                &pkey_wrap_handler_data);
+    if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
+        TRACE_ERROR("handle_all_ep11_cards failed or no APQN could do the wrap.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Check ep11 wrapped key struct version and length. We currently only
+     * support/expect version 0x0001 structs. */
+    wk = (wrapped_key_t *) &ep11_buf;
+    if (ep11_buflen != sizeof(wrapped_key_t) || wk->version != EP11_WRAPPED_KEY_VERSION_1) {
+        TRACE_ERROR("invalid ep11 wrapped key struct length %ld\n", ep11_buflen);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Check if returned key type is what we expect:
+     *  - 0x1 = AES with bit length 128, 192 and 256
+     *  - 0x2 = 2DES and 3DES
+     *  - 0x3 = EC-P with bit length 192, 224, 256, 384 and 521
+     *  - 0x4 = ED25519 and ED448
+     */
+    switch (wk->wrapped_key_type) {
+    case EP11_WRAPPED_KEY_TYPE_AES:
+        break;
+    default:
+        TRACE_ERROR("Got unexpected CPACF key type %d from firmware\n", wk->wrapped_key_type);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Build new attribute for protected key */
+    ret = build_attribute(CKA_IBM_OPAQUE_PKEY, wk->wrapped_key,
+                          wk->token_size, &tmp_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
+        ret = CKR_FUNCTION_FAILED;;
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    *pkey_attr = tmp_attr;
+
+    return ret;
+}
+
+/**
+ * Save the current firmware master key verification pattern in the tokdata:
+ * create a dummy test key, transform it into a protected key, and store the MK
+ * verification pattern in the tokdata.
+ */
+static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
+{
+    CK_BBOOL btrue = CK_TRUE;
+    CK_ULONG len = AES_KEY_SIZE_256;
+    CK_MECHANISM mech = {CKM_AES_KEY_GEN, NULL_PTR, 0};
+    CK_ATTRIBUTE tmpl[] = {
+        {CKA_VALUE_LEN, &len, sizeof(CK_ULONG)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &btrue, sizeof(btrue)},
+    };
+    CK_ULONG tmpl_len = sizeof(tmpl) / sizeof(CK_ATTRIBUTE);
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_BYTE csum[MAX_CSUMSIZE];
+    size_t csum_l = sizeof(csum);
+    CK_BYTE blob[MAX_BLOBSIZE];
+    size_t blobsize = sizeof(blob);
+    CK_ATTRIBUTE *pkey_attr = NULL, *blob_attr=NULL;
+    CK_RV ret;
+
+    /* Check if CPACF_WRAP mech supported */
+    if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
+        TRACE_INFO("CKM_IBM_CPACF_WRAP not supported on this system.\n");
+        ret = CKR_FUNCTION_NOT_SUPPORTED;
+        goto done;
+    }
+
+    memset(&ep11_data->pkey_mk_vp, 0, PKEY_MK_VP_LENGTH);
+
+    /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
+    ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
+                            blob, &blobsize, csum, &csum_l, ep11_data->target);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
+        goto done;
+    }
+
+    /* Build attribute for secure key blob */
+    ret = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &blob_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("build_attribute CKA_IBM_OPAQUE failed with rc=0x%lx\n", ret);
+        goto done;
+    }
+
+    /* Create a protected key from this blob to obtain the LPAR MK vp. When
+     * this function returns ok, we have a 64 byte pkey value: 32 bytes
+     * encrypted key + 32 bytes vp. */
+    ret = ep11tok_pkey_skey2pkey(tokdata, blob_attr, &pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ep11tok_pkey_skey2pkey failed with rc=0x%lx\n", ret);
+        goto done;
+    }
+
+    memcpy(&ep11_data->pkey_mk_vp,
+           (CK_BYTE *)pkey_attr->pValue + AES_KEY_SIZE_256,
+           PKEY_MK_VP_LENGTH);
+    ep11_data->pkey_wrap_supported = 1;
+
+done:
+
+    if (blob_attr)
+        free(blob_attr);
+
+    return ret;
+}
+
+/**
+ * Return true if PKEY_MODE DISABLED is set in the token specific
+ * config file, false otherwise.
+ */
+static CK_BBOOL ep11tok_pkey_option_disabled(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    if (ep11_data->pkey_mode == PKEY_MODE_DISABLED)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
+/**
+ * Return true, if the given key obj has a valid protected key, i.e. its
+ * verification pattern matches the one of the current master key.
+ */
+static CK_BBOOL ep11tok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    int vp_offset;
+
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE_PKEY,
+                                         &pkey_attr) == CKR_OK) {
+        if (pkey_attr->ulValueLen >= AES_KEY_SIZE_128 + PKEY_MK_VP_LENGTH) {
+            vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+            if (memcmp((CK_BYTE *)pkey_attr->pValue + vp_offset,
+                       &ep11_data->pkey_mk_vp,
+                       PKEY_MK_VP_LENGTH) == 0) {
+                return CK_TRUE;
+            }
+        }
+    }
+
+    return CK_FALSE;
+}
+
+/**
+ * Create a new protected key for the given key obj and update attribute
+ * CKA_IBM_OPAQUE with the new pkey.
+ */
+static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ATTRIBUTE *skey_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_RV ret;
+    int vp_offset;
+
+    /* Get secure key from obj */
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                         &skey_attr) != CKR_OK) {
+        TRACE_ERROR("This key has no blob: should not occur!\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Transform the secure key into a protected key */
+    ret = ep11tok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
+        goto done;
+    }
+
+    /* Check if the new pkey's verification pattern matches the one in
+     * ep11_data. This should always be the case, because we just
+     * created the pkey with the current MK. */
+    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+    if (memcmp(&ep11_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+               PKEY_MK_VP_LENGTH) != 0) {
+        TRACE_ERROR("vp of this pkey does not match with the one in ep11_data (should not occur)\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Now update the key obj. If it's a token obj, it will be also updated
+     * in the repository. */
+    ret = pkey_update_and_save(tokdata, key_obj, pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("pkey_update_and_save failed with rc=0x%lx\n", ret);
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/**
+ * Returns true if the session is ok for creating protected keys, false
+ * otherwise. The session must be read/write and not public, because the
+ * protected key is a private/secret key attribute.
+ */
+static CK_BBOOL ep11tok_pkey_session_read_write(SESSION *session)
+{
+    if (session->session_info.flags & CKF_RW_SESSION)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
+/**
+ * Checks if the preconditions for using the related protected key of
+ * the given secure key object are met. The caller of this routine must
+ * have a READ_LOCK on the key object.
+ *
+ * The routine internally creates a protected key and adds it to the key_obj,
+ * if the machine supports pkeys, the key is eligible for pkey support, does
+ * not already have a valid pkey, and other conditions, like r/w session, are
+ * fulfilled. As adding a protected key to the key_obj involves unlocking and
+ * re-locking, the key blob, or any other attribute of the key, that was
+ * retrieved via h_opaque_2_blob before calling this function might be no more
+ * valid in a parallel environment.
+ *
+ * Therefore, the following return codes tell the calling function how to
+ * proceed:
+ *
+ * @return CKR_OK:
+ *            a protected key was possibly created successfully and everything
+ *            is fine to use pkey support. In this case the protected key
+ *            shall be used, but a previously obtained key blob or other attr
+ *            might be invalid, because of a possible unlock/re-lock of the
+ *            key_obj.
+ *
+ *         CKR_FUNCTION_NOT_SUPPORTED:
+ *            The system, session or key do not allow to use pkey support, but
+ *            no attempt was made to create a protected key. So the key blob,
+ *            or any other attr, is still valid and a fallback into the ep11
+ *            path is ok.
+ *
+ *         all others:
+ *            An internal error occurred and it was possibly attempted to create
+ *            a protected key for the object. In this case, the key blob, or
+ *            any other attr, might be no longer valid in a parallel environment
+ *            and the ep11 fallback is not possible anymore. The calling
+ *            function shall return with an error in this case.
+ */
+CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
+                         OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_RV ret = CKR_FUNCTION_NOT_SUPPORTED;
+
+    /* Check if CPACF supports the operation implied by this key and mech */
+    if (!pkey_op_supported_by_cpacf(mech))
+        goto done;
+
+    /* Check config option */
+    switch (ep11_data->pkey_mode) {
+    case PKEY_MODE_DISABLED:
+        goto done;
+        break;
+    case PKEY_MODE_DEFAULT:
+    case PKEY_MODE_ENABLE4NONEXTR:
+        /* Use existing pkeys, re-create invalid pkeys, and also create new
+         * pkeys for keys that do not already have one. */
+        if (object_is_extractable(key_obj) ||
+            !object_is_pkey_extractable(key_obj) ||
+            object_is_attr_bound(key_obj) ||
+            !ep11tok_pkey_session_read_write(session) ||
+            !ep11_data->pkey_wrap_supported) {
+            goto done;
+        }
+        if (template_attribute_get_non_empty(key_obj->template,
+                                             CKA_IBM_OPAQUE_PKEY,
+                                             &opaque_attr) != CKR_OK ||
+            !ep11tok_pkey_is_valid(tokdata, key_obj)) {
+            /* this key has either no pkey attr, or it is not valid,
+             * try to create one */
+            ret = ep11tok_pkey_update(tokdata, key_obj);
+            if (ret != CKR_OK) {
+                TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
+                if (ret == CKR_FUNCTION_NOT_SUPPORTED)
+                    ret = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+        }
+        break;
+    default:
+        /* should not occur */
+        TRACE_ERROR("PKEY_MODE %i unsupported.\n", ep11_data->pkey_mode);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/**
+ * Wrapper function around ep11tok_pkey_check for the case where we don't
+ * have a key object. This function is called externally from new_host.c.
+ */
+CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
+                               CK_OBJECT_HANDLE hkey, CK_MECHANISM *mech)
+{
+    CK_BBOOL success = CK_FALSE;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj;
+    CK_RV ret;
+
+    ret = h_opaque_2_blob(tokdata, hkey, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s no blob ret=0x%lx\n", __func__, ret);
+        return CK_FALSE;
+    }
+
+    ret = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    if (ret == CKR_OK)
+        success = CK_TRUE;
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return success;
+}
+
+/**
+ * This function is called whenever a new object is created. It currently sets
+ * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
+ * option, but may also be used for other token options and attrs in future.
+ */
+CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
+                                              CK_OBJECT_CLASS class,
+                                              CK_ULONG mode, TEMPLATE *tmpl)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_BBOOL extractable, btrue = CK_TRUE;
+    CK_RV ret;
+
+    UNUSED(mode);
+
+    if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY)
+        return CKR_OK;
+
+    switch (ep11_data->pkey_mode) {
+    case PKEY_MODE_DISABLED:
+        /* Nothing to do */
+        break;
+    case PKEY_MODE_DEFAULT:
+        /* If the application did not specify pkey-extractable, all keys get
+         * pkey-extractable=false. This was already set by default, so
+         * nothing to do here. */
+        break;
+    case PKEY_MODE_ENABLE4NONEXTR:
+        /* If the application did not specify pkey-extractable, all
+         * non-extractable keys get pkey-extractable=true */
+        ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
+        if (ret == CKR_OK && !extractable) {
+            if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
+                ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE,
+                                      (CK_BBOOL *)&btrue, sizeof(CK_BBOOL),
+                                      &pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+                    goto done;
+                }
+                ret = template_update_attribute(tmpl, pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+                    goto done;
+                }
+            }
+        }
+        break;
+    default:
+        TRACE_ERROR("PKEY_MODE %i unsupported.\n", ep11_data->pkey_mode);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/*
+ *                     End of EP11 protected key option
+ *
+ ******************************************************************************/
 
 static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                                   CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
@@ -968,12 +1511,6 @@ static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
     return UNKNOWN_MECHANISM;
 }
 
-static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
-                             CK_BYTE ** blob, size_t * blob_len,
-                             OBJECT ** kobj, OBJ_LOCK_TYPE lock_type);
-static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
-                               CK_BYTE **blob, size_t *blobsize);
-
 #define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
 #define EP11_CFG_FILE_SIZE 4096
 
@@ -1036,12 +1573,77 @@ static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
     }
 }
 
+/**
+ * This function covers some specific restrictions of the ep11 hostlib, i.e.
+ * passing these attrs to the ep11 hostlib would cause an error.
+ */
+static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
+                                         CK_ATTRIBUTE *attr, CK_KEY_TYPE ktype,
+                                         CK_OBJECT_CLASS class, int curve_type)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    /* On older cards, CKA_IBM_PROTKEY_EXTRACTABLE might cause errors, so filter
+     * it out when the CPACF_WRAP mechanism is not supported on this system */
+    if (attr->type == CKA_IBM_PROTKEY_EXTRACTABLE &&
+        ep11_data->pkey_wrap_supported == 0)
+        return CK_FALSE;
+
+    switch (ktype) {
+    case CKK_RSA:
+        if (class == CKO_PRIVATE_KEY && attr->type == CKA_PUBLIC_EXPONENT)
+            return CK_FALSE;
+        break;
+    case CKK_EC:
+        if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS)
+            return CK_FALSE;
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_SIGN_RECOVER)
+            return CK_FALSE;
+        /* Montgomery curves cannot be used for sign/verify */
+        if (class == CKO_PRIVATE_KEY && curve_type == MONTGOMERY_CURVE && attr->type == CKA_SIGN)
+            return CK_FALSE;
+        if (class == CKO_PUBLIC_KEY && curve_type == MONTGOMERY_CURVE && attr->type == CKA_VERIFY)
+            return CK_FALSE;
+        /* Edwards curves cannot be used for derive */
+        if (curve_type == EDWARDS_CURVE && attr->type == CKA_DERIVE)
+            return CK_FALSE;
+        break;
+    case CKK_DSA:
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_SIGN_RECOVER)
+            return CK_FALSE;
+        if (attr->type == CKA_PRIME || attr->type == CKA_SUBPRIME ||
+            attr->type == CKA_BASE)
+            return CK_FALSE;
+        break;
+    case CKK_DH:
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_SIGN || attr->type == CKA_SIGN_RECOVER)
+            return CK_FALSE;
+        if (attr->type == CKA_BASE || attr->type == CKA_PRIME)
+            return CK_FALSE;
+        break;
+    case CKK_IBM_PQC_DILITHIUM:
+        if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
+            attr->type == CKA_SIGN_RECOVER)
+            return CK_FALSE;
+        break;
+    default:
+        break;
+    }
+
+    return CK_TRUE;
+}
+
 /*
  * Build an array of attributes to be passed to EP11. Some attributes are
  * handled 'read-only' by EP11, and would cause an error if passed to EP11.
  */
-static CK_RV build_ep11_attrs(TEMPLATE *template, CK_ATTRIBUTE_PTR *p_attrs,
-                              CK_ULONG_PTR p_attrs_len)
+static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
+                              CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG_PTR p_attrs_len,
+                              CK_KEY_TYPE ktype, CK_OBJECT_CLASS class,
+                              int curve_type)
 {
     DL_NODE *node;
     CK_ATTRIBUTE_PTR attr;
@@ -1060,12 +1662,14 @@ static CK_RV build_ep11_attrs(TEMPLATE *template, CK_ATTRIBUTE_PTR *p_attrs,
             if (attr->ulValueLen > 0 && attr->pValue == NULL)
                 return CKR_ATTRIBUTE_VALUE_INVALID;
 
-            rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
-                                        attr->pValue, attr->ulValueLen);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
-                            attr->type, rc);
-                return rc;
+            if (attr_applicable_for_ep11(tokdata, attr, ktype, class, curve_type)) {
+                rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                            attr->pValue, attr->ulValueLen);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
+                                attr->type, rc);
+                    return rc;
+                }
             }
         }
 
@@ -1102,7 +1706,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
     /* tell ep11 the attributes the user specified */
-    rc = build_ep11_attrs(key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, key_obj->template, &p_attrs, &attrs_len, ktype, CKO_SECRET_KEY, -1);
     if (rc != CKR_OK)
         goto rawkey_2_blob_end;
 
@@ -1562,6 +2166,21 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         goto error;
     }
 
+    if (!ep11tok_pkey_option_disabled(tokdata)) {
+        rc = ep11tok_pkey_get_firmware_mk_vp(tokdata);
+        if (rc != CKR_OK) {
+            /* Could not save mk_vp in ep11_data, pkey support not available.
+             * But the token should initialize ok, even if this happens.
+             * We are just running without protected key support, i.e. the
+             * pkey_wrap_supported flag in tokdata remains off. */
+            OCK_SYSLOG(LOG_WARNING,
+                "%s: Warning: Could not get mk_vp, protected key support not available.\n",
+                __func__);
+            TRACE_WARNING("Could not get mk_vp, protected key support not available.\n");
+            rc = CKR_OK;
+        }
+    }
+
     TRACE_INFO("%s init done successfully\n", __func__);
     return CKR_OK;
 
@@ -1713,6 +2332,33 @@ make_maced_spki_end:
     return rc;
 }
 
+/**
+ * Determine the curve type from the given array of attributes.
+ *
+ * @return a valid curve_type if successful
+ *         -1 if no CKA_ECDSA_PARAMS found in attrs
+ */
+static int get_curve_type_from_attrs(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
+{
+    CK_ATTRIBUTE *attr;
+    int curve_type = -1;
+    int i;
+
+    attr = get_attribute_by_type(attrs, attrs_len, CKA_ECDSA_PARAMS);
+    if (attr != NULL) {
+        for (i = 0; i < NUMEC; i++) {
+            if (der_ec_supported[i].data_size == attr->ulValueLen &&
+                memcmp(attr->pValue, der_ec_supported[i].data,
+                       attr->ulValueLen) == 0) {
+                curve_type = der_ec_supported[i].curve_type;
+                break;
+            }
+        }
+    }
+
+    return curve_type;
+}
+
 /*
  * makes blobs for private imported RSA keys and
  * SPKIs for public imported RSA keys.
@@ -1754,7 +2400,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(rsa_key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, rsa_key_obj->template, &p_attrs, &attrs_len, CKK_RSA, class, -1);
     if (rc != CKR_OK)
         goto import_RSA_key_end;
 
@@ -1934,7 +2580,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(ec_key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, ec_key_obj->template, &p_attrs, &attrs_len,
+                          CKK_EC, class, (int)curve->curve_type);
     if (rc != CKR_OK)
         goto import_EC_key_end;
 
@@ -2067,7 +2714,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs,
                                   attrs_len, &new_p_attrs, &new_attrs_len,
-                                  curve->curve_type);
+                                  (int)curve->curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -2156,7 +2803,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(dsa_key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, dsa_key_obj->template, &p_attrs, &attrs_len, CKK_DSA, class, -1);
     if (rc != CKR_OK)
         goto import_DSA_key_end;
 
@@ -2348,7 +2995,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(dh_key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, dh_key_obj->template, &p_attrs, &attrs_len, CKK_DH, class, -1);
     if (rc != CKR_OK)
         goto import_DH_key_end;
 
@@ -2532,7 +3179,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(dilithium_key_obj->template, &p_attrs, &attrs_len);
+    rc = build_ep11_attrs(tokdata, dilithium_key_obj->template, &p_attrs, &attrs_len, CKK_IBM_PQC_DILITHIUM, class, -1);
     if (rc != CKR_OK)
         goto done;
 
@@ -2819,7 +3466,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ktype;
     CK_ULONG class;
     CK_ATTRIBUTE_PTR new_attrs = NULL;
-    CK_ULONG new_attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_attrs2 = NULL;
+    CK_ULONG new_attrs_len = 0, new_attrs2_len = 0;
     CK_RV rc;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
@@ -2843,11 +3491,25 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    rc = build_ep11_attrs(tokdata, key_obj->template, &new_attrs2, &new_attrs2_len, ktype, CKO_SECRET_KEY, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKey(mech, new_attrs, new_attrs_len, ep11_pin_blob,
+        rc = dll_m_GenerateKey(mech, new_attrs2, new_attrs2_len, ep11_pin_blob,
                                ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, ep11_data->target);
     RETRY_END(rc, tokdata, session)
@@ -2860,15 +3522,6 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
-
-    /* Start creating the key object */
-    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-                                MODE_KEYGEN, CKO_SECRET_KEY, ktype, &key_obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
     if (rc != CKR_OK) {
@@ -2936,6 +3589,8 @@ error:
 done:
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+    if (new_attrs2)
+        free_attribute_array(new_attrs2, new_attrs2_len);
     return rc;
 }
 
@@ -3715,6 +4370,65 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+/**
+ * This routine is currently only used when the operation is performed using
+ * a protected key. Therefore we don't have (and don't need) an ep11
+ * fallback here.
+ */
+CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE encrypt)
+{
+    UNUSED(tokdata);
+
+    return pkey_aes_ecb(key_obj, in_data, in_data_len,
+                        out_data, out_data_len, encrypt);
+}
+
+/**
+ * This routine is currently only used when the operation is performed using
+ * a protected key. Therefore we don't have (and don't need) an ep11
+ * fallback here.
+ */
+CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE *init_v,
+                             CK_BYTE encrypt)
+{
+    UNUSED(tokdata);
+
+    return pkey_aes_cbc(key_obj, init_v, in_data, in_data_len,
+                        out_data, out_data_len, encrypt);
+}
+
+/**
+ * This routine is currently only used when the operation is performed using
+ * a protected key. Therefore we don't have (and don't need) an ep11
+ * fallback here.
+ */
+CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
+                              CK_BYTE *message, CK_ULONG message_len,
+                              OBJECT *key_obj, CK_BYTE *iv,
+                              CK_BBOOL first, CK_BBOOL last,
+                              CK_VOID_PTR *context)
+{
+    CK_RV rc;
+
+    UNUSED(tokdata);
+    UNUSED(context);
+
+    if (first && last)
+        rc = pkey_aes_cmac(key_obj, message, message_len, iv, NULL);
+    else if (!last)
+        rc = pkey_aes_cmac(key_obj, message, message_len, NULL, iv);
+    else // last
+        rc = pkey_aes_cmac(key_obj, message, message_len, iv, iv);
+
+    return rc;
+}
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -3890,6 +4604,15 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    /* Start creating the key object */
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_DERIVE, class, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3908,14 +4631,6 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                __func__, hBaseKey, rc, *handle, newblobsize);
 
-    /* Start creating the key object */
-    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-                                MODE_DERIVE, class, ktype, &key_obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
     if (rc != CKR_OK) {
@@ -4645,21 +5360,9 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    if (ktype == CKK_EC) {
-        attr = get_attribute_by_type(pPublicKeyTemplate,
-                                      ulPublicKeyAttributeCount,
-                                      CKA_ECDSA_PARAMS);
-        if (attr != NULL) {
-            for (i = 0; i < NUMEC; i++) {
-                if (der_ec_supported[i].data_size == attr->ulValueLen &&
-                    memcmp(attr->pValue, der_ec_supported[i].data,
-                           attr->ulValueLen) == 0) {
-                    curve_type = der_ec_supported[i].curve_type;
-                    break;
-                }
-            }
-        }
-    }
+    if (ktype == CKK_EC)
+        curve_type = get_curve_type_from_attrs(pPublicKeyTemplate,
+                                               ulPublicKeyAttributeCount);
 
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
                               pPublicKeyTemplate, ulPublicKeyAttributeCount,
@@ -5546,6 +6249,26 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key);
+        if (rc == CKR_OK)
+            ctx->pkey_active = TRUE;
+        /* Regardless of the rc goto done here, because ep11tok_pkey_check
+         * could have unlocked/relocked the obj so that the blob is no more
+         * valid.
+         */
+        free(ep11_sign_state);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* ep11 fallback */
+        break;
+    default:
+        free(ep11_sign_state);
+        goto done;
+    }
+
     RETRY_START
         rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
                             mech, keyblob, keyblobsize, ep11_data->target);
@@ -5564,6 +6287,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
+        ctx->pkey_active = FALSE;
 
         TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
                    __func__, rc, keyblobsize, key, mech->mechanism);
@@ -5585,8 +6309,22 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
-    UNUSED(length_only);
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                          READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = sign_mgr_sign(tokdata, session, length_only, ctx, in_data,
+                           in_data_len, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
@@ -5600,6 +6338,11 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5610,9 +6353,24 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
     if (!in_data || !in_data_len)
         return CKR_OK;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                          READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = sign_mgr_sign_update(tokdata, session, ctx, in_data, in_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
@@ -5626,6 +6384,11 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5637,8 +6400,21 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
-    UNUSED(length_only);
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                          READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = sign_mgr_sign_final(tokdata, session, length_only, ctx, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
@@ -5651,6 +6427,11 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5746,6 +6527,26 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key);
+        if (rc == CKR_OK)
+            ctx->pkey_active = TRUE;
+        /* Regardless of the rc goto done here, because ep11tok_pkey_check
+         * could have unlocked/relocked the obj so that the blob is no more
+         * valid.
+         */
+        free(ep11_sign_state);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* ep11 fallback */
+        break;
+    default:
+        free(ep11_sign_state);
+        goto done;
+    }
+
     RETRY_START
         rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
                               spki, spki_len, ep11_data->target);
@@ -5762,6 +6563,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
+        ctx->pkey_active = FALSE;
 
         TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
@@ -5783,6 +6585,22 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = verify_mgr_verify(tokdata, session, ctx, in_data,
+                               in_data_len, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
@@ -5796,6 +6614,11 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5806,9 +6629,24 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
     if (!in_data || !in_data_len)
         return CKR_OK;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = verify_mgr_verify_update(tokdata, session, ctx, in_data, in_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
@@ -5822,6 +6660,11 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5832,6 +6675,21 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = verify_mgr_verify_final(tokdata, session, ctx, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
@@ -5844,6 +6702,11 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     return rc;
 }
@@ -5906,6 +6769,23 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = decr_mgr_decrypt_final(tokdata, session, length_only,
+                                    ctx, output_part, p_output_part_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
@@ -5920,6 +6800,11 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5931,6 +6816,24 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_BBOOL length_only = (output_data == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = decr_mgr_decrypt(tokdata, session, length_only, ctx,
+                              input_data, input_data_len, output_data,
+                              p_output_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
@@ -5945,6 +6848,11 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -5957,10 +6865,28 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
+    CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
         return CKR_OK;          /* nothing to update, keep context */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = decr_mgr_decrypt_update(tokdata, session, length_only,
+                                     ctx, input_part, input_part_len,
+                                     output_part, p_output_part_len);
+        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -5975,6 +6901,11 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     return rc;
 }
@@ -6032,6 +6963,23 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = encr_mgr_encrypt_final(tokdata, session, length_only,
+                                    ctx, output_part, p_output_part_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
@@ -6046,6 +6994,11 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -6057,6 +7010,24 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_BBOOL length_only = (output_data == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = encr_mgr_encrypt(tokdata, session, length_only, ctx,
+                              input_data, input_data_len, output_data,
+                              p_output_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
 
     RETRY_START
         rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
@@ -6071,6 +7042,11 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     return rc;
 }
 
@@ -6083,10 +7059,28 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
+    CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
+    size_t keyblobsize = 0;
+    CK_BYTE *keyblob;
+    OBJECT *key_obj = NULL;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
         return CKR_OK;          /* nothing to update, keep context */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (ctx->pkey_active) {
+        rc = encr_mgr_encrypt_update(tokdata, session, length_only, ctx,
+                                     input_part, input_part_len, output_part,
+                                     p_output_part_len);
+        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -6101,6 +7095,11 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
+
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     return rc;
 }
@@ -6192,6 +7191,37 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
+    switch (rc) {
+    case CKR_OK:
+        if (op == DECRYPT) {
+            rc = decr_mgr_init(tokdata, session, &session->decr_ctx,
+                               OP_DECRYPT_INIT, mech, key);
+        } else {
+            rc = encr_mgr_init(tokdata, session, &session->encr_ctx,
+                               OP_ENCRYPT_INIT, mech, key);
+        }
+        if (rc == CKR_OK) {
+            if (op == DECRYPT)
+                (&session->decr_ctx)->pkey_active = TRUE;
+            else
+                (&session->encr_ctx)->pkey_active = TRUE;
+        }
+        /* Regardless of the rc goto done here, because ep11tok_pkey_check
+         * could have unlocked/relocked the obj so that the blob is no more
+         * valid.
+         */
+        free(ep11_state);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* fallback into ep11 path */
+        break;
+    default:
+        /* internal error or lock problem */
+        free(ep11_state);
+        goto done;
+    }
+
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
         RETRY_START
@@ -6202,6 +7232,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->active = TRUE;
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
+        ctx->pkey_active = FALSE;
         if (rc != CKR_OK) {
             decr_mgr_cleanup(ctx);
             rc = ep11_error_to_pkcs11_error(rc, session);
@@ -6234,6 +7265,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->active = TRUE;
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
+        ctx->pkey_active = FALSE;
         if (rc != CKR_OK) {
             encr_mgr_cleanup(ctx);
             rc = ep11_error_to_pkcs11_error(rc, session);
@@ -6246,6 +7278,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -6537,6 +7570,22 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    /* Get the keytype to use when creating the key object */
+    rc = pkcs_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    /* Start creating the key object */
+    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+                                MODE_UNWRAP, class, ktype, &key_obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -6560,21 +7609,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                __func__, rc, keyblobsize, mech->mechanism);
 
-    /* Get the keytype to use when creating the key object */
-    rc = pkcs_get_keytype(new_attrs, new_attrs_len, mech, &ktype, &class);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
 
-    /* Start creating the key object */
-    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
-                                MODE_UNWRAP, class, ktype, &key_obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
-    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
     if (rc != CKR_OK) {
@@ -6762,6 +7797,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_SHA3_384_HMAC,
     CKM_IBM_SHA3_512,
     CKM_IBM_SHA3_512_HMAC,
+    CKM_IBM_CPACF_WRAP,
     CKM_PBE_SHA1_DES3_EDE_CBC,
     CKM_RSA_PKCS,
     CKM_RSA_PKCS_KEY_PAIR_GEN,
@@ -7067,6 +8103,22 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             return CKR_MECHANISM_INVALID;
         }
         break;
+
+    case CKM_IBM_CPACF_WRAP:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                                     __func__, ep11_get_ckm(type));
+
+            return CKR_MECHANISM_INVALID;
+        }
+        status = check_required_versions(tokdata, ibm_cpacf_wrap_req_versions,
+                                         NUM_CPACF_WRAP_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
+            return CKR_MECHANISM_INVALID;
+        }
+        break;
     }
 
     return CKR_OK;
@@ -7366,6 +8418,7 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
     fclose(ap_fp);
 
     ep11_data->target_list.length = 0;
+    ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
 
     /* Default to use default libica library for digests */
     ep11_data->digest_libica = 1;
@@ -7408,6 +8461,8 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                                31) == 0) {
                i = 0;
                ep11_data->optimize_single_ops = 1;
+            } else if (strncmp(token, "PKEY_MODE", 9) == 0) {
+               i = 6;
             } else if (strncmp(token, "DIGEST_LIBICA", 13) == 0) {
                 i = 5;
             } else if (strncmp(token, "USE_PRANDOM", 11) == 0) {
@@ -7418,14 +8473,14 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                 TRACE_ERROR("%s Expected APQN_WHITELIST,"
                             " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                             " STRICT_MODE, VHSM_MODE, "
-                            " OPTIMIZE_SINGLE_PART_OPERATIONS, DIGEST_LIBICA, "
+                            " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
                             "or USE_PRANDOM keyword, found '%s' in config file "
                             "'%s'\n", __func__,
                             token, fname);
                 OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                            " STRICT_MODE, VHSM_MODE,"
-                           " OPTIMIZE_SINGLE_PART_OPERATIONS, DIGEST_LIBICA, "
+                           " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
                            "or USE_PRANDOM keyword, found '%s' in config file "
                            "'%s'\n",
                            __func__, token, fname);
@@ -7582,6 +8637,30 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                 strncpy(ep11_data->digest_libica_path, token,
                         sizeof(ep11_data->digest_libica_path)-1);
                 ep11_data->digest_libica_path[sizeof(ep11_data->digest_libica_path)-1] = '\0';
+            }
+            i = 0;
+        } else if (i == 6) {
+            /* expecting pkey_mode */
+            if (token == NULL) {
+                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
+                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
+                           " in config file '%s', expected pkey_mode 0 .. 3\n",
+                           __func__, fname);
+                break;
+            }
+            if (strncmp(token, "DISABLED", 8) == 0)
+                ep11_data->pkey_mode = PKEY_MODE_DISABLED;
+            else if (strncmp(token, "DEFAULT", 7) == 0)
+                ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
+            else if (strncmp(token, "ENABLE4NONEXTR", 14) == 0)
+                ep11_data->pkey_mode = PKEY_MODE_ENABLE4NONEXTR;
+            else {
+                TRACE_ERROR("%s unsupported pkey mode : '%s'\n",
+                                        __func__, token);
+                OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported pkey mode '%s' in config file '%s'\n",
+                           __func__, token, fname);
+                rc = APQN_FILE_SYNTAX_ERROR_6;
+                break;
             }
             i = 0;
         }
@@ -7952,9 +9031,6 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
 #define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
 #define MASK_EP11               0x04000000
 
-typedef CK_RV(*adapter_handler_t) (uint_32 adapter, uint_32 domain,
-                                   void *handler_data);
-
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
 {
     FILE *fp;
@@ -8159,7 +9235,7 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
 
-    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
     if (rc != CKR_OK)
         return rc;
 
@@ -8549,7 +9625,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
 
     TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
 
-    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
     if (rc != CKR_OK)
         return rc;
 
@@ -8644,7 +9720,7 @@ static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
 
     TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
 
-    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
     if (rc != CKR_OK)
         return rc;
 
@@ -9090,7 +10166,7 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     CK_ULONG card_type;
     ep11_card_version_t *card_version;
 
-    rc = get_ep11_target_for_apqn(adapter, domain, &target);
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
     if (rc != CKR_OK)
         return rc;
 
@@ -9535,7 +10611,7 @@ static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata)
     return CKR_OK;
 }
 static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
-                                      target_t *target)
+                                      target_t *target, uint64_t flags)
 {
     ep11_target_t *target_list;
     struct XCP_Module module;
@@ -9552,7 +10628,7 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
         memset(&module, 0, sizeof(module));
         module.version = lib_version.major >= 3 ? XCP_MOD_VERSION_2
                                                 : XCP_MOD_VERSION_1;
-        module.flags = XCP_MFL_MODULE;
+        module.flags = XCP_MFL_MODULE | flags;
         module.module_nr = adapter;
         XCPTGTMASK_SET_DOM(module.domainmask, domain);
         rc = dll_m_add_module(&module, target);
@@ -9654,6 +10730,18 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
                 TRACE_ERROR("%s add_to_attribute_array failed rc=0x%lx\n",
                             __func__, rc);
                 goto out;
+            }
+            break;
+        case CKA_IBM_PROTKEY_EXTRACTABLE:
+            if (ep11_data->pkey_wrap_supported) {
+                rc = add_to_attribute_array(&attributes, &num_attributes,
+                                            attr->type, attr->pValue,
+                                            attr->ulValueLen);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("%s add_to_attribute_array failed rc=0x%lx\n",
+                                __func__, rc);
+                    goto out;
+                }
             }
             break;
         default:
