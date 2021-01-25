@@ -1869,7 +1869,7 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
-        if (mode != MODE_CREATE) {
+        if (mode == MODE_MODIFY || mode == MODE_COPY) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
             return CKR_ATTRIBUTE_READ_ONLY;
         }
