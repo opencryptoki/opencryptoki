@@ -70,8 +70,8 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
         /** generate key **/
         mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
-
+        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+                             &mechkey, &h_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -202,8 +202,8 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
 
         /** generate key **/
         mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
-
+        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+                             &mechkey, &h_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -421,7 +421,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session,
+        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -551,7 +551,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session,
+        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -722,7 +722,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         rc = CKR_OK;
 
         /** create key handle **/
-        rc = create_AESKey(session,
+        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -849,7 +849,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
                        "vector %d.", tsuite->name, i);
 
         /** create key handle **/
-        rc = create_AESKey(session,
+        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -1051,15 +1051,16 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         memset(crypt, 0, sizeof(crypt));
         memset(decrypt, 0, sizeof(decrypt));
 
-        /** generate crypto key **/
-        rc = generate_AESKey(session, key_lens[i], &mechkey, &h_key);
+        /** generate crypto key (must be extractable) **/
+        rc = generate_AESKey(session, key_lens[i], CK_TRUE, &mechkey, &h_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
 
         /** generate wrapping key **/
-        rc = generate_AESKey(session, key_lens[i], &mechkey, &w_key);
+        rc = generate_AESKey(session, key_lens[i], pkey ? CK_TRUE : CK_FALSE,
+                             &mechkey, &w_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1784,7 +1785,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
                                tsuite->name, i);
 
         /** create key handle **/
-        rc = create_AESKey(session,
+        rc = create_AESKey(session, pkey ? CK_TRUE : CK_FALSE,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
@@ -2030,6 +2031,8 @@ int main(int argc, char **argv)
     }
 
     testcase_setup(0);          //TODO
+
+    pkey = CK_FALSE;
     rv = aes_funcs();
     testcase_print_result();
 

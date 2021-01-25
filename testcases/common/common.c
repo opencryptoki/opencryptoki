@@ -26,6 +26,14 @@ CK_BBOOL no_stop;
 CK_BBOOL no_init;
 CK_BBOOL securekey;
 
+/*
+ * The pkey flag controls whether tests shall exploit the protected key
+ * option. To allow easy integration into the CI, this is not provided as
+ * a cmdline option, but affected tests are run twice, with and without
+ * pkey option.
+ */
+CK_BBOOL pkey = CK_FALSE;
+
 CK_ULONG t_total = 0;           // total test assertions
 CK_ULONG t_ran = 0;             // number of assertions ran
 CK_ULONG t_passed = 0;          // number of assertions passed
@@ -131,7 +139,7 @@ int unwrap_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
 }
 
 /** Create an AES key handle with given value **/
-int create_AESKey(CK_SESSION_HANDLE session,
+int create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
                   unsigned char key[], unsigned char key_len,
                   CK_OBJECT_HANDLE * h_key)
 {
@@ -141,14 +149,16 @@ int create_AESKey(CK_SESSION_HANDLE session,
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
     CK_KEY_TYPE keyType = CKK_AES;
     CK_ATTRIBUTE keyTemplate[] = {
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
         {CKA_VALUE, key, key_len}
     };
+    CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
 
-    rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
+    rc = funcs->C_CreateObject(session, keyTemplate, keyTemplate_len, h_key);
     if (rc != CKR_OK) {
         testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
@@ -158,20 +168,20 @@ int create_AESKey(CK_SESSION_HANDLE session,
 
 /** Generate an AES key handle **/
 int generate_AESKey(CK_SESSION_HANDLE session,
-                    CK_ULONG key_len,
+                    CK_ULONG key_len, CK_BBOOL extractable,
                     CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key)
 {
     CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}
     };
+    CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 
-    CK_RV rc = funcs->C_GenerateKey(session,
-                                    mechkey,
-                                    key_gen_tmpl,
-                                    1,
+    CK_RV rc = funcs->C_GenerateKey(session, mechkey,
+                                    key_gen_tmpl, key_gen_tmpl_len,
                                     h_key);
     if (rc != CKR_OK) {
-	testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+        testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
     }
 
     return rc;

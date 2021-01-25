@@ -634,7 +634,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         break;
 
     case CKM_AES_KEY_GEN:
-        rc = generate_AESKey(session1, tsuite->sym_keylen,
+        rc = generate_AESKey(session1, tsuite->sym_keylen, CK_TRUE,
                              &tsuite->wrapped_key_gen_mech, &sym_key);
         break;
 
@@ -1012,7 +1012,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             goto testcase_cleanup;
         }
 
-        rc = create_AESKey(session2, key, key_size, &sym_wrap_key2);
+        rc = create_AESKey(session2, CK_TRUE, key, key_size, &sym_wrap_key2);
         break;
 
     case CKM_DES3_KEY_GEN:
@@ -1084,7 +1084,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         memcpy(sym_tmpl[0].pValue, key, key_size);
         sym_tmpl[0].ulValueLen = key_size;
 
-        rc = create_AESKey(session1, sym_tmpl[0].pValue, sym_tmpl[0].ulValueLen,
+        rc = create_AESKey(session1, CK_TRUE, sym_tmpl[0].pValue, sym_tmpl[0].ulValueLen,
                            &sym_wrap_key1);
         break;
 

@@ -599,7 +599,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
 
 	// create ock aes key
 
-	rc = create_AESKey(session, key, keylen, &hkey);
+	rc = create_AESKey(session, CK_TRUE, key, keylen, &hkey);
 	if (rc != CKR_OK) {
 	    testcase_error("create_AESKey() rc=%s", p11_get_ckr(rc));
 	    goto error;

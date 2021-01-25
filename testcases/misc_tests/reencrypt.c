@@ -407,7 +407,7 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
         break;
 
     case CKM_AES_KEY_GEN:
-        rc = generate_AESKey(session, mech2->sym_keylen,
+        rc = generate_AESKey(session, mech2->sym_keylen, CK_TRUE,
                              &mech2->key_gen_mech, &sym_key2);
         break;
 
@@ -644,7 +644,7 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
         break;
 
     case CKM_AES_KEY_GEN:
-        rc = generate_AESKey(session, mech1->sym_keylen,
+        rc = generate_AESKey(session, mech1->sym_keylen, CK_TRUE,
                              &mech1->key_gen_mech, &sym_key1);
         break;
 

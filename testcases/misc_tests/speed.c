@@ -685,7 +685,7 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     mech.ulParameterLen = 0;
     mech.pParameter = NULL;
 
-    rc = generate_AESKey(session, key_len, &mech, &h_key);
+    rc = generate_AESKey(session, key_len, CK_TRUE, &mech, &h_key);
     if (rc != CKR_OK) {
         testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
