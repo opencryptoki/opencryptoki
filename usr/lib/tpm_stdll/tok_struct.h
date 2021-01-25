@@ -119,4 +119,5 @@ struct token_specific_struct token_specific = {
     &token_specific_key_unwrap,
     NULL,                       // reencrypt_single
     NULL,                       // set_attribute_values
+    NULL,                       // set_attrs_for_new_object
 };
