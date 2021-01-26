@@ -759,7 +759,7 @@ static CK_RV attribute_array_flatten(CK_ATTRIBUTE_PTR array_attr,
                     attrs[i].ulValueLen != 0) {
                     element_32.ulValueLen = sizeof(CK_ULONG_32);
 
-                    memcpy(ptr, &attr_32, sizeof(CK_ATTRIBUTE_32));
+                    memcpy(ptr, &element_32, sizeof(CK_ATTRIBUTE_32));
                     ptr += sizeof(CK_ATTRIBUTE_32);
 
                     Val_32 = (CK_ULONG_32) *((CK_ULONG *) attrs[i].pValue);
@@ -859,6 +859,8 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
     CK_BYTE *ptr = *buf;
     CK_ULONG ofs = 0, num_elements = 0;
     CK_ATTRIBUTE_PTR elements = NULL;
+    CK_ULONG_32 attr_ulong_32;
+    CK_ULONG attr_ulong;
     CK_RV rc;
 
     *attrs = NULL;
@@ -935,9 +937,19 @@ static CK_RV attribute_array_unflatten(CK_BYTE **buf, CK_ATTRIBUTE_PTR *attrs,
                 elements = NULL;
                 num_elements = 0;
             } else {
-                rc = add_to_attribute_array(attrs, num_attrs, a2_32.type,
-                                       ptr + sizeof(CK_ATTRIBUTE_32),
-                                       a2_32.ulValueLen);
+                if (flatten_ulong_attribute_as_ulong32(a2_32.type) &&
+                    a2_32.ulValueLen > 0) {
+                    memcpy(&attr_ulong_32, ptr + sizeof(CK_ATTRIBUTE_32),
+                                           sizeof(attr_ulong_32));
+                    attr_ulong = attr_ulong_32;
+                    rc = add_to_attribute_array(attrs, num_attrs, a2_32.type,
+                                                (CK_BYTE *)&attr_ulong,
+                                                sizeof(attr_ulong));
+                } else {
+                    rc = add_to_attribute_array(attrs, num_attrs, a2_32.type,
+                                                ptr + sizeof(CK_ATTRIBUTE_32),
+                                                a2_32.ulValueLen);
+                }
                 if (rc != CKR_OK) {
                     TRACE_ERROR("attribute_array_unflatten failed\n");
                     goto error;
