@@ -328,9 +328,31 @@ CK_BBOOL compare_attribute_array(CK_ATTRIBUTE_PTR a1, CK_ULONG a1_len,
 }
 
 #ifdef DEBUG
+void dump_array_attr(CK_ATTRIBUTE_PTR a)
+{
+    CK_ATTRIBUTE_PTR attrs;
+    CK_ULONG num_attrs, i;
+    const char *typestr = p11_get_cka(a->type);
+
+    attrs = (CK_ATTRIBUTE_PTR)a->pValue;
+    num_attrs = a->ulValueLen / sizeof(CK_ATTRIBUTE);
+
+    TRACE_DEBUG("  %s: begin array: num_elements=%lu\n", typestr, num_attrs);
+    for (i = 0; i < num_attrs; i++)
+        dump_attr(&attrs[i]);
+    TRACE_DEBUG("  %s: end array\n", p11_get_cka(a->type));
+}
+
 void dump_attr(CK_ATTRIBUTE_PTR a)
 {
-    const char *typestr = p11_get_cka(a->type);
+    const char *typestr;
+
+    if (is_attribute_attr_array(a->type)) {
+        dump_array_attr(a);
+        return;
+    }
+
+    typestr = p11_get_cka(a->type);
 
     switch (a->ulValueLen) {
     case 0:
