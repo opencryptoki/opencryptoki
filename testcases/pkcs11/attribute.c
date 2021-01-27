@@ -29,6 +29,8 @@ CK_RV do_TestAttributes(void)
     CK_ULONG user_pin_len;
     CK_BYTE so_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG so_pin_len;
+    CK_ULONG find_count;
+    CK_OBJECT_HANDLE obj_list[10];
 
     CK_BYTE modulus[] = {
         0xa5, 0x6e, 0x4a, 0x0e, 0x70, 0x10, 0x17, 0x58,
@@ -57,10 +59,11 @@ CK_RV do_TestAttributes(void)
     CK_KEY_TYPE keyType = CKK_RSA;
     CK_CHAR label[] = "An RSA public key object";
     CK_CHAR newlabel[] = "Updated RSA public key object";
+    CK_CHAR label2[] = "Another RSA public key object";
     CK_CHAR labelbuf[100];
     CK_BBOOL false = FALSE;
     CK_BBOOL true = TRUE;
-    CK_BBOOL boolval;
+    CK_BBOOL boolval, boolval2;
 
     CK_ATTRIBUTE pub_template[] = {
         {CKA_CLASS, &class, sizeof(class)},
@@ -126,6 +129,37 @@ CK_RV do_TestAttributes(void)
 
     CK_ATTRIBUTE update_trusted_false[] = {
         {CKA_TRUSTED, &false, sizeof(false)},
+    };
+
+    CK_ATTRIBUTE array_attrs[] = {
+        {CKA_ENCRYPT, &true, sizeof(true)},
+        {CKA_WRAP, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label) - 1},
+    };
+
+    CK_ATTRIBUTE pub_template_private[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label2, sizeof(label2) - 1},
+        {CKA_MODULUS, modulus, modulus_len},
+        {CKA_PUBLIC_EXPONENT, publicExponent, publicExponent_len},
+        {CKA_WRAP_TEMPLATE, array_attrs, sizeof(array_attrs)},
+    };
+
+    CK_ATTRIBUTE find_label[] = {
+        {CKA_LABEL, label2, sizeof(label2) - 1},
+    };
+
+    CK_ATTRIBUTE verify_array_attrs[] = {
+        {CKA_ENCRYPT, &boolval, sizeof(boolval)},
+        {CKA_WRAP, &boolval2, sizeof(boolval2)},
+        {CKA_LABEL, labelbuf, sizeof(labelbuf)},
+    };
+
+    CK_ATTRIBUTE verify_array[] = {
+        {CKA_WRAP_TEMPLATE, &verify_array_attrs, sizeof(verify_array_attrs)},
     };
 
     testcase_begin("");
@@ -332,6 +366,90 @@ CK_RV do_TestAttributes(void)
 
     testcase_pass("Successfully added CKA_TRUSTED=FALSE (as User).");
 
+    testcase_new_assertion();
+    rv = funcs->C_DestroyObject(session, obj_handle);
+    if (rv != CKR_OK)
+        testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+
+
+    /* create a public key object with an array-attribute */
+    rc = funcs->C_CreateObject(session, pub_template_private, 8, &obj_handle);
+    if (rc != CKR_OK) {
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully created an object with an attribute-array attribute.");
+
+    testcase_new_assertion();
+    /*
+     * Logout and Login again to force a reload of private token objects.
+     * This tests that the object is stored correctly into the token directory
+     * and that it can be successfully be loaded again.
+     */
+    testcase_user_logout();
+    testcase_user_login();
+
+    rc = funcs->C_FindObjectsInit(session, find_label, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsInit() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_FindObjects(session, obj_list, 10, &find_count);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjects() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* We should have gotten back 2 des3 key objects */
+    if (find_count != 1) {
+        testcase_fail("Should have found 1 objects, found %d",
+                      (int) find_count);
+        goto testcase_cleanup;
+    }
+
+    obj_handle = obj_list[0];
+
+    rc = funcs->C_FindObjectsFinal(session);
+    if (rc != CKR_OK) {
+        testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully found the previously created object.");
+
+    /* Now get the attribute-array attribute and verify it */
+    testcase_new_assertion();
+    rc = funcs->C_GetAttributeValue(session, obj_handle, verify_array, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* verify the attribute values retrieved */
+    if (verify_array[0].ulValueLen != sizeof(verify_array_attrs)) {
+        testcase_fail("CKA_WRAP_TEMPLATE array length mismatch");
+        goto testcase_cleanup;
+    }
+
+    if (verify_array_attrs[0].ulValueLen != sizeof(boolval) ||
+        *(CK_BBOOL *) verify_array_attrs[0].pValue != true) {
+        testcase_fail("Array element CKA_ENCRYPT mismatch");
+        goto testcase_cleanup;
+    }
+
+    if (verify_array_attrs[1].ulValueLen != sizeof(boolval) ||
+        *(CK_BBOOL *) verify_array_attrs[1].pValue != true) {
+        testcase_fail("Array element CKA_WRAP mismatch");
+        goto testcase_cleanup;
+    }
+
+    if (memcmp(verify_array_attrs[2].pValue,
+               label, verify_array_attrs[2].ulValueLen) != 0)
+        testcase_fail("Array element CKA_LABEL mismatch");
+    else
+        testcase_pass("Successfully verified attribute-array elements.");
 
 testcase_cleanup:
     rv = funcs->C_DestroyObject(session, obj_handle);
