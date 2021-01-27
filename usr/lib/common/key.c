@@ -675,6 +675,8 @@ error:
 CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                                   CK_ATTRIBUTE *attr, CK_ULONG mode)
 {
+    CK_RV rc;
+
     switch (attr->type) {
     case CKA_SUBJECT:
         return CKR_OK;
@@ -715,6 +717,12 @@ CK_RV publ_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
+                                      attr->ulValueLen / sizeof(CK_ATTRIBUTE));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(rc));
+            return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
             mode == MODE_DERIVE || mode == MODE_UNWRAP)
@@ -1302,6 +1310,12 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
+        rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
+                                      attr->ulValueLen / sizeof(CK_ATTRIBUTE));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(rc));
+            return rc;
+        }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
             mode == MODE_DERIVE || mode == MODE_UNWRAP)
             return CKR_OK;
@@ -1863,6 +1877,12 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        rc = validate_attribute_array((CK_ATTRIBUTE_PTR)attr->pValue,
+                                      attr->ulValueLen / sizeof(CK_ATTRIBUTE));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(rc));
+            return rc;
         }
         if (mode == MODE_CREATE || mode == MODE_KEYGEN ||
             mode == MODE_DERIVE || mode == MODE_UNWRAP)
