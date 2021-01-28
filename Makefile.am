@@ -216,6 +216,10 @@ installcheck-local: all
 	killall -HUP pkcsslotd
 
 ci-installcheck: installcheck
+	killall -HUP pkcsslotd || true
+	@sbindir@/pkcsslotd
+	cd ${srcdir}/testcases && ./misc_tests/p11sak_test.sh | tee log-p11sak.txt
+	killall -HUP pkcsslotd
 	@echo "done"
 endif
 
