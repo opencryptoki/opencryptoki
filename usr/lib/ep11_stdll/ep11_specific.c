@@ -219,6 +219,10 @@ static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
 static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
                                        ST_SESSION_HANDLE * sSession);
 
+static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
+                                            TEMPLATE *template,
+                                            const struct _ec **curve);
+
 static void free_cp_config(cp_config_t * cp);
 #ifdef DEBUG
 static const char *ep11_get_cp(unsigned int cp);
@@ -1911,6 +1915,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ULONG privkey_len, pubkey_len;
     CK_BYTE *pubkey = NULL;
+    const struct _ec *curve = NULL;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -1919,6 +1924,11 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
         return rc;
+    }
+
+    if (!ep11tok_ec_curve_supported2(tokdata, ec_key_obj->template, &curve)) {
+        TRACE_ERROR("Curve not supported.\n");
+        return CKR_CURVE_NOT_SUPPORTED;
     }
 
     /* m_Unwrap builds key blob in the card,
@@ -2027,25 +2037,6 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* imported private EC key goes here */
 
-        CK_ATTRIBUTE *ec_params;
-        int i, curve_type = -1;
-
-        rc = template_attribute_get_non_empty(ec_key_obj->template,
-                                              CKA_EC_PARAMS, &ec_params);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
-            goto import_EC_key_end;
-        }
-
-        for (i = 0; i < NUMEC; i++) {
-            if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
-                memcmp(ec_params->pValue, der_ec_supported[i].data,
-                       ec_params->ulValueLen) == 0) {
-                curve_type = der_ec_supported[i].curve_type;
-                break;
-            }
-        }
-
         /* extract the secret data to be wrapped
          * since this is AES_CBC_PAD, padding is done in mechanism.
          */
@@ -2076,7 +2067,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         rc = check_key_attributes(tokdata, CKK_EC, CKO_PRIVATE_KEY, p_attrs,
                                   attrs_len, &new_p_attrs, &new_attrs_len,
-                                  curve_type);
+                                  curve->curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s EC check private key attributes failed with "
                         "rc=0x%lx\n", __func__, rc);
@@ -3070,13 +3061,77 @@ static CK_RV ep11tok_digest_from_mech(CK_MECHANISM_TYPE mech,
     return CKR_OK;
 }
 
+static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
+                                            TEMPLATE *template,
+                                            const struct _ec **curve)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_ATTRIBUTE *attr = NULL;
+    int i, status;
+    const CK_VERSION ver3 = { .major = 3, .minor = 0 };
+
+    *curve = NULL;
+
+    rc = template_attribute_get_non_empty(template, CKA_ECDSA_PARAMS,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
+        return CK_FALSE;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == attr->ulValueLen &&
+            (memcmp(attr->pValue, der_ec_supported[i].data,
+             attr->ulValueLen) == 0)) {
+            *curve = &der_ec_supported[i];
+            break;
+        }
+    }
+
+    if (*curve == NULL) {
+        TRACE_DEVEL("%s EC curve not supported\n", __func__);
+        return CK_FALSE;
+    }
+
+    switch ((*curve)->curve_type) {
+    case PRIME_CURVE:
+    case BRAINPOOL_CURVE:
+        break;
+
+    case MONTGOMERY_CURVE:
+    case EDWARDS_CURVE:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
+            TRACE_INFO("%s Curve requires host library version 3 or later\n",
+                       __func__);
+            return CK_FALSE;
+        }
+
+        status = check_required_versions(tokdata, edwards_req_versions,
+                                         NUM_EDWARDS_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Curve not supported due to mixed firmware versions\n",
+                       __func__);
+            return CK_FALSE;
+        }
+
+        break;
+
+    default:
+        TRACE_DEVEL("%s EC curve not supported\n", __func__);
+        return CK_FALSE;
+    }
+
+    return CK_TRUE;
+}
+
 static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
                                            CK_OBJECT_HANDLE hKey)
 {
     CK_RV rc;
     OBJECT *key_obj;
-    CK_ATTRIBUTE *attr = NULL;
-    int i;
+    CK_BBOOL ret;
+    const struct _ec *curve = NULL;
 
     rc = object_mgr_find_in_map1(tokdata, hKey, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -3084,28 +3139,12 @@ static CK_BBOOL ep11tok_ec_curve_supported(STDLL_TokData_t *tokdata,
         return CK_FALSE;
     }
 
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
-                                         &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
-        object_put(tokdata, key_obj, TRUE);
-        key_obj = NULL;
-        return CK_FALSE;
-    }
+    ret = ep11tok_ec_curve_supported2(tokdata, key_obj->template, &curve);
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
-    for (i = 0; i < NUMEC; i++) {
-        if (der_ec_supported[i].data_size == attr->ulValueLen &&
-            (memcmp(attr->pValue, der_ec_supported[i].data,
-             attr->ulValueLen) == 0)) {
-            return CK_TRUE;
-        }
-    }
-
-    TRACE_DEVEL("%s EC curve not supported\n", __func__);
-    return CK_FALSE;
+    return ret;
 }
 
 CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
