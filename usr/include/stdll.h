@@ -350,6 +350,11 @@ typedef CK_RV (CK_PTR ST_C_IBM_ReencryptSingle)(STDLL_TokData_t *tokdata,
                                                 CK_BYTE_PTR pReencryptedData,
                                             CK_ULONG_PTR pulReencryptedDataLen);
 
+typedef CK_RV (CK_PTR ST_C_HandleEvent)(STDLL_TokData_t *tokdata,
+                                        unsigned int event_type,
+                                        unsigned int event_flags,
+                                        const char *payload,
+                                        unsigned int payload_len);
 
 struct ST_FCN_LIST {
 
@@ -424,6 +429,8 @@ struct ST_FCN_LIST {
     ST_C_CancelFunction ST_CancelFunction;
 
     ST_C_IBM_ReencryptSingle ST_IBM_ReencryptSingle;
+
+    ST_C_HandleEvent ST_HandleEvent;
 };
 
 typedef struct ST_FCN_LIST STDLL_FcnList_t;

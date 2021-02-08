@@ -326,4 +326,10 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *,
                                               CK_OBJECT_CLASS, CK_ULONG,
                                               TEMPLATE *);
 
+CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
+                                  unsigned int event_type,
+                                  unsigned int event_flags,
+                                  const char *payload,
+                                  unsigned int payload_len);
+
 #endif

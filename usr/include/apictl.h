@@ -57,6 +57,8 @@ typedef struct {
     API_Slot_t SltList[NUMBER_SLOTS_MANAGED];
     DLL_Load_t DLLs[NUMBER_SLOTS_MANAGED];  // worst case we have a separate DLL
                                             // per slot
+    int socketfd;
+    pthread_t event_thread;
 } API_Proc_Struct_t;
 
 #endif
