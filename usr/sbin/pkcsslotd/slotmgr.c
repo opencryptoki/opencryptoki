@@ -37,7 +37,6 @@ unsigned int NumberSlotsInDB = 0;
 
 Slot_Info_t_64 *psinfo;
 
-int socketfd;
 Slot_Mgr_Socket_t socketData;
 
 struct dircheckinfo_s {
@@ -569,15 +568,15 @@ int main(int argc, char *argv[], char *envp[])
     if (!XProcUnLock())
         return 4;
 
-    if ((socketfd = CreateListenerSocket()) < 0) {
+    if (!init_socket_server()) {
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
         return 5;
     }
 
-    if (!InitSocketData(&socketData)) {
-        DetachSocketListener(socketfd);
+    if (!init_socket_data(&socketData)) {
+        term_socket_server();
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
@@ -598,7 +597,7 @@ int main(int argc, char *argv[], char *envp[])
     if (Daemon) {
         pid_t pid;
         if ((pid = fork()) < 0) {
-            DetachSocketListener(socketfd);
+            term_socket_server();
             DestroyMutexes();
             DetachFromSharedMemory();
             DestroySharedMemory();
@@ -643,7 +642,7 @@ int main(int argc, char *argv[], char *envp[])
      * the daemonization process redefines our handler for (at least) SIGTERM
      */
     if (!SetupSignalHandlers()) {
-        DetachSocketListener(socketfd);
+        term_socket_server();
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
@@ -664,7 +663,7 @@ int main(int argc, char *argv[], char *envp[])
     printf("Start garbage \n");
     /* start garbage collection thread */
     if (!StartGCThread(shmp)) {
-        DetachSocketListener(socketfd);
+        term_socket_server();
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
@@ -684,7 +683,7 @@ int main(int argc, char *argv[], char *envp[])
 #if !(THREADED) && !(NOGARBAGE)
         CheckForGarbage(shmp);
 #endif
-        SocketConnectionHandler(socketfd, 10);
+        socket_connection_handler(10);
     }
 
     /*************************************************************

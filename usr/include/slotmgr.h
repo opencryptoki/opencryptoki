@@ -30,7 +30,7 @@
 #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
-#define SOCKET_FILE_PATH "/var/run/pkcsslotd.socket"
+#define PROC_SOCKET_FILE_PATH "/var/run/pkcsslotd.socket"
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
