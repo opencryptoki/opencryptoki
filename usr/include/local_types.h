@@ -11,6 +11,8 @@
 #ifndef __LOCAL_TYPES
 #define __LOCAL_TYPES
 
+#define member_size(type, member) sizeof(((type *)0)->member)
+
 typedef unsigned char uint8;
 
 typedef unsigned short uint16;

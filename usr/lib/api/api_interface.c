@@ -286,7 +286,31 @@ void child_fork_initializer()
     if (Anchor != NULL)
         C_Finalize(NULL);
     in_child_fork_initializer = FALSE;
- }
+}
+
+void parent_fork_prepare()
+{
+    if (Anchor == NULL)
+        return;
+
+    /*
+     * Stop the event thread in the fork parent, since having the event thread
+     * active when a fork is performed causes various problems (e.g. deadlocks
+     * in glibc).
+     */
+    if (Anchor->event_thread > 0)
+        stop_event_thread();
+}
+
+void parent_fork_after()
+{
+    if (Anchor == NULL)
+        return;
+
+    /* Restart the event thread in the parent when fork is complete */
+    if (Anchor->event_thread == 0)
+        start_event_thread();
+}
 
 //------------------------------------------------------------------------
 // API function C_CancelFunction
@@ -1501,6 +1525,20 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
     shData = &(Anchor->SocketDataP);
 
+    /*
+     * Stop the event thread and close the socket.
+     * If C_Finalize is called as part of the fork initializer, don't stop
+     * the thread, since a forked process does not have any threads, and don't
+     * close the socket, as this would close the connection of the parent
+     * process to the pkcsslotd as well.
+     * */
+    if (!in_child_fork_initializer) {
+        if (Anchor->event_thread > 0)
+            stop_event_thread();
+        if (Anchor->socketfd >= 0)
+            close(Anchor->socketfd);
+    }
+
     // unload all the STDLL's from the application
     // This is in case the APP decides to do the re-initialize and
     // continue on
@@ -2642,6 +2680,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     CK_C_INITIALIZE_ARGS *pArg;
     char fcnmap = 0;
     CK_RV rc = CKR_OK;
+    CK_SLOT_ID slotID;
+    API_Slot_t *sltp;
 
     /*
      * Lock so that only one thread can run C_Initialize or C_Finalize at
@@ -2674,6 +2714,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     // This must be done prior to all goto error calls, else bt_destroy()
     // will fail because it accesses uninitialized memory when t->size > 0.
     memset(Anchor, 0, sizeof(API_Proc_Struct_t));
+    Anchor->socketfd = -1;
 
     TRACE_DEBUG("Anchor allocated at %s\n", (char *) Anchor);
 
@@ -2789,11 +2830,21 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     }
     TRACE_DEBUG("Shared memory %p \n", Anchor->SharedMemP);
 
-    if (!init_socket_data()) {
+    /* Connect to slot daemon and retrieve slot infos */
+    Anchor->socketfd = connect_socket(SOCKET_FILE_PATH);
+    if (Anchor->socketfd < 0) {
         OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to create a "
                    "socket. Verify that the slot management daemon is "
                    "running.\n");
-        TRACE_ERROR("Cannot attach to socket.\n");
+        TRACE_ERROR("Failed to connect to slot daemon\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error_shm;
+    }
+
+    if (!init_socket_data(Anchor->socketfd)) {
+        OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to retrieve slot "
+                   "infos from slot deamon.\n");
+        TRACE_ERROR("Failed to receive slot infos from socket.\n");
         rc = CKR_FUNCTION_FAILED;
         goto error_shm;
     }
@@ -2810,15 +2861,35 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     }
     //
     // load all the slot DLL's here
-    {
-        CK_SLOT_ID slotID;
-        API_Slot_t *sltp;
+    for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
+        sltp = &(Anchor->SltList[slotID]);
+        slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
+    }
 
+    /* Start event receiver thread */
+    if (start_event_thread() != 0) {
+        TRACE_ERROR("Failed to start event thread\n");
+
+        // unload all the STDLL's from the application
+        // This is in case the APP decides to do the re-initialize and
+        // continue on
         for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
             sltp = &(Anchor->SltList[slotID]);
-            slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
+            if (slot_loaded[slotID]) {
+                if (sltp->pSTfini) {
+                    // call the terminate function..
+                    sltp->pSTfini(sltp->TokData, slotID,
+                                  &Anchor->SocketDataP.slot_info[slotID],
+                                  &trace, 0);
+                }
+            }
+            DL_UnLoad(sltp, slotID);
         }
 
+        API_UnRegister();
+
+        rc = CKR_FUNCTION_FAILED;
+        goto error_shm;
     }
 
     pthread_mutex_unlock(&GlobMutex);
@@ -2829,6 +2900,8 @@ error_shm:
 
 error:
     bt_destroy(&Anchor->sess_btree);
+    if (Anchor->socketfd >= 0)
+        close(Anchor->socketfd);
 
     free((void *) Anchor);
     Anchor = NULL;
@@ -5052,7 +5125,8 @@ void api_init(void)
 {
     // Should only have to do the atfork stuff at load time...
     if (!Initialized) {
-        pthread_atfork(NULL, NULL, (void (*)()) child_fork_initializer);
+        pthread_atfork(parent_fork_prepare, parent_fork_after,
+                       child_fork_initializer);
         Initialized = 1;
     }
 }

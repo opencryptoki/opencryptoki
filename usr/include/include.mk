@@ -7,4 +7,5 @@ opencryptokiinclude_HEADERS =						\
 
 noinst_HEADERS +=							\
 	usr/include/apictl.h usr/include/local_types.h			\
-	usr/include/pkcs32.h usr/include/slotmgr.h usr/include/stdll.h
+	usr/include/pkcs32.h usr/include/slotmgr.h usr/include/stdll.h	\
+	usr/include/events.h
