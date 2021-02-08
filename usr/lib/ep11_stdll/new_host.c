@@ -4262,6 +4262,24 @@ done:
     return rc;
 }
 
+CK_RV SC_HandleEvent(STDLL_TokData_t *tokdata, unsigned int event_type,
+                     unsigned int event_flags, const char *payload,
+                     unsigned int payload_len)
+{
+    CK_RV rc;
+
+    if (token_specific.t_handle_event == NULL)
+        return CKR_FUNCTION_NOT_SUPPORTED;
+
+    rc = token_specific.t_handle_event(tokdata, event_type, event_flags,
+                                       payload, payload_len);
+
+    TRACE_INFO("SC_HandleEvent: rc = 0x%08lx, event_type = 0x%08x, "
+               "event_flags = 0x%08x\n", rc, event_type, event_flags);
+
+    return rc;
+}
+
 void SC_SetFunctionList(void)
 {
     function_list.ST_Initialize = ST_Initialize;
@@ -4327,4 +4345,6 @@ void SC_SetFunctionList(void)
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
 
     function_list.ST_IBM_ReencryptSingle = SC_IBM_ReencryptSingle;
+
+    function_list.ST_HandleEvent = SC_HandleEvent;
 }
