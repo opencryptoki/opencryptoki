@@ -2831,7 +2831,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     TRACE_DEBUG("Shared memory %p \n", Anchor->SharedMemP);
 
     /* Connect to slot daemon and retrieve slot infos */
-    Anchor->socketfd = connect_socket(SOCKET_FILE_PATH);
+    Anchor->socketfd = connect_socket(PROC_SOCKET_FILE_PATH);
     if (Anchor->socketfd < 0) {
         OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to create a "
                    "socket. Verify that the slot management daemon is "

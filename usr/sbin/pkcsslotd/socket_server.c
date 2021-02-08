@@ -25,10 +25,14 @@
 #include "pkcsslotd.h"
 #include "apictl.h"
 
+int proc_listener_socket = -1;
+
+static void close_listener_socket(int socketfd, const char *file_path);
+
 // Creates the daemon's listener socket, to which clients will connect and
 // retrieve slot information through.  Returns the file descriptor of the
 // created socket.
-int CreateListenerSocket(void)
+static int create_listener_socket(const char *file_path)
 {
     struct sockaddr_un address;
     struct group *grp;
@@ -39,53 +43,60 @@ int CreateListenerSocket(void)
         ErrLog("Failed to create listener socket, errno 0x%X.", errno);
         return -1;
     }
-    if (unlink(SOCKET_FILE_PATH) && errno != ENOENT) {
+    if (unlink(file_path) && errno != ENOENT) {
         ErrLog("Failed to unlink socket file, errno 0x%X.", errno);
-        close(socketfd);
-        return -1;
+        goto error;
     }
 
     memset(&address, 0, sizeof(struct sockaddr_un));
     address.sun_family = AF_UNIX;
-    strcpy(address.sun_path, SOCKET_FILE_PATH);
+    strcpy(address.sun_path, file_path);
 
     if (bind(socketfd,
              (struct sockaddr *) &address, sizeof(struct sockaddr_un)) != 0) {
         ErrLog("Failed to bind to socket, errno 0x%X.", errno);
-        close(socketfd);
-        return -1;
+        goto error;
     }
     // make socket file part of the pkcs11 group, and write accessable
     // for that group
     grp = getgrnam("pkcs11");
     if (!grp) {
         ErrLog("Group PKCS#11 does not exist");
-        DetachSocketListener(socketfd);
-        return -1;
+        goto error;
     }
-    if (chown(SOCKET_FILE_PATH, 0, grp->gr_gid)) {
+    if (chown(file_path, 0, grp->gr_gid)) {
         ErrLog("Could not change file group on socket, errno 0x%X.", errno);
-        DetachSocketListener(socketfd);
-        return -1;
+        goto error;
     }
-    if (chmod(SOCKET_FILE_PATH,
+    if (chmod(file_path,
               S_IRUSR | S_IRGRP | S_IWUSR | S_IWGRP | S_IXUSR | S_IXGRP)) {
         ErrLog("Could not change file permissions on socket, errno 0x%X.",
                errno);
-        DetachSocketListener(socketfd);
-        return -1;
+        goto error;
     }
 
     if (listen(socketfd, 20) != 0) {
         ErrLog("Failed to listen to socket, errno 0x%X.", errno);
-        DetachSocketListener(socketfd);
-        return -1;
+        goto error;
     }
 
     return socketfd;
+
+error:
+    if (socketfd >= 0)
+        close_listener_socket(socketfd, file_path);
+
+    return -1;
 }
 
-int InitSocketData(Slot_Mgr_Socket_t *socketData)
+
+static void close_listener_socket(int socketfd, const char *file_path)
+{
+    close(socketfd);
+    unlink(file_path);
+}
+
+int init_socket_data(Slot_Mgr_Socket_t *socketData)
 {
     unsigned int processed = 0;
 
@@ -102,19 +113,19 @@ int InitSocketData(Slot_Mgr_Socket_t *socketData)
     return TRUE;
 }
 
-int SocketConnectionHandler(int socketfd, int timeout_secs)
+int socket_connection_handler(int timeout_secs)
 {
     int returnVal;
     fd_set set;
     struct timeval timeout;
 
     FD_ZERO(&set);
-    FD_SET(socketfd, &set);
+    FD_SET(proc_listener_socket, &set);
 
     timeout.tv_sec = timeout_secs;
     timeout.tv_usec = 0;
 
-    returnVal = select(socketfd + 1, &set, NULL, NULL, &timeout);
+    returnVal = select(proc_listener_socket + 1, &set, NULL, NULL, &timeout);
     if (returnVal == -1) {
         ErrLog("select failed on socket connection, errno 0x%X.", errno);
         return FALSE;
@@ -125,7 +136,7 @@ int SocketConnectionHandler(int socketfd, int timeout_secs)
         struct sockaddr_un address;
         socklen_t address_length = sizeof(address);
 
-        int connectionfd = accept(socketfd,
+        int connectionfd = accept(proc_listener_socket,
                                   (struct sockaddr *) &address,
                                   &address_length);
         if (connectionfd < 0) {
@@ -138,6 +149,10 @@ int SocketConnectionHandler(int socketfd, int timeout_secs)
             }
             return FALSE;
         }
+
+        DbgLog(DL0, "Accepted connection from process: socket: %d", 
+               connectionfd);
+
         if (write(connectionfd, &socketData, sizeof(socketData)) !=
             sizeof(socketData)) {
             ErrLog("Failed to write socket data, errno 0x%X.", errno);
@@ -149,8 +164,23 @@ int SocketConnectionHandler(int socketfd, int timeout_secs)
     }
 }
 
-void DetachSocketListener(int socketfd)
+int init_socket_server()
 {
-    close(socketfd);
-    unlink(SOCKET_FILE_PATH);
+    proc_listener_socket = create_listener_socket(PROC_SOCKET_FILE_PATH);
+    if (proc_listener_socket < 0)
+        return FALSE;
+
+    DbgLog(DL0, "Socket server started");
+
+    return TRUE;
+}
+
+int term_socket_server()
+{
+    if (proc_listener_socket >= 0)
+        close_listener_socket(proc_listener_socket, PROC_SOCKET_FILE_PATH);
+
+    DbgLog(DL0, "Socket server stopped");
+
+    return TRUE;
 }

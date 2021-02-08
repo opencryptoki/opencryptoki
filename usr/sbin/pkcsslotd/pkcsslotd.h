@@ -61,7 +61,6 @@ extern key_t tok;
 extern Slot_Info_t_64 sinfo[NUMBER_SLOTS_MANAGED];
 extern unsigned int NumberSlotsInDB;
 
-extern int socketfd;
 extern Slot_Mgr_Socket_t socketData;
 
 
@@ -89,9 +88,9 @@ int XProcLock(void);
 int XProcUnLock(void);
 int CreateXProcLock(void);
 
-int CreateListenerSocket(void);
-int InitSocketData(Slot_Mgr_Socket_t *sp);
-int SocketConnectionHandler(int socketfd, int timeout_secs);
-void DetachSocketListener(int socketfd);
+int init_socket_server();
+int term_socket_server();
+int init_socket_data(Slot_Mgr_Socket_t *sp);
+int socket_connection_handler(int timeout_secs);
 
 #endif                          /* _SLOTMGR_H */
