@@ -101,7 +101,7 @@ void slotdGenericSignalHandler(int Signal)
 
     InfoLog("Exiting on %s (%d; %#x)", SignalConst(Signal), Signal, Signal);
 
-    DetachSocketListener(socketfd);
+    term_socket_server();
     DestroyMutexes();
     DetachFromSharedMemory();
     DestroySharedMemory();
