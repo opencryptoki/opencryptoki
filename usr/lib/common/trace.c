@@ -33,6 +33,8 @@
 
 #ifdef SYS_gettid
 #define __gettid() syscall(SYS_gettid)
+#else
+#define __gettid() gettid()
 #endif
 
 pthread_mutex_t tlmtx = PTHREAD_MUTEX_INITIALIZER;
