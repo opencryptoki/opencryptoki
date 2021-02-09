@@ -3104,23 +3104,14 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
     return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
 
-CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
-                              CK_MECHANISM *mech)
+#ifdef OLDER_OPENSSL
+#define EVP_MD_meth_get_app_datasize(md)        md->ctx_size
+#define EVP_MD_CTX_md_data(ctx)                 ctx->md_data
+#endif
+
+static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
 {
     const EVP_MD *md = NULL;
-
-    UNUSED(tokdata);
-
-    ctx->context_len = 1; /* Dummy length, size of EVP_MD_CTX is unknown */
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    ctx->context = (CK_BYTE *)EVP_MD_CTX_create();
-#else
-    ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
-#endif
-    if (ctx->context == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
 
     switch (mech->mechanism) {
     case CKM_SHA_1:
@@ -3172,18 +3163,84 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
         break;
     }
 
-    if (md == NULL ||
-        !EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, md, NULL)) {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-        EVP_MD_CTX_destroy((EVP_MD_CTX *)ctx->context);
-#else
-        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
-#endif
-        ctx->context = NULL;
-        ctx->context_len = 0;
+    return md;
+}
 
-        return CKR_FUNCTION_FAILED;
+static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
+{
+    const EVP_MD *md;
+    EVP_MD_CTX *md_ctx;
+
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+    md_ctx = EVP_MD_CTX_create();
+#else
+    md_ctx = EVP_MD_CTX_new();
+#endif
+    if (md_ctx == NULL)
+        return NULL;
+
+    md = md_from_mech(&ctx->mech);
+    if (md == NULL ||
+        !EVP_DigestInit_ex(md_ctx, md, NULL)) {
+        TRACE_ERROR("md_from_mech or EVP_DigestInit_ex failed\n");
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+        EVP_MD_CTX_destroy(md_ctx);
+#else
+        EVP_MD_CTX_free(md_ctx);
+#endif
+        return NULL;
     }
+
+    if (ctx->context_len == 0) {
+        ctx->context_len = EVP_MD_meth_get_app_datasize(EVP_MD_CTX_md(md_ctx));
+        ctx->context = malloc(ctx->context_len);
+        if (ctx->context == NULL) {
+            TRACE_ERROR("malloc failed\n");
+    #if OPENSSL_VERSION_NUMBER < 0x10101000L
+            EVP_MD_CTX_destroy(md_ctx);
+    #else
+            EVP_MD_CTX_free(md_ctx);
+    #endif
+            ctx->context_len = 0;
+            return NULL;
+        }
+
+        /* Save context data for later use */
+        memcpy(ctx->context,  EVP_MD_CTX_md_data(md_ctx), ctx->context_len);
+    } else {
+        if (ctx->context_len !=
+                (CK_ULONG)EVP_MD_meth_get_app_datasize(EVP_MD_CTX_md(md_ctx))) {
+            TRACE_ERROR("context size mismatcht\n");
+            return NULL;
+        }
+        /* restore the MD context data */
+        memcpy(EVP_MD_CTX_md_data(md_ctx), ctx->context, ctx->context_len);
+    }
+
+    return md_ctx;
+}
+
+CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                              CK_MECHANISM *mech)
+{
+    EVP_MD_CTX *md_ctx;
+
+    UNUSED(tokdata);
+
+    ctx->mech.ulParameterLen = mech->ulParameterLen;
+    ctx->mech.mechanism = mech->mechanism;
+
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+    EVP_MD_CTX_destroy(md_ctx);
+#else
+    EVP_MD_CTX_free(md_ctx);
+#endif
 
     return CKR_OK;
 }
@@ -3194,6 +3251,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+    EVP_MD_CTX *md_ctx;
 
     UNUSED(tokdata);
 
@@ -3203,11 +3261,18 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!in_data || !out_data)
         return CKR_ARGUMENTS_BAD;
 
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context))
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
         return CKR_BUFFER_TOO_SMALL;
 
-    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
-        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+    if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
+        !EVP_DigestFinal(md_ctx, out_data, &len)) {
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -3216,10 +3281,11 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 
 out:
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy((EVP_MD_CTX *)ctx->context);
+    EVP_MD_CTX_destroy(md_ctx);
 #else
-    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+    EVP_MD_CTX_free(md_ctx);
 #endif
+    free(ctx->context);
     ctx->context = NULL;
     ctx->context_len = 0;
 
@@ -3229,6 +3295,8 @@ out:
 CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                 CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+    EVP_MD_CTX *md_ctx;
+
     UNUSED(tokdata);
 
     if (!ctx || !ctx->context)
@@ -3237,16 +3305,33 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!in_data)
         return CKR_ARGUMENTS_BAD;
 
-    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len)) {
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len)) {
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
-        EVP_MD_CTX_destroy((EVP_MD_CTX *)ctx->context);
+        EVP_MD_CTX_destroy(md_ctx);
 #else
-        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        EVP_MD_CTX_free(md_ctx);
 #endif
+        free(ctx->context);
         ctx->context = NULL;
         ctx->context_len = 0;
         return CKR_FUNCTION_FAILED;
     }
+
+    /* Save context data for later use */
+    memcpy(ctx->context,  EVP_MD_CTX_md_data(md_ctx), ctx->context_len);
+
+#if OPENSSL_VERSION_NUMBER < 0x10101000L
+    EVP_MD_CTX_destroy(md_ctx);
+#else
+    EVP_MD_CTX_free(md_ctx);
+#endif
 
     return CKR_OK;
 }
@@ -3256,6 +3341,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+    EVP_MD_CTX *md_ctx;
 
     UNUSED(tokdata);
 
@@ -3265,10 +3351,17 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!out_data)
         return CKR_ARGUMENTS_BAD;
 
-    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context))
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
         return CKR_BUFFER_TOO_SMALL;
 
-    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+    if (!EVP_DigestFinal(md_ctx, out_data, &len)) {
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
@@ -3276,10 +3369,11 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 
 out:
 #if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy((EVP_MD_CTX *)ctx->context);
+    EVP_MD_CTX_destroy(md_ctx);
 #else
-    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+    EVP_MD_CTX_free(md_ctx);
 #endif
+    free(ctx->context);
     ctx->context = NULL;
     ctx->context_len = 0;
 
