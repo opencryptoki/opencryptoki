@@ -37,6 +37,7 @@
 #include "trace.h"
 #include "ock_syslog.h"
 #include "ec_defs.h"
+#include "p11util.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -145,7 +146,8 @@ const char descr[] = "IBM EP11 token";
 const char label[] = "ep11tok";
 
 /* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
-#define MAX_BLOBSIZE 8192
+/* Attribute bound keys can be larger */
+#define MAX_BLOBSIZE (8192 * 2)
 #define MAX_CSUMSIZE 64
 #define EP11_CSUMSIZE 3
 #define MAX_DIGEST_STATE_BYTES 1024
@@ -1036,6 +1038,412 @@ done:
  *
  ******************************************************************************/
 
+static CK_RV check_ab_supported(CK_KEY_TYPE type) {
+    switch(type) {
+    case CKK_AES:
+    case CKK_DES2:
+    case CKK_DES3:
+    case CKK_GENERIC_SECRET:
+    case CKK_RSA:
+    case CKK_EC:
+    case CKK_DSA:
+    case CKK_DH:
+        return CKR_OK;
+    default:
+        TRACE_ERROR("%s key type not supported for ab: 0x%lx\n", __func__, type);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+}
+
+static CK_RV check_ab_pair(CK_ATTRIBUTE_PTR pPublicKeyTemplate,
+                           CK_ULONG ulPublicKeyAttributeCount,
+                           CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
+                           CK_ULONG ulPrivateKeyAttributeCount)
+{
+    CK_RV rc;
+    CK_BBOOL abpub = FALSE, abpriv = FALSE;
+
+    rc = get_bool_attribute_by_type(pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                                    CKA_IBM_ATTRBOUND, &abpub);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("Failed to retrieve CKA_IBM_ATTRBOUND attribute from public template. rc=0x%lx\n", rc);
+        return rc;
+    }
+    rc = get_bool_attribute_by_type(pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
+                                    CKA_IBM_ATTRBOUND, &abpriv);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("Failed to retrieve CKA_IBM_ATTRBOUND attribute from private template. rc=0x%lx\n", rc);
+        return rc;
+    }
+    if (abpub != abpriv) {
+        TRACE_ERROR("Only one of the key pair is attribute bound.\n");
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+    return CKR_OK;
+}
+
+static CK_RV check_ab_kek_type(TEMPLATE *tmpl, CK_RV errval)
+{
+    CK_KEY_TYPE kektype;
+    CK_OBJECT_CLASS class;
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(tmpl, CKA_KEY_TYPE, &kektype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        return rc;
+    }
+    rc = template_attribute_get_ulong(tmpl, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid object class attribute\n");
+        return rc;
+    }
+    if (kektype != CKK_RSA && class != CKO_SECRET_KEY) {
+        TRACE_ERROR("KEK key type %ld not supported for AB wrap/unwrap\n",
+                    kektype);
+        return errval;
+    }
+    return rc;
+}
+
+static CK_RV check_ab_attributes(CK_ATTRIBUTE *attrs,
+                                 CK_ULONG attrs_len,
+                                 CK_OBJECT_CLASS kc)
+{
+    CK_RV rc;
+    CK_BBOOL attrbound = FALSE, sensitive = FALSE;
+
+    if (kc != CKO_PUBLIC_KEY) {
+        rc = get_bool_attribute_by_type(attrs, attrs_len, CKA_IBM_ATTRBOUND,
+                                        &attrbound);
+        if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE)
+            return rc;
+        rc = get_bool_attribute_by_type(attrs, attrs_len, CKA_SENSITIVE,
+                                        &sensitive);
+        if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE)
+            return rc;
+        if (attrbound && !sensitive) {
+            TRACE_ERROR("Attribute bound key not sensitive!");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+    }
+    return CKR_OK;
+}
+
+static CK_RV check_ab_wrap(STDLL_TokData_t * tokdata,
+                           CK_BYTE **sblob, size_t *sblob_len,
+                           OBJECT **sobj,
+                           OBJECT *key_obj, OBJECT *wrap_key_obj,
+                           CK_MECHANISM_PTR mech)
+{
+    CK_RV rc;
+    CK_BBOOL abkey, abwrapkey, absignkey, signsignkey;
+
+    *sobj = 0;
+    *sblob = 0;
+    *sblob_len = ~0;
+    rc = template_attribute_get_bool(key_obj->template, CKA_IBM_ATTRBOUND, &abkey);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        abkey = FALSE;
+        rc = CKR_OK;
+    } else if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid CKA_IBM_ATTRBOUND attribute on key to wrap\n");
+        return rc;
+    }
+    rc = template_attribute_get_bool(wrap_key_obj->template, CKA_IBM_ATTRBOUND, &abwrapkey);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        abwrapkey = FALSE;
+        rc = CKR_OK;
+    } else if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid CKA_IBM_ATTRBOUND attribute on wrapping key\n");
+        return rc;
+    }
+    if (abwrapkey) {
+        if (!abkey) {
+            TRACE_ERROR("Wrapping key is AB, but target key not\n");
+            return CKR_KEY_NOT_WRAPPABLE;
+        }
+        /* Here, only AB wrapping can be used.  Check mechanism and parameters. */
+        if (mech->mechanism != CKM_IBM_ATTRIBUTEBOUND_WRAP){
+            TRACE_ERROR("AB key wrapping attempt without CKM_IBM_ATTRIBUTEBOUND_WRAP");
+            return CKR_MECHANISM_INVALID;
+        }
+        if (sizeof(CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS) != mech->ulParameterLen) {
+            TRACE_ERROR("AB key wrapping attempt with invalid mechanism parameter");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        rc = check_ab_kek_type(wrap_key_obj->template, CKR_WRAPPING_KEY_TYPE_INCONSISTENT);
+        if (rc != CKR_OK)
+            return rc;
+        rc = h_opaque_2_blob(tokdata,
+                             ((CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS *)mech->pParameter)->hSignVerifyKey,
+                             sblob, sblob_len, sobj, READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get sign key for AB wrapping\n");
+            return rc;
+        }
+        rc = template_attribute_get_bool((*sobj)->template, CKA_IBM_ATTRBOUND, &absignkey);
+        if (rc != CKR_OK || !absignkey) {
+            TRACE_ERROR("AB-Wrap: sign key not AB\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto out;
+        }
+        rc = template_attribute_get_bool((*sobj)->template, CKA_SIGN, &signsignkey);
+        if (rc != CKR_OK || !signsignkey) {
+            TRACE_ERROR("AB-Wrap: sign key not able to sign\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto out;
+        }
+    } else if (abkey) {
+        TRACE_ERROR("Target key is AB, but wrapping key is not\n");
+        return CKR_KEY_FUNCTION_NOT_PERMITTED;
+    }
+ out:
+    if (rc != CKR_OK && *sobj) {
+        object_put(tokdata, *sobj, TRUE);
+        *sobj = 0;
+        *sblob = 0;
+        *sblob_len = ~0;
+    }
+    return rc;
+}
+
+static CK_RV check_ab_unwrap(STDLL_TokData_t * tokdata,
+                             CK_BYTE **vblob, size_t *vblob_len,
+                             OBJECT **vobj, OBJECT *unwrap_key_obj,
+                             CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
+                             CK_MECHANISM_PTR mech, CK_BBOOL *isab)
+{
+    CK_RV rc;
+    CK_BBOOL abkey, abunwrapkey, abverifykey, verifyverifykey;
+
+    *vobj = 0;
+    *vblob = 0;
+    *vblob_len = ~0;
+    *isab = FALSE;
+    rc = template_attribute_get_bool(unwrap_key_obj->template, CKA_IBM_ATTRBOUND,
+                                     &abunwrapkey);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        abunwrapkey = FALSE;
+        rc = CKR_OK;
+    } else if (rc != CKR_OK) {
+        return rc;
+    }
+    rc = get_bool_attribute_by_type(attrs, attrs_len, CKA_IBM_ATTRBOUND, &abkey);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        abkey = FALSE;
+        rc = CKR_OK;
+    } else if (rc != CKR_OK) {
+        return rc;
+    }
+    if (mech->mechanism == CKM_IBM_ATTRIBUTEBOUND_WRAP) {
+        *isab = TRUE;
+        if (mech->ulParameterLen != sizeof(CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS)) {
+            TRACE_ERROR("Unwrapping AB key with invalid mechanism\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+        if (!abkey) {
+            TRACE_ERROR("CKM_IBM_ATTRIBUTEBOUND_WRAP with non-AB target\n");
+            return CKR_MECHANISM_INVALID;
+        }
+        if (!abunwrapkey) {
+            TRACE_ERROR("CKM_IBM_ATTRIBUTEBOUND_WRAP with non-AB unwrap key\n");
+            return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+        /* extract verification key */
+        rc = h_opaque_2_blob(tokdata,
+                             ((CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS *)mech->pParameter)->hSignVerifyKey,
+                             vblob, vblob_len, vobj, READ_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get verification key for AB wrapping\n");
+            return rc;
+        }
+        rc = template_attribute_get_bool((*vobj)->template, CKA_IBM_ATTRBOUND, &abverifykey);
+        if (rc != CKR_OK || !abverifykey) {
+            TRACE_ERROR("AB-Wrap: verification key not AB\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto out;
+        }
+        rc = template_attribute_get_bool((*vobj)->template, CKA_VERIFY, &verifyverifykey);
+        if (rc != CKR_OK || !verifyverifykey) {
+            TRACE_ERROR("AB-Unwrap: verification key not able to verify\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto out;
+        }
+    } else {
+        if (abkey) {
+            TRACE_ERROR("Unwrapping AB key without CKM_IBM_ATTRIBUTEBOUND_WRAP\n");
+            return CKR_MECHANISM_INVALID;
+        }
+        if (abunwrapkey) {
+            TRACE_ERROR("Unwrap key AB key without CKM_IBM_ATTRIBUTEBOUND_WRAP\n");
+            return CKR_MECHANISM_INVALID;
+        }
+    }
+ out:
+    if (rc != CKR_OK && *vobj) {
+        object_put(tokdata, *vobj, TRUE);
+        *vobj = 0;
+        *vblob = 0;
+        *vblob_len = ~0;
+    }
+    return rc;
+}
+
+/* Has to be called either with WRITE_LOCK on @obj, or before the object is
+ * made publicly available via object_mgr_create_final.  Since this function
+ * updates the attributes of the object, we would get race conditions
+ * otherwise.
+ */
+static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
+                                       CK_BYTE *blob, size_t blob_len,
+                                       OBJECT *obj,
+                                       CK_KEY_TYPE keytype)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc;
+    CK_BBOOL trusted, encrypt, decrypt, wrap, unwrap, sign, sign_recover,
+             verify, verify_recover, derive, extractable, local,
+             never_extractable, modifiable, wrap_with_trusted;
+    CK_ULONG valuelen;
+    CK_KEY_TYPE template_keytype;
+    CK_ATTRIBUTE attrs[] = {
+        {CKA_TRUSTED,           &trusted,           sizeof(trusted)},
+        {CKA_ENCRYPT,           &encrypt,           sizeof(encrypt)},
+        {CKA_DECRYPT,           &decrypt,           sizeof(decrypt)},
+        {CKA_WRAP,              &wrap,              sizeof(wrap)},
+        {CKA_UNWRAP,            &unwrap,            sizeof(unwrap)},
+        {CKA_SIGN,              &sign,              sizeof(sign)},
+        {CKA_SIGN_RECOVER,      &sign_recover,      sizeof(sign_recover)},
+        {CKA_VERIFY,            &verify,            sizeof(verify)},
+        {CKA_VERIFY_RECOVER,    &verify_recover,    sizeof(verify_recover)},
+        {CKA_DERIVE,            &derive,            sizeof(derive)},
+        {CKA_EXTRACTABLE,       &extractable,       sizeof(extractable)},
+        {CKA_LOCAL,             &local,             sizeof(local)},
+        {CKA_NEVER_EXTRACTABLE, &never_extractable, sizeof(extractable)},
+        {CKA_MODIFIABLE,        &modifiable,        sizeof(modifiable)},
+        {CKA_WRAP_WITH_TRUSTED, &wrap_with_trusted, sizeof(wrap_with_trusted)},
+        {CKA_KEY_TYPE,          &template_keytype,  sizeof(template_keytype)},
+        {CKA_VALUE_LEN,         &valuelen,          sizeof(valuelen)},
+    };
+    CK_ULONG i;
+    CK_ATTRIBUTE *attr;
+    CK_BBOOL cktrue = TRUE;
+
+    rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
+                                 sizeof(attrs) / sizeof(CK_ATTRIBUTE),
+                                 ep11_data->target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Retrieving attributes from AB unwrapped key failed, rc=0x%lx\n",
+                    rc);
+        return rc;
+    }
+    if (template_keytype != keytype) {
+        TRACE_ERROR("Template specifies different key type than the AB key (0x%08lx vs 0x%08lx)\n",
+                    template_keytype, keytype);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+    for (i = 0; i < sizeof(attrs) / sizeof(CK_ATTRIBUTE); ++i) {
+        rc = build_attribute(attrs[i].type, attrs[i].pValue,
+                             attrs[i].ulValueLen, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("failed to build attribute (rc=0x%lx)\n", rc);
+            return rc;
+        }
+        rc = template_update_attribute(obj->template, attr);
+        if (rc != CKR_OK) {
+            free(attr);
+            attr = NULL;
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+    }
+    /* force sensitive */
+    rc = build_attribute(CKA_SENSITIVE, &cktrue, sizeof(CK_BBOOL), &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("failed to build attribute (rc=0x%lx)\n", rc);
+        return rc;
+    }    
+    rc = template_update_attribute(obj->template, attr);
+    if (rc != CKR_OK) {
+        free(attr);
+        attr = NULL;
+        TRACE_ERROR("%s failed to force template sensitive; rc=0x%08lx\n", __func__, rc);
+    }
+    return rc;
+} 
+
+static CK_RV force_ab_sensitive(CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG *p_attrs_len,
+                                CK_KEY_TYPE type)
+{
+    CK_RV rc;
+    CK_BBOOL cktrue = TRUE, abvalue, sensitive;
+
+    rc = get_bool_attribute_by_type(*p_attrs, *p_attrs_len,
+                                    CKA_IBM_ATTRBOUND, &abvalue);
+    if (rc == CKR_OK && abvalue) {
+        rc = check_ab_supported(type);
+        if (rc != CKR_OK)
+            return rc;
+        /* An AB key => make sure it is sensitive */
+        rc = get_bool_attribute_by_type(*p_attrs, *p_attrs_len,
+                                        CKA_SENSITIVE, &sensitive);
+        if (rc == CKR_OK) {
+            if (!sensitive) {
+                /* Template specifies CKA_SENSITIVE == CKA_FALSE so is
+                 * inconsistent for AB keys */
+                rc = CKR_TEMPLATE_INCONSISTENT;
+            }
+        } else if (rc == CKR_TEMPLATE_INCOMPLETE) {
+            /* CKA_SENSITIVE not in template */
+            rc = add_to_attribute_array(p_attrs, p_attrs_len,
+                                        CKA_SENSITIVE, &cktrue, sizeof(cktrue));
+        }
+    } else if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        /* Not an AB key */
+        rc = CKR_OK;
+    }   
+    return rc;
+}
+
+static CK_RV check_ab_derive_attributes(TEMPLATE *tmpl,
+                                        CK_ATTRIBUTE_PTR *attrs,
+                                        CK_ULONG *attrs_len)
+{
+    CK_BBOOL abgoal, abbase;
+    CK_RV rc;
+
+    rc = template_attribute_get_bool(tmpl, CKA_IBM_ATTRBOUND, &abbase);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        abbase = FALSE;
+        rc = CKR_OK;
+    } else if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid CKA_IBM_ATTRBOUND attribute on base key (rc=0x%lx)\n",
+                    rc);
+        return rc;
+    }
+    rc = get_bool_attribute_by_type(*attrs, *attrs_len,
+                                    CKA_IBM_ATTRBOUND, &abgoal);
+    if (rc == CKR_OK && abgoal) {
+        /* We want to derive an AB key */
+        if (!abbase) {
+            TRACE_ERROR("Attempt to derive AB key from non-AB key\n");
+            rc = CKR_TEMPLATE_INCONSISTENT;
+        }
+    } else if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        rc = CKR_OK;
+        /* AB setting defaulted => if AB base key, derive AB key */
+        if (abbase) {
+            rc = add_to_attribute_array(attrs, attrs_len,
+                                        CKA_IBM_ATTRBOUND,
+                                        (CK_BYTE *) &abbase,
+                                        sizeof(abbase));
+        }
+    }
+    return rc;
+}
+
 static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                                   CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
                                   CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
@@ -1133,7 +1541,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
                 goto cleanup;
         }
     }
-    return CKR_OK;
+    return check_ab_attributes(*p_attrs, *p_attrs_len, kc);
 cleanup:
     if (rc) {
         free_attribute_array(*p_attrs, *p_attrs_len);
@@ -1476,6 +1884,7 @@ static const_info_t ep11_mechanisms[] = {
     CONSTINFO(CKM_IBM_SHA3_256_HMAC),
     CONSTINFO(CKM_IBM_SHA3_384_HMAC),
     CONSTINFO(CKM_IBM_SHA3_512_HMAC),
+    CONSTINFO(CKM_IBM_ATTRIBUTEBOUND_WRAP),
 };
 
 #define UNKNOWN_MECHANISM   0xFFFFFFFF
@@ -3339,6 +3748,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     CK_RV rc;
+    CK_ULONG class;
+    CK_BBOOL attrbound;
 
     /* get key type */
     rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &keytype);
@@ -3347,6 +3758,26 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_OK;
     }
 
+    /* Check that we do not try to create an attribute bound private key. */
+    /* need class for private/public key info */
+    rc = template_attribute_get_ulong(obj->template, CKA_CLASS,
+                                      &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        return rc;
+    }
+    rc = template_attribute_get_bool(obj->template, CKA_IBM_ATTRBOUND,
+                                    &attrbound);
+    if (rc == CKR_TEMPLATE_INCOMPLETE) {
+        attrbound = false;
+    } else if (rc != CKR_OK) {
+        TRACE_ERROR("Incomplete CKA_IBM_ATTRBOUND attribute for the key.\n");
+        return rc;
+    }
+    if (class != CKO_PUBLIC_KEY && attrbound) {
+        TRACE_ERROR("Cannot create attribute bound private key via C_CreateObject.\n");
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
     memset(blob, 0, sizeof(blob));
 
     /* only these keys can be imported */
@@ -3517,7 +3948,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                     __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
-        return rc;
+        goto done;
     }
 
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -4566,6 +4997,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    rc = check_ab_derive_attributes(base_key_obj->template,
+                                    &new_attrs, &new_attrs_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Attribute bound attribute violation on derive key: rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
         mech->mechanism == CKM_IBM_EC_X25519 ||
         mech->mechanism == CKM_IBM_EC_X448) {
@@ -4602,6 +5041,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                 goto error;
             }
         }
+    }
+
+    rc = force_ab_sensitive(&new_attrs, &new_attrs_len, ktype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s force attribute bound key sensitive failed: rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
     }
 
     /* Start creating the key object */
@@ -5925,6 +6371,11 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         TRACE_ERROR("%s get_keytype failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
+
+    rc = check_ab_pair(pPublicKeyTemplate, ulPublicKeyAttributeCount,
+                       pPrivateKeyTemplate, ulPrivateKeyAttributeCount);
+    if (rc != CKR_OK)
+        goto error;
 
     /* Now build the skeleton key. */
     rc = object_mgr_create_skel(tokdata, sess, pPublicKeyTemplate,
@@ -7345,7 +7796,9 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *wrap_target_blob;
     size_t wrap_target_blob_len;
     int size_query = 0;
-    OBJECT *key_obj = NULL, *wrap_key_obj = NULL;
+    OBJECT *key_obj = NULL, *wrap_key_obj = NULL, *sobj = NULL;
+    CK_BYTE *sign_blob = NULL;
+    size_t sign_blob_len = ~0;
 
     /* ep11 weakness:
      * it does not set *p_wrapped_key_len if wrapped_key == NULL
@@ -7401,6 +7854,13 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    rc = check_ab_wrap(tokdata, &sign_blob, &sign_blob_len, &sobj,
+                       key_obj, wrap_key_obj, mech);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("AB wrapping check failed (rc=0x%lx).\n", rc);
+        goto done;
+    }
+
     /* check if wrap mechanism is allowed for the key to be wrapped.
      * AES_ECB and AES_CBC is only allowed to wrap secret keys.
      */
@@ -7431,8 +7891,8 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_START
         rc =
         dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
-                      wrapping_blob_len, NULL, ~0, mech, wrapped_key,
-                      p_wrapped_key_len, ep11_data->target);
+                      wrapping_blob_len, sign_blob, sign_blob_len, mech,
+                      wrapped_key, p_wrapped_key_len, ep11_data->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7450,6 +7910,8 @@ done:
     wrap_key_obj = NULL;
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+    object_put(tokdata, sobj, TRUE);
+    sobj = NULL;
 
     return rc;
 }
@@ -7482,6 +7944,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
+    CK_BBOOL isab;
+    CK_BYTE *verifyblob = NULL;
+    size_t verifyblobsize = ~0;
+    OBJECT *vobj = NULL;
 
     /* get wrapping key blob */
     rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
@@ -7518,33 +7984,51 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_TEMPLATE_INCONSISTENT;
         goto error;
     }
-    switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
-    case CKO_SECRET_KEY:
-        rc = check_key_attributes(tokdata,
-                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
-                                  CKO_SECRET_KEY, attrs,
-                                  attrs_len, &new_attrs, &new_attrs_len, -1);
-        break;
-    case CKO_PUBLIC_KEY:
-        rc = check_key_attributes(tokdata,
-                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
-                                  CKO_PUBLIC_KEY, attrs, attrs_len,
-                                  &new_attrs, &new_attrs_len, -1);
-        break;
-    case CKO_PRIVATE_KEY:
-        rc = check_key_attributes(tokdata,
-                                  *(CK_KEY_TYPE *) keytype_attr->pValue,
-                                  CKO_PRIVATE_KEY, attrs, attrs_len,
-                                  &new_attrs, &new_attrs_len, -1);
-        break;
-    default:
-        TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    rc = check_ab_unwrap(tokdata, &verifyblob, &verifyblobsize, &vobj, kobj,
+                         attrs, attrs_len, mech, &isab);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("check_ab_unwrap failed with rc=0x%08lx\n", rc);
         goto error;
     }
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
-        goto error;
+    if (isab) {
+        rc = check_ab_kek_type(kobj->template, CKR_UNWRAPPING_KEY_TYPE_INCONSISTENT);
+        if (rc != CKR_OK)
+            goto error;
+        /* AB unwrapping is taking care of all the boolean usage flags.
+         * No need to check attributes, just need to duplicate the array. */
+        rc = dup_attribute_array(attrs,attrs_len,
+                                 &new_attrs, &new_attrs_len);
+        if (rc != CKR_OK)
+            goto error;
+    } else {
+        switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
+        case CKO_SECRET_KEY:
+            rc = check_key_attributes(tokdata,
+                                     *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                     CKO_SECRET_KEY, attrs,
+                                     attrs_len, &new_attrs, &new_attrs_len, -1);
+            break;
+        case CKO_PUBLIC_KEY:
+            rc = check_key_attributes(tokdata,
+                                     *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                     CKO_PUBLIC_KEY, attrs, attrs_len,
+                                     &new_attrs, &new_attrs_len, -1);
+            break;
+        case CKO_PRIVATE_KEY:
+            rc = check_key_attributes(tokdata,
+                                     *(CK_KEY_TYPE *) keytype_attr->pValue,
+                                     CKO_PRIVATE_KEY, attrs, attrs_len,
+                                     &new_attrs, &new_attrs_len, -1);
+            break;
+        default:
+            TRACE_ERROR("%s Missing CKA_CLASS type of wrapped key\n", __func__);
+            rc = CKR_TEMPLATE_INCOMPLETE;
+            goto error;
+        }
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s check key attributes failed: rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
     }
 
     /* check if unwrap mechanism is allowed for the key to be unwrapped.
@@ -7594,7 +8078,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      */
     RETRY_START
         rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
-                             wrapping_blob_len, NULL, ~0, ep11_pin_blob,
+                             wrapping_blob_len, verifyblob, verifyblobsize,
+                             ep11_pin_blob,
                              ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              ep11_data->target);
@@ -7624,6 +8109,15 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     attr = NULL;
+
+    if (isab) {
+        rc = ab_unwrap_update_template(tokdata, keyblob, keyblobsize, key_obj,
+                                       *(CK_KEY_TYPE *) keytype_attr->pValue);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ab_unwrap_update_template failed with rc=0x%08lx\n", rc);
+            return rc;
+        }
+    }
 
     switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
     case CKO_SECRET_KEY:
@@ -7751,6 +8245,7 @@ done:
         free_attribute_array(new_attrs, new_attrs_len);
 
     object_put(tokdata, kobj, TRUE);
+    object_put(tokdata, vobj, TRUE);
     kobj = NULL;
 
     return rc;
@@ -7835,6 +8330,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_SHA512_RSA_PKCS_PSS,
     CKM_SHA_1,
     CKM_SHA_1_HMAC,
+    CKM_IBM_ATTRIBUTEBOUND_WRAP,
 };
 
 static const CK_ULONG supported_mech_list_len =

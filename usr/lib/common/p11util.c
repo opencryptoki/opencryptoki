@@ -552,6 +552,7 @@ const char *p11_get_ckm(CK_ULONG mechanism)
         _sym2str(CKM_IBM_EC_X448);
         _sym2str(CKM_IBM_ED448_SHA3);
         _sym2str(CKM_IBM_DILITHIUM);
+        _sym2str(CKM_IBM_ATTRIBUTEBOUND_WRAP);
     default:
         return "UNKNOWN";
     }

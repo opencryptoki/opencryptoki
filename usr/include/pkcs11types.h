@@ -1,5 +1,5 @@
 /*
- * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2021
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -939,6 +939,7 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_IBM_ED25519_SHA512         CKM_VENDOR_DEFINED + 0x0001001c
 #define CKM_IBM_EC_X448                CKM_VENDOR_DEFINED + 0x0001001e
 #define CKM_IBM_ED448_SHA3             CKM_VENDOR_DEFINED + 0x0001001f
+#define CKM_IBM_ATTRIBUTEBOUND_WRAP    CKM_VENDOR_DEFINED + 0x00020004
 #endif
 
 #define CKM_IBM_EC_C25519              CKM_IBM_EC_X25519
@@ -1498,6 +1499,11 @@ typedef struct CK_ECDH1_DERIVE_PARAMS {
     CK_ULONG ulPublicDataLen;
     CK_BYTE_PTR pPublicData;
 } CK_ECDH1_DERIVE_PARAMS;
+
+/* Attribute bound wrapping mechanism */
+typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {
+      CK_OBJECT_HANDLE hSignVerifyKey;
+} CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS;
 
 /* EC key derivation functions */
 #define CKD_NULL                    0x00000001UL
