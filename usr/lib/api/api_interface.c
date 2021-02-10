@@ -1516,7 +1516,15 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
             }
         }
 
-        DL_UnLoad(sltp, slotID);
+        /*
+         * Calling dlclose() in a atfork handler may cause a deadlock.
+         * dlclose() may itself modify the atfork handler table to remove
+         * any fork handlers that the to be unloaded library has registered.
+         * Since the atfork handler table is currently locked when we are in
+         * an atfork handler, this would produce a deadlock.
+         */
+        if (!in_child_fork_initializer)
+            DL_UnLoad(sltp, slotID);
     }
 
     // Un register from Slot D
