@@ -3885,7 +3885,7 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
             memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = ERR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -4038,7 +4038,7 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
         memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = ERR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -4446,7 +4446,7 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
             memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = ERR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 
@@ -4605,7 +4605,7 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
         memcpy(chain_data, multi_part_ctx->chain_data, chain_data_len);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        rc = ERR_ARGUMENTS_BAD;
+        rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
 

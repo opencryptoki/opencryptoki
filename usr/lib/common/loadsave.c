@@ -358,7 +358,7 @@ static CK_RV get_encryption_info(CK_ULONG *p_key_len, CK_ULONG *p_block_size)
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return ERR_MECHANISM_INVALID;
+        return CKR_MECHANISM_INVALID;
     }
 
     if (p_key_len)
@@ -418,7 +418,7 @@ static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return ERR_MECHANISM_INVALID;
+        return CKR_MECHANISM_INVALID;
     }
     rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
                             CKO_SECRET_KEY, keyType, &keyobj);
@@ -430,7 +430,7 @@ static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return ERR_HOST_MEMORY;
+        return CKR_HOST_MEMORY;
     }
 
     switch (token_specific.data_store.encryption_algorithm) {
@@ -444,7 +444,7 @@ static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = ERR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
     }
 
     if (initial_vector)
@@ -480,7 +480,7 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return ERR_HOST_MEMORY;
+        return CKR_HOST_MEMORY;
     }
 
     switch (token_specific.data_store.encryption_algorithm) {
@@ -494,7 +494,7 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = ERR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
     }
 
     if (initial_vector)
@@ -534,7 +534,7 @@ static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return ERR_MECHANISM_INVALID;
+        return CKR_MECHANISM_INVALID;
     }
     rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
                             CKO_SECRET_KEY, keyType, &keyobj);
@@ -546,7 +546,7 @@ static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return ERR_HOST_MEMORY;
+        return CKR_HOST_MEMORY;
     }
 
     switch (token_specific.data_store.encryption_algorithm) {
@@ -560,7 +560,7 @@ static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = ERR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
     }
 
     if (initial_vector)
@@ -596,7 +596,7 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return ERR_HOST_MEMORY;
+        return CKR_HOST_MEMORY;
     }
 
     switch (token_specific.data_store.encryption_algorithm) {
@@ -610,7 +610,7 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = ERR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
     }
 
     if (initial_vector)
@@ -1031,7 +1031,7 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     cipher = malloc(cipher_len);
     clear = malloc(clear_len);
     if (key == NULL || cipher == NULL || clear == NULL) {
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
     // this file gets created on C_InitToken so we can assume that it always
@@ -1156,7 +1156,7 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
     cipher = malloc(cipher_len);
     clear = malloc(clear_len);
     if (key == NULL || cipher == NULL || clear == NULL) {
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
     // this file gets created on C_InitToken so we can assume that it always
@@ -1254,7 +1254,7 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
     cipher = malloc(cipher_len);
     if (key == NULL || clear == NULL || cipher == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
     // Copy data to buffer (key+hash)
@@ -1335,7 +1335,7 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
     cipher = malloc(cipher_len);
     if (key == NULL || clear == NULL || cipher == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
     // Copy data to buffer (key+hash)
@@ -1480,7 +1480,7 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     // decrypt the encrypted chunk
     key = malloc(key_len);
     if (!key) {
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
     memcpy(key, tokdata->master_key, key_len);
@@ -1775,7 +1775,7 @@ static CK_RV aes_256_gcm_seal(unsigned char *out,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -1787,7 +1787,7 @@ static CK_RV aes_256_gcm_seal(unsigned char *out,
         || EVP_CipherFinal_ex(ctx, out + outlen, &outlen) != 1
         || EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, tag) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -1814,7 +1814,7 @@ static CK_RV aes_256_gcm_unseal(unsigned char *out,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -1826,7 +1826,7 @@ static CK_RV aes_256_gcm_unseal(unsigned char *out,
         || EVP_CipherUpdate(ctx, out, &outlen, in, inlen) != 1
         || EVP_CipherFinal_ex(ctx, out + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -1849,7 +1849,7 @@ static CK_RV aes_256_wrap(unsigned char out[40],
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -1859,7 +1859,7 @@ static CK_RV aes_256_wrap(unsigned char out[40],
         || EVP_CipherUpdate(ctx, buffer, &outlen, in, 32) != 1
         || EVP_CipherFinal_ex(ctx, buffer + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -1883,7 +1883,7 @@ static CK_RV aes_256_unwrap(unsigned char key[32],
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -1893,7 +1893,7 @@ static CK_RV aes_256_unwrap(unsigned char key[32],
         || EVP_CipherUpdate(ctx, buffer, &outlen, in, 40) != 1
         || EVP_CipherFinal_ex(ctx, buffer + outlen, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 

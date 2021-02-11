@@ -90,7 +90,7 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -100,7 +100,7 @@ CK_RV sw_des3_cbc(CK_BYTE *in_data,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -169,7 +169,7 @@ CK_RV sw_aes_cbc(CK_BYTE *in_data,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -179,7 +179,7 @@ CK_RV sw_aes_cbc(CK_BYTE *in_data,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
