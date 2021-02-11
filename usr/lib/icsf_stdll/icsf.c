@@ -1488,8 +1488,9 @@ int icsf_generate_secret_key(LDAP * ld, int *reason, const char *token_name,
     case CKM_TLS_PRE_MASTER_KEY_GEN:
     case CKM_SSL3_PRE_MASTER_KEY_GEN:
         /* Check expected length */
-        if (mech->ulParameterLen != sizeof(*version)) {
-            TRACE_ERROR("Invalid mechanism parameter length: "
+        if (mech->ulParameterLen != sizeof(*version) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("Invalid mechanism parameter NULL or length: "
                         "%lu\n", (unsigned long) mech->ulParameterLen);
             return -1;
         }
@@ -1731,8 +1732,9 @@ static CK_RV icsf_encrypt_initial_vector(CK_MECHANISM_PTR mech, char *iv,
         /*
          * Otherwise use the mechanism parameter as the IV.
          */
-        if (mech->ulParameterLen != expected_iv_len) {
-            TRACE_ERROR("Invalid mechanism parameter length: %lu "
+        if (mech->ulParameterLen != expected_iv_len ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("Invalid mechanism parameter NULL or length: %lu "
                         "(expected %lu)\n",
                         (unsigned long) mech->ulParameterLen,
                         (unsigned long) expected_iv_len);

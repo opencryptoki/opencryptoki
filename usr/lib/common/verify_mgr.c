@@ -427,7 +427,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             CK_MAC_GENERAL_PARAMS *param =
                 (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
 
-            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                mech->pParameter == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
@@ -473,7 +474,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             CK_MAC_GENERAL_PARAMS *param =
                 (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
 
-            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                mech->pParameter == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc= CKR_MECHANISM_PARAM_INVALID;
                 goto done;
@@ -560,7 +562,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             CK_MAC_GENERAL_PARAMS *param =
                 (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
 
-            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                mech->pParameter == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
@@ -610,7 +613,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES3_MAC_GENERAL:
         {
             if (mech->pParameter) {
-                if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+                if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                    mech->pParameter == NULL) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                     rc = CKR_MECHANISM_PARAM_INVALID;
                     goto done;
@@ -646,7 +650,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES3_CMAC:
     case CKM_DES3_CMAC_GENERAL:
         if (mech->pParameter) {
-            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                mech->pParameter == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
@@ -682,7 +687,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_AES_MAC_GENERAL:
         {
             if (mech->pParameter) {
-                if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+                if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                    mech->pParameter == NULL) {
                     TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                     rc = CKR_MECHANISM_PARAM_INVALID;
                     goto done;
@@ -719,7 +725,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_AES_CMAC:
     case CKM_AES_CMAC_GENERAL:
         if (mech->pParameter) {
-            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+            if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+                mech->pParameter == NULL) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;

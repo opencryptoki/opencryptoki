@@ -1222,7 +1222,8 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG derived_key_len;
 
     /* Check parm length */
-    if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
+    if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
+        mech->pParameter == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_PARAM_INVALID;
     }

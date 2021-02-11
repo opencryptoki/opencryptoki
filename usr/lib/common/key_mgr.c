@@ -120,7 +120,8 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
             TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
             return CKR_TEMPLATE_INCONSISTENT;
         }
-        if (mech->ulParameterLen != sizeof(CK_VERSION)) {
+        if (mech->ulParameterLen != sizeof(CK_VERSION) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             return CKR_MECHANISM_PARAM_INVALID;
         }

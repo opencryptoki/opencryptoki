@@ -2817,7 +2817,8 @@ CK_RV check_pss_params(CK_MECHANISM *mech, CK_ULONG modlen)
 
     pssParams = (CK_RSA_PKCS_PSS_PARAMS *) mech->pParameter;
 
-    if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS)) {
+    if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS) ||
+        mech->pParameter == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_PARAM_INVALID;
     }
