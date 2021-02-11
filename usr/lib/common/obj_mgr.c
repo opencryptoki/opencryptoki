@@ -1239,7 +1239,7 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
 {
     OBJECT *obj = (OBJECT *) node;
     struct find_build_list_args *fa = (struct find_build_list_args *) p3;
-    CK_OBJECT_HANDLE map_handle;
+    CK_OBJECT_HANDLE map_handle = CK_INVALID_HANDLE;
     CK_BBOOL match = FALSE, flag = FALSE;
     CK_OBJECT_CLASS class;
     CK_RV rc;
