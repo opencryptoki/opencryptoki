@@ -364,7 +364,7 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -374,7 +374,7 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -461,7 +461,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -471,7 +471,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -604,7 +604,7 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -614,7 +614,7 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -745,7 +745,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -755,7 +755,7 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -2485,7 +2485,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -2495,7 +2495,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
@@ -2583,7 +2583,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = ERR_HOST_MEMORY;
+        rc = CKR_HOST_MEMORY;
         goto done;
     }
 
@@ -2593,7 +2593,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
         || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
         || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = ERR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
         goto done;
     }
 
