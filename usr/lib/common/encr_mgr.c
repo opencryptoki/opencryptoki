@@ -185,7 +185,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         break;
     case CKM_DES_CBC:
     case CKM_DES_CBC_PAD:
-        if (mech->ulParameterLen != DES_BLOCK_SIZE) {
+        if (mech->ulParameterLen != DES_BLOCK_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -224,7 +225,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_DES_CFB8:
     case CKM_DES_CFB64:
     case CKM_DES_OFB64:
-        if (mech->ulParameterLen != DES_BLOCK_SIZE) {
+        if (mech->ulParameterLen != DES_BLOCK_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -254,7 +256,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         break;
     case CKM_CDMF_CBC:
     case CKM_CDMF_CBC_PAD:
-        if (mech->ulParameterLen != DES_BLOCK_SIZE) {
+        if (mech->ulParameterLen != DES_BLOCK_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -322,7 +325,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         break;
     case CKM_DES3_CBC:
     case CKM_DES3_CBC_PAD:
-        if (mech->ulParameterLen != DES_BLOCK_SIZE) {
+        if (mech->ulParameterLen != DES_BLOCK_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -359,7 +363,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
     case CKM_RSA_PKCS_OAEP:
-        if (mech->ulParameterLen == 0) {
+        if (mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -442,7 +447,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_AES_CBC:
     case CKM_AES_CBC_PAD:
         // XXX Copied in from DES3, should be verified - KEY
-        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE) {
+        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -472,7 +478,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     case CKM_AES_CTR:
-        if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS)) {
+        if (mech->ulParameterLen != sizeof(CK_AES_CTR_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -501,7 +508,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     case CKM_AES_GCM:
-        if (mech->ulParameterLen != sizeof(CK_GCM_PARAMS)) {
+        if (mech->ulParameterLen != sizeof(CK_GCM_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -540,7 +548,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB8:
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
-        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE) {
+        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;

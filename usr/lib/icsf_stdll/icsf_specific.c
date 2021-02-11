@@ -3601,7 +3601,8 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
 
         param = (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
 
-        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             return CKR_MECHANISM_PARAM_INVALID;
         }
@@ -4190,7 +4191,8 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
         /* can do mulitpart and take a mech parameter */
         param = (CK_MAC_GENERAL_PARAMS *) mech->pParameter;
 
-        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
+        if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS) ||
+            mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
@@ -4720,8 +4722,9 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
         if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
             goto done;
 
-        if (mech->ulParameterLen != expected_block_size) {
-            TRACE_ERROR("Invalid mechanism parameter length: %lu "
+        if (mech->ulParameterLen != expected_block_size ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("Invalid mechanism parameter NULL or length: %lu "
                         "(expected %lu)\n",
                         (unsigned long) mech->ulParameterLen,
                         (unsigned long) expected_block_size);
@@ -4823,8 +4826,9 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
         if ((rc = icsf_block_size(mech->mechanism, &expected_block_size)))
             goto done;
 
-        if (mech->ulParameterLen != expected_block_size) {
-            TRACE_ERROR("Invalid mechanism parameter length: %lu "
+        if (mech->ulParameterLen != expected_block_size ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("Invalid mechanism parameter NULL or length: %lu "
                         "(expected %lu)\n",
                         (unsigned long) mech->ulParameterLen,
                         (unsigned long) expected_block_size);

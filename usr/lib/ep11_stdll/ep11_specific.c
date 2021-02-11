@@ -4950,8 +4950,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
         mech->mechanism == CKM_IBM_EC_X25519 ||
         mech->mechanism == CKM_IBM_EC_X448) {
-        if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS)) {
-            TRACE_ERROR("%s Param len for %s wrong: %lu\n",
+        if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
                         __func__, ep11_get_ckm(mech->mechanism ),
                         mech->ulParameterLen);
             return CKR_MECHANISM_PARAM_INVALID;
