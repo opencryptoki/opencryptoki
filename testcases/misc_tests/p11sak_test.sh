@@ -31,6 +31,12 @@ P11SAK_EC_PRE=p11sak-ec-pre.out
 P11SAK_EC_POST=p11sak-ec-post.out
 
 
+echo "** Setting SLOT=3 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
+
+
+# setting SLOT=3 to the Softtoken
+
+SLOT=${SLOT:-3}
 
 echo "** Now generating keys - 'p11sak_test.sh'"
 
