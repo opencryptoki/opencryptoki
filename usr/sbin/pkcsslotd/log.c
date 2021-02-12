@@ -463,8 +463,8 @@ BOOL PKCS_Log(pLogHandle phLog, char *fmt, va_list ap)
 #endif                          /* DEV */
 
         if (WriteNow) {
-            fprintf(stderr, "%s[%d.%d]: %s\n", pInfo->Descrip, getpid(),
-                    (int) pthread_self(), buf);
+            fprintf(stderr, "%s[%d.%lu]: %s\n", pInfo->Descrip, getpid(),
+                    pthread_self(), buf);
         }
     }
 
@@ -482,7 +482,7 @@ BOOL PKCS_Log(pLogHandle phLog, char *fmt, va_list ap)
             GetCurrentTimeString(timebuf);
 
             /* Date/Time stamp, descrip, Error message */
-            fprintf(fd, "%s %s[%d.%d]: ", timebuf, pInfo->Descrip, getpid(),
+            fprintf(fd, "%s %s[%d.%lu]: ", timebuf, pInfo->Descrip, getpid(),
                     pthread_self());
             fprintf(fd, "%s\n", buf);
             fflush(fd);
