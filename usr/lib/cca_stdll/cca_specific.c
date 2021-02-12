@@ -411,6 +411,7 @@ static CK_RV build_update_attribute(TEMPLATE * tmpl,
     }
     if ((rv = template_update_attribute(tmpl, attr))) {
         TRACE_DEVEL("Template update for type=%lu failed, rv=0x%lx\n", type, rv);
+        free(attr);
         return rv;
     }
 
