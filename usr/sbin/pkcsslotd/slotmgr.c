@@ -660,7 +660,6 @@ int main(int argc, char *argv[], char *envp[])
      */
 
 #if !defined(NOGARBAGE)
-    printf("Start garbage \n");
     /* start garbage collection thread */
     if (!StartGCThread(shmp)) {
         term_socket_server();
