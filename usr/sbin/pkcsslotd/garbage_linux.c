@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #include "log.h"
 #include "slotmgr.h"
@@ -80,8 +81,8 @@ BOOL StartGCThread(Slot_Mgr_Shr_t *MemPtr)
 #ifdef DEV
     // Only development builds
     LogLog("StartGCThread: garbage collection thread started as ID "
-           "%d (%#x) by ID %d (%#x)",
-           GCThread, GCThread, pthread_self(), pthread_self());
+           "%lu by ID %lu",
+           GCThread, pthread_self());
 #endif
 
     return TRUE;
@@ -115,8 +116,8 @@ BOOL StopGCThread(void *Ptr)
         return FALSE;
     }
 
-    DbgLog(DL0, "StopGCThread: tid %d is stopping the garbage collection "
-           "thread (tid %d)",
+    DbgLog(DL0, "StopGCThread: tid %lu is stopping the garbage collection "
+           "thread (tid %lu)",
            pthread_self(), GCThread);
 
     /* Cause the GC thread to be cancelled */
@@ -245,7 +246,7 @@ void GCCancel(void *Ptr)
     UNUSED(Ptr);
 
     /* Yeah, yeah.  Doesn't do anything, but I had plans */
-    DbgLog(DL3, "GCCancel: tid: %d running cleanup routine", pthread_self());
+    DbgLog(DL3, "GCCancel: tid: %lu running cleanup routine", pthread_self());
 
     return;
 }
@@ -268,7 +269,7 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
 
     ASSERT(MemPtr != NULL_PTR);
 #ifdef DEV
-    DbgLog(DL5, "Thread %d is checking for garbage", pthread_self());
+    DbgLog(DL5, "Thread %lu is checking for garbage", pthread_self());
 #endif                          /* DEV */
 
 
@@ -326,9 +327,9 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
                 if (*pProcSessions > 0) {
 
 #ifdef DEV
-                    DbgLog(DL2, "GC: Invalid pid (%d) is holding %d sessions "
+                    DbgLog(DL2, "GC: Invalid pid (%d) is holding %u sessions "
                            "open on slot %d.  Global session count for this "
-                           "slot is %d",
+                           "slot is %u",
                            pProc->proc_id, *pProcSessions, SlotIndex,
                            *pGlobalSessions);
 #endif                          /* DEV */
@@ -338,9 +339,9 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
                         WarnLog("Garbage Collection: Illegal values in table "
                                 "for defunct process");
                         DbgLog(DL0, "Garbage collection: A process "
-                               "( Index: %d, pid: %d ) showed %d sessions "
-                               "open on slot %s, but the global count for this "
-                               "slot is only %d",
+                               "( Index: %d, pid: %d ) showed %u sessions "
+                               "open on slot %d, but the global count for this "
+                               "slot is only %u",
                                ProcIndex, pProc->proc_id, *pProcSessions,
                                SlotIndex, *pGlobalSessions);
 #endif                          /* DEV */
@@ -395,14 +396,8 @@ int Stat2Proc(int pid, proc_t *p)
     char fbuf[800];         // about 40 fields, 64-bit decimal is about 20 chars
     char *tmp;
     int fd, num;
-    //  FILE *fp;
-
-    //  sprintf(buf, "%s/%d/stat", PROC_BASE, pid);
-    //  if( (fp = fopen(buf, "r")) == NULL )
-    //    return FALSE;
 
     sprintf(fbuf, "%s/%d/stat", PROC_BASE, pid);
-    printf("Buff = %s \n", fbuf);
     fflush(stdout);
     if ((fd = open(fbuf, O_RDONLY, 0)) == -1)
         return FALSE;
