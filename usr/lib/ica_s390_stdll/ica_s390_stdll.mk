@@ -34,7 +34,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES =				\
 	usr/lib/common/verify_mgr.c usr/lib/common/trace.c		\
 	usr/lib/common/mech_list.c usr/lib/common/shared_memory.c	\
 	usr/lib/common/profile_obj.c usr/lib/common/attributes.c	\
-	usr/lib/ica_s390_stdll/ica_specific.c
+	usr/lib/ica_s390_stdll/ica_specific.c usr/lib/common/dlist.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES +=				\
