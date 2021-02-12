@@ -43,7 +43,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES =				\
 	usr/lib/common/mech_ssl3.c usr/lib/common/verify_mgr.c		\
 	usr/lib/common/mech_list.c usr/lib/common/shared_memory.c	\
 	usr/lib/common/attributes.c usr/lib/icsf_stdll/new_host.c	\
-	usr/lib/common/profile_obj.c					\
+	usr/lib/common/profile_obj.c usr/lib/common/dlist.c		\
 	usr/lib/icsf_stdll/pbkdf.c usr/lib/icsf_stdll/icsf_specific.c	\
 	usr/lib/icsf_stdll/icsf_config_parse.y				\
 	usr/lib/icsf_stdll/icsf_config_lexer.l				\

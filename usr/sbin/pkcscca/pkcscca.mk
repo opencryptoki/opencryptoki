@@ -36,7 +36,7 @@ usr_sbin_pkcscca_pkcscca_SOURCES =					\
 	usr/lib/common/p11util.c usr/lib/common/sw_crypt.c		\
 	usr/lib/common/shared_memory.c usr/lib/common/profile_obj.c	\
 	usr/lib/common/attributes.c usr/lib/common/mech_rng.c		\
-	usr/lib/common/pkcs_utils.c 					\
+	usr/lib/common/pkcs_utils.c  usr/lib/common/dlist.c		\
 	usr/sbin/pkcscca/pkcscca.c
 	
 	

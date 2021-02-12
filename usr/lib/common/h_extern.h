@@ -24,6 +24,7 @@
 #define _H_EXTERN_H
 
 #include <stdio.h>
+#include "dlist.h"
 
 // global variables
 //
@@ -1758,19 +1759,6 @@ int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
                               CK_ULONG prime_len, CK_BBOOL allow_raw,
                               CK_BBOOL *allocated, CK_BYTE **ec_point,
                               CK_ULONG *ec_point_len);
-
-// linked-list routines
-//
-DL_NODE *dlist_add_as_first(DL_NODE *list, void *data);
-DL_NODE *dlist_add_as_last(DL_NODE *list, void *data);
-DL_NODE *dlist_find(DL_NODE *list, void *data);
-DL_NODE *dlist_get_first(DL_NODE *list);
-DL_NODE *dlist_get_last(DL_NODE *list);
-CK_ULONG dlist_length(DL_NODE *list);
-DL_NODE *dlist_next(DL_NODE *list);
-DL_NODE *dlist_prev(DL_NODE *list);
-void dlist_purge(DL_NODE *list);
-DL_NODE *dlist_remove_node(DL_NODE *list, DL_NODE *node);
 
 CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id);
 CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);
