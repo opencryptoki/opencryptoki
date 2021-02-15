@@ -8,6 +8,9 @@ CLEANFILES += usr/lib/common/parser.c usr/lib/common/parser.h	\
 	usr/lib/common/parser.output usr/lib/common/lexer.c
 
 usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto
+if HAVE_LIBUDEV
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -ludev
+endif
 
 usr_sbin_pkcsslotd_pkcsslotd_CFLAGS = -DPROGRAM_NAME=\"$(@)\"	\
 	-I${srcdir}/usr/include -I${srcdir}/usr/lib/common	\

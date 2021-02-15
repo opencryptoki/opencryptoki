@@ -21,7 +21,7 @@
 extern BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime);
 
 static int SigsToIntercept[] = {
-    SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGALRM,
+    SIGHUP, SIGINT, SIGQUIT, SIGALRM,
     SIGTERM, SIGTSTP, SIGTTIN,
     SIGTTOU, SIGUSR1, SIGUSR2, SIGPROF
 };
@@ -32,8 +32,11 @@ static int SigsToIntercept[] = {
 /* SIGCHLD - Don't want to exit.  Should never receive, but we do, apparently
  * when something tries to cancel the GC Thread */
 
+/* SIGPIPE - Don't want to exit.  May happen when a connection to an admin
+ * event sender or a process is closed before all events are delivered. */
+
 static int SigsToIgnore[] = {
-    SIGCHLD,
+    SIGCHLD, SIGPIPE,
 };
 
 
@@ -69,6 +72,10 @@ void slotdGenericSignalHandler(int Signal)
 #if !defined(NOGARBAGE)
     StopGCThread(shmp);
     CheckForGarbage(shmp);
+#endif
+
+#ifdef DEV
+    dump_socket_handler();
 #endif
 
     for (procindex = 0; (procindex < NUMBER_PROCESSES_ALLOWED); procindex++) {
