@@ -31,6 +31,7 @@
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
 
 #define PROC_SOCKET_FILE_PATH "/var/run/pkcsslotd.socket"
+#define ADMIN_SOCKET_FILE_PATH "/var/run/pkcsslotd.admin.socket"
 
 #define PID_FILE_PATH "/var/run/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
@@ -45,6 +46,7 @@
 
 #define NUMBER_SLOTS_MANAGED 1024
 #define NUMBER_PROCESSES_ALLOWED  1000
+#define NUMBER_ADMINS_ALLOWED     1000
 
 //
 // Per Process Data structure

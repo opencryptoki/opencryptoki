@@ -234,6 +234,12 @@ AC_ARG_WITH([systemd],
 	AS_HELP_STRING([--with-systemd@<:@=DIR@:>@],[systemd system unit files location]),
 	[],
 	[with_systemd=no])
+	
+dnl --- libudev development files
+AC_ARG_WITH([libudev],
+	AS_HELP_STRING([--with-libudev@<:@=DIR@:>@],[libudev development files location]),
+	[],
+	[with_libudev=check])
 
 dnl ---
 dnl ---
@@ -438,6 +444,50 @@ fi
 AC_SUBST([XCRYPTOLINZ_CFLAGS])
 AC_SUBST([XCRYPTOLINZ_LIBS])
 
+dnl --- with_libudev
+LIBUDEV_CFLAGS=
+LIBUDEV_LIBS=
+if test "x$with_libudev" != "xno"; then
+	if test "x$with_libudev" != "xyes" -a "x$with_libudev" != "xcheck"; then
+		LIBUDEV_CFLAGS="-I$with_libudev"
+		LIBUDEV_LIBS="-L$with_libudev"
+	fi
+	old_cflags="$CFLAGS"
+	old_libs="$LIBS"
+	CFLAGS="$CFLAGS $LIBUDEV_CFLAGS"
+	LIBS="$LIBS $LIBUDEV_LIBS"
+	AC_CHECK_HEADER([libudev.h], [], [
+		if test "x$with_libudev" != "xcheck"; then
+			AC_MSG_ERROR([Build with libudev requested but libudev headers couldn't be found])
+		fi
+		with_libudev=no
+	])
+	# Use libudev only on s390 platforms, only s390 emits AP related uevents
+	case $target in
+	     *s390x* | *s390*)
+		  CFLAGS="$CFLAGS -DWITH_LIBUDEV"
+		  ;;
+	     *)
+		  with_libudev=no
+		  ;;
+	esac
+	if test "x$with_libudev" != "xno"; then
+		AC_CHECK_LIB([udev], [udev_monitor_new_from_netlink],
+			[with_libudev=yes], [
+				if test "x$with_libudev" != "xcheck"; then
+					AC_MSG_ERROR([Build with libudev requested but libudev libraries couldn't be found])
+				fi
+				with_libudev=no
+		])
+	fi
+	if test "x$with_libudev" = "xno"; then
+		CFLAGS="$old_cflags"
+		LIBS="$old_libs"
+	fi
+fi
+AC_SUBST([LIBUDEV_CFLAGS])
+AC_SUBST([LIBUDEV_LIBS])
+AM_CONDITIONAL([WITH_LIBUDEV], [test "x$with_libudev" = "xyes"])
 
 dnl ---
 dnl --- Now check enabled features, while making sure every required
@@ -649,6 +699,7 @@ echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
 echo "	Systemd service:	$enable_systemd"
 echo "	Build with locks:	$enable_locks"
+echo "	Build with libudev:	$with_libudev"
 echo "	Build p11sak tool:	$enable_p11sak"
 echo "	token migrate tool:	$enable_pkcstok_migrate"
 echo
