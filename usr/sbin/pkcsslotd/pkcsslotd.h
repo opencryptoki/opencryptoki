@@ -92,5 +92,8 @@ int init_socket_server();
 int term_socket_server();
 int init_socket_data(Slot_Mgr_Socket_t *sp);
 int socket_connection_handler(int timeout_secs);
+#ifdef DEV
+void dump_socket_handler();
+#endif
 
 #endif                          /* _SLOTMGR_H */
