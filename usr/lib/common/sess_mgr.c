@@ -492,6 +492,11 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
+            if (*data_len < op_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                 return CKR_BUFFER_TOO_SMALL;
+            }
+
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_ENCR;
@@ -530,6 +535,11 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
+
+            if (*data_len < op_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                 return CKR_BUFFER_TOO_SMALL;
+            }
 
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
@@ -570,6 +580,11 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
+            if (*data_len < op_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                 return CKR_BUFFER_TOO_SMALL;
+            }
+
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_DIGEST;
@@ -609,6 +624,11 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
+            if (*data_len < op_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                 return CKR_BUFFER_TOO_SMALL;
+            }
+
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_SIGN;
@@ -647,6 +667,11 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
+
+            if (*data_len < op_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                 return CKR_BUFFER_TOO_SMALL;
+            }
 
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
@@ -699,13 +724,16 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
     CK_BYTE *ptr3 = NULL;
     CK_ULONG len;
 
-    UNUSED(data_len);
-
     if (!sess || !data) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
     op_data = (OP_STATE_DATA *) data;
+
+    if (data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+        return CKR_SAVED_STATE_INVALID;
+    }
 
     // make sure the session states are compatible
     //
@@ -730,11 +758,11 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
                 TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                 return CKR_SAVED_STATE_INVALID;
             }
-            if (auth_key != 0) {
+            if (auth_key != CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
                 return CKR_KEY_NOT_NEEDED;
             }
-            if (encr_key == 0) {
+            if (encr_key == CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
                 return CKR_KEY_NEEDED;
             }
@@ -776,11 +804,11 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
                 TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                 return CKR_SAVED_STATE_INVALID;
             }
-            if (auth_key == 0) {
+            if (auth_key == CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
                 return CKR_KEY_NEEDED;
             }
-            if (encr_key != 0) {
+            if (encr_key != CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
                 return CKR_KEY_NOT_NEEDED;
             }
@@ -821,11 +849,11 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
                 TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
                 return CKR_SAVED_STATE_INVALID;
             }
-            if (auth_key != 0) {
+            if (auth_key != CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
                 return CKR_KEY_NOT_NEEDED;
             }
-            if (encr_key != 0) {
+            if (encr_key != CK_INVALID_HANDLE) {
                 TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
                 return CKR_KEY_NOT_NEEDED;
             }
