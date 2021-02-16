@@ -7,7 +7,8 @@ noinst_PROGRAMS +=							\
 	testcases/misc_tests/fork testcases/misc_tests/multi_instance   \
 	testcases/misc_tests/obj_lock testcases/misc_tests/tok2tok_transport \
 	testcases/misc_tests/obj_lock testcases/misc_tests/reencrypt    \
-	testcases/misc_tests/cca_export_import_test
+	testcases/misc_tests/cca_export_import_test			\
+	testcases/misc_tests/events
 
 testcases_misc_tests_obj_mgmt_tests_CFLAGS = ${testcases_inc}
 testcases_misc_tests_obj_mgmt_tests_LDADD =				\
@@ -73,3 +74,8 @@ testcases_misc_tests_cca_export_import_test_LDADD =			\
 	testcases/common/libcommon.la
 testcases_misc_tests_cca_export_import_test_SOURCES =			\
 	testcases/misc_tests/cca_export_import_test.c
+	
+testcases_misc_tests_events_CFLAGS = ${testcases_inc}
+testcases_misc_tests_events_LDADD = testcases/common/libcommon.la
+testcases_misc_tests_events_SOURCES = testcases/misc_tests/events.c	\
+	usr/lib/common/event_client.c
