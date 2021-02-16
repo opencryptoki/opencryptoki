@@ -4,7 +4,7 @@ noinst_HEADERS +=							\
 	usr/lib/common/shared_memory.h usr/lib/common/tok_spec_struct.h	\
 	usr/lib/common/trace.h usr/lib/common/h_extern.h		\
 	usr/lib/common/sw_crypt.h usr/lib/common/defs.h			\
-	usr/lib/common/p11util.h					\
+	usr/lib/common/p11util.h usr/lib/common/event_client.h		\
 	usr/lib/common/list.h usr/lib/common/tok_specific.h
 
 usr/lib/common/lexer.c: usr/lib/common/parser.h
