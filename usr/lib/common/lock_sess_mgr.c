@@ -723,7 +723,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
 
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
-            op_data->active_operation = STATE_SIGN;
+            op_data->active_operation = STATE_VERIFY;
 
             offset = sizeof(OP_STATE_DATA);
 
