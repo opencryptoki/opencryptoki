@@ -805,9 +805,10 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                 goto testcase_cleanup;
             }
         }
-        if (rc == CKR_MECHANISM_INVALID && is_ep11_token(slot_id2) &&
-            wrap_mech->mechanism == CKM_DES3_CBC) {
-            testcase_skip("EP11 does not support unwrap with DES3 CBC");
+        if ((rc == CKR_MECHANISM_INVALID || rc == CKR_KEY_TYPE_INCONSISTENT) &&
+            is_ep11_token(slot_id2) && wrap_mech->mechanism == CKM_DES3_CBC &&
+            key_type == CKK_EC) {
+            testcase_skip("EP11 does not support unwrap of EC keys with DES3 CBC");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
