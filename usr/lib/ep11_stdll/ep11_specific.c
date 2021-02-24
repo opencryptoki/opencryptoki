@@ -38,6 +38,7 @@
 #include "ock_syslog.h"
 #include "ec_defs.h"
 #include "p11util.h"
+#include "events.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -197,9 +198,15 @@ typedef struct {
 
 #define MAX_RETRY_COUNT 100
 
-#define RETRY_START             do {                                     \
+#define RETRY_START(rc, tokdata)                                         \
+                                do {                                     \
                                     int retry_count;                     \
+                                    ep11_target_info_t* target_info =    \
+                                               get_target_info(tokdata); \
+                                    if (target_info == NULL)             \
+                                        (rc) = CKR_FUNCTION_FAILED;      \
                                     for(retry_count = 0;                 \
+                                        target_info != NULL &&           \
                                         retry_count < MAX_RETRY_COUNT;   \
                                         retry_count ++) {
 
@@ -210,6 +217,7 @@ typedef struct {
                                          if ((rc) != CKR_OK)             \
                                              break;                      \
                                     }                                    \
+                                    put_target_info(tokdata, target_info); \
                                 } while (0);
 
 #define CKF_EP11_HELPER_SESSION      0x80000000
@@ -248,7 +256,6 @@ typedef struct ep11_card_version {
 } ep11_card_version_t;
 
 static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version);
-static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata);
 static void free_card_versions(ep11_card_version_t *card_version);
 static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
                               const CK_VERSION *ep11_lib_version,
@@ -476,16 +483,23 @@ static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
 #define PKEY_MODE_ENABLE4NONEXTR    2
 
 typedef struct {
+    volatile unsigned long ref_count;
     target_t target;
+    ep11_card_version_t *card_versions;
+    CK_ULONG used_firmware_API_version;
+    unsigned char control_points[XCP_CP_BYTES];
+    size_t control_points_len;
+    size_t max_control_point_index;
+    CK_CHAR serialNumber[16];
+} ep11_target_info_t;
+
+typedef struct {
     ep11_target_t target_list;
     CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
     size_t raw2key_wrap_blob_l;
     int cka_sensitive_default_true;
     char cp_filter_config_filename[PATH_MAX];
     cp_config_t *cp_config;
-    unsigned char control_points[XCP_CP_BYTES];
-    size_t control_points_len;
-    size_t max_control_point_index;
     int strict_mode;
     int vhsm_mode;
     int optimize_single_ops;
@@ -497,12 +511,14 @@ typedef struct {
     char digest_libica_path[PATH_MAX];
     libica_t libica;
     CK_VERSION ep11_lib_version;
-    ep11_card_version_t *card_versions;
-    CK_ULONG used_firmware_API_version;
-    CK_CHAR serialNumber[16];
+    volatile ep11_target_info_t *target_info;
+    pthread_rwlock_t target_rwlock;
 } ep11_private_data_t;
 
-static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata);
+static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata);
+static void put_target_info(STDLL_TokData_t *tokdata,
+                            ep11_target_info_t *target_info);
+static CK_RV refresh_target_info(STDLL_TokData_t *tokdata);
 
 static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
@@ -704,7 +720,12 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     CK_ATTRIBUTE *pkey_attr = NULL, *blob_attr=NULL;
+    ep11_target_info_t* target_info;
     CK_RV ret;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     /* Check if CPACF_WRAP mech supported */
     if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
@@ -717,7 +738,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
 
     /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
     ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
-                            blob, &blobsize, csum, &csum_l, ep11_data->target);
+                            blob, &blobsize, csum, &csum_l, target_info->target);
     if (ret != CKR_OK) {
         TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
         goto done;
@@ -748,6 +769,8 @@ done:
 
     if (blob_attr)
         free(blob_attr);
+
+    put_target_info(tokdata, target_info);
 
     return ret;
 }
@@ -1337,7 +1360,7 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
                                        OBJECT *obj,
                                        CK_KEY_TYPE keytype)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_target_info_t* target_info;
     CK_RV rc;
     CK_BBOOL trusted, encrypt, decrypt, wrap, unwrap, sign, sign_recover,
              verify, verify_recover, derive, extractable, local,
@@ -1367,9 +1390,16 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
 
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
     rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
                                  sizeof(attrs) / sizeof(CK_ATTRIBUTE),
-                                 ep11_data->target);
+                                 target_info->target);
+
+    put_target_info(tokdata, target_info);
+
     if (rc != CKR_OK) {
         TRACE_ERROR("Retrieving attributes from AB unwrapped key failed, rc=0x%lx\n",
                     rc);
@@ -2117,10 +2147,10 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
      * calls the ep11 lib (which in turns sends the request to the card),
      * all m_ function are ep11 functions
      */
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech, key,
-                                 ksize, cipher, &clen, ep11_data->target);
+                                 ksize, cipher, &clen, target_info->target);
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -2146,12 +2176,12 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     /* the encrypted key is decrypted and a blob is build,
      * card accepts only blobs as keys
      */
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob, blen, csum,
-                             &cslen, ep11_data->target);
+                             &cslen, target_info->target);
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -2194,14 +2224,20 @@ rawkey_2_blob_end:
 CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                          CK_ULONG bytes)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_target_info_t* target_info;
 
-    CK_RV rc = dll_m_GenerateRandom(output, bytes, ep11_data->target);
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    CK_RV rc = dll_m_GenerateRandom(output, bytes, target_info->target);
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
                     __func__, (void *)output, bytes, rc);
     }
+
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -2215,6 +2251,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_MECHANISM mech = { CKM_AES_KEY_GEN, NULL_PTR, 0 };
+    ep11_target_info_t* target_info;
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
     CK_RV rc;
@@ -2225,11 +2262,15 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
         return CKR_OK;
     }
 
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
     ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
     rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
                            ep11_data->raw2key_wrap_blob,
                            &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
-                           ep11_data->target);
+                           target_info->target);
 
 
     if (rc != CKR_OK) {
@@ -2240,6 +2281,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
                    __func__, ep11_data->raw2key_wrap_blob_l, rc);
     }
 
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -2513,13 +2555,36 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 #endif
 
-    rc = ep11tok_get_ep11_version(tokdata);
-    if (rc != CKR_OK)
+    rc = ep11tok_get_ep11_library_version(&ep11_data->ep11_lib_version);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get the Ep11 library version "
+                    "(ep11tok_get_ep11_library_version rc=0x%lx)\n", __func__,
+                    rc);
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the EP11 library version "
+                   "rc=0x%lx\n", __func__, rc);
         goto error;
+    }
 
-    rc = ep11tok_setup_target(tokdata);
-    if (rc != CKR_OK)
+    TRACE_INFO("%s Host library version: %d.%d\n", __func__,
+               ep11_data->ep11_lib_version.major,
+               ep11_data->ep11_lib_version.minor);
+
+    if (pthread_rwlock_init(&ep11_data->target_rwlock, NULL) != 0) {
+        TRACE_DEVEL("Target Lock init failed.\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the target lock\n",
+                   __func__);
+        rc = CKR_CANT_LOCK;
         goto error;
+    }
+
+    rc = refresh_target_info(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get the target info (refresh_target_info "
+                    "rc=0x%lx)\n", __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the target info rc=0x%lx\n",
+                   __func__, rc);
+        goto error;
+    }
 
     if (ep11_data->digest_libica) {
         rc = ep11tok_load_libica(tokdata);
@@ -2529,18 +2594,6 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     ep11_data->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", ep11_data->msa_level);
-
-    ep11_data->control_points_len = sizeof(ep11_data->control_points);
-    rc = get_control_points(tokdata, ep11_data->control_points,
-                            &ep11_data->control_points_len,
-                            &ep11_data->max_control_point_index);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s Failed to get the control points (get_control_points "
-                    "rc=0x%lx)\n", __func__, rc);
-        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the control points rc=0x%lx\n",
-                   __func__, rc);
-        goto error;
-    }
 
     /* create an AES key needed for importing keys
      * (encrypt by wrap_key and m_UnwrapKey by wrap key)
@@ -2601,9 +2654,11 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
 
     if (ep11_data != NULL) {
         if (dll_m_rm_module != NULL)
-            dll_m_rm_module(NULL, ep11_data->target);
+            dll_m_rm_module(NULL, ep11_data->target_info->target);
+        free_card_versions(ep11_data->target_info->card_versions);
+        free((void* )ep11_data->target_info);
+        pthread_rwlock_destroy(&ep11_data->target_rwlock);
         free_cp_config(ep11_data->cp_config);
-        free_card_versions(ep11_data->card_versions);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
@@ -2619,7 +2674,6 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
                              CK_BYTE *spki, CK_ULONG spki_len,
                              CK_BYTE *maced_spki, CK_ULONG *maced_spki_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
@@ -2712,11 +2766,11 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
     ep11_get_pin_blob(ep11_session, object_is_session_object(pub_key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_UnwrapKey(spki, spki_len, NULL, 0, NULL, 0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              p_attrs, attrs_len, maced_spki, maced_spki_len,
-                             csum, &cslen, ep11_data->target);
+                             csum, &cslen, target_info->target);
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -2870,11 +2924,11 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* encrypt */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l, &mech_w,
                                      data, data_len, cipher, &cipher_l,
-                                     ep11_data->target);
+                                     target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -2901,12 +2955,12 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* calls the card, it decrypts the private RSA key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
-                                 csum, &cslen, ep11_data->target);
+                                 csum, &cslen, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3101,11 +3155,11 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* encrypt */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
-                                     cipher, &cipher_l, ep11_data->target);
+                                     cipher, &cipher_l, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3133,14 +3187,14 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, ep11_data->target);
+                                 blob_size, csum, &cslen, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3295,11 +3349,11 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* encrypt */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
-                                     cipher, &cipher_l, ep11_data->target);
+                                     cipher, &cipher_l, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
 
@@ -3327,14 +3381,14 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, ep11_data->target);
+                                 blob_size, csum, &cslen, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3478,11 +3532,11 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* encrypt */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
-                                     cipher, &cipher_l, ep11_data->target);
+                                     cipher, &cipher_l, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3509,14 +3563,14 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, ep11_data->target);
+                                 blob_size, csum, &cslen, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3666,11 +3720,11 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* encrypt */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
-                                     cipher, &cipher_l, ep11_data->target);
+                                     cipher, &cipher_l, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3699,14 +3753,14 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
         /* calls the card, it decrypts the private Dilithium key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, ep11_data->target);
+                                 blob_size, csum, &cslen, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3884,7 +3938,6 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                            CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     CK_BYTE csum[MAX_CSUMSIZE];
@@ -3936,10 +3989,10 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKey(mech, new_attrs2, new_attrs2_len, ep11_pin_blob,
                                ep11_pin_blob_len, blob, &blobsize,
-                               csum, &csum_len, ep11_data->target);
+                               csum, &csum_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4354,6 +4407,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     size_t state_len = MAX(MAX_DIGEST_STATE_BYTES, sizeof(libica_sha_context_t));
     CK_BYTE *state;
     libica_sha_context_t *libica_ctx;
+    ep11_target_info_t* target_info;
 
     state = calloc(state_len, 1); /* freed by dig_mgr.c */
     if (!state) {
@@ -4361,14 +4415,20 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         return CKR_HOST_MEMORY;
     }
 
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
     if (ep11tok_libica_digest_available(ep11_data, mech->mechanism)) {
         libica_ctx = (libica_sha_context_t *)state;
         state_len = sizeof(libica_sha_context_t);
         libica_ctx->first = CK_TRUE;
         rc = get_sha_block_size(mech->mechanism, &libica_ctx->block_size);
     } else {
-        rc = dll_m_DigestInit(state, &state_len, mech, ep11_data->target);
+        rc = dll_m_DigestInit(state, &state_len, mech, target_info->target);
     }
+
+    put_target_info(tokdata, target_info);
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
@@ -4399,6 +4459,11 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
         rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
@@ -4408,7 +4473,7 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                    SHA_MSG_PART_ONLY);
     } else {
         rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
-                          out_data, out_data_len, ep11_data->target);
+                          out_data, out_data_len, target_info->target);
     }
 
     if (rc != CKR_OK) {
@@ -4417,6 +4482,8 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -4430,6 +4497,11 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     CK_ULONG out_len = sizeof(temp_out);
     CK_ULONG len;
     CK_RV rc = CKR_OK;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
         if (libica_ctx->offset > 0 || in_data_len < libica_ctx->block_size) {
@@ -4479,7 +4551,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         }
     } else {
         rc = dll_m_DigestUpdate(c->context, c->context_len,
-                                in_data, in_data_len, ep11_data->target);
+                                in_data, in_data_len, target_info->target);
     }
 
 out:
@@ -4489,6 +4561,8 @@ out:
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -4499,6 +4573,11 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     libica_sha_context_t *libica_ctx = (libica_sha_context_t *)c->context;
     CK_RV rc;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
         rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
@@ -4510,7 +4589,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                         SHA_MSG_PART_FINAL);
     } else {
         rc = dll_m_DigestFinal(c->context, c->context_len,
-                               out_data, out_data_len, ep11_data->target);
+                               out_data, out_data_len, target_info->target);
     }
 
     if (rc != CKR_OK) {
@@ -4520,6 +4599,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -4528,7 +4608,6 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
                               CK_BYTE *out_data, CK_ULONG *out_data_len,
                               OBJECT *key_obj)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
@@ -4544,9 +4623,9 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          out_data, out_data_len, ep11_data->target);
+                          out_data, out_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4563,7 +4642,6 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
                                 CK_BYTE *signature, CK_ULONG sig_len,
                                 OBJECT *key_obj)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *spki;
     size_t spki_len = 0;
@@ -4579,9 +4657,9 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            signature, sig_len, ep11_data->target);
+                            signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4598,7 +4676,6 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
                                   CK_BYTE *in_data, CK_ULONG in_data_len,
                                   CK_BYTE *sig, CK_ULONG *sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
@@ -4616,9 +4693,9 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = ctx->mech.ulParameterLen;
     mech.pParameter = ctx->mech.pParameter;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          sig, sig_len, ep11_data->target);
+                          sig, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4638,7 +4715,6 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
                                     CK_BYTE *in_data, CK_ULONG in_data_len,
                                     CK_BYTE *signature, CK_ULONG sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *spki;
     size_t spki_len = 0;
@@ -4656,9 +4732,9 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = ctx->mech.ulParameterLen;
     mech.pParameter = ctx->mech.pParameter;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            signature, sig_len, ep11_data->target);
+                            signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4678,7 +4754,6 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj )
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     SIGN_VERIFY_CONTEXT *ctx = &(session->sign_ctx);
     CK_RV rc;
     size_t keyblobsize = 0;
@@ -4707,9 +4782,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          out_data, out_data_len, ep11_data->target);
+                          out_data, out_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4728,7 +4803,6 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
                                CK_BYTE *out_data, CK_ULONG out_data_len,
                                OBJECT *key_obj )
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     SIGN_VERIFY_CONTEXT *ctx = &(session->verify_ctx);
     CK_RV rc;
     CK_BYTE *spki;
@@ -4757,9 +4831,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            out_data, out_data_len, ep11_data->target);
+                            out_data, out_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4784,7 +4858,6 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
                                       CK_BYTE *in_data, CK_ULONG in_data_len,
                                       CK_BYTE *out_data, CK_ULONG *out_data_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *decr_key, *encr_key;
     size_t decr_key_len = 0, encr_key_len = 0;
@@ -4813,10 +4886,10 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_ReencryptSingle(decr_key, decr_key_len, encr_key, encr_key_len,
                                decr_mech, encr_mech, in_data, in_data_len,
-                               out_data, out_data_len, ep11_data->target);
+                               out_data, out_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -4892,7 +4965,6 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
                          CK_ULONG attrs_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *keyblob;
     size_t keyblobsize;
@@ -4920,6 +4992,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG privlen;
     int curve_type;
     CK_BBOOL allocated = FALSE;
+    ep11_target_info_t* target_info;
+    CK_ULONG used_firmware_API_version;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5009,7 +5083,15 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
          * then we can pass the mechanism parameters as-is, otherwise we still
          * need to use the old way.
          */
-        if (ep11_data->used_firmware_API_version <= 2) {
+        target_info = get_target_info(tokdata);
+        if (target_info == NULL)
+            return CKR_FUNCTION_FAILED;
+
+        used_firmware_API_version = target_info->used_firmware_API_version;
+
+        put_target_info(tokdata, target_info);
+
+        if (used_firmware_API_version <= 2) {
             if (ecdh1_parms->kdf != CKD_NULL) {
                 TRACE_ERROR("%s KDF for CKM_ECDH1_DERIVE not supported: %lu\n",
                             __func__, ecdh1_parms->kdf);
@@ -5133,11 +5215,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc =
         dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len, keyblob, keyblobsize,
                         NULL, 0, ep11_pin_blob, ep11_pin_blob_len, newblob,
-                        &newblobsize, csum, &cslen, ep11_data->target);
+                        &newblobsize, csum, &cslen, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -5231,7 +5313,6 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
                                  CK_ULONG ulPrivateKeyAttributeCount,
                                  CK_SESSION_HANDLE h)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
     size_t publblobsize = sizeof(publblob);
@@ -5418,13 +5499,13 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
                                                  ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privblob, &privblobsize,
-                                   publblob, &publblobsize, ep11_data->target);
+                                   publblob, &publblobsize, target_info->target);
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -5543,7 +5624,6 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
                                   CK_ULONG ulPrivateKeyAttributeCount,
                                   CK_SESSION_HANDLE h)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
     size_t publblobsize = sizeof(publblob);
@@ -5752,13 +5832,13 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
                                                  ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
-                                   ep11_data->target);
+                                   target_info->target);
     RETRY_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -5866,7 +5946,6 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                                      CK_ULONG ulPrivateKeyAttributeCount,
                                      CK_SESSION_HANDLE h)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *n_attr = NULL;
@@ -5967,13 +6046,13 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                                                  ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
-                                   &spki_len, ep11_data->target);
+                                   &spki_len, target_info->target);
     RETRY_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -6225,7 +6304,6 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                                      CK_ULONG ulPrivateKeyAttributeCount,
                                      CK_SESSION_HANDLE h)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE privkey_blob[MAX_BLOBSIZE];
@@ -6308,13 +6386,13 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                                                  ulPrivateKeyAttributeCount)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
-                                   &spki_len, ep11_data->target);
+                                   &spki_len, target_info->target);
     RETRY_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -6914,7 +6992,6 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
@@ -6973,9 +7050,9 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-                            mech, keyblob, keyblobsize, ep11_data->target);
+                            mech, keyblob, keyblobsize, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7010,7 +7087,6 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
                    CK_ULONG in_data_len, CK_BYTE * signature,
                    CK_ULONG * sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     size_t keyblobsize = 0;
@@ -7037,9 +7113,9 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
-                        signature, sig_len, ep11_data->target);
+                        signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7061,7 +7137,6 @@ done:
 CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
                           CK_BYTE * in_data, CK_ULONG in_data_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     size_t keyblobsize = 0;
@@ -7083,9 +7158,9 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
-                              in_data_len, ep11_data->target);
+                              in_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7108,7 +7183,6 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_BBOOL length_only, CK_BYTE * signature,
                          CK_ULONG * sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     size_t keyblobsize = 0;
@@ -7127,9 +7201,9 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
-                             ep11_data->target);
+                             target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7157,7 +7231,6 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    ep11_private_data_t *ep11_data = tokdata->private_data;
 
     UNUSED(length_only);
 
@@ -7174,9 +7247,9 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
-                          signature, sig_len, ep11_data->target);
+                          signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -7197,7 +7270,6 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                           CK_MECHANISM * mech, CK_BBOOL recover_mode,
                           CK_OBJECT_HANDLE key)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *spki;
     size_t spki_len = 0;
@@ -7266,9 +7338,9 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-                              spki, spki_len, ep11_data->target);
+                              spki, spki_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7301,7 +7373,6 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
                      CK_BYTE * in_data, CK_ULONG in_data_len,
                      CK_BYTE * signature, CK_ULONG sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     size_t keyblobsize = 0;
@@ -7329,9 +7400,9 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
-                          signature, sig_len, ep11_data->target);
+                          signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7353,7 +7424,6 @@ done:
 CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_BYTE * in_data, CK_ULONG in_data_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     size_t keyblobsize = 0;
@@ -7375,9 +7445,9 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
-                                in_data_len, ep11_data->target);
+                                in_data_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7399,7 +7469,6 @@ done:
 CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_BYTE * signature, CK_ULONG sig_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     size_t keyblobsize = 0;
@@ -7418,9 +7487,9 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
-                               sig_len, ep11_data->target);
+                               sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7447,7 +7516,6 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     OBJECT *key_obj = NULL;
-    ep11_private_data_t *ep11_data = tokdata->private_data;
 
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -7471,9 +7539,9 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
-                            signature, sig_len, ep11_data->target);
+                            signature, sig_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -7493,7 +7561,6 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_BYTE_PTR output_part,
                             CK_ULONG_PTR p_output_part_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
     CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
@@ -7514,10 +7581,10 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
                                 output_part, p_output_part_len,
-                                ep11_data->target);
+                                target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7540,7 +7607,6 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
                       CK_BYTE_PTR input_data, CK_ULONG input_data_len,
                       CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
     CK_BBOOL length_only = (output_data == NULL ? CK_TRUE : CK_FALSE);
@@ -7562,10 +7628,10 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
                            input_data_len, output_data, p_output_data_len,
-                           ep11_data->target);
+                           target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7589,7 +7655,6 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
                              CK_BYTE_PTR output_part,
                              CK_ULONG_PTR p_output_part_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
     CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
@@ -7616,10 +7681,10 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
                                  input_part, input_part_len, output_part,
-                                 p_output_part_len, ep11_data->target);
+                                 p_output_part_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7647,7 +7712,6 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    ep11_private_data_t *ep11_data = tokdata->private_data;
 
     UNUSED(length_only);
 
@@ -7664,10 +7728,10 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
                              input_data_len, output_data, p_output_data_len,
-                             ep11_data->target);
+                             target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -7687,7 +7751,6 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
                             CK_BYTE_PTR output_part,
                             CK_ULONG_PTR p_output_part_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
     CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
@@ -7708,10 +7771,10 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
                                 output_part, p_output_part_len,
-                                ep11_data->target);
+                                target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7734,7 +7797,6 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
                       CK_BYTE_PTR input_data, CK_ULONG input_data_len,
                       CK_BYTE_PTR output_data, CK_ULONG_PTR p_output_data_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
     CK_BBOOL length_only = (output_data == NULL ? CK_TRUE : CK_FALSE);
@@ -7756,10 +7818,10 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
                            input_data_len, output_data, p_output_data_len,
-                           ep11_data->target);
+                           target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7783,7 +7845,6 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
                              CK_BYTE_PTR output_part,
                              CK_ULONG_PTR p_output_part_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     ENCR_DECR_CONTEXT *ctx = &session->encr_ctx;
     CK_BBOOL length_only = (output_part == NULL ? CK_TRUE : CK_FALSE);
@@ -7810,10 +7871,10 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
                                  input_part, input_part_len, output_part,
-                                 p_output_part_len, ep11_data->target);
+                                 p_output_part_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7841,7 +7902,6 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
-    ep11_private_data_t *ep11_data = tokdata->private_data;
 
     UNUSED(length_only);
 
@@ -7869,10 +7929,10 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START
+    RETRY_START(rc, tokdata)
     rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
                              input_data_len, output_data, p_output_data_len,
-                             ep11_data->target);
+                             target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -7892,7 +7952,6 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                                   CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE key,
                                   int op)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_BYTE *blob;
     size_t blob_len = 0;
@@ -7951,9 +8010,9 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
-                                   blob_len, ep11_data->target);
+                                   blob_len, target_info->target);
         RETRY_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
@@ -7984,9 +8043,9 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
             goto error;
         }
 
-        RETRY_START
+        RETRY_START(rc, tokdata)
             rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, blob,
-                                   blob_len, ep11_data->target);
+                                   blob_len, target_info->target);
         RETRY_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
@@ -8064,7 +8123,6 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                        CK_OBJECT_HANDLE key, CK_BYTE_PTR wrapped_key,
                        CK_ULONG_PTR p_wrapped_key_len)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *wrapping_blob;
     size_t wrapping_blob_len;
@@ -8164,11 +8222,11 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * (wrapping blob). The wrapped key can be processed by any PKCS11
      * implementation.
      */
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc =
         dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
                       wrapping_blob_len, sign_blob, sign_blob_len, mech,
-                      wrapped_key, p_wrapped_key_len, ep11_data->target);
+                      wrapped_key, p_wrapped_key_len, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -8200,7 +8258,6 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_OBJECT_HANDLE wrapping_key,
                          CK_OBJECT_HANDLE_PTR p_key)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *wrapping_blob, *temp;
     size_t wrapping_blob_len;
@@ -8360,13 +8417,13 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     /* we need a blob for the new key created by unwrapping,
      * the wrapped key comes in BER
      */
-    RETRY_START
+    RETRY_START(rc, tokdata)
         rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
                              wrapping_blob_len, verifyblob, verifyblobsize,
                              ep11_pin_blob,
                              ep11_pin_blob_len, mech, new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
-                             ep11_data->target);
+                             target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -8629,21 +8686,25 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR pMechanismList,
                                  CK_ULONG_PTR pulCount)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc = 0;
     CK_ULONG counter = 0, size = 0;
     CK_MECHANISM_TYPE_PTR mlist = NULL;
     CK_ULONG i;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     /* size querry */
     if (pMechanismList == NULL) {
         rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-                                    ep11_data->target);
+                                    target_info->target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n",
                         __func__, rc);
-            return rc;
+            goto out;
         }
 
         /* adjust the size according to the ban list,
@@ -8665,16 +8726,16 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
             if (!mlist) {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto out;
             }
-            rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
+            rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
                 TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
                             __func__, rc);
-                free(mlist);
                 if (rc != CKR_BUFFER_TOO_SMALL)
-                    return rc;
+                    goto out;
             }
         } while (rc == CKR_BUFFER_TOO_SMALL);
 
@@ -8694,12 +8755,12 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * that comes as parameter, this is a 'reduced size',
          * ep11 would complain about insufficient list size
          */
-        rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
+        rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n",
                         __func__, rc);
-            return rc;
+            goto out;
         }
 
         /*
@@ -8716,17 +8777,17 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
             if (!mlist) {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
-                return CKR_HOST_MEMORY;
+                rc = CKR_HOST_MEMORY;
+                goto out;
             }
             /* all the card has */
-            rc = dll_m_GetMechanismList(0, mlist, &counter, ep11_data->target);
+            rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
                 TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
                             __func__, rc);
-                free(mlist);
                 if (rc != CKR_BUFFER_TOO_SMALL)
-                    return rc;
+                    goto out;
             }
         } while (rc == CKR_BUFFER_TOO_SMALL);
 
@@ -8747,8 +8808,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             rc = CKR_BUFFER_TOO_SMALL;
     }
 
+out:
     if (mlist)
         free(mlist);
+    put_target_info(tokdata, target_info);
     return rc;
 }
 
@@ -8762,6 +8825,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
+    CK_RV rc = CKR_OK;
+    ep11_target_info_t* target_info;
 
     for (i = 0; i < supported_mech_list_len; i++) {
         if (type == ep11_supported_mech_list[i]) {
@@ -8776,13 +8841,18 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
     if (check_cps_for_mechanism(ep11_data->cp_config,
-                                type, ep11_data->control_points,
-                                ep11_data->control_points_len,
-                                ep11_data->max_control_point_index) != CKR_OK) {
+                                type, target_info->control_points,
+                                target_info->control_points_len,
+                                target_info->max_control_point_index) != CKR_OK) {
         TRACE_INFO("%s Mech '%s' banned due to control point\n",
                                    __func__, ep11_get_ckm(type));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        goto out;
     }
 
     switch(type) {
@@ -8812,14 +8882,17 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (status == -1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                         __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
 
     case CKM_RSA_PKCS_OAEP:
         /* CKM_RSA_PKCS_OAEP is not supported with EP11 host library <= 1.3 */
-        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver1_3) <= 0)
-            return CKR_MECHANISM_INVALID;
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver1_3) <= 0) {
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
         break;
 
     case CKM_IBM_SHA3_224:
@@ -8835,7 +8908,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
 
@@ -8848,7 +8922,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
 
@@ -8859,7 +8934,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
 
         status = check_required_versions(tokdata, edwards_req_versions,
@@ -8867,7 +8943,8 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
 
@@ -8875,14 +8952,16 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                                      __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         status = check_required_versions(tokdata, ibm_dilithium_req_versions,
                                          NUM_DILITHIUM_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
 
@@ -8891,19 +8970,23 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
                                      __func__, ep11_get_ckm(type));
 
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         status = check_required_versions(tokdata, ibm_cpacf_wrap_req_versions,
                                          NUM_CPACF_WRAP_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                                     __func__, ep11_get_ckm(type));
-            return CKR_MECHANISM_INVALID;
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
         }
         break;
     }
 
-    return CKR_OK;
+out:
+    put_target_info(tokdata, target_info);
+    return rc;
 }
 
 CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
@@ -8948,9 +9031,9 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE type,
                                  CK_MECHANISM_INFO_PTR pInfo)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     int status;
+    ep11_target_info_t* target_info;
 
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
@@ -8959,7 +9042,14 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    rc = dll_m_GetMechanismInfo(0, type, pInfo, ep11_data->target);
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    rc = dll_m_GetMechanismInfo(0, type, pInfo, target_info->target);
+
+    put_target_info(tokdata, target_info);
+
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s m_GetMechanismInfo(0x%lx) failed with rc=0x%lx\n",
@@ -10237,6 +10327,11 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     CK_MECHANISM mech;
     CK_ULONG len;
     libica_sha_context_t ctx;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     session_id_data.handle = session->handle;
     gettimeofday(&session_id_data.timeofday, NULL);
@@ -10258,7 +10353,9 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
         rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data,
                                 sizeof(session_id_data),
                                 ep11_session->session_id, &len,
-                                ep11_data->target);
+                                target_info->target);
+
+    put_target_info(tokdata, target_info);
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -10936,7 +11033,7 @@ static CK_RV get_card_type(uint_32 adapter, CK_ULONG *type)
 
 typedef struct query_version
 {
-    ep11_private_data_t *ep11_data;
+    ep11_target_info_t *target_info;
     CK_CHAR serialNumber[16];
     CK_BBOOL first;
     CK_BBOOL error;
@@ -10977,7 +11074,7 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     }
 
     /* Try to find existing version info for this card type */
-    card_version = qv->ep11_data->card_versions;
+    card_version = qv->target_info->card_versions;
     while (card_version != NULL) {
         if (card_version->card_type == card_type)
            break;
@@ -11022,8 +11119,8 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
         card_version->firmware_version = xcp_info.firmwareVersion;
 #endif
 
-        card_version->next = qv->ep11_data->card_versions;
-        qv->ep11_data->card_versions = card_version;
+        card_version->next = qv->target_info->card_versions;
+        qv->target_info->card_versions = card_version;
     } else {
         /*
          * Version info for this card type is already available, so check this
@@ -11106,23 +11203,16 @@ static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version)
     return CKR_OK;
 }
 
-static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
+static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata,
+                                      ep11_target_info_t *target_info)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_card_version_t *card_version;
     query_version_t qv;
     CK_RV rc;
 
-    rc = ep11tok_get_ep11_library_version(&ep11_data->ep11_lib_version);
-    if (rc != CKR_OK)
-        return rc;
-
-    TRACE_INFO("%s Host library version: %d.%d\n", __func__,
-               ep11_data->ep11_lib_version.major,
-               ep11_data->ep11_lib_version.minor);
-
     memset(&qv, 0, sizeof(qv));
-    qv.ep11_data = ep11_data;
+    qv.target_info = target_info;
     qv.first = TRUE;
 
     rc = handle_all_ep11_cards(&ep11_data->target_list, version_query_handler,
@@ -11141,18 +11231,18 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
         return CKR_DEVICE_ERROR;
     }
 
-    memcpy(ep11_data->serialNumber, qv.serialNumber,
-           sizeof(ep11_data->serialNumber));
+    memcpy(target_info->serialNumber, qv.serialNumber,
+           sizeof(target_info->serialNumber));
 
-    TRACE_INFO("%s Serial number: %.16s\n", __func__, ep11_data->serialNumber);
+    TRACE_INFO("%s Serial number: %.16s\n", __func__, target_info->serialNumber);
 
     /* EP11 host lib version <= 2 only support API version 2 */
     if (ep11_data->ep11_lib_version.major <= 2)
-        ep11_data->used_firmware_API_version = 2;
+        target_info->used_firmware_API_version = 2;
     else
-        ep11_data->used_firmware_API_version = 0;
+        target_info->used_firmware_API_version = 0;
 
-    card_version = ep11_data->card_versions;
+    card_version = target_info->card_versions;
     while (card_version != NULL) {
         TRACE_INFO("%s Card type: CEX%luP\n", __func__,
                    card_version->card_type);
@@ -11162,19 +11252,19 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata)
                 card_version->firmware_version.major,
                 card_version->firmware_version.minor);
 
-        if (ep11_data->used_firmware_API_version == 0)
-            ep11_data->used_firmware_API_version =
+        if (target_info->used_firmware_API_version == 0)
+            target_info->used_firmware_API_version =
                                 card_version->firmware_API_version;
         else
-            ep11_data->used_firmware_API_version =
-                                MIN(ep11_data->used_firmware_API_version,
+            target_info->used_firmware_API_version =
+                                MIN(target_info->used_firmware_API_version,
                                     card_version->firmware_API_version);
 
         card_version = card_version->next;
     }
 
     TRACE_INFO("%s Used Firmware API: %lu\n", __func__,
-               ep11_data->used_firmware_API_version);
+               target_info->used_firmware_API_version);
 
     return CKR_OK;
 }
@@ -11192,20 +11282,29 @@ static void free_card_versions(ep11_card_version_t *card_version)
     }
 }
 
-void ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
+CK_RV ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
                                  CK_TOKEN_INFO_PTR pInfo)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    ep11_target_info_t* target_info;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     /*
      * report the EP11 firmware version as hardware version, and
      * the EP11 host library version as firmware version
      */
-    if (ep11_data->card_versions != NULL)
-        pInfo->hardwareVersion = ep11_data->card_versions->firmware_version;
+    if (target_info->card_versions != NULL)
+        pInfo->hardwareVersion = target_info->card_versions->firmware_version;
     pInfo->firmwareVersion = ep11_data->ep11_lib_version;
-    memcpy(pInfo->serialNumber, ep11_data->serialNumber,
+    memcpy(pInfo->serialNumber, target_info->serialNumber,
            sizeof(pInfo->serialNumber));
+
+    put_target_info(tokdata, target_info);
+
+    return CKR_OK;
 }
 
 /**
@@ -11219,12 +11318,16 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
                                    const version_req_t req[],
                                    CK_ULONG num_req)
 {
-    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ULONG i, max_card_type = 0, min_card_type = 0xFFFFFFFF;
     CK_BBOOL req_not_fullfilled = CK_FALSE;
     CK_BBOOL req_fullfilled = CK_FALSE;
     ep11_card_version_t *card_version;
+    ep11_target_info_t* target_info;
     int status;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     for (i = 0; i < num_req; i++) {
         status = check_card_version(tokdata, req[i].card_type,
@@ -11240,7 +11343,7 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
     }
 
     /* Are card types < min_card_type present? */
-    card_version = ep11_data->card_versions;
+    card_version = target_info->card_versions;
     while (card_version != NULL) {
          if (card_version->card_type < min_card_type)
              req_not_fullfilled = CK_TRUE;
@@ -11248,7 +11351,7 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
      }
 
     /* Are card types > max_card_type present? */
-    card_version = ep11_data->card_versions;
+    card_version = target_info->card_versions;
     while (card_version != NULL) {
         if (card_version->card_type > max_card_type) {
             /*
@@ -11257,9 +11360,10 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
               * So all others must also meet the version requirements or be
               * not present.
               */
+            status = 1;
              if (req_not_fullfilled == CK_TRUE)
-                 return -1;
-             return 1;
+                 status = -1;
+             goto out;
         }
         card_version = card_version->next;
     }
@@ -11270,13 +11374,19 @@ static int check_required_versions(STDLL_TokData_t *tokdata,
          * At least one don't meet the requirements, so all other must not
          * fulfill the requirements, too, or are not present.
          */
+        status = 0;
         if (req_fullfilled == CK_TRUE)
-                return -1;
-        return 0;
+            status = -1;
+        goto out;
     } else {
         /* All of the cards that are present fulfill the requirements */
-        return 1;
+        status = 1;
+        goto out;
     }
+
+out:
+    put_target_info(tokdata, target_info);
+    return status;
 }
 
 /**
@@ -11292,6 +11402,8 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_card_version_t *card_version;
+    ep11_target_info_t* target_info;
+    int status = 1;
 
     TRACE_DEBUG("%s checking versions for CEX%luP cards.\n", __func__, card_type);
 
@@ -11303,21 +11415,28 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
         }
     }
 
-    card_version = ep11_data->card_versions;
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return -1;
+
+    card_version = target_info->card_versions;
     while (card_version != NULL) {
         if (card_version->card_type == card_type)
             break;
         card_version = card_version->next;
     }
 
-    if (card_version == NULL)
-        return -1;
+    if (card_version == NULL) {
+        status = -1;
+        goto out;
+    }
 
     if (firmware_version != NULL) {
         if (compare_ck_version(&card_version->firmware_version,
                                firmware_version) < 0) {
             TRACE_DEBUG("%s firmware_version is less than required\n", __func__);
-            return 0;
+            status = 0;
+            goto out;
         }
     }
 
@@ -11325,53 +11444,57 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
         if (card_version->firmware_API_version < *firmware_API_version) {
             TRACE_DEBUG("%s firmware_API_version is less than required\n",
                        __func__);
-            return 0;
+            status = 0;
+            goto out;
         }
     }
 
-    return 1;
+ out:
+    put_target_info(tokdata, target_info);
+    return status;
 }
 
-static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata)
+static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata,
+                                  ep11_target_info_t *target_info)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     struct XCP_Module module;
-    CK_RV rc;
+    CK_RV rc = CKR_OK;
     short i;
 
     if (dll_m_add_module == NULL) {
         TRACE_WARNING("%s Function dll_m_add_module is not available, falling "
                       "back to old target handling\n", __func__);
 
-        if (ep11_data->used_firmware_API_version > 2) {
+        if (target_info->used_firmware_API_version > 2) {
             TRACE_ERROR("%s selecting an API version is not possible with old "
                         "target handling\n", __func__);
             return CKR_FUNCTION_FAILED;
         }
 
-        ep11_data->target = (target_t)&ep11_data->target_list;
+        target_info->target = (target_t)&ep11_data->target_list;
         return CKR_OK;
     }
 
-    if (ep11_data->used_firmware_API_version > 2 &&
+    if (target_info->used_firmware_API_version > 2 &&
         ep11_data->ep11_lib_version.major < 3) {
         TRACE_ERROR("%s selecting an API version is not possible with an EP11"
                     " host library version < 3.0\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
-    ep11_data->target = XCP_TGT_INIT;
+    target_info->target = XCP_TGT_INIT;
     memset(&module, 0, sizeof(module));
     module.version = ep11_data->ep11_lib_version.major >= 3 ? XCP_MOD_VERSION_2
                                                             : XCP_MOD_VERSION_1;
     module.flags = XCP_MFL_VIRTUAL | XCP_MFL_MODULE;
-    module.api = ep11_data->used_firmware_API_version;
+    module.api = target_info->used_firmware_API_version;
 
     TRACE_DEVEL("%s XCP_MOD_VERSION: %u\n", __func__, module.version);
 
     if (ep11_data->target_list.length == 0) {
         /* APQN_ANY: Create an empty module group */
-        rc = dll_m_add_module(&module, &ep11_data->target);
+        rc = dll_m_add_module(&module, &target_info->target);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s dll_m_add_module (ANY) failed: rc=%ld\n",
                         __func__, rc);
@@ -11386,11 +11509,12 @@ static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata)
         XCPTGTMASK_SET_DOM(module.domainmask,
                            ep11_data->target_list.apqns[2 * i + 1]);
 
-        rc = dll_m_add_module(&module, &ep11_data->target);
+        rc = dll_m_add_module(&module, &target_info->target);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s dll_m_add_module (%02x.%04x) failed: rc=%ld\n",
                     __func__, ep11_data->target_list.apqns[2 * i],
                     ep11_data->target_list.apqns[2 * i + 1], rc);
+            dll_m_rm_module(NULL, target_info->target);
             return CKR_FUNCTION_FAILED;
         }
     }
@@ -11466,6 +11590,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
     CK_ULONG num_attributes = 0;
     CK_ATTRIBUTE *attr;
     CK_RV rc;
+    ep11_target_info_t* target_info;
 
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
     if (rc != CKR_OK) {
@@ -11547,9 +11672,18 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
             goto out;
         }
 
+        target_info = get_target_info(tokdata);
+        if (target_info == NULL) {
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
         rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
                                      ibm_opaque_attr->ulValueLen, attributes,
-                                     num_attributes, ep11_data->target);
+                                     num_attributes, target_info->target);
+
+        put_target_info(tokdata, target_info);
+
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
@@ -11571,5 +11705,235 @@ out:
         free_attribute_array(attributes, num_attributes);
 
     return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
+                                       unsigned int event_type,
+                                       event_udev_apqn_data_t *apqn_data)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_BBOOL found = FALSE;
+    CK_RV rc = CKR_OK;
+    char name[20];
+    int i;
+
+    /* Is it one of the configured APQNs ?*/
+    if (ep11_data->target_list.length > 0) {
+        /* APQN_WHITELIST is specified */
+        for (i = 0; i < ep11_data->target_list.length; i++) {
+            if (ep11_data->target_list.apqns[2 * i] == apqn_data->card &&
+                ep11_data->target_list.apqns[2 * i + 1] == apqn_data->domain) {
+                found = TRUE;
+                break;
+            }
+        }
+    } else {
+        /* APQN_ANY is specified */
+        found = TRUE;
+        if (event_type == EVENT_TYPE_APQN_ADD) {
+            snprintf(name, sizeof(name), "card%02x", apqn_data->card);
+            if (is_card_ep11_and_online(name) != CKR_OK)
+                found = FALSE; /* Not an EP11 APQN */
+        }
+    }
+    if (!found)
+        return CKR_OK;
+
+    TRACE_DEVEL("%s Refreshing target infos due to event for APQN %02x.%04x\n",
+                __func__, apqn_data->card, apqn_data->domain);
+
+    rc = refresh_target_info(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get the target infos (refresh_target_info "
+                    "rc=0x%lx)\n", __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the target info rc=0x%lx\n",
+                   __func__, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Called by the event thread, on receipt of an event.
+ *
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
+                                  unsigned int event_type,
+                                  unsigned int event_flags,
+                                  const char *payload,
+                                  unsigned int payload_len)
+{
+    UNUSED(event_flags);
+
+    switch (event_type) {
+    case EVENT_TYPE_APQN_ADD:
+    case EVENT_TYPE_APQN_REMOVE:
+        if (payload_len != sizeof(event_udev_apqn_data_t))
+            return CKR_FUNCTION_FAILED;
+        return ep11tok_handle_apqn_event(tokdata, event_type,
+                                         (event_udev_apqn_data_t *)payload);
+
+    default:
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Refreshes the target info using the currently configured and available
+ * APQNs. Registers the newly allocated target info as the current one in a
+ * thread save way and gives back the previous one so that it is release when
+ * no longer used (i.e. by a concurrently running thread).
+ */
+static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    volatile ep11_target_info_t *prev_info;
+    ep11_target_info_t *target_info;
+    CK_RV rc;
+
+    target_info = calloc(1, sizeof(ep11_target_info_t));
+    if (target_info == NULL) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    target_info->ref_count = 1;
+
+    /* Get the version info freshly with the current set of APQNs */
+    rc = ep11tok_get_ep11_version(tokdata, target_info);
+    if (rc != 0)
+        goto error;
+
+    /* Get the control points freshly with the current set of APQNs */
+    target_info->control_points_len = sizeof(target_info->control_points);
+    rc = get_control_points(tokdata, target_info->control_points,
+                            &target_info->control_points_len,
+                            &target_info->max_control_point_index);
+    if (rc != 0)
+        goto error;
+
+    /* Setup the group target freshly with the current set of APQNs */
+    rc = ep11tok_setup_target(tokdata, target_info);
+    if (rc != CKR_OK)
+        goto error;
+
+    /* Set the new one as the current one (locked against concurrent get's) */
+    if (pthread_rwlock_wrlock(&ep11_data->target_rwlock) != 0) {
+        TRACE_DEVEL("Target Write-Lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
+
+    prev_info = ep11_data->target_info;
+    ep11_data->target_info = target_info;
+
+    if (pthread_rwlock_unlock(&ep11_data->target_rwlock) != 0) {
+        TRACE_DEVEL("Target Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    /* Release the previous one */
+    if (prev_info != NULL)
+        put_target_info(tokdata, (ep11_target_info_t *)prev_info);
+
+    return CKR_OK;
+
+error:
+    free_card_versions(target_info->card_versions);
+    free((void *)target_info);
+    return rc;
+}
+
+/*
+ * Get the current EP11 target info.
+ * Do NOT use the ep11_data->target_info directly, always get a copy using
+ * this function. This will increment the reference count of the target info,
+ * and return the current target info in a thread save way.
+ * When no longer needed, put it back using put_target_info().
+ */
+static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    volatile ep11_target_info_t *target_info;
+#ifdef DEBUG
+    unsigned long ref_count;
+#endif
+
+    /*
+     * Lock until we have obtained the current target info and have
+     * increased the reference counter
+     */
+    if (pthread_rwlock_rdlock(&ep11_data->target_rwlock) != 0) {
+        TRACE_DEVEL("Target Read-Lock failed.\n");
+        return NULL;
+    }
+
+    target_info = *((void * volatile *)&ep11_data->target_info);
+    if (target_info == NULL) {
+        TRACE_ERROR("%s: target_info is NULL\n", __func__);
+        return NULL;
+    }
+
+#ifdef DEBUG
+    ref_count = __sync_add_and_fetch(&target_info->ref_count, 1);
+
+    TRACE_DEBUG("%s: target_info: %p ref_count: %lu\n", __func__,
+                (void *)target_info, ref_count);
+#else
+    __sync_add_and_fetch(&target_info->ref_count, 1);
+#endif
+
+    if (pthread_rwlock_unlock(&ep11_data->target_rwlock) != 0) {
+        TRACE_DEVEL("Target Unlock failed.\n");
+        return NULL;
+    }
+
+    return (ep11_target_info_t *)target_info;
+}
+
+/*
+ * Give back an EP11 target info. This will decrement the reference count,
+ * and will free it if the reference count reaches zero.
+ */
+static void put_target_info(STDLL_TokData_t *tokdata,
+                            ep11_target_info_t *target_info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    unsigned long ref_count;
+
+    if (target_info == NULL)
+        return;
+
+    if (target_info->ref_count > 0) {
+        ref_count = __sync_sub_and_fetch(&target_info->ref_count, 1);
+
+        TRACE_DEBUG("%s: target_info: %p ref_count: %lu\n", __func__,
+                    (void *)target_info, ref_count);
+    } else {
+        TRACE_WARNING("%s: target_info: %p ref_count already 0.\n", __func__,
+                      (void *)target_info);
+        ref_count = 0;
+    }
+
+    if (ref_count == 0 && target_info != ep11_data->target_info) {
+        TRACE_DEBUG("%s: target_info: %p is freed\n", __func__,
+                    (void *)target_info);
+
+        if (dll_m_rm_module != NULL)
+            dll_m_rm_module(NULL, target_info->target);
+        free_card_versions(target_info->card_versions);
+        free(target_info);
+    }
 }
 
