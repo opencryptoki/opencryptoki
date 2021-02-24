@@ -241,7 +241,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     if (session_mgr_so_session_exists(tokdata) ||
         session_mgr_user_session_exists(tokdata)) {
         bt_for_each_node(tokdata, &tokdata->sess_btree, _ep11tok_logout_session,
-                         NULL);
+                         &in_fork_initializer);
     }
 
     session_mgr_close_all_sessions(tokdata);
@@ -1034,10 +1034,14 @@ static void _ep11tok_login_session(STDLL_TokData_t * tokdata, void *node_value,
 static void _ep11tok_logout_session(STDLL_TokData_t * tokdata, void *node_value,
                                     unsigned long node_idx, void *p3)
 {
-    UNUSED(node_idx);
-    UNUSED(p3);
+    CK_BBOOL in_fork_initializer = FALSE;
 
-    ep11tok_logout_session(tokdata, (SESSION *) node_value);
+    UNUSED(node_idx);
+
+    if (p3 != NULL)
+        in_fork_initializer = *(CK_BBOOL *)p3;
+
+    ep11tok_logout_session(tokdata, (SESSION *) node_value, in_fork_initializer);
 }
 
 CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
@@ -1045,8 +1049,6 @@ CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 {
     CK_RV rc = CKR_OK;
     SESSION *sess = NULL;
-
-    UNUSED(in_fork_initializer);
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
@@ -1063,7 +1065,7 @@ CK_RV SC_CloseSession(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             goto done;
         }
 
-        rc = ep11tok_logout_session(tokdata, sess);
+        rc = ep11tok_logout_session(tokdata, sess, in_fork_initializer);
         if (rc != CKR_OK) {
             TRACE_ERROR("ep11tok_logout_session failed: %s\n", ock_err(rc));
             goto done;
