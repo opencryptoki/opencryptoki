@@ -10705,11 +10705,12 @@ static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
     return CKR_OK;
 }
 
-CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
+CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session,
+                             CK_BBOOL in_fork_initializer)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
-    CK_RV rc, rc2;
+    CK_RV rc = CKR_OK, rc2;
     ST_SESSION_HANDLE handle = {.slotID =
             session->session_info.slotID,.sessionh = session->handle
     };
@@ -10722,6 +10723,9 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
 
     if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
         return CKR_OK;
+
+    if (in_fork_initializer)
+        goto free_session;
 
     switch (session->session_info.state) {
     case CKS_RW_SO_FUNCTIONS:
@@ -10760,6 +10764,7 @@ CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session)
             TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
     }
 
+free_session:
     free(ep11_session);
     session->private_data = NULL;
 

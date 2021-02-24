@@ -152,7 +152,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
 CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session);
 
-CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session);
+CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session,
+                             CK_BBOOL in_fork_initializer);
 
 CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata);
 
