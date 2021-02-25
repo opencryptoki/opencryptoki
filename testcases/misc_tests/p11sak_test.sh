@@ -38,6 +38,8 @@ echo "** Setting SLOT=3 to the Softtoken unless otherwise set - 'p11sak_test.sh'
 
 SLOT=${SLOT:-3}
 
+echo "** Using Slot $SLOT with PKCS11_USER_PIN $PKCS11_USER_PIN and PKCSLIB $PKCSLIB - 'p11sak_test.sh'"
+
 echo "** Now generating keys - 'p11sak_test.sh'"
 
 

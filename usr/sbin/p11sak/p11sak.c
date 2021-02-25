@@ -1353,7 +1353,7 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
         return rc;
     }
 
-    label = malloc(template[0].ulValueLen);
+    label = malloc(template[0].ulValueLen + 1);
     if (!label) {
         printf("Error: cannot malloc storage for label.\n");
         return CKR_HOST_MEMORY;
