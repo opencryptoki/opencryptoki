@@ -6138,6 +6138,10 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_BYTE *rho, *t1;
+    CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
+    CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
+    CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
+    CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
 
     UNUSED(h);
 
@@ -6146,40 +6150,36 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
+    rc = build_ep11_attrs(tokdata, publ_tmpl,
+                          &new_publ_attrs, &new_publ_attrs_len,
+                          ktype, CKO_PUBLIC_KEY, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl,
+                          &new_priv_attrs, &new_priv_attrs_len,
+                          ktype, CKO_PRIVATE_KEY, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
-                              pPublicKeyTemplate, ulPublicKeyAttributeCount,
-                              &new_pPublicKeyTemplate,
-                              &new_ulPublicKeyAttributeCount, -1);
+                              new_publ_attrs, new_publ_attrs_len,
+                              &new_publ_attrs2, &new_publ_attrs2_len, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Dilithium check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto error;
     }
 
     rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
-                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-                              &new_pPrivateKeyTemplate,
-                              &new_ulPrivateKeyAttributeCount, -1);
+                              new_priv_attrs, new_priv_attrs_len,
+                              &new_priv_attrs2, &new_priv_attrs2_len, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Dilithium check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    rc = override_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
-                                 new_pPublicKeyTemplate,
-                                 new_ulPublicKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s Dilithium override public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    rc = override_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
-                                 new_pPrivateKeyTemplate,
-                                 new_ulPrivateKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s Dilithium override private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
         goto error;
     }
@@ -6200,10 +6200,9 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
-                                   new_ulPublicKeyAttributeCount,
-                                   new_pPrivateKeyTemplate,
-                                   new_ulPrivateKeyAttributeCount,
+        rc = dll_m_GenerateKeyPair(pMechanism,
+                                   new_publ_attrs2, new_publ_attrs2_len,
+                                   new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, ep11_data->target);
@@ -6334,6 +6333,14 @@ error:
     if (new_pPublicKeyTemplate)
         free_attribute_array(new_pPublicKeyTemplate,
                              new_ulPublicKeyAttributeCount);
+    if (new_publ_attrs)
+        free_attribute_array(new_publ_attrs, new_publ_attrs_len);
+    if (new_priv_attrs)
+        free_attribute_array(new_priv_attrs, new_priv_attrs_len);
+    if (new_publ_attrs2)
+        free_attribute_array(new_publ_attrs2, new_publ_attrs2_len);
+    if (new_priv_attrs2)
+        free_attribute_array(new_priv_attrs2, new_priv_attrs2_len);
     return rc;
 }
 
