@@ -51,11 +51,12 @@ typedef enum {
     encmode_cbc
 } encmode_t;
 
+int get_msa_level(void);
 
 CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                            CK_ATTRIBUTE *attr);
 
-CK_BBOOL pkey_op_supported_by_cpacf(CK_MECHANISM *mech);
+CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech);
 
 CK_RV pkey_aes_ecb(OBJECT *key, CK_BYTE * in_data,
                    CK_ULONG in_data_len, CK_BYTE * out_data,
