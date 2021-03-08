@@ -33,6 +33,17 @@
 #define ENCRYPTED_AES_256     0x1c
 
 /**
+ * function codes for the KDSA instruction.
+ */
+#define KDSA_ECDSA_VERIFY_P256                0x01
+#define KDSA_ECDSA_VERIFY_P384                0x02
+#define KDSA_ECDSA_VERIFY_P521                0x03
+
+#define KDSA_ENCRYPTED_ECDSA_SIGN_P256        0x11
+#define KDSA_ENCRYPTED_ECDSA_SIGN_P384        0x12
+#define KDSA_ENCRYPTED_ECDSA_SIGN_P521        0x13
+
+/**
  * EP11 blob header as defined in linux/drivers/s390/crypto/zcrypt_ep11misc.h
  */
 #define TOKTYPE_NON_CCA      0x00
@@ -51,12 +62,22 @@ typedef enum {
     encmode_cbc
 } encmode_t;
 
+typedef enum {
+    curve_invalid,
+    curve_p256,
+    curve_p384,
+    curve_p521,
+} cpacf_curve_type_t;
+
 int get_msa_level(void);
+
+CK_BBOOL pkey_is_ec_public_key(TEMPLATE *tmpl);
 
 CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                            CK_ATTRIBUTE *attr);
 
-CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech);
+CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
+                                    TEMPLATE *tmpl);
 
 CK_RV pkey_aes_ecb(OBJECT *key, CK_BYTE * in_data,
                    CK_ULONG in_data_len, CK_BYTE * out_data,
@@ -69,5 +90,12 @@ CK_RV pkey_aes_cbc(OBJECT *key, CK_BYTE *iv,
 
 CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
                     CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv);
+
+CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
+                   CK_BYTE *sig, CK_ULONG *sig_len,
+                   void (*rng_cb)(unsigned char *, size_t));
+
+CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hashlen,
+                     CK_BYTE *sig, CK_ULONG sig_len);
 
 #endif

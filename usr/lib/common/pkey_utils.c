@@ -31,6 +31,11 @@
 #include "trace.h"
 #include "pkey_utils.h"
 
+
+static const CK_BYTE p256[] = OCK_PRIME256V1;
+static const CK_BYTE p384[] = OCK_SECP384R1;
+static const CK_BYTE p521[] = OCK_SECP521R1;
+
 #if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 # if __GLIBC_PREREQ(2, 16)
 #  include <sys/auxv.h>
@@ -49,9 +54,9 @@
  */
 static inline int s390_stfle(unsigned long long *list, int doublewords)
 {
-    register unsigned long __nr asm("0") = doublewords - 1;
+    register unsigned long __nr __asm__("0") = doublewords - 1;
 
-    asm volatile(".insn s,0xb2b00000,0(%1)" /* stfle */
+    __asm__ volatile(".insn s,0xb2b00000,0(%1)" /* stfle */
              : "+d" (__nr) : "a" (list) : "memory", "cc");
 
     return __nr + 1;
@@ -161,6 +166,42 @@ static int s390_kmc(unsigned long func, void *param, unsigned char *dest,
 }
 
 /**
+ * s390_kdsa:
+ * @func: the function code passed to KDSA; see s390_kdsa_functions
+ * @param: address of parameter block; see POP for details on each func
+ * @src: address of source memory area
+ * @srclen: length of src operand in bytes
+ *
+ * Executes the KDSA (COMPUTE DIGITAL SIGNATURE AUTHENTICATION) operation of
+ * the CPU.
+ *
+ * Returns 0 on success. Fails in case of sign if the random number was not
+ * invertible. Fails in case of verify if the signature is invalid or the
+ * public key is not on the curve.
+ */
+static int s390_kdsa(unsigned long func, void *param,
+                    const unsigned char *src, unsigned long srclen)
+{
+    register unsigned long r0 __asm__("0") = (unsigned long)func;
+    register unsigned long r1 __asm__("1") = (unsigned long)param;
+    register unsigned long r2 __asm__("2") = (unsigned long)src;
+    register unsigned long r3 __asm__("3") = (unsigned long)srclen;
+    unsigned long rc = 1;
+
+    __asm__ volatile(
+        "0: .insn   rre,%[__opc] << 16,0,%[__src]\n"
+        "   brc 1,0b\n" /* handle partial completion */
+        "   brc 7,1f\n"
+        "   lghi    %[__rc],0\n"
+        "1:\n"
+        : [__src] "+a" (r2), [__srclen] "+d" (r3), [__rc] "+d" (rc)
+        : [__fc] "d" (r0), [__param] "a" (r1), [__opc] "i" (0xb93a)
+        : "cc", "memory");
+
+    return (int)rc;
+}
+
+/**
  * s390_kmac:
  * @func: the function code passed to KMAC; see s390_kmac_func
  * @param: address of parameter block; see POP for details on each func
@@ -212,6 +253,28 @@ static int s390_pcc(unsigned long func, void *param)
         : "cc", "memory");
 
     return 0;
+}
+
+/**
+ * Return true if the given template indicates an EC public key,
+ * false otherwise.
+ */
+CK_BBOOL pkey_is_ec_public_key(TEMPLATE *tmpl)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG class;
+
+    if (template_attribute_get_ulong(tmpl, CKA_CLASS, &class) != CKR_OK)
+        return CK_FALSE;
+
+    if (class == CKO_PUBLIC_KEY) {
+        if (template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr) == CKR_OK)
+            return CK_TRUE;
+        else
+            return CK_FALSE;
+    }
+
+    return CK_FALSE;
 }
 
 /**
@@ -276,15 +339,39 @@ done:
 }
 
 /**
+ * Returns true if the elliptic curve implied by the given key_obj
+ * is supported by CPACF, false otherwise.
+ */
+CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_BYTE *ec_params;
+
+    if (template_attribute_get_non_empty(tmpl, CKA_ECDSA_PARAMS, &attr) != CKR_OK) {
+        TRACE_ERROR("%s: No CKA_ECDSA_PARAMS found in template, cannot determine curve\n",
+                    __func__);
+        return CK_FALSE;
+    }
+
+    ec_params = (CK_BYTE *) attr->pValue;
+
+    if (memcmp(ec_params, p256, sizeof(p256)) == 0 ||
+        memcmp(ec_params, p384, sizeof(p384)) == 0 ||
+        memcmp(ec_params, p521, sizeof(p521)) == 0) {
+        return CK_TRUE;
+    }
+
+    return CK_FALSE;
+}
+
+/**
  * Returns true if the protected key operation implied by the given mechanism
  * is supported by CPACF, false otherwise.
  */
-CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech)
+CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
+                                    TEMPLATE *tmpl)
 {
-    if (!mech)
-        return CK_FALSE;
-
-    switch (mech->mechanism) {
+    switch (type) {
     case CKM_AES_ECB:
     case CKM_AES_CBC:
     case CKM_AES_CBC_PAD:
@@ -292,6 +379,15 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech)
     case CKM_AES_CMAC:
         if (msa_level > 1)
             return CK_TRUE;
+        break;
+    case CKM_ECDSA:
+    case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
+        if (msa_level > 8)
+            return pkey_op_ec_curve_supported_by_cpacf(tmpl);
         break;
     default:
         break;
@@ -596,6 +692,327 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
     }
 
     ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/**
+ * Determine the CPACF curve type from given template.
+ */
+cpacf_curve_type_t get_cpacf_curve_type(TEMPLATE *tmpl)
+{
+    CK_BYTE *ec_params;
+    CK_ATTRIBUTE *attr = NULL;
+    cpacf_curve_type_t curve_type;
+
+    /* Determine CKA_EC_PARAMS */
+    if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &attr) != CKR_OK) {
+        TRACE_ERROR("%s: This template does not have CKA_EC_PARAMS, cannot determine curve type.\n",
+                    __func__);
+        curve_type = curve_invalid;
+        goto done;
+    }
+    ec_params = (CK_BYTE *) attr->pValue;
+
+    if (memcmp(ec_params, p256, sizeof(p256)) == 0)
+        curve_type = curve_p256;
+    else if (memcmp(ec_params, p384, sizeof(p384)) == 0)
+        curve_type = curve_p384;
+    else if (memcmp(ec_params, p521, sizeof(p521)) == 0)
+        curve_type = curve_p521;
+    else
+        curve_type = curve_invalid;
+
+done:
+
+    return curve_type;
+}
+
+/**
+ * Sign the given hash via CPACF using the given protected private key.
+ */
+CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hash_len,
+                   CK_BYTE *sig, CK_ULONG *sig_len,
+                   void (*rng_cb)(unsigned char *, size_t))
+{
+#define DEF_PARAM(curve, size)        \
+    struct {                          \
+        unsigned char sig_r[size];    \
+        unsigned char sig_s[size];    \
+        unsigned char hash[size];     \
+        unsigned char priv[size];     \
+        unsigned char rand[size];     \
+        unsigned char vp[32];         \
+        short c;                      \
+        short res;                    \
+    } curve
+
+    union {
+        long long buff[512]; /* 4k buffer: params + reserved area */
+        DEF_PARAM(P256, 32);
+        DEF_PARAM(P384, 48);
+        DEF_PARAM(P521, 80);
+    } param;
+#undef DEF_PARAM
+
+    CK_RV ret;
+    unsigned long fc;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    int rc, off;
+    cpacf_curve_type_t curve_type;
+
+    /* Get protected key from key object */
+    if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
+                                         &pkey_attr) != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE_PKEY in key's template.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Setup CPACF parmblock */
+    memset(&param, 0, sizeof(param));
+    curve_type = get_cpacf_curve_type(privkey->template);
+    switch (curve_type) {
+    case curve_p256:
+        if (hash_len > 32)
+            hash_len = 32;
+        off = 32 - hash_len;
+        memcpy(param.P256.hash + off, hash, hash_len);
+        memcpy(param.P256.priv, pkey_attr->pValue, 32);
+        memcpy(param.P256.vp, (char *)pkey_attr->pValue + 32, 32);
+        *sig_len = 2 * 32;
+        break;
+    case curve_p384:
+        if (hash_len > 48)
+            hash_len = 48;
+        off = 48 - hash_len;
+        memcpy(param.P384.hash + off, hash, hash_len);
+        memcpy(param.P384.priv, pkey_attr->pValue, 48);
+        memcpy(param.P384.vp, (char *)pkey_attr->pValue + 48, 32);
+        *sig_len = 2 * 48;
+        break;
+    case curve_p521:
+        if (hash_len > 66)
+            hash_len = 66;
+        /* Note that the pkey for p521 has 80 + 32 bytes. */
+        off = 80 - hash_len;
+        memcpy(param.P521.hash + off, hash, hash_len);
+        memcpy(param.P521.priv, pkey_attr->pValue, pkey_attr->ulValueLen - 32);
+        memcpy(param.P521.vp, (char *)pkey_attr->pValue + pkey_attr->ulValueLen - 32, 32);
+        *sig_len = 2 * 66;
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (sig == NULL) {
+        /* length_only requested, just return with *sig_len */
+        ret = CKR_OK;
+        goto done;
+    }
+
+    /* Set random number and function code */
+    switch (curve_type) {
+    case curve_p256:
+        fc = KDSA_ENCRYPTED_ECDSA_SIGN_P256 | 0x80;
+        if (rng_cb != NULL) {
+            rng_cb(param.P256.rand, sizeof(param.P256.rand));
+            fc = KDSA_ENCRYPTED_ECDSA_SIGN_P256;
+        }
+        break;
+    case curve_p384:
+        fc = KDSA_ENCRYPTED_ECDSA_SIGN_P384 | 0x80;
+        if (rng_cb != NULL) {
+            rng_cb(param.P384.rand, sizeof(param.P384.rand));
+            fc = KDSA_ENCRYPTED_ECDSA_SIGN_P384;
+        }
+        break;
+    case curve_p521:
+        fc = KDSA_ENCRYPTED_ECDSA_SIGN_P521 | 0x80;
+        if (rng_cb != NULL) {
+            rng_cb(param.P521.rand, sizeof(param.P521.rand));
+            fc = KDSA_ENCRYPTED_ECDSA_SIGN_P521;
+        }
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Call CPACF */
+    rc = s390_kdsa(fc, param.buff, NULL, 0);
+    switch (rc) {
+    case 0:
+        ret = CKR_OK;
+        break;
+    case 1:
+        switch (curve_type) {
+        case curve_p256:
+            TRACE_ERROR("%s rc from KDSA = 1 and C = %02X.\n",
+                        __func__, param.P256.c);
+            break;
+        case curve_p384:
+            TRACE_ERROR("%s rc from KDSA = 1 and C = %02X.\n",
+                        __func__, param.P384.c);
+            break;
+        case curve_p521:
+            TRACE_ERROR("%s rc from KDSA = 1 and C = %02X.\n",
+                        __func__, param.P521.c);
+            break;
+        default:
+            break;
+        }
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    default: /* rc = 2 */
+        TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Provide signature to caller */
+    switch (curve_type) {
+    case curve_p256:
+    case curve_p384:
+        /* r and s are consecutive in the param block */
+        memcpy(sig, param.buff, *sig_len);
+        break;
+    case curve_p521:
+        /* r and s are both righ-aligned in the param block */
+        memcpy(sig, param.P521.sig_r + 14, 66);
+        memcpy(sig + 66, param.P521.sig_s + 14, 66);
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    OPENSSL_cleanse(&param, sizeof(param));
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/**
+ * Verify the given signature via CPACF using the given public key.
+ */
+CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hash_len,
+                     CK_BYTE *sig, CK_ULONG sig_len)
+{
+#define DEF_PARAM(curve, size)    \
+struct {                          \
+    unsigned char sig_r[size];    \
+    unsigned char sig_s[size];    \
+    unsigned char hash[size];     \
+    unsigned char pub_x[size];    \
+    unsigned char pub_y[size];    \
+} curve
+
+    union {
+        long long buff[512]; /* 4k buffer: params + reserved area */
+        DEF_PARAM(P256, 32);
+        DEF_PARAM(P384, 48);
+        DEF_PARAM(P521, 80);
+    } param;
+#undef DEF_PARAM
+
+    CK_RV ret;
+    unsigned long fc;
+    CK_ATTRIBUTE *pub_attr = NULL;
+    int rc, hash_off, key_off;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
+    cpacf_curve_type_t curve_type;
+
+    /* Get public key from template */
+    if (template_attribute_get_non_empty(pubkey->template, CKA_EC_POINT,
+                                         &pub_attr) != CKR_OK) {
+        TRACE_ERROR("%s: This public key does not have a CKA_EC_POINT.\n",
+                    __func__);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+    rc = ber_decode_OCTET_STRING(pub_attr->pValue, &ecpoint,
+                                 &ecpoint_len, &field_len);
+    if (rc != CKR_OK || pub_attr->ulValueLen != field_len) {
+        TRACE_ERROR("%s: ber_decode_OCTET_STRING failed\n", __func__);
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto done;
+    }
+
+    /* Uncompressed EC keys have both (x,y) values and begin with 0x04 */
+    if (ecpoint[0] != 0x04) {
+        TRACE_ERROR("%s: EC_POINT is compressed, not supported here.\n",
+                    __func__);
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto done;
+    }
+    ecpoint++;
+    ecpoint_len--;
+
+    /* Setup parmblock and function code */
+    memset(&param, 0, sizeof(param));
+    curve_type = get_cpacf_curve_type(pubkey->template);
+    switch (curve_type) {
+    case curve_p256:
+        if (hash_len > sig_len / 2)
+            hash_len = sig_len / 2;
+        fc = KDSA_ECDSA_VERIFY_P256;
+        hash_off = 32 - hash_len;
+        memcpy(param.P256.sig_r, sig, sig_len);
+        memcpy(param.P256.hash + hash_off, hash, hash_len);
+        memcpy(param.P256.pub_x, ecpoint, ecpoint_len);
+        break;
+    case curve_p384:
+        if (hash_len > sig_len / 2)
+            hash_len = sig_len / 2;
+        fc = KDSA_ECDSA_VERIFY_P384;
+        hash_off = 48 - hash_len;
+        memcpy(param.P384.sig_r, sig, sig_len);
+        memcpy(param.P384.hash + hash_off, hash, hash_len);
+        memcpy(param.P384.pub_x, ecpoint, ecpoint_len);
+        break;
+    case curve_p521:
+        if (hash_len > sig_len / 2)
+            hash_len = sig_len / 2;
+        fc = KDSA_ECDSA_VERIFY_P521;
+        /* Note that the pkey for p521 has 80 + 32 bytes. */
+        hash_off = 80 - hash_len;
+        key_off = 80 - (sig_len / 2);
+        memcpy(param.P521.sig_r + key_off, sig, sig_len / 2);
+        memcpy(param.P521.sig_s + key_off, sig + (sig_len / 2), sig_len / 2);
+        memcpy(param.P521.hash + hash_off, hash, hash_len);
+        memcpy(param.P521.pub_x + key_off, ecpoint, sig_len / 2);
+        memcpy(param.P521.pub_y + key_off, ecpoint + (sig_len / 2), sig_len / 2);
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Call CPACF */
+    rc = s390_kdsa(fc, param.buff, NULL, 0);
+    switch (rc) {
+    case 0:
+        /* signature verified successfully */
+        ret = CKR_OK;
+        break;
+    default:
+        ret = CKR_SIGNATURE_INVALID;
+        break;
+    }
 
 done:
 

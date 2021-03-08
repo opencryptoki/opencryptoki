@@ -655,6 +655,7 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
      */
     switch (wk->wrapped_key_type) {
     case EP11_WRAPPED_KEY_TYPE_AES:
+    case EP11_WRAPPED_KEY_TYPE_EC:
         break;
     default:
         TRACE_ERROR("Got unexpected CPACF key type %d from firmware\n", wk->wrapped_key_type);
@@ -898,7 +899,8 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
     CK_RV ret = CKR_FUNCTION_NOT_SUPPORTED;
 
     /* Check if CPACF supports the operation implied by this key and mech */
-    if (!pkey_op_supported_by_cpacf(ep11_data->msa_level, mech))
+    if (!pkey_op_supported_by_cpacf(ep11_data->msa_level, mech->mechanism,
+                                    key_obj->template))
         goto done;
 
     /* Check config option */
@@ -909,7 +911,15 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
     case PKEY_MODE_DEFAULT:
     case PKEY_MODE_ENABLE4NONEXTR:
         /* Use existing pkeys, re-create invalid pkeys, and also create new
-         * pkeys for keys that do not already have one. */
+         * pkeys for secret/private keys that do not already have one. EC
+         * public keys that are pkey-extractable, can always be used via CPACF
+         * as there is no protected key involved.*/
+        if (pkey_is_ec_public_key(key_obj->template) &&
+            object_is_pkey_extractable(key_obj)) {
+            ret = CKR_OK;
+            goto done;
+        }
+
         if (object_is_extractable(key_obj) ||
             !object_is_pkey_extractable(key_obj) ||
             object_is_attr_bound(key_obj) ||
@@ -987,13 +997,15 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                                               CK_ULONG mode, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
     CK_BBOOL extractable, btrue = CK_TRUE;
+    CK_BBOOL add_pkey_extractable = CK_FALSE;
     CK_RV ret;
 
     UNUSED(mode);
 
-    if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY)
+    if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY &&
+        class != CKO_PUBLIC_KEY)
         return CKR_OK;
 
     switch (ep11_data->pkey_mode) {
@@ -1007,9 +1019,25 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
         break;
     case PKEY_MODE_ENABLE4NONEXTR:
         /* If the application did not specify pkey-extractable, all
-         * non-extractable keys get pkey-extractable=true */
-        ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
-        if (ret == CKR_OK && !extractable) {
+         * non-extractable secret/private keys and all EC public keys where
+         * CPACF supports the related curve, get pkey-extractable=true */
+        switch (class) {
+        case CKO_PUBLIC_KEY:
+            if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ecp_attr) == CKR_OK &&
+                pkey_op_supported_by_cpacf(ep11_data->msa_level, CKM_ECDSA, tmpl))
+                add_pkey_extractable = CK_TRUE;
+                /* Note that the explicit parm CKM_ECDSA just tells the
+                 * function that it's not AES here. It covers all EC and ED
+                 * mechs */
+            break;
+        default:
+            ret = template_attribute_get_bool(tmpl, CKA_EXTRACTABLE, &extractable);
+            if (ret == CKR_OK && !extractable)
+                add_pkey_extractable = CK_TRUE;
+            break;
+        }
+
+        if (add_pkey_extractable) {
             if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
                 ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE,
                                       (CK_BBOOL *)&btrue, sizeof(CK_BBOOL),
@@ -4676,6 +4704,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
                              OBJECT *key_obj )
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    SIGN_VERIFY_CONTEXT *ctx = &(session->sign_ctx);
     CK_RV rc;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
@@ -4685,6 +4714,18 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
         return rc;
+    }
+
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, &ctx->mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ec_sign(key_obj, in_data, in_data_len,
+                          out_data, out_data_len, NULL);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        break;
+    default:
+        goto done;
     }
 
     mech.mechanism = CKM_ECDSA;
@@ -4702,6 +4743,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
 
+done:
+
     return rc;
 }
 
@@ -4711,6 +4754,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
                                OBJECT *key_obj )
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+    SIGN_VERIFY_CONTEXT *ctx = &(session->verify_ctx);
     CK_RV rc;
     CK_BYTE *spki;
     size_t spki_len = 0;
@@ -4720,6 +4764,18 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
         return rc;
+    }
+
+    rc = ep11tok_pkey_check(tokdata, session, key_obj, &ctx->mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ec_verify(key_obj, in_data, in_data_len,
+                            out_data, out_data_len);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        break;
+    default:
+        goto done;
     }
 
     mech.mechanism = CKM_ECDSA;
@@ -4736,6 +4792,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+done:
 
     return rc;
 }
