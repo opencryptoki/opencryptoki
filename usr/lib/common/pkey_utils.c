@@ -35,6 +35,8 @@
 static const CK_BYTE p256[] = OCK_PRIME256V1;
 static const CK_BYTE p384[] = OCK_SECP384R1;
 static const CK_BYTE p521[] = OCK_SECP521R1;
+static const CK_BYTE ed25519[] = OCK_ED25519;
+static const CK_BYTE ed448[] = OCK_ED448;
 
 #if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 # if __GLIBC_PREREQ(2, 16)
@@ -255,6 +257,47 @@ static int s390_pcc(unsigned long func, void *param)
     return 0;
 }
 
+static inline void s390_flip_endian_32(void *dest, const void *src)
+{
+    __asm__ volatile(
+        "   lrvg    %%r0,0(%[__src])\n"
+        "   lrvg    %%r1,8(%[__src])\n"
+        "   lrvg    %%r4,16(%[__src])\n"
+        "   lrvg    %%r5,24(%[__src])\n"
+        "   stg %%r0,24(%[__dest])\n"
+        "   stg %%r1,16(%[__dest])\n"
+        "   stg %%r4,8(%[__dest])\n"
+        "   stg %%r5,0(%[__dest])\n"
+        :
+        : [__dest] "a" (dest), [__src] "a" (src)
+        : "memory", "%r0", "%r1", "%r4", "%r5");
+}
+
+static inline void s390_flip_endian_64(void *dest, const void *src)
+{
+    __asm__ volatile(
+        "   lrvg    %%r0,0(%[__src])\n"
+        "   lrvg    %%r1,8(%[__src])\n"
+        "   lrvg    %%r4,16(%[__src])\n"
+        "   lrvg    %%r5,24(%[__src])\n"
+        "   lrvg    %%r6,32(%[__src])\n"
+        "   lrvg    %%r7,40(%[__src])\n"
+        "   lrvg    %%r8,48(%[__src])\n"
+        "   lrvg    %%r9,56(%[__src])\n"
+        "   stg %%r0,56(%[__dest])\n"
+        "   stg %%r1,48(%[__dest])\n"
+        "   stg %%r4,40(%[__dest])\n"
+        "   stg %%r5,32(%[__dest])\n"
+        "   stg %%r6,24(%[__dest])\n"
+        "   stg %%r7,16(%[__dest])\n"
+        "   stg %%r8,8(%[__dest])\n"
+        "   stg %%r9,0(%[__dest])\n"
+        :
+        : [__dest] "a" (dest), [__src] "a" (src)
+        : "memory", "%r0", "%r1", "%r4", "%r5",
+                "%r6", "%r7", "%r8", "%r9");
+}
+
 /**
  * Return true if the given template indicates an EC public key,
  * false otherwise.
@@ -357,7 +400,9 @@ CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl)
 
     if (memcmp(ec_params, p256, sizeof(p256)) == 0 ||
         memcmp(ec_params, p384, sizeof(p384)) == 0 ||
-        memcmp(ec_params, p521, sizeof(p521)) == 0) {
+        memcmp(ec_params, p521, sizeof(p521)) == 0 ||
+        memcmp(ec_params, ed25519, sizeof(ed25519)) == 0 ||
+        memcmp(ec_params, ed448, sizeof(ed448)) == 0) {
         return CK_TRUE;
     }
 
@@ -386,6 +431,8 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
     case CKM_ECDSA_SHA256:
     case CKM_ECDSA_SHA384:
     case CKM_ECDSA_SHA512:
+    case CKM_IBM_ED25519_SHA512:
+    case CKM_IBM_ED448_SHA3:
         if (msa_level > 8)
             return pkey_op_ec_curve_supported_by_cpacf(tmpl);
         break;
@@ -722,6 +769,10 @@ cpacf_curve_type_t get_cpacf_curve_type(TEMPLATE *tmpl)
         curve_type = curve_p384;
     else if (memcmp(ec_params, p521, sizeof(p521)) == 0)
         curve_type = curve_p521;
+    else if (memcmp(ec_params, ed25519, sizeof(ed25519)) == 0)
+        curve_type = curve_ed25519;
+    else if (memcmp(ec_params, ed448, sizeof(ed448)) == 0)
+        curve_type = curve_ed448;
     else
         curve_type = curve_invalid;
 
@@ -903,6 +954,132 @@ done:
 }
 
 /**
+ * Sign the given input message via CPACF using the given protected private key.
+ * This routine only supports the two IBM specific Edwards curves ED25519 and
+ * ED448.
+ * Note: The original input message is passed to CPACF without being
+ * pre-hashed. Hashing is done internally in CPACF.
+ */
+CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+                       CK_BYTE *sig, CK_ULONG *sig_len)
+{
+#define DEF_EDPARAM(curve, size)      \
+    struct {                          \
+        unsigned char sig_r[size];    \
+        unsigned char sig_s[size];    \
+        unsigned char priv[size];     \
+        unsigned char vp[32];         \
+        unsigned char res1[16];       \
+        short c;                      \
+        short res2;                   \
+    } curve
+
+    union {
+        long long buff[512]; /* 4k buffer: params + reserved area */
+        DEF_EDPARAM(ED25519, 32);
+        DEF_EDPARAM(ED448, 64);
+    } edparam;
+#undef DEF_EDPARAM
+
+    CK_RV ret;
+    unsigned long fc;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    int rc;
+    cpacf_curve_type_t curve_type;
+
+    /* Get protected key from key object */
+    if (template_attribute_get_non_empty(privkey->template, CKA_IBM_OPAQUE_PKEY,
+                                         &pkey_attr) != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE_PKEY in key's template.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Setup CPACF parmblock */
+    memset(&edparam, 0, sizeof(edparam));
+    curve_type = get_cpacf_curve_type(privkey->template);
+    switch (curve_type) {
+    case curve_ed25519:
+        fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED25519;
+        memcpy(edparam.ED25519.priv, pkey_attr->pValue, 32);
+        memcpy(edparam.ED25519.vp, (char *)pkey_attr->pValue + 32, 32);
+        *sig_len = 2 * 32;
+        break;
+    case curve_ed448:
+        fc = KDSA_ENCRYPTED_EDDSA_SIGN_ED448;
+        memcpy(edparam.ED448.priv, pkey_attr->pValue, 64);
+        memcpy(edparam.ED448.vp, (char *)pkey_attr->pValue + 64, 32);
+        *sig_len = 2 * 57;
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (sig == NULL) {
+        /* length_only requested, just return with *sig_len */
+        ret = CKR_OK;
+        goto done;
+    }
+
+    /* Call CPACF */
+    rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
+    switch (rc) {
+    case 0:
+        ret = CKR_OK;
+        break;
+    case 1:
+        switch (curve_type) {
+        case curve_ed25519:
+            TRACE_ERROR("%s rc from KDSA = 1 and C = %02X.\n",
+                        __func__, edparam.ED25519.c);
+            break;
+        case curve_ed448:
+            TRACE_ERROR("%s rc from KDSA = 1 and C = %02X.\n",
+                        __func__, edparam.ED448.c);
+            break;
+        default:
+            break;
+        }
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    default: /* rc = 2 */
+        TRACE_ERROR("%s rc from KDSA = 2\n", __func__);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Provide signature to caller */
+    switch (curve_type) {
+    case curve_ed25519:
+        /* r and s are consecutive in the param block */
+        s390_flip_endian_32(sig, edparam.ED25519.sig_r);
+        s390_flip_endian_32(sig + 32, edparam.ED25519.sig_s);
+        break;
+    case curve_ed448:
+        /* r and s are right aligned in the param block */
+        s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
+        s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
+        memcpy(sig, edparam.ED448.sig_r, 57);
+        memcpy(sig + 57, edparam.ED448.sig_s, 57);
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    OPENSSL_cleanse(&edparam, sizeof(edparam));
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
+/**
  * Verify the given signature via CPACF using the given public key.
  */
 CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hash_len,
@@ -1004,6 +1181,114 @@ struct {                          \
 
     /* Call CPACF */
     rc = s390_kdsa(fc, param.buff, NULL, 0);
+    switch (rc) {
+    case 0:
+        /* signature verified successfully */
+        ret = CKR_OK;
+        break;
+    default:
+        ret = CKR_SIGNATURE_INVALID;
+        break;
+    }
+
+done:
+
+    return ret;
+}
+
+/**
+ * Verify the given signature via CPACF using the given public key.
+ * This routine only supports the two IBM specific Edwards curves ED25519 and
+ * ED448.
+ * Note: The original input message is passed to CPACF without being
+ * pre-hashed. Hashing is done internally in CPACF.
+ */
+CK_RV pkey_ibm_ed_verify(OBJECT *pubkey, CK_BYTE *msg, CK_ULONG msg_len,
+                         CK_BYTE *sig, CK_ULONG sig_len)
+{
+#define DEF_EDPARAM(curve, size)    \
+struct {                            \
+    unsigned char sig_r[size];      \
+    unsigned char sig_s[size];      \
+    unsigned char pub[size];        \
+} curve
+
+    union {
+        long long buff[512]; /* 4k buffer: params + reserved area */
+        DEF_EDPARAM(ED25519, 32);
+        DEF_EDPARAM(ED448, 64);
+    } edparam;
+#undef DEF_EDPARAM
+
+    CK_RV ret;
+    unsigned long fc;
+    CK_ATTRIBUTE *pub_attr = NULL;
+    int rc;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
+    cpacf_curve_type_t curve_type;
+
+    /* Get public key from template */
+    if (template_attribute_get_non_empty(pubkey->template, CKA_EC_POINT, 
+                                         &pub_attr) != CKR_OK) {
+        TRACE_ERROR("%s: This public key does not have a CKA_EC_POINT.\n",
+                    __func__);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* CKA_EC_POINT is an BER encoded OCTET STRING. Extract it. */
+    rc = ber_decode_OCTET_STRING(pub_attr->pValue, &ecpoint,
+                                 &ecpoint_len, &field_len);
+    if (rc != CKR_OK || pub_attr->ulValueLen != field_len) {
+        TRACE_ERROR("%s: ber_decode_OCTET_STRING failed\n", __func__);
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto done;
+    }
+
+    /* Setup parmblock and function code */
+    memset(&edparam, 0, sizeof(edparam));
+    curve_type = get_cpacf_curve_type(pubkey->template);
+    switch (curve_type) {
+    case curve_ed25519:
+        fc = KDSA_EDDSA_VERIFY_ED25519;
+        s390_flip_endian_32(edparam.ED25519.sig_r, sig);
+        s390_flip_endian_32(edparam.ED25519.sig_s, sig + (sig_len / 2));
+        s390_flip_endian_32(edparam.ED25519.pub, ecpoint);
+        break;
+    case curve_ed448:
+        fc = KDSA_EDDSA_VERIFY_ED448;
+        memcpy(edparam.ED448.sig_r, sig, sig_len / 2);
+        memcpy(edparam.ED448.sig_s, sig + (sig_len / 2), sig_len / 2);
+        memcpy(edparam.ED448.pub, ecpoint, ecpoint_len);
+        s390_flip_endian_64(edparam.ED448.sig_r, edparam.ED448.sig_r);
+        s390_flip_endian_64(edparam.ED448.sig_s, edparam.ED448.sig_s);
+        s390_flip_endian_64(edparam.ED448.pub, edparam.ED448.pub);
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Call CPACF */
+    switch (curve_type) {
+    case curve_ed25519:
+        rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
+        break;
+    case curve_ed448:
+        rc = s390_kdsa(fc, edparam.buff, msg, msg_len);
+        if (sig[113] != 0) {
+            /* KDSA doesn't check last byte */
+            rc = 1;
+        }
+        break;
+    default:
+        TRACE_ERROR("Could not determine the curve type.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
     switch (rc) {
     case 0:
         /* signature verified successfully */
