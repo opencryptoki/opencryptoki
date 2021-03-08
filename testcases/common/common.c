@@ -853,7 +853,7 @@ int is_valid_ep11_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
     return 0;
 }
 
-/** Returns true if slot_id is an ICA Token **/
+/** Returns true if slot_id is an EP11 Token **/
 int is_ep11_token(CK_SLOT_ID slot_id)
 {
     CK_RV rc;
