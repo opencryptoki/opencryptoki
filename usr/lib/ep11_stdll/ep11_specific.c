@@ -2742,6 +2742,36 @@ make_maced_spki_end:
 }
 
 /**
+ * Determine the curve type from the given template.
+ *
+ * @return a valid curve_type if successful
+ *         -1 if no CKA_ECDSA_PARAMS found in template
+ */
+static int get_curve_type_from_template(TEMPLATE *tmpl)
+{
+    CK_ATTRIBUTE *ec_params;
+    int i, curve_type = -1;
+    CK_RV ret;
+
+    ret = template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ec_params);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_EC_PARAMS for the key.\n");
+        return curve_type;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
+            memcmp(ec_params->pValue, der_ec_supported[i].data,
+                   ec_params->ulValueLen) == 0) {
+            curve_type = der_ec_supported[i].curve_type;
+            break;
+        }
+    }
+
+    return curve_type;
+}
+
+/**
  * Determine the curve type from the given array of attributes.
  *
  * @return a valid curve_type if successful
@@ -4888,6 +4918,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_MECHANISM ecdh1_mech, ecdh1_mech2;
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len, key_len = 0;
+    CK_ATTRIBUTE *new_attrs2 = NULL;
+    CK_ULONG new_attrs2_len = 0;
+    int curve_type;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5059,12 +5092,21 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    curve_type = get_curve_type_from_template(key_obj->template);
+    rc = build_ep11_attrs(tokdata, key_obj->template,
+                          &new_attrs2, &new_attrs2_len,
+                          ktype, class, curve_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
         rc =
-        dll_m_DeriveKey(mech, new_attrs, new_attrs_len, keyblob, keyblobsize,
+        dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len, keyblob, keyblobsize,
                         NULL, 0, ep11_pin_blob, ep11_pin_blob_len, newblob,
                         &newblobsize, csum, &cslen, ep11_data->target);
     RETRY_END(rc, tokdata, session)
@@ -5134,6 +5176,8 @@ error:
         free(opaque_attr);
     if (chk_attr != NULL)
         free(chk_attr);
+    if (new_attrs2)
+        free_attribute_array(new_attrs2, new_attrs2_len);
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
