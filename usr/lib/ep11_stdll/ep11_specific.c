@@ -650,6 +650,7 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     switch (wk->wrapped_key_type) {
     case EP11_WRAPPED_KEY_TYPE_AES:
     case EP11_WRAPPED_KEY_TYPE_EC:
+    case EP11_WRAPPED_KEY_TYPE_ED:
         break;
     default:
         TRACE_ERROR("Got unexpected CPACF key type %d from firmware\n", wk->wrapped_key_type);
@@ -6750,6 +6751,135 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE handle,
     return rc;
 }
 
+/**
+ * Initializes the sign/verify context for the two IBM-specific Edwards
+ * curves. Common mechanisms using Edwards curves are introduced with
+ * PKCS#11 3.0 and support for these will be added in common code at a later
+ * time. Let's keep support for IBM-specific ED curves local to the EP11 token,
+ * because they are only supported here.
+ */
+CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
+                                      SESSION *sess, SIGN_VERIFY_CONTEXT *ctx,
+                                      CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                                      CK_BBOOL sign)
+{
+    OBJECT *key_obj = NULL;
+    CK_BYTE *ptr = NULL;
+    CK_KEY_TYPE keytype;
+    CK_OBJECT_CLASS class;
+    CK_BBOOL flag;
+    CK_RV rc;
+
+    if (!sess || !ctx) {
+        TRACE_ERROR("Invalid function arguments.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (ctx->active != FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
+    }
+
+    /* Check key usage restrictions */
+    rc = object_mgr_find_in_map1(tokdata, key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            return CKR_KEY_HANDLE_INVALID;
+        else
+            return rc;
+    }
+
+    if (sign) {
+        rc = template_attribute_get_bool(key_obj->template, CKA_SIGN, &flag);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_SIGN for the key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+    } else {
+        rc = template_attribute_get_bool(key_obj->template, CKA_VERIFY, &flag);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VERIFY for the key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+    }
+
+    if (flag != TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    if (mech->ulParameterLen != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+        rc = CKR_MECHANISM_PARAM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                      &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+        goto done;
+    }
+
+    if (keytype != CKK_EC) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
+    /* Check key class: must be either a private or public key */
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS,
+                                      &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
+        goto done;
+    }
+
+    if (sign) {
+        if (class != CKO_PRIVATE_KEY) {
+            TRACE_ERROR("This operation requires a private key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+    } else {
+        if (class != CKO_PUBLIC_KEY) {
+            TRACE_ERROR("This operation requires a public key.\n");
+            rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+            goto done;
+        }
+    }
+
+    ctx->context_len = 0;
+    ctx->context = NULL;
+    ctx->key = key;
+    ctx->mech.ulParameterLen = mech->ulParameterLen;
+    ctx->mech.mechanism = mech->mechanism;
+    ctx->mech.pParameter = ptr;
+    ctx->multi_init = FALSE;
+    ctx->multi = FALSE;
+    ctx->active = TRUE;
+    ctx->recover = FALSE;
+    ctx->pkey_active = FALSE;
+
+    rc = CKR_OK;
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key)
@@ -6788,7 +6918,15 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
-        rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key);
+        /* Note that Edwards curves in general are not yet supported in
+         * opencryptoki. These two special IBM specific ED mechs are only
+         * supported by the ep11token, so let's keep them local here. */
+        if (mech->mechanism == CKM_IBM_ED25519_SHA512 ||
+            mech->mechanism == CKM_IBM_ED448_SHA3)
+            rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session, ctx,
+                                                 mech, key, CK_TRUE);
+        else
+            rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key);
         if (rc == CKR_OK)
             ctx->pkey_active = TRUE;
         /* Regardless of the rc goto done here, because ep11tok_pkey_check
@@ -6857,8 +6995,15 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (ctx->pkey_active) {
-        rc = sign_mgr_sign(tokdata, session, length_only, ctx, in_data,
-                           in_data_len, signature, sig_len);
+        /* Note that Edwards curves in general are not yet supported in
+         * opencryptoki. These two special IBM specific ED mechs are only
+         * supported by the ep11token, so let's keep them local here. */
+        if (ctx->mech.mechanism == CKM_IBM_ED25519_SHA512 ||
+            ctx->mech.mechanism == CKM_IBM_ED448_SHA3)
+            rc = pkey_ibm_ed_sign(key_obj, in_data, in_data_len, signature, sig_len);
+        else
+            rc = sign_mgr_sign(tokdata, session, length_only, ctx, in_data,
+                               in_data_len, signature, sig_len);
         goto done; /* no ep11 fallback possible */
     }
 
@@ -7066,7 +7211,15 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
-        rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key);
+        /* Note that Edwards curves in general are not yet supported in
+         * opencryptoki. These two special IBM specific ED mechs are only
+         * supported by the ep11token, so let's keep them local here. */
+        if (mech->mechanism == CKM_IBM_ED25519_SHA512 ||
+            mech->mechanism == CKM_IBM_ED448_SHA3)
+            rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session,
+                                                 ctx, mech, key, CK_FALSE);
+        else
+            rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key);
         if (rc == CKR_OK)
             ctx->pkey_active = TRUE;
         /* Regardless of the rc goto done here, because ep11tok_pkey_check
@@ -7133,8 +7286,16 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (ctx->pkey_active) {
-        rc = verify_mgr_verify(tokdata, session, ctx, in_data,
-                               in_data_len, signature, sig_len);
+        /* Note that Edwards curves in general are not yet supported in
+         * opencryptoki. These two special IBM specific ED mechs are only
+         * supported by the ep11token, so let's keep them local here. */
+        if (ctx->mech.mechanism == CKM_IBM_ED25519_SHA512 ||
+            ctx->mech.mechanism == CKM_IBM_ED448_SHA3)
+            rc = pkey_ibm_ed_verify(key_obj, in_data, in_data_len,
+                                    signature, sig_len);
+        else
+            rc = verify_mgr_verify(tokdata, session, ctx, in_data,
+                                   in_data_len, signature, sig_len);
         goto done; /* no ep11 fallback possible */
     }
 

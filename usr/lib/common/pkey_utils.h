@@ -38,10 +38,14 @@
 #define KDSA_ECDSA_VERIFY_P256                0x01
 #define KDSA_ECDSA_VERIFY_P384                0x02
 #define KDSA_ECDSA_VERIFY_P521                0x03
+#define KDSA_EDDSA_VERIFY_ED25519             0x20
+#define KDSA_EDDSA_VERIFY_ED448               0x24
 
 #define KDSA_ENCRYPTED_ECDSA_SIGN_P256        0x11
 #define KDSA_ENCRYPTED_ECDSA_SIGN_P384        0x12
 #define KDSA_ENCRYPTED_ECDSA_SIGN_P521        0x13
+#define KDSA_ENCRYPTED_EDDSA_SIGN_ED25519     0x30
+#define KDSA_ENCRYPTED_EDDSA_SIGN_ED448       0x34
 
 /**
  * EP11 blob header as defined in linux/drivers/s390/crypto/zcrypt_ep11misc.h
@@ -67,6 +71,8 @@ typedef enum {
     curve_p256,
     curve_p384,
     curve_p521,
+    curve_ed25519,
+    curve_ed448,
 } cpacf_curve_type_t;
 
 int get_msa_level(void);
@@ -95,7 +101,13 @@ CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
                    CK_BYTE *sig, CK_ULONG *sig_len,
                    void (*rng_cb)(unsigned char *, size_t));
 
+CK_RV pkey_ibm_ed_sign(OBJECT *privkey, CK_BYTE *msg, CK_ULONG msg_len,
+                       CK_BYTE *sig, CK_ULONG *sig_len);
+
 CK_RV pkey_ec_verify(OBJECT *pubkey, CK_BYTE *hash, CK_ULONG hashlen,
                      CK_BYTE *sig, CK_ULONG sig_len);
+
+CK_RV pkey_ibm_ed_verify(OBJECT *pubkey, CK_BYTE *msg, CK_ULONG msg_len,
+                         CK_BYTE *sig, CK_ULONG sig_len);
 
 #endif
