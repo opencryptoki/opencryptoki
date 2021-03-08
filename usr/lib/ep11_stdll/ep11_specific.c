@@ -485,6 +485,7 @@ typedef struct {
     int pkey_mode;
     int pkey_wrap_supported;
     char pkey_mk_vp[PKEY_MK_VP_LENGTH];
+    int msa_level;
     int digest_libica;
     char digest_libica_path[PATH_MAX];
     libica_t libica;
@@ -891,7 +892,7 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
     CK_RV ret = CKR_FUNCTION_NOT_SUPPORTED;
 
     /* Check if CPACF supports the operation implied by this key and mech */
-    if (!pkey_op_supported_by_cpacf(mech))
+    if (!pkey_op_supported_by_cpacf(ep11_data->msa_level, mech))
         goto done;
 
     /* Check config option */
@@ -2485,6 +2486,9 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         if (rc != CKR_OK)
             goto error;
     }
+
+    ep11_data->msa_level = get_msa_level();
+    TRACE_INFO("MSA level = %i\n", ep11_data->msa_level);
 
     ep11_data->control_points_len = sizeof(ep11_data->control_points);
     rc = get_control_points(tokdata, ep11_data->control_points,

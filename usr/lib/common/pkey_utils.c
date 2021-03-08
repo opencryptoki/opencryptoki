@@ -31,6 +31,71 @@
 #include "trace.h"
 #include "pkey_utils.h"
 
+#if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
+# if __GLIBC_PREREQ(2, 16)
+#  include <sys/auxv.h>
+#  if defined(HWCAP_S390_STFLE) && defined(HWCAP_S390_VX)
+#   define IMPLEMENT_GETAUXVAL
+#  endif
+# endif
+#endif
+
+/**
+ * s390_stfle:
+ *
+ * Executes the STFLE operation of the CPU.
+ *
+ * Returns the no. of double words needed to store the facility bits.
+ */
+static inline int s390_stfle(unsigned long long *list, int doublewords)
+{
+    register unsigned long __nr asm("0") = doublewords - 1;
+
+    asm volatile(".insn s,0xb2b00000,0(%1)" /* stfle */
+             : "+d" (__nr) : "a" (list) : "memory", "cc");
+
+    return __nr + 1;
+}
+
+/**
+ * Determine the machine's MSA level.
+ */
+int get_msa_level(void)
+{
+#ifdef IMPLEMENT_GETAUXVAL
+    unsigned long long facility_bits[3];
+    int msa = 0;
+    int num = 0;
+    const unsigned long hwcap = getauxval(AT_HWCAP);
+
+    if (hwcap & HWCAP_S390_STFLE) {
+        memset(facility_bits, 0, sizeof(facility_bits));
+        num = s390_stfle(facility_bits, 3);
+
+        /* s390_stfle always returns the no. of double words needed to store the
+         * facility bits. This quantity is machine dependent. With MSA8, we
+         * need the first three double words. */
+        if (num >= 2) {
+            if(facility_bits[0] & (1ULL << (63 - 17)))
+                msa = 1;
+            if(facility_bits[1] & (1ULL << (127 - 76)))
+                msa = 3;
+            if(facility_bits[1] & (1ULL << (127 - 77)))
+                msa = 4;
+            if(facility_bits[0] & (1ULL << (63 - 57)))
+                msa = 5;
+            if (facility_bits[2] & (1ULL << (191 - 146)))
+                msa = 8;
+            if (facility_bits[2] & (1ULL << (191 - 155)))
+                msa = 9;
+        }
+    }
+
+    return msa;
+#endif
+    return 0;
+}
+
 /**
  * s390_km:
  * @func: the function code passed to KM; see s390_km_func
@@ -214,7 +279,7 @@ done:
  * Returns true if the protected key operation implied by the given mechanism
  * is supported by CPACF, false otherwise.
  */
-CK_BBOOL pkey_op_supported_by_cpacf(CK_MECHANISM *mech)
+CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM *mech)
 {
     if (!mech)
         return CK_FALSE;
@@ -225,10 +290,14 @@ CK_BBOOL pkey_op_supported_by_cpacf(CK_MECHANISM *mech)
     case CKM_AES_CBC_PAD:
     case CKM_AES_CMAC_GENERAL:
     case CKM_AES_CMAC:
-        return CK_TRUE;
+        if (msa_level > 1)
+            return CK_TRUE;
+        break;
     default:
-        return CK_FALSE;
+        break;
     }
+
+    return CK_FALSE;
 }
 
 /**
