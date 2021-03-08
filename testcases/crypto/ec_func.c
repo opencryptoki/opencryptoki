@@ -342,9 +342,16 @@ CK_RV run_DeriveECDHKey()
     CK_ULONG i, j, k, m;
     CK_MECHANISM_TYPE derive_mech_type;
 
-    testcase_begin("starting run_DeriveECDHKey...");
+    testcase_begin("starting run_DeriveECDHKey with pkey=%X ...", pkey);
     testcase_rw_session();
     testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
 
     if (!mech_supported(SLOT_ID, CKM_EC_KEY_PAIR_GEN)) {
         testcase_skip("Slot %u doesn't support CKM_EC_KEY_PAIR_GEN\n",
@@ -566,11 +573,11 @@ CK_RV run_DeriveECDHKey()
 
                     testcase_new_assertion();
                     testcase_begin("Starting with curve=%s, kdf=%s, keylen=%lu, "
-                                  "shared_data=%u, mech=%s",
+                                  "shared_data=%u, mech=%s, pkey=%X",
                                   der_ec_supported[i].name,
                                   p11_get_ckd(kdfs[j]), secret_key_len[k],
                                   shared_data[m].length,
-                                  p11_get_ckm(derive_mech_type));
+                                  p11_get_ckm(derive_mech_type), pkey);
 
                     // Now, derive a generic secret key using party A's private
                     // key and B's public key
@@ -762,9 +769,16 @@ CK_RV run_DeriveECDHKeyKAT()
     CK_BYTE secretB_value[1000];
     CK_ULONG i;
 
-    testcase_begin("starting run_DeriveECDHKeyKAT...");
+    testcase_begin("starting run_DeriveECDHKeyKAT with pkey=%X ...", pkey);
     testcase_rw_session();
     testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
 
     if (!mech_supported(SLOT_ID, CKM_ECDH1_DERIVE)) {
         testcase_skip("Slot %u doesn't support CKM_ECDH1_DERIVE\n",
@@ -782,14 +796,14 @@ CK_RV run_DeriveECDHKeyKAT()
     for (i=0; i<ECDH_TV_NUM; i++) {
 
         testcase_new_assertion();
-        testcase_begin("Starting with shared secret i=%lu", i);
+        testcase_begin("Starting with shared secret i=%lu, pkey=%X", i, pkey);
 
         // First, import the EC key pair for party A
         rc = create_ECPrivateKey(session,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
                                  ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
-                                 &priv_keyA);
+                                 &priv_keyA, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
@@ -823,7 +837,7 @@ CK_RV run_DeriveECDHKeyKAT()
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyB, ecdh_tv[i].privkey_len,
                                  ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
-                                 &priv_keyB);
+                                 &priv_keyB, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
@@ -1063,8 +1077,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
-    testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu",
-                   p11_get_ckm(mechType), inputlen, parts);
+    testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu, pkey=%X",
+                   p11_get_ckm(mechType), inputlen, parts, pkey);
 
     mech2.mechanism = mechType;
     mech2.ulParameterLen = 0;
@@ -1297,10 +1311,17 @@ CK_RV run_GenerateECCKeyPairSignVerify()
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
-    testcase_begin("Starting ECC generate key pair.");
+    testcase_begin("Starting ECC generate key pair with pkey=%X ...", pkey);
 
     testcase_rw_session();
     testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
 
     mech.mechanism = CKM_EC_KEY_PAIR_GEN;
     mech.ulParameterLen = 0;
@@ -1347,12 +1368,20 @@ CK_RV run_GenerateECCKeyPairSignVerify()
             }
         }
 
-        CK_ATTRIBUTE ec_attr[] = {
+        CK_BBOOL bextr = !pkey;
+        CK_ATTRIBUTE ec_priv_attr[] = {
+            {CKA_EXTRACTABLE, &bextr, sizeof(CK_BBOOL)},
+        };
+        CK_ULONG ec_priv_attr_len = sizeof(ec_priv_attr) / sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE ec_publ_attr[] = {
             {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
              der_ec_supported[i].size}
         };
+        CK_ULONG ec_publ_attr_len = sizeof(ec_publ_attr) / sizeof(CK_ATTRIBUTE);
 
-        rc = funcs->C_GenerateKeyPair(session, &mech, ec_attr, 1, NULL, 0,
+        rc = funcs->C_GenerateKeyPair(session, &mech,
+                                      ec_publ_attr, ec_publ_attr_len,
+                                      ec_priv_attr, ec_priv_attr_len,
                                       &publ_key, &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
@@ -1432,10 +1461,17 @@ CK_RV run_ImportECCKeyPairSignVerify()
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
-    testcase_begin("Starting ECC import key pair.");
+    testcase_begin("Starting ECC import key pair with pkey=%X ...", pkey);
 
     testcase_rw_session();
     testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
 
     mech.mechanism = CKM_ECDSA;
     mech.ulParameterLen = 0;
@@ -1467,7 +1503,7 @@ CK_RV run_ImportECCKeyPairSignVerify()
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
                                  ec_tv[i].pubkey, ec_tv[i].pubkey_len,
-                                 &priv_key);
+                                 &priv_key, !pkey);
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
@@ -1588,10 +1624,17 @@ CK_RV run_TransferECCKeyPairSignVerify()
     CK_OBJECT_HANDLE unwrapped_key = CK_INVALID_HANDLE;
     CK_MECHANISM wrap_mech;
 
-    testcase_begin("Starting ECC transfer key pair.");
+    testcase_begin("Starting ECC transfer key pair with pkey=%X ...", pkey);
 
     testcase_rw_session();
     testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
 
     mech.mechanism = CKM_ECDSA;
     mech.ulParameterLen = 0;
@@ -1662,7 +1705,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
                                  ec_tv[i].pubkey, ec_tv[i].pubkey_len,
-                                 &priv_key);
+                                 &priv_key, CK_TRUE); // key to be wrapped must be extractable
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
@@ -1728,6 +1771,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
         CK_OBJECT_CLASS wkclass = CKO_SECRET_KEY;
         CK_ULONG keylen = 32;
         CK_BBOOL true = TRUE;
+        CK_BBOOL false = FALSE;
         CK_BYTE wrap_key_label[] = "Wrap_Key";
         CK_OBJECT_CLASS wclass = CKO_PRIVATE_KEY;
         CK_KEY_TYPE keyType = CKK_EC;
@@ -1741,6 +1785,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_SIGN, &true, sizeof(true)},
             {CKA_DERIVE, &true, sizeof(true)},
             {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &false, sizeof(false)},
         };
         CK_ATTRIBUTE secret_tmpl[] = {
             {CKA_CLASS, &wkclass, sizeof(wkclass)},
@@ -1807,6 +1853,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_SENSITIVE, &true, sizeof(true)},
             {CKA_DECRYPT, &true, sizeof(true)},
             {CKA_SIGN, &true, sizeof(true)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &false, sizeof(false)},
         };
 
         rc = funcs->C_UnwrapKey(session, &wrap_mech, secret_key,
@@ -1927,15 +1975,19 @@ int main(int argc, char **argv)
 
     testcase_setup(total_assertions);
 
+    pkey = CK_FALSE;
     rv = run_GenerateECCKeyPairSignVerify();
+    rv += run_ImportECCKeyPairSignVerify();
+    rv += run_TransferECCKeyPairSignVerify();
+    rv += run_DeriveECDHKey();
+    rv += run_DeriveECDHKeyKAT();
 
-    rv = run_ImportECCKeyPairSignVerify();
-
-    rv = run_TransferECCKeyPairSignVerify();
-
-    rv = run_DeriveECDHKey();
-
-    rv = run_DeriveECDHKeyKAT();
+    pkey = CK_TRUE;
+    rv = run_GenerateECCKeyPairSignVerify();
+    rv += run_ImportECCKeyPairSignVerify();
+    rv += run_TransferECCKeyPairSignVerify();
+    rv += run_DeriveECDHKey();
+    rv += run_DeriveECDHKeyKAT();
 
     testcase_print_result();
 
