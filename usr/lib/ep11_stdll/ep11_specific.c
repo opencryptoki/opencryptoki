@@ -5483,6 +5483,10 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
+    CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
+    CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
+    CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
 
     /* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
     struct {
@@ -5617,40 +5621,40 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
            &(pqgs[0]), sizeof(CK_ATTRIBUTE));
 
-    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
-                              pPublicKeyTemplate_new, new_public_attr + 1,
-                              &dsa_pPublicKeyTemplate,
-                              &dsa_ulPublicKeyAttributeCount, -1);
+    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, CKK_DSA, CKO_PUBLIC_KEY, -1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC check public key attributes failed with "
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
+                              new_publ_attrs, new_publ_attrs_len,
+                              &new_publ_attrs2, &new_publ_attrs2_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = add_to_attribute_array(&new_publ_attrs2, &new_publ_attrs2_len,
+                           CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dsa_pqgs.pqg,
+                           dsa_pqgs.pqg_bytes);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, CKK_DSA, CKO_PRIVATE_KEY, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
     }
 
     rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
-                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-                              &dsa_pPrivateKeyTemplate,
-                              &dsa_ulPrivateKeyAttributeCount, -1);
+                              new_priv_attrs, new_priv_attrs_len,
+                              &new_priv_attrs2, &new_priv_attrs2_len, -1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = override_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
-                                 dsa_pPublicKeyTemplate,
-                                 dsa_ulPublicKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC override public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = override_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
-                                 dsa_pPrivateKeyTemplate,
-                                 dsa_ulPrivateKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC override private key attributes failed with "
+        TRACE_ERROR("%s DSA check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
     }
@@ -5663,10 +5667,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKeyPair(pMechanism, dsa_pPublicKeyTemplate,
-                                   dsa_ulPublicKeyAttributeCount,
-                                   dsa_pPrivateKeyTemplate,
-                                   dsa_ulPrivateKeyAttributeCount,
+        rc = dll_m_GenerateKeyPair(pMechanism,
+                                   new_publ_attrs2, new_publ_attrs2_len,
+                                   new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    ep11_data->target);
@@ -5756,6 +5759,14 @@ dsa_generate_keypair_end:
     if (dsa_pPrivateKeyTemplate)
         free_attribute_array(dsa_pPrivateKeyTemplate,
                              dsa_ulPrivateKeyAttributeCount);
+    if (new_publ_attrs)
+        free_attribute_array(new_publ_attrs, new_publ_attrs_len);
+    if (new_priv_attrs)
+        free_attribute_array(new_priv_attrs, new_priv_attrs_len);
+    if (new_publ_attrs2)
+        free_attribute_array(new_publ_attrs2, new_publ_attrs2_len);
+    if (new_priv_attrs)
+        free_attribute_array(new_priv_attrs2, new_priv_attrs2_len);
     return rc;
 }
 
