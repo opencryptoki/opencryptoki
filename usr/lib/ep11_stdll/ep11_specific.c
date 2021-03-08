@@ -7944,6 +7944,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
+    CK_ATTRIBUTE *new_attrs2 = NULL;
+    CK_ULONG new_attrs2_len = 0;
     CK_BBOOL isab;
     CK_BYTE *verifyblob = NULL;
     size_t verifyblobsize = ~0;
@@ -8070,6 +8072,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    rc = build_ep11_attrs(tokdata, key_obj->template, &new_attrs2, &new_attrs2_len, ktype, *(CK_OBJECT_CLASS *) cla_attr->pValue, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -8080,7 +8088,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
                              wrapping_blob_len, verifyblob, verifyblobsize,
                              ep11_pin_blob,
-                             ep11_pin_blob_len, mech, new_attrs, new_attrs_len,
+                             ep11_pin_blob_len, mech, new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              ep11_data->target);
     RETRY_END(rc, tokdata, session)
@@ -8243,6 +8251,8 @@ error:
 done:
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+    if (new_attrs2)
+        free_attribute_array(new_attrs2, new_attrs2_len);
 
     object_put(tokdata, kobj, TRUE);
     object_put(tokdata, vobj, TRUE);
