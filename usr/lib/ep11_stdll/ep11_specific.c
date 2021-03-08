@@ -5190,6 +5190,8 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
+    CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
 
     /* ep11 accepts CKA_PRIME and CKA_BASE parameters/attributes
      * only in this format
@@ -5321,21 +5323,23 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         goto dh_generate_keypair_end;
     }
 
-    rc = override_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
-                                 dh_pPublicKeyTemplate,
-                                 dh_ulPublicKeyAttributeCount);
+    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, CKK_DH, CKO_PUBLIC_KEY, -1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s DH override public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
     }
 
-    rc = override_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
-                                 dh_pPrivateKeyTemplate,
-                                 dh_ulPrivateKeyAttributeCount);
+    rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
+                           CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
+                           dh_pgs.pg_bytes);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s DH override private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, CKK_DH, CKO_PRIVATE_KEY, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
     }
 
@@ -5347,11 +5351,11 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKeyPair(pMechanism, dh_pPublicKeyTemplate,
-                                   dh_ulPublicKeyAttributeCount,
-                                   dh_pPrivateKeyTemplate,
-                                   dh_ulPrivateKeyAttributeCount, ep11_pin_blob,
-                                   ep11_pin_blob_len, privblob, &privblobsize,
+        rc = dll_m_GenerateKeyPair(pMechanism,
+                                   new_publ_attrs, new_publ_attrs_len,
+                                   new_priv_attrs, new_priv_attrs_len,
+                                   ep11_pin_blob, ep11_pin_blob_len,
+                                   privblob, &privblobsize,
                                    publblob, &publblobsize, ep11_data->target);
     RETRY_END(rc, tokdata, sess)
 
@@ -5454,6 +5458,10 @@ dh_generate_keypair_end:
      if (dh_pPrivateKeyTemplate)
          free_attribute_array(dh_pPrivateKeyTemplate,
                               dh_ulPrivateKeyAttributeCount);
+     if (new_publ_attrs)
+         free_attribute_array(new_publ_attrs, new_publ_attrs_len);
+     if (new_priv_attrs)
+         free_attribute_array(new_priv_attrs, new_priv_attrs_len);
     return rc;
 }
 
