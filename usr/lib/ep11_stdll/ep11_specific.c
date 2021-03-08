@@ -5792,6 +5792,10 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     int curve_type = -1;
+    CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
+    CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
+    CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
+    CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
 
     UNUSED(h);
 
@@ -5810,10 +5814,21 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         curve_type = get_curve_type_from_attrs(pPublicKeyTemplate,
                                                ulPublicKeyAttributeCount);
 
+    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, ktype, CKO_PUBLIC_KEY, curve_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, ktype, CKO_PRIVATE_KEY, curve_type);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
-                              pPublicKeyTemplate, ulPublicKeyAttributeCount,
-                              &new_pPublicKeyTemplate,
-                              &new_ulPublicKeyAttributeCount,
+                              new_publ_attrs, new_publ_attrs_len,
+                              &new_publ_attrs2, &new_publ_attrs2_len,
                               curve_type);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check public key attributes failed with "
@@ -5822,30 +5837,11 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
-                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-                              &new_pPrivateKeyTemplate,
-                              &new_ulPrivateKeyAttributeCount,
+                              new_priv_attrs, new_priv_attrs_len,
+                              &new_priv_attrs2, &new_priv_attrs2_len,
                               curve_type);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    rc = override_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
-                                 new_pPublicKeyTemplate,
-                                 new_ulPublicKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC override public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    rc = override_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
-                                 new_pPrivateKeyTemplate,
-                                 new_ulPrivateKeyAttributeCount);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s RSA/EC override private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
         goto error;
     }
@@ -5866,10 +5862,9 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START
-        rc = dll_m_GenerateKeyPair(pMechanism, new_pPublicKeyTemplate,
-                                   new_ulPublicKeyAttributeCount,
-                                   new_pPrivateKeyTemplate,
-                                   new_ulPrivateKeyAttributeCount,
+        rc = dll_m_GenerateKeyPair(pMechanism,
+                                   new_publ_attrs2, new_publ_attrs2_len,
+                                   new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, ep11_data->target);
@@ -6103,6 +6098,14 @@ error:
     if (new_pPublicKeyTemplate)
         free_attribute_array(new_pPublicKeyTemplate,
                              new_ulPublicKeyAttributeCount);
+    if (new_publ_attrs)
+        free_attribute_array(new_publ_attrs, new_publ_attrs_len);
+    if (new_priv_attrs)
+        free_attribute_array(new_priv_attrs, new_priv_attrs_len);
+    if (new_publ_attrs2)
+        free_attribute_array(new_publ_attrs2, new_publ_attrs2_len);
+    if (new_priv_attrs2)
+        free_attribute_array(new_priv_attrs2, new_priv_attrs2_len);
     return rc;
 }
 
