@@ -1551,56 +1551,6 @@ cleanup:
     return rc;
 }
 
-static CK_RV override_key_attributes(STDLL_TokData_t *tokdata,
-                                     CK_KEY_TYPE kt, CK_OBJECT_CLASS kc,
-                                     CK_ATTRIBUTE_PTR attrs,
-                                     CK_ULONG attrs_len)
-{
-    CK_ULONG i;
-    CK_BBOOL cktrue = TRUE;
-    CK_ULONG override_types_public_key[] =
-        { CKA_VERIFY, CKA_ENCRYPT };
-    CK_ULONG *override_types = NULL;
-    CK_BBOOL *override_values[] = { &cktrue, &cktrue };
-    CK_ULONG attr_cnt = 0;
-
-    UNUSED(tokdata);
-
-    switch (kc) {
-    case CKO_PUBLIC_KEY:
-        /*
-         * EP11 does not allow to restrict public RSA/DSA/EC keys with
-         * CKA_VERIFY=FALSE and/or CKA_ENCRYPT=FALSE since it can not
-         * technically enforce the restrictions. Therefore override these
-         * attributes for the EP11 library, but keep the original attribute
-         * values in the object.
-         */
-        if (kt != CKK_EC && kt != CKK_RSA && kt != CKK_DSA)
-            return CKR_OK;
-
-        override_types = &override_types_public_key[0];
-        attr_cnt = sizeof(override_types_public_key) /
-                            sizeof(override_types_public_key[0]);
-        break;
-
-    default:
-        return CKR_OK;
-    }
-
-    for (i = 0; i < attr_cnt; i++, override_types++) {
-        CK_ATTRIBUTE_PTR attr = get_attribute_by_type(attrs,
-                                                      attrs_len,
-                                                      *override_types);
-        if (attr != NULL) {
-            if (attr->ulValueLen != sizeof (CK_BBOOL) || attr->pValue == NULL)
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            *(CK_BBOOL *)(attr->pValue) = *override_values[i];
-        }
-    }
-
-    return CKR_OK;
-}
-
 static CK_RV check_key_restriction(OBJECT *key_obj, CK_ATTRIBUTE_TYPE type)
 {
     CK_RV rc;
