@@ -1935,6 +1935,191 @@ done:
     return rc;
 }
 
+/**
+ * Tests the EP11 token protected key option. PKEY_MODE ENABLE4NONEXTR must be
+ * set in ep11tok.conf in order to activate protected key support. With MSA9,
+ * ECDSA with curves p256, p384, p521, and EDDSA with curves ed25519, and
+ * ed448 are supported via CPACF. On older machines there is no CPACF support
+ * for EC/ED at all and therefore all tests are performed only via the ep11
+ * card. So the actual behavior of this testcase heavily depends on the
+ * machine and token config.
+ */
+CK_RV run_ImportSignVerify_Pkey()
+{
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_FLAGS flags;
+    CK_RV rc;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype = CKK_EC;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL extr_priv, pkey_extr_priv, pkey_extr_pub;
+    CK_MECHANISM ec_mech = {CKM_ECDSA, NULL, 0};
+    CK_MECHANISM ed25519_mech = {CKM_IBM_ED25519_SHA512, NULL, 0};
+    CK_MECHANISM ed448_mech = {CKM_IBM_ED448_SHA3, NULL, 0};
+    CK_BYTE data[] = "abcdefghijklmnopqrstuvwxyz";
+    CK_BYTE *sig = NULL;
+    CK_ULONG sig_len;
+    unsigned int i, j;
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < EC_TV_NUM; i++) {
+
+        CK_ATTRIBUTE priv_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(CK_OBJECT_CLASS)},
+            {CKA_KEY_TYPE, &keytype, sizeof(CK_KEY_TYPE)},
+            {CKA_PRIVATE, &true, sizeof(CK_BBOOL)},
+            {CKA_SIGN, &true, sizeof(CK_BBOOL)},
+            {CKA_EC_PARAMS, ec_tv[i].params, ec_tv[i].params_len},
+            {CKA_EC_POINT, ec_tv[i].pubkey, ec_tv[i].pubkey_len},
+            {CKA_VALUE, ec_tv[i].privkey, ec_tv[i].privkey_len},
+            {CKA_EXTRACTABLE, &extr_priv, sizeof(CK_BBOOL)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_extr_priv, sizeof(CK_BBOOL)},
+        };
+        CK_ATTRIBUTE publ_tmpl[] = {
+            {CKA_CLASS, &class, sizeof(CK_OBJECT_CLASS)},
+            {CKA_KEY_TYPE, &keytype, sizeof(CK_KEY_TYPE)},
+            {CKA_VERIFY, &true, sizeof(CK_BBOOL)},
+            {CKA_EC_PARAMS, ec_tv[i].params, ec_tv[i].params_len},
+            {CKA_EC_POINT, ec_tv[i].pubkey, ec_tv[i].pubkey_len},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_extr_pub, sizeof(CK_BBOOL)},
+        };
+
+        for (j = 0; j < 2; j++) {
+
+            if (j == 0)
+                testcase_begin("Starting Import EC private key (%s) index=%u sign via CPACF / verify via ep11 card",
+                               ec_tv[i].name, i);
+            else
+                testcase_begin("Starting Import EC private key (%s) index=%u sign via ep11 card / verify via CPACF",
+                               ec_tv[i].name, i);
+
+            testcase_new_assertion();
+
+            /* j toggles between sign via protected key / verify via ep11 card
+             * and vice versa. */
+            if (j == 0) {
+                extr_priv = FALSE;
+                pkey_extr_priv = TRUE;
+                pkey_extr_pub = FALSE;
+            } else {
+                extr_priv = TRUE;
+                pkey_extr_priv = FALSE;
+                pkey_extr_pub = TRUE;
+            }
+
+            class = CKO_PRIVATE_KEY;
+            rc = funcs->C_CreateObject(session, priv_tmpl,
+                                       sizeof(priv_tmpl) / sizeof(CK_ATTRIBUTE),
+                                       &priv_key);
+            if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            class = CKO_PUBLIC_KEY;
+            rc = funcs->C_CreateObject(session, publ_tmpl,
+                                       sizeof(publ_tmpl) / sizeof(CK_ATTRIBUTE),
+                                       &publ_key);
+            if (rc != CKR_OK) {
+                testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            if (ec_tv[i].curve_type != CURVE_EDWARDS &&
+                ec_tv[i].curve_type != CURVE_MONTGOMERY)
+                rc = funcs->C_SignInit(session, &ec_mech, priv_key);
+            else if (memcmp(ec_tv[i].name, "ed25519", 7) == 0)
+                rc = funcs->C_SignInit(session, &ed25519_mech, priv_key);
+            else if (memcmp(ec_tv[i].name, "ed448", 5) == 0)
+                rc = funcs->C_SignInit(session, &ed448_mech, priv_key);
+            else {
+                testcase_skip("Sign/verify not supported for curve %s.",
+                              ec_tv[i].name);
+                continue;
+            }
+            if (rc != CKR_OK) {
+                testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            rc = funcs->C_Sign(session, data, sizeof(data), NULL, &sig_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            sig = calloc(sizeof(CK_BYTE), sig_len);
+            if (sig == NULL) {
+                testcase_error("Can't allocate memory for %lu bytes", sig_len);
+                rc = CKR_HOST_MEMORY;
+                goto testcase_cleanup;
+            }
+
+            rc = funcs->C_Sign(session, data, sizeof(data), sig, &sig_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            if (ec_tv[i].curve_type != CURVE_EDWARDS &&
+                ec_tv[i].curve_type != CURVE_MONTGOMERY)
+                rc = funcs->C_VerifyInit(session, &ec_mech, publ_key);
+            else if (memcmp(ec_tv[i].name, "ed25519", 7) == 0)
+                rc = funcs->C_VerifyInit(session, &ed25519_mech, publ_key);
+            else
+                rc = funcs->C_VerifyInit(session, &ed448_mech, publ_key);
+
+            if (rc != CKR_OK) {
+                testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            rc = funcs->C_Verify(session, data, sizeof(data), sig, sig_len);
+            if (rc != CKR_OK) {
+                testcase_error("C_Verify rc=%s", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
+
+            if (sig) {
+                free(sig);
+                sig = NULL;
+            }
+
+            if (j == 0)
+                testcase_pass("*Import EC private key (%s) index=%u sign via CPACF / verify via ep11 card passed.",
+                              ec_tv[i].name, i);
+            else
+                testcase_pass("*Import EC private key (%s) index=%u sign via ep11 card / verify via CPACF passed.",
+                              ec_tv[i].name, i);
+        }
+    }
+
+    rc = CKR_OK;
+
+testcase_cleanup:
+    if (publ_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, publ_key);
+    if (priv_key != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, priv_key);
+    if (sig)
+        free(sig);
+
+    testcase_close_session();
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -1988,6 +2173,7 @@ int main(int argc, char **argv)
     rv += run_TransferECCKeyPairSignVerify();
     rv += run_DeriveECDHKey();
     rv += run_DeriveECDHKeyKAT();
+    rv += run_ImportSignVerify_Pkey();
 
     testcase_print_result();
 
