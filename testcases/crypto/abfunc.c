@@ -565,24 +565,7 @@ void do_TestInvalidKeys(CK_SESSION_HANDLE session)
     CK_OBJECT_HANDLE pubkey = CK_INVALID_HANDLE, privkey = CK_INVALID_HANDLE;
     CK_RV rc;
 
-    // Expected to fail with CKR_TEMPLATE_INCOMPLETE
-    testcase_begin("Create dilithium AB key");
-    testcase_new_assertion();
-    if (!mech_supported(SLOT_ID, CKM_IBM_DILITHIUM)) {
-        testcase_skip("Dilithium keys not supported");
-    } else {
-        rc = generateABDilithiumKey(session, &pubkey, &privkey);
-        if (rc != CKR_TEMPLATE_INCONSISTENT)
-            testcase_fail("Create dilithium AB key did not return CKR_TEMPLATE_INCONSISTENT but %s", p11_get_ckr(rc));
-        else
-            testcase_pass("Creation of dilithium AB key returned CKR_TEMPLATE_INCONSISTENT as expected");
-    }
-
-    if (pubkey != CK_INVALID_HANDLE)
-        funcs->C_DestroyObject(session, pubkey);
-    if (privkey != CK_INVALID_HANDLE)
-        funcs->C_DestroyObject(session, privkey);
-
+    // Expected to fail with CKR_TEMPLATE_INCONSISTENT
     testcase_begin("Create RSA AB key without CKA_SENSITIVE");
     testcase_new_assertion();
     rc = generateABRSAKey(session, TRUE, TRUE, FALSE, &pubkey, &privkey);
@@ -974,7 +957,11 @@ void do_TestDerive(CK_SESSION_HANDLE session)
                                 tmpls[config[i].tmplidx],
                                 tmplsizes[config[i].tmplidx],
                                 &handle);
-        if (rc != config[i].exprc) {
+        if (rc == CKR_MECHANISM_INVALID) {
+            /* Special handling for bug in EP11: ECDH only supported for newer cards. */
+            testcase_skip("Derive Test %u skipped due to bad card level\n", i);
+            continue;
+        }else if (rc != config[i].exprc) {
             testcase_fail("Derive Test %u got unexpected derive result (got: %s; expected %s)",
                           i, p11_get_ckr(rc), p11_get_ckr(config[i].exprc));
             continue;
