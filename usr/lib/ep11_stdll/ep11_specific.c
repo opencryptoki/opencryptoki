@@ -343,6 +343,12 @@ static const version_req_t ibm_cpacf_wrap_req_versions[] = {
 };
 #define NUM_CPACF_WRAP_REQ (sizeof(ibm_cpacf_wrap_req_versions) / sizeof(version_req_t))
 
+static const CK_ULONG ibm_cex_ab_ecdh_api_version = 3;
+static const version_req_t ibm_ab_ecdh_req_versions[] = {
+        { .card_type = 7, .min_firmware_API_version = &ibm_cex_ab_ecdh_api_version}
+};
+#define NUM_AB_ECDH_REQ (sizeof(ibm_ab_ecdh_req_versions) / sizeof(version_req_t))
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -1407,7 +1413,8 @@ static CK_RV force_ab_sensitive(CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG *p_attrs_len
     return rc;
 }
 
-static CK_RV check_ab_derive_attributes(TEMPLATE *tmpl,
+static CK_RV check_ab_derive_attributes(STDLL_TokData_t *tokdata,
+                                        TEMPLATE *tmpl,
                                         CK_ATTRIBUTE_PTR *attrs,
                                         CK_ULONG *attrs_len)
 {
@@ -1423,6 +1430,9 @@ static CK_RV check_ab_derive_attributes(TEMPLATE *tmpl,
                     rc);
         return rc;
     }
+    if (abbase && check_required_versions(tokdata, ibm_ab_ecdh_req_versions,
+                                          NUM_AB_ECDH_REQ) < 1)
+        return CKR_MECHANISM_INVALID;
     rc = get_bool_attribute_by_type(*attrs, *attrs_len,
                                     CKA_IBM_ATTRBOUND, &abgoal);
     if (rc == CKR_OK && abgoal) {
@@ -4997,7 +5007,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    rc = check_ab_derive_attributes(base_key_obj->template,
+    rc = check_ab_derive_attributes(tokdata, base_key_obj->template,
                                     &new_attrs, &new_attrs_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Attribute bound attribute violation on derive key: rc=0x%lx\n",
