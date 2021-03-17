@@ -1619,7 +1619,11 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
                                  char **pin, int *long_print)
 {
     CK_RV rc;
+    CK_BBOOL slotIDset = CK_FALSE;
     int i;
+
+    int base = 0;
+    char *endptr, *str;
 
     if (last_parm_is_help(argv, argc)) {
         print_listkeys_help();
@@ -1655,7 +1659,27 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
-                *slot = (CK_ULONG) atol(argv[i + 1]);
+                str = argv[i + 1];
+                errno = 0;
+                *slot = strtol(str, &endptr, base);
+
+                if (errno != 0) {
+                    perror("strtol");
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (endptr == str) {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (*endptr != '\0') {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                slotIDset = CK_TRUE;
             } else {
                 printf("--slot <SLOT> argument is missing.\n");
                 return CKR_ARGUMENTS_BAD;
@@ -1685,8 +1709,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
 
     rc = check_args_list_key(kt);
 
-    if (*slot == 0) {
-        printf("Slot number must be specified.\n");
+    if (!slotIDset) {
+        printf("--slot <SLOT> must be specified.\n");
         rc = CKR_ARGUMENTS_BAD;
     }
 
@@ -1701,7 +1725,11 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                                 char **label, char **attr_string)
 {
     CK_RV rc;
+    CK_BBOOL slotIDset = CK_FALSE;
     int i;
+
+    int base = 0;
+    char *endptr, *str;
 
     for (i = 2; i < argc; i++) {
         /* Get arguments */
@@ -1727,7 +1755,27 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
-                *slot = (CK_ULONG) atol(argv[i + 1]);
+                str = argv[i + 1];
+                errno = 0;
+                *slot = strtol(str, &endptr, base);
+
+                if (errno != 0) {
+                    perror("strtol");
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (endptr == str) {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (*endptr != '\0') {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                slotIDset = CK_TRUE;
             } else {
                 printf("--slot <SLOT> argument is missing.\n");
                 return CKR_ARGUMENTS_BAD;
@@ -1795,8 +1843,8 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
         rc = CKR_ARGUMENTS_BAD;
     }
 
-    if (*slot == 0) {
-        printf("Slot number must be specified.\n");
+    if (!slotIDset) {
+        printf("--slot <SLOT> must be specified.\n");
         rc = CKR_ARGUMENTS_BAD;
     }
 
@@ -1810,7 +1858,11 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
                                    CK_ULONG *keylength, CK_BBOOL *forceAll)
 {
     CK_RV rc;
+    CK_BBOOL slotIDset = CK_FALSE;
     int i;
+
+    int base = 0;
+    char *endptr, *str;
 
     if (last_parm_is_help(argv, argc)) {
         print_removekeys_help();
@@ -1834,7 +1886,27 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
-                *slot = (CK_ULONG) atol(argv[i + 1]);
+                str = argv[i + 1];
+                errno = 0;
+                *slot = strtol(str, &endptr, base);
+
+                if (errno != 0) {
+                    perror("strtol");
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (endptr == str) {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                if (*endptr != '\0') {
+                    printf("--slot <SLOT> argument must be specified correctly.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
+
+                slotIDset = CK_TRUE;
             } else {
                 printf("--slot <SLOT> argument is missing.\n");
                 return CKR_ARGUMENTS_BAD;
@@ -1878,8 +1950,8 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
         *label = "";
     }
 
-    if (*slot == 0) {
-        printf("Slot number must be specified.\n");
+    if (!slotIDset) {
+        printf("--slot <SLOT> must be specified.\n");
         rc = CKR_ARGUMENTS_BAD;
     }
 
