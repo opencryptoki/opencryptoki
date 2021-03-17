@@ -2024,6 +2024,11 @@ CK_RV run_ImportSignVerify_Pkey()
                                        sizeof(priv_tmpl) / sizeof(CK_ATTRIBUTE),
                                        &priv_key);
             if (rc != CKR_OK) {
+                if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                    testcase_skip("Slot %u doesn't support this curve: %s",
+                                  (unsigned int) SLOT_ID, ec_tv[i].name);
+                    continue;
+                }
                 testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
             }
