@@ -2764,33 +2764,6 @@ static int get_curve_type_from_template(TEMPLATE *tmpl)
     return curve_type;
 }
 
-/**
- * Determine the curve type from the given array of attributes.
- *
- * @return a valid curve_type if successful
- *         -1 if no CKA_ECDSA_PARAMS found in attrs
- */
-static int get_curve_type_from_attrs(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
-{
-    CK_ATTRIBUTE *attr;
-    int curve_type = -1;
-    int i;
-
-    attr = get_attribute_by_type(attrs, attrs_len, CKA_ECDSA_PARAMS);
-    if (attr != NULL) {
-        for (i = 0; i < NUMEC; i++) {
-            if (der_ec_supported[i].data_size == attr->ulValueLen &&
-                memcmp(attr->pValue, der_ec_supported[i].data,
-                       attr->ulValueLen) == 0) {
-                curve_type = der_ec_supported[i].curve_type;
-                break;
-            }
-        }
-    }
-
-    return curve_type;
-}
-
 /*
  * makes blobs for private imported RSA keys and
  * SPKIs for public imported RSA keys.
@@ -5878,11 +5851,11 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
-    int curve_type = -1;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
+    const struct _ec *curve = NULL;
 
     UNUSED(h);
 
@@ -5897,17 +5870,26 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    if (ktype == CKK_EC)
-        curve_type = get_curve_type_from_attrs(pPublicKeyTemplate,
-                                               ulPublicKeyAttributeCount);
+    if (ktype == CKK_EC) {
+        if (!ep11tok_ec_curve_supported2(tokdata, publ_tmpl, &curve)) {
+            TRACE_ERROR("Curve not supported.\n");
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+    }
 
-    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, ktype, CKO_PUBLIC_KEY, curve_type);
+    rc = build_ep11_attrs(tokdata, publ_tmpl,
+                          &new_publ_attrs, &new_publ_attrs_len,
+                          ktype, CKO_PUBLIC_KEY,
+                          curve != NULL ? curve->curve_type : -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
 
-    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, ktype, CKO_PRIVATE_KEY, curve_type);
+    rc = build_ep11_attrs(tokdata, priv_tmpl,
+                          &new_priv_attrs, &new_priv_attrs_len,
+                          ktype, CKO_PRIVATE_KEY,
+                          curve != NULL ? curve->curve_type : -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -5916,7 +5898,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, ktype, CKO_PUBLIC_KEY,
                               new_publ_attrs, new_publ_attrs_len,
                               &new_publ_attrs2, &new_publ_attrs2_len,
-                              curve_type);
+                              curve != NULL ? curve->curve_type : -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check public key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
@@ -5926,7 +5908,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rc = check_key_attributes(tokdata, ktype, CKO_PRIVATE_KEY,
                               new_priv_attrs, new_priv_attrs_len,
                               &new_priv_attrs2, &new_priv_attrs2_len,
-                              curve_type);
+                              curve != NULL ? curve->curve_type : -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
