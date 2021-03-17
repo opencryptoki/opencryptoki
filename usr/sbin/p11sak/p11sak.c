@@ -2149,7 +2149,9 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
             printf("%s\n", label);
         }
         free(label);
+        label = NULL;
         free(keytype);
+        keytype = NULL;
     }
 
     rc = funcs->C_FindObjectsFinal(session);
@@ -2312,9 +2314,10 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
                 }
             }
         }
-
         free(label);
+        label = NULL;
         free(keytype);
+        keytype = NULL;
     }
 
     rc = funcs->C_FindObjectsFinal(session);
