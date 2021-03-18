@@ -4960,9 +4960,6 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
         return CKR_TEMPLATE_INCOMPLETE;
     }
 
-    /* fetch CKA_VALUE if available */
-    template_attribute_find(object->template, CKA_VALUE, &attr);
-
     switch (keytype) {
     case CKK_RSA:
         switch(keyclass) {
@@ -4997,8 +4994,9 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n", rc);
             return rc;
         }
+        template_attribute_find(object->template, CKA_VALUE, &attr);
         TRACE_INFO("symmetric key with len=%ld successful imported\n",
-                   attr->ulValueLen);
+                   attr != NULL ? attr->ulValueLen : 0);
         break;
     case CKK_GENERIC_SECRET:
         rc = import_generic_secret_key(object);
@@ -5007,8 +5005,9 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
                         " with rc=0x%lx\n", rc);
             return rc;
         }
+        template_attribute_find(object->template, CKA_VALUE, &attr);
         TRACE_INFO("Generic Secret (HMAC) key with len=%ld successfully"
-                   " imported\n", attr->ulValueLen);
+                   " imported\n", attr != NULL ? attr->ulValueLen : 0);
         break;
     case CKK_EC:
         switch(keyclass) {
