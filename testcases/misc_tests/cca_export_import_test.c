@@ -585,17 +585,17 @@ static CK_RV cca_aes_data_export_import_tests(void)
     unsigned int keylen;
     char label[80];
 
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
     for (keylen = 16; keylen <= 32; keylen += 8) {
 
 	testcase_begin("CCA export/import test with AES%d data key", 8 * keylen);
-
-	if (!is_cca_token(SLOT_ID)) {
-	    testcase_skip("this slot is not a CCA token");
-	    goto out;
-	}
 
 	// create ock aes key
 
@@ -699,17 +699,17 @@ static CK_RV cca_aes_cipher_import_tests(void)
     char filename[256], label[80];
     FILE *f;
 
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
     for (i = 0; keybitlen[i]; i++) {
 
 	testcase_begin("CCA import test with AES%d cipher key", keybitlen[i]);
-
-	if (!is_cca_token(SLOT_ID)) {
-	    testcase_skip("this slot is not a CCA token");
-	    goto out;
-	}
 
 	// Opencryptoki can't create CCA AES cipher keys.
 	// So let's read a raw CCA AES cipher key from the pkey sysfs api
@@ -788,17 +788,17 @@ static CK_RV cca_hmac_data_export_import_tests(void)
     unsigned int i, keybits[] = { 80, 160, 320, 640, 1024, 2048, 0 };
     char label[80];
 
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
     for (i = 0; keybits[i]; i++) {
 
 	testcase_begin("CCA export/import test with generic secret key %u", keybits[i]);
-
-	if (!is_cca_token(SLOT_ID)) {
-	    testcase_skip("this slot is not a CCA token");
-	    goto out;
-	}
 
 	// create hmac key
 
@@ -905,6 +905,11 @@ static CK_RV cca_rsa_export_import_tests(void)
     CK_ULONG priv_opaquekeylen, publ_opaquekeylen;
     char label[80];
 
+    if (!is_cca_token(SLOT_ID)) {
+        testcase_skip("this slot is not a CCA token");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
@@ -912,10 +917,6 @@ static CK_RV cca_rsa_export_import_tests(void)
 
 	testcase_begin("CCA export/import test with RSA %u key", keybitlen);
 
-	if (!is_cca_token(SLOT_ID)) {
-	    testcase_skip("this slot is not a CCA token");
-	    goto out;
-	}
 
 	// create ock rsa keypair
 
