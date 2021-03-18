@@ -1,3 +1,9 @@
++ openCryptoki 3.16
+- EP11: protected-key option
+- EP11: support attribute-bound keys
+- CCA: import and export of secure key objects
+- Bug fixes
+
 + openCryptoki 3.15.1
 - Bug fixes
 
