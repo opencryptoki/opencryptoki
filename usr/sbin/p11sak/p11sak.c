@@ -389,7 +389,7 @@ static void print_gen_help(void)
     printf(
             "      --exponent EXP                          set RSA exponent EXP\n");
     printf(
-            "      --attr [M R L S E D G V W U A X N T]    set key attributes\n");
+            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -422,7 +422,7 @@ static void print_gen_des_help(void)
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
-            "      --attr [M R L S E D G V W U A X N T]    set key attributes\n");
+            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -440,7 +440,7 @@ static void print_gen_aes_help(void)
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
-            "      --attr [M R L S E D G V W U A X N T]    set key attributes\n");
+            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -460,7 +460,7 @@ static void print_gen_rsa_help(void)
     printf(
             "      --exponent EXP                          set RSA exponent EXP\n");
     printf(
-            "      --attr [M R L S E D G V W U A X N T]    set key attributes\n");
+            "      --attr [S D G U X]                      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -478,7 +478,7 @@ static void print_gen_ec_help(void)
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
-            "      --attr [M R L S E D G V W U A X N T]    set key attributes\n");
+            "      --attr [S D G U X]                      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 /**
@@ -803,7 +803,8 @@ static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr,
                 (*prvcount)++;
                 break;
             default:
-                printf("Unknown argument '%c'\n", attr_string[i]);
+                printf("Ignoring attribute '%c', n/a for asymmetric keys\n",
+                       attr_string[i]);
             }
         }
     }
