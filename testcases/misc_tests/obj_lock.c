@@ -108,8 +108,8 @@ void *usage_thread_func(CK_OBJECT_HANDLE *h_key)
         count++;
     } while (difftime(t2, t1) < 10);
 
-    testcase_pass("Thread %lu: ran %lu pairs of Encrypt/Decrypt",
-                  pthread_self(), count);
+    testcase_notice("Thread %lu: ran %lu pairs of Encrypt/Decrypt",
+                    pthread_self(), count);
 
 close_session:
     // close the session
@@ -173,8 +173,8 @@ void *alter_thread_func(CK_OBJECT_HANDLE *h_key)
         count++;
     } while (difftime(t2, t1) < 10);
 
-    testcase_pass("Thread %lu: ran %lu pairs of Get/SetAttribute",
-                  pthread_self(), count);
+    testcase_notice("Thread %lu: ran %lu pairs of Get/SetAttribute",
+                    pthread_self(), count);
 
 close_session:
     // close the session
@@ -354,25 +354,26 @@ int main(int argc, char **argv)
         testcase_pass("find_key");
     }
     // create the usage threads
-    testcase_new_assertion();
     for (i = 0; i < num_usage_threads; i++) {
-        printf("Creating usage thread %lu\n", i);
+        testcase_new_assertion();
         pthread_create(&id[i], NULL, (void *(*)(void *)) usage_thread_func,
                        (void *)&h_key);
+        testcase_pass("Creating usage thread %lu\n", i);
     }
 
     // create the alter threads
     for (i = 0; i < num_alter_threads; i++) {
-        printf("Creating alter thread %lu\n", i);
+        testcase_new_assertion();
         pthread_create(&id[num_usage_threads + i], NULL,
                        (void *(*)(void *)) alter_thread_func, (void *)&h_key);
+        testcase_pass("Creating alter thread %lu\n", i);
     }
 
     // wait for all threads to end
     for (i = 0; i < num_usage_threads + num_alter_threads; i++) {
         pthread_join(id[i], NULL);
     }
-    testcase_pass("All threads have ended");
+    testcase_notice("All threads have ended.");
 
     if (!token_obj || destroy_obj) {
         testcase_new_assertion();
