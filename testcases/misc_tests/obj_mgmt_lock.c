@@ -71,6 +71,7 @@ CK_RV do_CreateSessionObject(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -182,6 +183,7 @@ CK_RV do_CopyObject(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -355,6 +357,7 @@ CK_RV do_SetAttributeValues(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -566,6 +569,7 @@ CK_RV do_FindObjects(void)
     int got_it = 0;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -795,6 +799,7 @@ CK_RV do_CreateTokenObjects(void)
     CK_ULONG find_count;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -1083,6 +1088,7 @@ CK_RV do_HWFeatureSearch(void)
     slot_id = SLOT_ID;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -1267,7 +1273,9 @@ int main(int argc, char **argv)
 
     }
 
+    testcase_setup(0);
     rv = obj_mgmt_functions();
+    testcase_print_result();
 
     /* make sure we return non-zero if rv is non-zero */
     return ((rv == 0) || (rv % 256) ? (int)rv : -1);
