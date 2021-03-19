@@ -103,6 +103,7 @@ CK_RV do_CreateSessionObject(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -236,9 +237,12 @@ CK_RV do_CopyObject(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
-    if (get_user_pin(user_pin))
+    if (get_user_pin(user_pin)) {
+        testcase_fail("Cannot get user pin");
         return CKR_FUNCTION_FAILED;
+    }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
@@ -457,9 +461,12 @@ CK_RV do_SetAttributeValues(void)
     };
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
-    if (get_user_pin(user_pin))
+    if (get_user_pin(user_pin)) {
+        testcase_fail("Cannot get user pin");
         return CKR_FUNCTION_FAILED;
+    }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
@@ -665,9 +672,12 @@ CK_RV do_FindObjects(void)
     CK_ULONG num_existing_objects;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
-    if (get_user_pin(user_pin))
+    if (get_user_pin(user_pin)) {
+        testcase_fail("Cannot get user pin");
         return CKR_FUNCTION_FAILED;
+    }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
@@ -930,12 +940,16 @@ CK_RV do_CreateTokenObjects(void)
     testcase_begin("starting...");
 
     if (skip_token_obj == TRUE) {
-        testcase_notice("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that creates token objects");
         return CKR_OK;
     }
 
-    if (get_user_pin(user_pin))
+    testcase_new_assertion();
+
+    if (get_user_pin(user_pin)) {
+        testcase_fail("Cannot get user pin");
         return CKR_FUNCTION_FAILED;
+    }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
@@ -1290,16 +1304,19 @@ CK_RV do_HWFeatureSearch(void)
     };
 
     if (skip_token_obj == TRUE) {
-        testcase_notice("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that creates token objects");
         return CKR_OK;
     }
 
     slot_id = SLOT_ID;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
-    if (get_user_pin(user_pin))
+    if (get_user_pin(user_pin)) {
+        testcase_fail("Cannot get user pin");
         return CKR_FUNCTION_FAILED;
+    }
 
     user_pin_len = (CK_ULONG) strlen((char *) user_pin);
 
@@ -1415,14 +1432,16 @@ CK_RV do_HWFeatureSearch(void)
     /* Make sure we got the right ones */
     for (i = 0; i < find_count; i++) {
         if (obj_list[i] != h_counter1 && obj_list[i] != h_clock) {
-            testcase_fail("found the wrong object handles");
             rc = -1;
+            testcase_fail("found the wrong object handles");
+            goto destroy;
         }
     }
 
     rc = funcs->C_FindObjectsFinal(h_session);
     if (rc != CKR_OK) {
         testcase_fail("C_FindObjectsFinal() rc = %s", p11_get_ckr(rc));
+        goto destroy;
     }
 
     testcase_pass("Looks okay...");
@@ -1431,25 +1450,25 @@ destroy:
     /* Destroy the created objects, don't clobber the rc */
     loc_rc = funcs->C_DestroyObject(h_session, h_clock);
     if (loc_rc != CKR_OK)
-        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+        testcase_error("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 destroy_2:
     loc_rc = funcs->C_DestroyObject(h_session, h_obj2);
     if (loc_rc != CKR_OK)
-        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+        testcase_error("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 destroy_1:
     loc_rc = funcs->C_DestroyObject(h_session, h_obj1);
     if (loc_rc != CKR_OK)
-        testcase_fail("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
+        testcase_error("C_DestroyObject() rc = %s", p11_get_ckr(loc_rc));
 
     loc_rc = funcs->C_Logout(h_session);
     if (loc_rc != CKR_OK)
-        testcase_fail("C_Logout() rc = %s", p11_get_ckr(loc_rc));
+        testcase_error("C_Logout() rc = %s", p11_get_ckr(loc_rc));
 
 session_close:
     /* Close the session */
     loc_rc = funcs->C_CloseSession(h_session);
     if (loc_rc != CKR_OK)
-        testcase_fail("C_CloseSession() rc = %s", p11_get_ckr(loc_rc));
+        testcase_error("C_CloseSession() rc = %s", p11_get_ckr(loc_rc));
 
 done:
     return rc;
@@ -1494,13 +1513,14 @@ CK_RV do_ProfileSearch(void)
     };
 
     if (skip_token_obj == TRUE) {
-        testcase_notice("Skipping tests that creates token objects");
+        testcase_skip("Skipping tests that creates token objects");
         return CKR_OK;
     }
 
     slot_id = SLOT_ID;
 
     testcase_begin("starting...");
+    testcase_new_assertion();
 
     if (get_user_pin(user_pin))
         return CKR_FUNCTION_FAILED;
@@ -1694,7 +1714,9 @@ int main(int argc, char **argv)
 
     }
 
+    testcase_setup(0);
     rv = obj_mgmt_functions();
+    testcase_print_result();
 
     /* make sure we return non-zero if rv is non-zero */
     return ((rv == 0) || (rv % 256) ? (int)rv : -1);
