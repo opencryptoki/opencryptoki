@@ -26,6 +26,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 void *usage_thread_func(CK_OBJECT_HANDLE *h_key)
 {
@@ -190,18 +191,20 @@ end_thread:
 
 int generate_key(CK_SESSION_HANDLE session,
                 CK_ULONG key_len, CK_BBOOL token_obj,
-                CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key)
+                CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key,
+                CK_BBOOL extractable)
 {
     CK_CHAR label[] = "OBJ_LOCK_TEST_KEY";
     CK_BYTE id[100] = { 0 };
     CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
         {CKA_TOKEN, &token_obj, sizeof(token_obj)},
         {CKA_ID, id, sizeof(id)},
         {CKA_LABEL, label, sizeof(label) - 1},
     };
 
-    CK_RV rc = funcs->C_GenerateKey(session, mechkey, key_gen_tmpl, 4, h_key);
+    CK_RV rc = funcs->C_GenerateKey(session, mechkey, key_gen_tmpl, 5, h_key);
 
     return rc;
 }
@@ -279,9 +282,12 @@ int main(int argc, char **argv)
         else if (strcmp(argv[k], "-keep_obj") == 0) {
             destroy_obj = FALSE;
         }
+        else if (strcmp(argv[k], "-pkey") == 0) {
+            pkey = TRUE;
+        }
 
         if (strcmp(argv[k], "-h") == 0) {
-            printf("usage:  %s [-slot <num>] [-usage-threads <num>] [-alter-threads <num>] [-token_obj] [-reuse_obj] [-keep_obj] [-h]\n\n", argv[0]);
+            printf("usage:  %s [-slot <num>] [-usage-threads <num>] [-alter-threads <num>] [-token_obj] [-reuse_obj] [-keep_obj] [-pkey] [-h]\n\n", argv[0]);
             printf("By default, Slot #1 are used with 2 usage and 2 alter threads\n\n");
             return -1;
         }
@@ -321,6 +327,23 @@ int main(int argc, char **argv)
     }
     testcase_pass("C_OpenSession");
 
+    if (pkey) {
+        /*
+         * The pkey parm makes the test key non-extractable and therefore
+         * eligible for protected key support in tokens supporting protected
+         * keys (currently only ep11). Protected key support heavily depends
+         * on the PKEY_MODE token option, so check your token config file
+         * before using this test option.
+         */
+        if (!is_ep11_token(SLOT_ID)) {
+            testcase_notice("Slot %u doesn't support protected keys.", SLOT_ID);
+            goto close_session;
+        } else {
+            testcase_notice("Check your token config file.");
+            testcase_notice("Protected key support depends on the PKEY_MODE token option.");
+        }
+    }
+
     testcase_new_assertion();
     rv = funcs->C_Login(session, CKU_USER, user_pin, user_pin_len);
     if (rv != CKR_OK) {
@@ -336,7 +359,7 @@ int main(int argc, char **argv)
         mech.ulParameterLen = 0;
         mech.pParameter = NULL;
 
-        rv = generate_key(session, 256 / 8, token_obj, &mech, &h_key);
+        rv = generate_key(session, 256 / 8, token_obj, &mech, &h_key, !pkey);
         if (rv != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rv));
             goto close_session;
