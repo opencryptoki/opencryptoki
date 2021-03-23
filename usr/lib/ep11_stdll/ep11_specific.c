@@ -56,6 +56,7 @@
 
 #include <ica_api.h>
 #include <openssl/crypto.h>
+#include <openssl/ec.h>
 
 #include "ep11_func.h"
 #include "ep11_specific.h"
@@ -4916,7 +4917,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ecpoint_len, field_len, key_len = 0;
     CK_ATTRIBUTE *new_attrs2 = NULL;
     CK_ULONG new_attrs2_len = 0;
+    CK_ULONG privlen;
     int curve_type;
+    CK_BYTE form;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -4953,6 +4956,40 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                 /* no valid BER OCTET STRING encoding, assume raw octet string */
                 ecpoint = ecdh1_parms->pPublicData;
                 ecpoint_len = ecdh1_parms->ulPublicDataLen;
+            }
+
+            rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
+                                 &base_key_obj, READ_LOCK);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s failed hBaseKey=0x%lx\n", __func__, hBaseKey);
+                return rc;
+            }
+
+            rc = get_ecsiglen(base_key_obj, &privlen);
+
+            object_put(tokdata, base_key_obj, TRUE);
+            base_key_obj = NULL;
+
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
+                return rc;
+            }
+            form  = ecpoint[0] & ~0x01;
+            if (ecpoint_len <= 2 * privlen &&
+                form != POINT_CONVERSION_COMPRESSED &&
+                form != POINT_CONVERSION_UNCOMPRESSED &&
+                form != POINT_CONVERSION_HYBRID) {
+                /* If encoded, but wrong length, check if raw would match better */
+                if (ecpoint_len != ecdh1_parms->ulPublicDataLen &&
+                    ecdh1_parms->ulPublicDataLen == 2 * privlen + 1) {
+                    form  = ecdh1_parms->pPublicData[0] & ~0x01;
+                    if (form == POINT_CONVERSION_COMPRESSED ||
+                        form == POINT_CONVERSION_UNCOMPRESSED ||
+                        form == POINT_CONVERSION_HYBRID) {
+                        ecpoint = ecdh1_parms->pPublicData;
+                        ecpoint_len = ecdh1_parms->ulPublicDataLen;
+                    }
+                }
             }
 
             ecdh1_parms2.pPublicData = ecpoint;

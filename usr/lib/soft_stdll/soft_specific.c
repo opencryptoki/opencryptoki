@@ -4371,6 +4371,18 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
         form != POINT_CONVERSION_COMPRESSED &&
         form != POINT_CONVERSION_UNCOMPRESSED &&
         form != POINT_CONVERSION_HYBRID) {
+        /* If encoded, but wrong length, check if raw would match better */
+        if (ecpoint_len != data_len && data_len == 2 * privlen + 1) {
+            form  = data[0] & ~0x01;
+            if (form == POINT_CONVERSION_COMPRESSED ||
+                form == POINT_CONVERSION_UNCOMPRESSED ||
+                form == POINT_CONVERSION_HYBRID) {
+                ecpoint = (CK_BYTE *)data;
+                ecpoint_len = data_len;
+                goto parse;
+            }
+        }
+
         temp = malloc(1 + 2 * privlen);
         if (temp == NULL) {
             rc = CKR_HOST_MEMORY;
@@ -4386,6 +4398,7 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
         ecpoint_len = 1 + 2 * privlen;
     }
 
+parse:
     if (!EC_KEY_oct2key(ec_key, ecpoint, ecpoint_len, NULL)) {
         TRACE_ERROR("EC_KEY_oct2key failed\n");
         rc = CKR_FUNCTION_FAILED;

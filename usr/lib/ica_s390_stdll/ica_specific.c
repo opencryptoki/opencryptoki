@@ -4694,6 +4694,7 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     int rc, nid;
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
+    CK_BYTE form;
 
     UNUSED(tokdata);
 
@@ -4731,6 +4732,23 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         /* no valid BER OCTET STRING encoding, assume raw octet string */
         ecpoint = pub_bytes;
         ecpoint_len = pub_length;
+    }
+
+    form  = ecpoint[0] & ~0x01;
+    if (ecpoint_len <= 2 * privlen &&
+        form != POINT_CONVERSION_COMPRESSED &&
+        form != POINT_CONVERSION_UNCOMPRESSED &&
+        form != POINT_CONVERSION_HYBRID) {
+        /* If encoded, but wrong length, check if raw would match better */
+        if (ecpoint_len != pub_length && pub_length == 2 * privlen + 1) {
+            form  = pub_bytes[0] & ~0x01;
+            if (form == POINT_CONVERSION_COMPRESSED ||
+                form == POINT_CONVERSION_UNCOMPRESSED ||
+                form == POINT_CONVERSION_HYBRID) {
+                ecpoint = pub_bytes;
+                ecpoint_len = pub_length;
+            }
+        }
     }
 
     /* Provide (X,Y), decompress key if necessary */
