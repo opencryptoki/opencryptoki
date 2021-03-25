@@ -1754,6 +1754,11 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
                              CK_BYTE *d, CK_ULONG d_len,
                              CK_BYTE **point, CK_ULONG *point_len);
 
+int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
+                              CK_ULONG prime_len, CK_BBOOL allow_raw,
+                              CK_BBOOL *allocated, CK_BYTE **ec_point,
+                              CK_ULONG *ec_point_len);
+
 // linked-list routines
 //
 DL_NODE *dlist_add_as_first(DL_NODE *list, void *data);

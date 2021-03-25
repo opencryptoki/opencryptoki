@@ -1606,3 +1606,138 @@ done:
 
     return rc;
 }
+
+/*
+ * Return the EC point from the specified data.
+ * As per PKCS#11, a token MUST be able to accept this value encoded
+ * as a raw octet string (as per section A.5.2 of [ANSI X9.62]).
+ * A token MAY, in addition, support accepting this value as a
+ * DER-encoded ECPoint (as per section E.6 of [ANSI X9.62]) i.e.
+ * the same as a CKA_EC_POINT encoding.
+ *
+ * The EC point (encoded or raw) may or may not have a format byte.
+ * The returned buffer in ec_point must be freed by the caller if
+ * parameter 'allocated' is true on return.
+ */
+int ec_point_from_public_data(const CK_BYTE *data, CK_ULONG data_len,
+                              CK_ULONG prime_len, CK_BBOOL allow_raw,
+                              CK_BBOOL *allocated, CK_BYTE **ec_point,
+                              CK_ULONG *ec_point_len)
+{
+    CK_ULONG value_len = 0, field_len = 0, pad_len;
+    CK_BYTE *value = NULL;
+    CK_BYTE *buff = NULL;
+    CK_BYTE form;
+    CK_RV rc;
+
+    if (!allow_raw)
+        goto check_encoded;
+
+    /* Check if this could be a raw EC Point */
+    form  = data[0] & ~0x01;
+    switch (form) {
+    case POINT_CONVERSION_COMPRESSED:
+        if (data_len == prime_len + 1) {
+            /* Length is as expected for a raw EC point in compressed form */
+            *ec_point = (CK_BYTE *)data;
+            *ec_point_len = data_len;
+            *allocated = FALSE;
+            TRACE_DEVEL("Raw EC Point in compressed form\n");
+            return CKR_OK;
+        }
+        break;
+    case POINT_CONVERSION_UNCOMPRESSED:
+    case POINT_CONVERSION_HYBRID:
+        if (data_len == 2 * prime_len + 1) {
+            /* Length is as expected for a raw EC point in uncompressed form */
+            *ec_point = (CK_BYTE *)data;
+            *ec_point_len = data_len;
+            *allocated = FALSE;
+            TRACE_DEVEL("Raw EC Point in uncompressed/hybrid form\n");
+            return CKR_OK;
+        }
+        break;
+    default:
+        /* No valid format byte */
+        break;
+    }
+
+check_encoded:
+    /* If we reach here, try to BER decode it as OCTET-STRING */
+    rc = ber_decode_OCTET_STRING((CK_BYTE *)data, &value, &value_len,
+                                  &field_len);
+    if (rc == CKR_OK && field_len == data_len && value_len <= data_len - 2) {
+         /* Looks like a BER encoded EC Point */
+        form  = value[0] & ~0x01;
+        TRACE_DEVEL("Encoded EC Point, form: %02x\n", form);
+        switch (form) {
+        case POINT_CONVERSION_COMPRESSED:
+            if (value_len == prime_len + 1) {
+                /* Length is as expected for an EC point in compressed form */
+                *ec_point = (CK_BYTE *)value;
+                *ec_point_len = value_len;
+                *allocated = FALSE;
+                TRACE_DEVEL("Encoded EC Point in compressed form\n");
+                return CKR_OK;
+            }
+            break;
+        case POINT_CONVERSION_UNCOMPRESSED:
+        case POINT_CONVERSION_HYBRID:
+            if (value_len == 2 * prime_len + 1) {
+                /* Length is as expected for an EC point in uncompressed form */
+                *ec_point = (CK_BYTE *)value;
+                *ec_point_len = value_len;
+                *allocated = FALSE;
+                TRACE_DEVEL("Encoded EC Point in uncompressed/hybrid form\n");
+                return CKR_OK;
+            }
+            break;
+        default:
+            /* No valid format byte */
+            break;
+        }
+    } else {
+        /* It is not BER encoded */
+        TRACE_DEVEL("Raw EC Point\n");
+        value = NULL;
+        value_len = 0;
+    }
+
+    /*
+     * If we reach here, the length do not match, neither as a raw EC Point,
+     * nor for a BER encoded EC Point. Must be a EC Point without a format
+     * byte, and possibly without leading zeros. Build a full EC Point
+     * in uncompressed form, and pad with zeros on the left (if needed).
+     */
+    if ((value_len != 0 ? value_len : data_len) <= prime_len) {
+        /* Must be larger than prime length to have x and y */
+        TRACE_ERROR("Not a valid EC Point: data too short\n");
+        return CKR_PUBLIC_KEY_INVALID;
+    }
+    if ((value_len != 0 ? value_len : data_len) > 2 * prime_len) {
+        /* Can not be larger than 2 * prime length */
+        TRACE_ERROR("Not a valid EC Point: data too large\n");
+        return CKR_PUBLIC_KEY_INVALID;
+    }
+
+    buff = malloc(1 + 2 * prime_len);
+    if (buff == NULL) {
+        TRACE_ERROR("Malloc failed\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    buff[0] = POINT_CONVERSION_UNCOMPRESSED;
+    pad_len = 2 * prime_len - (value_len != 0 ? value_len : data_len);
+    memset(buff + 1, 0, pad_len);
+    if (value != NULL)
+        memcpy(buff + 1 + pad_len, value, value_len);
+    else
+        memcpy(buff + 1 + pad_len, data, data_len);
+
+    *ec_point = (CK_BYTE *)buff;
+    *ec_point_len = 1 + 2 * prime_len;
+    *allocated = TRUE;
+    TRACE_DEVEL("EC Point built from no format byte and trimmed\n");
+
+    return CKR_OK;
+}

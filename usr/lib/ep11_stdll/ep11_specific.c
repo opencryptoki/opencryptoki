@@ -4913,13 +4913,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ECDH1_DERIVE_PARAMS *ecdh1_parms = NULL;
     CK_ECDH1_DERIVE_PARAMS ecdh1_parms2;
     CK_MECHANISM ecdh1_mech, ecdh1_mech2;
-    CK_BYTE *ecpoint;
+    CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, field_len, key_len = 0;
     CK_ATTRIBUTE *new_attrs2 = NULL;
     CK_ULONG new_attrs2_len = 0;
     CK_ULONG privlen;
     int curve_type;
-    CK_BYTE form;
+    CK_BBOOL allocated = FALSE;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -4949,15 +4949,6 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
 
             ecdh1_parms2 = *ecdh1_parms;
 
-            rc = ber_decode_OCTET_STRING(ecdh1_parms->pPublicData, &ecpoint,
-                                         &ecpoint_len, &field_len);
-            if (rc != CKR_OK || field_len != ecdh1_parms->ulPublicDataLen ||
-                ecpoint_len > ecdh1_parms->ulPublicDataLen - 2) {
-                /* no valid BER OCTET STRING encoding, assume raw octet string */
-                ecpoint = ecdh1_parms->pPublicData;
-                ecpoint_len = ecdh1_parms->ulPublicDataLen;
-            }
-
             rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
                                  &base_key_obj, READ_LOCK);
             if (rc != CKR_OK) {
@@ -4965,30 +4956,34 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                 return rc;
             }
 
-            rc = get_ecsiglen(base_key_obj, &privlen);
+            if (mech->mechanism == CKM_ECDH1_DERIVE) {
+                rc = get_ecsiglen(base_key_obj, &privlen);
+                privlen /= 2;
 
-            object_put(tokdata, base_key_obj, TRUE);
-            base_key_obj = NULL;
+                object_put(tokdata, base_key_obj, TRUE);
+                base_key_obj = NULL;
 
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
-                return rc;
-            }
-            form  = ecpoint[0] & ~0x01;
-            if (ecpoint_len <= 2 * privlen &&
-                form != POINT_CONVERSION_COMPRESSED &&
-                form != POINT_CONVERSION_UNCOMPRESSED &&
-                form != POINT_CONVERSION_HYBRID) {
-                /* If encoded, but wrong length, check if raw would match better */
-                if (ecpoint_len != ecdh1_parms->ulPublicDataLen &&
-                    ecdh1_parms->ulPublicDataLen == 2 * privlen + 1) {
-                    form  = ecdh1_parms->pPublicData[0] & ~0x01;
-                    if (form == POINT_CONVERSION_COMPRESSED ||
-                        form == POINT_CONVERSION_UNCOMPRESSED ||
-                        form == POINT_CONVERSION_HYBRID) {
-                        ecpoint = ecdh1_parms->pPublicData;
-                        ecpoint_len = ecdh1_parms->ulPublicDataLen;
-                    }
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("%s get_ecsiglen failed\n", __func__);
+                    return rc;
+                }
+
+                rc = ec_point_from_public_data(ecdh1_parms->pPublicData,
+                                               ecdh1_parms->ulPublicDataLen,
+                                               privlen, TRUE, &allocated,
+                                               &ecpoint, &ecpoint_len);
+                if (rc != CKR_OK) {
+                    TRACE_DEVEL("ec_point_from_public_data failed\n");
+                    goto error;
+                }
+            } else {
+                rc = ber_decode_OCTET_STRING(ecdh1_parms->pPublicData, &ecpoint,
+                                             &ecpoint_len, &field_len);
+                if (rc != CKR_OK || field_len != ecdh1_parms->ulPublicDataLen ||
+                    ecpoint_len > ecdh1_parms->ulPublicDataLen - 2) {
+                    /* no valid BER OCTET STRING encoding, assume raw */
+                    ecpoint = ecdh1_parms->pPublicData;
+                    ecpoint_len = ecdh1_parms->ulPublicDataLen;
                 }
             }
 
@@ -5195,6 +5190,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
+
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
 
@@ -5212,6 +5210,8 @@ error:
         free(chk_attr);
     if (new_attrs2)
         free_attribute_array(new_attrs2, new_attrs2_len);
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;

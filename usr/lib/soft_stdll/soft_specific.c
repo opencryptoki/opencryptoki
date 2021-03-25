@@ -4344,61 +4344,19 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
                                      CK_ULONG data_len, CK_BBOOL allow_raw)
 {
     CK_BYTE *ecpoint = NULL;
-    CK_ULONG ecpoint_len, field_len, privlen, padlen;
-    CK_BYTE form, *temp = NULL;
+    CK_ULONG ecpoint_len, privlen;
+    CK_BBOOL allocated = FALSE;
     CK_RV rc;
 
-    /* CKA_EC_POINT contains the EC point as OCTET STRING */
-    rc = ber_decode_OCTET_STRING((CK_BYTE *)data, &ecpoint, &ecpoint_len,
-                                 &field_len);
-    if (rc != CKR_OK || field_len != data_len || ecpoint_len > data_len - 2) {
-        if (!allow_raw) {
-            TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-            rc = CKR_PUBLIC_KEY_INVALID;
-            goto out;
-        }
-
-        /* no valid BER OCTET STRING encoding, assume raw octet string */
-        ecpoint = (CK_BYTE *)data;
-        ecpoint_len = data_len;
-        rc = CKR_OK;
-    }
-
-    /* Check for public key without format byte */
     privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
-    form  = ecpoint[0] & ~0x01;
-    if (ecpoint_len <= 2 * privlen &&
-        form != POINT_CONVERSION_COMPRESSED &&
-        form != POINT_CONVERSION_UNCOMPRESSED &&
-        form != POINT_CONVERSION_HYBRID) {
-        /* If encoded, but wrong length, check if raw would match better */
-        if (ecpoint_len != data_len && data_len == 2 * privlen + 1) {
-            form  = data[0] & ~0x01;
-            if (form == POINT_CONVERSION_COMPRESSED ||
-                form == POINT_CONVERSION_UNCOMPRESSED ||
-                form == POINT_CONVERSION_HYBRID) {
-                ecpoint = (CK_BYTE *)data;
-                ecpoint_len = data_len;
-                goto parse;
-            }
-        }
 
-        temp = malloc(1 + 2 * privlen);
-        if (temp == NULL) {
-            rc = CKR_HOST_MEMORY;
-            goto out;
-        }
-
-        padlen = 2 * privlen - ecpoint_len;
-        temp[0] = POINT_CONVERSION_UNCOMPRESSED;
-        memset(temp + 1, 0, padlen);
-        memcpy(temp + 1 + padlen, ecpoint, ecpoint_len);
-
-        ecpoint = temp;
-        ecpoint_len = 1 + 2 * privlen;
+    rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
+                                   &allocated, &ecpoint, &ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        goto out;
     }
 
-parse:
     if (!EC_KEY_oct2key(ec_key, ecpoint, ecpoint_len, NULL)) {
         TRACE_ERROR("EC_KEY_oct2key failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -4406,8 +4364,8 @@ parse:
     }
 
 out:
-    if (temp != NULL)
-        free(temp);
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
 
     return rc;
 }

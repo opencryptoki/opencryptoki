@@ -4692,9 +4692,9 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     unsigned char x_array[ICATOK_EC_MAX_D_LEN];
     unsigned char y_array[ICATOK_EC_MAX_D_LEN];
     int rc, nid;
-    CK_BYTE *ecpoint;
-    CK_ULONG ecpoint_len, field_len;
-    CK_BYTE form;
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len;
+    CK_BBOOL allocated = FALSE;
 
     UNUSED(tokdata);
 
@@ -4719,36 +4719,11 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    /* As per PKCS#11, a token MUST be able to accept this value encoded
-     * as a raw octet string (as per section A.5.2 of [ANSI X9.62]).
-     * A token MAY, in addition, support accepting this value as a
-     * DER-encoded ECPoint (as per section E.6 of [ANSI X9.62]) i.e.
-     * the same as a CKA_EC_POINT encoding.
-     */
-    ret = ber_decode_OCTET_STRING(pub_bytes, &ecpoint, &ecpoint_len,
-                                  &field_len);
-    if (ret != CKR_OK || field_len != pub_length ||
-        ecpoint_len > pub_length - 2) {
-        /* no valid BER OCTET STRING encoding, assume raw octet string */
-        ecpoint = pub_bytes;
-        ecpoint_len = pub_length;
-    }
-
-    form  = ecpoint[0] & ~0x01;
-    if (ecpoint_len <= 2 * privlen &&
-        form != POINT_CONVERSION_COMPRESSED &&
-        form != POINT_CONVERSION_UNCOMPRESSED &&
-        form != POINT_CONVERSION_HYBRID) {
-        /* If encoded, but wrong length, check if raw would match better */
-        if (ecpoint_len != pub_length && pub_length == 2 * privlen + 1) {
-            form  = pub_bytes[0] & ~0x01;
-            if (form == POINT_CONVERSION_COMPRESSED ||
-                form == POINT_CONVERSION_UNCOMPRESSED ||
-                form == POINT_CONVERSION_HYBRID) {
-                ecpoint = pub_bytes;
-                ecpoint_len = pub_length;
-            }
-        }
+    ret = ec_point_from_public_data(pub_bytes, pub_length, privlen, TRUE,
+                                   &allocated, &ecpoint, &ecpoint_len);
+    if (ret != CKR_OK) {
+        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        goto end;
     }
 
     /* Provide (X,Y), decompress key if necessary */
@@ -4804,6 +4779,8 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     ret = CKR_OK;
 
 end:
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
     p_ica_ec_key_free(privkey);
     p_ica_ec_key_free(pubkey);
 
