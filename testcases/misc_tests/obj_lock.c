@@ -336,7 +336,7 @@ int main(int argc, char **argv)
          * before using this test option.
          */
         if (!is_ep11_token(SLOT_ID)) {
-            testcase_notice("Slot %u doesn't support protected keys.", SLOT_ID);
+            testcase_notice("Slot %lu doesn't support protected keys.", SLOT_ID);
             goto close_session;
         } else {
             testcase_notice("Check your token config file.");
