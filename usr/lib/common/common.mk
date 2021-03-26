@@ -6,3 +6,5 @@ noinst_HEADERS +=							\
 	usr/lib/common/sw_crypt.h usr/lib/common/defs.h			\
 	usr/lib/common/p11util.h					\
 	usr/lib/common/list.h usr/lib/common/tok_specific.h
+
+usr/lib/common/lexer.c: usr/lib/common/parser.h
