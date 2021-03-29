@@ -2976,6 +2976,9 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         return -1;
     }
 
+    if (sig == NULL && sig_len != NULL)
+        *sig_len = 0;
+
     if (ber_printf(msg, "ooo", (clear_text) ? clear_text : "",
                    clear_text_len, (chain_data) ? chain_data : "",
                    (chain_data_len) ? *chain_data_len : 0UL,

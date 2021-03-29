@@ -3800,11 +3800,6 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
-        if (length_only) {
-            rc = CKR_OK;
-            goto done;
-        }
-
         rc = icsf_hash_signverify(session_state->ld, &reason,
                                   &mapping->icsf_object, &ctx->mech,
                                   "ONLY", (char *)in_data, in_data_len,
@@ -4077,11 +4072,6 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
-        if (length_only) {
-            rc = CKR_OK;
-            goto done;
-        }
-
         /* see if any data left in the cache */
         if (multi_part_ctx && multi_part_ctx->used_data_len) {
             if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
