@@ -3271,6 +3271,13 @@ CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
     SESSION *sess = NULL;
     CK_RV rc = CKR_OK;
 
+    UNUSED(hDecrKey);
+    UNUSED(hEncrKey);
+    UNUSED(pEncryptedData);
+    UNUSED(ulEncryptedDataLen);
+    UNUSED(pReencryptedData);
+    UNUSED(pulReencryptedDataLen);
+
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
         rc = CKR_CRYPTOKI_NOT_INITIALIZED;
@@ -3310,12 +3317,7 @@ CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
         goto done;
     }
 
-    rc = encr_mgr_reencrypt_single(tokdata, sess, &sess->decr_ctx, pDecrMech,
-                                   hDecrKey, &sess->encr_ctx, pEncrMech,
-                                   hEncrKey, pEncryptedData, ulEncryptedDataLen,
-                                   pReencryptedData, pulReencryptedDataLen);
-    if (rc != CKR_OK)
-        TRACE_DEVEL("encr_mgr_reencrypt_single() failed.\n");
+    rc = CKR_FUNCTION_NOT_SUPPORTED;
 
 done:
     TRACE_INFO("SC_IBM_ReencryptSingle: rc = 0x%08lx, sess = %ld, "
