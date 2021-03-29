@@ -909,7 +909,8 @@ static int icsf_ber_put_attribute_list(BerElement * ber, CK_ATTRIBUTE * attrs,
         if (!is_numeric_attr(attrs[i].type)) {
             /* Non numeric attributes are encode as octet strings */
             if (ber_printf(ber, "{ito}", attrs[i].type,
-                           0 | LBER_CLASS_CONTEXT, attrs[i].pValue,
+                           0 | LBER_CLASS_CONTEXT,
+                           attrs[i].pValue ? attrs[i].pValue : "",
                            attrs[i].ulValueLen) < 0) {
                 goto encode_error;
             }
