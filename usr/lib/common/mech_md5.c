@@ -267,6 +267,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
+            digest_mgr_cleanup(&digest_ctx);
             goto done;
         }
 

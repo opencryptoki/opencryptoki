@@ -438,10 +438,11 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = digest_mgr_digest(tokdata, sess, length_only, &digest_ctx, in_data,
+    rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx, in_data,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
 
@@ -654,6 +655,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
     // Verify the Signed BER-encoded Data block
@@ -849,6 +851,7 @@ CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
                            h_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
+        digest_mgr_cleanup(&ctx);
         return rc;
     }
 

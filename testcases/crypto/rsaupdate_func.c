@@ -98,6 +98,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            free(s);
             continue;
         }
 
@@ -106,6 +107,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -115,6 +117,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -125,6 +128,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 || (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
                 testcase_skip("TPM Token cannot " "be used with publ_exp='%s'.",
                               s);
+                free(s);
                 continue;
             }
         }
@@ -135,6 +139,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 (tsuite->tv[i].modbits < 1024)) {
                 testcase_skip("ICSF Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -364,6 +369,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            free(s);
             continue;
         }
 
@@ -372,6 +378,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -381,6 +388,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -623,6 +631,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             if ((tsuite->tv[i].mod_len % 128) != 0) {
                 testcase_skip("EP11 Token cannot be used with "
                               "this key size (no 128bit granularity).");
+                free(s);
                 continue;
             }
         }
@@ -632,6 +641,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                       tsuite->tv[i].pubexp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with pub_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -642,6 +652,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
                 testcase_skip("TPM Token cannot "
                               "be used with pub_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -651,6 +662,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                      tsuite->tv[i].pubexp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -816,6 +828,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 (tsuite->tv[i].coef_len > (tsuite->tv[i].mod_len / 2))) {
                 testcase_skip("ICA Token cannot be used with "
                               "this test vector.");
+                free(s);
                 continue;
             }
 
@@ -827,6 +840,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             if ((tsuite->tv[i].mod_len % 128) != 0) {
                 testcase_skip("EP11 Token cannot be used with "
                               "this key size (no 128bit granularity).");
+                free(s);
                 continue;
             }
         }
@@ -836,6 +850,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                       tsuite->tv[i].pubexp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -846,6 +861,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
                 testcase_skip("TPM Token cannot "
                               "be used with pub_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -855,6 +871,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                      tsuite->tv[i].pubexp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }

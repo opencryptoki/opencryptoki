@@ -1241,6 +1241,8 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
     struct find_build_list_args *fa = (struct find_build_list_args *) p3;
     CK_OBJECT_HANDLE map_handle = CK_INVALID_HANDLE;
     CK_BBOOL match = FALSE, flag = FALSE;
+    CK_OBJECT_HANDLE *find_list;
+    CK_ULONG find_len;
     CK_OBJECT_CLASS class;
     CK_RV rc;
 
@@ -1291,14 +1293,15 @@ void find_build_list_cb(STDLL_TokData_t *tokdata, void *node,
 
         if (fa->sess->find_count >= fa->sess->find_len) {
             fa->sess->find_len += 15;
-            fa->sess->find_list =
-                (CK_OBJECT_HANDLE *) realloc(fa->sess->find_list,
-                                             fa->sess->find_len *
-                                             sizeof(CK_OBJECT_HANDLE));
-            if (!fa->sess->find_list) {
+            find_len = fa->sess->find_len + 15;
+            find_list = (CK_OBJECT_HANDLE *)realloc(fa->sess->find_list,
+                                        find_len * sizeof(CK_OBJECT_HANDLE));
+            if (!find_list) {
                 TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                 goto done;
             }
+            fa->sess->find_list = find_list;
+            fa->sess->find_len = find_len;
         }
     }
 
