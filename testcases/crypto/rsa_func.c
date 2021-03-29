@@ -104,6 +104,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            free(s);
             continue;
         }
 
@@ -112,6 +113,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -124,6 +126,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
 
@@ -132,6 +135,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                  tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
                  testcase_skip("CCA Token cannot use RSA OAEP with a hash "
                               "algorithm other than SHA1 and SHA256");
+                 free(s);
                  continue;
              }
 
@@ -140,6 +144,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                  tsuite->tv[i].oaep_params.ulSourceDataLen > 0) {
                  testcase_skip("CCA Token cannot use RSA OAEP with non empty "
                                "source data");
+                 free(s);
                  continue;
              }
         }
@@ -152,6 +157,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 || (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
                 testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'",
                               s);
+                free(s);
                 continue;
             }
         }
@@ -162,6 +168,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                 (tsuite->tv[i].modbits < 1024)) {
                 testcase_skip("ICSF Token cannot be used with "
                               "publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -371,6 +378,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                tsuite->tv[i].mod_len * 8)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].mod_len * 8);
+            free(s);
             continue;
         }
 
@@ -379,6 +387,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                       tsuite->tv[i].pubexp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
             // modulus length must be multiple of 128 byte
@@ -386,6 +395,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
             if ((tsuite->tv[i].mod_len % 128) != 0) {
                 testcase_skip("EP11 Token cannot be used with "
                               "this test vector.");
+                free(s);
                 continue;
             }
         }
@@ -408,6 +418,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                 (tsuite->tv[i].coef_len > (tsuite->tv[i].mod_len / 2))) {
                 testcase_skip("ICA Token cannot be used with "
                               "this test vector.");
+                free(s);
                 continue;
             }
 
@@ -422,6 +433,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                      tsuite->tv[i].pubexp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -434,6 +446,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                 || (!is_valid_tpm_modbits(tsuite->tv[i].mod_len * 8))) {
                 testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'",
                               s);
+                free(s);
                 continue;
             }
         }
@@ -444,6 +457,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                 (tsuite->tv[i].mod_len * 8 < 1024)) {
                 testcase_skip("ICSF Token cannot be used with "
                               "publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -679,6 +693,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            free(s);
             continue;
         }
 
@@ -687,6 +702,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -696,6 +712,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -706,6 +723,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                 || (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
                 testcase_skip("TPM Token cannot " "be used with publ_exp='%s'.",
                               s);
+                free(s);
                 continue;
             }
         }
@@ -716,6 +734,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                 (tsuite->tv[i].modbits < 1024)) {
                 testcase_skip("ICSF Token cannot be used with "
                               "publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -927,6 +946,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                tsuite->tv[i].modbits)) {
             testcase_skip("Token in slot %ld cannot be used with "
                           "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            free(s);
             continue;
         }
         if (is_cca_token(slot_id)) {
@@ -934,6 +954,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -1150,6 +1171,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                       tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("EP11 Token cannot "
                               "be used with publ_exp.='%s'", s);
+                free(s);
                 continue;
             }
         }
@@ -1159,6 +1181,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 (tsuite->tv[i].modbits < 1024)) {
                 testcase_skip("ICSF Token cannot be used with "
                               "publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
         }
@@ -1168,6 +1191,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
                 testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'",
                               s);
+                free(s);
                 continue;
            }
         }
@@ -1176,11 +1200,13 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
                               "be used with publ_exp='%s'.", s);
+                free(s);
                 continue;
             }
 
             if (tsuite->tv[i].keytype.mechanism == CKM_GENERIC_SECRET_KEY_GEN) {
                 testcase_skip("CCA Token cannot wrap CKK_GENERIC_SECRET keys");
+                free(s);
                 continue;
             }
 
@@ -1189,6 +1215,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 tsuite->tv[i].oaep_params.hashAlg != CKM_SHA256) {
                 testcase_skip("CCA Token cannot use RSA OAEP with a hash "
                              "algorithm other than SHA1 and SHA256");
+                free(s);
                 continue;
             }
 
@@ -1197,6 +1224,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                  tsuite->tv[i].oaep_params.ulSourceDataLen > 0) {
                  testcase_skip("CCA Token cannot use RSA OAEP with non empty "
                                "source data");
+                 free(s);
                  continue;
              }
         }

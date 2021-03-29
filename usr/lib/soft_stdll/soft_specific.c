@@ -3082,6 +3082,8 @@ done:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    if (params != NULL)
+        EVP_PKEY_free(params);
     free(temp_byte);
     free(temp_byte2);
     return rv;

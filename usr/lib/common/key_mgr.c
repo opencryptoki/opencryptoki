@@ -1261,6 +1261,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
 
     decr_mgr_cleanup(ctx);
     free(ctx);
+    ctx = NULL;
 
     if (rc != CKR_OK) {
         if (rc == CKR_ENCRYPTED_DATA_LEN_RANGE)
@@ -1342,6 +1343,10 @@ done:
     if (data) {
         OPENSSL_cleanse(data, data_len);
         free(data);
+    }
+    if (ctx != NULL) {
+        decr_mgr_cleanup(ctx);
+        free(ctx);
     }
 
     return rc;

@@ -974,6 +974,7 @@ CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
         memcpy(buf + len, tmp, total);
         len += total;
         free(tmp);
+        tmp = NULL;
     }
 
     memcpy(buf + len, algorithm_id, algorithm_id_len);
@@ -987,12 +988,15 @@ CK_RV ber_encode_PrivateKeyInfo(CK_BBOOL length_only,
     memcpy(buf + len, tmp, total);
     len += total;
     free(tmp);
+    tmp = NULL;
 
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, len);
     if (rc != CKR_OK)
         TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
 
 error:
+    if (tmp != NULL)
+        free(tmp);
     free(buf);
 
     return rc;
@@ -1683,6 +1687,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             modulus->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -1694,6 +1699,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             publ_exp->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -1703,14 +1709,17 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
+    free(buf);
 
     /* length of outer sequence */
     rc = ber_encode_OCTET_STRING(TRUE, NULL, &total, buf2, len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__,
                     rc);
+        free(buf2);
         return rc;
     } else {
         total_len += total + 1;
@@ -1720,6 +1729,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     buf3 = (CK_BYTE *) malloc(total_len);
     if (!buf3) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        free(buf2);
         return CKR_HOST_MEMORY;
     }
     total_len = 0;
@@ -1734,11 +1744,15 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_flatten(ber, &val);
     memcpy(buf3 + total_len, val->bv_val, val->bv_len);
     total_len += val->bv_len;
+    ber_free(ber, 1);
+    ber_bvfree(val);
+    free(buf2);
 
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
     if (rc != CKR_OK)
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
+    free(buf3);
     return rc;
 }
 
@@ -2228,6 +2242,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     pub_len = val->bv_len;
     ber_free(ber, 1);
     free(buf);
+    ber_bvfree(val);
 
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
@@ -2254,6 +2269,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             prime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -2264,6 +2280,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             subprime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -2273,6 +2290,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, base->pValue, base->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -2282,6 +2300,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &parm_len, buf, offset);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
 
@@ -2294,6 +2313,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              ber_idDSALen + parm_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     free(buf);
@@ -2314,17 +2334,21 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
     memcpy(buf + id_len, val->bv_val, val->bv_len);
     free(buf2);
     ber_free(ber, 1);
+    ber_bvfree(val);
 
     /* outer sequence */
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     free(buf);
@@ -2512,6 +2536,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                           val->bv_len);
         offset += len;
         ber_free(ber, 1);
+        ber_bvfree(val);
     }
 
     if (length_only == TRUE) {
@@ -2584,6 +2609,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         free(buf2);
         buf2 = NULL;
         ber_free(ber, 1);
+        ber_bvfree(val);
     }
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
@@ -2840,12 +2866,13 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_flatten(ber, &val);
 
     rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
+    ber_free(ber, 1);
+    ber_bvfree(val);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n",
                     __func__, rc);
         return rc;
     }
-    ber_free(ber, 1);
 
     if (length_only == TRUE) {
         *data_len = total;
@@ -2875,8 +2902,10 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf,
                              der_AlgIdECBaseLen +
                              params->ulValueLen + val->bv_len);
+    ber_bvfree(val);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     free(buf);
@@ -3307,6 +3336,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_flatten(ber, &val);
     pub_len = val->bv_len;
     ber_free(ber, 1);
+    ber_bvfree(val);
     free(buf);
 
     rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
@@ -3334,6 +3364,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             prime->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -3343,6 +3374,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, base->pValue, base->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     memcpy(buf + offset, buf2, len);
@@ -3352,6 +3384,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &parm_len, buf, offset);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
 
@@ -3364,6 +3397,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              ber_idDHLen + parm_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        free(buf);
         return rc;
     }
     free(buf);
@@ -3373,6 +3407,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             value->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf2);
         return rc;
     }
 
@@ -3384,12 +3419,16 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf2);
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
     memcpy(buf + id_len, val->bv_val, val->bv_len);
     free(buf2);
     ber_free(ber, 1);
+    ber_bvfree(val);
 
     /* outer sequence */
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);

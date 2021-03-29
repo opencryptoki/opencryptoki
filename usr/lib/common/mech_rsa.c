@@ -1456,10 +1456,11 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         return rc;
     }
 
-    rc = digest_mgr_digest(tokdata, sess, length_only, &digest_ctx,
+    rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
                            in_data, in_data_len, hash, &hlen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
 
@@ -1659,6 +1660,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                            in_data_len, hash, &hlen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
 
@@ -1820,10 +1822,11 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
         return rc;
     }
     hash_len = sizeof(hash);
-    rc = digest_mgr_digest(tokdata, sess, length_only, &digest_ctx, in_data,
+    rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx, in_data,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
     // build the BER-encodings
@@ -2002,6 +2005,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
+        digest_mgr_cleanup(&digest_ctx);
         return rc;
     }
     // Build the BER encoding
