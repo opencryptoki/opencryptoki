@@ -235,6 +235,8 @@ int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code)
             return CKR_WRAPPED_KEY_INVALID;
         case 3003:
             return CKR_BUFFER_TOO_SMALL;
+        case 3009:
+            return CKR_TEMPLATE_INCONSISTENT;
         case 3019:
             return CKR_SESSION_HANDLE_INVALID;
         case 3027:
