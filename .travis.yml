@@ -5,7 +5,7 @@ language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget
+    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget libudev-dev
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
     - sudo dpkg -i libica3_3.4.0-0ubuntu1_s390x.deb || true    # icatok needs libica >= 3.3
