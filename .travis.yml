@@ -5,7 +5,7 @@ language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget
+    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget strace
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
     - sudo dpkg -i libica3_3.4.0-0ubuntu1_s390x.deb || true    # icatok needs libica >= 3.3
@@ -61,7 +61,9 @@ script:
     - sudo ldconfig
     - sudo pkcsslotd
     - sudo pkcsconf -i
+    - sudo strace pkcsconf -i
     - sudo pkcsconf -s
     - sudo pkcsconf -t
+    - sudo journalctl -n 100 --no-pager
     - cd testcases
     - sudo PKCS11_SO_PIN=76543210 PKCS11_USER_PIN=01234567 PKCSLIB=/usr/local/lib/pkcs11/libopencryptoki.so ./ock_tests.sh -s 3
