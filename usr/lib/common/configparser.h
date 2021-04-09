@@ -35,6 +35,7 @@ typedef int  (*end_slot_f)(void *private);
 typedef int  (*key_str_f)(void *private, int tok, const char *val);
 typedef int  (*key_vers_f)(void *private, int tok, unsigned int vers);
 typedef void (*eolcomment_f)(void *private, const char *comment);
+typedef void (*disab_event_supp_f)(void *private);
 /*
  * Report an error.  If the error is not reported by the parser itself
  * but via one of the parse functions, \c parsermsg will be \c NULL.
@@ -52,6 +53,7 @@ typedef void (*error_f)(void *private, int line, const char *parsermsg);
  */
 struct parsefuncs {
     ockversion_f  version;
+    disab_event_supp_f disab_event_supp;
     eol_f         eol;
     begin_slot_f  begin_slot;
     end_slot_f    end_slot;

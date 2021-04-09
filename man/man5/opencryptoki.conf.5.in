@@ -10,8 +10,16 @@ pkcs#11 slots. At startup, the pkcsslotd daemon parses this file to
 determine which slots will be made available.
 
 .SH SYNTAX
-This file is made up of slot descriptions. Each slot description
-is composed of a slot number, brackets and key-value pairs.
+This file is made up of optional global definitions, and slot descriptions.
+
+The following global definitions are valid:
+
+.TP
+.BR disable-event-support
+If this keyword is specified the openCryptoki event support is disabled.
+
+.P
+Each slot description is composed of a slot number, brackets and key-value pairs.
 
  slot number
  {

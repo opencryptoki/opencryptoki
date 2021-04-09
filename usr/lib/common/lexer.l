@@ -69,6 +69,7 @@ extern char *configparse_strdup(const char *s);
 
 version                 return OCKVERSION;
 slot                    return SLOT;
+disable-event-support   return DISABLE_EVENT_SUPPORT;
 
 [^\"= \t\n]+		{
 			  yylval.str = configparse_strdup(yytext);

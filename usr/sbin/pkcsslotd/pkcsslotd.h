@@ -88,7 +88,7 @@ int XProcLock(void);
 int XProcUnLock(void);
 int CreateXProcLock(void);
 
-int init_socket_server();
+int init_socket_server(int event_support_disabled);
 int term_socket_server();
 int init_socket_data(Slot_Mgr_Socket_t *sp);
 int socket_connection_handler(int timeout_secs);

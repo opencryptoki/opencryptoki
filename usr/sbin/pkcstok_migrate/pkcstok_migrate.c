@@ -2066,6 +2066,13 @@ static int parseupdate_ockversion(void *private, const char *version)
     return 0;
 }
 
+static void parseupdate_disab_event_supp(void *private)
+{
+    struct parseupdate *u = (struct parseupdate *)private;
+
+    fprintf(u->f, "disable-event-support");
+}
+
 static void parseupdate_eol(void *private)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
@@ -2124,6 +2131,7 @@ static void parseupdate_eolcomment(void *private, const char *comment)
 
 static struct parsefuncs parseupdatefuncs = {
     .version    = parseupdate_ockversion,
+    .disab_event_supp = parseupdate_disab_event_supp,
     .eol        = parseupdate_eol,
     .begin_slot = parseupdate_begin_slot,
     .end_slot   = parseupdate_end_slot,
