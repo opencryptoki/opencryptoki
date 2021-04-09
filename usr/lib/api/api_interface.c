@@ -308,7 +308,8 @@ void parent_fork_after()
         return;
 
     /* Restart the event thread in the parent when fork is complete */
-    if (Anchor->event_thread == 0)
+    if ((Anchor->SocketDataP.flags & FLAG_EVENT_SUPPORT_DISABLED) == 0 &&
+        Anchor->event_thread == 0)
         start_event_thread();
 }
 
@@ -2752,13 +2753,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
                 goto error;
             }
         }
-        // If we EVER need to create threads from this library we must
-        // check the Flags for the Can_Create_OS_Threads flag
-        // Right now the library DOES NOT create threads and therefore this
-        // check is irrelavant.
-        if (pArg->flags & CKF_LIBRARY_CANT_CREATE_OS_THREADS) {
-            TRACE_DEVEL("Can't create OS threads...This is OK\n");
-        }
+
         // Since this is an initialization path, we will be verbose in the
         // code rather than efficient.
         //
@@ -2848,7 +2843,21 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         rc = CKR_FUNCTION_FAILED;
         goto error_shm;
     }
-    // Initialize structure values
+
+    if (pVoid != NULL) {
+        pArg = (CK_C_INITIALIZE_ARGS *) pVoid;
+
+        if ((Anchor->SocketDataP.flags & FLAG_EVENT_SUPPORT_DISABLED) == 0 &&
+            (pArg->flags & CKF_LIBRARY_CANT_CREATE_OS_THREADS) != 0) {
+            TRACE_ERROR("Flag CKF_LIBRARY_CANT_CREATE_OS_THREADS is set and "
+                        "event support is enabled\n");
+            OCK_SYSLOG(LOG_ERR, "C_Initialize: Application specified that "
+                       "library can't create OS threads. PKCS11 Module requires "
+                       "to create threads when event support is enabled.\n");
+            rc = CKR_NEED_TO_CREATE_THREADS;
+            goto error;
+        }
+    }
 
     //Register with pkcsslotd
     if (!API_Register()) {
@@ -2867,7 +2876,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     }
 
     /* Start event receiver thread */
-    if (start_event_thread() != 0) {
+    if ((Anchor->SocketDataP.flags & FLAG_EVENT_SUPPORT_DISABLED) == 0 &&
+        start_event_thread() != 0) {
         TRACE_ERROR("Failed to start event thread\n");
 
         // unload all the STDLL's from the application

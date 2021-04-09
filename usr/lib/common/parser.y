@@ -65,7 +65,7 @@ int lookup_keyword(const char *key);
     int err;
 }
 
-%token EQUAL DOT SLOT EOL OCKVERSION BEGIN_DEF END_DEF
+%token EQUAL DOT SLOT EOL OCKVERSION BEGIN_DEF END_DEF DISABLE_EVENT_SUPPORT
 %token <str> STRING
 %token <str> KEYWORD
 %token <num> INTEGER
@@ -81,6 +81,7 @@ config_file:
 
 sections:
 	version_def eolcomment
+	| disable_event_support_def eolcomment
 	| SLOT INTEGER BEGIN_DEF
 	{
         if (parsefuncs->begin_slot && parsefuncs->begin_slot(parsedata, $2, 0)) {
@@ -124,6 +125,13 @@ version_def:
             YYERROR;
         }
         configparse_freestringsfrom($2);
+    }
+    
+disable_event_support_def:
+    DISABLE_EVENT_SUPPORT
+    {
+        if (parsefuncs->disab_event_supp)
+            parsefuncs->disab_event_supp(parsedata);
     }
 
 line_def:

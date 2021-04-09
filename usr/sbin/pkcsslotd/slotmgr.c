@@ -34,6 +34,7 @@ int shmid;
 key_t tok;
 Slot_Info_t_64 sinfo[NUMBER_SLOTS_MANAGED];
 unsigned int NumberSlotsInDB = 0;
+int event_support_disabled = 0;
 
 Slot_Info_t_64 *psinfo;
 
@@ -467,6 +468,13 @@ static int slotmgr_key_vers(void *private, int tok, unsigned int vers)
     return 1;
 }
 
+static void slotmgr_disab_event_supp(void *private)
+{
+    UNUSED(private);
+
+    event_support_disabled = 1;
+}
+
 static void slotmgr_parseerror(void *private, int line, const char *parsermsg)
 {
     struct parse_data *d = (struct parse_data *)private;
@@ -480,6 +488,7 @@ static struct parsefuncs slotmgr_parsefuncs = {
     .end_slot   = slotmgr_end_slot,
     .key_str    = slotmgr_key_str,
     .key_vers   = slotmgr_key_vers,
+    .disab_event_supp = slotmgr_disab_event_supp,
     .parseerror = slotmgr_parseerror
 };
 
@@ -568,7 +577,7 @@ int main(int argc, char *argv[], char *envp[])
     if (!XProcUnLock())
         return 4;
 
-    if (!init_socket_server()) {
+    if (!init_socket_server(event_support_disabled)) {
         DestroyMutexes();
         DetachFromSharedMemory();
         DestroySharedMemory();
@@ -582,6 +591,8 @@ int main(int argc, char *argv[], char *envp[])
         DestroySharedMemory();
         return 6;
     }
+    if (event_support_disabled)
+        socketData.flags |= FLAG_EVENT_SUPPORT_DISABLED;
 
     /* Create customized token directories */
     psinfo = &socketData.slot_info[0];

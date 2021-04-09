@@ -99,6 +99,7 @@ typedef struct {
     LW_SHM_TYPE *shm_addr;      // token specific shm address
 } Slot_Info_t;
 
+#define FLAG_EVENT_SUPPORT_DISABLED   0x01
 
 #ifdef PKCS64
 
@@ -200,6 +201,7 @@ typedef struct {
 
 typedef struct {
     uint8 num_slots;
+    uint8 flags;
     CK_INFO_64 ck_info;
     Slot_Info_t_64 slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;
@@ -214,6 +216,7 @@ typedef struct {
 
 typedef struct {
     uint8 num_slots;
+    uint8 flags;
     CK_INFO ck_info;
     Slot_Info_t slot_info[NUMBER_SLOTS_MANAGED];
 } Slot_Mgr_Socket_t;

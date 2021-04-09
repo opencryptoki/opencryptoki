@@ -139,12 +139,12 @@ struct event_info {
 };
 
 static int epoll_fd = -1;
-static struct listener_info proc_listener;
+static struct listener_info proc_listener = { .socket = -1 };
 static DL_NODE *proc_connections = NULL;
-static struct listener_info admin_listener;
+static struct listener_info admin_listener = { .socket = -1 };
 static DL_NODE *admin_connections = NULL;
 #ifdef WITH_LIBUDEV
-static struct udev_mon udev_mon;
+static struct udev_mon udev_mon = { .socket = -1 };
 #endif
 static DL_NODE *pending_events = NULL;
 static unsigned long pending_events_count = 0;
@@ -1620,6 +1620,9 @@ static void udev_mon_term(struct udev_mon *udev_mon)
     if (udev_mon == NULL)
         return;
 
+    if (udev_mon->socket < 0)
+        return;
+
     epoll_ctl(epoll_fd, EPOLL_CTL_DEL, udev_mon->socket, NULL);
     if (udev_mon->udev != NULL)
         udev_unref(udev_mon->udev);
@@ -1636,6 +1639,7 @@ int init_socket_data(Slot_Mgr_Socket_t *socketData)
 {
     unsigned int processed = 0;
 
+    socketData->flags = 0;
     PopulateCKInfo(&(socketData->ck_info));
     socketData->num_slots = NumberSlotsInDB;
     PopulateSlotInfo(socketData->slot_info, &processed);
@@ -1692,7 +1696,7 @@ int socket_connection_handler(int timeout_secs)
     return TRUE;
 }
 
-int init_socket_server()
+int init_socket_server(int event_support_disabled)
 {
     int err;
 
@@ -1710,18 +1714,20 @@ int init_socket_server()
         return FALSE;
     }
 
-    if (!listener_create(ADMIN_SOCKET_FILE_PATH, &admin_listener,
-                         admin_new_conn, NUMBER_ADMINS_ALLOWED)) {
-        term_socket_server();
-        return FALSE;
-    }
+    if (!event_support_disabled) {
+        if (!listener_create(ADMIN_SOCKET_FILE_PATH, &admin_listener,
+                             admin_new_conn, NUMBER_ADMINS_ALLOWED)) {
+            term_socket_server();
+            return FALSE;
+        }
 
 #ifdef WITH_LIBUDEV
-    if (!udev_mon_init(UDEV_SUBSYSTEM_AP, &udev_mon)) {
-        term_socket_server();
-        return FALSE;
-    }
+        if (!udev_mon_init(UDEV_SUBSYSTEM_AP, &udev_mon)) {
+            term_socket_server();
+            return FALSE;
+        }
 #endif
+    }
 
     DbgLog(DL0, "%s: Socket server started", __func__);
 
