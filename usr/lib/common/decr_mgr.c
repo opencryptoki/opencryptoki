@@ -540,6 +540,10 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(AES_GCM_CONTEXT));
 
+        /* Release obj lock, token specific aes-gcm may re-acquire the lock */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         rc = aes_gcm_init(tokdata, sess, ctx, mech, key_handle, 0);
         if (rc) {
             TRACE_ERROR("Could not initialize AES_GCM parms.\n");
