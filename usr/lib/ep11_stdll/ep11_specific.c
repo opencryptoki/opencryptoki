@@ -6948,6 +6948,13 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        /*
+         * Release obj lock, sign_mgr_init or ep11tok_sign_verify_init_ibm_ed
+         * may re-acquire the lock
+         */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         /* Note that Edwards curves in general are not yet supported in
          * opencryptoki. These two special IBM specific ED mechs are only
          * supported by the ep11token, so let's keep them local here. */
@@ -7029,11 +7036,16 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
          * opencryptoki. These two special IBM specific ED mechs are only
          * supported by the ep11token, so let's keep them local here. */
         if (ctx->mech.mechanism == CKM_IBM_ED25519_SHA512 ||
-            ctx->mech.mechanism == CKM_IBM_ED448_SHA3)
+            ctx->mech.mechanism == CKM_IBM_ED448_SHA3) {
             rc = pkey_ibm_ed_sign(key_obj, in_data, in_data_len, signature, sig_len);
-        else
+        } else {
+            /* Release obj lock, sign_mgr_sign may re-acquire the lock */
+            object_put(tokdata, key_obj, TRUE);
+            key_obj = NULL;
+
             rc = sign_mgr_sign(tokdata, session, length_only, ctx, in_data,
                                in_data_len, signature, sig_len);
+        }
         goto done; /* no ep11 fallback possible */
     }
 
@@ -7071,16 +7083,16 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     if (!in_data || !in_data_len)
         return CKR_OK;
 
+    if (ctx->pkey_active) {
+        rc = sign_mgr_sign_update(tokdata, session, ctx, in_data, in_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                           READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = sign_mgr_sign_update(tokdata, session, ctx, in_data, in_data_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7115,16 +7127,16 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
+    if (ctx->pkey_active) {
+        rc = sign_mgr_sign_final(tokdata, session, length_only, ctx, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                           READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = sign_mgr_sign_final(tokdata, session, length_only, ctx, signature, sig_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7241,6 +7253,13 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        /*
+         * Release obj lock, verify_mgr_init or ep11tok_sign_verify_init_ibm_ed
+         * may re-acquire the lock
+         */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         /* Note that Edwards curves in general are not yet supported in
          * opencryptoki. These two special IBM specific ED mechs are only
          * supported by the ep11token, so let's keep them local here. */
@@ -7320,12 +7339,17 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
          * opencryptoki. These two special IBM specific ED mechs are only
          * supported by the ep11token, so let's keep them local here. */
         if (ctx->mech.mechanism == CKM_IBM_ED25519_SHA512 ||
-            ctx->mech.mechanism == CKM_IBM_ED448_SHA3)
+            ctx->mech.mechanism == CKM_IBM_ED448_SHA3) {
             rc = pkey_ibm_ed_verify(key_obj, in_data, in_data_len,
                                     signature, sig_len);
-        else
+        } else {
+            /* Release obj lock, verify_mgr_verify may re-acquire the lock */
+            object_put(tokdata, key_obj, TRUE);
+            key_obj = NULL;
+
             rc = verify_mgr_verify(tokdata, session, ctx, in_data,
                                    in_data_len, signature, sig_len);
+        }
         goto done; /* no ep11 fallback possible */
     }
 
@@ -7363,16 +7387,16 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     if (!in_data || !in_data_len)
         return CKR_OK;
 
+    if (ctx->pkey_active) {
+        rc = verify_mgr_verify_update(tokdata, session, ctx, in_data, in_data_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = verify_mgr_verify_update(tokdata, session, ctx, in_data, in_data_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7406,16 +7430,16 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
+    if (ctx->pkey_active) {
+        rc = verify_mgr_verify_final(tokdata, session, ctx, signature, sig_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = verify_mgr_verify_final(tokdata, session, ctx, signature, sig_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7501,17 +7525,17 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
+    if (ctx->pkey_active) {
+        rc = decr_mgr_decrypt_final(tokdata, session, length_only,
+                                    ctx, output_part, p_output_part_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = decr_mgr_decrypt_final(tokdata, session, length_only,
-                                    ctx, output_part, p_output_part_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7548,18 +7572,18 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
-    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
-                         READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
     if (ctx->pkey_active) {
         rc = decr_mgr_decrypt(tokdata, session, length_only, ctx,
                               input_data, input_data_len, output_data,
                               p_output_data_len);
         goto done; /* no ep11 fallback possible */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
     }
 
     RETRY_START
@@ -7602,18 +7626,18 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         return CKR_OK;          /* nothing to update, keep context */
     }
 
-    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
-                         READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
     if (ctx->pkey_active) {
         rc = decr_mgr_decrypt_update(tokdata, session, length_only,
                                      ctx, input_part, input_part_len,
                                      output_part, p_output_part_len);
         goto done; /* no ep11 fallback possible */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
     }
 
     RETRY_START
@@ -7695,17 +7719,17 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
+    if (ctx->pkey_active) {
+        rc = encr_mgr_encrypt_final(tokdata, session, length_only,
+                                    ctx, output_part, p_output_part_len);
+        goto done; /* no ep11 fallback possible */
+    }
+
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
         return rc;
-    }
-
-    if (ctx->pkey_active) {
-        rc = encr_mgr_encrypt_final(tokdata, session, length_only,
-                                    ctx, output_part, p_output_part_len);
-        goto done; /* no ep11 fallback possible */
     }
 
     RETRY_START
@@ -7742,18 +7766,18 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
-    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
-                         READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
     if (ctx->pkey_active) {
         rc = encr_mgr_encrypt(tokdata, session, length_only, ctx,
                               input_data, input_data_len, output_data,
                               p_output_data_len);
         goto done; /* no ep11 fallback possible */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
     }
 
     RETRY_START
@@ -7796,18 +7820,18 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         return CKR_OK;          /* nothing to update, keep context */
     }
 
-    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
-                         READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
-        return rc;
-    }
-
     if (ctx->pkey_active) {
         rc = encr_mgr_encrypt_update(tokdata, session, length_only, ctx,
                                      input_part, input_part_len, output_part,
                                      p_output_part_len);
         goto done; /* no ep11 fallback possible */
+    }
+
+    rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
+                         READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s h_opaque_2_blob, rc=0x%lx\n", __func__, rc);
+        return rc;
     }
 
     RETRY_START
@@ -7921,6 +7945,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        /* Release obj lock, encr/decr_mgr_init may re-acquire the lock */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         if (op == DECRYPT) {
             rc = decr_mgr_init(tokdata, session, &session->decr_ctx,
                                OP_DECRYPT_INIT, mech, key);

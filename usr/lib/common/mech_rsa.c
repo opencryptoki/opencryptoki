@@ -602,6 +602,10 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
             goto done;
         }
 
+        /* Release obj lock, token specific rsa-oaep may re-acquire the lock */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         rc = token_specific.t_rsa_oaep_encrypt(tokdata, ctx, in_data,
                                                in_data_len, out_data,
                                                out_data_len, hash, hlen);
@@ -624,6 +628,10 @@ CK_RV rsa_oaep_crypt(STDLL_TokData_t *tokdata, SESSION *sess,
             rc = CKR_MECHANISM_INVALID;
             goto done;
         }
+
+        /* Release obj lock, token specific rsa-oaep may re-acquire the lock */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
 
         rc = token_specific.t_rsa_oaep_decrypt(tokdata, ctx, in_data,
                                                in_data_len, out_data,
@@ -1331,6 +1339,10 @@ CK_RV rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
     }
 
+    /* Release obj lock, token specific rsa_pss may re-acquire the lock */
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
     rc = token_specific.t_rsa_pss_sign(tokdata, sess, ctx, in_data, in_data_len,
                                        out_data, out_data_len);
     if (rc != CKR_OK)
@@ -1388,6 +1400,10 @@ CK_RV rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
+
+    /* Release obj lock, token specific rsa_pss may re-acquire the lock */
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
 
     rc = token_specific.t_rsa_pss_verify(tokdata, sess, ctx, in_data,
                                          in_data_len, signature, sig_len);

@@ -424,6 +424,10 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context_len = 0;
         ctx->context = NULL;
 
+        /* Release obj lock, token specific hmac-sign may re-acquire the lock */
+        object_put(tokdata, key_obj, TRUE);
+        key_obj = NULL;
+
         rc = hmac_sign_init(tokdata, sess, mech, key);
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to initialize hmac.\n");
