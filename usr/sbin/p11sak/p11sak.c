@@ -689,12 +689,12 @@ static CK_RV set_labelpair_attr(const char *label, CK_ATTRIBUTE *pubattr,
 
     pubattr[*pubcount].type = CKA_LABEL;
     pubattr[*pubcount].pValue = publabel;
-    pubattr[*pubcount].ulValueLen = strlen(publabel) + 1;
+    pubattr[*pubcount].ulValueLen = strlen(publabel);
     (*pubcount)++;
 
     prvattr[*prvcount].type = CKA_LABEL;
     prvattr[*prvcount].pValue = prvlabel;
-    prvattr[*prvcount].ulValueLen = strlen(prvlabel) + 1;
+    prvattr[*prvcount].ulValueLen = strlen(prvlabel);
     (*prvcount)++;
 
     return CKR_OK;
@@ -1021,7 +1021,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     if (label != NULL_PTR) {
         tmplt[3].type = CKA_LABEL;
         tmplt[3].pValue = label;
-        tmplt[3].ulValueLen = strlen(label) + 1;
+        tmplt[3].ulValueLen = strlen(label);
         count = 4;
     } else
         count = 3;
