@@ -398,11 +398,16 @@ CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl)
 
     ec_params = (CK_BYTE *) attr->pValue;
 
-    if (memcmp(ec_params, p256, sizeof(p256)) == 0 ||
-        memcmp(ec_params, p384, sizeof(p384)) == 0 ||
-        memcmp(ec_params, p521, sizeof(p521)) == 0 ||
-        memcmp(ec_params, ed25519, sizeof(ed25519)) == 0 ||
-        memcmp(ec_params, ed448, sizeof(ed448)) == 0) {
+    if ((attr->ulValueLen == sizeof(p256) &&
+         memcmp(ec_params, p256, sizeof(p256)) == 0) ||
+        (attr->ulValueLen == sizeof(p384) &&
+         memcmp(ec_params, p384, sizeof(p384)) == 0) ||
+        (attr->ulValueLen == sizeof(p521) &&
+         memcmp(ec_params, p521, sizeof(p521)) == 0) ||
+        (attr->ulValueLen == sizeof(ed25519) &&
+         memcmp(ec_params, ed25519, sizeof(ed25519)) == 0) ||
+        (attr->ulValueLen == sizeof(ed448) &&
+         memcmp(ec_params, ed448, sizeof(ed448)) == 0)) {
         return CK_TRUE;
     }
 
@@ -763,15 +768,20 @@ cpacf_curve_type_t get_cpacf_curve_type(TEMPLATE *tmpl)
     }
     ec_params = (CK_BYTE *) attr->pValue;
 
-    if (memcmp(ec_params, p256, sizeof(p256)) == 0)
+    if (attr->ulValueLen == sizeof(p256) &&
+        memcmp(ec_params, p256, sizeof(p256)) == 0)
         curve_type = curve_p256;
-    else if (memcmp(ec_params, p384, sizeof(p384)) == 0)
+    else if (attr->ulValueLen == sizeof(p384) &&
+             memcmp(ec_params, p384, sizeof(p384)) == 0)
         curve_type = curve_p384;
-    else if (memcmp(ec_params, p521, sizeof(p521)) == 0)
+    else if (attr->ulValueLen == sizeof(p521) &&
+             memcmp(ec_params, p521, sizeof(p521)) == 0)
         curve_type = curve_p521;
-    else if (memcmp(ec_params, ed25519, sizeof(ed25519)) == 0)
+    else if (attr->ulValueLen == sizeof(ed25519) &&
+             memcmp(ec_params, ed25519, sizeof(ed25519)) == 0)
         curve_type = curve_ed25519;
-    else if (memcmp(ec_params, ed448, sizeof(ed448)) == 0)
+    else if (attr->ulValueLen == sizeof(ed448) &&
+             memcmp(ec_params, ed448, sizeof(ed448)) == 0)
         curve_type = curve_ed448;
     else
         curve_type = curve_invalid;
