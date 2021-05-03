@@ -4365,6 +4365,12 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
         goto out;
     }
 
+    if (!EC_KEY_check_key(ec_key)) {
+        TRACE_ERROR("EC_KEY_check_key failed\n");
+        rc = CKR_PUBLIC_KEY_INVALID;
+        goto out;
+    }
+
 out:
     if (allocated && ecpoint != NULL)
         free(ecpoint);
@@ -4400,6 +4406,12 @@ static CK_RV fill_ec_key_from_privkey(EC_KEY *ec_key, const CK_BYTE *data,
 
     if (!EC_KEY_set_public_key(ec_key, point)) {
         TRACE_ERROR("EC_KEY_set_public_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_KEY_check_key(ec_key)) {
+        TRACE_ERROR("EC_KEY_check_key failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
