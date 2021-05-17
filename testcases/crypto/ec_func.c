@@ -911,7 +911,11 @@ CK_RV run_DeriveECDHKeyKAT()
                                 priv_keyA, derive_tmpl,
                                 derive_tmpl_len, &secret_keyA);
         if (rc != CKR_OK) {
-            if (is_ep11_token(SLOT_ID) &&
+            if (rc == CKR_CURVE_NOT_SUPPORTED) {
+                testcase_skip("Slot %u doesn't support this curve: %s",
+                              (unsigned int) SLOT_ID, ecdh_tv[i].name);
+                goto testcase_next;
+            } else if (is_ep11_token(SLOT_ID) &&
                 rc == CKR_MECHANISM_PARAM_INVALID &&
                 (ecdh_tv[i].kdf != CKD_NULL ||
                  ecdh_tv[i].shared_data_len > 0)) {
