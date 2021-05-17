@@ -4261,8 +4261,13 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     /* Generate key data for this key object */
     rc = p_ica_ec_key_generate(ica_data->adapter_handle, eckey);
     if (rc != 0) {
-        TRACE_ERROR("ica_ec_key_generate() failed with rc=%d.\n", rc);
-        ret = CKR_FUNCTION_FAILED;
+        if (rc == EINVAL) {
+            TRACE_ERROR("ica_ec_key_generate() failed with rc=EINVAL, probably curve not supported by openssl.\n");
+            ret = CKR_CURVE_NOT_SUPPORTED;
+        } else {
+            TRACE_ERROR("ica_ec_key_generate() failed with rc=%d.\n", rc);
+            ret = CKR_FUNCTION_FAILED;
+        }
         goto end;
     }
 
@@ -4770,8 +4775,13 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     rc = p_ica_ecdh_derive_secret(ica_data->adapter_handle, privkey,
                                   pubkey, secret_value, privlen);
     if (rc != 0) {
-        TRACE_ERROR("ica_ecdh_derive_secret() failed with rc = %d. \n", rc);
-        ret = CKR_FUNCTION_FAILED;
+        if (rc == EINVAL) {
+            TRACE_ERROR("ica_ecdh_derive_secret() failed with rc=EINVAL, probably curve not supported by openssl.\n");
+            ret = CKR_CURVE_NOT_SUPPORTED;
+        } else {
+            TRACE_ERROR("ica_ecdh_derive_secret() failed with rc = %d. \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+        }
         goto end;
     }
 
