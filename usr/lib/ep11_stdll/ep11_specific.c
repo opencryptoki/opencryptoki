@@ -318,6 +318,13 @@ static const version_req_t oaep_sha2_req_versions[] = {
 };
 #define NUM_OAEP_SHA2_REQ (sizeof(oaep_sha2_req_versions) / sizeof(version_req_t))
 
+static const CK_VERSION cex6p_oaep_support = { .major = 6, .minor = 7 };
+
+static const version_req_t oaep_req_versions[] = {
+        { .card_type = 6, .min_firmware_version = &cex6p_oaep_support }
+};
+#define NUM_OAEP_REQ (sizeof(oaep_req_versions) / sizeof(version_req_t))
+
 static const CK_VERSION cex7p_edwards_support = { .major = 7, .minor = 15 };
 
 static const version_req_t edwards_req_versions[] = {
@@ -8921,6 +8928,15 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_RSA_PKCS_OAEP:
         /* CKM_RSA_PKCS_OAEP is not supported with EP11 host library <= 1.3 */
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver1_3) <= 0) {
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+
+        status = check_required_versions(tokdata, oaep_req_versions,
+                                         NUM_OAEP_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                                    __func__, ep11_get_ckm(type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
