@@ -432,8 +432,8 @@ static int slotmgr_key_str(void *private, int tok, const char *val)
             res = 1;
         break;
     case KW_TOKNAME:
-        if (do_str(d, (char *)d->sinfo_struct.pk_slot.slotDescription,
-                   sizeof(d->sinfo_struct.pk_slot.slotDescription), tok, val, ' '))
+        if (do_str(d, (char *)d->sinfo_struct.tokname,
+                   sizeof(d->sinfo_struct.tokname), tok, val, 0))
             res = 1;
         break;
     case KW_HWVERSION:
