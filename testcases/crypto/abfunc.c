@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -177,6 +178,39 @@ CK_BYTE DSA1024_PRIVATE[20] = {
 
 /// Helper functions
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+
+static void dumpEP11Blob(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE key,
+                         const char *fmt, ...)
+{
+    CK_ATTRIBUTE blobattr = { CKA_IBM_OPAQUE, NULL, 0 };
+    unsigned char *blob = NULL;
+    char fname[1024];
+    FILE *f = NULL;
+    va_list va;
+    int rc;
+
+    va_start(va, fmt);
+    vsnprintf(fname, sizeof(fname), fmt, va);
+    va_end(va);
+    rc = funcs->C_GetAttributeValue(session, key, &blobattr, 1);
+    if (rc != CKR_OK)
+        return;
+    blob = (unsigned char *)malloc(blobattr.ulValueLen);
+    if (!blob)
+        return;
+    blobattr.pValue = blob;
+    rc = funcs->C_GetAttributeValue(session, key, &blobattr, 1);
+    if (rc != CKR_OK)
+        goto out;
+    f = fopen(fname, "wb");
+    if (!f)
+        goto out;
+    fwrite(blob, blobattr.ulValueLen, 1, f);
+ out:
+    free(blob);
+    if (f)
+        fclose(f);
+}
 
 CK_RV compareDESKeys(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE source,
                      CK_OBJECT_HANDLE dest)
@@ -821,10 +855,15 @@ void do_TestKeyWrappingUnwrapping(CK_SESSION_HANDLE session)
             continue;
         }
         rc = config[i].compare(session, unwrapped, *(config[i].comparedest));
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
+            dumpEP11Blob(session, *(config[i].wrappingkey), "dump-wrappingkey-%u", i);
+            dumpEP11Blob(session, *(config[i].keytowrap), "dump-keytowrap-%u", i);
+            dumpEP11Blob(session, *(config[i].signingkey), "dump-signingkey-%u", i);
+            dumpEP11Blob(session, unwrapped, "dump-unwrapped-%u", i);
             testcase_fail("Wrap/Unwrap test %u: compare returned %s", i, p11_get_ckr(rc));
-        else
+        } else {
             testcase_pass("Wrap/Unwrap test %u: cycle passed", i);
+        }
         funcs->C_DestroyObject(session, unwrapped);
     }
 }
