@@ -1,0 +1,28 @@
+#!/usr/bin/expect -f
+#
+# COPYRIGHT (c) International Business Machines Corp. 2001-2017
+#
+# This program is provided under the terms of the Common Public License,
+# version 1.0 (CPL-1.0). Any use, reproduction or distribution for this software
+# constitutes recipient's acceptance of CPL-1.0 terms which can be found
+# in the file LICENSE file or at https://opensource.org/licenses/cpl1.0.php
+#
+
+set timeout 5
+
+spawn @sbindir@/pkcsep11_session vhsmpin -slot [lindex $argv 0]
+expect {
+    "Enter the USER PIN:" { sleep .1; send "01234567\r"; }
+    eof { exit 1 }
+    timeout { exit 1 }
+}
+expect {
+    "Enter the new VHSM PIN:" { sleep .1; send "0123456789\r"; }
+    eof { exit 1 }
+    timeout { exit 1 }
+}
+expect {
+    "VHSM-pin successfully set." { exit 0 }
+    eof { exit 1 }
+    timeout { exit 1 }
+}

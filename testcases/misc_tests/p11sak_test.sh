@@ -34,9 +34,9 @@ P11SAK_EC_POST=p11sak-ec-post.out
 echo "** Setting SLOT=3 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
 
 
-# setting SLOT=3 to the Softtoken
+# setting SLOT=30 to the Softtoken
 
-SLOT=${SLOT:-3}
+SLOT=${SLOT:-30}
 
 echo "** Using Slot $SLOT with PKCS11_USER_PIN $PKCS11_USER_PIN and PKCSLIB $PKCSLIB - 'p11sak_test.sh'"
 
