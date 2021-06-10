@@ -201,6 +201,14 @@ endif
 if ENABLE_TESTCASES
 PKCS11_SO_PIN ?= 76543210
 PKCS11_USER_PIN ?= 01234567
+PKCS11_VHSM_PIN ?= 1234567890
+
+ci-prepare:
+	killall -HUP pkcsslotd || true
+	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
+	@sbindir@/pkcsslotd
+	cd ${srcdir}/testcases && ./init_token.sh 42 && ./init_vhsm.exp 42
+	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
 
 installcheck-local: all
 	killall -HUP pkcsslotd || true
@@ -215,11 +223,13 @@ installcheck-local: all
 	fi
 	killall -HUP pkcsslotd
 
-ci-installcheck: installcheck
+ci-installcheck: ci-prepare installcheck
 	killall -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
 	cd ${srcdir}/testcases && export PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so && export PKCS11_USER_PIN=$(PKCS11_USER_PIN) && ./misc_tests/p11sak_test.sh | tee log-p11sak.txt
 	killall -HUP pkcsslotd
 	@echo "done"
+
+.PHONY: ci-prepare ci-installcheck
 endif
 
