@@ -91,9 +91,9 @@ genep11cfg 44 "DIGEST_LIBICA OFF"
 addslot 44 libpkcs11_ep11.so ep4 ep11tok44.conf
 
 # 5:
-# PKEY_MODE DISABLED
+# PKEY_MODE ENABLE4NONEXTR
 # APQN_ANY
-genep11cfg 45 "PKEY_MODE DISABLED"
+genep11cfg 45 "PKEY_MODE ENABLE4NONEXTR"
 addslot 45 libpkcs11_ep11.so ep5 ep11tok45.conf
 
 # 6: latest

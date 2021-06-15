@@ -207,7 +207,8 @@ ci-prepare:
 	killall -HUP pkcsslotd || true
 	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
 	@sbindir@/pkcsslotd
-	cd ${srcdir}/testcases && ./init_token.sh 42 && ./init_vhsm.exp 42
+	if @sbindir@/pkcsconf -c 42 -t | grep "Flags:" | grep -v -q TOKEN_INITIALIZED; then cd ${srcdir}/testcases && ./init_token.sh 42; fi
+	cd ${srcdir}/testcases && ./init_vhsm.exp 42
 	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
 
 installcheck-local: all
@@ -230,6 +231,12 @@ ci-installcheck: ci-prepare installcheck
 	killall -HUP pkcsslotd
 	@echo "done"
 
-.PHONY: ci-prepare ci-installcheck
+ci-uninstall: uninstall
+	rm -f $(sysconfdir)/opencryptoki/ep11tok*.conf
+	rm -rf $(localstatedir)/lib/opencryptoki/*
+	rm -rf $(lockdir)/*
+	rm -rf $(logdir)/*
+
+.PHONY: ci-prepare ci-installcheck ci-uninstall
 endif
 
