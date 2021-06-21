@@ -2535,6 +2535,7 @@ int main(int argc, char *argv[])
     CK_SESSION_HANDLE session;
     char *pin = NULL;
     size_t pinlen;
+    CK_BBOOL pin_allocated = ckb_false;
     CK_BBOOL forceAll = ckb_false;
 
     /* Check if just help requested */
@@ -2566,11 +2567,20 @@ int main(int argc, char *argv[])
     if (!pin) {
         printf("Please enter user PIN:");
         rc = get_pin(&pin, &pinlen);
+        if (rc != 0)
+            rc = CKR_FUNCTION_FAILED;
+        else
+            pin_allocated = ckb_true;
 
-        if (strlen(pin) == 0) {
+        if (pin == NULL || strlen(pin) == 0) {
             char *s = getenv("PKCS11_USER_PIN");
             if (s) {
-                strcpy((char*) pin, s);
+                free(pin);
+                pin = strdup(s);
+                if (!pin) {
+                    rc = CKR_HOST_MEMORY;
+                    goto done;
+                }
             } else {
                 goto done;
             }
@@ -2607,7 +2617,9 @@ int main(int argc, char *argv[])
 
     rc = CKR_OK;
 
-    done:
+done:
+    if (pin_allocated)
+        free(pin);
 
     return rc;
 }
