@@ -2566,7 +2566,7 @@ int main(int argc, char *argv[])
 
     /* Prompt for PIN if not already set via option */
     if (!pin) {
-        printf("Please enter user PIN:");
+        printf("Please enter user PIN: ");
         rc = get_pin(&pin, &pinlen);
         if (rc != 0)
             rc = CKR_FUNCTION_FAILED;
