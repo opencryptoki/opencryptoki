@@ -119,7 +119,8 @@ static CK_RV get_pin(char **pin, size_t *pinlen)
     /* don't include the terminating null in the pinlen */
     *pinlen = nread - 1;
 
-    done: if (user_input)
+done:
+    if (user_input)
         free(user_input);
 
     return rc;
@@ -2022,7 +2023,7 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, p11sak_kt kt,
 
     printf("Symmetric key generation successful!\n");
 
-    done:
+done:
 
     return rc;
 }
@@ -2267,7 +2268,7 @@ static CK_RV confirm_destroy(char **user_input, char* label)
     CK_RV rc = CKR_OK;
 
     printf("Are you sure you want to destroy object %s [y/n]? ", label);
-    while (1){
+    while (1) {
         nread = getline(user_input, &buflen, stdin);
         if (nread == -1) {
             printf("User input: EOF\n");
@@ -2496,7 +2497,7 @@ static CK_RV start_session(CK_SESSION_HANDLE *session, CK_SLOT_ID slot,
     *session = tmp_sess;
     rc = CKR_OK;
 
-    done:
+done:
 
     return rc;
 }
