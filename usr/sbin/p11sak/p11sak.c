@@ -325,8 +325,8 @@ static CK_BYTE* CK_ULONG2bigint(CK_ULONG ul, CK_BYTE *bytes, CK_ULONG *len)
         }
     }
     *len = sizeof(CK_ULONG) - s;
-
-    return &bytes[s];
+    memmove(&bytes[0], &bytes[s], *len);
+    return &bytes[0];
 }
 /**
  * print help functions
@@ -2036,11 +2036,12 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                                      char *label, char *attr_string)
 {
     CK_OBJECT_HANDLE pub_keyh, prv_keyh;
-    CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
+    CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2] = { 0 };
     CK_ULONG pub_acount = 0;
-    CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
+    CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2] = { 0 };
     CK_ULONG prv_acount = 0;
     CK_MECHANISM mech;
+    CK_ULONG i;
     CK_RV rc;
 
     if (kt == kt_RSAPKCS) {
@@ -2094,6 +2095,27 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     }
 
 done:
+    for (i = 0; i < pub_acount; i++) {
+        switch (pub_attr[i].type) {
+        case CKA_MODULUS_BITS:
+        case CKA_PUBLIC_EXPONENT:
+        case CKA_LABEL:
+            free(pub_attr[i].pValue);
+            break;
+        default:
+            break;
+        }
+    }
+
+    for (i = 0; i < prv_acount; i++) {
+        switch (prv_attr[i].type) {
+        case CKA_LABEL:
+            free(prv_attr[i].pValue);
+            break;
+        default:
+            break;
+        }
+    }
 
     return rc;
 }
