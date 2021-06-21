@@ -75,7 +75,7 @@ static CK_RV get_pin(char **pin, size_t *pinlen)
     struct termios old, new;
     int nread;
     char *user_input = NULL;
-    size_t buflen;
+    size_t buflen = 0;
     CK_RV rc = 0;
 
     /* turn echoing off */
@@ -103,24 +103,14 @@ static CK_RV get_pin(char **pin, size_t *pinlen)
     printf("\n");
     fflush(stdout);
 
-    /* Allocate  PIN.
-     * Note: nread includes carriage return.
-     * Replace with terminating NULL.
-     */
-    *pin = (char*) malloc(nread);
-    if (*pin == NULL) {
-        rc = -ENOMEM;
-        goto done;
-    }
-
-    /* strip the carriage return since not part of pin. */
-    user_input[nread - 1] = '\0';
-    memcpy(*pin, user_input, nread);
-    /* don't include the terminating null in the pinlen */
-    *pinlen = nread - 1;
+    /* strip the carriage return (if any) since not part of pin. */
+    if (user_input[nread - 1] == '\n')
+        user_input[nread - 1] = '\0';
+    *pinlen = strlen(user_input);
+    *pin = user_input;
 
 done:
-    if (user_input)
+    if (rc != 0 && user_input)
         free(user_input);
 
     return rc;
