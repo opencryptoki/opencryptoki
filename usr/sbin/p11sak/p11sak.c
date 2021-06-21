@@ -1356,6 +1356,16 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
         return rc;
     }
 
+    if (template[0].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+        /* assume empty label */
+        *plabel = strdup("");
+        if (!*plabel) {
+            printf("Error: cannot malloc storage for label.\n");
+            return CKR_HOST_MEMORY;
+        }
+        return CKR_OK;
+    }
+
     label_len = template[0].ulValueLen;
     label = malloc(label_len + 1);
     if (!label) {
