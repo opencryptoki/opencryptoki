@@ -207,7 +207,7 @@ ci-prepare:
 	killall -HUP pkcsslotd || true
 	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
 	@sbindir@/pkcsslotd
-	if @sbindir@/pkcsconf -c 42 -t | grep "Flags:" | grep -v -q TOKEN_INITIALIZED; then cd ${srcdir}/testcases && ./init_token.sh 42; fi
+	for slot in `awk '/slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || ${srcdir}/testcases/init_token.sh $$slot; done
 	cd ${srcdir}/testcases && ./init_vhsm.exp 42
 	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
 
