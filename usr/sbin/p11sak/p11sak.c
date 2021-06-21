@@ -2264,9 +2264,10 @@ static CK_BBOOL user_input_ok(char *input)
 static CK_RV confirm_destroy(char **user_input, char* label)
 {
     int nread;
-    size_t buflen;
+    size_t buflen = 0;
     CK_RV rc = CKR_OK;
 
+    *user_input = NULL;
     printf("Are you sure you want to destroy object %s [y/n]? ", label);
     while (1) {
         nread = getline(user_input, &buflen, stdin);
