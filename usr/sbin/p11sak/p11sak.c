@@ -1346,6 +1346,7 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
     CK_RV rc;
     char *label;
     CK_ATTRIBUTE template[1] = { { CKA_LABEL, NULL_PTR, 0 } };
+    CK_ULONG label_len;
 
     rc = funcs->C_GetAttributeValue(session, hkey, template, 1);
     if (rc != CKR_OK) {
@@ -1354,7 +1355,8 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
         return rc;
     }
 
-    label = malloc(template[0].ulValueLen + 1);
+    label_len = template[0].ulValueLen;
+    label = malloc(label_len + 1);
     if (!label) {
         printf("Error: cannot malloc storage for label.\n");
         return CKR_HOST_MEMORY;
@@ -1365,10 +1367,11 @@ static CK_RV tok_key_get_label_attr(CK_SESSION_HANDLE session,
     if (rc != CKR_OK) {
         printf("Error retrieving CKA_LABEL attribute (error code 0x%lX: %s)\n",
                 rc, p11_get_ckr(rc));
+        free(label);
         return rc;
     }
 
-    label[template[0].ulValueLen] = 0;
+    label[label_len] = 0;
     *plabel = label;
 
     return CKR_OK;
