@@ -670,6 +670,15 @@ CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sb
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
 AC_PROG_CXX
+# AC_PROG_CXX will return "g++" even if no c++ compiler is installed.
+# Check for that case, and issue an error if so.
+AC_LANG_PUSH([C++])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+  [[#ifndef __cplusplus
+    #error "broken C++"
+    #endif]])],,
+  [AC_MSG_ERROR([C++ compiler is missing on your system. Please install 'gcc-c++'.])])
+AC_LANG_POP([C++])
 
 AC_CONFIG_MACRO_DIRS([m4])
 
