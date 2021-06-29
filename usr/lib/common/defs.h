@@ -17,6 +17,20 @@
 #ifndef _DEFS_H
 #define _DEFS_H
 
+#include <openssl/opensslv.h>
+
+#ifndef OPENSSL_VERSION_PREREQ
+    #if defined(OPENSSL_VERSION_MAJOR) && defined(OPENSSL_VERSION_MINOR)
+        #define OPENSSL_VERSION_PREREQ(maj, min)        \
+            ((OPENSSL_VERSION_MAJOR << 16) +        \
+            OPENSSL_VERSION_MINOR >= ((maj) << 16) + (min))
+    #else
+        #define OPENSSL_VERSION_PREREQ(maj, min)        \
+            (OPENSSL_VERSION_NUMBER >= (((maj) << 28) | \
+            ((min) << 20)))
+    #endif
+#endif
+
 #define MAX_SESSION_COUNT     64
 #define MAX_PIN_LEN           8
 #define MIN_PIN_LEN           4
