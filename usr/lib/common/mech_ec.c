@@ -32,34 +32,6 @@
 #include "openssl/obj_mac.h"
 #include <openssl/ec.h>
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-/*
- * Older OpenSLL versions do not have BN_bn2binpad, so implement it here
- */
-static int BN_bn2binpad(const BIGNUM *a, unsigned char *to, int tolen)
-{
-    int len, pad;
-    unsigned char *buf;
-
-    len = BN_num_bytes(a);
-    buf = (unsigned char *)malloc(len);
-    if (buf == NULL)
-        return -1;
-    BN_bn2bin(a, buf);
-
-    if (len >= tolen) {
-        memcpy(to, buf, tolen);
-    } else {
-        pad = tolen - len;
-        memset(to, 0, pad);
-        memcpy(to + pad, buf, len);
-    }
-
-    free(buf);
-    return tolen;
-}
-#endif
-
 #ifndef NID_brainpoolP160r1
 /*
  * Older OpenSLL versions may not have the brainpool NIDs defined, define them
@@ -1522,9 +1494,8 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
                              CK_BYTE *d, CK_ULONG d_len,
                              CK_BYTE **point, CK_ULONG *point_len)
 {
-    EC_KEY *eckey = NULL;
     EC_POINT *pub_key = NULL;
-    const EC_GROUP *group = NULL;
+    EC_GROUP *group = NULL;
     int nid, p_len;
     BIGNUM *bn_d = NULL, *bn_x = NULL, *bn_y = NULL;
     CK_RV rc = CKR_OK;
@@ -1541,17 +1512,7 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
         goto done;
     }
 
-    eckey = EC_KEY_new_by_curve_name(nid);
-    if (eckey == NULL) {
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    if (EC_KEY_set_private_key(eckey, bn_d) != 1) {
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    group = EC_KEY_get0_group(eckey);
+    group = EC_GROUP_new_by_curve_name(nid);
     if (group == NULL) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1576,7 +1537,7 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
         rc = CKR_HOST_MEMORY;
         goto done;
     }
-    if (!EC_POINT_get_affine_coordinates_GFp(group, pub_key, bn_x, bn_y, NULL)) {
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, bn_x, bn_y, NULL)) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -1599,13 +1560,13 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
 done:
     if (pub_key)
         EC_POINT_free(pub_key);
-    if (eckey)
-        EC_KEY_free(eckey);
     BN_clear_free(bn_x);
     BN_clear_free(bn_y);
     BN_clear_free(bn_d);
     if (ec_point != NULL)
         free(ec_point);
+    if (group != NULL)
+        EC_GROUP_free(group);
 
     return rc;
 }
