@@ -123,6 +123,10 @@ int sess_opstate_funcs(int loops)
         opstatelen = 0;
         rc = funcs->C_GetOperationState(s2, NULL, &opstatelen);
         if (rc != CKR_OK) {
+            if (rc == CKR_STATE_UNSAVEABLE) {
+                testcase_skip("Get/SetOperationState digest test: state unsavable");
+                goto out;
+            }
             testcase_error("C_GetOperationState rc=%s", p11_get_ckr(rc));
             goto out;
         }
@@ -135,6 +139,10 @@ int sess_opstate_funcs(int loops)
 
         rc = funcs->C_GetOperationState(s2, opstate, &opstatelen);
         if (rc != CKR_OK) {
+            if (rc == CKR_STATE_UNSAVEABLE) {
+                testcase_skip("Get/SetOperationState digest test: state unsavable");
+                goto out;
+            }
             testcase_error("C_GetOperationState rc=%s", p11_get_ckr(rc));
             goto out;
         }
