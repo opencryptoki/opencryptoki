@@ -849,66 +849,89 @@ CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
     return CKR_OK;
 }
 
-/* Compute specified SHA using either software or token implementation */
+/* Compute specified SHA or MD5 using software */
 CK_RV compute_sha(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash, CK_ULONG mech)
 {
-    DIGEST_CONTEXT ctx;
-    CK_ULONG hash_len;
-    CK_RV rv;
+    const EVP_MD *md;
+    unsigned int hash_len;
 
-    memset(&ctx, 0x0, sizeof(ctx));
-    ctx.mech.mechanism = mech;
+    UNUSED(tokdata);
 
-    rv = get_sha_size(mech, &hash_len);
-    if (rv != CKR_OK)
-        return rv;
-
-    rv = sha_init(tokdata, NULL, &ctx, &ctx.mech);
-    if (rv != CKR_OK) {
-        TRACE_DEBUG("failed to create digest.\n");
-        return rv;
+    switch (mech) {
+    case CKM_MD5:
+        hash_len = MD5_HASH_SIZE;
+        md = EVP_md5();
+        break;
+    case CKM_SHA_1:
+        hash_len = SHA1_HASH_SIZE;
+        md = EVP_sha1();
+        break;
+    case CKM_SHA224:
+    case CKM_SHA512_224:
+        hash_len = SHA224_HASH_SIZE;
+        md = EVP_sha224();
+        break;
+    case CKM_SHA256:
+    case CKM_SHA512_256:
+        hash_len = SHA256_HASH_SIZE;
+        md = EVP_sha256();
+        break;
+    case CKM_SHA384:
+        hash_len = SHA384_HASH_SIZE;
+        md = EVP_sha384();
+        break;
+    case CKM_SHA512:
+        hash_len = SHA512_HASH_SIZE;
+        md = EVP_sha512();
+        break;
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224:
+        hash_len = SHA3_224_HASH_SIZE;
+        md = EVP_sha3_224();
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256:
+        hash_len = SHA3_256_HASH_SIZE;
+        md = EVP_sha3_256();
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384:
+        hash_len = SHA3_384_HASH_SIZE;
+        md = EVP_sha3_384();
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512:
+        hash_len = SHA3_512_HASH_SIZE;
+        md = EVP_sha3_512();
+        break;
+#endif
+    default:
+        return CKR_MECHANISM_INVALID;
     }
-    rv = sha_hash(tokdata, NULL, FALSE, &ctx, data, len, hash, &hash_len);
 
-    digest_mgr_cleanup(&ctx);
-    return rv;
+    if (EVP_Digest(data, len, hash, &hash_len, md, NULL) != 1) {
+        TRACE_ERROR("%s EVP_Digest failed\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
 }
 
 /* Compute SHA1 using software implementation */
 CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                    CK_BYTE *hash)
 {
-    // XXX KEY
-    DIGEST_CONTEXT ctx;
-    CK_ULONG hash_len = SHA1_HASH_SIZE;
-
-    UNUSED(tokdata);
-
-    memset(&ctx, 0x0, sizeof(ctx));
-
-    sw_sha1_init(&ctx);
-    if (ctx.context == NULL)
-        return CKR_HOST_MEMORY;
-
-    return sw_sha1_hash(&ctx, data, len, hash, &hash_len);
+    return compute_sha(tokdata, data, len, hash, CKM_SHA_1);
 }
 
 CK_RV compute_md5(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash)
 {
-    DIGEST_CONTEXT ctx;
-    CK_ULONG hash_len = MD5_HASH_SIZE;
-
-    UNUSED(tokdata);
-
-    memset(&ctx, 0x0, sizeof(ctx));
-
-    sw_md5_init(&ctx);
-    if (ctx.context == NULL)
-        return CKR_HOST_MEMORY;
-
-    return sw_md5_hash(&ctx, data, len, hash, &hash_len);
+    return compute_sha(tokdata, data, len, hash, CKM_MD5);
 }
 
 CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
