@@ -38,30 +38,49 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <openssl/crypto.h>
 
 //
 // Software SHA-1 implementation (OpenSSL based)
 //
 
-void sw_sha1_init(DIGEST_CONTEXT *ctx)
+static void sw_sha1_free(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_BYTE *context, CK_ULONG context_len)
 {
-    ctx->context_len = sizeof(SHA_CTX);
-    ctx->context = (CK_BYTE *) malloc(sizeof(SHA_CTX));
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)context);
+}
+
+CK_RV sw_sha1_init(DIGEST_CONTEXT *ctx)
+{
+    ctx->context_len = 1;
+    ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
     if (ctx->context == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        // TODO: propagate error up?
-        return;
+        return CKR_HOST_MEMORY;
     }
 
-    SHA1_Init((SHA_CTX *)ctx->context);
+    if (!EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, EVP_sha1(), NULL)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = sw_sha1_free;
+
+    return CKR_OK;
 }
 
 CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                    CK_ULONG in_data_len, CK_BYTE *out_data,
                    CK_ULONG *out_data_len)
 {
+    unsigned int len;
 
     if (!ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
@@ -76,43 +95,60 @@ CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    SHA1_Update((SHA_CTX *)ctx->context, in_data, in_data_len);
-    SHA1_Final(out_data, (SHA_CTX *)ctx->context);
-    *out_data_len = SHA1_HASH_SIZE;
+    len = *out_data_len;
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
+        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
-    if (ctx->context_free_func != NULL)
-        ctx->context_free_func(ctx->context, ctx->context_len);
-    else
-        free(ctx->context);
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
     ctx->context = NULL;
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
 
-CK_RV sw_sha1_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-                     CK_ULONG in_data_len)
+static CK_RV sw_sha1_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                            CK_ULONG in_data_len)
 {
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    SHA1_Update((SHA_CTX *)ctx->context, in_data, in_data_len);
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     return CKR_OK;
 }
 
-CK_RV sw_sha1_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-                    CK_ULONG *out_data_len)
+static CK_RV sw_sha1_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+                           CK_ULONG *out_data_len)
 {
+    unsigned int len;
+
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    SHA1_Final(out_data, (SHA_CTX *)ctx->context);
-    *out_data_len = SHA1_HASH_SIZE;
+    if (*out_data_len < SHA1_HASH_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
-    if (ctx->context_free_func != NULL)
-        ctx->context_free_func(ctx->context, ctx->context_len);
-    else
-        free(ctx->context);
+    len = *out_data_len;
+    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
     ctx->context = NULL;
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
@@ -134,8 +170,7 @@ CK_RV sha_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
          *  supported. JML
          */
         if (mech->mechanism == CKM_SHA_1) {
-            sw_sha1_init(ctx);
-            return CKR_OK;
+            return sw_sha1_init(ctx);
         } else {
             return CKR_MECHANISM_INVALID;
         }

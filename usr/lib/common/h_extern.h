@@ -1543,7 +1543,7 @@ CK_RV aes_cfb_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
 // SHA mechanisms
 //
 
-void sw_sha1_init(DIGEST_CONTEXT *ctx);
+CK_RV sw_sha1_init(DIGEST_CONTEXT *ctx);
 
 CK_RV sw_sha1_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                    CK_ULONG in_data_len, CK_BYTE *out_data,
