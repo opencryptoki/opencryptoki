@@ -289,6 +289,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
             goto done;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
 
@@ -485,7 +486,7 @@ CK_RV ssl3_mac_verify(STDLL_TokData_t *tokdata,
         rc = CKR_SIGNATURE_INVALID;
     }
 error:
-    sign_mgr_cleanup(&mac_ctx);
+    sign_mgr_cleanup(tokdata, sess, &mac_ctx);
 
     return rc;
 }
@@ -573,6 +574,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
             goto done;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,

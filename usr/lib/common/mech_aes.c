@@ -2740,6 +2740,9 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (((AES_CMAC_CONTEXT *)ctx->context)->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
     memcpy(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv, mac_len);
     *out_data_len = mac_len;
 
@@ -2810,6 +2813,9 @@ CK_RV aes_cmac_sign_update(STDLL_TokData_t *tokdata,
             context->len = remain;
 
             context->initialized = CK_TRUE;
+
+            if (context->ctx != NULL)
+                ctx->state_unsaveable = CK_TRUE;
         } else {
             TRACE_DEVEL("Token specific aes cmac failed.\n");
         }
@@ -2873,6 +2879,9 @@ CK_RV aes_cmac_sign_final(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (context->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
     memcpy(out_data, context->iv, mac_len);
     *out_data_len = mac_len;
 
@@ -2928,6 +2937,9 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Token specific aes cmac failed.\n");
         return rc;
     }
+
+    if (((AES_CMAC_CONTEXT *)ctx->context)->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
 
     if (CRYPTO_memcmp(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
@@ -2997,6 +3009,9 @@ CK_RV aes_cmac_verify_update(STDLL_TokData_t *tokdata,
             context->len = remain;
 
             context->initialized = CK_TRUE;
+
+            if (context->ctx != NULL)
+                ctx->state_unsaveable = CK_TRUE;
         } else {
             TRACE_DEVEL("Token specific aes cmac failed.\n");
         }
@@ -3051,6 +3066,9 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+
+    if (context->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("Token specific aes mac failed.\n");

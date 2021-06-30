@@ -276,32 +276,62 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     if (sess->find_list)
         free(sess->find_list);
 
-    if (sess->encr_ctx.context)
-        free(sess->encr_ctx.context);
+    if (sess->encr_ctx.context) {
+        if (sess->encr_ctx.context_free_func != NULL)
+            sess->encr_ctx.context_free_func(tokdata, sess,
+                                             sess->encr_ctx.context,
+                                             sess->encr_ctx.context_len);
+        else
+            free(sess->encr_ctx.context);
+    }
 
     if (sess->encr_ctx.mech.pParameter)
         free(sess->encr_ctx.mech.pParameter);
 
-    if (sess->decr_ctx.context)
-        free(sess->decr_ctx.context);
+    if (sess->decr_ctx.context) {
+        if (sess->decr_ctx.context_free_func != NULL)
+            sess->decr_ctx.context_free_func(tokdata, sess,
+                                             sess->decr_ctx.context,
+                                             sess->decr_ctx.context_len);
+        else
+            free(sess->decr_ctx.context);
+    }
 
     if (sess->decr_ctx.mech.pParameter)
         free(sess->decr_ctx.mech.pParameter);
 
-    if (sess->digest_ctx.context)
-        free(sess->digest_ctx.context);
+    if (sess->digest_ctx.context) {
+        if (sess->digest_ctx.context_free_func != NULL)
+            sess->digest_ctx.context_free_func(tokdata, sess,
+                                               sess->digest_ctx.context,
+                                               sess->digest_ctx.context_len);
+        else
+            free(sess->digest_ctx.context);
+    }
 
     if (sess->digest_ctx.mech.pParameter)
         free(sess->digest_ctx.mech.pParameter);
 
-    if (sess->sign_ctx.context)
-        free(sess->sign_ctx.context);
+    if (sess->sign_ctx.context) {
+        if (sess->sign_ctx.context_free_func != NULL)
+            sess->sign_ctx.context_free_func(tokdata, sess,
+                                             sess->sign_ctx.context,
+                                             sess->sign_ctx.context_len);
+        else
+            free(sess->sign_ctx.context);
+    }
 
     if (sess->sign_ctx.mech.pParameter)
         free(sess->sign_ctx.mech.pParameter);
 
-    if (sess->verify_ctx.context)
-        free(sess->verify_ctx.context);
+    if (sess->verify_ctx.context) {
+        if (sess->verify_ctx.context_free_func != NULL)
+            sess->verify_ctx.context_free_func(tokdata, sess,
+                                               sess->verify_ctx.context,
+                                               sess->verify_ctx.context_len);
+        else
+            free(sess->verify_ctx.context);
+    }
 
     if (sess->verify_ctx.mech.pParameter)
         free(sess->verify_ctx.mech.pParameter);
@@ -354,32 +384,62 @@ void session_free(STDLL_TokData_t *tokdata, void *node_value,
     if (sess->find_list)
         free(sess->find_list);
 
-    if (sess->encr_ctx.context)
-        free(sess->encr_ctx.context);
+    if (sess->encr_ctx.context) {
+        if (sess->encr_ctx.context_free_func != NULL)
+            sess->encr_ctx.context_free_func(tokdata, sess,
+                                             sess->encr_ctx.context,
+                                             sess->encr_ctx.context_len);
+        else
+            free(sess->encr_ctx.context);
+    }
 
     if (sess->encr_ctx.mech.pParameter)
         free(sess->encr_ctx.mech.pParameter);
 
-    if (sess->decr_ctx.context)
-        free(sess->decr_ctx.context);
+    if (sess->decr_ctx.context) {
+        if (sess->decr_ctx.context_free_func != NULL)
+            sess->decr_ctx.context_free_func(tokdata, sess,
+                                             sess->decr_ctx.context,
+                                             sess->decr_ctx.context_len);
+        else
+            free(sess->decr_ctx.context);
+    }
 
     if (sess->decr_ctx.mech.pParameter)
         free(sess->decr_ctx.mech.pParameter);
 
-    if (sess->digest_ctx.context)
-        free(sess->digest_ctx.context);
+    if (sess->digest_ctx.context) {
+        if (sess->digest_ctx.context_free_func != NULL)
+            sess->digest_ctx.context_free_func(tokdata, sess,
+                                               sess->digest_ctx.context,
+                                               sess->digest_ctx.context_len);
+        else
+            free(sess->digest_ctx.context);
+    }
 
     if (sess->digest_ctx.mech.pParameter)
         free(sess->digest_ctx.mech.pParameter);
 
-    if (sess->sign_ctx.context)
-        free(sess->sign_ctx.context);
+    if (sess->sign_ctx.context) {
+        if (sess->sign_ctx.context_free_func != NULL)
+            sess->sign_ctx.context_free_func(tokdata, sess,
+                                             sess->sign_ctx.context,
+                                             sess->sign_ctx.context_len);
+        else
+            free(sess->sign_ctx.context);
+    }
 
     if (sess->sign_ctx.mech.pParameter)
         free(sess->sign_ctx.mech.pParameter);
 
-    if (sess->verify_ctx.context)
-        free(sess->verify_ctx.context);
+    if (sess->verify_ctx.context) {
+        if (sess->verify_ctx.context_free_func != NULL)
+            sess->verify_ctx.context_free_func(tokdata, sess,
+                                               sess->verify_ctx.context,
+                                               sess->verify_ctx.context_len);
+        else
+            free(sess->verify_ctx.context);
+    }
 
     if (sess->verify_ctx.mech.pParameter)
         free(sess->verify_ctx.mech.pParameter);
@@ -528,6 +588,10 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     active_ops = 0;
 
     if (sess->encr_ctx.active == TRUE) {
+        if (sess->encr_ctx.state_unsaveable) {
+            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+            return CKR_STATE_UNSAVEABLE;
+        }
         active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
@@ -572,6 +636,10 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->decr_ctx.active == TRUE) {
+        if (sess->decr_ctx.state_unsaveable) {
+            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+            return CKR_STATE_UNSAVEABLE;
+        }
         active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
@@ -616,6 +684,10 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->digest_ctx.active == TRUE) {
+        if (sess->digest_ctx.state_unsaveable) {
+            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+            return CKR_STATE_UNSAVEABLE;
+        }
         active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
@@ -660,6 +732,10 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->sign_ctx.active == TRUE) {
+        if (sess->sign_ctx.state_unsaveable) {
+            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+            return CKR_STATE_UNSAVEABLE;
+        }
         active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
@@ -704,6 +780,10 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
     }
 
     if (sess->verify_ctx.active == TRUE) {
+        if (sess->verify_ctx.state_unsaveable) {
+            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
+            return CKR_STATE_UNSAVEABLE;
+        }
         active_ops++;
         if (op_data != NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
@@ -759,7 +839,7 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
 
 //
 //
-CK_RV session_mgr_set_op_state(SESSION *sess,
+CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_OBJECT_HANDLE encr_key,
                                CK_OBJECT_HANDLE auth_key,
                                CK_BYTE *data, CK_ULONG data_len)
@@ -939,19 +1019,19 @@ CK_RV session_mgr_set_op_state(SESSION *sess,
     // state information looks okay.  cleanup the current session state, first
     //
     if (sess->encr_ctx.active)
-        encr_mgr_cleanup(&sess->encr_ctx);
+        encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
 
     if (sess->decr_ctx.active)
-        decr_mgr_cleanup(&sess->decr_ctx);
+        decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
 
     if (sess->digest_ctx.active)
-        digest_mgr_cleanup(&sess->digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
 
     if (sess->sign_ctx.active)
-        sign_mgr_cleanup(&sess->sign_ctx);
+        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
 
     if (sess->verify_ctx.active)
-        verify_mgr_cleanup(&sess->verify_ctx);
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
 
     // copy the new state information

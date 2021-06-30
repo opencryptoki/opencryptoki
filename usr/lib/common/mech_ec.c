@@ -414,7 +414,7 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
 
@@ -434,7 +434,7 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 error:
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -485,6 +485,7 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
             return rc;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -556,12 +557,12 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
     if (length_only == TRUE || rc == CKR_BUFFER_TOO_SMALL) {
-        sign_mgr_cleanup(&sign_ctx);
+        sign_mgr_cleanup(tokdata, sess, &sign_ctx);
         return rc;
     }
 
 done:
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -627,7 +628,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
     // Verify the Signed BER-encoded Data block
@@ -649,7 +650,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
-    sign_mgr_cleanup(&verify_ctx);
+    sign_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }
@@ -701,6 +702,7 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
             return rc;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -768,7 +770,7 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Verify Mgr Verify failed.\n");
 done:
-    verify_mgr_cleanup(&verify_ctx);
+    verify_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }
@@ -823,7 +825,7 @@ CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
                            h_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("digest_mgr_digest failed with rc = %s\n", ock_err(rc));
-        digest_mgr_cleanup(&ctx);
+        digest_mgr_cleanup(tokdata, sess, &ctx);
         return rc;
     }
 

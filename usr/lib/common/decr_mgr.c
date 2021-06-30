@@ -620,7 +620,8 @@ done:
 
 //
 //
-CK_RV decr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
+CK_RV decr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                       ENCR_DECR_CONTEXT *ctx)
 {
     if (!ctx) {
         TRACE_ERROR("Invalid function argument.\n");
@@ -635,6 +636,7 @@ CK_RV decr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
     ctx->init_pending = FALSE;
     ctx->context_len = 0;
     ctx->pkey_active = FALSE;
+    ctx->state_unsaveable = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);
@@ -642,9 +644,14 @@ CK_RV decr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx)
     }
 
     if (ctx->context) {
-        free(ctx->context);
+        if (ctx->context_free_func != NULL)
+            ctx->context_free_func(tokdata, sess, ctx->context,
+                                   ctx->context_len);
+        else
+            free(ctx->context);
         ctx->context = NULL;
     }
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
