@@ -810,8 +810,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     }
 
     /* (re)alloc ctx in one memory area */
-    if (ctx->context)
+    if (ctx->context) {
         free(ctx->context);
+        ctx->context_free_func = NULL;
+    }
     ctx->context_len = 0;
     ctx->context = malloc(ctxsize + devctxsize);
     if (ctx->context == NULL) {

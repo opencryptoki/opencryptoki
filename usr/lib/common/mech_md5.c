@@ -61,7 +61,10 @@ CK_RV sw_md5_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
     MD5_Final(out_data, (MD5_CTX *)ctx->context);
     *out_data_len = MD5_HASH_SIZE;
 
-    free(ctx->context);
+    if (ctx->context_free_func != NULL)
+        ctx->context_free_func(ctx->context, ctx->context_len);
+    else
+        free(ctx->context);
     ctx->context = NULL;
 
     return CKR_OK;
@@ -86,7 +89,10 @@ CK_RV sw_MD5_Final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
     MD5_Final(out_data, (MD5_CTX *)ctx->context);
     *out_data_len = MD5_HASH_SIZE;
 
-    free(ctx->context);
+    if (ctx->context_free_func != NULL)
+        ctx->context_free_func(ctx->context, ctx->context_len);
+    else
+        free(ctx->context);
     ctx->context = NULL;
 
     return CKR_OK;
@@ -267,7 +273,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
                                attr->pValue, attr->ulValueLen, hash, &hash_len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            digest_mgr_cleanup(&digest_ctx);
+            digest_mgr_cleanup(tokdata, sess, &digest_ctx);
             goto done;
         }
 
@@ -413,6 +419,6 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
 done:
-    sign_mgr_cleanup(&hmac_ctx);
+    sign_mgr_cleanup(tokdata, sess, &hmac_ctx);
     return rc;
 }

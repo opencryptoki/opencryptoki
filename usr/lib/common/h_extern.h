@@ -1790,7 +1790,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
                     CK_ULONG operation,
                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle);
 
-CK_RV encr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx);
+CK_RV encr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                       ENCR_DECR_CONTEXT *ctx);
 
 CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
                        SESSION *sess, CK_BBOOL length_only,
@@ -1825,7 +1826,8 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                     CK_ULONG operation,
                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle);
 
-CK_RV decr_mgr_cleanup(ENCR_DECR_CONTEXT *ctx);
+CK_RV decr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                       ENCR_DECR_CONTEXT *ctx);
 
 CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
                        SESSION *sess, CK_BBOOL length_only,
@@ -1866,7 +1868,8 @@ CK_RV decr_mgr_update_des3_cbc(STDLL_TokData_t *tokdata, SESSION *sess,
 
 // digest manager routines
 //
-CK_RV digest_mgr_cleanup(DIGEST_CONTEXT *ctx);
+CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                         DIGEST_CONTEXT *ctx);
 
 CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
                       SESSION *sess,
@@ -1955,7 +1958,8 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                     CK_MECHANISM *mech,
                     CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle);
 
-CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx);
+CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                       SIGN_VERIFY_CONTEXT *ctx);
 
 CK_RV sign_mgr_sign(STDLL_TokData_t *tokdata,
                     SESSION *sess,
@@ -1992,7 +1996,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                       CK_MECHANISM *mech,
                       CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle);
 
-CK_RV verify_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx);
+CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                         SIGN_VERIFY_CONTEXT *ctx);
 
 CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
                         SESSION *sess,
@@ -2036,10 +2041,11 @@ CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata);
 CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata);
 CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata);
 
-CK_RV session_mgr_get_op_state(SESSION *sess, CK_BBOOL length_only,
+CK_RV session_mgr_get_op_state(SESSION *sess,
+                               CK_BBOOL length_only,
                                CK_BYTE *data, CK_ULONG *data_len);
 
-CK_RV session_mgr_set_op_state(SESSION *sess,
+CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_OBJECT_HANDLE encr_key,
                                CK_OBJECT_HANDLE auth_key, CK_BYTE *data,
                                CK_ULONG data_len);

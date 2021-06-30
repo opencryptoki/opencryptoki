@@ -773,8 +773,9 @@ CK_RV SC_SetOperationState(STDLL_TokData_t *tokdata,
     //set the handle into the session.
     sess->handle = sSession->sessionh;
 
-    rc = session_mgr_set_op_state(sess, hEncryptionKey, hAuthenticationKey,
-                                  pOperationState, ulOperationStateLen);
+    rc = session_mgr_set_op_state(tokdata, sess, hEncryptionKey,
+                                  hAuthenticationKey, pOperationState,
+                                  ulOperationStateLen);
 
     if (rc != CKR_OK)
         TRACE_DEVEL("session_mgr_set_op_state() failed.\n");
@@ -1556,7 +1557,7 @@ CK_RV SC_Encrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
         if (sess)
-            encr_mgr_cleanup(&sess->encr_ctx);
+            encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
     }
 
     TRACE_INFO("C_Encrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -1612,7 +1613,7 @@ CK_RV SC_EncryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL) {
         if (sess)
-            encr_mgr_cleanup(&sess->encr_ctx);
+            encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
     }
 
     TRACE_INFO("C_EncryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -1671,7 +1672,7 @@ CK_RV SC_EncryptFinal(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
         if (sess)
-            encr_mgr_cleanup(&sess->encr_ctx);
+            encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
     }
 
     TRACE_INFO("C_EncryptFinal: rc = 0x%08lx, sess = %ld\n",
@@ -1790,7 +1791,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
         if (sess)
-            decr_mgr_cleanup(&sess->decr_ctx);
+            decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
 
     TRACE_INFO("C_Decrypt: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -1846,7 +1847,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_OK && rc != CKR_BUFFER_TOO_SMALL && sess != NULL) {
         if (sess)
-            decr_mgr_cleanup(&sess->decr_ctx);
+            decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
 
     TRACE_INFO("C_DecryptUpdate: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -1903,7 +1904,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {
         if (sess)
-            decr_mgr_cleanup(&sess->decr_ctx);
+            decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
     }
 
     TRACE_INFO("C_DecryptFinal: rc = 0x%08lx, sess = %ld, amount = %lu\n",
@@ -2261,7 +2262,7 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature)) {
         if (sess != NULL)
-            sign_mgr_cleanup(&sess->sign_ctx);
+            sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
     }
 
     TRACE_INFO("C_Sign: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
@@ -2312,7 +2313,7 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         TRACE_DEVEL("icsftok_sign_update() failed.\n");
 done:
     if (rc != CKR_OK && sess != NULL)
-        sign_mgr_cleanup(&sess->sign_ctx);
+        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
 
     TRACE_INFO("C_SignUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
@@ -2364,7 +2365,7 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || pSignature)) {
         if (sess != NULL)
-            sign_mgr_cleanup(&sess->sign_ctx);
+            sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
     }
 
     TRACE_INFO("C_SignFinal: rc = 0x%08lx, sess = %ld\n",
@@ -2517,7 +2518,7 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
 done:
     if (sess != NULL)
-        verify_mgr_cleanup(&sess->verify_ctx);
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
     TRACE_INFO("C_Verify: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulDataLen);
@@ -2568,7 +2569,7 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
 done:
     if (rc != CKR_OK && sess != NULL)
-        verify_mgr_cleanup(&sess->verify_ctx);
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
     TRACE_INFO("C_VerifyUpdate: rc = 0x%08lx, sess = %ld, datalen = %lu\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle, ulPartLen);
@@ -2619,7 +2620,7 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
 done:
     if (sess != NULL)
-        verify_mgr_cleanup(&sess->verify_ctx);
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
     TRACE_INFO("C_VerifyFinal: rc = 0x%08lx, sess = %ld\n",
                rc, (sess == NULL) ? -1 : (CK_LONG) sess->handle);
