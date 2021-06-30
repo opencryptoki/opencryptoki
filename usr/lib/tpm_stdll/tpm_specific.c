@@ -1451,15 +1451,15 @@ CK_RV token_create_private_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
     tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
     CK_RV rc;
     TSS_RESULT result;
-    RSA *rsa;
+    EVP_PKEY *pkey;
     unsigned int size_n, size_p;
     unsigned char n[256], p[256];
 
     /* all sw generated keys are 2048 bits */
-    if ((rsa = openssl_gen_key(tokdata)) == NULL)
+    if ((pkey = openssl_gen_key(tokdata)) == NULL)
         return CKR_HOST_MEMORY;
 
-    if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+    if (openssl_get_modulus_and_prime(pkey, &size_n, n, &size_p, p) != 0) {
         TRACE_DEVEL("openssl_get_modulus_and_prime failed\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -1473,13 +1473,13 @@ CK_RV token_create_private_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
         return rc;
     }
 
-    if (openssl_write_key(tokdata, rsa, TPMTOK_PRIV_ROOT_KEY_FILE, pPin)) {
+    if (openssl_write_key(tokdata, pkey, TPMTOK_PRIV_ROOT_KEY_FILE, pPin)) {
         TRACE_DEVEL("openssl_write_key failed.\n");
-        RSA_free(rsa);
+        EVP_PKEY_free(pkey);
         return CKR_FUNCTION_FAILED;
     }
 
-    RSA_free(rsa);
+    EVP_PKEY_free(pkey);
 
     /* store the user base key in a PKCS#11 object internally */
     rc = token_store_tss_key(tokdata, tpm_data->hPrivateRootKey,
@@ -1529,15 +1529,15 @@ CK_RV token_create_public_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
     tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
     CK_RV rc;
     TSS_RESULT result;
-    RSA *rsa;
+    EVP_PKEY *pkey;
     unsigned int size_n, size_p;
     unsigned char n[256], p[256];
 
     /* all sw generated keys are 2048 bits */
-    if ((rsa = openssl_gen_key(tokdata)) == NULL)
+    if ((pkey = openssl_gen_key(tokdata)) == NULL)
         return CKR_HOST_MEMORY;
 
-    if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+    if (openssl_get_modulus_and_prime(pkey, &size_n, n, &size_p, p) != 0) {
         TRACE_DEVEL("openssl_get_modulus_and_prime failed\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -1551,13 +1551,13 @@ CK_RV token_create_public_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
         return rc;
     }
 
-    if (openssl_write_key(tokdata, rsa, TPMTOK_PUB_ROOT_KEY_FILE, pPin)) {
+    if (openssl_write_key(tokdata, pkey, TPMTOK_PUB_ROOT_KEY_FILE, pPin)) {
         TRACE_DEVEL("openssl_write_key\n");
-        RSA_free(rsa);
+        EVP_PKEY_free(pkey);
         return CKR_FUNCTION_FAILED;
     }
 
-    RSA_free(rsa);
+    EVP_PKEY_free(pkey);
 
     result = Tspi_Key_LoadKey(tpm_data->hPublicRootKey, tpm_data->hSRK);
     if (result) {
@@ -1602,7 +1602,7 @@ CK_RV token_create_public_tree(STDLL_TokData_t * tokdata, CK_BYTE * pinHash,
 CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
 {
     tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
-    RSA *rsa;
+    EVP_PKEY *pkey;
     char *backup_loc;
     unsigned int size_n, size_p;
     unsigned char n[256], p[256];
@@ -1630,7 +1630,7 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
     }
 
     /* read the backup key with the old pin */
-    if ((rc = openssl_read_key(tokdata, backup_loc, pin, &rsa))) {
+    if ((rc = openssl_read_key(tokdata, backup_loc, pin, &pkey))) {
         if (rc == CKR_FILE_NOT_FOUND)
             rc = CKR_FUNCTION_FAILED;
         TRACE_DEVEL("openssl_read_key failed\n");
@@ -1640,8 +1640,9 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
     /* So, reading the backup openssl key off disk succeeded with the SOs PIN.
      * We will now try to re-wrap that key with the current SRK
      */
-    if (openssl_get_modulus_and_prime(rsa, &size_n, n, &size_p, p) != 0) {
+    if (openssl_get_modulus_and_prime(pkey, &size_n, n, &size_p, p) != 0) {
         TRACE_DEVEL("openssl_get_modulus_and_prime failed\n");
+        EVP_PKEY_free(pkey);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1650,10 +1651,10 @@ CK_RV token_migrate(STDLL_TokData_t * tokdata, int key_type, CK_BYTE * pin)
                            phKey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("token_wrap_sw_key failed. rc=0x%lx\n", rc);
-        RSA_free(rsa);
+        EVP_PKEY_free(pkey);
         return rc;
     }
-    RSA_free(rsa);
+    EVP_PKEY_free(pkey);
 
     result = Tspi_Key_LoadKey(*phKey, tpm_data->hSRK);
     if (result) {
@@ -1998,7 +1999,7 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
     tpm_private_data_t *tpm_data = (tpm_private_data_t *)tokdata->private_data;
     CK_BYTE oldpin_hash[SHA1_HASH_SIZE], newpin_hash[SHA1_HASH_SIZE];
     CK_RV rc;
-    RSA *rsa_root;
+    EVP_PKEY *pkey_root;
     TSS_RESULT result;
 
     if (!sess) {
@@ -2094,7 +2095,7 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* read the backup key with the old pin */
         rc = openssl_read_key(tokdata, TPMTOK_PRIV_ROOT_KEY_FILE, pOldPin,
-                              &rsa_root);
+                              &pkey_root);
         if (rc != CKR_OK) {
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
@@ -2107,14 +2108,14 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* write it out using the new pin */
-        rc = openssl_write_key(tokdata, rsa_root, TPMTOK_PRIV_ROOT_KEY_FILE,
+        rc = openssl_write_key(tokdata, pkey_root, TPMTOK_PRIV_ROOT_KEY_FILE,
                                pNewPin);
         if (rc != CKR_OK) {
-            RSA_free(rsa_root);
+            EVP_PKEY_free(pkey_root);
             TRACE_DEVEL("openssl_write_key failed\n");
             return CKR_FUNCTION_FAILED;
         }
-        RSA_free(rsa_root);
+        EVP_PKEY_free(pkey_root);
     } else if (sess->session_info.state == CKS_RW_SO_FUNCTIONS) {
         if (tpm_data->not_initialized) {
             if (memcmp(default_so_pin_sha, oldpin_hash, SHA1_HASH_SIZE)) {
@@ -2166,7 +2167,7 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /* change auth on the public root key's openssl backup */
         rc = openssl_read_key(tokdata, TPMTOK_PUB_ROOT_KEY_FILE, pOldPin,
-                              &rsa_root);
+                              &pkey_root);
         if (rc != CKR_OK) {
             if (rc == CKR_FILE_NOT_FOUND) {
                 /* If the user has moved his backup PEM file off site, allow a
@@ -2179,14 +2180,14 @@ CK_RV token_specific_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
         /* write it out using the new pin */
-        rc = openssl_write_key(tokdata, rsa_root, TPMTOK_PUB_ROOT_KEY_FILE,
+        rc = openssl_write_key(tokdata, pkey_root, TPMTOK_PUB_ROOT_KEY_FILE,
                                pNewPin);
         if (rc != CKR_OK) {
-            RSA_free(rsa_root);
+            EVP_PKEY_free(pkey_root);
             TRACE_DEVEL("openssl_write_key failed\n");
             return CKR_FUNCTION_FAILED;
         }
-        RSA_free(rsa_root);
+        EVP_PKEY_free(pkey_root);
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_READ_ONLY));
         rc = CKR_SESSION_READ_ONLY;
@@ -2401,60 +2402,6 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-
-    DES_key_schedule des_key2;
-    const_DES_cblock key_val_SSL, in_key_data;
-    DES_cblock out_key_data;
-    unsigned int i, j;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    // Create the key schedule
-    memcpy(&key_val_SSL, attr->pValue, 8);
-    DES_set_key_unchecked(&key_val_SSL, &des_key2);
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // Both the encrypt and the decrypt are done 8 bytes at a time
-    if (encrypt) {
-        for (i = 0; i < in_data_len; i = i + 8) {
-            memcpy(in_key_data, in_data + i, 8);
-            DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2,
-                            DES_ENCRYPT);
-            memcpy(out_data + i, out_key_data, 8);
-        }
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-
-        for (j = 0; j < in_data_len; j = j + 8) {
-            memcpy(in_key_data, in_data + j, 8);
-            DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2,
-                            DES_DECRYPT);
-            memcpy(out_data + j, out_key_data, 8);
-        }
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ecb();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2501,7 +2448,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
@@ -2511,50 +2457,6 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-
-    DES_cblock ivec;
-
-    DES_key_schedule des_key2;
-    const_DES_cblock key_val_SSL;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    // Create the key schedule
-    memcpy(&key_val_SSL, attr->pValue, 8);
-    DES_set_key_unchecked(&key_val_SSL, &des_key2);
-
-    memcpy(&ivec, init_v, 8);
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-
-    if (encrypt) {
-        DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec,
-                         DES_ENCRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec,
-                         DES_DECRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_cbc();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2601,7 +2503,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
@@ -2611,83 +2512,6 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t * tokdata,
                               CK_ULONG * out_data_len,
                               OBJECT * key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_KEY_TYPE keytype;
-    CK_BYTE key_value[3 * DES_KEY_SIZE];
-
-    unsigned int k, j;
-    DES_key_schedule des_key1;
-    DES_key_schedule des_key2;
-    DES_key_schedule des_key3;
-
-    const_DES_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
-    DES_cblock out_key_data;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-
-    if (keytype == CKK_DES2) {
-        memcpy(key_value, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(key_value + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(key_value, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    // The key as passed is a 24 byte long string containing three des keys
-    // pick them apart and create the 3 corresponding key schedules
-    memcpy(&key_SSL1, key_value, 8);
-    memcpy(&key_SSL2, key_value + 8, 8);
-    memcpy(&key_SSL3, key_value + 16, 8);
-    DES_set_key_unchecked(&key_SSL1, &des_key1);
-    DES_set_key_unchecked(&key_SSL2, &des_key2);
-    DES_set_key_unchecked(&key_SSL3, &des_key3);
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // the encrypt and decrypt are done 8 bytes at a time
-    if (encrypt) {
-        for (k = 0; k < in_data_len; k = k + 8) {
-            memcpy(in_key_data, in_data + k, 8);
-            DES_ecb3_encrypt((const_DES_cblock *) & in_key_data,
-                             (DES_cblock *) & out_key_data,
-                             &des_key1, &des_key2, &des_key3, DES_ENCRYPT);
-            memcpy(out_data + k, out_key_data, 8);
-        }
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        for (j = 0; j < in_data_len; j = j + 8) {
-            memcpy(in_key_data, in_data + j, 8);
-            DES_ecb3_encrypt((const_DES_cblock *) & in_key_data,
-                             (DES_cblock *) & out_key_data,
-                             &des_key1, &des_key2, &des_key3, DES_DECRYPT);
-            memcpy(out_data + j, out_key_data, 8);
-        }
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ede3_ecb();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2747,7 +2571,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
@@ -2757,81 +2580,6 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t * tokdata,
                               CK_ULONG * out_data_len,
                               OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_KEY_TYPE keytype;
-    CK_BYTE key_value[3 * DES_KEY_SIZE];
-
-    DES_key_schedule des_key1;
-    DES_key_schedule des_key2;
-    DES_key_schedule des_key3;
-
-    const_DES_cblock key_SSL1, key_SSL2, key_SSL3;
-    DES_cblock ivec;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-
-    if (keytype == CKK_DES2) {
-        memcpy(key_value, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(key_value + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(key_value, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    // The key as passed in is a 24 byte string containing 3 keys
-    // pick it apart and create the key schedules
-    memcpy(&key_SSL1, key_value, 8);
-    memcpy(&key_SSL2, key_value + 8, 8);
-    memcpy(&key_SSL3, key_value + 16, 8);
-    DES_set_key_unchecked(&key_SSL1, &des_key1);
-    DES_set_key_unchecked(&key_SSL2, &des_key2);
-    DES_set_key_unchecked(&key_SSL3, &des_key3);
-
-    memcpy(ivec, init_v, sizeof(ivec));
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // Encrypt or decrypt the data
-    if (encrypt) {
-        DES_ede3_cbc_encrypt(in_data,
-                             out_data,
-                             in_data_len,
-                             &des_key1,
-                             &des_key2, &des_key3, &ivec, DES_ENCRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        DES_ede3_cbc_encrypt(in_data,
-                             out_data,
-                             in_data_len,
-                             &des_key1,
-                             &des_key2, &des_key3, &ivec, DES_DECRYPT);
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ede3_cbc();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2891,7 +2639,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 /* wrap the 20 bytes of auth data @authData and store in an attribute of the two
@@ -3626,49 +3373,6 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_ATTRIBUTE *attr = NULL;
-    AES_KEY ssl_aes_key;
-    unsigned int i;
-    /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
-     * so this is fine */
-    CK_ULONG loops = (CK_ULONG) (in_data_len / AES_BLOCK_SIZE);
-    CK_RV rc;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    memset(&ssl_aes_key, 0, sizeof(AES_KEY));
-
-    // AES_ecb_encrypt encrypts only a single block, so we have to break up the
-    // input data here
-    if (encrypt) {
-        AES_set_encrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        for (i = 0; i < loops; i++) {
-            AES_ecb_encrypt((unsigned char *) in_data + (i * AES_BLOCK_SIZE),
-                            (unsigned char *) out_data + (i * AES_BLOCK_SIZE),
-                            &ssl_aes_key, AES_ENCRYPT);
-        }
-    } else {
-        AES_set_decrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        for (i = 0; i < loops; i++) {
-            AES_ecb_encrypt((unsigned char *) in_data + (i * AES_BLOCK_SIZE),
-                            (unsigned char *) out_data + (i * AES_BLOCK_SIZE),
-                            &ssl_aes_key, AES_DECRYPT);
-        }
-    }
-    *out_data_len = in_data_len;
-
-    return CKR_OK;
-#else
     CK_RV rc;
     int outlen;
     unsigned char akey[AES_KEY_SIZE_256];
@@ -3729,7 +3433,6 @@ done:
     OPENSSL_cleanse(akey, sizeof(akey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
@@ -3739,39 +3442,6 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
                              CK_ULONG * out_data_len,
                              OBJECT * key, CK_BYTE * init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    AES_KEY ssl_aes_key;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    memset(&ssl_aes_key, 0, sizeof(AES_KEY));
-
-    // AES_cbc_encrypt chunks the data into AES_BLOCK_SIZE blocks, unlike
-    // AES_ecb_encrypt, so no looping required.
-    if (encrypt) {
-        AES_set_encrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        AES_cbc_encrypt((unsigned char *) in_data, (unsigned char *) out_data,
-                        in_data_len, &ssl_aes_key, init_v, AES_ENCRYPT);
-    } else {
-        AES_set_decrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        AES_cbc_encrypt((unsigned char *) in_data, (unsigned char *) out_data,
-                        in_data_len, &ssl_aes_key, init_v, AES_DECRYPT);
-    }
-    *out_data_len = in_data_len;
-
-    return CKR_OK;
-#else
     CK_RV rc;
     int outlen;
     unsigned char akey[AES_KEY_SIZE_256];
@@ -3832,7 +3502,6 @@ done:
     OPENSSL_cleanse(akey, sizeof(akey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_get_mechanism_list(STDLL_TokData_t * tokdata,

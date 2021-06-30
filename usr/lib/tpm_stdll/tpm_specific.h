@@ -56,10 +56,10 @@
 /* retry count for generating software RSA keys */
 #define KEYGEN_RETRY    5
 
-RSA *openssl_gen_key(STDLL_TokData_t *);
-int openssl_write_key(STDLL_TokData_t *, RSA *, char *, CK_BYTE *);
-CK_RV openssl_read_key(STDLL_TokData_t *, char *, CK_BYTE *, RSA **);
-int openssl_get_modulus_and_prime(RSA *, unsigned int *, unsigned char *,
+EVP_PKEY *openssl_gen_key(STDLL_TokData_t *);
+int openssl_write_key(STDLL_TokData_t *, EVP_PKEY *, char *, CK_BYTE *);
+CK_RV openssl_read_key(STDLL_TokData_t *, char *, CK_BYTE *, EVP_PKEY **);
+int openssl_get_modulus_and_prime(EVP_PKEY *, unsigned int *, unsigned char *,
                                   unsigned int *, unsigned char *);
 int util_set_file_mode(char *, mode_t);
 CK_BYTE *util_create_id(int);

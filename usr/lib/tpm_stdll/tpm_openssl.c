@@ -39,50 +39,33 @@
 
 #include "tpm_specific.h"
 
-/*
- * In order to make opencryptoki compatible with
- * OpenSSL 1.1 API Changes and backward compatible
- * we need to check for its version
- */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#define OLDER_OPENSSL
+#if OPENSSL_VERSION_PREREQ(3, 0)
+#include <openssl/core_names.h>
 #endif
 
 #ifdef DEBUG
 void openssl_print_errors()
 {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     ERR_load_ERR_strings();
+#endif
     ERR_load_crypto_strings();
     ERR_print_errors_fp(stderr);
 }
 #endif
 
-RSA *openssl_gen_key(STDLL_TokData_t *tokdata)
+EVP_PKEY *openssl_gen_key(STDLL_TokData_t *tokdata)
 {
-    RSA *rsa = NULL;
     int rc = 0, counter = 0;
     char buf[32];
-#ifndef OLDER_OPENSSL
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     BIGNUM *bne = NULL;
-#endif
 
     token_specific_rng(tokdata, (CK_BYTE *) buf, 32);
     RAND_seed(buf, 32);
 
 regen_rsa_key:
-#ifdef OLDER_OPENSSL
-    rsa = RSA_generate_key(2048, 65537, NULL, NULL);
-    if (rsa == NULL) {
-        fprintf(stderr, "Error generating user's RSA key\n");
-        ERR_load_crypto_strings();
-        ERR_print_errors_fp(stderr);
-        goto err;
-    }
-
-    rc = RSA_check_key(rsa);
-#else
     bne = BN_new();
     rc = BN_set_word(bne, 65537);
     if (!rc) {
@@ -98,35 +81,36 @@ regen_rsa_key:
 
     if (EVP_PKEY_keygen_init(ctx) <= 0
         || EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, 2048) <= 0
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         || EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, bne) <= 0) {
-        fprintf(stderr, "Error generating user's RSA key\n");
-        ERR_load_crypto_strings();
-        ERR_print_errors_fp(stderr);
-        goto err;
-    }
-    bne = NULL; // will be freed as part of the context
-    if (EVP_PKEY_keygen(ctx, &pkey) <= 0
-        || (rsa = EVP_PKEY_get1_RSA(pkey)) == NULL) {
-        fprintf(stderr, "Error generating user's RSA key\n");
-        ERR_load_crypto_strings();
-        ERR_print_errors_fp(stderr);
-        goto err;
-    }
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    rc = RSA_check_key(rsa);
 #else
+        || EVP_PKEY_CTX_set1_rsa_keygen_pubexp(ctx, bne) <= 0) {
+#endif
+        fprintf(stderr, "Error generating user's RSA key\n");
+        ERR_load_crypto_strings();
+        ERR_print_errors_fp(stderr);
+        goto err;
+    }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    bne = NULL; // will be freed as part of the context
+#else
+    BN_free(bne);
+    bne = NULL;
+#endif
+    if (EVP_PKEY_keygen(ctx, &pkey) <= 0) {
+        fprintf(stderr, "Error generating user's RSA key\n");
+        ERR_load_crypto_strings();
+        ERR_print_errors_fp(stderr);
+        goto err;
+    }
     EVP_PKEY_CTX_free(ctx);
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (ctx == NULL)
         goto err;
     rc = (EVP_PKEY_check(ctx) == 1 ? 1 : 0);
-#endif
-#endif
     switch (rc) {
     case 0:
         /* rsa is not a valid RSA key */
-        RSA_free(rsa);
-        rsa = NULL;
         counter++;
         if (counter == KEYGEN_RETRY) {
             TRACE_DEVEL("Tried %d times to generate a "
@@ -145,30 +129,23 @@ regen_rsa_key:
         break;
     }
 
-#ifndef OLDER_OPENSSL
-    if (pkey != NULL)
-        EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
     if (bne != NULL)
         BN_free(bne);
-#endif
-    return rsa;
+    return pkey;
 err:
-    if (rsa != NULL)
-        RSA_free(rsa);
-#ifndef OLDER_OPENSSL
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
     if (bne != NULL)
         BN_free(bne);
-#endif
+
     return NULL;
 }
 
-int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
+int openssl_write_key(STDLL_TokData_t * tokdata, EVP_PKEY *pkey, char *filename,
                       CK_BYTE * pPin)
 {
     BIO *b = NULL;
@@ -193,8 +170,8 @@ int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
         return -1;
     }
 
-    if (!PEM_write_bio_RSAPrivateKey(b, rsa,
-                                     EVP_aes_256_cbc(), NULL, 0, 0, pPin)) {
+    if (!PEM_write_bio_PrivateKey(b, pkey,
+                                  EVP_aes_256_cbc(), NULL, 0, 0, pPin)) {
         BIO_free(b);
         TRACE_ERROR("Writing key %s to disk failed.\n", loc);
         DEBUG_openssl_print_errors();
@@ -211,10 +188,10 @@ int openssl_write_key(STDLL_TokData_t * tokdata, RSA * rsa, char *filename,
 }
 
 CK_RV openssl_read_key(STDLL_TokData_t * tokdata, char *filename,
-                       CK_BYTE * pPin, RSA ** ret)
+                       CK_BYTE * pPin, EVP_PKEY **ret)
 {
     BIO *b = NULL;
-    RSA *rsa = NULL;
+    EVP_PKEY *pkey = NULL;
     char loc[PATH_MAX];
     struct passwd *pw = NULL;
     CK_RV rc = CKR_FUNCTION_FAILED;
@@ -242,7 +219,7 @@ CK_RV openssl_read_key(STDLL_TokData_t * tokdata, char *filename,
         return CKR_FILE_NOT_FOUND;
     }
 
-    if ((rsa = PEM_read_bio_RSAPrivateKey(b, NULL, 0, pPin)) == NULL) {
+    if ((pkey = PEM_read_bio_PrivateKey(b, NULL, 0, pPin)) == NULL) {
         TRACE_ERROR("Reading key %s from disk failed.\n", loc);
         DEBUG_openssl_print_errors();
         if (ERR_GET_REASON(ERR_get_error()) == PEM_R_BAD_DECRYPT) {
@@ -253,40 +230,54 @@ CK_RV openssl_read_key(STDLL_TokData_t * tokdata, char *filename,
     }
 
     BIO_free(b);
-    *ret = rsa;
+    *ret = pkey;
 
     return CKR_OK;
 }
 
-int openssl_get_modulus_and_prime(RSA * rsa, unsigned int *size_n,
+int openssl_get_modulus_and_prime(EVP_PKEY *pkey, unsigned int *size_n,
                                   unsigned char *n, unsigned int *size_p,
                                   unsigned char *p)
 {
-#ifndef OLDER_OPENSSL
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     const BIGNUM *n_tmp, *p_tmp;
+    RSA *rsa;
+#else
+    BIGNUM *n_tmp, *p_tmp;
 #endif
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rsa = EVP_PKEY_get0_RSA(pkey);
     /* get the modulus from the RSA object */
-#ifdef OLDER_OPENSSL
-    if ((*size_n = BN_bn2bin(rsa->n, n)) <= 0) {
-#else
     RSA_get0_key(rsa, &n_tmp, NULL, NULL);
     if ((*size_n = BN_bn2bin(n_tmp, n)) <= 0) {
-#endif
         DEBUG_openssl_print_errors();
         return -1;
     }
 
     /* get one of the primes from the RSA object */
-#ifdef OLDER_OPENSSL
-    if ((*size_p = BN_bn2bin(rsa->p, p)) <= 0) {
-#else
     RSA_get0_factors(rsa, &p_tmp, NULL);
     if ((*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
-#endif
         DEBUG_openssl_print_errors();
         return -1;
     }
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &n_tmp) ||
+        (*size_n = BN_bn2bin(n_tmp, n)) <= 0) {
+        DEBUG_openssl_print_errors();
+        BN_free(n_tmp);
+        return -1;
+    }
+    BN_free(n_tmp);
+
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &p_tmp) ||
+        (*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
+        DEBUG_openssl_print_errors();
+        BN_free(p_tmp);
+        return -1;
+    }
+    BN_free(p_tmp);
+#endif
 
     return 0;
 }
