@@ -26,10 +26,6 @@
 
 #include <openssl/opensslv.h>
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-#define NO_EC 1
-#endif
-
 #include "pkcs11types.h"
 #include "defs.h"
 #include "host_defs.h"
@@ -54,14 +50,10 @@
 #include <openssl/crypto.h>
 #include <openssl/cmac.h>
 #include <openssl/ec.h>
-
-/*
- * In order to make opencryptoki compatible with
- * OpenSSL 1.1 API Changes and backward compatible
- * we need to check for its version
- */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#define OLDER_OPENSSL
+#include <openssl/bn.h>
+#if OPENSSL_VERSION_PREREQ(3, 0)
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
 #endif
 
 #define MAX_GENERIC_KEY_SIZE 256
@@ -76,7 +68,10 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #if !(NODSA)
     {CKM_DSA_KEY_PAIR_GEN, {512, 1024, CKF_GENERATE_KEY_PAIR}},
 #endif
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    /* OpenSSL 3.0 supports single-DES only with the legacy provider */
     {CKM_DES_KEY_GEN, {8, 8, CKF_GENERATE}},
+#endif
     {CKM_DES3_KEY_GEN, {24, 24, CKF_GENERATE}},
 #if !(NOCDMF)
     {CKM_CDMF_KEY_GEN, {0, 0, CKF_GENERATE}},
@@ -120,10 +115,13 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_DH_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
 #endif
 /* End code contributed by Corrent corp. */
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    /* OpenSSL 3.0 supports single-DES only with the legacy provider */
     {CKM_DES_ECB, {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_CBC, {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_CBC_PAD,
      {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+#endif
 #if !(NOCDMF)
     {CKM_CDMF_ECB, {0, 0, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_CDMF_CBC, {0, 0, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
@@ -286,58 +284,6 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    DES_key_schedule des_key2;
-    const_DES_cblock key_val_SSL, in_key_data;
-    DES_cblock out_key_data;
-    unsigned int i, j;
-    CK_ATTRIBUTE *attr = NULL;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    // Create the key schedule
-    memcpy(&key_val_SSL, attr->pValue, 8);
-    DES_set_key_unchecked(&key_val_SSL, &des_key2);
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // Both the encrypt and the decrypt are done 8 bytes at a time
-    if (encrypt) {
-        for (i = 0; i < in_data_len; i = i + 8) {
-            memcpy(in_key_data, in_data + i, 8);
-            DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2,
-                            DES_ENCRYPT);
-            memcpy(out_data + i, out_key_data, 8);
-        }
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-
-        for (j = 0; j < in_data_len; j = j + 8) {
-            memcpy(in_key_data, in_data + j, 8);
-            DES_ecb_encrypt(&in_key_data, &out_key_data, &des_key2,
-                            DES_DECRYPT);
-            memcpy(out_data + j, out_key_data, 8);
-        }
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ecb();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -384,7 +330,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
@@ -394,47 +339,6 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-    DES_cblock ivec;
-    DES_key_schedule des_key2;
-    const_DES_cblock key_val_SSL;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    // Create the key schedule
-    memcpy(&key_val_SSL, attr->pValue, 8);
-    DES_set_key_unchecked(&key_val_SSL, &des_key2);
-
-    memcpy(&ivec, init_v, 8);
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    if (encrypt) {
-        DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec,
-                         DES_ENCRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        DES_ncbc_encrypt(in_data, out_data, in_data_len, &des_key2, &ivec,
-                         DES_DECRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_cbc();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -481,7 +385,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
@@ -491,80 +394,6 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
                               CK_ULONG *out_data_len,
                               OBJECT *key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rc;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BYTE key_value[3 * DES_KEY_SIZE];
-    CK_KEY_TYPE keytype;
-    unsigned int k, j;
-    DES_key_schedule des_key1;
-    DES_key_schedule des_key2;
-    DES_key_schedule des_key3;
-    const_DES_cblock key_SSL1, key_SSL2, key_SSL3, in_key_data;
-    DES_cblock out_key_data;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    if (keytype == CKK_DES2) {
-        memcpy(key_value, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(key_value + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(key_value, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    // The key as passed is a 24 byte long string containing three des keys
-    // pick them apart and create the 3 corresponding key schedules
-    memcpy(&key_SSL1, key_value, 8);
-    memcpy(&key_SSL2, key_value + 8, 8);
-    memcpy(&key_SSL3, key_value + 16, 8);
-    DES_set_key_unchecked(&key_SSL1, &des_key1);
-    DES_set_key_unchecked(&key_SSL2, &des_key2);
-    DES_set_key_unchecked(&key_SSL3, &des_key3);
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // the encrypt and decrypt are done 8 bytes at a time
-    if (encrypt) {
-        for (k = 0; k < in_data_len; k = k + 8) {
-            memcpy(in_key_data, in_data + k, 8);
-            DES_ecb3_encrypt((const_DES_cblock *) & in_key_data,
-                             (DES_cblock *) & out_key_data,
-                             &des_key1, &des_key2, &des_key3, DES_ENCRYPT);
-            memcpy(out_data + k, out_key_data, 8);
-        }
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        for (j = 0; j < in_data_len; j = j + 8) {
-            memcpy(in_key_data, in_data + j, 8);
-            DES_ecb3_encrypt((const_DES_cblock *) & in_key_data,
-                             (DES_cblock *) & out_key_data,
-                             &des_key1, &des_key2, &des_key3, DES_DECRYPT);
-            memcpy(out_data + j, out_key_data, 8);
-        }
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ede3_ecb();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -624,7 +453,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
@@ -634,78 +462,6 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
                               CK_ULONG *out_data_len,
                               OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc = CKR_OK;
-    CK_BYTE key_value[3 * DES_KEY_SIZE];
-    CK_KEY_TYPE keytype;
-    DES_key_schedule des_key1;
-    DES_key_schedule des_key2;
-    DES_key_schedule des_key3;
-    const_DES_cblock key_SSL1, key_SSL2, key_SSL3;
-    DES_cblock ivec;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    if (keytype == CKK_DES2) {
-        memcpy(key_value, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(key_value + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(key_value, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    // The key as passed in is a 24 byte string containing 3 keys
-    // pick it apart and create the key schedules
-    memcpy(&key_SSL1, key_value, 8);
-    memcpy(&key_SSL2, key_value + 8, 8);
-    memcpy(&key_SSL3, key_value + 16, 8);
-    DES_set_key_unchecked(&key_SSL1, &des_key1);
-    DES_set_key_unchecked(&key_SSL2, &des_key2);
-    DES_set_key_unchecked(&key_SSL3, &des_key3);
-
-    memcpy(ivec, init_v, sizeof(ivec));
-
-    // the des decrypt will only fail if the data length is not evenly divisible
-    // by 8
-    if (in_data_len % DES_BLOCK_SIZE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-    // Encrypt or decrypt the data
-    if (encrypt) {
-        DES_ede3_cbc_encrypt(in_data,
-                             out_data,
-                             in_data_len,
-                             &des_key1,
-                             &des_key2, &des_key3, &ivec, DES_ENCRYPT);
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    } else {
-        DES_ede3_cbc_encrypt(in_data,
-                             out_data,
-                             in_data_len,
-                             &des_key1,
-                             &des_key2, &des_key3, &ivec, DES_DECRYPT);
-
-        *out_data_len = in_data_len;
-        rc = CKR_OK;
-    }
-
-    return rc;
-#else
     const EVP_CIPHER *cipher = EVP_des_ede3_cbc();
     EVP_CIPHER_CTX *ctx = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -765,7 +521,6 @@ done:
     OPENSSL_cleanse(dkey, sizeof(dkey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
@@ -795,14 +550,20 @@ CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 // convert from the local PKCS11 template representation to
 // the underlying requirement
 // returns the pointer to the local key representation
-static void *rsa_convert_public_key(OBJECT *key_obj)
+static EVP_PKEY *rsa_convert_public_key(OBJECT *key_obj)
 {
     CK_BBOOL rc;
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
-
-    RSA *rsa;
+    EVP_PKEY *pkey = NULL;
     BIGNUM *bn_mod, *bn_exp;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *params = NULL;
+#else
+    RSA *rsa;
+#endif
 
     rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
                                           &modulus);
@@ -813,12 +574,7 @@ static void *rsa_convert_public_key(OBJECT *key_obj)
     if (rc != CKR_OK)
         return NULL;
 
-    // Create an RSA key struct to return
-    rsa = RSA_new();
-    if (rsa == NULL)
-        return NULL;
-
-    // Create and init BIGNUM structs to stick in the RSA struct
+    // Create and init BIGNUM structs
     bn_mod = BN_new();
     bn_exp = BN_new();
 
@@ -827,24 +583,74 @@ static void *rsa_convert_public_key(OBJECT *key_obj)
             free(bn_mod);
         if (bn_exp)
             free(bn_exp);
-        RSA_free(rsa);
         return NULL;
     }
-    // Convert from strings to BIGNUMs and stick them in the RSA struct
+    // Convert from strings to BIGNUMs
     BN_bin2bn((unsigned char *) modulus->pValue, modulus->ulValueLen, bn_mod);
     BN_bin2bn((unsigned char *) pub_exp->pValue, pub_exp->ulValueLen, bn_exp);
 
-#ifdef OLDER_OPENSSL
-    rsa->n = bn_mod;
-    rsa->e = bn_exp;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    // Create an RSA key struct to return
+    rsa = RSA_new();
+    if (rsa == NULL) {
+        if (bn_mod)
+             free(bn_mod);
+         if (bn_exp)
+             free(bn_exp);
+        return NULL;
+    }
+
     RSA_set0_key(rsa, bn_mod, bn_exp, NULL);
+
+    pkey = EVP_PKEY_new();
+    if (pkey == NULL) {
+       RSA_free(rsa);
+       return NULL;
+    }
+
+    if (EVP_PKEY_assign_RSA(pkey, rsa) != 1) {
+        RSA_free(rsa);
+        EVP_PKEY_free(pkey);
+        return NULL;
+    }
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL)
+        goto out;
+
+    if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, bn_mod) ||
+        !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, bn_exp))
+        goto out;
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL)
+        goto out;
+
+    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (pctx == NULL)
+        goto out;
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params))
+        goto out;
+
+out:
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+    if (bn_mod != NULL)
+        BN_free(bn_mod);
+    if (bn_exp != NULL)
+        BN_free(bn_exp);
 #endif
 
-    return (void *) rsa;
+    return pkey;
 }
 
-static void *rsa_convert_private_key(OBJECT *key_obj)
+static EVP_PKEY *rsa_convert_private_key(OBJECT *key_obj)
 {
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
@@ -854,9 +660,15 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
     CK_ATTRIBUTE *exp1 = NULL;
     CK_ATTRIBUTE *exp2 = NULL;
     CK_ATTRIBUTE *coeff = NULL;
-
+    EVP_PKEY *pkey = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *params = NULL;
+#else
     RSA *rsa;
     RSA_METHOD *meth;
+#endif
     BIGNUM *bn_mod, *bn_pub_exp, *bn_priv_exp, *bn_p1, *bn_p2, *bn_e1, *bn_e2,
         *bn_cf;
 
@@ -873,6 +685,8 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
     if (!prime2 && !modulus) {
         return NULL;
     }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     // Create and init all the RSA and BIGNUM structs we need.
     rsa = RSA_new();
     if (rsa == NULL)
@@ -884,17 +698,6 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
      * Token doesn't implement RSA and, instead, calls OpenSSL for it.
      * So to avoid it we set RSA methods to the default rsa methods.
      */
-#ifdef OLDER_OPENSSL
-    if (rsa->engine) {
-        meth = (RSA_METHOD *) rsa->meth;
-        const RSA_METHOD *meth2 = RSA_PKCS1_SSLeay();
-        meth->rsa_pub_enc = meth2->rsa_pub_enc;
-        meth->rsa_pub_dec = meth2->rsa_pub_dec;
-        meth->rsa_priv_enc = meth2->rsa_priv_enc;
-        meth->rsa_priv_dec = meth2->rsa_priv_dec;
-        meth->rsa_mod_exp = meth2->rsa_mod_exp;
-        meth->bn_mod_exp = meth2->bn_mod_exp;
-#else
 /*
  * XXX I dont see a better way than to ignore this warning for now.
  * Note that the GCC pragma also works for clang.
@@ -912,8 +715,8 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
         RSA_meth_set_mod_exp(meth, RSA_meth_get_mod_exp(meth2));
         RSA_meth_set_bn_mod_exp(meth, RSA_meth_get_bn_mod_exp(meth2));
 # pragma GCC diagnostic pop
-#endif
     }
+#endif
 
     bn_mod = BN_new();
     bn_pub_exp = BN_new();
@@ -926,33 +729,14 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
 
     if ((bn_cf == NULL) || (bn_e2 == NULL) || (bn_e1 == NULL) ||
         (bn_p2 == NULL) || (bn_p1 == NULL) || (bn_priv_exp == NULL) ||
-        (bn_pub_exp == NULL) || (bn_mod == NULL)) {
-        if (rsa)
-            RSA_free(rsa);
-        if (bn_mod)
-            BN_free(bn_mod);
-        if (bn_pub_exp)
-            BN_free(bn_pub_exp);
-        if (bn_priv_exp)
-            BN_free(bn_priv_exp);
-        if (bn_p1)
-            BN_free(bn_p1);
-        if (bn_p2)
-            BN_free(bn_p2);
-        if (bn_e1)
-            BN_free(bn_e1);
-        if (bn_e2)
-            BN_free(bn_e2);
-        if (bn_cf)
-            BN_free(bn_cf);
-        return NULL;
-    }
+        (bn_pub_exp == NULL) || (bn_mod == NULL))
+        goto out;
 
     // CRT key?
     if (prime1) {
-        if (!prime2 || !exp1 || !exp2 || !coeff) {
-            return NULL;
-        }
+        if (!prime2 || !exp1 || !exp2 || !coeff)
+            goto out;
+
         // Even though this is CRT key, OpenSSL requires the
         // modulus and exponents filled in or encrypt and decrypt will
         // not work
@@ -969,20 +753,44 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
         BN_bin2bn((unsigned char *) exp1->pValue, exp1->ulValueLen, bn_e1);
         BN_bin2bn((unsigned char *) exp2->pValue, exp2->ulValueLen, bn_e2);
         BN_bin2bn((unsigned char *) coeff->pValue, coeff->ulValueLen, bn_cf);
-#ifdef OLDER_OPENSSL
-        rsa->n = bn_mod;
-        rsa->d = bn_priv_exp;
-        rsa->p = bn_p1;
-        rsa->q = bn_p2;
-        rsa->dmp1 = bn_e1;
-        rsa->dmq1 = bn_e2;
-        rsa->iqmp = bn_cf;
-#else
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         RSA_set0_key(rsa, bn_mod, bn_pub_exp, bn_priv_exp);
+        bn_mod = NULL;
+        bn_pub_exp = NULL;
+        bn_priv_exp = NULL;
         RSA_set0_factors(rsa, bn_p1, bn_p2);
+        bn_p1 = NULL;
+        bn_p2 = NULL;
         RSA_set0_crt_params(rsa, bn_e1, bn_e2, bn_cf);
+        bn_e1 = NULL;
+        bn_e2 = NULL;
+        bn_cf = NULL;
+
+        pkey = EVP_PKEY_new();
+        if (pkey == NULL)
+            goto out;
+
+        if (EVP_PKEY_assign_RSA(pkey, rsa) != 1)
+            goto out;
+#else
+        tmpl = OSSL_PARAM_BLD_new();
+        if (tmpl == NULL)
+            goto out;
+
+        if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, bn_mod) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, bn_pub_exp) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_D, bn_priv_exp) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_FACTOR1, bn_p1) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_FACTOR2, bn_p2) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_EXPONENT1,
+                                                                       bn_e1) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_EXPONENT2,
+                                                                       bn_e2) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
+                                                                       bn_cf))
+            goto out;
 #endif
-        return rsa;
     } else {                    // must be a non-CRT key
         if (!priv_exp) {
             return NULL;
@@ -993,15 +801,90 @@ static void *rsa_convert_private_key(OBJECT *key_obj)
                   bn_pub_exp);
         BN_bin2bn((unsigned char *) priv_exp->pValue, priv_exp->ulValueLen,
                   bn_priv_exp);
-#ifdef OLDER_OPENSSL
-        rsa->n = bn_mod;
-        rsa->d = bn_priv_exp;
-#else
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         RSA_set0_key(rsa, bn_mod, bn_pub_exp, bn_priv_exp);
+        bn_mod = NULL;
+        bn_pub_exp = NULL;
+        bn_priv_exp = NULL;
+
+        pkey = EVP_PKEY_new();
+        if (pkey == NULL)
+            goto out;
+
+        if (EVP_PKEY_assign_RSA(pkey, rsa) != 1)
+            goto out;
+#else
+        tmpl = OSSL_PARAM_BLD_new();
+        if (tmpl == NULL)
+            goto out;
+
+        if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_N, bn_mod) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_E, bn_pub_exp) ||
+            !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_RSA_D, bn_priv_exp))
+            goto out;
 #endif
     }
 
-    return (void *) rsa;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL)
+        goto out;
+
+    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+    if (pctx == NULL)
+        goto out;
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params))
+        goto out;
+
+    EVP_PKEY_CTX_free(pctx);
+    OSSL_PARAM_BLD_free(tmpl);
+    OSSL_PARAM_free(params);
+    BN_free(bn_mod);
+    BN_free(bn_pub_exp);
+    BN_free(bn_priv_exp);
+    BN_free(bn_p1);
+    BN_free(bn_p2);
+    BN_free(bn_e1);
+    BN_free(bn_e2);
+    BN_free(bn_cf);
+#endif
+
+    return pkey;
+out:
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (rsa)
+        RSA_free(rsa);
+#else
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+#endif
+    if (pkey)
+        EVP_PKEY_free(pkey);
+    if (bn_mod)
+        BN_free(bn_mod);
+    if (bn_pub_exp)
+        BN_free(bn_pub_exp);
+    if (bn_priv_exp)
+        BN_free(bn_priv_exp);
+    if (bn_p1)
+        BN_free(bn_p1);
+    if (bn_p2)
+        BN_free(bn_p2);
+    if (bn_e1)
+        BN_free(bn_e1);
+    if (bn_e2)
+        BN_free(bn_e2);
+    if (bn_cf)
+        BN_free(bn_cf);
+
+    return NULL;
 }
 
 static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
@@ -1012,14 +895,16 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     CK_BBOOL flag;
     CK_RV rc;
     CK_ULONG BNLength;
-    RSA *rsa = NULL;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    const RSA *rsa = NULL;
     const BIGNUM *bignum = NULL;
+#else
+    BIGNUM *bignum = NULL;
+#endif
     CK_BYTE *ssl_ptr = NULL;
     BIGNUM *e = NULL;
-#ifndef OLDER_OPENSSL
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
-#endif
 
     rc = template_attribute_get_ulong(publ_tmpl, CKA_MODULUS_BITS, &mod_bits);
     if (rc != CKR_OK) {
@@ -1052,20 +937,6 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     BN_bin2bn(publ_exp->pValue, publ_exp->ulValueLen, e);
 
-#ifdef OLDER_OPENSSL
-    rsa = RSA_new();
-    if (rsa == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    if (!RSA_generate_key_ex(rsa, mod_bits, e, NULL)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    bignum = rsa->n;
-#else
     ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
     if (ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -1084,22 +955,36 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     if (EVP_PKEY_CTX_set_rsa_keygen_pubexp(ctx, e) != 1) {
+#else
+    if (EVP_PKEY_CTX_set1_rsa_keygen_pubexp(ctx, e) != 1) {
+#endif
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    e = NULL; // will be freed as part of the context
+#endif
     if (EVP_PKEY_keygen(ctx, &pkey) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     if ((rsa = EVP_PKEY_get0_RSA(pkey)) == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
     RSA_get0_key(rsa, &bignum, NULL, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1122,12 +1007,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // Public Exponent
-#ifdef OLDER_OPENSSL
-    bignum = rsa->e;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_key(rsa, NULL, &bignum, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1166,6 +1059,10 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // local = TRUE
     //
@@ -1189,10 +1086,14 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     // to force the system to not return this for RSA keys..
 
     // Add the modulus to the private key information
-#ifdef OLDER_OPENSSL
-    bignum = rsa->n;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_key(rsa, &bignum, NULL, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1215,12 +1116,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // Private Exponent
-#ifdef OLDER_OPENSSL
-    bignum = rsa->d;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_key(rsa, NULL, NULL, &bignum);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_D, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1245,13 +1154,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // prime #1: p
-    //
-#ifdef OLDER_OPENSSL
-    bignum = rsa->p;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_factors(rsa, &bignum, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1276,13 +1192,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // prime #2: q
-    //
-#ifdef OLDER_OPENSSL
-    bignum = rsa->q;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_factors(rsa, NULL, &bignum);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR2, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1307,13 +1230,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // exponent 1: d mod(p-1)
-    //
-#ifdef OLDER_OPENSSL
-    bignum = rsa->dmp1;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_crt_params(rsa, &bignum, NULL, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT1, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1338,13 +1268,20 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // exponent 2: d mod(q-1)
-    //
-#ifdef OLDER_OPENSSL
-    bignum = rsa->dmq1;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_crt_params(rsa, NULL, &bignum, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT2, &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1369,13 +1306,21 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     // CRT coefficient:  q_inverse mod(p)
-    //
-#ifdef OLDER_OPENSSL
-    bignum = rsa->iqmp;
-#else
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     RSA_get0_crt_params(rsa, NULL, NULL, &bignum);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
+                               &bignum)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 #endif
     BNLength = BN_num_bytes(bignum);
     ssl_ptr = malloc(BNLength);
@@ -1400,6 +1345,10 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     OPENSSL_cleanse(ssl_ptr, BNLength);
     free(ssl_ptr);
     ssl_ptr = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(bignum);
+    bignum = NULL;
+#endif
 
     flag = TRUE;
     rc = build_attribute(CKA_LOCAL, &flag, sizeof(CK_BBOOL), &attr);
@@ -1415,16 +1364,6 @@ static CK_RV os_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     }
 
 done:
-#ifdef OLDER_OPENSSL
-    if (e != NULL)
-        BN_free(e);
-    if (rsa != NULL)
-        RSA_free(rsa);
-    if (ssl_ptr != NULL) {
-        OPENSSL_cleanse(ssl_ptr, BNLength);
-        free(ssl_ptr);
-    }
-#else
     if (ssl_ptr != NULL) {
         OPENSSL_cleanse(ssl_ptr, BNLength);
         free(ssl_ptr);
@@ -1433,6 +1372,11 @@ done:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    if (e != NULL)
+        BN_free(e);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bignum != NULL)
+        BN_free(bignum);
 #endif
     return rc;
 }
@@ -1457,60 +1401,17 @@ static CK_RV os_specific_rsa_encrypt(CK_BYTE *in_data,
                                      CK_ULONG in_data_len,
                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
-#ifdef OLDER_OPENSSL
-    CK_RV rc;
-    RSA *rsa;
-    int size;
-
-    // Convert the local representation to an RSA representation
-    rsa = (RSA *) rsa_convert_public_key(key_obj);
-    if (rsa == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        return rc;
-    }
-    // Do an RSA public encryption
-    size =
-        RSA_public_encrypt(in_data_len, in_data, out_data, rsa, RSA_NO_PADDING);
-    if (size == -1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_ARGUMENTS_BAD;
-        goto done;
-    }
-
-    rc = CKR_OK;
-
-done:
-    RSA_free(rsa);
-
-    return rc;
-#else
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
-    RSA *rsa = NULL;
     CK_RV rc;
     size_t outlen = in_data_len;
 
-    rsa = (RSA *)rsa_convert_public_key(key_obj);
-    if (rsa == NULL) {
+    pkey = rsa_convert_public_key(key_obj);
+    if (pkey == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
-
-    pkey = EVP_PKEY_new();
-    if (pkey == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_PKEY_assign_RSA(pkey, rsa) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    rsa = NULL; /* freed together with pkey */
 
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (ctx == NULL) {
@@ -1538,76 +1439,28 @@ done:
 
     rc = CKR_OK;
 done:
-    if (rsa != NULL)
-        RSA_free(rsa);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
     return rc;
-#endif
 }
 
 static CK_RV os_specific_rsa_decrypt(CK_BYTE *in_data,
                                      CK_ULONG in_data_len,
                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
-#ifdef OLDER_OPENSSL
-    CK_RV rc;
-    RSA *rsa;
-    int size;
-
-    // Convert the local key representation to an RSA key representaion
-    rsa = (RSA *) rsa_convert_private_key(key_obj);
-    if (rsa == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        return rc;
-    }
-    // Do the private decryption
-    size =
-        RSA_private_decrypt(in_data_len, in_data, out_data, rsa,
-                            RSA_NO_PADDING);
-
-    if (size == -1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-
-    rc = CKR_OK;
-
-done:
-    RSA_free(rsa);
-
-    return rc;
-#else
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
-    RSA *rsa = NULL;
     size_t outlen = in_data_len;
     CK_RV rc;
 
-    rsa = (RSA *)rsa_convert_private_key(key_obj);
-    if (rsa == NULL) {
+    pkey = rsa_convert_private_key(key_obj);
+    if (pkey == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         return rc;
     }
-
-    pkey = EVP_PKEY_new();
-    if (pkey == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_PKEY_assign_RSA(pkey, rsa) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    rsa = NULL; /* freed together with pkey */
 
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (ctx == NULL) {
@@ -1635,14 +1488,11 @@ done:
 
     rc = CKR_OK;
 done:
-    if (rsa != NULL)
-        RSA_free(rsa);
     if (pkey != NULL)
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
@@ -2407,48 +2257,6 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    AES_KEY ssl_aes_key;
-    unsigned int i;
-    CK_ATTRIBUTE *attr = NULL;
-    /* There's a previous check that in_data_len % AES_BLOCK_SIZE == 0,
-     * so this is fine */
-    CK_ULONG loops = (CK_ULONG) (in_data_len / AES_BLOCK_SIZE);
-    CK_RV rc;
-
-    UNUSED(tokdata);
-
-    memset(&ssl_aes_key, 0, sizeof(AES_KEY));
-
-    // get key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    // AES_ecb_encrypt encrypts only a single block, so we have to break up the
-    // input data here
-    if (encrypt) {
-        AES_set_encrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        for (i = 0; i < loops; i++) {
-            AES_ecb_encrypt((unsigned char *) in_data + (i * AES_BLOCK_SIZE),
-                            (unsigned char *) out_data + (i * AES_BLOCK_SIZE),
-                            &ssl_aes_key, AES_ENCRYPT);
-        }
-    } else {
-        AES_set_decrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        for (i = 0; i < loops; i++) {
-            AES_ecb_encrypt((unsigned char *) in_data + (i * AES_BLOCK_SIZE),
-                            (unsigned char *) out_data + (i * AES_BLOCK_SIZE),
-                            &ssl_aes_key, AES_DECRYPT);
-        }
-    }
-    *out_data_len = in_data_len;
-
-    return CKR_OK;
-#else
     CK_RV rc;
     int outlen;
     unsigned char akey[32];
@@ -2505,7 +2313,6 @@ done:
     OPENSSL_cleanse(akey, sizeof(akey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
@@ -2515,38 +2322,6 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    AES_KEY ssl_aes_key;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-
-    UNUSED(tokdata);
-
-    memset(&ssl_aes_key, 0, sizeof(AES_KEY));
-
-    // get key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-    // AES_cbc_encrypt chunks the data into AES_BLOCK_SIZE blocks, unlike
-    // AES_ecb_encrypt, so no looping required.
-    if (encrypt) {
-        AES_set_encrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        AES_cbc_encrypt((unsigned char *) in_data, (unsigned char *) out_data,
-                        in_data_len, &ssl_aes_key, init_v, AES_ENCRYPT);
-    } else {
-        AES_set_decrypt_key((unsigned char *) attr->pValue,
-                            (attr->ulValueLen * 8), &ssl_aes_key);
-        AES_cbc_encrypt((unsigned char *) in_data, (unsigned char *) out_data,
-                        in_data_len, &ssl_aes_key, init_v, AES_DECRYPT);
-    }
-    *out_data_len = in_data_len;
-
-    return CKR_OK;
-#else
     CK_RV rc;
     int outlen;
     unsigned char akey[32];
@@ -2603,7 +2378,6 @@ done:
     OPENSSL_cleanse(akey, sizeof(akey));
     EVP_CIPHER_CTX_free(ctx);
     return rc;
-#endif
 }
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
@@ -2716,181 +2490,6 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                                           TEMPLATE *publ_tmpl,
                                           TEMPLATE *priv_tmpl)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    CK_RV rv;
-    CK_BBOOL rc;
-    CK_ATTRIBUTE *prime_attr = NULL;
-    CK_ATTRIBUTE *base_attr = NULL;
-    CK_ATTRIBUTE *temp_attr = NULL;
-    CK_ATTRIBUTE *value_bits_attr = NULL;
-    CK_BYTE *temp_byte;
-    CK_ULONG temp_bn_len;
-    DH *dh;
-    BIGNUM *bn_p;
-    BIGNUM *bn_g;
-    const BIGNUM *temp_bn;
-
-    UNUSED(tokdata);
-
-    rv = template_attribute_get_non_empty(publ_tmpl, CKA_PRIME, &prime_attr);
-    if (rv != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_PRIME for the key.\n");
-        return rv;
-    }
-    rv = template_attribute_get_non_empty(publ_tmpl, CKA_BASE, &base_attr);
-    if (rv != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_BASE for the key.\n");
-        return rv;
-    }
-
-    if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64)) {
-        TRACE_ERROR("CKA_PRIME attribute value is invalid.\n");
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
-
-    dh = DH_new();
-    if (dh == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-    // Create and init BIGNUM structs to stick in the DH struct
-    bn_p = BN_new();
-    bn_g = BN_new();
-    if (bn_g == NULL || bn_p == NULL) {
-        if (bn_g)
-            BN_free(bn_g);
-        if (bn_p)
-            BN_free(bn_p);
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-    // Convert from strings to BIGNUMs and stick them in the DH struct
-    BN_bin2bn((unsigned char *) prime_attr->pValue, prime_attr->ulValueLen,
-              bn_p);
-    BN_bin2bn((unsigned char *) base_attr->pValue, base_attr->ulValueLen, bn_g);
-    dh->p = bn_p;
-    dh->g = bn_g;
-
-    // Generate the DH Key
-    if (!DH_generate_key(dh)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        DH_free(dh);
-        return CKR_FUNCTION_FAILED;
-    }
-    // Extract the public and private key components from the DH struct,
-    // and insert them in the publ_tmpl and priv_tmpl
-
-    //
-    // pub_key
-    //
-    //temp_bn = BN_new();
-    temp_bn = dh->pub_key;
-    temp_bn_len = BN_num_bytes(temp_bn);
-    temp_byte = malloc(temp_bn_len);
-    temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
-    // in bytes
-    rc = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        DH_free(dh);
-        free(temp_byte);
-        return CKR_FUNCTION_FAILED;
-    }
-    rc = template_update_attribute(publ_tmpl, temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        free(temp_attr);
-        DH_free(dh);
-        free(temp_byte);
-        return rc;
-    }
-    free(temp_byte);
-
-    //
-    // priv_key
-    //
-    //temp_bn = BN_new();
-    temp_bn = dh->priv_key;
-    temp_bn_len = BN_num_bytes(temp_bn);
-    temp_byte = malloc(temp_bn_len);
-    temp_bn_len = BN_bn2bin(temp_bn, temp_byte);
-    // in bytes
-    rc = build_attribute(CKA_VALUE, temp_byte, temp_bn_len, &temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        DH_free(dh);
-        free(temp_byte);
-        return CKR_FUNCTION_FAILED;
-    }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        free(temp_attr);
-        DH_free(dh);
-        free(temp_byte);
-        return rc;
-    }
-    free(temp_byte);
-
-    // Update CKA_VALUE_BITS attribute in the private key
-    value_bits_attr =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
-    if (value_bits_attr == NULL) {
-        TRACE_ERROR("malloc failed\n");
-        DH_free(dh);
-        return CKR_HOST_MEMORY;
-    }
-    value_bits_attr->type = CKA_VALUE_BITS;
-    value_bits_attr->ulValueLen = sizeof(CK_ULONG);
-    value_bits_attr->pValue =
-        (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) value_bits_attr->pValue = 8 * temp_bn_len;
-    rc = template_update_attribute(priv_tmpl, value_bits_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        free(value_bits_attr);
-        DH_free(dh);
-        return rc;
-    }
-
-    // Add prime and base to the private key template
-    rc = build_attribute(CKA_PRIME,
-                         (unsigned char *) prime_attr->pValue,
-                         prime_attr->ulValueLen, &temp_attr);  // in bytes
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        DH_free(dh);
-        return CKR_FUNCTION_FAILED;
-    }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        free(temp_attr);
-        DH_free(dh);
-        return rc;
-    }
-
-    rc = build_attribute(CKA_BASE,
-                         (unsigned char *) base_attr->pValue,
-                         base_attr->ulValueLen, &temp_attr);     // in bytes
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("build_attribute failed\n");
-        DH_free(dh);
-        return CKR_FUNCTION_FAILED;
-    }
-    rc = template_update_attribute(priv_tmpl, temp_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        free(temp_attr);
-        DH_free(dh);
-        return rc;
-    }
-
-    // Cleanup DH key
-    DH_free(dh);
-
-    return CKR_OK;
-#else
     CK_RV rv;
     CK_BBOOL rc;
     CK_ATTRIBUTE *prime_attr = NULL;
@@ -2899,10 +2498,20 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_BYTE *temp_byte = NULL, *temp_byte2 = NULL;
     CK_ULONG temp_bn_len;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     DH *dh = NULL;
+#else
+    EVP_PKEY_CTX *pctx = NULL;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *osparams = NULL;
+#endif
     BIGNUM *bn_p = NULL;
     BIGNUM *bn_g = NULL;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     const BIGNUM *temp_bn = NULL;
+#else
+    BIGNUM *temp_bn = NULL;
+#endif
     EVP_PKEY *params = NULL, *pkey = NULL;
     EVP_PKEY_CTX *ctx = NULL;
 
@@ -2925,13 +2534,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    dh = DH_new();
-    if (dh == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rv = CKR_FUNCTION_FAILED;
-        goto done;
-    }
-    // Create and init BIGNUM structs to stick in the DH struct
+    // Create and init BIGNUM structs
     bn_p = BN_new();
     bn_g = BN_new();
     if (bn_g == NULL || bn_p == NULL) {
@@ -2939,10 +2542,18 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         rv = CKR_HOST_MEMORY;
         goto done;
     }
-    // Convert from strings to BIGNUMs and stick them in the DH struct
+    // Convert from strings to BIGNUMs
     BN_bin2bn((unsigned char *) prime_attr->pValue, prime_attr->ulValueLen,
               bn_p);
     BN_bin2bn((unsigned char *) base_attr->pValue, base_attr->ulValueLen, bn_g);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    dh = DH_new();
+    if (dh == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rv = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
     DH_set0_pqg(dh, bn_p, NULL, bn_g);
     /* bn_p and bn_q freed together with dh */
     bn_p = NULL;
@@ -2961,6 +2572,27 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         goto done;
     }
     dh = NULL; /* freed together with params */
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL)
+        goto done;
+
+    if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_FFC_P, bn_p) ||
+        !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_FFC_G, bn_g))
+        goto done;
+
+    osparams = OSSL_PARAM_BLD_to_param(tmpl);
+    if (osparams == NULL)
+        goto done;
+
+    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
+    if (pctx == NULL)
+        goto done;
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, &params, EVP_PKEY_PUBLIC_KEY, osparams))
+        goto done;
+#endif
 
     ctx = EVP_PKEY_CTX_new(params, NULL);
     if (ctx == NULL) {
@@ -2971,8 +2603,12 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
 
     if (EVP_PKEY_keygen_init(ctx) != 1
         || EVP_PKEY_keygen(ctx, &pkey) != 1
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         /* dh is freed together with pkey */
-        || (dh = EVP_PKEY_get0_DH(pkey)) == NULL) {
+        || (dh = (DH *)EVP_PKEY_get0_DH(pkey)) == NULL) {
+#else
+        ) {
+#endif
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rv = CKR_FUNCTION_FAILED;
         goto done;
@@ -2984,7 +2620,15 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     //
     // pub_key
     //
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     DH_get0_key(dh, &temp_bn, NULL);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, &temp_bn)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
 
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte = malloc(temp_bn_len);
@@ -3001,11 +2645,23 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         free(temp_attr);
         goto done;
     }
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(temp_bn);
+    temp_bn = NULL;
+#endif
 
     //
     // priv_key
     //
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     DH_get0_key(dh, NULL, &temp_bn);
+#else
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &temp_bn)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
     temp_bn_len = BN_num_bytes(temp_bn);
     temp_byte2 = malloc(temp_bn_len);
     temp_bn_len = BN_bn2bin(temp_bn, temp_byte2);
@@ -3022,6 +2678,10 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         free(temp_attr);
         goto done;
     }
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BN_free(temp_bn);
+    temp_bn = NULL;
+#endif
 
     // Update CKA_VALUE_BITS attribute in the private key
     value_bits_attr =
@@ -3086,8 +2746,17 @@ done:
         EVP_PKEY_free(params);
     free(temp_byte);
     free(temp_byte2);
-    return rv;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+    if (osparams != NULL)
+        OSSL_PARAM_free(osparams);
+    if (temp_bn != NULL)
+        BN_free(temp_bn);
 #endif
+    return rv;
 }                               /* end token_specific_dh_key_pair_gen() */
 #endif
 /* End code contributed by Corrent corp. */
@@ -3105,11 +2774,6 @@ CK_RV token_specific_get_mechanism_info(STDLL_TokData_t *tokdata,
 {
     return ock_generic_get_mechanism_info(tokdata, type, pInfo);
 }
-
-#ifdef OLDER_OPENSSL
-#define EVP_MD_meth_get_app_datasize(md)        md->ctx_size
-#define EVP_MD_CTX_md_data(ctx)                 ctx->md_data
-#endif
 
 static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
 {
@@ -3168,16 +2832,13 @@ static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
     return md;
 }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
 static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
 {
     const EVP_MD *md;
     EVP_MD_CTX *md_ctx;
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    md_ctx = EVP_MD_CTX_create();
-#else
     md_ctx = EVP_MD_CTX_new();
-#endif
     if (md_ctx == NULL)
         return NULL;
 
@@ -3185,11 +2846,7 @@ static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
     if (md == NULL ||
         !EVP_DigestInit_ex(md_ctx, md, NULL)) {
         TRACE_ERROR("md_from_mech or EVP_DigestInit_ex failed\n");
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-        EVP_MD_CTX_destroy(md_ctx);
-#else
         EVP_MD_CTX_free(md_ctx);
-#endif
         return NULL;
     }
 
@@ -3198,11 +2855,7 @@ static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
         ctx->context = malloc(ctx->context_len);
         if (ctx->context == NULL) {
             TRACE_ERROR("malloc failed\n");
-    #if OPENSSL_VERSION_NUMBER < 0x10101000L
-            EVP_MD_CTX_destroy(md_ctx);
-    #else
             EVP_MD_CTX_free(md_ctx);
-    #endif
             ctx->context_len = 0;
             return NULL;
         }
@@ -3221,27 +2874,60 @@ static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
 
     return md_ctx;
 }
+#endif
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static void token_specific_sha_free(STDLL_TokData_t *tokdata, SESSION *sess,
+                                    CK_BYTE *context, CK_ULONG context_len)
+{
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)context);
+}
+#endif
 
 CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                               CK_MECHANISM *mech)
 {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
+#else
+    const EVP_MD *md;
+#endif
 
     UNUSED(tokdata);
 
     ctx->mech.ulParameterLen = mech->ulParameterLen;
     ctx->mech.mechanism = mech->mechanism;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     md_ctx = md_ctx_from_context(ctx);
     if (md_ctx == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         return CKR_HOST_MEMORY;
     }
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy(md_ctx);
-#else
     EVP_MD_CTX_free(md_ctx);
+#else
+    ctx->context_len = 1;
+    ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
+    if (ctx->context == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    md = md_from_mech(&ctx->mech);
+    if (md == NULL ||
+        !EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, md, NULL)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = token_specific_sha_free;
 #endif
 
     return CKR_OK;
@@ -3253,7 +2939,9 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
+#endif
 
     UNUSED(tokdata);
 
@@ -3263,6 +2951,7 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!in_data || !out_data)
         return CKR_ARGUMENTS_BAD;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     /* Recreate the OpenSSL MD context from the saved context */
     md_ctx = md_ctx_from_context(ctx);
     if (md_ctx == NULL) {
@@ -3275,21 +2964,38 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 
     if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
         !EVP_DigestFinal(md_ctx, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     *out_data_len = len;
-
-out:
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy(md_ctx);
 #else
-    EVP_MD_CTX_free(md_ctx);
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    len = *out_data_len;
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
+        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
 #endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+out:
+    EVP_MD_CTX_free(md_ctx);
     free(ctx->context);
+#else
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+#endif
     ctx->context = NULL;
     ctx->context_len = 0;
+    ctx->context_free_func = NULL;
 
     return rc;
 }
@@ -3297,7 +3003,9 @@ out:
 CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                 CK_BYTE *in_data, CK_ULONG in_data_len)
 {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
+#endif
 
     UNUSED(tokdata);
 
@@ -3307,6 +3015,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!in_data)
         return CKR_ARGUMENTS_BAD;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     /* Recreate the OpenSSL MD context from the saved context */
     md_ctx = md_ctx_from_context(ctx);
     if (md_ctx == NULL) {
@@ -3315,24 +3024,24 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     }
 
     if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len)) {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-        EVP_MD_CTX_destroy(md_ctx);
-#else
         EVP_MD_CTX_free(md_ctx);
-#endif
         free(ctx->context);
         ctx->context = NULL;
         ctx->context_len = 0;
+        ctx->context_free_func = NULL;
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
 
     /* Save context data for later use */
     memcpy(ctx->context,  EVP_MD_CTX_md_data(md_ctx), ctx->context_len);
 
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy(md_ctx);
-#else
     EVP_MD_CTX_free(md_ctx);
+#else
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 #endif
 
     return CKR_OK;
@@ -3343,7 +3052,9 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 {
     unsigned int len;
     CK_RV rc = CKR_OK;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     EVP_MD_CTX *md_ctx;
+#endif
 
     UNUSED(tokdata);
 
@@ -3353,6 +3064,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     if (!out_data)
         return CKR_ARGUMENTS_BAD;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     /* Recreate the OpenSSL MD context from the saved context */
     md_ctx = md_ctx_from_context(ctx);
     if (md_ctx == NULL) {
@@ -3370,14 +3082,30 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     *out_data_len = len;
 
 out:
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    EVP_MD_CTX_destroy(md_ctx);
-#else
     EVP_MD_CTX_free(md_ctx);
-#endif
     free(ctx->context);
     ctx->context = NULL;
     ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+#else
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    len = *out_data_len;
+    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+#endif
 
     return rc;
 }
@@ -3897,87 +3625,6 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                                CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    int rc;
-    CK_RV rv = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_KEY_TYPE keytype;
-    CMAC_CTX *cmac_ctx;
-    const EVP_CIPHER *cipher;
-    size_t maclen;
-
-    UNUSED(tokdata);
-
-    if (first) {
-        // get the key type
-        rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            return CKR_FUNCTION_FAILED;
-        }
-
-        // get the key value
-        rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-            return rc;
-        }
-        switch (keytype) {
-        case CKK_DES2:
-            cipher = EVP_des_ede_cbc();
-            break;
-        case CKK_DES3:
-            cipher = EVP_des_ede3_cbc();
-            break;
-        default:
-            TRACE_ERROR("Invalid key type: %lu\n", keytype);
-            return CKR_KEY_TYPE_INCONSISTENT;
-        }
-        if (cipher == NULL) {
-            TRACE_ERROR("Failed to allocate cipher\n");
-            return CKR_HOST_MEMORY;
-        }
-
-        cmac_ctx = CMAC_CTX_new();
-        if (cmac_ctx == NULL) {
-            TRACE_ERROR("Failed to allocate CMAC context\n");
-            return CKR_HOST_MEMORY;
-        }
-
-        rc = CMAC_Init(cmac_ctx, attr->pValue, attr->ulValueLen, cipher, NULL);
-        if (rc != 1) {
-            TRACE_ERROR("CMAC_Init failed\n");
-            CMAC_CTX_free(cmac_ctx);
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *ctx = cmac_ctx;
-    }
-
-    cmac_ctx = (CMAC_CTX *)*ctx;
-
-    rc = CMAC_Update(cmac_ctx, message, message_len);
-    if (rc != 1) {
-        TRACE_ERROR("CMAC_Update failed\n");
-        rv =  CKR_FUNCTION_FAILED;
-    }
-
-    if (last) {
-        maclen = AES_BLOCK_SIZE;
-        rc = CMAC_Final(cmac_ctx, mac, &maclen);
-        if (rc != 1) {
-            TRACE_ERROR("CMAC_Final failed\n");
-            rv = CKR_FUNCTION_FAILED;
-        }
-    }
-
-    if (last || (first && rv != CKR_OK)) {
-        CMAC_CTX_free(cmac_ctx);
-        *ctx = NULL;
-    }
-
-    return rv;
-#else
     int rc;
     size_t maclen;
     CK_RV rv = CKR_OK;
@@ -3985,11 +3632,19 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     CK_KEY_TYPE keytype;
     const EVP_CIPHER *cipher;
     struct cmac_ctx {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         EVP_MD_CTX *mctx;
         EVP_PKEY_CTX *pctx;
         EVP_PKEY *pkey;
+#else
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mctx;
+#endif
     };
     struct cmac_ctx *cmac = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_PARAM params[2];
+#endif
 
     UNUSED(tokdata);
 
@@ -4031,10 +3686,11 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
             goto err;
         }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         cmac->mctx = EVP_MD_CTX_new();
         if (cmac->mctx == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = ERR_HOST_MEMORY;
+            rv = CKR_HOST_MEMORY;
             goto err;
         }
 
@@ -4053,6 +3709,31 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
             rv = CKR_FUNCTION_FAILED;
             goto err;
         }
+#else
+        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
+        if (cmac->mac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
+                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#endif
 
         *ctx = cmac;
     }
@@ -4064,9 +3745,17 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
         goto err;
     }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
+#else
+    rc = EVP_MAC_update(cmac->mctx, message, message_len);
+#endif
     if (rc != 1 || message_len > INT_MAX) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+#else
+        TRACE_ERROR("EVP_MAC_update failed\n");
+#endif
         rv =  CKR_FUNCTION_FAILED;
         goto err;
     }
@@ -4074,15 +3763,28 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     if (last) {
         maclen = AES_BLOCK_SIZE;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
+#else
+        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
+#endif
         if (rc != 1) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
             TRACE_ERROR("EVP_DigestSignFinal failed\n");
+#else
+            TRACE_ERROR("EVP_MAC_final failed\n");
+#endif
             rv = CKR_FUNCTION_FAILED;
             goto err;
         }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
         EVP_PKEY_free(cmac->pkey);
+#else
+        EVP_MAC_CTX_free(cmac->mctx);
+        EVP_MAC_free(cmac->mac);
+#endif
         free(cmac);
         *ctx = NULL;
     }
@@ -4090,15 +3792,21 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return CKR_OK;
 err:
     if (cmac != NULL) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         if (cmac->mctx != NULL)
             EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
         if (cmac->pkey != NULL)
             EVP_PKEY_free(cmac->pkey);
+#else
+        if (cmac->mctx != NULL)
+            EVP_MAC_CTX_free(cmac->mctx);
+        if (cmac->mac != NULL)
+            EVP_MAC_free(cmac->mac);
+#endif
         free(cmac);
     }
     *ctx = NULL;
     return rv;
-#endif
 }
 
 
@@ -4106,93 +3814,25 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    int rc;
-    CK_RV rv = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    CMAC_CTX *cmac_ctx;
-    const EVP_CIPHER *cipher;
-    size_t maclen;
-
-    UNUSED(tokdata);
-
-    if (first) {
-        rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-            return rc;
-        }
-
-        switch (attr->ulValueLen * 8) {
-        case 128:
-            cipher = EVP_aes_128_cbc();
-            break;
-        case 192:
-            cipher = EVP_aes_192_cbc();
-            break;
-        case 256:
-            cipher = EVP_aes_256_cbc();
-            break;
-        default:
-            TRACE_ERROR("Invalid key size: %lu\n", attr->ulValueLen);
-            return CKR_KEY_TYPE_INCONSISTENT;
-        }
-        if (cipher == NULL) {
-            TRACE_ERROR("Failed to allocate cipher\n");
-            return CKR_HOST_MEMORY;
-        }
-
-        cmac_ctx = CMAC_CTX_new();
-        if (cmac_ctx == NULL) {
-            TRACE_ERROR("Failed to allocate CMAC context\n");
-            return CKR_HOST_MEMORY;
-        }
-
-        rc = CMAC_Init(cmac_ctx, attr->pValue, attr->ulValueLen, cipher, NULL);
-        if (rc != 1) {
-            TRACE_ERROR("CMAC_Init failed\n");
-            CMAC_CTX_free(cmac_ctx);
-            return CKR_FUNCTION_FAILED;
-        }
-
-        *ctx = cmac_ctx;
-    }
-
-    cmac_ctx = (CMAC_CTX *)*ctx;
-
-    rc = CMAC_Update(cmac_ctx, message, message_len);
-    if (rc != 1) {
-        TRACE_ERROR("CMAC_Update failed\n");
-        rv =  CKR_FUNCTION_FAILED;
-    }
-
-    if (last) {
-        maclen = AES_BLOCK_SIZE;
-        rc = CMAC_Final(cmac_ctx, mac, &maclen);
-        if (rc != 1) {
-            TRACE_ERROR("CMAC_Final failed\n");
-            rv = CKR_FUNCTION_FAILED;
-        }
-    }
-
-    if (last || (first && rv != CKR_OK)) {
-        CMAC_CTX_free(cmac_ctx);
-        *ctx = NULL;
-    }
-
-    return rv;
-#else
     int rc;
     size_t maclen;
     CK_RV rv = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
     const EVP_CIPHER *cipher;
     struct cmac_ctx {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         EVP_MD_CTX *mctx;
         EVP_PKEY_CTX *pctx;
         EVP_PKEY *pkey;
+#else
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mctx;
+#endif
     };
     struct cmac_ctx *cmac = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_PARAM params[2];
+#endif
 
     UNUSED(tokdata);
 
@@ -4229,6 +3869,7 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
             goto err;
         }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         cmac->mctx = EVP_MD_CTX_new();
         if (cmac->mctx == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -4251,6 +3892,31 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
             rv = CKR_FUNCTION_FAILED;
             goto err;
         }
+#else
+        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
+        if (cmac->mac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
+                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#endif
 
         *ctx = cmac;
     }
@@ -4262,9 +3928,17 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
         goto err;
     }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
+#else
+    rc = EVP_MAC_update(cmac->mctx, message, message_len);
+#endif
     if (rc != 1 || message_len > INT_MAX) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+#else
+        TRACE_ERROR("EVP_MAC_update failed\n");
+#endif
         rv =  CKR_FUNCTION_FAILED;
         goto err;
     }
@@ -4272,15 +3946,28 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     if (last) {
         maclen = AES_BLOCK_SIZE;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
+#else
+        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
+#endif
         if (rc != 1) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
             TRACE_ERROR("EVP_DigestSignFinal failed\n");
+#else
+            TRACE_ERROR("EVP_MAC_final failed\n");
+#endif
             rv = CKR_FUNCTION_FAILED;
             goto err;
         }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
         EVP_PKEY_free(cmac->pkey);
+#else
+        EVP_MAC_CTX_free(cmac->mctx);
+        EVP_MAC_free(cmac->mac);
+#endif
         free(cmac);
         *ctx = NULL;
     }
@@ -4288,37 +3975,90 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return CKR_OK;
 err:
     if (cmac != NULL) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         if (cmac->mctx != NULL)
             EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
         if (cmac->pkey != NULL)
             EVP_PKEY_free(cmac->pkey);
+#else
+        if (cmac->mctx != NULL)
+            EVP_MAC_CTX_free(cmac->mctx);
+        if (cmac->mac != NULL)
+            EVP_MAC_free(cmac->mac);
+#endif
         free(cmac);
     }
     *ctx = NULL;
     return rv;
-#endif
 }
 
 #ifndef NO_EC
 
-static CK_RV make_ec_key_from_params(const CK_BYTE *params, CK_ULONG params_len,
-                                     EC_KEY **key)
+static int curve_nid_from_params(const CK_BYTE *params, CK_ULONG params_len)
 {
     const unsigned char *oid;
     ASN1_OBJECT *obj = NULL;
-    EC_KEY *ec_key = NULL;
     int nid;
-    CK_RV rc = CKR_OK;
 
     oid = params;
     obj = d2i_ASN1_OBJECT(NULL, &oid, params_len);
     if (obj == NULL) {
         TRACE_ERROR("curve not supported by OpenSSL.\n");
-        rc = CKR_CURVE_NOT_SUPPORTED;
-        goto out;
+        return NID_undef;
     }
 
     nid = OBJ_obj2nid(obj);
+    ASN1_OBJECT_free(obj);
+
+    return nid;
+}
+
+static int ec_prime_len_from_nid(int nid)
+{
+    EC_GROUP *group;
+    int primelen;
+
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL)
+        return -1;
+
+    primelen = EC_GROUP_order_bits(group);
+
+    EC_GROUP_free(group);
+
+    if ((primelen % 8) == 0)
+        return primelen / 8;
+    else
+        return (primelen / 8) + 1;
+}
+
+int ec_prime_len_from_pkey(EVP_PKEY *pkey)
+{
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    return (EC_GROUP_order_bits(EC_KEY_get0_group(
+                             EVP_PKEY_get0_EC_KEY(pkey))) + 7) / 8;
+#else
+    size_t curve_len;
+    char curve[80];
+
+    if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME,
+                                        curve, sizeof(curve), &curve_len))
+        return -1;
+
+    return ec_prime_len_from_nid(OBJ_sn2nid(curve));
+#endif
+}
+
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV make_ec_key_from_params(const CK_BYTE *params, CK_ULONG params_len,
+                                     EC_KEY **key)
+{
+    EC_KEY *ec_key = NULL;
+    int nid;
+    CK_RV rc = CKR_OK;
+
+    nid = curve_nid_from_params(params, params_len);
     if (nid == NID_undef) {
         TRACE_ERROR("curve not supported by OpenSSL.\n");
         rc = CKR_CURVE_NOT_SUPPORTED;
@@ -4333,9 +4073,6 @@ static CK_RV make_ec_key_from_params(const CK_BYTE *params, CK_ULONG params_len,
     }
 
 out:
-    if (obj != NULL)
-        ASN1_OBJECT_free(obj);
-
     if (rc != CKR_OK) {
         if (ec_key != NULL)
             EC_KEY_free(ec_key);
@@ -4347,16 +4084,97 @@ out:
 
     return CKR_OK;
 }
+#endif
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV build_pkey_from_params(OSSL_PARAM_BLD *tmpl, int selection,
+                                    EVP_PKEY **pkey)
+{
+
+    OSSL_PARAM *params = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    CK_RV rc = CKR_OK;
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_to_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new_id failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, pkey, selection, params)) {
+        TRACE_ERROR("EVP_PKEY_fromdata failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    EVP_PKEY_CTX_free(pctx);
+    pctx = EVP_PKEY_CTX_new(*pkey, NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) {
+        if (EVP_PKEY_check(pctx) != 1) {
+            TRACE_ERROR("EVP_PKEY_check failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    } else {
+        if (EVP_PKEY_public_check(pctx) != 1) {
+            TRACE_ERROR("EVP_PKEY_public_check failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+out:
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    if (rc != 0 && *pkey != NULL) {
+        EVP_PKEY_free(*pkey);
+        *pkey = NULL;
+    }
+
+    return rc;
+}
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
 static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
-                                     CK_ULONG data_len, CK_BBOOL allow_raw)
+                                     CK_ULONG data_len, CK_BBOOL allow_raw,
+                                     int nid, EVP_PKEY **ec_pkey)
+#else
+static CK_RV fill_ec_key_from_pubkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
+                                     CK_ULONG data_len, CK_BBOOL allow_raw,
+                                     int nid, EVP_PKEY **ec_pkey)
+#endif
 {
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, privlen;
     CK_BBOOL allocated = FALSE;
+
     CK_RV rc;
 
-    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+    privlen = ec_prime_len_from_nid(nid);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
 
     rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
                                    &allocated, &ecpoint, &ecpoint_len);
@@ -4365,6 +4183,7 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
         goto out;
     }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     if (!EC_KEY_oct2key(ec_key, ecpoint, ecpoint_len, NULL)) {
         TRACE_ERROR("EC_KEY_oct2key failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -4377,6 +4196,34 @@ static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
         goto out;
     }
 
+    *ec_pkey = EVP_PKEY_new();
+    if (*ec_pkey == NULL) {
+       TRACE_ERROR("EVP_PKEY_CTX_new failed.\n");
+       rc = CKR_HOST_MEMORY;
+       goto out;
+    }
+
+    if (!EVP_PKEY_assign_EC_KEY(*ec_pkey, ec_key)) {
+        TRACE_ERROR("EVP_PKEY_assign_EC_KEY failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    if (!OSSL_PARAM_BLD_push_octet_string(tmpl,
+                                          OSSL_PKEY_PARAM_PUB_KEY,
+                                          ecpoint, ecpoint_len)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_pkey_from_params(tmpl, EVP_PKEY_PUBLIC_KEY, ec_pkey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_pkey_from_params failed\n");
+        goto out;
+    }
+ #endif
+
 out:
     if (allocated && ecpoint != NULL)
         free(ecpoint);
@@ -4384,12 +4231,26 @@ out:
     return rc;
 }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
 static CK_RV fill_ec_key_from_privkey(EC_KEY *ec_key, const CK_BYTE *data,
-                                      CK_ULONG data_len)
+                                      CK_ULONG data_len, EVP_PKEY **ec_pkey)
+#else
+static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
+                                      CK_ULONG data_len, int nid,
+                                      EVP_PKEY **ec_pkey)
+#endif
 {
     EC_POINT *point = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    EC_GROUP *group = NULL;
+    BIGNUM *bn_priv = NULL;
+    unsigned char *pub_key = NULL;
+    unsigned int pub_key_len;
+    point_conversion_form_t form;
+#endif
     CK_RV rc = CKR_OK;
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     if (!EC_KEY_oct2priv(ec_key, data, data_len)) {
         TRACE_ERROR("EC_KEY_oct2priv failed\n");
         rc = CKR_FUNCTION_FAILED;
@@ -4422,18 +4283,102 @@ static CK_RV fill_ec_key_from_privkey(EC_KEY *ec_key, const CK_BYTE *data,
         goto out;
     }
 
+    *ec_pkey = EVP_PKEY_new();
+    if (*ec_pkey == NULL) {
+       TRACE_ERROR("EVP_PKEY_CTX_new failed.\n");
+       rc = CKR_HOST_MEMORY;
+       goto out;
+    }
+
+    if (!EVP_PKEY_assign_EC_KEY(*ec_pkey, ec_key)) {
+        TRACE_ERROR("EVP_PKEY_assign_EC_KEY failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL) {
+        TRACE_ERROR("EC_GROUP_new_by_curve_name failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    point = EC_POINT_new(group);
+    if (point == NULL) {
+        TRACE_ERROR("EC_POINT_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bn_priv = BN_bin2bn(data, data_len, NULL);
+    if (bn_priv == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_POINT_mul(group, point, bn_priv, NULL, NULL, NULL)) {
+        TRACE_ERROR("EC_POINT_mul failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    form = EC_GROUP_get_point_conversion_form(group);
+    pub_key_len = EC_POINT_point2buf(group, point, form, &pub_key,
+                                     NULL);
+    if (pub_key_len == 0) {
+        TRACE_ERROR("EC_POINT_point2buf failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
+                                          pub_key, pub_key_len)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_BN failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_pkey_from_params(tmpl, EVP_PKEY_KEYPAIR, ec_pkey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_pkey_from_params failed\n");
+        goto out;
+    }
+#endif
+
 out:
     if (point != NULL)
         EC_POINT_free(point);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (group != NULL)
+        EC_GROUP_free(group);
+    if (bn_priv != NULL)
+        BN_free(bn_priv);
+    if (pub_key != NULL)
+        OPENSSL_free(pub_key);
+#endif
 
     return rc;
 }
 
-static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
+
+
+static CK_RV make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey)
 {
     CK_ATTRIBUTE *attr = NULL;
     CK_OBJECT_CLASS keyclass;
+    EVP_PKEY *ec_pkey = NULL;
+    int nid;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     EC_KEY *ec_key = NULL;
+#else
+    OSSL_PARAM_BLD *tmpl = NULL;
+#endif
     CK_RV rc;
 
     rc = template_attribute_get_ulong(template, CKA_CLASS, &keyclass);
@@ -4448,9 +4393,32 @@ static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
         goto out;
     }
 
+    nid = curve_nid_from_params(attr->pValue, attr->ulValueLen);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     rc = make_ec_key_from_params(attr->pValue, attr->ulValueLen, &ec_key);
     if (rc != CKR_OK)
         goto out;
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
 
     switch (keyclass) {
     case CKO_PUBLIC_KEY:
@@ -4460,8 +4428,13 @@ static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
             goto out;
         }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         rc = fill_ec_key_from_pubkey(ec_key, attr->pValue, attr->ulValueLen,
-                                     FALSE);
+                                     FALSE, nid, &ec_pkey);
+#else
+        rc = fill_ec_key_from_pubkey(tmpl, attr->pValue, attr->ulValueLen,
+                                     FALSE, nid, &ec_pkey);
+#endif
         if (rc != CKR_OK) {
             TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
             goto out;
@@ -4475,7 +4448,14 @@ static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
             goto out;
         }
 
-        rc = fill_ec_key_from_privkey(ec_key, attr->pValue, attr->ulValueLen);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        rc = fill_ec_key_from_privkey(ec_key, attr->pValue, attr->ulValueLen,
+                                      &ec_pkey);
+#else
+        rc = fill_ec_key_from_privkey(tmpl, attr->pValue, attr->ulValueLen,
+                                      nid, &ec_pkey);
+
+#endif
         if (rc != CKR_OK) {
             TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
             goto out;
@@ -4487,17 +4467,30 @@ static CK_RV make_ec_key_from_template(TEMPLATE *template, EC_KEY **key)
         goto out;
     }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    ec_key = NULL;
+#endif
+
     rc = CKR_OK;
 
 out:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+#endif
+
     if (rc != CKR_OK) {
+        if (ec_pkey != NULL)
+            EVP_PKEY_free(ec_pkey);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
         if (ec_key != NULL)
             EC_KEY_free(ec_key);
+#endif
 
         return rc;
     }
 
-    *key = ec_key;
+    *pkey = ec_pkey;
 
     return CKR_OK;
 }
@@ -4508,10 +4501,17 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
 {
 
     CK_ATTRIBUTE *attr = NULL, *ec_point_attr, *value_attr, *parms_attr;
-    EC_KEY *ec_key = NULL;
-    BN_CTX *ctx = NULL;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    const EC_KEY *ec_key = NULL;
+    BN_CTX *bnctx = NULL;
+#else
+    BIGNUM *bn_d = NULL;
+#endif
     CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
     CK_ULONG ecpoint_len, enc_ecpoint_len, d_len;
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *ec_pkey = NULL;
+    int nid;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -4520,29 +4520,83 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto out;
 
-    rc = make_ec_key_from_params(attr->pValue, attr->ulValueLen, &ec_key);
-    if (rc != CKR_OK)
+    nid = curve_nid_from_params(attr->pValue, attr->ulValueLen);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
         goto out;
+    }
 
-    if (!EC_KEY_generate_key(ec_key)) {
-        TRACE_ERROR("Failed to generate an EC key.\n");
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
-    ctx = BN_CTX_new();
-    if (ctx == NULL) {
+    if (EVP_PKEY_keygen_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_keygen_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
+        TRACE_ERROR("EVP_PKEY_CTX_set_ec_paramgen_curve_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    if (EVP_PKEY_keygen(ctx, &ec_pkey) <= 0) {
+        TRACE_ERROR("EVP_PKEY_keygen failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    ec_key = EVP_PKEY_get0_EC_KEY(ec_pkey);
+    if (ec_key == NULL) {
+       TRACE_ERROR("EVP_PKEY_get0_EC_KEY failed\n");
+       rc = CKR_FUNCTION_FAILED;
+       goto out;
+   }
+
+    bnctx = BN_CTX_new();
+    if (bnctx == NULL) {
         rc = CKR_HOST_MEMORY;
         goto out;
     }
 
     ecpoint_len = EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED,
-                                 &ecpoint, ctx);
+                                 &ecpoint, bnctx);
     if (ecpoint_len == 0) {
         TRACE_ERROR("Failed to get the EC Point compressed.\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
+#else
+    if (!EVP_PKEY_get_octet_string_param(ec_pkey,
+                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         NULL, 0, &ecpoint_len)) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ecpoint = OPENSSL_zalloc(ecpoint_len);
+    if (ecpoint == NULL) {
+        TRACE_ERROR("OPENSSL_zalloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!EVP_PKEY_get_octet_string_param(ec_pkey,
+                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         ecpoint, ecpoint_len, &ecpoint_len)) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
 
     rc = ber_encode_OCTET_STRING(FALSE, &enc_ecpoint, &enc_ecpoint_len,
                                  ecpoint, ecpoint_len);
@@ -4564,12 +4618,30 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
+#if !OPENSSL_VERSION_PREREQ(3, 0)
     d_len = EC_KEY_priv2buf(ec_key, &d);
     if (d_len == 0) {
         TRACE_ERROR("Failed to get the EC private key.\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
+#else
+    if (!EVP_PKEY_get_bn_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_d)) {
+        TRACE_ERROR("EVP_PKEY_get_bn_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    d_len = ec_prime_len_from_nid(nid);
+    d = OPENSSL_zalloc(d_len);
+    if (d == NULL) {
+        TRACE_ERROR("OPENSSL_zalloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    BN_bn2binpad(bn_d, d, d_len);
+#endif
 
     rc = build_attribute(CKA_VALUE, d, d_len, &value_attr);
     if (rc != CKR_OK) {
@@ -4602,10 +4674,17 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 out:
-    if (ctx)
-        BN_CTX_free(ctx);
-    if (ec_key != NULL)
-        EC_KEY_free(ec_key);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (bnctx != NULL)
+        BN_CTX_free(bnctx);
+#else
+    if (bn_d != NULL)
+        BN_free(bn_d);
+#endif
+    if (ec_pkey != NULL)
+        EVP_PKEY_free(ec_pkey);
     if (ecpoint != NULL)
         OPENSSL_free(ecpoint);
     if (enc_ecpoint != NULL)
@@ -4621,11 +4700,15 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj)
 {
-    EC_KEY *ec_key;
-    ECDSA_SIG *sig;
+    EVP_PKEY *ec_key;
+    ECDSA_SIG *sig = NULL;
     const BIGNUM *r, *s;
     CK_ULONG privlen, n;
     CK_RV rc = CKR_OK;
+    EVP_PKEY_CTX *ctx = NULL;
+    size_t siglen;
+    CK_BYTE *sigbuf = NULL;
+    const unsigned char *p;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -4636,16 +4719,54 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     if (rc != CKR_OK)
         return rc;
 
-    sig = ECDSA_do_sign(in_data, in_data_len, ec_key);
+    ctx = EVP_PKEY_CTX_new(ec_key, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    sigbuf = malloc(siglen);
+    if (sigbuf == NULL) {
+        TRACE_ERROR("malloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign(ctx, sigbuf, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    p = sigbuf;
+    sig = d2i_ECDSA_SIG(NULL, &p, siglen);
     if (sig == NULL) {
-        TRACE_ERROR("ECDSA_do_sign failed\n");
+        TRACE_ERROR("d2i_ECDSA_SIG failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
     ECDSA_SIG_get0(sig, &r, &s);
 
-    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+    privlen = ec_prime_len_from_pkey(ec_key);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_pkey failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
 
     /* Insert leading 0x00's if r or s shorter than privlen */
     n = privlen - BN_num_bytes(r);
@@ -4662,7 +4783,11 @@ out:
     if (sig != NULL)
         ECDSA_SIG_free(sig);
     if (ec_key != NULL)
-        EC_KEY_free(ec_key);
+        EVP_PKEY_free(ec_key);
+    if (sigbuf != NULL)
+        free(sigbuf);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
 
     return rc;
 }
@@ -4674,11 +4799,14 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
                                CK_BYTE *signature,
                                CK_ULONG signature_len, OBJECT *key_obj)
 {
-    EC_KEY *ec_key;
+    EVP_PKEY *ec_key;
     CK_ULONG privlen;
     ECDSA_SIG *sig = NULL;
     BIGNUM *r = NULL, *s = NULL;
     CK_RV rc = CKR_OK;
+    size_t siglen;
+    CK_BYTE *sigbuf = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -4687,7 +4815,12 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         return rc;
 
-    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_key)) + 7) / 8;
+    privlen = ec_prime_len_from_pkey(ec_key);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_pkey failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
 
     if (signature_len < 2 * privlen) {
         TRACE_ERROR("Signature is too short\n");
@@ -4715,7 +4848,27 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    rc = ECDSA_do_verify(in_data, in_data_len, sig, ec_key);
+    siglen = i2d_ECDSA_SIG(sig, &sigbuf);
+    if (siglen <= 0) {
+        TRACE_ERROR("i2d_ECDSA_SIG failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new(ec_key, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_verify_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_verify_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = EVP_PKEY_verify(ctx, sigbuf, siglen, in_data, in_data_len);
     switch (rc) {
     case 0:
         rc = CKR_SIGNATURE_INVALID;
@@ -4732,7 +4885,11 @@ out:
     if (sig != NULL)
         ECDSA_SIG_free(sig);
     if (ec_key != NULL)
-        EC_KEY_free(ec_key);
+        EVP_PKEY_free(ec_key);
+    if (sigbuf != NULL)
+        OPENSSL_free(sigbuf);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
 
     return rc;
 }
@@ -4746,43 +4903,118 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                       CK_ULONG *secret_value_len,
                                       CK_BYTE *oid, CK_ULONG oid_length)
 {
-    EC_KEY *ec_pub = NULL, *ec_priv = NULL;
-    CK_ULONG privlen;
-    int secret_len;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EC_KEY *pub = NULL, *priv = NULL;
+#else
+    OSSL_PARAM_BLD *tmpl = NULL;
+#endif
+    EVP_PKEY *ec_pub = NULL, *ec_priv = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    size_t secret_len;
+    int nid;
     CK_RV rc;
 
     UNUSED(tokdata);
 
-    rc = make_ec_key_from_params(oid, oid_length, &ec_priv);
+    nid = curve_nid_from_params(oid, oid_length);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = make_ec_key_from_params(oid, oid_length, &priv);
     if (rc != CKR_OK) {
         TRACE_DEVEL("make_ec_key_from_params failed\n");
         goto out;
     }
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
 
-    rc = fill_ec_key_from_privkey(ec_priv, priv_bytes, priv_length);
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = fill_ec_key_from_privkey(priv, priv_bytes, priv_length, &ec_priv);
+#else
+    rc = fill_ec_key_from_privkey(tmpl, priv_bytes, priv_length, nid, &ec_priv);
+#endif
     if (rc != CKR_OK) {
         TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
         goto out;
     }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    priv = NULL;
+#else
+    OSSL_PARAM_BLD_free(tmpl);
+    tmpl = NULL;
+#endif
 
-    rc = make_ec_key_from_params(oid, oid_length, &ec_pub);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = make_ec_key_from_params(oid, oid_length, &pub);
     if (rc != CKR_OK) {
         TRACE_DEVEL("make_ec_key_from_params failed\n");
         goto out;
     }
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
 
-    rc = fill_ec_key_from_pubkey(ec_pub, pub_bytes, pub_length, TRUE);
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = fill_ec_key_from_pubkey(pub, pub_bytes, pub_length, TRUE, nid,
+                                 &ec_pub);
+#else
+    rc = fill_ec_key_from_pubkey(tmpl, pub_bytes, pub_length, TRUE, nid,
+                                 &ec_pub);
+#endif
     if (rc != CKR_OK) {
         TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
         goto out;
     }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    pub = NULL;
+#else
+    OSSL_PARAM_BLD_free(tmpl);
+    tmpl = NULL;
+#endif
 
-    privlen = (EC_GROUP_order_bits(EC_KEY_get0_group(ec_priv)) + 7) / 8;
+    ctx = EVP_PKEY_CTX_new(ec_priv, NULL);
+    if (ctx == NULL) {
+        TRACE_DEVEL("EVP_PKEY_CTX_new failed\n");
+        goto out;
+    }
 
-    secret_len = ECDH_compute_key(secret_value, privlen,
-                                  EC_KEY_get0_public_key(ec_pub), ec_priv,
-                                  NULL);
-    if (secret_len <= 0) {
+    if (EVP_PKEY_derive_init(ctx) <= 0 ||
+        EVP_PKEY_derive_set_peer(ctx, ec_pub) <= 0) {
+        TRACE_DEVEL("EVP_PKEY_derive_init/EVP_PKEY_derive_set_peer failed\n");
+        goto out;
+    }
+
+    secret_len = ec_prime_len_from_nid(nid);
+    if (EVP_PKEY_derive(ctx, secret_value, &secret_len) <= 0) {
         TRACE_DEVEL("ECDH_compute_key failed\n");
         rc = CKR_FUNCTION_FAILED;
         *secret_value_len = 0;
@@ -4792,10 +5024,21 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     *secret_value_len = secret_len;
 
 out:
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (priv != NULL)
+        EC_KEY_free(priv);
+    if (pub != NULL)
+        EC_KEY_free(pub);
+#else
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+#endif
     if (ec_priv != NULL)
-        EC_KEY_free(ec_priv);
+        EVP_PKEY_free(ec_priv);
     if (ec_pub != NULL)
-        EC_KEY_free(ec_pub);
+        EVP_PKEY_free(ec_pub);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
 
     return rc;
 }
@@ -4807,7 +5050,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 {
     CK_KEY_TYPE keytype;
 #ifndef NO_EC
-    EC_KEY *ec_key = NULL;
+    EVP_PKEY *ec_key = NULL;
 #endif
     CK_RV rc;
 
@@ -4824,7 +5067,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         /* Check if OpenSSL supports the curve */
         rc = make_ec_key_from_template(obj->template, &ec_key);
         if (ec_key != NULL)
-                EC_KEY_free(ec_key);
+                EVP_PKEY_free(ec_key);
         return rc;
 #endif
 
