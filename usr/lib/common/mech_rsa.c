@@ -1476,7 +1476,7 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
                            in_data, in_data_len, hash, &hlen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
 
@@ -1497,7 +1497,7 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 done:
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -1546,6 +1546,7 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
         }
+        ctx->state_unsaveable |= digest_ctx->state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, digest_ctx, in_data,
@@ -1613,7 +1614,7 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Sign Mgr Sign failed.\n");
 
 done:
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -1676,7 +1677,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                            in_data_len, hash, &hlen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
 
@@ -1698,7 +1699,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Verify Mgr Verify failed.\n");
 
 done:
-    verify_mgr_cleanup(&verify_ctx);
+    verify_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }
@@ -1760,7 +1761,7 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
         TRACE_DEVEL("Verify Mgr Verify failed.\n");
 
 done:
-    verify_mgr_cleanup(&verify_ctx);
+    verify_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }
@@ -1842,7 +1843,7 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
     // build the BER-encodings
@@ -1885,7 +1886,7 @@ error:
         free(octet_str);
     if (ber_data)
         free(ber_data);
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -1934,6 +1935,7 @@ CK_RV rsa_hash_pkcs_sign_update(STDLL_TokData_t *tokdata,
             return rc;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -2021,7 +2023,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
                            in_data_len, hash, &hash_len);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Digest failed.\n");
-        digest_mgr_cleanup(&digest_ctx);
+        digest_mgr_cleanup(tokdata, sess, &digest_ctx);
         return rc;
     }
     // Build the BER encoding
@@ -2063,7 +2065,7 @@ done:
         free(octet_str);
     if (ber_data)
         free(ber_data);
-    sign_mgr_cleanup(&verify_ctx);
+    sign_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }
@@ -2111,6 +2113,7 @@ CK_RV rsa_hash_pkcs_verify_update(STDLL_TokData_t *tokdata,
             return rc;
         }
         context->flag = TRUE;
+        ctx->state_unsaveable |= context->hash_context.state_unsaveable;
     }
 
     rc = digest_mgr_digest_update(tokdata, sess, &context->hash_context,
@@ -2236,7 +2239,7 @@ done:
         free(octet_str);
     if (ber_data)
         free(ber_data);
-    sign_mgr_cleanup(&sign_ctx);
+    sign_mgr_cleanup(tokdata, sess, &sign_ctx);
 
     return rc;
 }
@@ -2347,7 +2350,7 @@ done:
         free(octet_str);
     if (ber_data)
         free(ber_data);
-    verify_mgr_cleanup(&verify_ctx);
+    verify_mgr_cleanup(tokdata, sess, &verify_ctx);
 
     return rc;
 }

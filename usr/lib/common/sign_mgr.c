@@ -805,7 +805,8 @@ done:
 
 //
 //
-CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
+CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                       SIGN_VERIFY_CONTEXT *ctx)
 {
     if (!ctx) {
         TRACE_ERROR("Invalid function argument.\n");
@@ -821,6 +822,7 @@ CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
     ctx->recover = FALSE;
     ctx->context_len = 0;
     ctx->pkey_active = FALSE;
+    ctx->state_unsaveable = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);
@@ -828,9 +830,14 @@ CK_RV sign_mgr_cleanup(SIGN_VERIFY_CONTEXT *ctx)
     }
 
     if (ctx->context) {
-        free(ctx->context);
+        if (ctx->context_free_func != NULL)
+            ctx->context_free_func(tokdata, sess, ctx->context,
+                                   ctx->context_len);
+        else
+            free(ctx->context);
         ctx->context = NULL;
     }
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }

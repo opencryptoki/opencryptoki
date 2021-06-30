@@ -21,27 +21,36 @@
 
 #include "local_types.h"
 
+struct _SESSION;
+
+typedef void (*context_free_func_t)(STDLL_TokData_t *tokdata, struct _SESSION *sess,
+                                    CK_BYTE *context, CK_ULONG context_len);
+
 typedef struct _ENCR_DECR_CONTEXT {
     CK_OBJECT_HANDLE key;
     CK_MECHANISM mech;
     CK_BYTE *context;
     CK_ULONG context_len;
+    context_free_func_t context_free_func;
     CK_BBOOL multi;
     CK_BBOOL active;
     CK_BBOOL init_pending;      // indicate init request pending
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
     CK_BBOOL pkey_active;
+    CK_BBOOL state_unsaveable;
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {
     CK_MECHANISM mech;
     CK_BYTE *context;
     CK_ULONG context_len;
+    context_free_func_t context_free_func;
     CK_BBOOL multi;
     CK_BBOOL active;
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
+    CK_BBOOL state_unsaveable;
 } DIGEST_CONTEXT;
 
 typedef struct _SIGN_VERIFY_CONTEXT {
@@ -49,6 +58,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_MECHANISM mech;          // current sign mechanism
     CK_BYTE *context;           // temporary work area
     CK_ULONG context_len;
+    context_free_func_t context_free_func;
     CK_BBOOL multi;             // is this a multi-part operation?
     CK_BBOOL recover;           // are we in recover mode?
     CK_BBOOL active;
@@ -56,6 +66,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
     CK_BBOOL pkey_active;
+    CK_BBOOL state_unsaveable;
 } SIGN_VERIFY_CONTEXT;
 
 
