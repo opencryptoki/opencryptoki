@@ -20,30 +20,50 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <openssl/crypto.h>
 
 //
 // Software MD5 implementation (OpenSSL based)
 //
 
-void sw_md5_init(DIGEST_CONTEXT *ctx)
+static void sw_md5_free(STDLL_TokData_t *tokdata, SESSION *sess,
+                        CK_BYTE *context, CK_ULONG context_len)
 {
-    ctx->context_len = sizeof(MD5_CTX);
-    ctx->context = (CK_BYTE *) malloc(sizeof(MD5_CTX));
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)context);
+}
+
+CK_RV sw_md5_init(DIGEST_CONTEXT *ctx)
+{
+    ctx->context_len = 1;
+    ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
     if (ctx->context == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        // TODO: propagate error up?
-        return;
+        return CKR_HOST_MEMORY;
     }
 
-    MD5_Init((MD5_CTX *)ctx->context);
+    if (!EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, EVP_md5(), NULL)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = sw_md5_free;
+
+    return CKR_OK;
 }
 
 CK_RV sw_md5_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                   CK_ULONG in_data_len, CK_BYTE *out_data,
                   CK_ULONG *out_data_len)
 {
+    unsigned int len;
+
     if (!ctx || !out_data_len) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
@@ -57,43 +77,60 @@ CK_RV sw_md5_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    MD5_Update((MD5_CTX *)ctx->context, in_data, in_data_len);
-    MD5_Final(out_data, (MD5_CTX *)ctx->context);
-    *out_data_len = MD5_HASH_SIZE;
+    len = *out_data_len;
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
+        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
 
-    if (ctx->context_free_func != NULL)
-        ctx->context_free_func(ctx->context, ctx->context_len);
-    else
-        free(ctx->context);
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
     ctx->context = NULL;
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
 
-CK_RV sw_MD5_Update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
-                     CK_ULONG in_data_len)
+static CK_RV sw_md5_update(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
+                           CK_ULONG in_data_len)
 {
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    MD5_Update((MD5_CTX *)ctx->context, in_data, in_data_len);
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
     return CKR_OK;
 }
 
-CK_RV sw_MD5_Final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
-                    CK_ULONG *out_data_len)
+static CK_RV sw_md5_final(DIGEST_CONTEXT *ctx, CK_BYTE *out_data,
+                          CK_ULONG *out_data_len)
 {
+    unsigned int len;
+
     if (ctx->context == NULL)
         return CKR_OPERATION_NOT_INITIALIZED;
 
-    MD5_Final(out_data, (MD5_CTX *)ctx->context);
-    *out_data_len = MD5_HASH_SIZE;
+    if (*out_data_len < MD5_HASH_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
 
-    if (ctx->context_free_func != NULL)
-        ctx->context_free_func(ctx->context, ctx->context_len);
-    else
-        free(ctx->context);
+    len = *out_data_len;
+    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
     ctx->context = NULL;
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
@@ -105,8 +142,7 @@ CK_RV md5_init(STDLL_TokData_t *tokdata, SESSION *sess, DIGEST_CONTEXT *ctx,
     UNUSED(sess);
 
     if (mech->mechanism == CKM_MD5) {
-        sw_md5_init(ctx);
-        return CKR_OK;
+        return sw_md5_init(ctx);
     } else {
         return CKR_MECHANISM_INVALID;
     }
@@ -159,7 +195,7 @@ CK_RV md5_hash_update(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_OK;
 
     if (ctx->mech.mechanism == CKM_MD5)
-        return sw_MD5_Update(ctx, in_data, in_data_len);
+        return sw_md5_update(ctx, in_data, in_data_len);
     else
         return CKR_MECHANISM_INVALID;
 }
@@ -188,7 +224,7 @@ CK_RV md5_hash_final(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     if (ctx->mech.mechanism == CKM_MD5)
-        return sw_MD5_Final(ctx, out_data, out_data_len);
+        return sw_md5_final(ctx, out_data, out_data_len);
     else
         return CKR_MECHANISM_INVALID;
 }

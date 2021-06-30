@@ -1667,7 +1667,7 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata,
                       CK_ULONG in_data_len,
                       CK_BYTE *signature, CK_ULONG sig_len);
 
-void sw_md5_init(DIGEST_CONTEXT *ctx);
+CK_RV sw_md5_init(DIGEST_CONTEXT *ctx);
 
 CK_RV sw_md5_hash(DIGEST_CONTEXT *ctx, CK_BYTE *in_data,
                   CK_ULONG in_data_len, CK_BYTE *out_data,
