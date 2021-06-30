@@ -272,7 +272,7 @@ OPENSSL_CFLAGS=
 OPENSSL_LIBS=
 if test "x$with_openssl" != "xno"; then
 	if test "x$with_openssl" != "xyes" -a "x$with_openssl" != "xcheck"; then
-		OPENSSL_CFLAGS="-I$with_openssl"
+		OPENSSL_CFLAGS="-I$with_openssl/include"
 		OPENSSL_LIBS="-L$with_openssl"
 	fi
 	old_cflags="$CFLAGS"
