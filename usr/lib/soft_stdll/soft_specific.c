@@ -3994,6 +3994,9 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     UNUSED(tokdata);
 
     if (first) {
+        if (key == NULL)
+            return CKR_ARGUMENTS_BAD;
+
         // get the key type
         rv = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
         if (rv != CKR_OK) {
@@ -4194,6 +4197,9 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     UNUSED(tokdata);
 
     if (first) {
+        if (key == NULL)
+            return CKR_ARGUMENTS_BAD;
+
         // get the key value
         rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
         if (rc != CKR_OK) {
