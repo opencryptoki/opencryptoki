@@ -361,24 +361,29 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
 
         if (!keysize_supported(slot_id, mech2->key_gen_mech.mechanism,
                                mech2->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with "
-                          "modbits.='%ld'", slot_id, mech2->rsa_modbits);
+            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+                          slot_id, mech2->rsa_modbits);
             goto testcase_cleanup;
         }
 
         if (is_ep11_token(slot_id)) {
             if (!is_valid_ep11_pubexp(mech2->rsa_publ_exp,
                                       mech2->rsa_publ_exp_len)) {
-                testcase_skip("EP11 Token in cannot be used with "
-                             "publ_exp.='%s'", s);
+                testcase_skip("EP11 Token in cannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(mech2->rsa_publ_exp,
                                      mech2->rsa_publ_exp_len)) {
-                testcase_skip("CCA Token in cannot be used with "
-                        "     publ_exp.='%s'", s);
+                testcase_skip("CCA Token in cannot be used with publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(mech2->rsa_publ_exp,
+                                      mech2->rsa_publ_exp_len)) {
+                testcase_skip("Soft Token in cannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -386,8 +391,7 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
             if (!is_valid_tpm_pubexp(mech2->rsa_publ_exp,
                                      mech2->rsa_publ_exp_len) ||
                 !is_valid_tpm_modbits(mech2->rsa_modbits)) {
-                testcase_skip("TPM Token cannot be used with "
-                              "publ_exp.='%s'", s);
+                testcase_skip("TPM Token cannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -395,8 +399,7 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
             if (!is_valid_icsf_pubexp(mech2->rsa_publ_exp,
                                       mech2->rsa_publ_exp_len) ||
                 mech2->rsa_modbits < 1024) {
-                testcase_skip("ICSF Token cannot be used with "
-                              "publ_exp='%s'.", s);
+                testcase_skip("ICSF Token cannot be used with publ_exp='%s'.", s);
                 goto testcase_cleanup;
             }
         }
@@ -615,6 +618,14 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
             if (!is_valid_cca_pubexp(mech1->rsa_publ_exp,
                                      mech1->rsa_publ_exp_len)) {
                 testsuite_skip(NUM_REENCRYPT_TESTS, "CCA Token cannot be "
+                               "used with publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(mech1->rsa_publ_exp,
+                                      mech1->rsa_publ_exp_len)) {
+                testsuite_skip(NUM_REENCRYPT_TESTS, "Soft Token cannot be "
                                "used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
