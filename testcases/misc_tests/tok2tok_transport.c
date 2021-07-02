@@ -581,30 +581,35 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
 
         if (!keysize_supported(slot_id1, tsuite->wrapped_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %lu cannot be used with "
-                          "modbits.='%ld'", slot_id1, tsuite->rsa_modbits);
+            testcase_skip("Token in slot %lu cannot be used with modbits.='%ld'",
+                          slot_id1, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
         if (!keysize_supported(slot_id2, tsuite->wrapped_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %lu cannot be used with "
-                          "modbits.='%ld'", slot_id2, tsuite->rsa_modbits);
+            testcase_skip("Token in slot %lu cannot be used with modbits.='%ld'",
+                          slot_id2, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
 
         if (is_ep11_token(slot_id1) || is_ep11_token(slot_id2)) {
             if (!is_valid_ep11_pubexp(tsuite->rsa_publ_exp,
                                       tsuite->rsa_publ_exp_len)) {
-                testcase_skip("EP11 Token in cannot be used with "
-                             "publ_exp.='%s'", s);
+                testcase_skip("EP11 Token in cannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
         if (is_cca_token(slot_id1) || is_cca_token(slot_id2)) {
             if (!is_valid_cca_pubexp(tsuite->rsa_publ_exp,
                                      tsuite->rsa_publ_exp_len)) {
-                testcase_skip("CCA Token in scannot be used with "
-                              "publ_exp.='%s'", s);
+                testcase_skip("CCA Token in scannot be used with publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
+        if (is_soft_token(slot_id1) || is_cca_token(slot_id2)) {
+            if (!is_valid_soft_pubexp(tsuite->rsa_publ_exp,
+                                      tsuite->rsa_publ_exp_len)) {
+                testcase_skip("Soft Token in scannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -612,8 +617,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             if (!is_valid_tpm_pubexp(tsuite->rsa_publ_exp,
                                      tsuite->rsa_publ_exp_len) ||
                 !is_valid_tpm_modbits(tsuite->rsa_modbits)) {
-                testcase_skip("TPM Token cannot " "be used with "
-                              "publ_exp.='%s'", s);
+                testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -621,8 +625,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
             if (!is_valid_icsf_pubexp(tsuite->rsa_publ_exp,
                                       tsuite->rsa_publ_exp_len) ||
                 tsuite->rsa_modbits < 1024) {
-                testcase_skip("ICSF Token cannot be used with "
-                              "publ_exp='%s'.", s);
+                testcase_skip("ICSF Token cannot be used with publ_exp='%s'.", s);
                 goto testcase_cleanup;
             }
         }
@@ -967,31 +970,36 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         if (!keysize_supported(slot_id1,
                                tsuite->wrapping_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with "
-                          "modbits.='%ld'", slot_id1, tsuite->rsa_modbits);
+            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+                          slot_id1, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
         if (!keysize_supported(slot_id2,
                                tsuite->wrapping_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with "
-                          "modbits.='%ld'", slot_id2, tsuite->rsa_modbits);
+            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+                          slot_id2, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
 
         if (is_ep11_token(slot_id1) || is_ep11_token(slot_id2)) {
             if (!is_valid_ep11_pubexp(tsuite->rsa_publ_exp,
                                       tsuite->rsa_publ_exp_len)) {
-                testcase_skip("EP11 Token in cannot be used with "
-                             "publ_exp.='%s'", s);
+                testcase_skip("EP11 Token in cannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
         if (is_cca_token(slot_id1) || is_cca_token(slot_id2)) {
             if (!is_valid_cca_pubexp(tsuite->rsa_publ_exp,
                                      tsuite->rsa_publ_exp_len)) {
-                testcase_skip("CCA Token in scannot be used with "
-                              "publ_exp.='%s'", s);
+                testcase_skip("CCA Token in scannot be used with publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
+        if (is_soft_token(slot_id1) || is_soft_token(slot_id2)) {
+            if (!is_valid_soft_pubexp(tsuite->rsa_publ_exp,
+                                      tsuite->rsa_publ_exp_len)) {
+                testcase_skip("Soft Token in scannot be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -999,8 +1007,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             if (!is_valid_tpm_pubexp(tsuite->rsa_publ_exp,
                                      tsuite->rsa_publ_exp_len) ||
                 !is_valid_tpm_modbits(tsuite->rsa_modbits)) {
-                testcase_skip("TPM Token cannot " "be used with "
-                              "publ_exp.='%s'", s);
+                testcase_skip("TPM Token cannot " "be used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
         }
@@ -1008,8 +1015,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
             if (!is_valid_icsf_pubexp(tsuite->rsa_publ_exp,
                                       tsuite->rsa_publ_exp_len) ||
                 tsuite->rsa_modbits < 1024) {
-                testcase_skip("ICSF Token cannot be used with "
-                              "publ_exp='%s'.", s);
+                testcase_skip("ICSF Token cannot be used with publ_exp='%s'.", s);
                 goto testcase_cleanup;
             }
         }

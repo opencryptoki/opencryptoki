@@ -96,8 +96,8 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with "
-                          "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+                          SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
         }
@@ -105,8 +105,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         if (is_ep11_token(slot_id)) {
             if (!is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len)) {
-                testcase_skip("EP11 Token cannot "
-                              "be used with publ_exp.='%s'", s);
+                testcase_skip("EP11 Token cannot be used with publ_exp.='%s'", s);
                 free(s);
                 continue;
             }
@@ -115,19 +114,27 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
                                      tsuite->tv[i].publ_exp_len)) {
-                testcase_skip("CCA Token cannot "
-                              "be used with publ_exp='%s'.", s);
+                testcase_skip("CCA Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
         }
 
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+
         if (is_tpm_token(slot_id)) {
             if ((!is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len))
                 || (!is_valid_tpm_modbits(tsuite->tv[i].modbits))) {
-                testcase_skip("TPM Token cannot " "be used with publ_exp='%s'.",
-                              s);
+                testcase_skip("TPM Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -137,8 +144,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             if (!is_valid_icsf_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len) ||
                 (tsuite->tv[i].modbits < 1024)) {
-                testcase_skip("ICSF Token cannot "
-                              "be used with publ_exp='%s'.", s);
+                testcase_skip("ICSF Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -162,8 +168,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
-            testcase_error("generate_RSA_PKCS_KeyPair(), "
-                           "rc=%s", p11_get_ckr(rc));
+            testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
@@ -367,8 +372,8 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with "
-                          "modbits.='%ld'", SLOT_ID, tsuite->tv[i].modbits);
+            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+                          SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
         }
@@ -376,8 +381,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         if (is_ep11_token(slot_id)) {
             if (!is_valid_ep11_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len)) {
-                testcase_skip("EP11 Token cannot "
-                              "be used with publ_exp.='%s'", s);
+                testcase_skip("EP11 Token cannot be used with publ_exp.='%s'", s);
                 free(s);
                 continue;
             }
@@ -386,8 +390,16 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
                                      tsuite->tv[i].publ_exp_len)) {
-                testcase_skip("CCA Token cannot "
-                              "be used with publ_exp='%s'.", s);
+                testcase_skip("CCA Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -412,8 +424,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
-            testcase_error("generate_RSA_PKCS_KeyPair(), "
-                           "rc=%s", p11_get_ckr(rc));
+            testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
         // generate message
@@ -639,8 +650,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (is_ep11_token(slot_id)) {
             if (!is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
                                       tsuite->tv[i].pubexp_len)) {
-                testcase_skip("EP11 Token cannot "
-                              "be used with pub_exp.='%s'", s);
+                testcase_skip("EP11 Token cannot be used with pub_exp.='%s'", s);
                 free(s);
                 continue;
             }
@@ -650,8 +660,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             if ((!is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
                                       tsuite->tv[i].pubexp_len)) ||
                 (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
-                testcase_skip("TPM Token cannot "
-                              "be used with pub_exp='%s'.", s);
+                testcase_skip("TPM Token cannot be used with pub_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -660,8 +669,16 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
                                      tsuite->tv[i].pubexp_len)) {
-                testcase_skip("CCA Token cannot "
-                              "be used with publ_exp='%s'.", s);
+                testcase_skip("CCA Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -826,8 +843,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 (tsuite->tv[i].exp2_len >
                  (tsuite->tv[i].mod_len / 2)) ||
                 (tsuite->tv[i].coef_len > (tsuite->tv[i].mod_len / 2))) {
-                testcase_skip("ICA Token cannot be used with "
-                              "this test vector.");
+                testcase_skip("ICA Token cannot be used with this test vector.");
                 free(s);
                 continue;
             }
@@ -848,8 +864,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (is_ep11_token(slot_id)) {
             if (!is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
                                       tsuite->tv[i].pubexp_len)) {
-                testcase_skip("EP11 Token cannot "
-                              "be used with publ_exp.='%s'", s);
+                testcase_skip("EP11 Token cannot be used with publ_exp.='%s'", s);
                 free(s);
                 continue;
             }
@@ -859,8 +874,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             if ((!is_valid_tpm_pubexp(tsuite->tv[i].pub_exp,
                                       tsuite->tv[i].pubexp_len)) ||
                 (!is_valid_tpm_modbits(tsuite->tv[i].mod_len))) {
-                testcase_skip("TPM Token cannot "
-                              "be used with pub_exp='%s'.", s);
+                testcase_skip("TPM Token cannot be used with pub_exp='%s'.", s);
                 free(s);
                 continue;
             }
@@ -869,8 +883,16 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (is_cca_token(slot_id)) {
             if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
                                      tsuite->tv[i].pubexp_len)) {
-                testcase_skip("CCA Token cannot "
-                              "be used with publ_exp='%s'.", s);
+                testcase_skip("CCA Token cannot be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("Soft Token cannot be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
             }
