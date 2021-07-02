@@ -876,6 +876,16 @@ int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
         || (pubexp_len == 3 && (!memcmp(pubexp, exp65537, 3)));
 }
 
+/** Returns true if pubexp is valid for Soft Tokens **/
+int is_valid_soft_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
+{
+    CK_BYTE exp3[] = { 0x03 };  // 3
+    CK_BYTE exp65537[] = { 0x01, 0x00, 0x01 };  // 65537
+
+    return (pubexp_len == 1 && (!memcmp(pubexp, exp3, 1)))
+        || (pubexp_len == 3 && (!memcmp(pubexp, exp65537, 3)));
+}
+
 /** Returns true if slot_id is an ICSF token
  ** ICSF token info is not necessarily hard-coded like the other tokens
  ** so there is no single identifying attribute. So, instead just

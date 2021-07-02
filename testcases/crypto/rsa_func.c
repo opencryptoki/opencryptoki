@@ -148,6 +148,16 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                  continue;
              }
         }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot "
+                              "be used with publ_exp.='%s'", s);
+                free(s);
+                continue;
+            }
+        }
         // tpm special cases:
         // tpm token can only use public exponent 0x010001 (65537)
         // so skip test if invalid public exponent is used
@@ -437,6 +447,17 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                 continue;
             }
         }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("Soft Token cannot "
+                              "be used with publ_exp.='%s'", s);
+                free(s);
+                continue;
+            }
+        }
+
         // tpm special cases:
         // tpm token can only use public exponent 0x010001 (65537)
         // so skip test if invalid public exponent is used
@@ -717,6 +738,16 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
             }
         }
 
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+
         if (is_tpm_token(slot_id)) {
             if ((!is_valid_tpm_pubexp(tsuite->tv[i].publ_exp,
                                       tsuite->tv[i].publ_exp_len))
@@ -953,6 +984,15 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             if (!is_valid_cca_pubexp(tsuite->tv[i].publ_exp,
                                      tsuite->tv[i].publ_exp_len)) {
                 testcase_skip("CCA Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot "
                               "be used with publ_exp='%s'.", s);
                 free(s);
                 continue;
@@ -1227,6 +1267,15 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                  free(s);
                  continue;
              }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].publ_exp,
+                                      tsuite->tv[i].publ_exp_len)) {
+                testcase_skip("Soft Token cannot "
+                              "be used with publ_exp='%s'.", s);
+                free(s);
+                continue;
+            }
         }
 
         // begin test
@@ -1590,6 +1639,15 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             }
         }
 
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("Soft Token cannot "
+                              "be used with this test vector.");
+                continue;
+            }
+        }
+
         // clear buffers
         memset(message, 0, MAX_MESSAGE_SIZE);
         memset(actual, 0, MAX_SIGNATURE_SIZE);
@@ -1755,6 +1813,15 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             if (!is_valid_cca_pubexp(tsuite->tv[i].pub_exp,
                                      tsuite->tv[i].pubexp_len)) {
                 testcase_skip("CCA Token cannot "
+                              "be used with this test vector.");
+                continue;
+            }
+        }
+
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(tsuite->tv[i].pub_exp,
+                                      tsuite->tv[i].pubexp_len)) {
+                testcase_skip("Soft Token cannot "
                               "be used with this test vector.");
                 continue;
             }

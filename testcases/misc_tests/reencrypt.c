@@ -382,6 +382,14 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
                 goto testcase_cleanup;
             }
         }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(mech2->rsa_publ_exp,
+                                      mech2->rsa_publ_exp_len)) {
+                testcase_skip("Soft Token in cannot be used with "
+                        "     publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
         if (is_tpm_token(slot_id) ) {
             if (!is_valid_tpm_pubexp(mech2->rsa_publ_exp,
                                      mech2->rsa_publ_exp_len) ||
@@ -615,6 +623,14 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
             if (!is_valid_cca_pubexp(mech1->rsa_publ_exp,
                                      mech1->rsa_publ_exp_len)) {
                 testsuite_skip(NUM_REENCRYPT_TESTS, "CCA Token cannot be "
+                               "used with publ_exp.='%s'", s);
+                goto testcase_cleanup;
+            }
+        }
+        if (is_soft_token(slot_id)) {
+            if (!is_valid_soft_pubexp(mech1->rsa_publ_exp,
+                                      mech1->rsa_publ_exp_len)) {
+                testsuite_skip(NUM_REENCRYPT_TESTS, "Soft Token cannot be "
                                "used with publ_exp.='%s'", s);
                 goto testcase_cleanup;
             }
