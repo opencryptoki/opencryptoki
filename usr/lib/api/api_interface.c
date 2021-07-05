@@ -37,6 +37,28 @@
 
 void api_init();
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+#define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)                                  \
+        do {                                                                \
+            OSSL_LIB_CTX  *prev_ctx = OSSL_LIB_CTX_set0_default((ossl_ctx));\
+            if (prev_ctx == NULL) {                                         \
+                (rc) = CKR_FUNCTION_FAILED;                                 \
+                TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");          \
+                break;                                                      \
+            }
+
+#define END_OPENSSL_LIBCTX(rc)                                              \
+            if (OSSL_LIB_CTX_set0_default(prev_ctx) == NULL) {              \
+                if ((rc) == CKR_OK)                                         \
+                    (rc) = CKR_FUNCTION_FAILED;                             \
+                TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");          \
+            }                                                               \
+        } while (0);
+#else
+#define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)  do {
+#define END_OPENSSL_LIBCTX(rc)              } while (0);
+#endif
+
 // NOTES:
 // In many cases the specificaiton does not allow returns
 // of CKR_ARGUMENTSB_BAD.  We break the spec, since validation of parameters
@@ -347,6 +369,7 @@ CK_RV C_CancelFunction(CK_SESSION_HANDLE hSession)
 
 CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
 {
+    CK_RV rc = CKR_OK;
     // Although why does modutil do a close all sessions.  It is a single
     // application it can only close its sessions...
     // And all sessions should be closed anyhow.
@@ -365,9 +388,11 @@ CK_RV C_CloseAllSessions(CK_SLOT_ID slotID)
     /* for every node in the API-level session tree, if the session's slot
      * matches slotID, close it
      */
+    BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
     CloseAllSessions(slotID, FALSE);
+    END_OPENSSL_LIBCTX(rc)
 
-    return CKR_OK;
+    return rc;
 }                               // end of C_CloseAllSessions
 
 //------------------------------------------------------------------------
@@ -408,9 +433,12 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_CloseSession) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_CloseSession(sltp->TokData, &rSession, FALSE);
         TRACE_DEVEL("Called STDLL rv = 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
+
         //  If the STDLL successfully closed the session
         //  we can free it.. Otherwise we will have to leave it
         //  lying arround.
@@ -488,9 +516,12 @@ CK_RV C_CopyObject(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_CopyObject) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_CopyObject(sltp->TokData, &rSession, hObject,
                                 pTemplate, ulCount, phNewObject);
+        TRACE_DEVEL("fcn->ST_CopyObject returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -558,10 +589,12 @@ CK_RV C_CreateObject(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_CreateObject) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_CreateObject(sltp->TokData, &rSession, pTemplate,
                                   ulCount, phObject);
         TRACE_DEVEL("fcn->ST_CreateObject returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -611,10 +644,12 @@ CK_RV C_Decrypt(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Decrypt) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Decrypt(sltp->TokData, &rSession, pEncryptedData,
                              ulEncryptedDataLen, pData, pulDataLen);
         TRACE_DEVEL("fcn->ST_Decrypt returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -661,11 +696,13 @@ CK_RV C_DecryptDigestUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DecryptDigestUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DecryptDigestUpdate(sltp->TokData, &rSession,
                                          pEncryptedPart,
                                          ulEncryptedPartLen, pPart, pulPartLen);
         TRACE_DEVEL("fcn->ST_DecryptDigestUpdate returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -714,10 +751,12 @@ CK_RV C_DecryptFinal(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DecryptFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DecryptFinal(sltp->TokData, &rSession, pLastPart,
                                   pulLastPartLen);
         TRACE_DEVEL("fcn->ST_DecryptFinal returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -771,9 +810,11 @@ CK_RV C_DecryptInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DecryptInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DecryptInit(sltp->TokData, &rSession, pMechanism, hKey);
         TRACE_DEVEL("fcn->ST_DecryptInit returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -823,11 +864,13 @@ CK_RV C_DecryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DecryptUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DecryptUpdate(sltp->TokData, &rSession,
                                    pEncryptedPart, ulEncryptedPartLen,
                                    pPart, pulPartLen);
         TRACE_DEVEL("fcn->ST_DecryptUpdate:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -873,11 +916,13 @@ CK_RV C_DecryptVerifyUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DecryptVerifyUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DecryptVerifyUpdate(sltp->TokData, &rSession,
                                          pEncryptedPart, ulEncryptedPartLen,
                                          pPart, pulPartLen);
         TRACE_DEVEL("fcn->ST_DecryptVerifyUpdate returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -941,10 +986,12 @@ CK_RV C_DeriveKey(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DeriveKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DeriveKey(sltp->TokData, &rSession, pMechanism,
                                hBaseKey, pTemplate, ulAttributeCount, phKey);
         TRACE_DEVEL("fcn->ST_DeriveKey returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -992,9 +1039,11 @@ CK_RV C_DestroyObject(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hObject)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DestroyObject) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DestroyObject(sltp->TokData, &rSession, hObject);
         TRACE_DEVEL("fcn->ST_DestroyObject returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1040,10 +1089,12 @@ CK_RV C_Digest(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Digest) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Digest(sltp->TokData, &rSession, pData, ulDataLen,
                             pDigest, pulDigestLen);
         TRACE_DEVEL("fcn->ST_Digest:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1091,11 +1142,13 @@ CK_RV C_DigestEncryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DigestEncryptUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DigestEncryptUpdate(sltp->TokData, &rSession,
                                          pPart, ulPartLen,
                                          pEncryptedPart, pulEncryptedPartLen);
         TRACE_DEVEL("fcn->ST_DigestEncryptUpdate returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1139,10 +1192,12 @@ CK_RV C_DigestFinal(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DigestFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DigestFinal(sltp->TokData, &rSession, pDigest,
                                  pulDigestLen);
         TRACE_DEVEL("fcn->ST_DigestFinal returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1189,9 +1244,11 @@ CK_RV C_DigestInit(CK_SESSION_HANDLE hSession, CK_MECHANISM_PTR pMechanism)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DigestInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DigestInit(sltp->TokData, &rSession, pMechanism);
         TRACE_DEVEL("fcn->ST_DigestInit returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1234,9 +1291,11 @@ CK_RV C_DigestKey(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE hKey)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DigestKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DigestKey(sltp->TokData, &rSession, hKey);
         TRACE_DEBUG("fcn->ST_DigestKey returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1280,9 +1339,11 @@ CK_RV C_DigestUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_DigestUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_DigestUpdate(sltp->TokData, &rSession, pPart, ulPartLen);
         TRACE_DEVEL("fcn->ST_DigestUpdate returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1328,10 +1389,12 @@ CK_RV C_Encrypt(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Encrypt) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Encrypt(sltp->TokData, &rSession, pData,
                              ulDataLen, pEncryptedData, pulEncryptedDataLen);
         TRACE_DEVEL("fcn->ST_Encrypt returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1376,10 +1439,12 @@ CK_RV C_EncryptFinal(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_EncryptFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_EncryptFinal(sltp->TokData, &rSession,
                                   pLastEncryptedPart, pulLastEncryptedPartLen);
         TRACE_DEVEL("fcn->ST_EncryptFinal: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1427,9 +1492,11 @@ CK_RV C_EncryptInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_EncryptInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_EncryptInit(sltp->TokData, &rSession, pMechanism, hKey);
         TRACE_INFO("fcn->ST_EncryptInit returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1476,11 +1543,13 @@ CK_RV C_EncryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_EncryptUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_EncryptUpdate(sltp->TokData, &rSession, pPart,
                                    ulPartLen, pEncryptedPart,
                                    pulEncryptedPartLen);
         TRACE_DEVEL("fcn->ST_EncryptUpdate returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1543,6 +1612,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     // unload all the STDLL's from the application
     // This is in case the APP decides to do the re-initialize and
     // continue on
+    BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
         if (slot_loaded[slotID]) {
@@ -1565,11 +1635,19 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
         if (!in_child_fork_initializer)
             DL_UnLoad(sltp, slotID);
     }
+    END_OPENSSL_LIBCTX(rc)
 
     // Un register from Slot D
     API_UnRegister();
 
     bt_destroy(&Anchor->sess_btree);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (Anchor->openssl_default_provider != NULL)
+        OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
+    if (Anchor->openssl_libctx != NULL)
+        OSSL_LIB_CTX_free(Anchor->openssl_libctx);
+#endif
 
     detach_shared_memory(Anchor->SharedMemP);
     free(Anchor);               // Free API Proc Struct
@@ -1632,10 +1710,12 @@ CK_RV C_FindObjects(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_FindObjects) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_FindObjects(sltp->TokData, &rSession, phObject,
                                  ulMaxObjectCount, pulObjectCount);
         TRACE_DEVEL("fcn->ST_FindObjects returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1683,9 +1763,11 @@ CK_RV C_FindObjectsFinal(CK_SESSION_HANDLE hSession)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_FindObjectsFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_FindObjectsFinal(sltp->TokData, &rSession);
         TRACE_DEVEL("fcn->ST_FindObjectsFinal returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1736,10 +1818,12 @@ CK_RV C_FindObjectsInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_FindObjectsInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_FindObjectsInit(sltp->TokData, &rSession,
                                      pTemplate, ulCount);
         TRACE_DEVEL("fcn->ST_FindObjectsInit returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1794,10 +1878,12 @@ CK_RV C_GenerateKey(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GenerateKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GenerateKey(sltp->TokData, &rSession, pMechanism,
                                  pTemplate, ulCount, phKey);
         TRACE_DEVEL("fcn->ST_GenerateKey returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1861,6 +1947,7 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GenerateKeyPair) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GenerateKeyPair(sltp->TokData, &rSession,
                                      pMechanism,
@@ -1870,6 +1957,7 @@ CK_RV C_GenerateKeyPair(CK_SESSION_HANDLE hSession,
                                      ulPrivateKeyAttributeCount,
                                      phPublicKey, phPrivateKey);
         TRACE_DEVEL("fcn->ST_GenerateKeyPair returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1917,10 +2005,12 @@ CK_RV C_GenerateRandom(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GenerateRandom) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GenerateRandom(sltp->TokData, &rSession,
                                     RandomData, ulRandomLen);
         TRACE_DEVEL("fcn->ST_GenerateRandom returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -1977,10 +2067,12 @@ CK_RV C_GetAttributeValue(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetAttributeValue) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GetAttributeValue(sltp->TokData, &rSession,
                                        hObject, pTemplate, ulCount);
         TRACE_DEVEL("fcn->ST_GetAttributeValue returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2098,8 +2190,10 @@ CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetMechanismInfo) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_GetMechanismInfo(sltp->TokData, slotID, type, pInfo);
         TRACE_DEVEL("fcn->ST_GetMechanismInfo returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2156,9 +2250,11 @@ CK_RV C_GetMechanismList(CK_SLOT_ID slotID,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetMechanismList) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_GetMechanismList(sltp->TokData, slotID,
                                       pMechanismList, pulCount);
         TRACE_DEVEL("fcn->ST_GetMechanismList returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2220,9 +2316,11 @@ CK_RV C_GetObjectSize(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetObjectSize) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GetObjectSize(sltp->TokData, &rSession, hObject, pulSize);
         TRACE_DEVEL("fcn->ST_GetObjectSize retuned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2272,10 +2370,12 @@ CK_RV C_GetOperationState(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetOperationState) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GetOperationState(sltp->TokData, &rSession,
                                        pOperationState, pulOperationStateLen);
         TRACE_DEVEL("fcn->ST_GetOperationState returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2328,6 +2428,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetSessionInfo) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_GetSessionInfo(sltp->TokData, &rSession, pInfo);
 
@@ -2335,6 +2436,7 @@ CK_RV C_GetSessionInfo(CK_SESSION_HANDLE hSession, CK_SESSION_INFO_PTR pInfo)
         TRACE_DEVEL("Slot %lu  State %lx  Flags %lx DevErr %lx\n",
                     pInfo->slotID, pInfo->state, pInfo->flags,
                     pInfo->ulDeviceError);
+        END_OPENSSL_LIBCTX(rv)
 
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
@@ -2650,11 +2752,13 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_GetTokenInfo) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_GetTokenInfo(sltp->TokData, slotID, pInfo);
         if (rv == CKR_OK) {
             get_sess_count(slotID, &(pInfo->ulSessionCount));
         }
         TRACE_DEVEL("rv %lu CK_TOKEN_INFO Flags %lx\n", rv, pInfo->flags);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -2814,6 +2918,35 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     bt_init(&Anchor->sess_btree, free);
     Anchor->Pid = getpid();
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    /*
+     * OpenSSL >= 3.0:
+     * Create a separate library context for Opencryptoki's use of OpenSSL
+     * services and explicitly load the 'default' provider for this context.
+     * This prevents call loops when the calling application has configured a
+     * PKCS#11 provider that uses Opencryptoki under the covers. This could
+     * produce a loop with the following calling tree:
+     *   Application -> Openssl -> PKCS11-provider -> Opencryptoki -> OpenSSL
+     *   -> PKCS11-provider -> Opencryptoki -> ...
+     * Explicitly using the 'default' provider only for Opencrypoki's OpenSSL
+     * usage breaks this loop.
+     */
+    Anchor->openssl_libctx = OSSL_LIB_CTX_new();
+    if (Anchor->openssl_libctx == NULL) {
+        TRACE_ERROR("OSSL_LIB_CTX_new failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
+
+    Anchor->openssl_default_provider =
+                    OSSL_PROVIDER_load(Anchor->openssl_libctx, "default");
+    if (Anchor->openssl_default_provider == NULL) {
+        TRACE_ERROR("OSSL_PROVIDER_load for 'default' failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
+#endif
+
     // Get shared memory
     if ((Anchor->SharedMemP = attach_shared_memory()) == NULL) {
         OCK_SYSLOG(LOG_ERR, "C_Initialize: Module failed to attach to "
@@ -2870,10 +3003,14 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     }
     //
     // load all the slot DLL's here
+    BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
         slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
     }
+    END_OPENSSL_LIBCTX(rc)
+    if (rc != CKR_OK)
+        goto error_shm;
 
     /* Start event receiver thread */
     if ((Anchor->SocketDataP.flags & FLAG_EVENT_SUPPORT_DISABLED) == 0 &&
@@ -2883,6 +3020,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         // unload all the STDLL's from the application
         // This is in case the APP decides to do the re-initialize and
         // continue on
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
         for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
             sltp = &(Anchor->SltList[slotID]);
             if (slot_loaded[slotID]) {
@@ -2895,6 +3033,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
             }
             DL_UnLoad(sltp, slotID);
         }
+        END_OPENSSL_LIBCTX(rc)
 
         API_UnRegister();
 
@@ -2912,6 +3051,13 @@ error:
     bt_destroy(&Anchor->sess_btree);
     if (Anchor->socketfd >= 0)
         close(Anchor->socketfd);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (Anchor->openssl_default_provider != NULL)
+        OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
+    if (Anchor->openssl_libctx != NULL)
+        OSSL_LIB_CTX_free(Anchor->openssl_libctx);
+#endif
 
     free((void *) Anchor);
     Anchor = NULL;
@@ -2974,9 +3120,11 @@ CK_RV C_InitPIN(CK_SESSION_HANDLE hSession, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_InitPIN) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_InitPIN(sltp->TokData, &rSession, pPin, ulPinLen);
         TRACE_DEVEL("fcn->ST_InitPIN returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3042,8 +3190,10 @@ CK_RV C_InitToken(CK_SLOT_ID slotID,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_InitToken) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_InitToken(sltp->TokData, slotID, pPin, ulPinLen, pLabel);
         TRACE_DEVEL("fcn->ST_InitToken returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3097,9 +3247,11 @@ CK_RV C_Login(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Login) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Login(sltp->TokData, &rSession, userType, pPin, ulPinLen);
         TRACE_DEVEL("fcn->ST_Login returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3147,9 +3299,11 @@ CK_RV C_Logout(CK_SESSION_HANDLE hSession)
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Logout) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Logout(sltp->TokData, &rSession);
         TRACE_DEVEL("fcn->ST_Logout returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3223,9 +3377,11 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
     }
 
     if (fcn->ST_OpenSession) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_OpenSession(sltp->TokData, slotID, flags,
                                  &(apiSessp->sessionh));
         TRACE_DEVEL("fcn->ST_OpenSession returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
 
         // If the session allocation is successful, then we need to
         // complete the API session block and  return.  Otherwise
@@ -3237,10 +3393,12 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
              */
             *phSession = AddToSessionList(apiSessp);
             if (*phSession == 0) {
+                BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
                 /* failed to add the object to the API-level tree, close the
                  * STDLL-level session and return failure
                  */
                 fcn->ST_CloseSession(sltp->TokData, apiSessp, FALSE);
+                END_OPENSSL_LIBCTX(rv)
                 free(apiSessp);
                 rv = CKR_HOST_MEMORY;
                 goto done;
@@ -3310,9 +3468,11 @@ CK_RV C_SeedRandom(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pSeed,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SeedRandom) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SeedRandom(sltp->TokData, &rSession, pSeed, ulSeedLen);
         TRACE_DEVEL("fcn->ST_SeedRandom returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3371,10 +3531,12 @@ CK_RV C_SetAttributeValue(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SetAttributeValue) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SetAttributeValue(sltp->TokData, &rSession,
                                        hObject, pTemplate, ulCount);
         TRACE_DEVEL("fcn->ST_SetAttributeValue returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3426,12 +3588,14 @@ CK_RV C_SetOperationState(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SetOperationState) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SetOperationState(sltp->TokData, &rSession,
                                        pOperationState,
                                        ulOperationStateLen,
                                        hEncryptionKey, hAuthenticationKey);
         TRACE_DEVEL("fcn->ST_SetOperationState returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3486,10 +3650,12 @@ CK_RV C_SetPIN(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SetPIN) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SetPIN(sltp->TokData, &rSession, pOldPin,
                             ulOldLen, pNewPin, ulNewLen);
         TRACE_DEVEL("fcn->ST_SetPIN returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3540,10 +3706,12 @@ CK_RV C_Sign(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Sign) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Sign(sltp->TokData, &rSession, pData, ulDataLen,
                           pSignature, pulSignatureLen);
         TRACE_DEVEL("fcn->ST_Sign returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3590,11 +3758,13 @@ CK_RV C_SignEncryptUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignEncryptUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignEncryptUpdate(sltp->TokData, &rSession, pPart,
                                        ulPartLen, pEncryptedPart,
                                        pulEncryptedPartLen);
         TRACE_DEVEL("fcn->ST_SignEncryptUpdate return: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3642,10 +3812,12 @@ CK_RV C_SignFinal(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignFinal(sltp->TokData, &rSession, pSignature,
                                pulSignatureLen);
         TRACE_DEVEL("fcn->ST_SignFinal returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3697,9 +3869,11 @@ CK_RV C_SignInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignInit(sltp->TokData, &rSession, pMechanism, hKey);
         TRACE_DEVEL("fcn->ST_SignInit returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3745,10 +3919,12 @@ CK_RV C_SignRecover(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignRecover) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignRecover(sltp->TokData, &rSession, pData,
                                  ulDataLen, pSignature, pulSignatureLen);
         TRACE_DEVEL("fcn->ST_SignRecover returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3796,10 +3972,12 @@ CK_RV C_SignRecoverInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignRecoverInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignRecoverInit(sltp->TokData, &rSession,
                                      pMechanism, hKey);
         TRACE_DEVEL("fcn->ST_SignRecoverInit returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3847,9 +4025,11 @@ CK_RV C_SignUpdate(CK_SESSION_HANDLE hSession, CK_BYTE_PTR pPart,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_SignUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_SignUpdate(sltp->TokData, &rSession, pPart, ulPartLen);
         TRACE_DEVEL("fcn->ST_SignUpdate returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3910,12 +4090,14 @@ CK_RV C_UnwrapKey(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_UnwrapKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_UnwrapKey(sltp->TokData, &rSession, pMechanism,
                                hUnwrappingKey, pWrappedKey,
                                ulWrappedKeyLen, pTemplate,
                                ulAttributeCount, phKey);
         TRACE_DEVEL("fcn->ST_UnwrapKey returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -3962,10 +4144,12 @@ CK_RV C_Verify(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_Verify) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_Verify(sltp->TokData, &rSession, pData, ulDataLen,
                             pSignature, ulSignatureLen);
         TRACE_DEVEL("fcn->ST_Verify returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4009,10 +4193,12 @@ CK_RV C_VerifyFinal(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_VerifyFinal) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_VerifyFinal(sltp->TokData, &rSession, pSignature,
                                  ulSignatureLen);
         TRACE_DEVEL("fcn->ST_VerifyFinal returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4060,9 +4246,11 @@ CK_RV C_VerifyInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_VerifyInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_VerifyInit(sltp->TokData, &rSession, pMechanism, hKey);
         TRACE_DEVEL("fcn->ST_VerifyInit returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4109,10 +4297,12 @@ CK_RV C_VerifyRecover(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_VerifyRecover) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_VerifyRecover(sltp->TokData, &rSession, pSignature,
                                    ulSignatureLen, pData, pulDataLen);
         TRACE_DEVEL("fcn->ST_VerifyRecover returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4160,10 +4350,12 @@ CK_RV C_VerifyRecoverInit(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_VerifyRecoverInit) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_VerifyRecoverInit(sltp->TokData, &rSession,
                                        pMechanism, hKey);
         TRACE_DEVEL("fcn->ST_VerifyRecoverInit returned:0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4207,9 +4399,11 @@ CK_RV C_VerifyUpdate(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_VerifyUpdate) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_VerifyUpdate(sltp->TokData, &rSession, pPart, ulPartLen);
         TRACE_DEVEL("fcn->ST_VerifyUpdate returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -4407,10 +4601,12 @@ CK_RV C_WrapKey(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_WrapKey) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_WrapKey(sltp->TokData, &rSession, pMechanism,
                              hWrappingKey, hKey, pWrappedKey, pulWrappedKeyLen);
         TRACE_DEVEL("fcn->ST_WrapKey returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;
@@ -5110,6 +5306,7 @@ CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE hSession,
         return CKR_TOKEN_NOT_PRESENT;
     }
     if (fcn->ST_IBM_ReencryptSingle) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         // Map the Session to the slot session
         rv = fcn->ST_IBM_ReencryptSingle(sltp->TokData, &rSession, pDecrMech,
                                          hDecrKey, pEncrMech, hEncrKey,
@@ -5117,6 +5314,7 @@ CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE hSession,
                                          pReencryptedData,
                                          pulReencryptedDataLen);
         TRACE_DEVEL("fcn->ST_IBM_ReencryptSingle returned: 0x%lx\n", rv);
+        END_OPENSSL_LIBCTX(rv)
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rv = CKR_FUNCTION_NOT_SUPPORTED;

@@ -13,11 +13,15 @@
 #include <local_types.h>
 #include <stdll.h>
 #include <slotmgr.h>
-
-#include "local_types.h"
+#include <defs.h>
 
 #ifndef _APILOCAL_H
 #define _APILOCAL_H
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    #include <openssl/crypto.h>
+    #include <openssl/provider.h>
+#endif
 
 // SAB Add a linked list of STDLL's loaded to
 // only load and get list once, but let multiple slots us it.
@@ -59,6 +63,10 @@ typedef struct {
                                             // per slot
     int socketfd;
     pthread_t event_thread;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_LIB_CTX *openssl_libctx;
+    OSSL_PROVIDER *openssl_default_provider;
+#endif
 } API_Proc_Struct_t;
 
 #endif

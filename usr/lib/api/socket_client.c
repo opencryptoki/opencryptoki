@@ -245,11 +245,22 @@ static int handle_event(API_Proc_Struct_t *anchor, event_msg_t *event,
     return 0;
 }
 
+struct cleanup_data {
+    API_Proc_Struct_t *anchor;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_LIB_CTX *prev_libctx;
+#endif
+};
+
 static void event_thread_cleanup(void *arg)
 {
-    API_Proc_Struct_t *anchor = arg;
+    struct cleanup_data *cleanup = arg;
 
-    UNUSED(anchor);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_LIB_CTX_set0_default(cleanup->prev_libctx);
+#else
+    UNUSED(cleanup);
+#endif
 
     TRACE_DEVEL("Event thread %lu terminating\n", pthread_self());
 }
@@ -257,6 +268,10 @@ static void event_thread_cleanup(void *arg)
 static void *event_thread(void *arg)
 {
     API_Proc_Struct_t *anchor = arg;
+    struct cleanup_data cleanup;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_LIB_CTX *prev_libctx;
+#endif
     int oldstate, oldtype;
     struct pollfd pollfd;
     event_msg_t event;
@@ -275,10 +290,24 @@ static void *event_thread(void *arg)
         return NULL;
     }
 
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    /* Ensure that the event thread uses Opencryptoki's own library context */
+    prev_libctx = OSSL_LIB_CTX_set0_default(Anchor->openssl_libctx);
+    if (prev_libctx == NULL) {
+        TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");
+        TRACE_DEVEL("Event thread %lu terminating\n", pthread_self());
+        return NULL;
+    }
+#endif
+
     /* Enable cancellation */
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldtype);
-    pthread_cleanup_push(event_thread_cleanup, anchor);
+    cleanup.anchor = anchor;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    cleanup.prev_libctx = prev_libctx;
+#endif
+    pthread_cleanup_push(event_thread_cleanup, &cleanup);
 
     pollfd.fd = anchor->socketfd;
     pollfd.events = POLLIN | POLLHUP | POLLERR;
@@ -394,6 +423,10 @@ static void *event_thread(void *arg)
      */
     close(anchor->socketfd);
     anchor->socketfd = -1;
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_LIB_CTX_set0_default(prev_libctx);
+#endif
 
     pthread_cleanup_pop(1);
     return NULL;
