@@ -12,7 +12,7 @@ opencryptoki_libopencryptoki_la_CFLAGS =				\
 	-DSTDLL_NAME=\"api\"
 
 opencryptoki_libopencryptoki_la_LDFLAGS =				\
-	-shared	-Wl,-z,defs,-Bsymbolic -lc -ldl -lpthread		\
+	-shared	-Wl,-z,defs,-Bsymbolic -lc -ldl -lpthread -lcrypto	\
 	-version-info $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)		\
 	-Wl,--version-script=${srcdir}/opencryptoki.map
 
