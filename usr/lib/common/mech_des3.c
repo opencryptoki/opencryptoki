@@ -2006,6 +2006,8 @@ CK_RV des3_mac_sign(STDLL_TokData_t *tokdata,
 
         *out_data_len = mac_len;
 
+        sign_mgr_cleanup(tokdata, sess, ctx);
+
         return rc;
     }
 }
@@ -2144,6 +2146,8 @@ CK_RV des3_mac_sign_final(STDLL_TokData_t *tokdata,
 
     *out_data_len = mac_len;
 
+    sign_mgr_cleanup(tokdata, sess, ctx);
+
     return rc;
 }
 
@@ -2197,8 +2201,12 @@ CK_RV des3_mac_verify(STDLL_TokData_t *tokdata,
         key_obj = NULL;
 
         if (CRYPTO_memcmp(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv,
-                          out_data_len) == 0)
+                          out_data_len) == 0) {
+            verify_mgr_cleanup(tokdata, sess, ctx);
             return CKR_OK;
+        }
+
+        verify_mgr_cleanup(tokdata, sess, ctx);
 
         return CKR_SIGNATURE_INVALID;
     }
@@ -2328,8 +2336,12 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata,
         }
     }
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) 
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }
@@ -2409,6 +2421,8 @@ CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata,
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+
+    sign_mgr_cleanup(tokdata, sess, ctx);
 
     return rc;
 }
@@ -2553,6 +2567,8 @@ done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
+   sign_mgr_cleanup(tokdata, sess, ctx);
+
     return rc;
 }
 
@@ -2605,8 +2621,12 @@ CK_RV des3_cmac_verify(STDLL_TokData_t *tokdata,
 
     if (CRYPTO_memcmp(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
     }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
+
     return CKR_SIGNATURE_INVALID;
 }
 
@@ -2739,8 +2759,12 @@ CK_RV des3_cmac_verify_final(STDLL_TokData_t *tokdata,
 
     ctx->context_free_func = des3_cmac_cleanup;
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0)
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }

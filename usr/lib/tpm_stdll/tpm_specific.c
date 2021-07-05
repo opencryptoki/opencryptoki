@@ -213,6 +213,10 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     tpm_data = (tpm_private_data_t *)calloc(1, sizeof(tpm_private_data_t));
+    if (tpm_data == NULL) {
+        TRACE_ERROR("calloc failed\n");
+        return CKR_HOST_MEMORY;
+    }
     tokdata->private_data = tpm_data;
 
     tpm_data->tspContext = NULL_HCONTEXT;
@@ -221,12 +225,15 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     result = Tspi_Context_Create(&tpm_data->tspContext);
     if (result) {
         TRACE_ERROR("Tspi_Context_Create failed. rc=0x%x\n", result);
+        free(tpm_data);
         return CKR_FUNCTION_FAILED;
     }
 
     result = Tspi_Context_Connect(tpm_data->tspContext, NULL);
     if (result) {
         TRACE_ERROR("Tspi_Context_Connect failed. rc=0x%x\n", result);
+        Tspi_Context_Close(tpm_data->tspContext);
+        free(tpm_data);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -234,6 +241,8 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                                            &tpm_data->hDefaultPolicy);
     if (result) {
         TRACE_ERROR("Tspi_Context_GetDefaultPolicy failed. rc=0x%x\n", result);
+        Tspi_Context_Close(tpm_data->tspContext);
+        free(tpm_data);
         return CKR_FUNCTION_FAILED;
     }
 

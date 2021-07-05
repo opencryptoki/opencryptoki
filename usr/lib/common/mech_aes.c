@@ -2359,6 +2359,8 @@ CK_RV aes_mac_sign(STDLL_TokData_t *tokdata,
         memcpy(out_data, ((AES_DATA_CONTEXT *) ctx->context)->iv, mac_len);
         *out_data_len = mac_len;
 
+        sign_mgr_cleanup(tokdata, sess, ctx);
+
         return rc;
     }
 }
@@ -2497,6 +2499,8 @@ CK_RV aes_mac_sign_final(STDLL_TokData_t *tokdata,
     memcpy(out_data, context->iv, mac_len);
     *out_data_len = mac_len;
 
+    sign_mgr_cleanup(tokdata, sess, ctx);
+
     return rc;
 }
 
@@ -2554,8 +2558,12 @@ CK_RV aes_mac_verify(STDLL_TokData_t *tokdata,
         }
 
         if (CRYPTO_memcmp(out_data, ((AES_DATA_CONTEXT *) ctx->context)->iv,
-                          out_data_len) == 0)
+                          out_data_len) == 0) {
+            verify_mgr_cleanup(tokdata, sess, ctx);
             return CKR_OK;
+        }
+
+        verify_mgr_cleanup(tokdata, sess, ctx);
 
         return CKR_SIGNATURE_INVALID;
     }
@@ -2685,8 +2693,12 @@ CK_RV aes_mac_verify_final(STDLL_TokData_t *tokdata,
         }
     }
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) 
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }
@@ -2765,6 +2777,8 @@ CK_RV aes_cmac_sign(STDLL_TokData_t *tokdata,
 
     memcpy(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv, mac_len);
     *out_data_len = mac_len;
+
+    sign_mgr_cleanup(tokdata, sess, ctx);
 
 done:
     object_put(tokdata, key_obj, TRUE);
@@ -2913,6 +2927,8 @@ done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
+    sign_mgr_cleanup(tokdata, sess, ctx);
+
     return rc;
 }
 
@@ -2969,8 +2985,11 @@ CK_RV aes_cmac_verify(STDLL_TokData_t *tokdata,
 
     if (CRYPTO_memcmp(out_data, ((AES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
     }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }
@@ -3105,8 +3124,12 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0)
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }
