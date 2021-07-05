@@ -164,6 +164,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
         if (rc != 0) {
             sltp->FcnList = NULL;
             detach_shm(sltp->TokData, 0);
+            final_data_store(sltp->TokData);
             if (sltp->TokData)
                 free(sltp->TokData);
             sltp->TokData = NULL;
@@ -176,6 +177,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     rc = load_token_data(sltp->TokData, SlotNumber);
     if (rc != CKR_OK) {
         sltp->FcnList = NULL;
+        final_data_store(sltp->TokData);
         if (sltp->TokData)
             free(sltp->TokData);
         sltp->TokData = NULL;
@@ -208,6 +210,7 @@ done:
             SC_Finalize(sltp->TokData, SlotNumber, sinfp, NULL, 0);
         } else {
             CloseXProcLock(sltp->TokData);
+            final_data_store(sltp->TokData);
             free(sltp->TokData);
             sltp->TokData = NULL;
         }
