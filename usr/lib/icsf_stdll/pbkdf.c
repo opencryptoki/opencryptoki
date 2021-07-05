@@ -82,7 +82,6 @@ CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
     int tmplen;
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
     EVP_EncryptInit_ex(ctx, cipher, NULL, dkey, iv);
@@ -98,24 +97,6 @@ CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
     *outbuflen = (*outbuflen) + tmplen;
     EVP_CIPHER_CTX_free(ctx);
 
-#else
-    EVP_CIPHER_CTX ctx;
-    EVP_CIPHER_CTX_init(&ctx);
-
-    EVP_EncryptInit_ex(&ctx, cipher, NULL, dkey, iv);
-    if (!EVP_EncryptUpdate(&ctx, outbuf, outbuflen, inbuf, inbuflen)) {
-        TRACE_ERROR("EVP_EncryptUpdate failed.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    if (!EVP_EncryptFinal_ex(&ctx, outbuf + (*outbuflen), &tmplen)) {
-        TRACE_ERROR("EVP_EncryptFinal failed.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    *outbuflen = (*outbuflen) + tmplen;
-    EVP_CIPHER_CTX_cleanup(&ctx);
-#endif
-
     return CKR_OK;
 }
 
@@ -125,7 +106,6 @@ CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
     int size;
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
     EVP_DecryptInit_ex(ctx, cipher, NULL, dkey, iv);
@@ -146,30 +126,6 @@ CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
      */
 
     EVP_CIPHER_CTX_free(ctx);
-
-#else
-    EVP_CIPHER_CTX ctx;
-    EVP_CIPHER_CTX_init(&ctx);
-
-    EVP_DecryptInit_ex(&ctx, cipher, NULL, dkey, iv);
-    if (!EVP_DecryptUpdate(&ctx, outbuf, outbuflen, inbuf, inbuflen)) {
-        TRACE_ERROR("EVP_DecryptUpdate failed.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    if (!EVP_DecryptFinal_ex(&ctx, outbuf + (*outbuflen), &size)) {
-        TRACE_ERROR("EVP_DecryptFinal failed.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* total length of the decrypted data */
-    *outbuflen = (*outbuflen) + size;
-
-    /* EVP_DecryptFinal removes any padding. The final length
-     * is the length of the decrypted data without padding.
-     */
-
-    EVP_CIPHER_CTX_cleanup(&ctx);
-#endif
 
     return CKR_OK;
 }
