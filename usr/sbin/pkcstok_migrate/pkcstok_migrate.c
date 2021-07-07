@@ -2107,7 +2107,10 @@ static int parseupdate_key_str(void *private, int tok, const char *val)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
-    if (tok != KW_TOKVERSION)
+    if (tok != KW_HWVERSION && tok != KW_FWVERSION &&
+        strchr(val, ' ') != NULL)
+        fprintf(u->f, "  %s = \"%s\"", keyword_token_to_str(tok), val);
+    else if (tok != KW_TOKVERSION)
         fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
     return 0;
 }
