@@ -2006,6 +2006,8 @@ CK_RV des3_mac_sign(STDLL_TokData_t *tokdata,
 
         *out_data_len = mac_len;
 
+        sign_mgr_cleanup(tokdata, sess, ctx);
+
         return rc;
     }
 }
@@ -2144,6 +2146,8 @@ CK_RV des3_mac_sign_final(STDLL_TokData_t *tokdata,
 
     *out_data_len = mac_len;
 
+    sign_mgr_cleanup(tokdata, sess, ctx);
+
     return rc;
 }
 
@@ -2197,8 +2201,12 @@ CK_RV des3_mac_verify(STDLL_TokData_t *tokdata,
         key_obj = NULL;
 
         if (CRYPTO_memcmp(out_data, ((DES_DATA_CONTEXT *) ctx->context)->iv,
-                          out_data_len) == 0)
+                          out_data_len) == 0) {
+            verify_mgr_cleanup(tokdata, sess, ctx);
             return CKR_OK;
+        }
+
+        verify_mgr_cleanup(tokdata, sess, ctx);
 
         return CKR_SIGNATURE_INVALID;
     }
@@ -2328,10 +2336,32 @@ CK_RV des3_mac_verify_final(STDLL_TokData_t *tokdata,
         }
     }
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) 
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
+}
+
+static void des3_cmac_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                              CK_BYTE *context, CK_ULONG context_len)
+{
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    if (((DES_CMAC_CONTEXT *)context)->ctx != NULL) {
+        token_specific.t_tdes_cmac(tokdata, (CK_BYTE *)"", 0, NULL,
+                                   ((DES_CMAC_CONTEXT *)context)->iv,
+                                   CK_FALSE, CK_TRUE,
+                                   ((DES_CMAC_CONTEXT *)context)->ctx);
+        ((DES_CMAC_CONTEXT *)context)->ctx = NULL;
+    }
+
+    free(context);
 }
 
 CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata,
@@ -2380,12 +2410,19 @@ CK_RV des3_cmac_sign(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         TRACE_DEVEL("Token specific des3 cmac failed.\n");
 
+    if (((DES_CMAC_CONTEXT *)ctx->context)->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
+    ctx->context_free_func = des3_cmac_cleanup;
+
     memcpy(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv, mac_len);
 
     *out_data_len = mac_len;
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+
+    sign_mgr_cleanup(tokdata, sess, ctx);
 
     return rc;
 }
@@ -2450,6 +2487,11 @@ CK_RV des3_cmac_sign_update(STDLL_TokData_t *tokdata,
             context->len = remain;
 
             context->initialized = CK_TRUE;
+
+            if (context->ctx != NULL)
+                ctx->state_unsaveable = CK_TRUE;
+
+            ctx->context_free_func = des3_cmac_cleanup;
         } else {
             TRACE_DEVEL("Token specific des3 cmac failed.\n");
         }
@@ -2512,6 +2554,11 @@ CK_RV des3_cmac_sign_final(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    if (context->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
+    ctx->context_free_func = des3_cmac_cleanup;
+
     memcpy(out_data, context->iv, mac_len);
 
     *out_data_len = mac_len;
@@ -2519,6 +2566,8 @@ CK_RV des3_cmac_sign_final(STDLL_TokData_t *tokdata,
 done:
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
+
+   sign_mgr_cleanup(tokdata, sess, ctx);
 
     return rc;
 }
@@ -2565,10 +2614,19 @@ CK_RV des3_cmac_verify(STDLL_TokData_t *tokdata,
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
+    if (((DES_CMAC_CONTEXT *)ctx->context)->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
+    ctx->context_free_func = des3_cmac_cleanup;
+
     if (CRYPTO_memcmp(out_data, ((DES_CMAC_CONTEXT *) ctx->context)->iv,
                       out_data_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
     }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
+
     return CKR_SIGNATURE_INVALID;
 }
 
@@ -2631,6 +2689,11 @@ CK_RV des3_cmac_verify_update(STDLL_TokData_t *tokdata,
             context->len = remain;
 
             context->initialized = CK_TRUE;
+
+            if (context->ctx != NULL)
+                ctx->state_unsaveable = CK_TRUE;
+
+            ctx->context_free_func = des3_cmac_cleanup;
         } else {
             TRACE_DEVEL("Token specific des3 cmac failed.\n");
         }
@@ -2691,8 +2754,17 @@ CK_RV des3_cmac_verify_final(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0)
+    if (context->ctx != NULL)
+        ctx->state_unsaveable = CK_TRUE;
+
+    ctx->context_free_func = des3_cmac_cleanup;
+
+    if (CRYPTO_memcmp(signature, context->iv, signature_len) == 0) {
+        verify_mgr_cleanup(tokdata, sess, ctx);
         return CKR_OK;
+    }
+
+    verify_mgr_cleanup(tokdata, sess, ctx);
 
     return CKR_SIGNATURE_INVALID;
 }

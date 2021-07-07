@@ -39,10 +39,8 @@ dnl Checks for library functions.
 AC_FUNC_ALLOCA
 AC_FUNC_CHOWN
 AC_FUNC_FORK
-AC_FUNC_MALLOC
 AC_FUNC_MKTIME
 AC_FUNC_MMAP
-AC_FUNC_REALLOC
 AC_FUNC_STRERROR_R
 AC_CHECK_FUNCS([atexit ftruncate gettimeofday localtime_r memchr memmove \
 		memset mkdir munmap regcomp select socket strchr strcspn \
@@ -272,7 +270,7 @@ OPENSSL_CFLAGS=
 OPENSSL_LIBS=
 if test "x$with_openssl" != "xno"; then
 	if test "x$with_openssl" != "xyes" -a "x$with_openssl" != "xcheck"; then
-		OPENSSL_CFLAGS="-I$with_openssl"
+		OPENSSL_CFLAGS="-I$with_openssl/include"
 		OPENSSL_LIBS="-L$with_openssl"
 	fi
 	old_cflags="$CFLAGS"

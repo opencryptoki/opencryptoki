@@ -1011,7 +1011,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         OPENSSL_cleanse(data, data_len);
         free(data);
     }
-    encr_mgr_cleanup(ctx);
+    encr_mgr_cleanup(tokdata, sess, ctx);
     free(ctx);
 
 done:
@@ -1259,7 +1259,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
                           FALSE,
                           ctx, wrapped_key, wrapped_key_len, data, &data_len);
 
-    decr_mgr_cleanup(ctx);
+    decr_mgr_cleanup(tokdata, sess, ctx);
     free(ctx);
     ctx = NULL;
 
@@ -1345,7 +1345,7 @@ done:
         free(data);
     }
     if (ctx != NULL) {
-        decr_mgr_cleanup(ctx);
+        decr_mgr_cleanup(tokdata, sess, ctx);
         free(ctx);
     }
 

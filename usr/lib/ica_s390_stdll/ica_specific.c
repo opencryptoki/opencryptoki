@@ -713,6 +713,9 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     UNUSED(tokdata);
     UNUSED(ctx);
 
+    if (key == NULL)
+        return CKR_ARGUMENTS_BAD;
+
     // get the key type
     rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
     if (rc != CKR_OK) {
@@ -810,8 +813,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     }
 
     /* (re)alloc ctx in one memory area */
-    if (ctx->context)
+    if (ctx->context) {
         free(ctx->context);
+        ctx->context_free_func = NULL;
+    }
     ctx->context_len = 0;
     ctx->context = malloc(ctxsize + devctxsize);
     if (ctx->context == NULL) {
@@ -3618,6 +3623,9 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 
     UNUSED(tokdata);
     UNUSED(ctx);
+
+    if (key == NULL)
+        return CKR_ARGUMENTS_BAD;
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {

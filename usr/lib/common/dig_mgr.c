@@ -63,7 +63,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = NULL;
         rc = sha_init(tokdata, sess, ctx, mech);
         if (rc != CKR_OK) {
-            digest_mgr_cleanup(ctx);    // to de-initialize context above
+            digest_mgr_cleanup(tokdata, sess, ctx);    // to de-initialize context above
             TRACE_ERROR("Failed to init sha context.\n");
             return rc;
         }
@@ -76,7 +76,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context_len = sizeof(MD2_CONTEXT);
         ctx->context = (CK_BYTE *) malloc(sizeof(MD2_CONTEXT));
         if (!ctx->context) {
-            digest_mgr_cleanup(ctx);    // to de-initialize context above
+            digest_mgr_cleanup(tokdata, sess, ctx);    // to de-initialize context above
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
         }
@@ -90,7 +90,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
           ctx->context = NULL;
           rc = md5_init(tokdata, sess, ctx, mech);
           if (rc != CKR_OK) {
-              digest_mgr_cleanup(ctx);    // to de-initialize context above
+              digest_mgr_cleanup(tokdata, sess, ctx);    // to de-initialize context above
               TRACE_ERROR("Failed to init md5 context.\n");
               return rc;
           }
@@ -103,7 +103,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
     if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
         ptr = (CK_BYTE *) malloc(mech->ulParameterLen);
         if (!ptr) {
-            digest_mgr_cleanup(ctx);    // to de-initialize context above
+            digest_mgr_cleanup(tokdata, sess, ctx);    // to de-initialize context above
             TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
             return CKR_HOST_MEMORY;
         }
@@ -122,7 +122,8 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
 
 //
 //
-CK_RV digest_mgr_cleanup(DIGEST_CONTEXT *ctx)
+CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
+                         DIGEST_CONTEXT *ctx)
 {
     if (!ctx) {
         TRACE_ERROR("Invalid function argument.\n");
@@ -134,6 +135,7 @@ CK_RV digest_mgr_cleanup(DIGEST_CONTEXT *ctx)
     ctx->multi = FALSE;
     ctx->active = FALSE;
     ctx->context_len = 0;
+    ctx->state_unsaveable = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);
@@ -141,9 +143,14 @@ CK_RV digest_mgr_cleanup(DIGEST_CONTEXT *ctx)
     }
 
     if (ctx->context != NULL) {
-        free(ctx->context);
+        if (ctx->context_free_func != NULL)
+            ctx->context_free_func(tokdata, sess, ctx->context,
+                                   ctx->context_len);
+        else
+            free(ctx->context);
         ctx->context = NULL;
     }
+    ctx->context_free_func = NULL;
 
     return CKR_OK;
 }
@@ -232,7 +239,7 @@ out:
         // unless it returns CKR_BUFFER_TOO_SMALL or is a successful call (i.e.,
         // one which returns CKR_OK) to determine the length of the buffer
         // needed to hold the message digest."
-        digest_mgr_cleanup(ctx);
+        digest_mgr_cleanup(tokdata, sess, ctx);
     }
 
     return rc;
@@ -301,7 +308,7 @@ CK_RV digest_mgr_digest_update(STDLL_TokData_t *tokdata,
 
 out:
     if (rc != CKR_OK) {
-        digest_mgr_cleanup(ctx);
+        digest_mgr_cleanup(tokdata, sess, ctx);
         // "A call to C_DigestUpdate which results in an error
         // terminates the current digest operation."
     }
@@ -373,7 +380,7 @@ CK_RV digest_mgr_digest_key(STDLL_TokData_t *tokdata,
 
 out:
     if (rc != CKR_OK) {
-        digest_mgr_cleanup(ctx);
+        digest_mgr_cleanup(tokdata, sess, ctx);
     }
 
     object_put(tokdata, key_obj, TRUE);
@@ -451,7 +458,7 @@ out:
         // operation unless it returns CKR_BUFFER_TOO_SMALL or is a successful
         // call (i.e., one which returns CKR_OK) to determine the length of the
         // buffer needed to hold the message digest."
-        digest_mgr_cleanup(ctx);
+        digest_mgr_cleanup(tokdata, sess, ctx);
     }
 
     return rc;
