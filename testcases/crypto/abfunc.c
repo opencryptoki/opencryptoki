@@ -212,6 +212,39 @@ static void dumpEP11Blob(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE key,
         fclose(f);
 }
 
+static void dumpSPKI(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE key,
+                     const char *fmt, ...)
+{
+    CK_ATTRIBUTE blobattr = { CKA_PUBLIC_KEY_INFO, NULL, 0 };
+    unsigned char *blob = NULL;
+    char fname[1024];
+    FILE *f = NULL;
+    va_list va;
+    int rc;
+
+    va_start(va, fmt);
+    vsnprintf(fname, sizeof(fname), fmt, va);
+    va_end(va);
+    rc = funcs->C_GetAttributeValue(session, key, &blobattr, 1);
+    if (rc != CKR_OK)
+        return;
+    blob = (unsigned char *)malloc(blobattr.ulValueLen);
+    if (!blob)
+        return;
+    blobattr.pValue = blob;
+    rc = funcs->C_GetAttributeValue(session, key, &blobattr, 1);
+    if (rc != CKR_OK)
+        goto out;
+    f = fopen(fname, "wb");
+    if (!f)
+        goto out;
+    fwrite(blob, blobattr.ulValueLen, 1, f);
+ out:
+    free(blob);
+    if (f)
+        fclose(f);
+}
+
 CK_RV compareDESKeys(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE source,
                      CK_OBJECT_HANDLE dest)
 {
@@ -860,6 +893,8 @@ void do_TestKeyWrappingUnwrapping(CK_SESSION_HANDLE session)
             dumpEP11Blob(session, *(config[i].keytowrap), "dump-keytowrap-%u", i);
             dumpEP11Blob(session, *(config[i].signingkey), "dump-signingkey-%u", i);
             dumpEP11Blob(session, unwrapped, "dump-unwrapped-%u", i);
+            dumpSPKI(session, *(config[i].keytowrap), "dump-keytowrap-spki-%u", i);
+            dumpSPKI(session, unwrapped, "dump-unwrapped-spki-%u", i);
             testcase_fail("Wrap/Unwrap test %u: compare returned %s", i, p11_get_ckr(rc));
         } else {
             testcase_pass("Wrap/Unwrap test %u: cycle passed", i);
