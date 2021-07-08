@@ -2119,7 +2119,7 @@ static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 {
 	struct parseupdate *u = (struct parseupdate *)private;
 
-    if (tok != KW_TOKVERSION)
+    if (tok == KW_TOKVERSION && !u->activeslot)
         fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
                 vers >> 16, vers & 0xffu);
     return 0;
