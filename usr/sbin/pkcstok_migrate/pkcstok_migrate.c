@@ -2474,54 +2474,53 @@ static CK_RV backup_repository(const char *data_store)
  */
 static CK_BBOOL pkcsslotd_running(void)
 {
-    DIR *dir;
     FILE *fp;
-    struct dirent* ent;
     char* endptr;
-    char buf[PATH_MAX];
+    long lpid;
     char fname[PATH_MAX];
+    char buf[PATH_MAX];
+    char* first;
 
     TRACE_INFO("Checking if pkcsslotd is running ...\n");
-    if (!(dir = opendir("/proc"))) {
-        TRACE_WARN("Cannot open /proc, i.e. cannot check if pkcsslotd is running.\n");
-        return CK_TRUE;
+
+    fp = fopen(PID_FILE_PATH, "r");
+    if (fp == NULL) {
+        TRACE_INFO("Pid file '%s' not existent, pkcsslotd is not running\n",
+                   PID_FILE_PATH);
+        return CK_FALSE;
     }
 
-    while ((ent = readdir(dir)) != NULL) {
-        /* if endptr is not a null character, the directory is not
-         * entirely numeric, so ignore it */
-        long lpid = strtol(ent->d_name, &endptr, 10);
-        if (*endptr != '\0') {
-            continue;
-        }
-
-        /* try to open the cmdline file */
-        snprintf(fname, sizeof(fname), "/proc/%ld/cmdline", lpid);
-        fp = fopen(fname, "r");
-        if (!fp) {
-            warnx("fopen(%s) failed, errno=%s", fname, strerror(errno));
-            return CK_TRUE;
-        }
-
-        /* check the first token in the file: the program pathname */
-        if (fgets(buf, sizeof(buf), fp) != NULL) {
-            char* first = strtok(buf, " ");
-            if (!first) {
-                TRACE_WARN("Cannot read program name from %s, i.e. cannot check if pkcsslotd is running.\n",
-                           fname);
-                return CK_TRUE;
-            }
-            if (strstr(first, "pkcsslotd") != NULL) {
-                fclose(fp);
-                closedir(dir);
-                return CK_TRUE;
-            }
-        }
+    if (fgets(buf, sizeof(buf), fp) == NULL) {
+        TRACE_WARN("Cannot read pid file '%s': %s\n", PID_FILE_PATH,
+                   strerror(errno));
         fclose(fp);
+        return CK_FALSE;
+    }
+    fclose(fp);
+
+    lpid = strtol(buf, &endptr, 10);
+    if (*endptr != '\0' && *endptr != '\n') {
+        TRACE_WARN("Failed to parse pid file '%s': %s\n", PID_FILE_PATH,
+                           buf);
+        return CK_FALSE;
     }
 
-    closedir(dir);
-    return CK_FALSE;
+    snprintf(fname, sizeof(fname), "/proc/%ld/cmdline", lpid);
+    fp = fopen(fname, "r");
+    if (fp == NULL) {
+        TRACE_INFO("Stale pid file, pkcsslotd is not running\n");
+        return CK_FALSE;
+    }
+
+    if (fgets(buf, sizeof(buf), fp) == NULL) {
+        TRACE_INFO("Failed to read '%s'\n", fname);
+        fclose(fp);
+        return CK_FALSE;
+    }
+    fclose(fp);
+
+    first = strtok(buf, " ");
+    return (first != NULL && strstr(first, "pkcsslotd") != NULL);
 }
 
 /**
