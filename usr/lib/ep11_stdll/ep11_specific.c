@@ -531,6 +531,8 @@ static CK_RV refresh_target_info(STDLL_TokData_t *tokdata);
 static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
 static void free_ep11_target_for_apqn(target_t target);
+static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl);
 
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
@@ -3940,6 +3942,13 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
+    rc = update_ep11_attrs_from_blob(tokdata, obj->template);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
     return CKR_OK;
 }
 
@@ -4027,6 +4036,13 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     attr = NULL;
+
+    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
     if (class == CKO_SECRET_KEY && csum_len >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
@@ -5254,6 +5270,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     opaque_attr = NULL;
+
+    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
 
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
@@ -6659,6 +6682,13 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, *phPublicKey, *phPrivateKey,
                    public_key_obj->name, private_key_obj->name,
                    (void *)public_key_obj, (void *)private_key_obj);
+    }
+
+    rc = update_ep11_attrs_from_blob(tokdata, private_key_obj->template);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
     }
 
     /* Copy CKA_MODULUS and CKA_PUBLIC_EXPONENT attributes from
@@ -8473,8 +8503,6 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                __func__, rc, keyblobsize, mech->mechanism);
 
-
-
     rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -8494,8 +8522,15 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                                        *(CK_KEY_TYPE *) keytype_attr->pValue);
         if (rc != CKR_OK) {
             TRACE_ERROR("ab_unwrap_update_template failed with rc=0x%08lx\n", rc);
-            return rc;
+            goto error;
         }
+    }
+
+    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
     }
 
     switch (*(CK_OBJECT_CLASS *) cla_attr->pValue) {
@@ -11984,3 +12019,87 @@ static void put_target_info(STDLL_TokData_t *tokdata,
     }
 }
 
+/*
+ * Must be called either with WRITE_LOCK on the object that owns the template
+ * specified as @tmpl, or before the object is made publicly available via
+ * object_mgr_create_final.
+ */
+static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *tmpl)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_BBOOL restr = CK_FALSE; /*, never_mod = CK_FALSE; */
+    CK_BBOOL attrb = CK_FALSE, useasdata = CK_FALSE;
+    CK_BBOOL pkeyextr = CK_FALSE, pkeyneverextr = CK_FALSE;
+    CK_ULONG stdcomp1 = 0;
+    CK_ATTRIBUTE *attr, *blob_attr = NULL;
+    ep11_target_info_t* target_info;
+    CK_RV rc = CKR_OK;
+    CK_ULONG i;
+
+    CK_ATTRIBUTE ibm_attrs[] = {
+        { CKA_IBM_RESTRICTABLE, &restr, sizeof(restr) },
+     /* Skip CKA_IBM_NEVER_MODIFIABLE for now, it causes CKR_ARGUMENTS_BAD
+        { CKA_IBM_NEVER_MODIFIABLE, &never_mod, sizeof(never_mod) }, */
+        { CKA_IBM_USE_AS_DATA, &useasdata, sizeof(useasdata) },
+        { CKA_IBM_ATTRBOUND, &attrb, sizeof(attrb) },
+        { CKA_IBM_STD_COMPLIANCE1, &stdcomp1, sizeof(stdcomp1) },
+        /* PROTKEY attributes must be the last 2 */
+        { CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextr, sizeof(pkeyextr) },
+        { CKA_IBM_PROTKEY_NEVER_EXTRACTABLE, &pkeyneverextr,
+          sizeof(pkeyneverextr) },
+    };
+    CK_ULONG num_ibm_attrs = sizeof(ibm_attrs) / sizeof(CK_ATTRIBUTE);
+
+    if (!ep11_data->pkey_wrap_supported)
+        num_ibm_attrs -= 2;
+
+    if (template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
+                                         &blob_attr) != CKR_OK) {
+        TRACE_ERROR("This key has no CKA_IBM_OPAQUE: should not occur!\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    rc = dll_m_GetAttributeValue(blob_attr->pValue,
+                                 blob_attr->ulValueLen, ibm_attrs,
+                                 num_ibm_attrs, target_info->target);
+
+    put_target_info(tokdata, target_info);
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, NULL);
+        TRACE_ERROR("%s m_GetAttributeValue failed rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    /* Set/Update all available attributes in the object's template */
+    for (i = 0; i < num_ibm_attrs; i++) {
+        if (ibm_attrs[i].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+            TRACE_DEVEL("%s Attribute 0x%lx not available\n", __func__,
+                        ibm_attrs[i].type);
+            continue;
+        }
+
+        rc = build_attribute(ibm_attrs[i].type, ibm_attrs[i].pValue,
+                             ibm_attrs[i].ulValueLen, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        rc = template_update_attribute(tmpl, attr);
+        if (rc != CKR_OK) {
+            free(attr);
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
