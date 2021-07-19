@@ -1288,6 +1288,7 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     else
         memcpy(value_attr->pValue, des_key, DES_KEY_SIZE);
     free(des_key);
+    des_key = NULL;
 
     key_type_attr->type = CKA_KEY_TYPE;
     key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);

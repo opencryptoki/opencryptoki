@@ -480,7 +480,6 @@ int Stat2Proc(int pid, proc_t *p)
 BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
 {
     int Err;
-    int valid;
     proc_t *p;
     proc_t procstore;
 
@@ -511,7 +510,7 @@ BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
     memset(p, 0, sizeof(proc_t));
 #endif
 
-    if (!(valid = Stat2Proc((int) pid, p)))
+    if (!Stat2Proc((int) pid, p))
         return FALSE;
 
     if (p->pid == pid) {

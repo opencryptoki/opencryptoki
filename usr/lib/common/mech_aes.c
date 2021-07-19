@@ -3511,6 +3511,7 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     else
         memcpy(value_attr->pValue, aes_key, key_size);
     free(aes_key);
+    aes_key = NULL;
 
     key_type_attr->type = CKA_KEY_TYPE;
     key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);

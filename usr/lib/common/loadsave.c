@@ -663,7 +663,7 @@ CK_RV load_token_data_old(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     set_perm(fileno(fp));
 
     /* Load generic token data */
-    if (!fread(&td, sizeof(TOKEN_DATA_OLD), 1, fp)) {
+    if (fread(&td, sizeof(TOKEN_DATA_OLD), 1, fp) != 1) {
         TRACE_ERROR("fread(%s): %s\n", fname,
                     ferror(fp) ? strerror(errno) : "failed");
         rc = CKR_FUNCTION_FAILED;
@@ -876,8 +876,6 @@ oom_error:
     rc = CKR_HOST_MEMORY;
 
 error:
-    if (fp)
-        fclose(fp);
     if (obj_data)
         free(obj_data);
     if (clear)
@@ -916,12 +914,12 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
         if (!fp2)
             continue;
 
-        if (!fread(&size, sizeof(CK_ULONG_32), 1, fp2)) {
+        if (fread(&size, sizeof(CK_ULONG_32), 1, fp2) != 1) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
             continue;
         }
-        if (!fread(&priv, sizeof(CK_BBOOL), 1, fp2)) {
+        if (fread(&priv, sizeof(CK_BBOOL), 1, fp2) != 1) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
             continue;
@@ -1401,7 +1399,7 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     if (!token_specific.data_store.use_master_key)
         return CKR_OK;
 
-    if ((rc = get_encryption_info(&key_len, NULL)) != CKR_OK)
+    if (get_encryption_info(&key_len, NULL) != CKR_OK)
         return CKR_FUNCTION_FAILED;
 
     /* For secure key tokens, object encrypt/decrypt uses
@@ -1578,13 +1576,13 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     set_perm(fileno(fp));
 
-    if (!fread(&size, sizeof(CK_ULONG_32), 1, fp)) {
+    if (fread(&size, sizeof(CK_ULONG_32), 1, fp) != 1) {
         OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
-    if (!fread(&priv, sizeof(CK_BBOOL), 1, fp)) {
+    if (fread(&priv, sizeof(CK_BBOOL), 1, fp) != 1) {
         OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -1671,8 +1669,6 @@ CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT * obj)
     return CKR_OK;
 
 error:
-    if (fp)
-        fclose(fp);
     if (clear)
         free(clear);
 
@@ -1704,12 +1700,12 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
         if (!fp2)
             continue;
 
-        if (!fread(&size, sizeof(CK_ULONG_32), 1, fp2)) {
+        if (fread(&size, sizeof(CK_ULONG_32), 1, fp2) != 1) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Cannot read size\n");
             continue;
         }
-        if (!fread(&priv, sizeof(CK_BBOOL), 1, fp2)) {
+        if (fread(&priv, sizeof(CK_BBOOL), 1, fp2) != 1) {
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR, "Cannot read boolean\n");
             continue;
@@ -2222,7 +2218,7 @@ CK_RV load_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     set_perm(fileno(fp));
 
     /* Load generic token data */
-    if (!fread(&td, sizeof(TOKEN_DATA), 1, fp)) {
+    if (fread(&td, sizeof(TOKEN_DATA), 1, fp) != 1) {
         TRACE_ERROR("fread(%s): %s\n", fname,
                     ferror(fp) ? strerror(errno) : "failed");
         rc = CKR_FUNCTION_FAILED;
@@ -2534,6 +2530,7 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
             continue;
         }
         if (fread(footer, FOOTER_LEN, 1, fp2) != 1) {
+            free(buf);
             fclose(fp2);
             OCK_SYSLOG(LOG_ERR,
                        "Cannot read token object %s " "(ignoring it)", fname);

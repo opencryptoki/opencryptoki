@@ -1584,7 +1584,10 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
      * Lock so that only one thread can run C_Initialize or C_Finalize at
      * a time
      */
-    pthread_mutex_lock(&GlobMutex);     // Grab Process level Global MUTEX
+    if (pthread_mutex_lock(&GlobMutex)) {  // Grab Process level Global MUTEX
+        TRACE_ERROR("Global Mutex Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
 
     TRACE_INFO("C_Finalize\n");
     if (API_Initialized() == FALSE) {
@@ -2792,7 +2795,10 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
      * Lock so that only one thread can run C_Initialize or C_Finalize at
      * a time
      */
-    pthread_mutex_lock(&GlobMutex);
+    if (pthread_mutex_lock(&GlobMutex)) {
+        TRACE_ERROR("Global Mutex Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
 
     trace_initialize();
 
@@ -5285,7 +5291,7 @@ CK_RV C_IBM_ReencryptSingle(CK_SESSION_HANDLE hSession,
         return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    if (!pDecrMech || !pDecrMech) {
+    if (!pDecrMech || !pEncrMech) {
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
     }

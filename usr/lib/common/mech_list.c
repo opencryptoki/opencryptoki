@@ -70,9 +70,8 @@ out:
  */
 static void netscape_hack(CK_MECHANISM_TYPE_PTR mech_arr_ptr, CK_ULONG count)
 {
-    char *envrn;
     CK_ULONG i;
-    if ((envrn = getenv("NS_SERVER_HOME")) != NULL) {
+    if (getenv("NS_SERVER_HOME") != NULL) {
         for (i = 0; i < count; i++) {
             switch (mech_arr_ptr[i]) {
             case CKM_SSL3_PRE_MASTER_KEY_GEN:

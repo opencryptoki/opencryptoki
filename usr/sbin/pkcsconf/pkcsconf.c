@@ -111,6 +111,10 @@ int main(int argc, char *argv[])
             } else {
                 flags |= CFG_SO_PIN;
                 sopin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
+                if (sopin == NULL) {
+                    rv = CKR_HOST_MEMORY;
+                    goto done;
+                }
                 memcpy(sopin, optarg, strlen(optarg) + 1);
             }
             break;
@@ -122,6 +126,11 @@ int main(int argc, char *argv[])
             } else {
                 flags |= CFG_USER_PIN;
                 pin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
+                if (pin == NULL) {
+                    rv = CKR_HOST_MEMORY;
+                    goto done;
+                }
+
                 memcpy(pin, optarg, strlen(optarg) + 1);
             }
             break;
@@ -133,6 +142,10 @@ int main(int argc, char *argv[])
             } else {
                 flags |= CFG_NEW_PIN;
                 newpin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
+                if (newpin == NULL) {
+                    rv = CKR_HOST_MEMORY;
+                    goto done;
+                }
                 memcpy(newpin, optarg, strlen(optarg) + 1);
             }
             break;

@@ -1565,8 +1565,6 @@ done:
     BN_clear_free(bn_x);
     BN_clear_free(bn_y);
     BN_clear_free(bn_d);
-    if (ec_point != NULL)
-        free(ec_point);
     if (group != NULL)
         EC_GROUP_free(group);
 

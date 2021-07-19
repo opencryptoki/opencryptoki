@@ -185,12 +185,14 @@ CK_RV XProcLock(STDLL_TokData_t *tokdata)
 
     if (tokdata->spinxplfd < 0)  {
         TRACE_DEVEL("No file descriptor to lock with.\n");
+        pthread_mutex_unlock(&tokdata->spinxplfd_mutex);
         return CKR_CANT_LOCK;
     }
 
     if (tokdata->spinxplfd_count == 0) {
         if (flock(tokdata->spinxplfd, LOCK_EX) != 0) {
             TRACE_DEVEL("flock has failed.\n");
+            pthread_mutex_unlock(&tokdata->spinxplfd_mutex);
             return CKR_CANT_LOCK;
         }
     }

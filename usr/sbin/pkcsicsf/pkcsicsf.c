@@ -610,7 +610,7 @@ int main(int argc, char **argv)
             rc = get_pin(&racfpwd, &racflen);
             if (rc != 0) {
                 fprintf(stderr, "Could not get RACF passwd.\n");
-                return -1;
+                goto cleanup;
             }
 
             /* bind to ldap server */

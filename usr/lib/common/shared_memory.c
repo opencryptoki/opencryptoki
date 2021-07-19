@@ -313,7 +313,8 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
      */
     ctx = addr;
     if (created) {
-        strcpy(ctx->name, name);
+        strncpy(ctx->name, name, SM_NAME_LEN);
+        ctx->name[SM_NAME_LEN] = '\0';
         ctx->data_len = len;
         memset(ctx->data, 0, ctx->data_len);
         ctx->ref = 0;
@@ -358,7 +359,7 @@ int sm_close(void *addr, int destroy, int ignore_ref_count)
 {
     int rc;
     int ref;
-    char name[SM_NAME_LEN + 2] = { 0, };
+    char name[SM_NAME_LEN + 1] = { 0, };
     struct shm_context *ctx = get_shm_context(addr);
 
     if (ctx->ref <= 0) {
@@ -373,7 +374,7 @@ int sm_close(void *addr, int destroy, int ignore_ref_count)
 
     TRACE_DEVEL("close: ref = %d\n", ref);
     if (ref == 0 && destroy) {
-        strncpy(name, ctx->name, SM_NAME_LEN + 2);
+        memcpy(name, ctx->name, SM_NAME_LEN);
         name[SM_NAME_LEN] = '\0';
     }
 

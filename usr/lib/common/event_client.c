@@ -44,7 +44,9 @@ static int connect_socket(const char *file_path)
 
     memset(&daemon_address, 0, sizeof(struct sockaddr_un));
     daemon_address.sun_family = AF_UNIX;
-    strcpy(daemon_address.sun_path, file_path);
+    strncpy(daemon_address.sun_path, file_path,
+            sizeof(daemon_address.sun_path));
+    daemon_address.sun_path[sizeof(daemon_address.sun_path) - 1] = '\0';
 
     if (connect(socketfd, (struct sockaddr *) &daemon_address,
                 sizeof(struct sockaddr_un)) != 0) {
