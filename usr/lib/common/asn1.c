@@ -1195,7 +1195,6 @@ CK_RV ber_encode_RSAPrivateKey(CK_BBOOL length_only,
         return CKR_HOST_MEMORY;
     }
     offset = 0;
-    rc = 0;
 
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
     if (rc != CKR_OK) {
@@ -1654,7 +1653,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
     CK_BYTE *buf3 = NULL;
-    BerValue *val;
+    BerValue *val = NULL;
     BerElement *ber;
 
     UNUSED(length_only);
@@ -1680,7 +1679,6 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         return CKR_HOST_MEMORY;
     }
     offset = 0;
-    rc = 0;
 
     rc = ber_encode_INTEGER(FALSE, &buf2, &len,
                             (CK_BYTE *) modulus + sizeof(CK_ATTRIBUTE),
@@ -1740,8 +1738,16 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* need a bitstring */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)buf2, len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc = (ber_put_bitstring(ber, (char *)buf2, len * 8, 0x03) <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
+    if (rc != 0) {
+        TRACE_DEVEL("%s ber_alloc_t/ber_flatten failed \n", __func__);
+        rc = CKR_FUNCTION_FAILED;
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf2);
+        goto out;
+    }
     memcpy(buf3 + total_len, val->bv_val, val->bv_len);
     total_len += val->bv_len;
     ber_free(ber, 1);
@@ -1752,6 +1758,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     if (rc != CKR_OK)
         TRACE_DEVEL("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
 
+out:
     free(buf3);
     return rc;
 }
@@ -2201,7 +2208,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    BerValue *val;
+    BerValue *val = NULL;
     BerElement *ber;
 
     /* Calculate the BER container length
@@ -2237,14 +2244,22 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc |= (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
+    if (rc != 0) {
+        TRACE_DEVEL("%s ber_alloc_t/ber_flatten failed \n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf);
+        return CKR_FUNCTION_FAILED;
+    }
+
     pub_len = val->bv_len;
     ber_free(ber, 1);
     free(buf);
     ber_bvfree(val);
 
-    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
+    rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, id_len + pub_len);
 
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_sequence failed with rc=0x%lx\n", __func__,
@@ -2323,19 +2338,28 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                             value->ulValueLen);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        free(buf2);
         return rc;
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc = (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
     free(buf);
+    if (rc != 0) {
+        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf2);
+        return CKR_FUNCTION_FAILED;
+    }
 
     buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         ber_free(ber, 1);
         ber_bvfree(val);
+        free(buf2);
         return CKR_HOST_MEMORY;
     }
     memcpy(buf, buf2, id_len);
@@ -2499,7 +2523,7 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
     BerElement *ber;
-    BerValue *val;
+    BerValue *val = NULL;
     CK_RV rc = 0;
 
     /* Calculate BER encoding length
@@ -2529,8 +2553,15 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         }
 
         ber = ber_alloc_t(LBER_USE_DER);
-        rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
-        rc = ber_flatten(ber, &val);
+        rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
+                                                            <= 0 ? 1 : 0);
+        rc |= ber_flatten(ber, &val);
+        if (rc != 0) {
+            TRACE_DEVEL("ber_put_bitstring/ber_flatten failed\n");
+            ber_free(ber, 1);
+            ber_bvfree(val);
+            return CKR_FUNCTION_FAILED;
+       }
 
         ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
                           val->bv_len);
@@ -2561,7 +2592,6 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
         return CKR_HOST_MEMORY;
     }
     offset = 0;
-    rc = 0;
 
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
     if (rc != CKR_OK) {
@@ -2595,12 +2625,21 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
                                      &field_len);
         if (rc != CKR_OK || pubkey->ulValueLen != field_len) {
             TRACE_DEVEL("ber decoding of public key failed\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+            rc = CKR_ATTRIBUTE_VALUE_INVALID;
+            goto error;
         }
 
         ber = ber_alloc_t(LBER_USE_DER);
-        rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
-        rc = ber_flatten(ber, &val);
+        rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
+                                                                <= 0 ? 1 : 0);
+        rc |= ber_flatten(ber, &val);
+        if (rc != 0) {
+            TRACE_DEVEL("ber_put_bitstring/ber_flatten failed\n");
+            ber_free(ber, 1);
+            ber_bvfree(val);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+       }
 
         ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
                           val->bv_len);
@@ -2830,7 +2869,7 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_ULONG algid_len = der_AlgIdECBaseLen + params->ulValueLen;
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
-    BerValue *val;
+    BerValue *val = NULL;
     BerElement *ber;
     CK_BYTE *ecpoint;
     CK_ULONG ecpoint_len, field_len;
@@ -2862,8 +2901,15 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* public key */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
+                                                            <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        return CKR_FUNCTION_FAILED;
+    }
 
     rc = ber_encode_SEQUENCE(TRUE, NULL, &total, NULL, len + val->bv_len);
     ber_free(ber, 1);
@@ -2892,8 +2938,16 @@ CK_RV ber_encode_ECPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* generate bitstring */
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc = (ber_put_bitstring(ber, (char *)ecpoint, ecpoint_len * 8, 0x03)
+                                                            <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf);
+        return CKR_FUNCTION_FAILED;
+    }
 
     memcpy(buf + der_AlgIdECBaseLen + params->ulValueLen, val->bv_val,
            val->bv_len);
@@ -3298,7 +3352,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
-    BerValue *val;
+    BerValue *val = NULL;
     BerElement *ber;
 
     /* Calculate the BER container length
@@ -3332,8 +3386,16 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     rc |=
         ber_encode_INTEGER(FALSE, &buf, &len, value->pValue, value->ulValueLen);
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc |= (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf);
+        return CKR_FUNCTION_FAILED;
+    }
+
     pub_len = val->bv_len;
     ber_free(ber, 1);
     ber_bvfree(val);
@@ -3412,9 +3474,17 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
     }
 
     ber = ber_alloc_t(LBER_USE_DER);
-    rc = ber_put_bitstring(ber, (char *)buf, len * 8, 0x03);
-    rc = ber_flatten(ber, &val);
+    rc = (ber_put_bitstring(ber, (char *)buf, len * 8, 0x03) <= 0 ? 1 : 0);
+    rc |= ber_flatten(ber, &val);
     free(buf);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
+        ber_free(ber, 1);
+        ber_bvfree(val);
+        free(buf);
+        free(buf2);
+        return CKR_FUNCTION_FAILED;
+    }
 
     buf = (CK_BYTE *) malloc(id_len + val->bv_len);
     if (!buf) {
@@ -3432,11 +3502,11 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
 
     /* outer sequence */
     rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf, id_len + pub_len);
+    free(buf);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s der_encode_Seq failed with rc=0x%lx\n", __func__, rc);
         return rc;
     }
-    free(buf);
 
     return rc;
 }
@@ -3813,7 +3883,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
                                CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
-    CK_ULONG len, len2, offset;
+    CK_ULONG len, len2 = 0, offset;
     CK_BYTE version[] = { 0 };
     CK_RV rc;
 
@@ -3870,7 +3940,6 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
         return CKR_HOST_MEMORY;
     }
     offset = 0;
-    rc = 0;
 
     /* Version */
     rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
@@ -4183,8 +4252,6 @@ cleanup:
         free(t1_attr);
     if (rho_attr)
         free(rho_attr);
-    if (seed_attr)
-        free(seed_attr);
     if (tr_attr)
         free(tr_attr);
     if (s1_attr)

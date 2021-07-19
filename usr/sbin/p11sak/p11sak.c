@@ -567,6 +567,7 @@ static CK_RV read_rsa_args(CK_ULONG modulusbits, CK_ULONG exponent,
 
     if (!(pubexp = malloc(sizeof(CK_ULONG)))) {
         printf("Error: failed to allocate memory for public exponent.\n");
+        free(mod_bits);
         return CKR_HOST_MEMORY;
     }
 
@@ -673,6 +674,7 @@ static CK_RV set_labelpair_attr(const char *label, CK_ATTRIBUTE *pubattr,
 
     if (!(prvlabel = malloc(strlen(label) + 5))) {
         printf("Error allocating space for prvlabel\n");
+        free(publabel);
         return CKR_HOST_MEMORY;
     }
     prvlabel = strcpy(prvlabel, label);
@@ -2390,6 +2392,7 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
         if (rc != CKR_OK) {
             printf("Retrieval of label failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
+            continue;
         }
 
         if (*forceAll) {

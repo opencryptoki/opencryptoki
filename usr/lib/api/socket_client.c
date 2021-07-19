@@ -72,7 +72,9 @@ int connect_socket(const char *file_path)
 
     memset(&daemon_address, 0, sizeof(struct sockaddr_un));
     daemon_address.sun_family = AF_UNIX;
-    strcpy(daemon_address.sun_path, file_path);
+    strncpy(daemon_address.sun_path, file_path,
+            sizeof(daemon_address.sun_path));
+    daemon_address.sun_path[sizeof(daemon_address.sun_path) - 1] = '\0';
 
     if (connect(socketfd, (struct sockaddr *) &daemon_address,
                 sizeof(struct sockaddr_un)) != 0) {
@@ -147,7 +149,7 @@ int init_socket_data(int socketfd)
     if (n < 0) {
         // read error
         OCK_SYSLOG(LOG_ERR, "init_socket_data: read error \
-                   on daemon socket, errno=%d", -n);
+                   on daemon socket, errno=%zd", -n);
         ret = FALSE;
     }
     if (n != sizeof(Anchor->SocketDataP)) {

@@ -410,7 +410,7 @@ CK_RV token_specific_load_token_data(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (!fread(&data, sizeof(data), 1, fh)) {
+    if (fread(&data, sizeof(data), 1, fh) != 1) {
         TRACE_ERROR("Failed to read ICSF slot data.\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -491,7 +491,7 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
         return CKR_FUNCTION_FAILED;
     }
 
-    if (asprintf(&shm_id, "/icsf-%lu", slot_id) < 0) {
+    if (asprintf(&shm_id, "/icsf-%lu", slot_id) < 0 || shm_id == NULL) {
         TRACE_ERROR("Failed to allocate shared memory id "
                     "for slot %lu.\n", slot_id);
         return CKR_HOST_MEMORY;
@@ -499,8 +499,10 @@ CK_RV token_specific_attach_shm(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     TRACE_DEVEL("Attaching to shared memory \"%s\".\n", shm_id);
 
     rc = XProcLock(tokdata);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
+        free(shm_id);
         return CKR_FUNCTION_FAILED;
+    }
 
     /*
      * Attach to an existing shared memory region or create it if it doesn't

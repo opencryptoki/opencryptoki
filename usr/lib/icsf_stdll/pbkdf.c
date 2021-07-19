@@ -84,7 +84,10 @@ CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
-    EVP_EncryptInit_ex(ctx, cipher, NULL, dkey, iv);
+    if (!EVP_EncryptInit_ex(ctx, cipher, NULL, dkey, iv)) {
+        TRACE_ERROR("EVP_EncryptInit_ex failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
     if (!EVP_EncryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_EncryptUpdate failed.\n");
         return CKR_FUNCTION_FAILED;
@@ -108,7 +111,10 @@ CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
 
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
-    EVP_DecryptInit_ex(ctx, cipher, NULL, dkey, iv);
+    if (!EVP_DecryptInit_ex(ctx, cipher, NULL, dkey, iv)) {
+        TRACE_ERROR("EVP_DecryptInit_ex failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
     if (!EVP_DecryptUpdate(ctx, outbuf, outbuflen, inbuf, inbuflen)) {
         TRACE_ERROR("EVP_DecryptUpdate failed.\n");
         return CKR_FUNCTION_FAILED;

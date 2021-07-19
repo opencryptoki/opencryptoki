@@ -510,8 +510,6 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *trusted_attr = NULL;
     CK_ATTRIBUTE *pki_attr = NULL;
     CK_ATTRIBUTE *wraptmpl_attr = NULL;
-
-    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
     CK_RV rc;
 
 
@@ -538,7 +536,7 @@ CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     wraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
-    if (!class || !subject_attr || !encrypt_attr ||
+    if (!class_attr || !subject_attr || !encrypt_attr ||
         !verify_attr || !verify_recover_attr || !wrap_attr || !trusted_attr ||
         !pki_attr || !wraptmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -1186,6 +1184,8 @@ cleanup:
         free(local);
     if (always_sens)
         free(always_sens);
+    if (sensitive)
+        free(sensitive);
     if (extractable)
         free(extractable);
     if (never_extract)
@@ -1622,8 +1622,8 @@ error:
     if (always_sens_attr)
         free(always_sens_attr);
     if (trusted_attr)
-        free(wrap_trusted_attr);
-    if (trusted_attr)
+        free(trusted_attr);
+    if (wrap_trusted_attr)
         free(wrap_trusted_attr);
     if (chkval_attr)
         free(chkval_attr);
@@ -1748,6 +1748,8 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
 cleanup:
     if (local)
         free(local);
+    if (sensitive)
+        free(sensitive);
     if (extractable)
         free(extractable);
     if (always_sens)
@@ -2318,8 +2320,8 @@ error:
         free(type_attr);
     if (modulus_attr)
         free(modulus_attr);
-    if (public_exp_attr)
-        free(public_exp_attr);
+    if (private_exp_attr)
+        free(private_exp_attr);
     if (public_exp_attr)
         free(public_exp_attr);
 

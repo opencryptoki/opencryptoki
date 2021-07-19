@@ -1704,7 +1704,7 @@ CK_RV ssl3_kmd_process_mac_keys(STDLL_TokData_t *tokdata,
     // at the beginning so that they may be overridden by caller-specified
     // values.
     //
-    new_attrs = (CK_ATTRIBUTE *) malloc((ulCount + 7) * (sizeof(CK_ATTRIBUTE)));
+    new_attrs = (CK_ATTRIBUTE *) calloc(ulCount + 7, sizeof(CK_ATTRIBUTE));
     if (!new_attrs)
         goto error;
 
@@ -1922,7 +1922,7 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
     // at the beginning so that they may be overridden by caller-specified
     // values.
     //
-    new_attrs = (CK_ATTRIBUTE *) malloc((ulCount + 7) * (sizeof(CK_ATTRIBUTE)));
+    new_attrs = (CK_ATTRIBUTE *) calloc(ulCount + 7, sizeof(CK_ATTRIBUTE));
     if (!new_attrs)
         goto error;
 

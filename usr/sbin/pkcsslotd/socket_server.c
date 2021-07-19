@@ -335,7 +335,7 @@ static int client_socket_notify(int events, void *private)
         if (num <= 0) {
             err = errno;
 
-            DbgLog(DL3, "%s: read failed with: num: %d errno: %d (%s)",
+            DbgLog(DL3, "%s: read failed with: num: %ld errno: %d (%s)",
                    __func__, num, num < 0 ? err : 0,
                    num < 0 ? strerror(err) : "none");
 
@@ -601,7 +601,7 @@ static int event_start_deliver(struct event_info *event)
     FOR_EACH_CONN_SAFE_END(proc_connections, conn)
     event->proc_ref_count--;
 
-    DbgLog(DL3, "%s: proc_ref_count: %u", __func__, event->proc_ref_count);
+    DbgLog(DL3, "%s: proc_ref_count: %lu", __func__, event->proc_ref_count);
 
     if (event->proc_ref_count == 0)
         event_delivered(event);
@@ -861,7 +861,7 @@ static int proc_event_delivered(struct proc_conn_info *conn,
         event->proc_ref_count--;
     }
 
-    DbgLog(DL3, "%s: proc_ref_count: %u", __func__, event->proc_ref_count);
+    DbgLog(DL3, "%s: proc_ref_count: %lu", __func__, event->proc_ref_count);
 
     if (event->proc_ref_count == 0)
         event_delivered(event);
@@ -1141,11 +1141,11 @@ static int admin_event_delivered(struct admin_conn_info *conn,
 
         DbgLog(DL3, "%s: Reply version:      %u", __func__,
                event->reply.version);
-        DbgLog(DL3, "%s: Reply positive:     %lu", __func__,
+        DbgLog(DL3, "%s: Reply positive:     %u", __func__,
                event->reply.positive_replies);
-        DbgLog(DL3, "%s: Reply negative:     %lu", __func__,
+        DbgLog(DL3, "%s: Reply negative:     %u", __func__,
                event->reply.negative_replies);
-        DbgLog(DL3, "%s: Reply not-handled:  %lu", __func__,
+        DbgLog(DL3, "%s: Reply not-handled:  %u", __func__,
                event->reply.nothandled_replies);
 
         conn->state = ADMIN_SEND_REPLY;
@@ -1247,7 +1247,8 @@ static int listener_socket_create(const char *file_path)
 
     memset(&address, 0, sizeof(struct sockaddr_un));
     address.sun_family = AF_UNIX;
-    strcpy(address.sun_path, file_path);
+    strncpy(address.sun_path, file_path, sizeof(address.sun_path));
+    address.sun_path[sizeof(address.sun_path) - 1] = '\0';
 
     if (bind(listener_socket,
              (struct sockaddr *) &address, sizeof(struct sockaddr_un)) != 0) {
@@ -1656,7 +1657,7 @@ int init_socket_data(Slot_Mgr_Socket_t *socketData)
 int socket_connection_handler(int timeout_secs)
 {
     struct epoll_event events[MAX_EPOLL_EVENTS];
-    int num_events, i, rc, err;
+    int num_events, i, rc = 0, err;
     struct epoll_info *info;
 
     do {

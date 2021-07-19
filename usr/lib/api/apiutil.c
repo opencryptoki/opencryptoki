@@ -553,7 +553,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     CK_RV (*pSTinit)(API_Slot_t *, CK_SLOT_ID, SLOT_INFO *,
                      struct trace_handle_t);
     CK_RV rv;
-    int dll_len, dl_index;
+    int dl_index;
     DLL_Load_t *dllload;
 
     // Get pointer to shared memory from the anchor block
@@ -566,7 +566,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
         return FALSE;
     }
 
-    if ((dll_len = strlen(sinfp->dll_location))) {
+    if (strlen(sinfp->dll_location) > 0) {
         // Check if this DLL has been loaded already.. If so, just increment
         // the counter in the dllload structure and copy the data to
         // the slot pointer.

@@ -1646,6 +1646,7 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
             rc = XProcLock(tokdata);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to get Process Lock.\n");
+                object_free(obj);
                 return rc;
             }
 
@@ -1655,12 +1656,14 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
                 if (!bt_node_add(&tokdata->priv_token_obj_btree, obj)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                     rc = CKR_HOST_MEMORY;
+                    object_free(obj);
                     goto unlock;
                 }
             } else {
                 if (!bt_node_add(&tokdata->publ_token_obj_btree, obj)) {
                     TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
                     rc = CKR_HOST_MEMORY;
+                    object_free(obj);
                     goto unlock;
                 }
             }
@@ -2000,7 +2003,7 @@ retry:
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get Process Lock.\n");
-        return rc;
+       goto done_no_xproc_unlock;
     }
 
     if (priv) {
@@ -2110,6 +2113,7 @@ done:
         XProcUnLock(tokdata);
     }
 
+done_no_xproc_unlock:
     if (wr_locked)
         object_unlock(obj);
     if (!rd_locked) {
@@ -2277,6 +2281,8 @@ CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata)
         /* we didn't find it in the btree, so add it */
         if (fa.done == FALSE) {
             new_obj = (OBJECT *) malloc(sizeof(OBJECT));
+            if (new_obj == NULL)
+                return CKR_HOST_MEMORY;
             memset(new_obj, 0x0, sizeof(OBJECT));
 
             rc = object_init_lock(new_obj);
@@ -2332,6 +2338,8 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
         /* we didn't find it in the btree, so add it */
         if (fa.done == FALSE) {
             new_obj = (OBJECT *) malloc(sizeof(OBJECT));
+            if (new_obj == NULL)
+                return CKR_HOST_MEMORY;
             memset(new_obj, 0x0, sizeof(OBJECT));
 
             rc = object_init_lock(new_obj);

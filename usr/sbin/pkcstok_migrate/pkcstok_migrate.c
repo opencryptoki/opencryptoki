@@ -246,7 +246,7 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
         uint8_t iv[12];
         uint32_t object_len;
     } header;
-    unsigned char *object;
+    unsigned char *object = NULL;
     CK_BYTE obj_key[32];
     uint32_t total_len;
     CK_RV ret;
@@ -317,10 +317,13 @@ static CK_RV make_OBJECT_PRIV_312(unsigned char **obj_new, unsigned int *obj_new
 
     *obj_new = object;
     *obj_new_len = total_len;
+    object = NULL;
 
     ret = CKR_OK;
 
 done:
+    if (object != NULL)
+        free(object);
 
     return ret;
 }
@@ -531,6 +534,7 @@ static CK_RV read_object_00(FILE *fp, const char *name, unsigned int size,
     if (read_size != size) {
         TRACE_ERROR("Cannot read old object %s.\n", name);
         ret = CKR_FUNCTION_FAILED;
+        free(buf);
         goto done;
     }
 
@@ -1551,7 +1555,7 @@ static CK_RV create_MK_SO_312(const char *data_store, const char *sopin,
     fp = open_datastore_file(fname, sizeof(fname), data_store, mkso, "w");
     if (!fp) {
         TRACE_ERROR("fopen(%s) failed, errno=%s\n", fname, strerror(errno));
-        rv = CKR_FUNCTION_FAILED;
+        ret = CKR_FUNCTION_FAILED;
         goto done;
     }
     set_perm(fileno(fp));
@@ -1934,6 +1938,7 @@ static CK_RV NVTOK_DAT_is_312(const char *data_store, CK_BBOOL *new)
     ret = CKR_OK;
 
 done:
+    fclose(fp);
 
     return ret;
 }
@@ -2033,7 +2038,7 @@ static CK_RV switch_to_new_repository(const char *data_store_old,
     snprintf(fname1, sizeof(fname1), "%s_BAK", data_store_old);
     rc = rename(data_store_old, fname1);
     if (rc) {
-        TRACE_ERROR("Cannot rename %s, errno=%s.\n", data_store_old, strerror(rc));
+        TRACE_ERROR("Cannot rename %s, errno=%s.\n", data_store_old, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2041,7 +2046,7 @@ static CK_RV switch_to_new_repository(const char *data_store_old,
     /* Rename backup folder */
     rc = rename(data_store_new, data_store_old);
     if (rc) {
-        TRACE_ERROR("Cannot rename %s, errno=%s.\n", data_store_new, strerror(rc));
+        TRACE_ERROR("Cannot rename %s, errno=%s.\n", data_store_new, strerror(errno));
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
@@ -2634,9 +2639,17 @@ int main(int argc, char **argv)
         switch (opt) {
         case 'd':
             data_store = strdup(optarg);
+            if (data_store == NULL) {
+                warnx("strdup failed.");
+                exit(1);
+            }
             break;
         case 'c':
             conf_dir = strdup(optarg);
+            if (conf_dir == NULL) {
+                warnx("strdup failed.");
+                exit(1);
+            }
             break;
         case 's':
             slot_id = atoi(optarg);
@@ -2644,14 +2657,26 @@ int main(int argc, char **argv)
             break;
         case 'u':
             userpin = strdup(optarg);
+            if (userpin == NULL) {
+                warnx("strdup failed.");
+                exit(1);
+            }
             userpinlen = strlen(userpin);
             break;
         case 'p':
             sopin = strdup(optarg);
+            if (sopin == NULL) {
+                warnx("strdup failed.");
+                exit(1);
+            }
             sopinlen = strlen(sopin);
             break;
         case 'v':
             verbose = strdup(optarg);
+            if (verbose == NULL) {
+                warnx("strdup failed.");
+                exit(1);
+            }
             vlevel = verbose_str2level(verbose);
             if (vlevel < 0) {
                 warnx("Invalid verbose level '%s' specified.", verbose);
@@ -2663,7 +2688,7 @@ int main(int argc, char **argv)
             usage(argv[0]);
             exit(0);
         default:
-            warnx("pkcstok_migrate: Parameters are required.");
+            warnx("Parameters are required.");
             usage(argv[0]);
             exit(1);
         }

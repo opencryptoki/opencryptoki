@@ -266,8 +266,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
 
     final_data_store(tokdata);
 
-    if (tokdata)
-        free(tokdata);
+    free(tokdata);
 
     return rc;
 }

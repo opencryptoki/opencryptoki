@@ -279,8 +279,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
 
     final_data_store(tokdata);
 
-    if (tokdata)
-        free(tokdata);
+    free(tokdata);
 
     return rc;
 }
@@ -466,6 +465,10 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
     dat = &tokdata->nv_token_data->dat;
     if (tokdata->version < TOK_NEW_DATA_STORE) {
         rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("compute_sha1 failed.\n");
+            goto done;
+        }
         if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE)
             != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
@@ -1347,6 +1350,10 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             }
 
             rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("compute_sha1 failed.\n");
+                goto done;
+            }
             if (memcmp(tokdata->nv_token_data->user_pin_sha, hash_sha,
                        SHA1_HASH_SIZE) != 0) {
                 set_login_flags(userType, flags);
@@ -1445,6 +1452,10 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
         if (tokdata->version < TOK_NEW_DATA_STORE) {
             rc = compute_sha1(tokdata, pPin, ulPinLen, hash_sha);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("compute_sha1 failed.\n");
+                goto done;
+            }
             if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha, SHA1_HASH_SIZE)
                 != 0) {
                 set_login_flags(userType, flags);

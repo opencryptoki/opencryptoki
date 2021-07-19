@@ -3016,7 +3016,7 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         *sig_len = length;
 
     /* leave if just returning the length. */
-    if (!verify && *reason == 3003)
+    if (!verify && reason != NULL && *reason == 3003)
         goto done;
 
     /* copy the chained data when required */
@@ -3024,7 +3024,7 @@ int icsf_hash_signverify(LDAP * ld, int *reason, struct icsf_object_record *key,
         memcpy(chain_data, bvChain.bv_val, bvChain.bv_len);
 
     /* copy signature when signing */
-    if (!verify)
+    if (!verify && sig != NULL)
         memcpy(sig, bvSig.bv_val, bvSig.bv_len);
 
 done:
