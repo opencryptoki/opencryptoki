@@ -201,6 +201,7 @@ typedef struct {
 #define RETRY_START(rc, tokdata)                                         \
                                 do {                                     \
                                     int retry_count;                     \
+                                    CK_RV rc2;                           \
                                     ep11_target_info_t* target_info =    \
                                              get_target_info((tokdata)); \
                                     if (target_info == NULL)             \
@@ -212,10 +213,12 @@ typedef struct {
 
 #define RETRY_END(rc, tokdata, session)  if ((rc) != CKR_SESSION_CLOSED) \
                                              break;                      \
-                                         (rc) = ep11tok_relogin_session( \
+                                         rc2 = ep11tok_relogin_session(  \
                                                   (tokdata), (session)); \
-                                         if ((rc) != CKR_OK)             \
+                                         if (rc2 != CKR_OK) {            \
+                                             (rc) = rc2;                 \
                                              break;                      \
+                                         }                               \
                                     }                                    \
                                     put_target_info((tokdata),           \
                                                     target_info);        \
@@ -10889,6 +10892,9 @@ static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
     CK_RV rc;
 
     TRACE_INFO("%s session=%lu\n", __func__, session->handle);
+
+    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
+        return CKR_OK;
 
     if (ep11_session == NULL) {
         TRACE_INFO("%s Session not yet logged in\n", __func__);
