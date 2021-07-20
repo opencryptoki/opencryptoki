@@ -663,7 +663,7 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         rc = CKR_FUNCTION_FAILED;
         goto err;
     }
-    ret = sm_open(buf, 0666, (void **) shm, sizeof(**shm), 0);
+    ret = sm_open(buf, 0660, (void **) shm, sizeof(**shm), 0);
     if (ret < 0) {
         TRACE_DEVEL("sm_open failed.\n");
         rc = CKR_FUNCTION_FAILED;

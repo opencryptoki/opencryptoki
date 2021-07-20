@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <syslog.h>
+#include <grp.h>
 
 /* For logging functions: */
 #include "pkcs11types.h"
@@ -159,6 +160,7 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
     struct shm_context *ctx = NULL;
     size_t real_len = sizeof(*ctx) + len;
     int created = 0;
+    struct group *grp;
 
     /*
      * This is used for portability purpose. Please check `shm_open`
@@ -169,6 +171,14 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
         goto done;
     }
 
+    grp = getgrnam("pkcs11");
+    if (!grp) {
+        rc = -errno;
+        SYS_ERROR(errno, "getgrname(\"pkcs11\"): %s\n",
+                strerror(errno));
+        goto done;
+    }
+    
     /* try and open first... */
     fd = shm_open(name, O_RDWR, mode);
     if (fd < 0) {
@@ -188,6 +198,12 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
                 SYS_ERROR(errno, "fchmod(%s): %s\n", name, strerror(errno));
                 goto done;
             }
+            if (fchown(fd, -1, grp->gr_gid) != 0) {
+                rc = -errno;
+                SYS_ERROR(errno, "fchown of token shm segment: %s\n",
+                          strerror(errno));
+                goto done;
+            }
         }
     }
 
@@ -199,6 +215,21 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
     if (fstat(fd, &stat_buf)) {
         rc = -errno;
         SYS_ERROR(errno, "Cannot stat \"%s\".\n", name);
+        goto done;
+    }
+
+    /*
+     * If the shared memory segment does not belong to the pkcs11 group or does
+     * not have correct permissions, do not use it.
+     */
+    if (stat_buf.st_gid != grp->gr_gid ||
+        (stat_buf.st_mode & ~S_IFMT) != (unsigned int)mode) {
+        TRACE_ERROR("SHM segment has wrong gid/mode combination (expected: %u/0%o; got: %u/0%o)\n",
+                    grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
+        OCK_SYSLOG(LOG_ERR,
+                   "SHM segment has wrong gid/mode combination (expected: %u/0%o; got: %u/0%o)\n",
+                   grp->gr_gid, mode, stat_buf.st_gid, stat_buf.st_mode);
+        rc = -EINVAL;
         goto done;
     }
 
