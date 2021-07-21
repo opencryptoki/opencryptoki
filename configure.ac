@@ -277,27 +277,23 @@ if test "x$with_openssl" != "xno"; then
 	old_libs="$LIBS"
 	CFLAGS="$CFLAGS $OPENSSL_CFLAGS"
 	LIBS="$LIBS $OPENSSL_LIBS"
-	AC_CHECK_HEADER([openssl/ssl.h], [], [
-		if test "x$with_openssl" != "xcheck"; then
-			AC_MSG_ERROR([Build with OpenSSL requested but OpenSSL headers couldn't be found])
-		fi
-		with_openssl=no
+	AC_CHECK_HEADER([openssl/evp.h], [], [
+		AC_MSG_ERROR([OpenSSL 1.1.1 or later is required but OpenSSL headers couldn't be found])
 	])
 	if test "x$with_openssl" != "xno"; then
-		AC_CHECK_LIB([crypto], [RSA_generate_key], [
+		AC_CHECK_LIB([crypto], [EVP_sha3_256], [
 			OPENSSL_LIBS="$OPENSSL_LIBS -lcrypto"
-			with_openssl=yes
-			], [
-				if test "x$with_openssl" != "xcheck"; then
-					AC_MSG_ERROR([Build with OpenSSL requested but OpenSSL libraries couldn't be found])
-				fi
-				with_openssl=no
+			with_openssl=yes], [
+			AC_MSG_ERROR([OpenSSL 1.1.1 or later is required but OpenSSL libraries version 1.1.1 or later couldn't be found])
 		])
 	fi
 	if test "x$with_openssl" = "xno"; then
 		CFLAGS="$old_cflags"
 		LIBS="$old_libs"
 	fi
+fi
+if test "x$with_openssl" != "xyes"; then
+	AC_MSG_ERROR([OpenSSL 1.1.1 or later is required but build without OpenSSL was requested])
 fi
 AC_SUBST([OPENSSL_CFLAGS])
 AC_SUBST([OPENSSL_LIBS])
