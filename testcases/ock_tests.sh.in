@@ -288,12 +288,18 @@ main_script()
         LOGFILE=1
     fi
 
+    # Turn space separated list into array
+    totrace=($OCK_TRACE_TOKENS)
+
     for i in $SLOT; do (
         echo "********** Testing Slot $i **********"
         check_slot $i || { echo "SKIPPING slot $i"; exit; }
         if [ $NONEED_TOKEN_INIT -eq 0 ]; then
             init_slot $i || { echo "SKIPPING slot $i"; exit; }
         fi
+        for item in "${totrace[@]}"; do
+            [[ "$i" == "$item" ]] && export OPENCRYPTOKI_TRACE_LEVEL=4
+        done
         if [ "$LOGFILE" = "1" ]; then
             echo "test output for slot $i stored in log-slot_$i.txt"
             run_tests $i > "log-slot_$i.txt" 2>&1
