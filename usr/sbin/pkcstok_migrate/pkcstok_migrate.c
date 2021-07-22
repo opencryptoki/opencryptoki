@@ -2060,7 +2060,7 @@ done:
  */
 static int parseupdate_ockversion(void *private, const char *version)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     fprintf(u->f, "version %s", version);
     return 0;
@@ -2075,14 +2075,14 @@ static void parseupdate_disab_event_supp(void *private)
 
 static void parseupdate_eol(void *private)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     fputc('\n', u->f);
 }
 
 static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     u->activeslot = (slot == u->slotnum);
     if (nl_before_begin)
@@ -2094,7 +2094,7 @@ static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
 
 static int parseupdate_end_slot(void *private)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     if (u->activeslot)
         fprintf(u->f, "  tokversion = 3.12\n");
@@ -2105,19 +2105,32 @@ static int parseupdate_end_slot(void *private)
 
 static int parseupdate_key_str(void *private, int tok, const char *val)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
-    if (tok != KW_HWVERSION && tok != KW_FWVERSION &&
-        strchr(val, ' ') != NULL)
+    switch (tok) {
+    case KW_SLOTDESC:
+    case KW_MANUFID:
         fprintf(u->f, "  %s = \"%s\"", keyword_token_to_str(tok), val);
-    else if (tok != KW_TOKVERSION)
+        break;
+    case KW_STDLL:
+    case KW_CONFNAME:
+    case KW_TOKNAME:
+        if (strchr(val, ' ') != NULL)
+            fprintf(u->f, "  %s = \"%s\"", keyword_token_to_str(tok), val);
+        else
+            fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+        break;
+    case KW_HWVERSION:
+    case KW_FWVERSION:
         fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+        break;
+	}
     return 0;
 }
 
 static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     if (tok == KW_TOKVERSION && !u->activeslot)
         fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
@@ -2127,7 +2140,7 @@ static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 
 static void parseupdate_eolcomment(void *private, const char *comment)
 {
-	struct parseupdate *u = (struct parseupdate *)private;
+    struct parseupdate *u = (struct parseupdate *)private;
 
     fprintf(u->f, "#%s", comment);
 }
