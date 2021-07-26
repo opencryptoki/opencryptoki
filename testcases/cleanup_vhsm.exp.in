@@ -1,0 +1,25 @@
+#!/usr/bin/expect -f
+#
+# COPYRIGHT (c) International Business Machines Corp. 2001-2017
+#
+# This program is provided under the terms of the Common Public License,
+# version 1.0 (CPL-1.0). Any use, reproduction or distribution for this software
+# constitutes recipient's acceptance of CPL-1.0 terms which can be found
+# in the file LICENSE file or at https://opensource.org/licenses/cpl1.0.php
+#
+
+spawn @sbindir@/pkcsep11_session logout -force -slot [lindex $argv 0]
+expect {
+    "Enter the USER PIN:" { sleep .1; send $env(PKCS11_USER_PIN); send "\r"; }
+    eof { send_user "Unexpected EOF on user pin\n"; exit 1 }
+    timeout { send_user "Timeout on user pin\n"; exit 1 }
+}
+expect {
+    "EP11-Sessions logged out" {}
+    eof { send_user "Unexpected EOF at the end\n"; exit 1 }
+    timeout { send_user "Unexpected timeout at the end\n"; exit 1 }
+}
+expect {
+    eof {}
+    timeout { send_user "Unexpected timeout at the end\n"; exit 1 }
+}
