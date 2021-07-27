@@ -20,7 +20,11 @@ expect {
     timeout { send_user "Timeout on VHSM pin\n"; exit 1 }
 }
 expect {
-    "VHSM-pin successfully set." { exit 0 }
+    "VHSM-pin successfully set." {}
     eof { send_user "Unexpected EOF at the end\n"; exit 1 }
+    timeout { send_user "Unexpected timeout at the end\n"; exit 1 }
+}
+expect {
+    eof {}
     timeout { send_user "Unexpected timeout at the end\n"; exit 1 }
 }
