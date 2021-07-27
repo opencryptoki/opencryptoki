@@ -10,12 +10,12 @@
 
 spawn @sbindir@/pkcsep11_session vhsmpin -slot [lindex $argv 0]
 expect {
-    "Enter the USER PIN:" { sleep .1; send "01234567\r"; }
+    "Enter the USER PIN:" { sleep .1; send $env(PKCS11_USER_PIN); send "\r"; }
     eof { send_user "Unexpected EOF on user pin\n"; exit 1 }
     timeout { send_user "Timeout on user pin\n"; exit 1 }
 }
 expect {
-    "Enter the new VHSM PIN:" { sleep .1; send "0123456789\r"; }
+    "Enter the new VHSM PIN:" { sleep .1; send $env(PKCS11_VHSM_PIN); send "\r"; }
     eof { send_user "Unexpected EOF on VHSM pin\n"; exit 1 }
     timeout { send_user "Timeout on VHSM pin\n"; exit 1 }
 }
