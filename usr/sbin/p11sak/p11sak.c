@@ -2036,13 +2036,16 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                                      char *label, char *attr_string)
 {
     CK_OBJECT_HANDLE pub_keyh, prv_keyh;
-    CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2] = { 0 };
+    CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
     CK_ULONG pub_acount = 0;
-    CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2] = { 0 };
+    CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
     CK_ULONG prv_acount = 0;
     CK_MECHANISM mech;
     CK_ULONG i;
     CK_RV rc;
+
+    memset(pub_attr, 0, sizeof(pub_attr));
+    memset(prv_attr, 0, sizeof(prv_attr));
 
     if (kt == kt_RSAPKCS) {
         rc = read_rsa_args((CK_ULONG) keylength, exponent, pub_attr,
