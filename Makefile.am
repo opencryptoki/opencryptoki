@@ -232,7 +232,10 @@ ci-installcheck: ci-prepare installcheck
 	@echo "done"
 
 ci-cleanup:
+	killall -HUP pkcsslotd || true
+	@sbindir@/pkcsslotd
 	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so ./cleanup_vhsm.exp 42
+	killall -HUP pkcsslotd
 
 ci-uninstall: uninstall
 	rm -f $(sysconfdir)/opencryptoki/ep11tok*.conf
