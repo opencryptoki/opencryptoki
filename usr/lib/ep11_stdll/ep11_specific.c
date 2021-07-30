@@ -782,6 +782,8 @@ done:
 
     if (blob_attr)
         free(blob_attr);
+    if (pkey_attr)
+        free(pkey_attr);
 
     put_target_info(tokdata, target_info);
 
