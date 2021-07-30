@@ -84,14 +84,13 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     OBJECT *o = NULL;
-    CK_BBOOL priv_obj, sess_obj, added = FALSE, locked = FALSE;
+    CK_BBOOL priv_obj, sess_obj, locked = FALSE;
     CK_RV rc;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
     CK_BYTE *spki = NULL;
     CK_ULONG spki_len = 0;
     CK_ATTRIBUTE *spki_attr = NULL;
-    unsigned long obj_handle;
 
     if (!sess || !pTemplate || !handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -162,126 +161,11 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
     // okay, object is created and the session permissions look okay.
     // add the object to the appropriate list and assign an object handle
     //
-
-    if (sess_obj) {
-        o->session = sess;
-        memset(o->name, 0x00, sizeof(CK_BYTE) * 8);
-
-        if ((obj_handle = bt_node_add(&tokdata->sess_obj_btree, o)) == 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    } else {
-        CK_BYTE current[8];
-        CK_BYTE next[8];
-
-        // we'll be modifying nv_token_data so we should protect this part with
-        // the 'XProcLock'
-        //
-        rc = XProcLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to get Process Lock.\n");
-            goto done;
-        }
-        locked = TRUE;
-
-        // Determine if we have already reached our Max Token Objects
-        //
-        if (priv_obj) {
-            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-                rc = CKR_HOST_MEMORY;
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                goto done;
-            }
-        } else {
-            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-                rc = CKR_HOST_MEMORY;
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                goto done;
-            }
-        }
-
-        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
-
-        o->session = NULL;
-        memcpy(&o->name, current, 8);
-
-        rc = compute_next_token_obj_name(current, next);
-        if (rc != CKR_OK) {
-            // TODO: handle error, check if rc is a valid per spec
-            goto done;
-        }
-        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
-
-        rc = save_token_object(tokdata, o);
-        if (rc != CKR_OK) {
-            // TODO: handle error, check if rc is a valid per spec
-            goto done;
-        }
-        // add the object identifier to the shared memory segment
-        //
-        object_mgr_add_to_shm(o, tokdata->global_shm);
-
-        // save_token_data has to lock the mutex itself because it's used
-        // elsewhere
-        rc = save_token_data(tokdata, sess->session_info.slotID);
-        if (rc != CKR_OK) {
-            // TODO: handle error, check if rc is a valid per spec
-            goto done;
-        }
-
-        // now, store the object in the appropriate btree
-        //
-        if (priv_obj)
-            obj_handle = bt_node_add(&tokdata->priv_token_obj_btree, o);
-        else
-            obj_handle = bt_node_add(&tokdata->publ_token_obj_btree, o);
-
-        if (!obj_handle) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    }
-    added = TRUE;
-
-    rc = object_mgr_add_to_map(tokdata, sess, o, obj_handle, handle);
-    if (rc != CKR_OK) {
-        // we need to remove the object from whatever btree we just added it to
-        if (sess_obj) {
-            // put the binary tree node which holds o on the free list, but
-            // pass NULL here, so that o (the binary tree node's value pointer)
-            // isn't touched. It is free'd below
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, FALSE);
-        } else {
-            // we'll want to delete the token object file too!
-            //
-            delete_token_object(tokdata, o);
-
-            if (priv_obj) {
-                // put the binary tree node which holds o on the free list, but
-                // pass NULL here, so that o (the binary tree node's value
-                // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, FALSE);
-            } else {
-                // put the binary tree node which holds o on the free list, but
-                // pass NULL here, so that o (the binary tree node's value
-                // pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, FALSE);
-            }
-
-            object_mgr_del_from_shm(o, tokdata->global_shm);
-        }
-    }
-
+    rc = object_mgr_create_final(tokdata, sess, o, handle);
 
 done:
     if ((rc != CKR_OK) && (o != NULL)) {
-        if (!added)
-            object_free(o);
-        else
-            object_put(tokdata, o, FALSE);
+        object_free(o);
         o = NULL;
     }
     if (spki != NULL)
@@ -383,9 +267,8 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     OBJECT *new_obj = NULL;
     CK_BBOOL priv_obj;
     CK_BBOOL sess_obj;
-    CK_BBOOL added = FALSE, locked = FALSE;
+    CK_BBOOL locked = FALSE;
     CK_RV rc;
-    unsigned long obj_handle;
 
     if (!sess || (!pTemplate && ulCount) || !new_handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -420,113 +303,11 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     // okay, object is created and the session permissions look okay.
     // add the object to the appropriate list and assign an object handle
     //
-
-    if (sess_obj) {
-        new_obj->session = sess;
-        memset(&new_obj->name, 0x00, sizeof(CK_BYTE) * 8);
-
-        if ((obj_handle = bt_node_add(&tokdata->sess_obj_btree, new_obj)) == 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    } else {
-        CK_BYTE current[8];
-        CK_BYTE next[8];
-
-        // we'll be modifying nv_token_data so we should protect this part
-        // with 'XProcLock'
-        //
-        rc = XProcLock(tokdata);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Failed to get Process Lock.\n");
-            goto done;
-        }
-        locked = TRUE;
-
-        // Determine if we have already reached our Max Token Objects
-        //
-        if (priv_obj) {
-            if (tokdata->global_shm->num_priv_tok_obj >= MAX_TOK_OBJS) {
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                rc = CKR_HOST_MEMORY;
-                goto done;
-            }
-        } else {
-            if (tokdata->global_shm->num_publ_tok_obj >= MAX_TOK_OBJS) {
-                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                rc = CKR_HOST_MEMORY;
-                goto done;
-            }
-        }
-        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
-
-        new_obj->session = NULL;
-        memcpy(&new_obj->name, current, 8);
-
-        compute_next_token_obj_name(current, next);
-        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
-
-        save_token_object(tokdata, new_obj);
-
-        // add the object identifier to the shared memory segment
-        //
-        object_mgr_add_to_shm(new_obj, tokdata->global_shm);
-
-        save_token_data(tokdata, sess->session_info.slotID);
-
-        // now, store the object in the token object btree
-        //
-        if (priv_obj)
-            obj_handle = bt_node_add(&tokdata->priv_token_obj_btree, new_obj);
-        else
-            obj_handle = bt_node_add(&tokdata->publ_token_obj_btree, new_obj);
-
-        if (!obj_handle) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-    }
-    added = TRUE;
-
-    rc = object_mgr_add_to_map(tokdata, sess, new_obj, obj_handle, new_handle);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_mgr_add_to_map failed.\n");
-
-        // this is messy but we need to remove the object from whatever
-        // list we just added it to
-        //
-        if (sess_obj) {
-            // put the binary tree node which holds new_obj on the free list,
-            // but pass NULL here, so that new_obj (the binary tree node's value
-            // pointer) isn't touched. It is free'd below
-            bt_node_free(&tokdata->sess_obj_btree, obj_handle, FALSE);
-        } else {
-            delete_token_object(tokdata, new_obj);
-
-            if (priv_obj) {
-                // put the binary tree node which holds new_obj on the free
-                // list, but pass NULL here, so that new_obj (the binary tree
-                // node's value pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->priv_token_obj_btree, obj_handle, FALSE);
-            } else {
-                // put the binary tree node which holds new_obj on the free
-                // list, but pass NULL here, so that new_obj (the binary tree
-                // node's value pointer) isn't touched. It is free'd below
-                bt_node_free(&tokdata->publ_token_obj_btree, obj_handle, FALSE);
-            }
-
-            object_mgr_del_from_shm(new_obj, tokdata->global_shm);
-        }
-    }
+    rc = object_mgr_create_final(tokdata, sess, new_obj, new_handle);
 
 done:
     if ((rc != CKR_OK) && (new_obj != NULL)) {
-        if (!added)
-            object_free(new_obj);
-        else
-            object_put(tokdata, new_obj, FALSE);
+        object_free(new_obj);
         new_obj = NULL;
     }
     object_put(tokdata, old_obj, TRUE);
