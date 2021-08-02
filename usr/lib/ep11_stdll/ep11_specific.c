@@ -3323,12 +3323,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /*
          * Builds the DER encoding (ansi_x962) SPKI.
-         * (get the length first)
          */
-        rc = ber_encode_DSAPublicKey(TRUE, &data, &data_len,
-                                     prime, subprime, base, value);
-        data = malloc(data_len);
-
         rc = ber_encode_DSAPublicKey(FALSE, &data, &data_len,
                                      prime, subprime, base, value);
         if (rc != CKR_OK) {
