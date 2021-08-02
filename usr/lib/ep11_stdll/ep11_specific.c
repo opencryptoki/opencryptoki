@@ -3502,11 +3502,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /*
          * Builds the DER encoding (ansi_x962) SPKI.
-         * (get the length first)
          */
-        rc = ber_encode_DHPublicKey(TRUE, &data, &data_len, prime, base, value);
-        data = malloc(data_len);
-
         rc = ber_encode_DHPublicKey(FALSE, &data, &data_len,
                                     prime, base, value);
         if (rc != CKR_OK) {
@@ -5305,24 +5301,18 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    if (allocated && ecpoint != NULL)
-        free(ecpoint);
-
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
-
-    return rc;
-
+    goto out;
 error:
     if (key_obj)
         object_free(key_obj);
     *handle = 0;
-    if (new_attrs)
-        free_attribute_array(new_attrs, new_attrs_len);
+ out:
     if (opaque_attr != NULL)
         free(opaque_attr);
     if (chk_attr != NULL)
         free(chk_attr);
+    if (new_attrs)
+        free_attribute_array(new_attrs, new_attrs_len);
     if (new_attrs2)
         free_attribute_array(new_attrs2, new_attrs2_len);
     if (allocated && ecpoint != NULL)
