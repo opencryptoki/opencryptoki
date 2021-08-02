@@ -3128,12 +3128,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
 
         /*
          * Builds the DER encoding (ansi_x962) SPKI.
-         * (get the length first)
          */
-        rc = ber_encode_ECPublicKey(TRUE, &data, &data_len,
-                                    ec_params, &ec_point_uncompr);
-        data = malloc(data_len);
-
         rc = ber_encode_ECPublicKey(FALSE, &data, &data_len,
                                     ec_params, &ec_point_uncompr);
         free(ecpoint);
