@@ -5040,14 +5040,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
 
             ecdh1_parms2 = *ecdh1_parms;
 
-            rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
-                                 &base_key_obj, READ_LOCK);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("%s failed hBaseKey=0x%lx\n", __func__, hBaseKey);
-                return rc;
-            }
-
             if (mech->mechanism == CKM_ECDH1_DERIVE) {
+                rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
+                                     &base_key_obj, READ_LOCK);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("%s failed hBaseKey=0x%lx\n", __func__, hBaseKey);
+                    return rc;
+                }
+
                 rc = get_ecsiglen(base_key_obj, &privlen);
                 privlen /= 2;
 
