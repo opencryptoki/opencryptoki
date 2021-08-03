@@ -1982,5 +1982,5 @@ int main(int argc, char **argv)
 
     funcs->C_Finalize(NULL);
 
-    return rv;
+    return testcase_return(rv);
 }

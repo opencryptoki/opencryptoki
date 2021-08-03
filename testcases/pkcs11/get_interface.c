@@ -462,6 +462,5 @@ int main(void)
 
 ret:
     testcase_print_result();
-    /* make sure we return non-zero if rc is non-zero */
-    return ((rc == 0) || (rc % 256) ? (int)rc : -1);
+    return testcase_return(rc);
 }

@@ -322,4 +322,7 @@ int get_user_pin(CK_BYTE_PTR);
         }                                                            \
     } while (0)
 
+#define testcase_return(rc)                                          \
+    (((rc) != 0 || t_failed != 0 || t_errors != 0) ? 1 : 0)
+
 #endif

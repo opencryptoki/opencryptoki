@@ -427,5 +427,5 @@ finalize:
 
 out:
     testcase_print_result();
-    return 0;
+    return testcase_return(rv);
 }

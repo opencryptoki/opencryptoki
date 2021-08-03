@@ -236,19 +236,18 @@ int main(int argc, char **argv)
     {
         CK_SESSION_HANDLE hsess = 0;
 
-        rc = funcs->C_GetFunctionStatus(hsess);
-        if (rc != CKR_FUNCTION_NOT_PARALLEL)
-            return rc;
+        rv = funcs->C_GetFunctionStatus(hsess);
+        if (rv != CKR_FUNCTION_NOT_PARALLEL)
+            return rv;
 
-        rc = funcs->C_CancelFunction(hsess);
-        if (rc != CKR_FUNCTION_NOT_PARALLEL)
-            return rc;
+        rv = funcs->C_CancelFunction(hsess);
+        if (rv != CKR_FUNCTION_NOT_PARALLEL)
+            return rv;
     }
 
     testcase_setup(0);
     rc = do_GenerateKeyPairRSA();
     testcase_print_result();
 
-    /* make sure we return non-zero if rv is non-zero */
-    return ((rv == 0) || (rv % 256) ? (int)rv : -1);
+    return testcase_return(rc);
 }

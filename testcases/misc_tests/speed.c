@@ -1179,5 +1179,5 @@ out:
 
     funcs->C_Finalize(NULL);
 
-    return !rc ? 0 : 1;
+    return testcase_return(rc);
 }

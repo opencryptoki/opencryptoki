@@ -185,7 +185,7 @@ finalize:
 out:
 
     testcase_print_result();
-    exit(rv);
+    exit(testcase_return(rv));
 }
 
 int main(int argc, char **argv)
@@ -354,5 +354,5 @@ finalize:
     }
 out:
     testcase_print_result();
-    return ret;
+    return testcase_return(ret);
 }
