@@ -5,7 +5,8 @@ language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect trousers libldap2-dev libtspi-dev wget libudev-dev
+    - sudo apt-get install -y expect libldap2-dev wget libudev-dev
+    - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
     - sudo dpkg -i libica3_3.4.0-0ubuntu1_s390x.deb || true    # icatok needs libica >= 3.3
@@ -17,11 +18,11 @@ matrix:
         - name: "linux-x86-clang-locks"
           os: linux
           compiler: clang
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --enable-locks" CFLAGS="-O3 -Wextra -std=c99 -pedantic -Werror -DDEBUG"
         - name: "linux-x86-gcc-tm"
           os: linux
           compiler: gcc
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --disable-locks" CFLAGS="-O3 -Wno-clobbered -Wextra -std=c99 -pedantic -Werror"
         - name: "linux-ppc64le-clang-locks"
           os: linux
           arch: ppc64le
