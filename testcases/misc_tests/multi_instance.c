@@ -410,5 +410,5 @@ finalize:
     }
 out:
     testcase_print_result();
-    return ret;
+    return testcase_return(ret);
 }
