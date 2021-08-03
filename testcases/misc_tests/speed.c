@@ -66,13 +66,12 @@ static inline unsigned long delta_time_us(struct timeval *t1,
 // keylength: 512, 1024, 2048, 4096
 int do_RSA_PKCS_EncryptDecrypt(int keylength)
 {
-    CK_SLOT_ID slot_id;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rv, rc;
+    CK_RV rc;
 
     CK_OBJECT_HANDLE publ_key, priv_key;
     CK_BYTE data1[100];
@@ -96,7 +95,18 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
     testcase_begin("RSA PKCS Encrypt with keylen=%d datalen=%d",
                    keylength, (int) sizeof(data1));
 
-    slot_id = SLOT_ID;
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+                      SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
+        return TRUE;
+    }
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS)) {
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (%u)",
+                      SLOT_ID, CKM_RSA_PKCS);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
     testcase_user_login();
@@ -165,11 +175,15 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
     avg_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    printf("RSA PKCS Decrypt with keylen=%d datalen=%d\n",
-           keylength, (int) encdata_len);
+    testcase_pass("RSA PKCS Encrypt with keylen=%d datalen=%d",
+                  keylength, (int) sizeof(data1));
+
+    testcase_begin("RSA PKCS Decrypt with keylen=%d datalen=%d",
+                   keylength, (int) encdata_len);
+    testcase_new_assertion();
 
     tot_time = 0;
     max_time = 0;
@@ -222,15 +236,16 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
     avg_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
+    testcase_pass("RSA PKCS Decrypt with keylen=%d datalen=%d",
+                  keylength, (int) encdata_len);
+
 testcase_cleanup:
-    rv = funcs->C_CloseAllSessions(slot_id);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseAllSessions rv=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
 
     return TRUE;
 }
@@ -243,7 +258,7 @@ int do_RSA_KeyGen(int keylength)
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rv, rc;
+    CK_RV rc;
 
     CK_ULONG iterations = 10;
     SYSTEMTIME t1, t2;
@@ -258,6 +273,14 @@ int do_RSA_KeyGen(int keylength)
     };
 
     testcase_begin("RSA KeyGen with keylen=%d", keylength);
+
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+                      SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
     testcase_user_login();
@@ -305,15 +328,15 @@ int do_RSA_KeyGen(int keylength)
     avg_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
+    testcase_pass("RSA KeyGen with keylen=%d", keylength);
+
 testcase_cleanup:
-    rv = funcs->C_CloseSession(session);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseSession rv=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
 
     return TRUE;
 }
@@ -321,13 +344,12 @@ testcase_cleanup:
 // keylength: 512, 1024, 2048, 4096
 int do_RSA_PKCS_SignVerify(int keylength)
 {
-    CK_SLOT_ID slot_id;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rv, rc;
+    CK_RV rc;
 
     CK_ULONG i, len1, sig_len;
     CK_BYTE signature[512];
@@ -345,10 +367,21 @@ int do_RSA_PKCS_SignVerify(int keylength)
         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
     };
 
-    slot_id = SLOT_ID;
-
     testcase_begin("RSA PKCS Sign with keylen=%d datalen=%d",
                    keylength, (int) sizeof(data1));
+
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+                      SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
+        return TRUE;
+    }
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS)) {
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (%u)",
+                      SLOT_ID, CKM_RSA_PKCS);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
     testcase_user_login();
@@ -414,11 +447,15 @@ int do_RSA_PKCS_SignVerify(int keylength)
     avg_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    printf("RSA PKCS Verify with keylen=%d datalen=%d\n",
-           keylength, (int) sizeof(data1));
+    testcase_pass("RSA PKCS Sign with keylen=%d datalen=%d",
+                  keylength, (int) sizeof(data1));
+
+    testcase_begin("RSA PKCS Verify with keylen=%d datalen=%d",
+                   keylength, (int) sizeof(data1));
+    testcase_new_assertion();
 
     tot_time = 0;
     max_time = 0;
@@ -458,15 +495,16 @@ int do_RSA_PKCS_SignVerify(int keylength)
     avg_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
+    testcase_pass("RSA PKCS Verify with keylen=%d datalen=%d",
+                  keylength, (int) sizeof(data1));
+
 testcase_cleanup:
-    rv = funcs->C_CloseAllSessions(slot_id);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseAllSession rv=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
 
     return TRUE;
 }
@@ -474,13 +512,12 @@ testcase_cleanup:
 // mode: ECB CBC
 int do_DES3_EncrDecr(const char *mode)
 {
-    CK_SLOT_ID slot_id;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rv, rc;
+    CK_RV rc;
 
     CK_OBJECT_HANDLE h_key;
     CK_BYTE original[BIG_REQUEST];
@@ -493,15 +530,25 @@ int do_DES3_EncrDecr(const char *mode)
     CK_ULONG i, iterations = 10000;
     CK_ULONG avg_time, tot_time, min_time, max_time, diff;
 
-    slot_id = SLOT_ID;
+    testcase_begin("DES3 Encrypt with mode=%s datalen=%d", mode, BIG_REQUEST);
 
-    testcase_begin("DES3 Encrypt with mode=%s datalen=%d\n", mode, BIG_REQUEST);
-
-    if (is_cca_token(SLOT_ID) && strcmp(mode, "ECB") == 0) {
-        testcase_skip("Slot %u doesn't support DES3 ECB En/Decrypt\n",
-                      (unsigned) SLOT_ID);
+    if (!mech_supported(SLOT_ID, CKM_DES3_KEY_GEN)) {
+        testcase_skip("Slot %lu doesn't support CKM_DES3_KEY_GEN (%u)",
+                      SLOT_ID, CKM_DES3_KEY_GEN);
         return TRUE;
     }
+    if (strcmp(mode, "ECB") == 0 && !mech_supported(SLOT_ID, CKM_DES3_ECB)) {
+        testcase_skip("Slot %lu doesn't support CKM_DES3_ECB (%u)",
+                      SLOT_ID, CKM_DES3_ECB);
+        return TRUE;
+    }
+    if (strcmp(mode, "CBC") == 0 && !mech_supported(SLOT_ID, CKM_DES3_CBC)) {
+        testcase_skip("Slot %lu doesn't support CKM_DES3_CBC (%u)",
+                      SLOT_ID, CKM_DES3_CBC);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
     testcase_user_login();
@@ -580,12 +627,15 @@ int do_DES3_EncrDecr(const char *mode)
     tot_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
-           "op/s=%.3f %.3fMB/s\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
-    printf("DES3 Decrypt with mode=%s datalen=%d\n", mode, BIG_REQUEST);
+    testcase_pass("DES3 Encrypt with mode=%s datalen=%d", mode, BIG_REQUEST);
+
+    testcase_begin("DES3 Decrypt with mode=%s datalen=%d", mode, BIG_REQUEST);
+    testcase_new_assertion();
 
     tot_time = 0;
     max_time = 0;
@@ -628,17 +678,17 @@ int do_DES3_EncrDecr(const char *mode)
     tot_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
-           "op/s=%.3f %.3fMB/s\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
+    testcase_pass("DES3 Decrypt with mode=%s datalen=%d", mode, BIG_REQUEST);
+
 testcase_cleanup:
-    rv = funcs->C_CloseAllSessions(slot_id);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
 
     return TRUE;
 }
@@ -647,13 +697,12 @@ testcase_cleanup:
 // mode: ECB CBC
 int do_AES_EncrDecr(int keylength, const char *mode)
 {
-    CK_SLOT_ID slot_id;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
-    CK_RV rv, rc;
+    CK_RV rc;
 
     CK_OBJECT_HANDLE h_key;
     CK_BYTE original[BIG_REQUEST];
@@ -673,10 +722,26 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     SYSTEMTIME t1, t2;
     CK_ULONG avg_time, tot_time, min_time, max_time, diff;
 
-    testcase_begin("AES Encrypt with mode=%s keylen=%ld datalen=%d\n",
+    testcase_begin("AES Encrypt with mode=%s keylen=%ld datalen=%d",
                    mode, key_len * 8, BIG_REQUEST);
 
-    slot_id = SLOT_ID;
+    if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
+        testcase_skip("Slot %lu doesn't support CKM_AES_KEY_GEN (%u)",
+                      SLOT_ID, CKM_AES_KEY_GEN);
+        return TRUE;
+    }
+    if (strcmp(mode, "ECB") == 0 && !mech_supported(SLOT_ID, CKM_AES_ECB)) {
+        testcase_skip("Slot %lu doesn't support CKM_AES_ECB (%u)",
+                      SLOT_ID, CKM_AES_ECB);
+        return TRUE;
+    }
+    if (strcmp(mode, "CBC") == 0 && !mech_supported(SLOT_ID, CKM_AES_CBC)) {
+        testcase_skip("Slot %lu doesn't support CKM_AES_CBC (%u)",
+                      SLOT_ID, CKM_AES_CBC);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
     testcase_user_login();
@@ -751,13 +816,17 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     tot_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
-           "op/s=%.3f %.3fMB/s\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
-    printf("AES Decrypt with mode=%s keylen=%ld datalen=%d\n",
-           mode, key_len * 8, BIG_REQUEST);
+    testcase_pass("AES Encrypt with mode=%s keylen=%ld datalen=%d",
+                   mode, key_len * 8, BIG_REQUEST);
+
+    testcase_begin("AES Decrypt with mode=%s keylen=%ld datalen=%d",
+                   mode, key_len * 8, BIG_REQUEST);
+    testcase_new_assertion();
 
     tot_time = 0;
     max_time = 0;
@@ -797,29 +866,28 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     tot_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
-           "op/s=%.3f %.3fMB/s\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
+    testcase_pass("AES Decrypt with mode=%s keylen=%ld datalen=%d",
+                  mode, key_len * 8, BIG_REQUEST);
 
 testcase_cleanup:
-    rv = funcs->C_CloseAllSessions(slot_id);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
 
     return TRUE;
 }
 
 int do_SHA(const char *mode)
 {
-    CK_SLOT_ID slot_id;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
     CK_FLAGS flags;
-    CK_RV rc, rv;
+    CK_RV rc;
 
     CK_BYTE data[BIG_REQUEST];
     CK_BYTE hash[MAX_HASH_LEN];
@@ -829,9 +897,25 @@ int do_SHA(const char *mode)
     CK_ULONG diff, avg_time, tot_time, min_time, max_time;
     CK_ULONG i, iterations = 20000;
 
-    printf("SHA (%s) with datalen=%d\n", mode, BIG_REQUEST);
+    testcase_begin("SHA (%s) with datalen=%d", mode, BIG_REQUEST);
 
-    slot_id = SLOT_ID;
+    if (strcmp(mode, "SHA1") == 0 && !mech_supported(SLOT_ID, CKM_SHA_1)) {
+        testcase_skip("Slot %lu doesn't support CKM_SHA_1 (%u)",
+                      SLOT_ID, CKM_SHA_1);
+        return TRUE;
+    }
+    if (strcmp(mode, "SHA256") == 0 && !mech_supported(SLOT_ID, CKM_SHA256)) {
+        testcase_skip("Slot %lu doesn't support CKM_SHA256 (%u)",
+                      SLOT_ID, CKM_SHA256);
+        return TRUE;
+    }
+    if (strcmp(mode, "SHA512") == 0 && !mech_supported(SLOT_ID, CKM_SHA512)) {
+        testcase_skip("Slot %lu doesn't support CKM_SHA512 (%u)",
+                      SLOT_ID, CKM_SHA512);
+        return TRUE;
+    }
+
+    testcase_new_assertion();
 
     testcase_rw_session();
 
@@ -906,67 +990,17 @@ int do_SHA(const char *mode)
     tot_time /= 1000;
 
     printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
-           "op/s=%.3f %.3fMB/s\n\n", iterations, tot_time, min_time, max_time,
+           "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
+    testcase_pass("SHA (%s) with datalen=%d", mode, BIG_REQUEST);
+
 testcase_cleanup:
-    rv = funcs->C_CloseAllSessions(slot_id);
-    if (rv != CKR_OK) {
-        testcase_error("C_CloseAllSessions rv=%s", p11_get_ckr(rv));
+    testcase_closeall_session();
+    if (rc != CKR_OK)
         return FALSE;
-    }
-
-    return TRUE;
-}
-
-
-int do_DummyFunction(void)
-{
-#if DUMMY
-    CK_SLOT_ID slot_id;
-    CK_ULONG i, diff, avg_time, min_time, max_time;
-    CK_ULONG iterations = 1000;
-    SYSTEMTIME t1, t2;
-
-    testcase_begin("do_DummyFunction...");
-
-    slot_id = SLOT_ID;
-
-    tot_time = 0;
-    max_time = 0;
-    min_time = 0xFFFFFFFF;
-
-    for (i = 0; i < iterations + 2; i++) {
-        GetSystemTime(&t1);
-        DummyFunction(slot_id);
-
-        GetSystemTime(&t2);
-
-        diff = delta_time_us(&t1, &t2);
-        tot_time += diff;
-
-        if (diff < min_time)
-            min_time = diff;
-
-        if (diff > max_time)
-            max_time = diff;
-    }
-
-    tot_time -= min_time;
-    tot_time -= max_time;
-    avg_time = tot_time / iterations;
-
-    // us -> ms
-    tot_time /= 1000;
-    min_time /= 1000;
-    max_time /= 1000;
-
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
-           "op/s=%.3f\n\n", iterations, tot_time, min_time, max_time,
-           avg_time, (double) (iterations * 1000) / (double) tot_time);
-#endif
 
     return TRUE;
 }
@@ -1054,85 +1088,96 @@ int main(int argc, char **argv)
 
     funcs->C_Initialize(&cinit_args);
 
+    testcase_setup(0);
+
     if (do_rsa_keygen) {
+        testsuite_begin("RSA Keygen.");
         rc = do_RSA_KeyGen(1024);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_KeyGen(2048);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_KeyGen(4096);
         if (!rc)
-            return rc;
+            goto out;
     }
 
     if (do_rsa_signverify) {
+        testsuite_begin("RSA Sign/Verify.");
         rc = do_RSA_PKCS_SignVerify(1024);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_PKCS_SignVerify(2048);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_PKCS_SignVerify(4096);
         if (!rc)
-            return rc;
+            goto out;
     }
 
     if (do_rsa_endecrypt) {
+        testsuite_begin("RSA Encrypt/Decrypt.");
         rc = do_RSA_PKCS_EncryptDecrypt(1024);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_PKCS_EncryptDecrypt(2048);
         if (!rc)
-            return rc;
+            goto out;
         rc = do_RSA_PKCS_EncryptDecrypt(4096);
         if (!rc)
-            return rc;
+            goto out;
     }
 
     if (do_des3_endecrypt) {
+        testsuite_begin("DES3 Encrypt/Decrypt.");
         rc = do_DES3_EncrDecr("ECB");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_DES3_EncrDecr("CBC");
         if (!rc)
-            return rc;
+            goto out;
     }
 
     if (do_aes_endecrypt) {
+        testsuite_begin("AES Encrypt/Decrypt.");
         rc = do_AES_EncrDecr(128, "ECB");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_AES_EncrDecr(128, "CBC");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_AES_EncrDecr(192, "ECB");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_AES_EncrDecr(192, "CBC");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_AES_EncrDecr(256, "ECB");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_AES_EncrDecr(256, "CBC");
         if (!rc)
-            return rc;
+            goto out;
     }
 
     if (do_sha) {
+        testsuite_begin("SHA Digest.");
         rc = do_SHA("SHA1");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_SHA("SHA256");
         if (!rc)
-            return rc;
+            goto out;
         rc = do_SHA("SHA512");
         if (!rc)
-            return rc;
+            goto out;
     }
+
+out:
+    testcase_print_result();
 
     funcs->C_Finalize(NULL);
 
-    return 0;
+    return !rc ? 0 : 1;
 }
