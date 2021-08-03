@@ -53,7 +53,7 @@ OCK_TESTS+=" pkcs11/findobjects pkcs11/generate_keypair"
 OCK_TESTS+=" pkcs11/get_interface pkcs11/getobjectsize pkcs11/sess_opstate"
 OCK_TESTS+=" misc_tests/fork misc_tests/obj_mgmt_tests" 
 OCK_TESTS+=" misc_tests/obj_mgmt_lock_tests misc_tests/reencrypt"
-OCK_TESTS+=" misc_tests/events"
+OCK_TESTS+=" misc_tests/events misc_tests/cca_export_import_test"
 OCK_TEST=""
 OCK_BENCHS="pkcs11/*bench"
 
@@ -249,15 +249,18 @@ run_tests()
         OCK_TESTS="$OCK_TEST"
     fi
     echo "***** Will run the following tests for slot $1: $(ls -U $OCK_TESTS)"
+    ALLRES=0
     for j in $( ls -U $OCK_TESTS ); do
         echo "** Now executing '$j'"
         $j -slot $1 $NO_STOP 2>&1
         RES=$?
-		if [ $RES -ne 0 ]; then
-			echo "ERROR: Testcase $j failed to execute."
-			exit $RES
-		fi
+        if [ $RES -ne 0 ]; then
+            ALLRES=$RES
+            echo "ERROR: Testcase $j failed to execute, rc: $RES"
+            echo "ERROR: Testcase $j failed to execute for slot $1, rc: $RES" >> error_file.$1
+        fi
     done
+    return $ALLRES
 }
 
 ###
@@ -268,10 +271,18 @@ run_tests()
 run_benchs()
 {
     echo "***** Will run the following benchmarks for slot $1: $(ls -U $OCK_BENCHS)"
+    ALLRES=0
     for i in $( ls -U $OCK_BENCHS ); do
         echo "** Now executing '$i"
         $i -slot $1 $NO_STOP 2>&1
+        RES=$?
+        if [ $RES -ne 0 ]; then
+            ALLRES=$RES
+            echo "ERROR: Benchmark $i failed to execute, rc: $RES"
+            echo "ERROR: Benchmark $i failed to execute for slot $1, rc: $RES" >> error_file.$1
+        fi
     done
+    return $ALLRES
 }
 
 
@@ -290,6 +301,8 @@ main_script()
 
     # Turn space separated list into array
     totrace=($OCK_TRACE_TOKENS)
+    
+    rm -f error_file.*
 
     for i in $SLOT; do (
         echo "********** Testing Slot $i **********"
@@ -306,11 +319,25 @@ main_script()
         else
             run_tests $i
         fi
-        [ -n "$BENCHMARK" ] && run_benchs $i
-        echo "********** Finished Testing Slot $i **********"
+        RC=$?
+        if [ -n "$BENCHMARK" ]; then
+            run_benchs $i
+            RC2=$?
+            if [ $RC2 -ne 0 ]; then
+                RC=RC2
+            fi
+        fi
+        echo "********** Finished Testing Slot $i with RC=$RC **********"
         ) &
     done
     wait
+    ls error_file.* &>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "********** At least one slot finished with error **********"
+        cat error_file.*
+        rm -f error_file.*
+        exit 1
+    fi
 }
 
 while getopts s:f:l:hc:n arg; do
