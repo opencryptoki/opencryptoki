@@ -59,6 +59,8 @@ int sess_opstate_funcs(int loops)
     CK_ULONG opstatelen;
     CK_BYTE *opstate = NULL;
 
+    testcase_begin("Get/SetOperationState digest test");
+
     // open 2 sessions
     flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
     rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &s1);
@@ -222,6 +224,7 @@ int sess_opstate_funcs(int loops)
         goto out;
     }
 
+    testcase_new_assertion();
     testcase_pass("Get/SetOperationState digest test");
 
 out:
@@ -287,8 +290,9 @@ int main(int argc, char **argv)
         if (rc != CKR_FUNCTION_NOT_PARALLEL)
             return rc;
     }
-
+    testcase_setup(0);
     rv = sess_opstate_funcs(loops);
+    testcase_print_result();
 
     /* make sure we return non-zero if rv is non-zero */
     return ((rv == 0) || (rv % 256) ? (int)rv : -1);
