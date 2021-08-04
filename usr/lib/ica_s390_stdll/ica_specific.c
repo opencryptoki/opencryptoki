@@ -45,7 +45,7 @@
 #endif
 #include <openssl/crypto.h>
 
-#define ICA_MAX_MECH_LIST_ENTRIES       98
+#define ICA_MAX_MECH_LIST_ENTRIES       120
 
 typedef struct {
     ica_adapter_handle_t adapter_handle;
@@ -3661,175 +3661,169 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 #endif
 
 typedef struct _REF_MECH_LIST_ELEMENT {
-    CK_ULONG lica_idx;
+    CK_ULONG lica_idx; /* 0 means its a combined mechanism */
     CK_MECHANISM_TYPE mech_type;
     CK_MECHANISM_INFO mech_info;
 } REF_MECH_LIST_ELEMENT;
 
 static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
-    {92, CKM_RSA_PKCS_KEY_PAIR_GEN,
-     {512, 4096, CKF_HW | CKF_GENERATE_KEY_PAIR}
+    {RSA_KEY_GEN_ME, CKM_RSA_PKCS_KEY_PAIR_GEN,
+     {512, 4096, CKF_GENERATE_KEY_PAIR}
     },
-#if !(NODSA)
-//      {1, CKM_DSA_KEY_PAIR_GEN, {512, 1024, CKF_HW|CKF_GENERATE_KEY_PAIR}},
-#endif
-#if !(NOCDMF)
-//      {4, CKM_CDMF_KEY_GEN, {0, 0, CKF_HW|CKF_GENERATE}},
-#endif
-    {80, CKM_DES_KEY_GEN, {8, 8, CKF_HW | CKF_GENERATE}},
-    {80, CKM_DES3_KEY_GEN, {24, 24, CKF_HW | CKF_GENERATE}},
-    {90, CKM_RSA_PKCS,
-     {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP |
+    {P_RNG, CKM_DES_KEY_GEN, {8, 8, CKF_GENERATE}},
+    {P_RNG, CKM_DES3_KEY_GEN, {24, 24, CKF_GENERATE}},
+    {RSA_ME, CKM_RSA_PKCS,
+     {512, 4096, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP |
       CKF_SIGN | CKF_VERIFY | CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER}
     },
+    {0, CKM_SHA1_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA224_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA256_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA384_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA512_RSA_PKCS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
 #if !(NOX509)
-    {90, CKM_RSA_X_509,
-     {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP |
+    {RSA_ME, CKM_RSA_X_509,
+     {512, 4096, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP |
       CKF_SIGN | CKF_VERIFY | CKF_SIGN_RECOVER | CKF_VERIFY_RECOVER}
     },
 #endif
-    {90, CKM_RSA_PKCS_OAEP,
-     {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {0, CKM_RSA_PKCS_OAEP,
+     {512, 4096, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {90, CKM_RSA_PKCS_PSS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {90, CKM_SHA1_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
-    {90, CKM_SHA224_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
-    {90, CKM_SHA256_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
-    {90, CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
-    {90, CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
-    {190, CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {190, CKM_SHA224_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {190, CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {190, CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {190, CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {20, CKM_DES_ECB,
-     {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {0, CKM_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA1_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA224_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA256_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA384_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {0, CKM_SHA512_RSA_PKCS_PSS, {512, 4096, CKF_SIGN | CKF_VERIFY}},
+    {DES_ECB, CKM_DES_ECB,
+     {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {21, CKM_DES_CBC,
-     {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {DES_CBC, CKM_DES_CBC,
+     {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {21, CKM_DES_CBC_PAD,
-     {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {DES_CBC, CKM_DES_CBC_PAD,
+     {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {41, CKM_DES3_ECB,
-     {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {DES3_ECB, CKM_DES3_ECB,
+     {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {42, CKM_DES3_CBC,
-     {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {DES3_ECB, CKM_DES3_CBC,
+     {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {42, CKM_DES3_CBC_PAD,
-     {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {DES3_CBC, CKM_DES3_CBC_PAD,
+     {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {49, CKM_DES3_MAC, {24, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {49, CKM_DES3_MAC_GENERAL, {24, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {49, CKM_DES3_CMAC, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {49, CKM_DES3_CMAC_GENERAL, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {24, CKM_DES_CFB8, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-    {44, CKM_DES_OFB64, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-    {45, CKM_DES_CFB64, {8, 8, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-    {01, CKM_SHA_1, {0, 0, CKF_HW | CKF_DIGEST}},
-    {01, CKM_SHA_1_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {01, CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {03, CKM_SHA224, {0, 0, CKF_HW | CKF_DIGEST}},
-    {03, CKM_SHA224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {03, CKM_SHA224_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {03, CKM_SHA256, {0, 0, CKF_HW | CKF_DIGEST}},
-    {03, CKM_SHA256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {03, CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {04, CKM_SHA384, {0, 0, CKF_HW | CKF_DIGEST}},
-    {04, CKM_SHA384_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {04, CKM_SHA384_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {05, CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
-    {05, CKM_SHA512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {05, CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {DES3_CMAC, CKM_DES3_MAC, {24, 24, CKF_SIGN | CKF_VERIFY}},
+    {DES3_CMAC, CKM_DES3_MAC_GENERAL, {24, 24, CKF_SIGN | CKF_VERIFY}},
+    {DES3_CMAC, CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
+    {DES3_CMAC, CKM_DES3_CMAC_GENERAL, {16, 24, CKF_SIGN | CKF_VERIFY}},
+    {DES_CFB, CKM_DES_CFB8, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES3_OFB, CKM_DES_OFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {DES3_CFB, CKM_DES_CFB64, {8, 8, CKF_ENCRYPT | CKF_DECRYPT}},
+    {SHA1, CKM_SHA_1, {0, 0, CKF_DIGEST}},
+    {SHA1, CKM_SHA_1_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA1, CKM_SHA_1_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA256, CKM_SHA224, {0, 0, CKF_DIGEST}},
+    {SHA256, CKM_SHA224_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA256, CKM_SHA224_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA256, CKM_SHA256, {0, 0, CKF_DIGEST}},
+    {SHA256, CKM_SHA256_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA256, CKM_SHA256_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA384, CKM_SHA384, {0, 0, CKF_DIGEST}},
+    {SHA384, CKM_SHA384_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA384, CKM_SHA384_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA512, CKM_SHA512, {0, 0, CKF_DIGEST}},
+    {SHA512, CKM_SHA512_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA512, CKM_SHA512_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #ifdef SHA512_224
-    {95, CKM_SHA512_224, {0, 0, CKF_HW|CKF_DIGEST}},
-    {95, CKM_SHA512_224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {95, CKM_SHA512_224_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA512_224, CKM_SHA512_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA512_224, CKM_SHA512_224_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA512_224, CKM_SHA512_224_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA512_256
-    {96, CKM_SHA512_256, {0, 0, CKF_HW|CKF_DIGEST}},
-    {96, CKM_SHA512_256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {96, CKM_SHA512_256_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA512_256, CKM_SHA512_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA512_256, CKM_SHA512_256_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {SHA512_256, CKM_SHA512_256_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_224
-    {6, CKM_IBM_SHA3_224, {0, 0, CKF_HW|CKF_DIGEST}},
-    {6, CKM_IBM_SHA3_224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA3_224, CKM_IBM_SHA3_224, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_224, CKM_IBM_SHA3_224_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_256
-    {7, CKM_IBM_SHA3_256, {0, 0, CKF_HW|CKF_DIGEST}},
-    {7, CKM_IBM_SHA3_256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA3_256, CKM_IBM_SHA3_256, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_256, CKM_IBM_SHA3_256_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_384
-    {8, CKM_IBM_SHA3_384, {0, 0, CKF_HW|CKF_DIGEST}},
-    {8, CKM_IBM_SHA3_384_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA3_384, CKM_IBM_SHA3_384, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_384, CKM_IBM_SHA3_384_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #ifdef SHA3_512
-    {9, CKM_IBM_SHA3_512, {0, 0, CKF_HW|CKF_DIGEST}},
-    {9, CKM_IBM_SHA3_512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {SHA3_512, CKM_IBM_SHA3_512, {0, 0, CKF_HW|CKF_DIGEST}},
+    {SHA3_512, CKM_IBM_SHA3_512_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #if !(NOMD5)
-    {53, CKM_MD5, {0, 0, CKF_HW | CKF_DIGEST}},
-    {54, CKM_MD5_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {55, CKM_MD5_HMAC_GENERAL, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {53, CKM_MD5, {0, 0, CKF_DIGEST}},
+    {54, CKM_MD5_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
+    {55, CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
 #if !(NOAES)
-    {80, CKM_AES_KEY_GEN, {16, 32, CKF_HW | CKF_GENERATE}},
-    {60, CKM_AES_ECB,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {P_RNG, CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
+    {AES_ECB, CKM_AES_ECB,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {61, CKM_AES_CBC,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CBC, CKM_AES_CBC,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {61, CKM_AES_CBC_PAD,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CBC, CKM_AES_CBC_PAD,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {63, CKM_AES_OFB,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_OFB, CKM_AES_OFB,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {64, CKM_AES_CFB8,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CFB, CKM_AES_CFB8,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {64, CKM_AES_CFB64,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CFB, CKM_AES_CFB64,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {64, CKM_AES_CFB128,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CFB, CKM_AES_CFB128,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {65, CKM_AES_CTR,
-     {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    {AES_CTR, CKM_AES_CTR,
+     {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
-    {70, CKM_AES_GCM, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-    {68, CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {68, CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {68, CKM_AES_CMAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
-    {68, CKM_AES_CMAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {AES_GCM, CKM_AES_GCM, {16, 32, CKF_ENCRYPT | CKF_DECRYPT}},
+    {AES_CMAC, CKM_AES_MAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {AES_CMAC, CKM_AES_MAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {AES_CMAC, CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {AES_CMAC, CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
 #endif
-    {80, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
+    {P_RNG, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #ifndef NO_EC
-    {85, CKM_ECDH1_DERIVE,
-     {160, 521, CKF_HW | CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {EC_DH, CKM_ECDH1_DERIVE,
+     {160, 521, CKF_DERIVE | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {EC_DSA_SIGN, CKM_ECDSA,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA_SHA1,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {0, CKM_ECDSA_SHA1,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA_SHA224,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {0, CKM_ECDSA_SHA224,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA_SHA256,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {0, CKM_ECDSA_SHA256,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA_SHA384,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {0, CKM_ECDSA_SHA384,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {86, CKM_ECDSA_SHA512,
-     {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {0, CKM_ECDSA_SHA512,
+     {160, 521, CKF_SIGN | CKF_VERIFY | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
-    {88, CKM_EC_KEY_PAIR_GEN,
-     {160, 521, CKF_HW | CKF_GENERATE_KEY_PAIR | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
+    {EC_KGEN, CKM_EC_KEY_PAIR_GEN,
+     {160, 521, CKF_GENERATE_KEY_PAIR | CKF_EC_NAMEDCURVE | CKF_EC_F_P}
     },
 #endif
 
@@ -3894,7 +3888,21 @@ static CK_BBOOL isMechanismAvailable(STDLL_TokData_t *tokdata,
     return FALSE;
 }
 
-static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
+static CK_BBOOL isMechanismHW(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    unsigned int i;
+
+    for (i = 0; i < ica_data->mech_list_len; i++) {
+        if (ica_data->mech_list[i].mech_type == mechanism)
+            return ica_data->mech_list[i].mech_info.flags & CKF_HW;
+    }
+
+    return FALSE;
+}
+
+static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism,
+                                CK_BBOOL hw)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ULONG ret;
@@ -3911,7 +3919,7 @@ static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
     }
     ica_data->mech_list[ica_data->mech_list_len].mech_type = ref_mech_list[refIdx].mech_type;
     ica_data->mech_list[ica_data->mech_list_len].mech_info.flags =
-        (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
+        (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW)) | (hw ? CKF_HW : 0);
     ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMinKeySize =
         ref_mech_list[refIdx].mech_info.ulMinKeySize;
     ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
@@ -3932,14 +3940,13 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     unsigned int i, n;
     unsigned int ica_specific_mech_list_len;
     CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
+    CK_BBOOL rsa_hw, ec_hw, sha_hw;
 
-    ica_data->mech_list[0].mech_type = CKF_DIGEST;
-    ica_data->mech_list[0].mech_info.flags = CKF_DIGEST;
-    ica_data->mech_list[1].mech_type = CKM_MD5_HMAC;
-    ica_data->mech_list[1].mech_info.flags = CKF_SIGN | CKF_VERIFY;
-    ica_data->mech_list[2].mech_type = CKM_MD5_HMAC_GENERAL;
-    ica_data->mech_list[2].mech_info.flags = CKF_SIGN | CKF_VERIFY;
-    ica_data->mech_list_len = 3;
+#if !(NOMD5)
+    addMechanismToList(tokdata, CKM_MD5, 0);
+    addMechanismToList(tokdata, CKM_MD5_HMAC, 0);
+    addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0);
+#endif
 
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
@@ -3965,9 +3972,6 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         if (libica_func_list[i].flags == 0)
             continue;
 
-        // loop over libica supported list
-        ulActMechCtr = (CK_ULONG)(-1);
-
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
          */
@@ -3975,12 +3979,12 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         while ((ret = getRefListIdxfromId(libica_func_list[i].mech_mode_id,
                                           &refIdx)) == CKR_OK) {
             /*
-	     * Loop over the predefined mechanism list and check
+             * Loop over the predefined mechanism list and check
              * if we have to overrule a software implemented
              * mechanism from token by libica HW supported
              * mechanism.
              */
-            for (n = 0; n < ulPreDefMechCtr; n++) {
+            for (n = 0, ulActMechCtr = (CK_ULONG)-1; n < ulPreDefMechCtr; n++) {
                 if (ica_data->mech_list[n].mech_type ==
                                         ref_mech_list[refIdx].mech_type) {
                     ulActMechCtr = n;
@@ -3996,8 +4000,8 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                 ica_data->mech_list[ica_data->mech_list_len].mech_type =
                     ref_mech_list[refIdx].mech_type;
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.flags =
-                    (libica_func_list[i].flags & 0x01) |
-                    (ref_mech_list[refIdx].mech_info.flags & 0xfffffffe);
+                    (libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW) ? CKF_HW : 0) |
+                    (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW));
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMinKeySize =
                     ref_mech_list[refIdx].mech_info.ulMinKeySize;
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
@@ -4006,8 +4010,8 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             } else {
                 /* replace existing entry */
                 ica_data->mech_list[ulActMechCtr].mech_info.flags =
-                    (libica_func_list[i].flags & 0x01) |
-                    ica_data->mech_list[ulActMechCtr].mech_info.flags;
+                    (libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW) ? CKF_HW : 0) |
+                    (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW));
             }
             refIdx++;
         }
@@ -4015,32 +4019,132 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
 
     /*
      * check if special combined mechanisms are supported
-     * if SHA1 and RSA is available   -> insert CKM_SHA1_RSA_PKCS
-     * if SHA256 and RSA is available -> insert CKM_SHA256_RSA_PKCS
+     * if SHAnnn and RSA is available -> insert CKM_SHAnnn_RSA_PKCS[_PSS]
      * if MD2 and RSA is available    -> insert CKM_MD2_RSA_PKCS
      * if MD5 and RSA is available    -> insert CKM_MD5_RSA_PKCS
+     * if SHAnnn and EC is available  -> insert CKM_ECDSA_SHAnnn
+     * if SHAnnn and EC is available  -> insert CKM_ECDH1_DERIVE
+     * if SHAnnn is available         -> insert CKM_SHAxxx_HMAC[_GENERAL]
      */
+    rsa_hw = isMechanismHW(tokdata, CKM_RSA_PKCS);
+    sha_hw = isMechanismHW(tokdata, CKM_SHA_1);
+    if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
+        isMechanismAvailable(tokdata, CKM_SHA224) &&
+        isMechanismAvailable(tokdata, CKM_SHA256) &&
+        isMechanismAvailable(tokdata, CKM_SHA384) &&
+        isMechanismAvailable(tokdata, CKM_SHA512)) {
+        addMechanismToList(tokdata, CKM_RSA_PKCS_OAEP, 0);
+        addMechanismToList(tokdata, CKM_RSA_PKCS_PSS, 0);
+    }
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_SHA224) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_MD2) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_MD2_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_MD2_RSA_PKCS, rsa_hw && sha_hw);
     if (isMechanismAvailable(tokdata, CKM_MD5) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_MD5_RSA_PKCS);
+        addMechanismToList(tokdata, CKM_MD5_RSA_PKCS, rsa_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS_PSS, rsa_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA224) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS_PSS, rsa_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA256) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS_PSS, rsa_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA384) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS_PSS, rsa_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA512) &&
+        isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
+        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS_PSS, rsa_hw && sha_hw);
+
+    ec_hw = isMechanismHW(tokdata, CKM_ECDSA);
+    if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA1, ec_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA224) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA224, ec_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA256) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA256, ec_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA384) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA384, ec_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_SHA512) &&
+        isMechanismAvailable(tokdata, CKM_ECDSA))
+        addMechanismToList(tokdata, CKM_ECDSA_SHA512, ec_hw && sha_hw);
+    if (isMechanismAvailable(tokdata, CKM_EC_KEY_PAIR_GEN) &&
+        isMechanismAvailable(tokdata, CKM_SHA_1) &&
+        isMechanismAvailable(tokdata, CKM_SHA224) &&
+        isMechanismAvailable(tokdata, CKM_SHA256) &&
+        isMechanismAvailable(tokdata, CKM_SHA384) &&
+        isMechanismAvailable(tokdata, CKM_SHA512))
+        addMechanismToList(tokdata, CKM_ECDH1_DERIVE, ec_hw && sha_hw);
+
+    if (isMechanismAvailable(tokdata, CKM_SHA_1)) {
+        addMechanismToList(tokdata, CKM_SHA_1_HMAC, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA_1_HMAC_GENERAL, sha_hw);
+    }
+    if (isMechanismAvailable(tokdata, CKM_SHA224)) {
+        addMechanismToList(tokdata, CKM_SHA224_HMAC, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA224_HMAC_GENERAL, sha_hw);
+    }
+    if (isMechanismAvailable(tokdata, CKM_SHA256)) {
+        addMechanismToList(tokdata, CKM_SHA256_HMAC, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA256_HMAC_GENERAL, sha_hw);
+    }
+    if (isMechanismAvailable(tokdata, CKM_SHA384)) {
+        addMechanismToList(tokdata, CKM_SHA384_HMAC, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA384_HMAC_GENERAL, sha_hw);
+    }
+    if (isMechanismAvailable(tokdata, CKM_SHA512)) {
+        addMechanismToList(tokdata, CKM_SHA512_HMAC, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA512_HMAC_GENERAL, sha_hw);
+    }
+#ifdef NID_sha512_224WithRSAEncryption
+    if (isMechanismAvailable(tokdata, CKM_SHA512_224)) {
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, 0);
+    }
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+    if (isMechanismAvailable(tokdata, CKM_SHA512_256)) {
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, 0);
+    }
+#endif
+#ifdef NID_sha3_224
+    if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_224))
+        addMechanismToList(tokdata, CKM_IBM_SHA3_224_HMAC, 0);
+#endif
+#ifdef NID_sha3_256
+    if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_256))
+        addMechanismToList(tokdata, CKM_IBM_SHA3_256_HMAC, 0);
+#endif
+#ifdef NID_sha3_384
+    if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_384))
+        addMechanismToList(tokdata, CKM_IBM_SHA3_384_HMAC, 0);
+#endif
+#ifdef NID_sha3_512
+    if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_512))
+        addMechanismToList(tokdata, CKM_IBM_SHA3_512_HMAC, 0);
+#endif
 
     /* sort the mech_list_ica by mechanism ID's (bubble sort)  */
     for (i = 0; i < ica_data->mech_list_len; i++) {
