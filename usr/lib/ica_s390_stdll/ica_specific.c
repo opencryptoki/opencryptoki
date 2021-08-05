@@ -50,6 +50,8 @@
 typedef struct {
     ica_adapter_handle_t adapter_handle;
     int ica_ec_support_available;
+    int ica_rsa_keygen_available;
+    int ica_rsa_endecrypt_available;
     MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
     CK_ULONG mech_list_len;
 } ica_private_data_t;
@@ -1694,8 +1696,8 @@ err_crtkey:
 
 
 //
-static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
-                                    TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
+                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *publ_exp = NULL;
@@ -1834,14 +1836,26 @@ static CK_RV os_specific_rsa_keygen(STDLL_TokData_t *tokdata,
 
     rc = ica_rsa_key_generate_crt(ica_data->adapter_handle,
                                   (unsigned int) mod_bits, publKey, privKey);
-
-
-    if (rc) {
+    switch (rc) {
+    case 0:
+        rc = CKR_OK;
+        break;
+    case EINVAL:
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        goto privkey_cleanup;
+        break;
+    case ENODEV:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        goto privkey_cleanup;
+        break;
+    default:
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto privkey_cleanup;
+        break;
     }
-
 
     /* Build the PKCS#11 public key */
     // modulus: n
@@ -2043,13 +2057,20 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
                                           TEMPLATE *publ_tmpl,
                                           TEMPLATE *priv_tmpl)
 {
-    CK_RV rc;
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
 
-    UNUSED(tokdata);
+    if (ica_data->ica_rsa_keygen_available) {
+        rc = ica_specific_rsa_keygen(tokdata, publ_tmpl, priv_tmpl);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_rsa_keygen_available = FALSE;
+    }
 
-    rc = os_specific_rsa_keygen(tokdata, publ_tmpl, priv_tmpl);
+    if (!ica_data->ica_rsa_keygen_available)
+        rc = openssl_specific_rsa_keygen(publ_tmpl, priv_tmpl);
+
     if (rc != CKR_OK)
-        TRACE_DEVEL("os_specific_rsa_keygen failed\n");
+        TRACE_DEVEL("ica/openssl_specific_rsa_keygen failed\n");
 
     return rc;
 }
@@ -2057,10 +2078,10 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
 
 //
 //
-static CK_RV os_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
-                                     CK_BYTE *in_data,
-                                     CK_ULONG in_data_len,
-                                     CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV ica_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
+                                      CK_BYTE *in_data,
+                                      CK_ULONG in_data_len,
+                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *modulus = NULL;
@@ -2093,18 +2114,23 @@ static CK_RV os_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
         goto cleanup_pubkey;
     }
     rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, publKey, out_data);
-    if (rc != 0) {
-        if (rc == EINVAL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-            rc = CKR_ARGUMENTS_BAD;
-        } else {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rc = CKR_FUNCTION_FAILED;
-        }
-        goto cleanup_pubkey;
+    switch (rc) {
+    case 0:
+        rc = CKR_OK;
+        break;
+    case EINVAL:
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        break;
+    case ENODEV:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        break;
     }
-
-    rc = CKR_OK;
 
 cleanup_pubkey:
     free(publKey->modulus);
@@ -2117,10 +2143,10 @@ done:
 
 //
 //
-static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
-                                     CK_BYTE *in_data,
-                                     CK_ULONG in_data_len,
-                                     CK_BYTE *out_data, OBJECT *key_obj)
+static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
+                                      CK_BYTE *in_data,
+                                      CK_ULONG in_data_len,
+                                      CK_BYTE *out_data, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ATTRIBUTE *modulus = NULL;
@@ -2173,12 +2199,22 @@ static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
         }
 
         rc = ica_rsa_crt(ica_data->adapter_handle, in_data, crtKey, out_data);
-
-        if (rc != 0) {
+        switch (rc) {
+        case 0:
+            rc = CKR_OK;
+            break;
+        case EINVAL:
+            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+            rc = CKR_ARGUMENTS_BAD;
+            break;
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            rc = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             rc = CKR_FUNCTION_FAILED;
-        } else {
-            rc = CKR_OK;
+            break;
         }
         goto crt_cleanup;
     } else if (modulus && priv_exp) {
@@ -2202,12 +2238,22 @@ static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
 
         rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, modexpoKey,
                               out_data);
-
-        if (rc != 0) {
+        switch (rc) {
+        case 0:
+            rc = CKR_OK;
+            break;
+        case EINVAL:
+            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+            rc = CKR_ARGUMENTS_BAD;
+            break;
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            rc = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             rc = CKR_FUNCTION_FAILED;
-        } else {
-            rc = CKR_OK;
+            break;
         }
         goto modexpo_cleanup;
     } else {
@@ -2235,76 +2281,67 @@ done:
     return rc;
 }
 
+static CK_RV os_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
+                                     CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_rsa_endecrypt_available) {
+        rc = ica_specific_rsa_encrypt(tokdata, in_data, in_data_len,
+                                      out_data, key_obj);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_rsa_endecrypt_available = FALSE;
+    }
+
+    if (!ica_data->ica_rsa_endecrypt_available)
+        rc = openssl_specific_rsa_encrypt(tokdata, in_data, in_data_len,
+                                          out_data, key_obj);
+
+    return rc;
+}
+
+static CK_RV os_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
+                                     CK_BYTE *in_data,
+                                     CK_ULONG in_data_len,
+                                     CK_BYTE *out_data, OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_rsa_endecrypt_available) {
+        rc = ica_specific_rsa_decrypt(tokdata, in_data, in_data_len,
+                                      out_data, key_obj);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_rsa_endecrypt_available = FALSE;
+    }
+
+    if (!ica_data->ica_rsa_endecrypt_available)
+        rc = openssl_specific_rsa_decrypt(tokdata, in_data, in_data_len,
+                                          out_data, key_obj);
+
+    return rc;
+
+}
 
 CK_RV token_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                  CK_ULONG in_data_len, CK_BYTE *out_data,
                                  CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE clear[MAX_RSA_KEYLEN], cipher[MAX_RSA_KEYLEN];
-    CK_ULONG modulus_bytes;
-    CK_ATTRIBUTE *attr = NULL;
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    }
-    modulus_bytes = attr->ulValueLen;
-
-    /* format the data */
-    rc = rsa_format_block(tokdata, in_data, in_data_len, clear,
-                          modulus_bytes, PKCS_BT_2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("rsa_format_block failed\n");
-        return rc;
-    }
-
-    rc = os_specific_rsa_encrypt(tokdata, clear, modulus_bytes, cipher, key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, cipher, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_pkcs_encrypt(tokdata, in_data, in_data_len,
+                                             out_data, out_data_len, key_obj,
+                                             os_specific_rsa_encrypt);
 }
-
 
 CK_RV token_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                  CK_ULONG in_data_len, CK_BYTE *out_data,
                                  CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_RV rc;
-
-    UNUSED(tokdata);
-
-    rc = os_specific_rsa_decrypt(tokdata, in_data, in_data_len, out, key_obj);
-
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-        return rc;
-    }
-
-    rc = rsa_parse_block(out, in_data_len, out_data, out_data_len, PKCS_BT_2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("rsa_parse_block failed\n");
-        return rc;
-    }
-
-    /*
-     * For PKCS #1 v1.5 padding, out_data_len must be less
-     * than in_data_len (which is modulus_bytes) - 11.
-     */
-    if (*out_data_len > (in_data_len - 11)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-    }
-
-    return rc;
+    return openssl_specific_rsa_pkcs_decrypt(tokdata, in_data, in_data_len,
+                                             out_data, out_data_len, key_obj,
+                                             os_specific_rsa_decrypt);
 }
 
 CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
@@ -2312,40 +2349,9 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *sess,
                               CK_BYTE *out_data, CK_ULONG *out_data_len,
                               OBJECT *key_obj)
 {
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-    CK_BYTE data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-    UNUSED(sess);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = rsa_format_block(tokdata, in_data, in_data_len, data,
-                          modulus_bytes, PKCS_BT_1);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("rsa_format_block failed\n");
-        return rc;
-    }
-
-    /* signing is a private key operation --> decrypt  */
-    rc = os_specific_rsa_decrypt(tokdata, data, modulus_bytes, sig, key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, sig, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_pkcs_sign(tokdata, sess, in_data, in_data_len,
+                                          out_data, out_data_len, key_obj,
+                                          os_specific_rsa_decrypt);
 }
 
 CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
@@ -2353,59 +2359,9 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                                 CK_BYTE *signature, CK_ULONG sig_len,
                                 OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE out[MAX_RSA_KEYLEN], out_data[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes, out_data_len;
-
-    UNUSED(tokdata);
-    UNUSED(sess);
-    UNUSED(sig_len);
-
-    out_data_len = MAX_RSA_KEYLEN;
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
-                                 key_obj);
-    if (rc != CKR_OK) {
-        /*
-         * Return CKR_SIGNATURE_INVALID in case of CKR_ARGUMENTS_BAD
-         * because we dont know why the RSA op failed and it may have
-         * failed due to a tampered signature being greater or equal
-         * to the modulus.
-         */
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-        return rc == CKR_ARGUMENTS_BAD ? CKR_SIGNATURE_INVALID : rc;
-    }
-
-    rc = rsa_parse_block(out, modulus_bytes, out_data, &out_data_len,
-                         PKCS_BT_1);
-    if (rc == CKR_ENCRYPTED_DATA_INVALID) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-        return CKR_SIGNATURE_INVALID;
-    } else if (rc != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    if (in_data_len != out_data_len) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-        return CKR_SIGNATURE_INVALID;
-    }
-
-    if (CRYPTO_memcmp(in_data, out_data, out_data_len) != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-        return CKR_SIGNATURE_INVALID;
-    }
-
-    return CKR_OK;
+    return openssl_specific_rsa_pkcs_verify(tokdata, sess, in_data, in_data_len,
+                                          signature, sig_len, key_obj,
+                                          os_specific_rsa_encrypt);
 }
 
 CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
@@ -2414,39 +2370,30 @@ CK_RV token_specific_rsa_verify_recover(STDLL_TokData_t *tokdata,
                                         CK_ULONG *out_data_len,
                                         OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
+    return openssl_specific_rsa_pkcs_verify_recover(tokdata, signature,
+                                                    sig_len, out_data,
+                                                    out_data_len, key_obj,
+                                                    os_specific_rsa_encrypt);
+}
 
-    UNUSED(tokdata);
-    UNUSED(sig_len);
+CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  SIGN_VERIFY_CONTEXT *ctx,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *sig, CK_ULONG *sig_len)
+{
+    return openssl_specific_rsa_pss_sign(tokdata, sess, ctx, in_data,
+                                         in_data_len, sig, sig_len,
+                                         os_specific_rsa_decrypt);
+}
 
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
-                                 key_obj);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-        return rc;
-    }
-
-    rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_1);
-    if (rc == CKR_ENCRYPTED_DATA_INVALID) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-        return CKR_SIGNATURE_INVALID;
-    } else if (rc != CKR_OK) {
-        TRACE_DEVEL("rsa_parse_block failed\n");
-    }
-
-    return rc;
+CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
+                                    SIGN_VERIFY_CONTEXT *ctx,
+                                    CK_BYTE *in_data, CK_ULONG in_data_len,
+                                    CK_BYTE *signature, CK_ULONG sig_len)
+{
+    return openssl_specific_rsa_pss_verify(tokdata, sess, ctx, in_data,
+                                           in_data_len, signature, sig_len,
+                                           os_specific_rsa_encrypt);
 }
 
 CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
@@ -2454,36 +2401,9 @@ CK_RV token_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata,
                                       CK_BYTE *out_data,
                                       CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE clear[MAX_RSA_KEYLEN], cipher[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    // prepad with zeros
-    //
-    memset(clear, 0x0, modulus_bytes - in_data_len);
-    memcpy(&clear[modulus_bytes - in_data_len], in_data, in_data_len);
-
-    rc = os_specific_rsa_encrypt(tokdata, clear, modulus_bytes, cipher, key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, cipher, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_x509_encrypt(tokdata, in_data, in_data_len,
+                                             out_data, out_data_len, key_obj,
+                                             os_specific_rsa_encrypt);
 }
 
 CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
@@ -2491,131 +2411,29 @@ CK_RV token_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata,
                                       CK_BYTE *out_data,
                                       CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-    UNUSED(in_data_len);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = os_specific_rsa_decrypt(tokdata, in_data, modulus_bytes, out, key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, out, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_x509_decrypt(tokdata, in_data, in_data_len,
+                                             out_data, out_data_len, key_obj,
+                                             os_specific_rsa_decrypt);
 }
 
 CK_RV token_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                    CK_ULONG in_data_len, CK_BYTE *out_data,
                                    CK_ULONG *out_data_len, OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE data[MAX_RSA_KEYLEN], sig[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    // prepad with zeros
-    //
-    memset(data, 0x0, modulus_bytes - in_data_len);
-    memcpy(&data[modulus_bytes - in_data_len], in_data, in_data_len);
-
-    rc = os_specific_rsa_decrypt(tokdata, data, modulus_bytes, sig, key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, sig, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_x509_sign(tokdata, in_data, in_data_len,
+                                          out_data, out_data_len, key_obj,
+                                          os_specific_rsa_decrypt);
 }
-
 
 CK_RV token_specific_rsa_x509_verify(STDLL_TokData_t *tokdata,
                                      CK_BYTE *in_data, CK_ULONG in_data_len,
                                      CK_BYTE *signature, CK_ULONG sig_len,
                                      OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-    UNUSED(sig_len);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
-                                 key_obj);
-    if (rc == CKR_OK) {
-        CK_ULONG pos1, pos2, len;
-
-        // it should be noted that in_data_len is not necessarily
-        // the same as the modulus length
-        //
-        for (pos1 = 0; pos1 < in_data_len; pos1++)
-            if (in_data[pos1] != 0)
-                break;
-
-        for (pos2 = 0; pos2 < modulus_bytes; pos2++)
-            if (out[pos2] != 0)
-                break;
-
-        // at this point, pos1 and pos2 point to the first non-zero
-        // bytes in the input data and the decrypted signature
-        // (the recovered data), respectively.
-        //
-        if ((in_data_len - pos1) != (modulus_bytes - pos2)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-            return CKR_SIGNATURE_INVALID;
-        }
-        len = in_data_len - pos1;
-
-        if (CRYPTO_memcmp(&in_data[pos1], &out[pos2], len) != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-            return CKR_SIGNATURE_INVALID;
-        }
-        return CKR_OK;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_x509_verify(tokdata, in_data, in_data_len,
+                                            signature, sig_len, key_obj,
+                                            os_specific_rsa_encrypt);
 }
-
 
 CK_RV token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
                                              CK_BYTE *signature,
@@ -2624,33 +2442,10 @@ CK_RV token_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
                                              CK_ULONG *out_data_len,
                                              OBJECT *key_obj)
 {
-    CK_RV rc;
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_ATTRIBUTE *attr = NULL;
-    CK_ULONG modulus_bytes;
-
-    UNUSED(tokdata);
-    UNUSED(sig_len);
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        return rc;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    rc = os_specific_rsa_encrypt(tokdata, signature, modulus_bytes, out,
-                                 key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, out, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-    }
-
-    return rc;
+    return openssl_specific_rsa_x509_verify_recover(tokdata, signature, sig_len,
+                                                    out_data, out_data_len,
+                                                    key_obj,
+                                                    os_specific_rsa_encrypt);
 }
 
 CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
@@ -2660,68 +2455,10 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
                                       CK_ULONG *out_data_len, CK_BYTE *hash,
                                       CK_ULONG hlen)
 {
-    CK_RV rc;
-    CK_BYTE cipher[MAX_RSA_KEYLEN];
-    CK_ULONG modulus_bytes;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BYTE *em_data = NULL;
-    OBJECT *key_obj = NULL;
-    CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
-
-    if (!in_data || !out_data || !hash) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
-
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        goto done;
-    } else {
-        modulus_bytes = attr->ulValueLen;
-    }
-
-    /* pkcs1v2.2, section 7.1.1 Step 2:
-     * EME-OAEP encoding.
-     */
-    em_data = (CK_BYTE *) malloc(modulus_bytes);
-    if (em_data == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    rc = encode_eme_oaep(tokdata, in_data, in_data_len, em_data,
-                         modulus_bytes, oaepParms->mgf, hash, hlen);
-    if (rc != CKR_OK)
-        goto done;
-
-    rc = os_specific_rsa_encrypt(tokdata, em_data, modulus_bytes, cipher,
-                                 key_obj);
-    if (rc == CKR_OK) {
-        memcpy(out_data, cipher, modulus_bytes);
-        *out_data_len = modulus_bytes;
-    } else {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-    }
-
-done:
-    if (em_data)
-        free(em_data);
-
-    object_put(tokdata, key_obj, TRUE);
-    key_obj = NULL;
-
-    return rc;
+    return openssl_specific_rsa_oaep_encrypt(tokdata, ctx, in_data,
+                                             in_data_len, out_data,
+                                             out_data_len, hash, hlen,
+                                             os_specific_rsa_encrypt);
 }
 
 CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
@@ -2731,194 +2468,10 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                                       CK_ULONG *out_data_len, CK_BYTE *hash,
                                       CK_ULONG hlen)
 {
-    CK_RV rc;
-    CK_BYTE *decr_data = NULL;
-    OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RSA_PKCS_OAEP_PARAMS_PTR oaepParms = NULL;
-
-    if (!in_data || !out_data || !hash) {
-        TRACE_ERROR("Invalid function arguments.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    oaepParms = (CK_RSA_PKCS_OAEP_PARAMS_PTR) ctx->mech.pParameter;
-
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        goto done;
-    } else {
-        *out_data_len = attr->ulValueLen;
-    }
-
-    decr_data = (CK_BYTE *) malloc(in_data_len);
-    if (decr_data == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    rc = os_specific_rsa_decrypt(tokdata, in_data, in_data_len, decr_data,
-                                 key_obj);
-    if (rc != CKR_OK)
-        goto done;
-
-    /* pkcs1v2.2, section 7.1.2 Step 2:
-     * EME-OAEP decoding.
-     */
-    rc = decode_eme_oaep(tokdata, decr_data, in_data_len, out_data,
-                         out_data_len, oaepParms->mgf, hash, hlen);
-
-    if (decr_data)
-        free(decr_data);
-
-done:
-    object_put(tokdata, key_obj, TRUE);
-    key_obj = NULL;
-
-    return rc;
-}
-
-CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
-                                  SIGN_VERIFY_CONTEXT *ctx,
-                                  CK_BYTE *in_data, CK_ULONG in_data_len,
-                                  CK_BYTE *sig, CK_ULONG *sig_len)
-{
-    CK_RV rc;
-    CK_ULONG modbytes;
-    CK_ATTRIBUTE *attr = NULL;
-    OBJECT *key_obj = NULL;
-    CK_BYTE *emdata = NULL;
-    CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
-
-    UNUSED(sess);
-
-    /* check the arguments */
-    if (!in_data || !sig) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    if (!ctx) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
-
-    /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
-        return rc;
-    }
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        goto done;
-    } else {
-        modbytes = attr->ulValueLen;
-    }
-
-    emdata = (CK_BYTE *) malloc(modbytes);
-    if (emdata == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    rc = emsa_pss_encode(tokdata, pssParms, in_data, in_data_len, emdata,
-                         &modbytes);
-    if (rc != CKR_OK)
-        goto done;
-
-    /* signing is a private key operation --> decrypt  */
-    rc = os_specific_rsa_decrypt(tokdata, emdata, modbytes, sig, key_obj);
-    if (rc == CKR_OK)
-        *sig_len = modbytes;
-    else
-        TRACE_DEVEL("os_specific_rsa_decrypt failed\n");
-
-done:
-    if (emdata)
-        free(emdata);
-
-    object_put(tokdata, key_obj, TRUE);
-    key_obj = NULL;
-
-    return rc;
-}
-
-
-CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
-                                    SIGN_VERIFY_CONTEXT *ctx,
-                                    CK_BYTE *in_data, CK_ULONG in_data_len,
-                                    CK_BYTE *signature, CK_ULONG sig_len)
-{
-    CK_RV rc;
-    CK_ULONG modbytes;
-    OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BYTE out[MAX_RSA_KEYLEN];
-    CK_RSA_PKCS_PSS_PARAMS *pssParms = NULL;
-
-    UNUSED(sess);
-
-    /* check the arguments */
-    if (!in_data || !signature) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-        return CKR_ARGUMENTS_BAD;
-    }
-
-    if (!ctx) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        return CKR_FUNCTION_FAILED;
-    }
-
-    pssParms = (CK_RSA_PKCS_PSS_PARAMS *) ctx->mech.pParameter;
-
-    /* get the key */
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
-        return rc;
-    }
-
-    /* verify is a public key operation ... encrypt */
-    rc = os_specific_rsa_encrypt(tokdata, signature, sig_len, out, key_obj);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("os_specific_rsa_encrypt failed\n");
-        goto done;
-    }
-
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
-                                          &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_MODULUS for the key.\n");
-        goto done;
-    } else {
-        modbytes = attr->ulValueLen;
-    }
-
-    /* call the pss verify scheme */
-    rc = emsa_pss_verify(tokdata, pssParms, in_data, in_data_len, out,
-                         modbytes);
-
-done:
-    object_put(tokdata, key_obj, TRUE);
-    key_obj = NULL;
-
-    return rc;
+    return openssl_specific_rsa_oaep_decrypt(tokdata, ctx, in_data,
+                                             in_data_len, out_data,
+                                             out_data_len, hash, hlen,
+                                             os_specific_rsa_decrypt);
 }
 
 #ifndef NOAES
@@ -3948,6 +3501,13 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0);
 #endif
 
+    /* We have RSA support (SW) in any case, regardless if libica supports it */
+    addMechanismToList(tokdata, CKM_RSA_PKCS_KEY_PAIR_GEN, 0);
+    addMechanismToList(tokdata, CKM_RSA_PKCS, 0);
+#if !(NOX509)
+    addMechanismToList(tokdata, CKM_RSA_X_509, 0);
+#endif
+
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ica_get_functionlist failed\n");
@@ -3971,6 +3531,12 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
 
         if (libica_func_list[i].flags == 0)
             continue;
+
+        /* Remember if libica supports RSA mechanisms (HW or SW) */
+        if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME)
+            ica_data->ica_rsa_keygen_available = TRUE;
+        if (libica_func_list[i].mech_mode_id == RSA_ME)
+            ica_data->ica_rsa_endecrypt_available = TRUE;
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
