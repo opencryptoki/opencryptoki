@@ -93,7 +93,7 @@ enum {
 #define ENCRYPT 1
 #define DECRYPT 0
 
-#define MAX_RSA_KEYLEN  1920
+#define MAX_RSA_KEYLEN  (OPENSSL_RSA_MAX_MODULUS_BITS / 8)
 
 #define AES_KEY_SIZE_256 32
 #define AES_KEY_SIZE_192 24
