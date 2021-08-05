@@ -2823,6 +2823,68 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                CK_ATTRIBUTE **t0,
                                CK_ATTRIBUTE **t1);
 
+typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
+                               CK_ULONG in_data_len, CK_BYTE *out_data,
+                               OBJECT *key_obj);
+typedef CK_RV (*t_rsa_decrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
+                               CK_ULONG in_data_len, CK_BYTE *out_data,
+                               OBJECT *key_obj);
+
+CK_RV openssl_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
+CK_RV openssl_specific_rsa_encrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+                                   CK_ULONG in_data_len,
+                                   CK_BYTE *out_data, OBJECT *key_obj);
+CK_RV openssl_specific_rsa_decrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+                                   CK_ULONG in_data_len,
+                                   CK_BYTE *out_data, OBJECT *key_obj);
+CK_RV openssl_specific_rsa_pkcs_decrypt(STDLL_TokData_t *, CK_BYTE *,
+                                        CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                        OBJECT *, t_rsa_decrypt);
+CK_RV openssl_specific_rsa_pkcs_encrypt(STDLL_TokData_t *, CK_BYTE *,
+                                        CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                        OBJECT *, t_rsa_encrypt);
+CK_RV openssl_specific_rsa_pkcs_sign(STDLL_TokData_t *, SESSION *, CK_BYTE *,
+                                     CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *,
+                                     t_rsa_decrypt);
+CK_RV openssl_specific_rsa_pkcs_verify(STDLL_TokData_t *tokdata, SESSION *,
+                                       CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                       CK_ULONG, OBJECT *, t_rsa_encrypt);
+CK_RV openssl_specific_rsa_pkcs_verify_recover(STDLL_TokData_t *tokdata,
+                                               CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                               CK_ULONG *, OBJECT *,
+                                               t_rsa_encrypt);
+CK_RV openssl_specific_rsa_pss_sign(STDLL_TokData_t *, SESSION *,
+                                    SIGN_VERIFY_CONTEXT *, CK_BYTE *, CK_ULONG,
+                                    CK_BYTE *, CK_ULONG *, t_rsa_decrypt);
+CK_RV openssl_specific_rsa_pss_verify(STDLL_TokData_t *, SESSION *,
+                                      SIGN_VERIFY_CONTEXT *, CK_BYTE *,
+                                      CK_ULONG, CK_BYTE *, CK_ULONG,
+                                      t_rsa_encrypt);
+CK_RV openssl_specific_rsa_x509_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *,
+                                        CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                        OBJECT *, t_rsa_encrypt);
+CK_RV openssl_specific_rsa_x509_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *,
+                                        CK_ULONG, CK_BYTE *, CK_ULONG *,
+                                        OBJECT *, t_rsa_decrypt);
+CK_RV openssl_specific_rsa_x509_sign(STDLL_TokData_t *tokdata, CK_BYTE *,
+                                     CK_ULONG, CK_BYTE *, CK_ULONG *, OBJECT *,
+                                     t_rsa_decrypt);
+CK_RV openssl_specific_rsa_x509_verify(STDLL_TokData_t *tokdata, CK_BYTE *,
+                                       CK_ULONG, CK_BYTE *, CK_ULONG, OBJECT *,
+                                       t_rsa_encrypt);
+CK_RV openssl_specific_rsa_x509_verify_recover(STDLL_TokData_t *tokdata,
+                                               CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                               CK_ULONG *, OBJECT *,
+                                               t_rsa_encrypt);
+CK_RV openssl_specific_rsa_oaep_encrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
+                                        CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                        CK_ULONG *, CK_BYTE *, CK_ULONG,
+                                        t_rsa_encrypt);
+CK_RV openssl_specific_rsa_oaep_decrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
+                                        CK_BYTE *, CK_ULONG, CK_BYTE *,
+                                        CK_ULONG *, CK_BYTE *, CK_ULONG,
+                                        t_rsa_decrypt);
+
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 
