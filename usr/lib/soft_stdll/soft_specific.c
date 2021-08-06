@@ -40,12 +40,10 @@
 #include <fcntl.h>
 #include <endian.h>
 
-#include <openssl/des.h>
 #include <openssl/rand.h>
 #include <openssl/dh.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
-#include <openssl/cmac.h>
 #include <openssl/bn.h>
 #include <openssl/err.h>
 #if OPENSSL_VERSION_PREREQ(3, 0)
@@ -278,52 +276,8 @@ CK_RV token_specific_des_ecb(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
 {
-    const EVP_CIPHER *cipher = EVP_des_ecb();
-    EVP_CIPHER_CTX *ctx = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    unsigned char dkey[DES_KEY_SIZE];
-    CK_ULONG rc;
-    int outlen;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    memcpy(dkey, attr->pValue, sizeof(dkey));
-
-    ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_CipherInit_ex(ctx, cipher,
-                          NULL, dkey, NULL, encrypt ? 1 : 0) != 1
-        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
-        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
-        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = CKR_GENERAL_ERROR;
-        goto done;
-    }
-
-    *out_data_len = in_data_len;
-    rc = CKR_OK;
-done:
-    OPENSSL_cleanse(dkey, sizeof(dkey));
-    EVP_CIPHER_CTX_free(ctx);
-    return rc;
+    return openssl_specific_des_ecb(tokdata, in_data, in_data_len,
+                                    out_data, out_data_len, key, encrypt);
 }
 
 CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
@@ -333,52 +287,9 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
-    const EVP_CIPHER *cipher = EVP_des_cbc();
-    EVP_CIPHER_CTX *ctx = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    unsigned char dkey[DES_KEY_SIZE];
-    CK_ULONG rc;
-    int outlen;
-
-    UNUSED(tokdata);
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-        return rc;
-    }
-
-    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    memcpy(dkey, attr->pValue, sizeof(dkey));
-
-    ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_CipherInit_ex(ctx, cipher,
-                          NULL, dkey, init_v, encrypt ? 1 : 0) != 1
-        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
-        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
-        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = CKR_GENERAL_ERROR;
-        goto done;
-    }
-
-    *out_data_len = in_data_len;
-    rc = CKR_OK;
-done:
-    OPENSSL_cleanse(dkey, sizeof(dkey));
-    EVP_CIPHER_CTX_free(ctx);
-    return rc;
+    return openssl_specific_des_cbc(tokdata, in_data, in_data_len,
+                                    out_data, out_data_len, key,
+                                    init_v, encrypt);
 }
 
 CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
@@ -388,65 +299,8 @@ CK_RV token_specific_tdes_ecb(STDLL_TokData_t *tokdata,
                               CK_ULONG *out_data_len,
                               OBJECT *key, CK_BYTE encrypt)
 {
-    const EVP_CIPHER *cipher = EVP_des_ede3_ecb();
-    EVP_CIPHER_CTX *ctx = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    unsigned char dkey[3 * DES_KEY_SIZE];
-    CK_KEY_TYPE keytype;
-    CK_ULONG rc;
-    int outlen;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-
-    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    if (keytype == CKK_DES2) {
-        memcpy(dkey, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(dkey + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(dkey, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_CipherInit_ex(ctx, cipher,
-                          NULL, dkey, NULL, encrypt ? 1 : 0) != 1
-        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
-        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
-        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = CKR_GENERAL_ERROR;
-        goto done;
-    }
-
-    *out_data_len = in_data_len;
-    rc = CKR_OK;
-done:
-    OPENSSL_cleanse(dkey, sizeof(dkey));
-    EVP_CIPHER_CTX_free(ctx);
-    return rc;
+    return openssl_specific_tdes_ecb(tokdata, in_data, in_data_len,
+                                     out_data, out_data_len, key, encrypt);
 }
 
 CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
@@ -456,89 +310,23 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
                               CK_ULONG *out_data_len,
                               OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
-    const EVP_CIPHER *cipher = EVP_des_ede3_cbc();
-    EVP_CIPHER_CTX *ctx = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    unsigned char dkey[3 * DES_KEY_SIZE];
-    CK_KEY_TYPE keytype;
-    CK_RV rc;
-    int outlen;
-
-    UNUSED(tokdata);
-
-    // get the key type
-    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-        return rc;
-    }
-
-    // get the key value
-    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-        return rc;
-    }
-
-    if (keytype == CKK_DES2) {
-        memcpy(dkey, attr->pValue, 2 * DES_KEY_SIZE);
-        memcpy(dkey + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
-    } else {
-        memcpy(dkey, attr->pValue, 3 * DES_KEY_SIZE);
-    }
-
-    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-        return CKR_DATA_LEN_RANGE;
-    }
-
-    ctx = EVP_CIPHER_CTX_new();
-    if (ctx == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
-    }
-
-    if (EVP_CipherInit_ex(ctx, cipher,
-                          NULL, dkey, init_v, encrypt ? 1 : 0) != 1
-        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
-        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
-        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
-        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
-        rc = CKR_GENERAL_ERROR;
-        goto done;
-    }
-
-    *out_data_len = in_data_len;
-    rc = CKR_OK;
-done:
-    OPENSSL_cleanse(dkey, sizeof(dkey));
-    EVP_CIPHER_CTX_free(ctx);
-    return rc;
+    return openssl_specific_tdes_cbc(tokdata, in_data, in_data_len,
+                                     out_data, out_data_len, key,
+                                     init_v, encrypt);
 }
 
 CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
-    CK_BYTE *out_buf;
-    CK_ULONG out_len;
-    CK_RV rc;
+    return openssl_specific_tdes_mac(tokdata, message, message_len, key, mac);
+}
 
-    out_buf = malloc(message_len);
-    if (out_buf == NULL) {
-        TRACE_ERROR("Malloc failed.\n");
-        return CKR_HOST_MEMORY;
-    }
-
-    rc = token_specific_tdes_cbc(tokdata, message, message_len, out_buf,
-                                 &out_len, key, mac, 1);
-
-    if (rc == CKR_OK && out_len >= DES_BLOCK_SIZE)
-        memcpy(mac, out_buf + out_len - DES_BLOCK_SIZE, DES_BLOCK_SIZE);
-
-    free(out_buf);
-
-    return rc;
+CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    return openssl_specific_tdes_cmac(tokdata, message, message_len, key, mac,
+                                      first, last, ctx);
 }
 
 CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
@@ -1659,197 +1447,6 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *tokdata,
 
     return rc;
 }
-
-CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
-                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
-                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
-{
-    int rc;
-    size_t maclen;
-    CK_RV rv = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_KEY_TYPE keytype;
-    const EVP_CIPHER *cipher;
-    struct cmac_ctx {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX *mctx;
-        EVP_PKEY_CTX *pctx;
-        EVP_PKEY *pkey;
-#else
-        EVP_MAC *mac;
-        EVP_MAC_CTX *mctx;
-#endif
-    };
-    struct cmac_ctx *cmac = NULL;
-#if OPENSSL_VERSION_PREREQ(3, 0)
-    OSSL_PARAM params[2];
-#endif
-
-    UNUSED(tokdata);
-
-    if (first) {
-        if (key == NULL)
-            return CKR_ARGUMENTS_BAD;
-
-        // get the key type
-        rv = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-        if (rv != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-            return rv;
-        }
-
-        // get the key value
-        rv = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-        if (rv != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-            return rv;
-        }
-
-        switch (keytype) {
-        case CKK_DES2:
-            cipher = EVP_des_ede_cbc();
-            break;
-        case CKK_DES3:
-            cipher = EVP_des_ede3_cbc();
-            break;
-        default:
-            TRACE_ERROR("Invalid key type: %lu\n", keytype);
-            rv = CKR_KEY_TYPE_INCONSISTENT;
-            goto err;
-        }
-
-        cmac = calloc(1, sizeof(*cmac));
-        if (cmac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = ERR_HOST_MEMORY;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        cmac->mctx = EVP_MD_CTX_new();
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = CKR_HOST_MEMORY;
-            goto err;
-        }
-
-        cmac->pkey = EVP_PKEY_new_CMAC_key(NULL,
-                                           attr->pValue, attr->ulValueLen,
-                                           cipher);
-        if (cmac->pkey == NULL) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        if (EVP_DigestSignInit(cmac->mctx, &cmac->pctx,
-                               NULL, NULL, cmac->pkey) != 1) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#else
-        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
-        if (cmac->mac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = CKR_HOST_MEMORY;
-            goto err;
-        }
-
-        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
-                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
-        params[1] = OSSL_PARAM_construct_end();
-
-        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#endif
-
-        *ctx = cmac;
-    }
-
-    cmac = (struct cmac_ctx *)*ctx;
-    if (cmac == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-    rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
-#else
-    rc = EVP_MAC_update(cmac->mctx, message, message_len);
-#endif
-    if (rc != 1 || message_len > INT_MAX) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
-#else
-        TRACE_ERROR("EVP_MAC_update failed\n");
-#endif
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-    if (last) {
-        maclen = AES_BLOCK_SIZE;
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
-#else
-        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
-#endif
-        if (rc != 1) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-            TRACE_ERROR("EVP_DigestSignFinal failed\n");
-#else
-            TRACE_ERROR("EVP_MAC_final failed\n");
-#endif
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        EVP_PKEY_free(cmac->pkey);
-#else
-        EVP_MAC_CTX_free(cmac->mctx);
-        EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-        *ctx = NULL;
-    }
-
-    return CKR_OK;
-err:
-    if (cmac != NULL) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        if (cmac->mctx != NULL)
-            EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        if (cmac->pkey != NULL)
-            EVP_PKEY_free(cmac->pkey);
-#else
-        if (cmac->mctx != NULL)
-            EVP_MAC_CTX_free(cmac->mctx);
-        if (cmac->mac != NULL)
-            EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-    }
-    *ctx = NULL;
-    return rv;
-}
-
-
-
 
 #ifndef NO_EC
 
