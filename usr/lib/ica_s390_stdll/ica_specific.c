@@ -27,6 +27,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "trace.h"
+#include "pkcs_utils.h"
 
 #include <ica_api.h>
 
@@ -52,6 +53,7 @@ typedef struct {
     int ica_ec_support_available;
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
+    int ica_p_rng_available;
     MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
     CK_ULONG mech_list_len;
 } ica_private_data_t;
@@ -252,23 +254,23 @@ static CK_RV load_libica(void)
 CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
                          CK_ULONG bytes)
 {
-    unsigned int rc;
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
 
-    UNUSED(tokdata);
+    if (ica_data->ica_p_rng_available) {
+        pthread_mutex_lock(&rngmtx);
 
-    pthread_mutex_lock(&rngmtx);
+        rc = ica_random_number_generate((unsigned int)bytes, output);
+        if (rc != 0)
+            ica_data->ica_p_rng_available = FALSE;
 
-    rc = ica_random_number_generate((unsigned int) bytes, output);
-
-    if (rc != 0) {
         pthread_mutex_unlock(&rngmtx);
-        return CKR_GENERAL_ERROR;
-        /* report error */
     }
 
-    pthread_mutex_unlock(&rngmtx);
+    if (!ica_data->ica_p_rng_available)
+        rc = local_rng(output, bytes);
 
-    return CKR_OK;
+    return rc;
 }
 
 CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
@@ -3508,6 +3510,12 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_RSA_X_509, 0);
 #endif
 
+    /* We have RNG support (SW) in any case, regardless if libica supports it */
+    addMechanismToList(tokdata, CKM_GENERIC_SECRET_KEY_GEN, 0);
+    addMechanismToList(tokdata, CKM_DES_KEY_GEN, 0);
+    addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0);
+    addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0);
+
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ica_get_functionlist failed\n");
@@ -3537,6 +3545,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             ica_data->ica_rsa_keygen_available = TRUE;
         if (libica_func_list[i].mech_mode_id == RSA_ME)
             ica_data->ica_rsa_endecrypt_available = TRUE;
+
+        /* Remember if libica supports RNG mechanisms (HW or SW) */
+        if (libica_func_list[i].mech_mode_id == P_RNG)
+            ica_data->ica_p_rng_available = TRUE;
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
