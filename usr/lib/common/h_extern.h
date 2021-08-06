@@ -2920,6 +2920,24 @@ CK_RV openssl_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
 CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
                                  CK_BYTE *out_data, CK_ULONG *out_data_len);
 
+CK_RV openssl_specific_aes_ecb(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               CK_ULONG *out_data_len,
+                               OBJECT *key, CK_BYTE encrypt);
+CK_RV openssl_specific_aes_cbc(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               CK_ULONG *out_data_len,
+                               OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt);
+CK_RV openssl_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac);
+CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                                CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                                CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx);
+
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 

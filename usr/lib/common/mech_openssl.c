@@ -30,6 +30,7 @@
 #include <openssl/ec.h>
 #include <openssl/bn.h>
 #include <openssl/sha.h>
+#include <openssl/cmac.h>
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
@@ -3085,3 +3086,343 @@ out:
 
     return rc;
 }
+
+#ifndef NOAES
+
+CK_RV openssl_specific_aes_ecb(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               CK_ULONG *out_data_len,
+                               OBJECT *key, CK_BYTE encrypt)
+{
+    CK_RV rc;
+    int outlen;
+    unsigned char akey[32];
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG keylen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8)
+        cipher = EVP_aes_128_ecb();
+    else if (keylen == 192 / 8)
+        cipher = EVP_aes_192_ecb();
+    else if (keylen == 256 / 8)
+        cipher = EVP_aes_256_ecb();
+
+    memcpy(akey, attr->pValue, keylen);
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, akey, NULL, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(akey, sizeof(akey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
+
+CK_RV openssl_specific_aes_cbc(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               CK_ULONG *out_data_len,
+                               OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
+{
+    CK_RV rc;
+    int outlen;
+    unsigned char akey[32];
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG keylen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc  != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
+        return rc;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8)
+        cipher = EVP_aes_128_cbc();
+    else if (keylen == 192 / 8)
+        cipher = EVP_aes_192_cbc();
+    else if (keylen == 256 / 8)
+        cipher = EVP_aes_256_cbc();
+
+    memcpy(akey, attr->pValue, keylen);
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, akey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+    *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(akey, sizeof(akey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
+
+CK_RV openssl_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
+{
+    CK_BYTE *out_buf;
+    CK_ULONG out_len;
+    CK_RV rc;
+
+    out_buf = malloc(message_len);
+    if (out_buf == NULL) {
+        TRACE_ERROR("Malloc failed.\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    rc = openssl_specific_aes_cbc(tokdata, message, message_len, out_buf,
+                                  &out_len, key, mac, 1);
+
+    if (rc == CKR_OK && out_len >= AES_BLOCK_SIZE)
+        memcpy(mac, out_buf + out_len - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+
+    free(out_buf);
+
+    return rc;
+}
+
+CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
+                                CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                                CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    int rc;
+    size_t maclen;
+    CK_RV rv = CKR_OK;
+    CK_ATTRIBUTE *attr = NULL;
+    const EVP_CIPHER *cipher;
+    struct cmac_ctx {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        EVP_MD_CTX *mctx;
+        EVP_PKEY_CTX *pctx;
+        EVP_PKEY *pkey;
+#else
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mctx;
+#endif
+    };
+    struct cmac_ctx *cmac = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_PARAM params[2];
+#endif
+
+    UNUSED(tokdata);
+
+    if (first) {
+        if (key == NULL)
+            return CKR_ARGUMENTS_BAD;
+
+        // get the key value
+        rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            goto err;
+        }
+
+        switch (attr->ulValueLen * 8) {
+        case 128:
+            cipher = EVP_aes_128_cbc();
+            break;
+        case 192:
+            cipher = EVP_aes_192_cbc();
+            break;
+        case 256:
+            cipher = EVP_aes_256_cbc();
+            break;
+        default:
+            TRACE_ERROR("Invalid key size: %lu\n", attr->ulValueLen);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+
+        cmac = calloc(1, sizeof(*cmac));
+        if (cmac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = ERR_HOST_MEMORY;
+            goto err;
+        }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        cmac->mctx = EVP_MD_CTX_new();
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = ERR_HOST_MEMORY;
+            goto err;
+        }
+
+        cmac->pkey = EVP_PKEY_new_CMAC_key(NULL,
+                                           attr->pValue, attr->ulValueLen,
+                                           cipher);
+        if (cmac->pkey == NULL) {
+            TRACE_ERROR("EVP_DigestSignInit failed\n");
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        if (EVP_DigestSignInit(cmac->mctx, &cmac->pctx,
+                               NULL, NULL, cmac->pkey) != 1) {
+            TRACE_ERROR("EVP_DigestSignInit failed\n");
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#else
+        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
+        if (cmac->mac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
+                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#endif
+
+        *ctx = cmac;
+    }
+
+    cmac = (struct cmac_ctx *)*ctx;
+    if (cmac == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rv =  CKR_FUNCTION_FAILED;
+        goto err;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
+#else
+    rc = EVP_MAC_update(cmac->mctx, message, message_len);
+#endif
+    if (rc != 1 || message_len > INT_MAX) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+#else
+        TRACE_ERROR("EVP_MAC_update failed\n");
+#endif
+        rv =  CKR_FUNCTION_FAILED;
+        goto err;
+    }
+
+    if (last) {
+        maclen = AES_BLOCK_SIZE;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
+#else
+        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
+#endif
+        if (rc != 1) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+            TRACE_ERROR("EVP_DigestSignFinal failed\n");
+#else
+            TRACE_ERROR("EVP_MAC_final failed\n");
+#endif
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
+        EVP_PKEY_free(cmac->pkey);
+#else
+        EVP_MAC_CTX_free(cmac->mctx);
+        EVP_MAC_free(cmac->mac);
+#endif
+        free(cmac);
+        *ctx = NULL;
+    }
+
+    return CKR_OK;
+err:
+    if (cmac != NULL) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        if (cmac->mctx != NULL)
+            EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
+        if (cmac->pkey != NULL)
+            EVP_PKEY_free(cmac->pkey);
+#else
+        if (cmac->mctx != NULL)
+            EVP_MAC_CTX_free(cmac->mctx);
+        if (cmac->mac != NULL)
+            EVP_MAC_free(cmac->mac);
+#endif
+        free(cmac);
+    }
+    *ctx = NULL;
+    return rv;
+}
+
+#endif
