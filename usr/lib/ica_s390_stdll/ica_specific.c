@@ -51,6 +51,9 @@
 typedef struct {
     ica_adapter_handle_t adapter_handle;
     int ica_ec_support_available;
+    int ica_ec_keygen_available;
+    int ica_ec_signverify_available;
+    int ica_ec_derive_available;
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
     int ica_p_rng_available;
@@ -3516,6 +3519,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0);
     addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0);
 
+    /* We have EC support (SW) in any case, regardless if libica supports it */
+    addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0);
+    addMechanismToList(tokdata, CKM_ECDSA, 0);
+
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ica_get_functionlist failed\n");
@@ -3549,6 +3556,16 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         /* Remember if libica supports RNG mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == P_RNG)
             ica_data->ica_p_rng_available = TRUE;
+
+        /* Remember if libica supports EC mechanisms (HW or SW) */
+        if (ica_data->ica_ec_support_available) {
+            if (libica_func_list[i].mech_mode_id == EC_KGEN)
+                ica_data->ica_ec_keygen_available = TRUE;
+            if (libica_func_list[i].mech_mode_id == EC_DSA_SIGN)
+                ica_data->ica_ec_signverify_available = TRUE;
+            if (libica_func_list[i].mech_mode_id == EC_DH)
+                ica_data->ica_ec_derive_available = TRUE;
+        }
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
@@ -3908,9 +3925,9 @@ static int nid_from_oid(CK_BYTE *oid, CK_ULONG oid_length)
     return -1;
 }
 
-CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
-                                         TEMPLATE *publ_tmpl,
-                                         TEMPLATE *priv_tmpl)
+static CK_RV ica_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                              TEMPLATE *publ_tmpl,
+                                              TEMPLATE *priv_tmpl)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
@@ -3951,12 +3968,19 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     /* Generate key data for this key object */
     rc = p_ica_ec_key_generate(ica_data->adapter_handle, eckey);
     if (rc != 0) {
-        if (rc == EPERM) {
+        switch (rc) {
+        case EPERM:
             TRACE_ERROR("ica_ec_key_generate() failed with rc=EPERM, probably curve not supported by openssl.\n");
             ret = CKR_CURVE_NOT_SUPPORTED;
-        } else {
-            TRACE_ERROR("ica_ec_key_generate() failed with rc=%d.\n", rc);
+            break;
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             ret = CKR_FUNCTION_FAILED;
+            break;
         }
         goto end;
     }
@@ -4019,10 +4043,29 @@ end:
     return ret;
 }
 
-CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
-                             CK_BYTE *in_data, CK_ULONG in_data_len,
-                             CK_BYTE *out_data, CK_ULONG *out_data_len,
-                             OBJECT *key_obj)
+CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                         TEMPLATE *publ_tmpl,
+                                         TEMPLATE *priv_tmpl)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_keygen_available) {
+        rc = ica_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_keygen_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_keygen_available)
+        rc = openssl_specific_ec_generate_keypair(tokdata, publ_tmpl, priv_tmpl);
+
+    return rc;
+}
+
+static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                  OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
@@ -4099,8 +4142,16 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                           (unsigned int) in_data_len,
                           (unsigned char *) out_data, 2 * privlen);
     if (rc != 0) {
-        TRACE_ERROR("ica_ecdsa_sign() failed with rc = %d. \n", rc);
-        ret = CKR_FUNCTION_FAILED;
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_ecdsa_sign() failed with rc = %d. \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
         goto end;
     }
 
@@ -4113,6 +4164,28 @@ end:
         free(d);
 
     return ret;
+}
+
+CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_signverify_available) {
+        rc = ica_specific_ec_sign(tokdata, sess, in_data, in_data_len,
+                                  out_data, out_data_len, key_obj);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_signverify_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_signverify_available)
+        rc = openssl_specific_ec_sign(tokdata, sess, in_data, in_data_len,
+                                      out_data, out_data_len, key_obj);
+
+    return rc;
 }
 
 /**
@@ -4251,12 +4324,12 @@ static CK_RV set_pubkey_coordinates(unsigned int nid,
 }
 
 
-CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
-                               SESSION *sess,
-                               CK_BYTE *in_data,
-                               CK_ULONG in_data_len,
-                               CK_BYTE *signature,
-                               CK_ULONG signature_len, OBJECT *key_obj)
+static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
+                                    SESSION *sess,
+                                    CK_BYTE *in_data,
+                                    CK_ULONG in_data_len,
+                                    CK_BYTE *signature,
+                                    CK_ULONG signature_len, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
@@ -4352,6 +4425,10 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
     case 0:
         ret = CKR_OK;
         break;
+    case ENODEV:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        ret = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
     case EFAULT:
         TRACE_ERROR("ica_ecdsa_verify() returned invalid signature, "
                     "rc = %d. \n", rc);
@@ -4370,14 +4447,38 @@ end:
     return ret;
 }
 
-CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
-                                      CK_BYTE *priv_bytes,
-                                      CK_ULONG priv_length,
-                                      CK_BYTE *pub_bytes,
-                                      CK_ULONG pub_length,
-                                      CK_BYTE *secret_value,
-                                      CK_ULONG *secret_value_len,
-                                      CK_BYTE *oid, CK_ULONG oid_length)
+CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata,
+                               SESSION *sess,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *signature,
+                               CK_ULONG signature_len, OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_signverify_available) {
+        rc = ica_specific_ec_verify(tokdata, sess, in_data, in_data_len,
+                                    signature, signature_len, key_obj);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_signverify_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_signverify_available)
+        rc = openssl_specific_ec_verify(tokdata, sess, in_data, in_data_len,
+                                        signature, signature_len, key_obj);
+
+    return rc;
+}
+
+static CK_RV ica_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                           CK_BYTE *priv_bytes,
+                                           CK_ULONG priv_length,
+                                           CK_BYTE *pub_bytes,
+                                           CK_ULONG pub_length,
+                                           CK_BYTE *secret_value,
+                                           CK_ULONG *secret_value_len,
+                                           CK_BYTE *oid, CK_ULONG oid_length)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
@@ -4465,12 +4566,19 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     rc = p_ica_ecdh_derive_secret(ica_data->adapter_handle, privkey,
                                   pubkey, secret_value, privlen);
     if (rc != 0) {
-        if (rc == EPERM) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        case EPERM:
             TRACE_ERROR("ica_ecdh_derive_secret() failed with rc=EPERM, probably curve not supported by openssl.\n");
             ret = CKR_CURVE_NOT_SUPPORTED;
-        } else {
+            break;
+        default:
             TRACE_ERROR("ica_ecdh_derive_secret() failed with rc = %d. \n", rc);
             ret = CKR_FUNCTION_FAILED;
+            break;
         }
         goto end;
     }
@@ -4486,4 +4594,35 @@ end:
 
     return ret;
 }
+
+CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                      CK_BYTE *priv_bytes,
+                                      CK_ULONG priv_length,
+                                      CK_BYTE *pub_bytes,
+                                      CK_ULONG pub_length,
+                                      CK_BYTE *secret_value,
+                                      CK_ULONG *secret_value_len,
+                                      CK_BYTE *oid, CK_ULONG oid_length)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_derive_available) {
+        rc = ica_specific_ecdh_pkcs_derive(tokdata, priv_bytes, priv_length,
+                                           pub_bytes, pub_length,
+                                           secret_value, secret_value_len,
+                                           oid, oid_length);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_derive_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_derive_available)
+        rc = openssl_specific_ecdh_pkcs_derive(tokdata, priv_bytes, priv_length,
+                                               pub_bytes, pub_length,
+                                               secret_value, secret_value_len,
+                                               oid, oid_length);
+
+    return rc;
+}
+
 #endif
