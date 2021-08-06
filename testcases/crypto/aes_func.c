@@ -1561,6 +1561,20 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
                        (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
+    if (!mech_supported(slot_id, CKM_AES_KEY_GEN)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_AES_KEY_GEN)",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+    if (mech_supported_flags(slot_id, tsuite->mech.mechanism, CKF_WRAP) &&
+        !mech_supported(slot_id, CKM_AES_CBC_PAD)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_AES_CBC_PAD)",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
 
     for (i = 0; i < 3; i++) {
 
@@ -1714,6 +1728,19 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
                        (unsigned int) slot_id,
                        mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(slot_id, CKM_AES_KEY_GEN)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_AES_KEY_GEN)",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+    if (mech_supported_flags(slot_id, tsuite->mech.mechanism, CKF_UNWRAP) &&
+        !mech_supported(slot_id, CKM_AES_CBC_PAD)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_AES_CBC_PAD)",
+                       (unsigned int) slot_id);
         goto testcase_cleanup;
     }
 
