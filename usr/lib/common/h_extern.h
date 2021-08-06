@@ -26,6 +26,8 @@
 #include <stdio.h>
 #include "dlist.h"
 
+#include <openssl/evp.h>
+
 // global variables
 //
 #define SO_PIN_DEFAULT			"87654321"
@@ -2884,6 +2886,29 @@ CK_RV openssl_specific_rsa_oaep_decrypt(STDLL_TokData_t *, ENCR_DECR_CONTEXT *,
                                         CK_BYTE *, CK_ULONG, CK_BYTE *,
                                         CK_ULONG *, CK_BYTE *, CK_ULONG,
                                         t_rsa_decrypt);
+
+CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey);
+CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                           TEMPLATE *publ_tmpl,
+                                           TEMPLATE *priv_tmpl);
+CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                               CK_BYTE *in_data, CK_ULONG in_data_len,
+                               CK_BYTE *out_data, CK_ULONG *out_data_len,
+                               OBJECT *key_obj);
+CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BYTE *in_data,
+                                 CK_ULONG in_data_len,
+                                 CK_BYTE *signature,
+                                 CK_ULONG signature_len, OBJECT *key_obj);
+CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                        CK_BYTE *priv_bytes,
+                                        CK_ULONG priv_length,
+                                        CK_BYTE *pub_bytes,
+                                        CK_ULONG pub_length,
+                                        CK_BYTE *secret_value,
+                                        CK_ULONG *secret_value_len,
+                                        CK_BYTE *oid, CK_ULONG oid_length);
 
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;

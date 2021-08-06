@@ -24,8 +24,10 @@
 #include "trace.h"
 
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
+#include <openssl/ec.h>
 #include <openssl/bn.h>
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
@@ -1696,3 +1698,1054 @@ error:
     return rc;
 }
 
+
+#ifndef NO_EC
+
+static int curve_nid_from_params(const CK_BYTE *params, CK_ULONG params_len)
+{
+    const unsigned char *oid;
+    ASN1_OBJECT *obj = NULL;
+    int nid;
+
+    oid = params;
+    obj = d2i_ASN1_OBJECT(NULL, &oid, params_len);
+    if (obj == NULL || oid != params + params_len) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        return NID_undef;
+    }
+
+    nid = OBJ_obj2nid(obj);
+    ASN1_OBJECT_free(obj);
+
+    return nid;
+}
+
+static int ec_prime_len_from_nid(int nid)
+{
+    EC_GROUP *group;
+    int primelen;
+
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL)
+        return -1;
+
+    primelen = EC_GROUP_order_bits(group);
+
+    EC_GROUP_free(group);
+
+    return (primelen + 7) / 8;
+}
+
+static int ec_prime_len_from_pkey(EVP_PKEY *pkey)
+{
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    return (EC_GROUP_order_bits(EC_KEY_get0_group(
+                             EVP_PKEY_get0_EC_KEY(pkey))) + 7) / 8;
+#else
+    size_t curve_len;
+    char curve[80];
+
+    if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME,
+                                        curve, sizeof(curve), &curve_len))
+        return -1;
+
+    return ec_prime_len_from_nid(OBJ_sn2nid(curve));
+#endif
+}
+
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV make_ec_key_from_params(const CK_BYTE *params, CK_ULONG params_len,
+                                     EC_KEY **key)
+{
+    EC_KEY *ec_key = NULL;
+    int nid;
+    CK_RV rc = CKR_OK;
+
+    nid = curve_nid_from_params(params, params_len);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    ec_key = EC_KEY_new_by_curve_name(nid);
+    if (ec_key == NULL) {
+       TRACE_ERROR("curve not supported by OpenSSL.\n");
+       rc = CKR_CURVE_NOT_SUPPORTED;
+       goto out;
+    }
+
+out:
+    if (rc != CKR_OK) {
+        if (ec_key != NULL)
+            EC_KEY_free(ec_key);
+
+        return rc;
+    }
+
+    *key = ec_key;
+
+    return CKR_OK;
+}
+#endif
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV build_pkey_from_params(OSSL_PARAM_BLD *tmpl, int selection,
+                                    EVP_PKEY **pkey)
+{
+
+    OSSL_PARAM *params = NULL;
+    EVP_PKEY_CTX *pctx = NULL;
+    CK_RV rc = CKR_OK;
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_to_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new_id failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EVP_PKEY_fromdata_init(pctx) ||
+        !EVP_PKEY_fromdata(pctx, pkey, selection, params)) {
+        TRACE_ERROR("EVP_PKEY_fromdata failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    EVP_PKEY_CTX_free(pctx);
+    pctx = EVP_PKEY_CTX_new(*pkey, NULL);
+    if (pctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) {
+        if (EVP_PKEY_check(pctx) != 1) {
+            TRACE_ERROR("EVP_PKEY_check failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    } else {
+        if (EVP_PKEY_public_check(pctx) != 1) {
+            TRACE_ERROR("EVP_PKEY_public_check failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+out:
+    if (pctx != NULL)
+        EVP_PKEY_CTX_free(pctx);
+    if (params != NULL)
+        OSSL_PARAM_free(params);
+
+    if (rc != 0 && *pkey != NULL) {
+        EVP_PKEY_free(*pkey);
+        *pkey = NULL;
+    }
+
+    return rc;
+}
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV fill_ec_key_from_pubkey(EC_KEY *ec_key, const CK_BYTE *data,
+                                     CK_ULONG data_len, CK_BBOOL allow_raw,
+                                     int nid, EVP_PKEY **ec_pkey)
+#else
+static CK_RV fill_ec_key_from_pubkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
+                                     CK_ULONG data_len, CK_BBOOL allow_raw,
+                                     int nid, EVP_PKEY **ec_pkey)
+#endif
+{
+    CK_BYTE *ecpoint = NULL;
+    CK_ULONG ecpoint_len, privlen;
+    CK_BBOOL allocated = FALSE;
+
+    CK_RV rc;
+
+    privlen = ec_prime_len_from_nid(nid);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
+                                   &allocated, &ecpoint, &ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ec_point_from_public_data failed\n");
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EC_KEY_oct2key(ec_key, ecpoint, ecpoint_len, NULL)) {
+        TRACE_ERROR("EC_KEY_oct2key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_KEY_check_key(ec_key)) {
+        TRACE_ERROR("EC_KEY_check_key failed\n");
+        rc = CKR_PUBLIC_KEY_INVALID;
+        goto out;
+    }
+
+    *ec_pkey = EVP_PKEY_new();
+    if (*ec_pkey == NULL) {
+       TRACE_ERROR("EVP_PKEY_CTX_new failed.\n");
+       rc = CKR_HOST_MEMORY;
+       goto out;
+    }
+
+    if (!EVP_PKEY_assign_EC_KEY(*ec_pkey, ec_key)) {
+        TRACE_ERROR("EVP_PKEY_assign_EC_KEY failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    if (!OSSL_PARAM_BLD_push_octet_string(tmpl,
+                                          OSSL_PKEY_PARAM_PUB_KEY,
+                                          ecpoint, ecpoint_len)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_pkey_from_params(tmpl, EVP_PKEY_PUBLIC_KEY, ec_pkey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_pkey_from_params failed\n");
+        goto out;
+    }
+ #endif
+
+out:
+    if (allocated && ecpoint != NULL)
+        free(ecpoint);
+
+    return rc;
+}
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+static CK_RV fill_ec_key_from_privkey(EC_KEY *ec_key, const CK_BYTE *data,
+                                      CK_ULONG data_len, EVP_PKEY **ec_pkey)
+#else
+static CK_RV fill_ec_key_from_privkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
+                                      CK_ULONG data_len, int nid,
+                                      EVP_PKEY **ec_pkey)
+#endif
+{
+    EC_POINT *point = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    EC_GROUP *group = NULL;
+    BIGNUM *bn_priv = NULL;
+    unsigned char *pub_key = NULL;
+    unsigned int pub_key_len;
+    point_conversion_form_t form;
+#endif
+    CK_RV rc = CKR_OK;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EC_KEY_oct2priv(ec_key, data, data_len)) {
+        TRACE_ERROR("EC_KEY_oct2priv failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    point = EC_POINT_new(EC_KEY_get0_group(ec_key));
+    if (point == NULL) {
+        TRACE_ERROR("EC_POINT_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_POINT_mul(EC_KEY_get0_group(ec_key), point,
+                      EC_KEY_get0_private_key(ec_key), NULL, NULL, NULL)) {
+        TRACE_ERROR("EC_POINT_mul failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_KEY_set_public_key(ec_key, point)) {
+        TRACE_ERROR("EC_KEY_set_public_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_KEY_check_key(ec_key)) {
+        TRACE_ERROR("EC_KEY_check_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    *ec_pkey = EVP_PKEY_new();
+    if (*ec_pkey == NULL) {
+       TRACE_ERROR("EVP_PKEY_CTX_new failed.\n");
+       rc = CKR_HOST_MEMORY;
+       goto out;
+    }
+
+    if (!EVP_PKEY_assign_EC_KEY(*ec_pkey, ec_key)) {
+        TRACE_ERROR("EVP_PKEY_assign_EC_KEY failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    group = EC_GROUP_new_by_curve_name(nid);
+    if (group == NULL) {
+        TRACE_ERROR("EC_GROUP_new_by_curve_name failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    point = EC_POINT_new(group);
+    if (point == NULL) {
+        TRACE_ERROR("EC_POINT_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bn_priv = BN_bin2bn(data, data_len, NULL);
+    if (bn_priv == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!EC_POINT_mul(group, point, bn_priv, NULL, NULL, NULL)) {
+        TRACE_ERROR("EC_POINT_mul failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    form = EC_GROUP_get_point_conversion_form(group);
+    pub_key_len = EC_POINT_point2buf(group, point, form, &pub_key,
+                                     NULL);
+    if (pub_key_len == 0) {
+        TRACE_ERROR("EC_POINT_point2buf failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_octet_string(tmpl, OSSL_PKEY_PARAM_PUB_KEY,
+                                          pub_key, pub_key_len)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_octet_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_PRIV_KEY, bn_priv)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_BN failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = build_pkey_from_params(tmpl, EVP_PKEY_KEYPAIR, ec_pkey);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_pkey_from_params failed\n");
+        goto out;
+    }
+#endif
+
+out:
+    if (point != NULL)
+        EC_POINT_free(point);
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (group != NULL)
+        EC_GROUP_free(group);
+    if (bn_priv != NULL)
+        BN_free(bn_priv);
+    if (pub_key != NULL)
+        OPENSSL_free(pub_key);
+#endif
+
+    return rc;
+}
+
+CK_RV openssl_make_ec_key_from_template(TEMPLATE *template, EVP_PKEY **pkey)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_OBJECT_CLASS keyclass;
+    EVP_PKEY *ec_pkey = NULL;
+    int nid;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EC_KEY *ec_key = NULL;
+#else
+    OSSL_PARAM_BLD *tmpl = NULL;
+#endif
+    CK_RV rc;
+
+    rc = template_attribute_get_ulong(template, CKA_CLASS, &keyclass);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_CLASS in the template\n");
+        goto out;
+    }
+
+    rc = template_attribute_get_non_empty(template, CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_ECDSA_PARAMS in the template\n");
+        goto out;
+    }
+
+    nid = curve_nid_from_params(attr->pValue, attr->ulValueLen);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = make_ec_key_from_params(attr->pValue, attr->ulValueLen, &ec_key);
+    if (rc != CKR_OK)
+        goto out;
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+    switch (keyclass) {
+    case CKO_PUBLIC_KEY:
+        rc = template_attribute_get_non_empty(template, CKA_EC_POINT, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_EC_POINT in the template\n");
+            goto out;
+        }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        rc = fill_ec_key_from_pubkey(ec_key, attr->pValue, attr->ulValueLen,
+                                     FALSE, nid, &ec_pkey);
+#else
+        rc = fill_ec_key_from_pubkey(tmpl, attr->pValue, attr->ulValueLen,
+                                     FALSE, nid, &ec_pkey);
+#endif
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
+            goto out;
+        }
+        break;
+
+    case CKO_PRIVATE_KEY:
+        rc = template_attribute_get_non_empty(template, CKA_VALUE, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE in the template\n");
+            goto out;
+        }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        rc = fill_ec_key_from_privkey(ec_key, attr->pValue, attr->ulValueLen,
+                                      &ec_pkey);
+#else
+        rc = fill_ec_key_from_privkey(tmpl, attr->pValue, attr->ulValueLen,
+                                      nid, &ec_pkey);
+
+#endif
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+            goto out;
+        }
+        break;
+
+    default:
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    ec_key = NULL;
+#endif
+
+    rc = CKR_OK;
+
+out:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+#endif
+
+    if (rc != CKR_OK) {
+        if (ec_pkey != NULL)
+            EVP_PKEY_free(ec_pkey);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        if (ec_key != NULL)
+            EC_KEY_free(ec_key);
+#endif
+
+        return rc;
+    }
+
+    *pkey = ec_pkey;
+
+    return CKR_OK;
+}
+
+CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                           TEMPLATE *publ_tmpl,
+                                           TEMPLATE *priv_tmpl)
+{
+
+    CK_ATTRIBUTE *attr = NULL, *ec_point_attr, *value_attr, *parms_attr;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    const EC_KEY *ec_key = NULL;
+    BN_CTX *bnctx = NULL;
+#else
+    BIGNUM *bn_d = NULL;
+#endif
+    CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
+    CK_ULONG ecpoint_len, enc_ecpoint_len, d_len;
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *ec_pkey = NULL;
+    int nid;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_ECDSA_PARAMS, &attr);
+    if (rc != CKR_OK)
+        goto out;
+
+    nid = curve_nid_from_params(attr->pValue, attr->ulValueLen);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_keygen_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_keygen_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, nid) <= 0) {
+        TRACE_ERROR("EVP_PKEY_CTX_set_ec_paramgen_curve_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+    if (EVP_PKEY_keygen(ctx, &ec_pkey) <= 0) {
+        TRACE_ERROR("EVP_PKEY_keygen failed\n");
+        if (ERR_GET_REASON(ERR_peek_last_error()) == EC_R_INVALID_CURVE)
+            rc = CKR_CURVE_NOT_SUPPORTED;
+        else
+            rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    ec_key = EVP_PKEY_get0_EC_KEY(ec_pkey);
+    if (ec_key == NULL) {
+       TRACE_ERROR("EVP_PKEY_get0_EC_KEY failed\n");
+       rc = CKR_FUNCTION_FAILED;
+       goto out;
+   }
+
+    bnctx = BN_CTX_new();
+    if (bnctx == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    ecpoint_len = EC_KEY_key2buf(ec_key, POINT_CONVERSION_UNCOMPRESSED,
+                                 &ecpoint, bnctx);
+    if (ecpoint_len == 0) {
+        TRACE_ERROR("Failed to get the EC Point compressed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    if (!EVP_PKEY_get_octet_string_param(ec_pkey,
+                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         NULL, 0, &ecpoint_len)) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ecpoint = OPENSSL_zalloc(ecpoint_len);
+    if (ecpoint == NULL) {
+        TRACE_ERROR("OPENSSL_zalloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!EVP_PKEY_get_octet_string_param(ec_pkey,
+                                         OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                         ecpoint, ecpoint_len, &ecpoint_len)) {
+        TRACE_ERROR("EVP_PKEY_get_octet_string_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+    rc = ber_encode_OCTET_STRING(FALSE, &enc_ecpoint, &enc_ecpoint_len,
+                                 ecpoint, ecpoint_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_encode_OCTET_STRING failed\n");
+        goto out;
+    }
+
+    rc = build_attribute(CKA_EC_POINT, enc_ecpoint, enc_ecpoint_len,
+                         &ec_point_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_EC_POINT failed rc=0x%lx\n", rc);
+        goto out;
+    }
+    rc = template_update_attribute(publ_tmpl, ec_point_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(ec_point_attr);
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    d_len = EC_KEY_priv2buf(ec_key, &d);
+    if (d_len == 0) {
+        TRACE_ERROR("Failed to get the EC private key.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#else
+    if (!EVP_PKEY_get_bn_param(ec_pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_d)) {
+        TRACE_ERROR("EVP_PKEY_get_bn_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    d_len = ec_prime_len_from_nid(nid);
+    d = OPENSSL_zalloc(d_len);
+    if (d == NULL) {
+        TRACE_ERROR("OPENSSL_zalloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    BN_bn2binpad(bn_d, d, d_len);
+#endif
+
+    rc = build_attribute(CKA_VALUE, d, d_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_VALUE failed, rc=0x%lx\n", rc);
+        goto out;
+    }
+    rc = template_update_attribute(priv_tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(value_attr);
+        goto out;
+    }
+
+
+    /* Add CKA_ECDSA_PARAMS to private template also */
+    rc = build_attribute(CKA_ECDSA_PARAMS, attr->pValue, attr->ulValueLen,
+                         &parms_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("build_attribute for CKA_ECDSA_PARAMS failed, rc=0x%lx\n",
+                     rc);
+        goto out;
+    }
+    rc = template_update_attribute(priv_tmpl, parms_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        free(parms_attr);
+        goto out;
+    }
+
+    rc = CKR_OK;
+
+out:
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (bnctx != NULL)
+        BN_CTX_free(bnctx);
+#else
+    if (bn_d != NULL)
+        BN_free(bn_d);
+#endif
+    if (ec_pkey != NULL)
+        EVP_PKEY_free(ec_pkey);
+    if (ecpoint != NULL)
+        OPENSSL_free(ecpoint);
+    if (enc_ecpoint != NULL)
+        free(enc_ecpoint);
+    if (d != NULL)
+        OPENSSL_free(d);
+
+    return rc;
+}
+
+CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                               CK_BYTE *in_data, CK_ULONG in_data_len,
+                               CK_BYTE *out_data, CK_ULONG *out_data_len,
+                               OBJECT *key_obj)
+{
+    EVP_PKEY *ec_key;
+    ECDSA_SIG *sig = NULL;
+    const BIGNUM *r, *s;
+    CK_ULONG privlen, n;
+    CK_RV rc = CKR_OK;
+    EVP_PKEY_CTX *ctx = NULL;
+    size_t siglen;
+    CK_BYTE *sigbuf = NULL;
+    const unsigned char *p;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    *out_data_len = 0;
+
+    rc = openssl_make_ec_key_from_template(key_obj->template, &ec_key);
+    if (rc != CKR_OK)
+        return rc;
+
+    ctx = EVP_PKEY_CTX_new(ec_key, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign(ctx, NULL, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    sigbuf = malloc(siglen);
+    if (sigbuf == NULL) {
+        TRACE_ERROR("malloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (EVP_PKEY_sign(ctx, sigbuf, &siglen, in_data, in_data_len) <= 0) {
+        TRACE_ERROR("EVP_PKEY_sign failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    p = sigbuf;
+    sig = d2i_ECDSA_SIG(NULL, &p, siglen);
+    if (sig == NULL) {
+        TRACE_ERROR("d2i_ECDSA_SIG failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ECDSA_SIG_get0(sig, &r, &s);
+
+    privlen = ec_prime_len_from_pkey(ec_key);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_pkey failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* Insert leading 0's if r or s shorter than privlen */
+    n = privlen - BN_num_bytes(r);
+    memset(out_data, 0, n);
+    BN_bn2bin(r, &out_data[n]);
+
+    n = privlen - BN_num_bytes(s);
+    memset(out_data + privlen, 0x00, n);
+    BN_bn2bin(s, &out_data[privlen + n]);
+
+    *out_data_len = 2 * privlen;
+
+out:
+    if (sig != NULL)
+        ECDSA_SIG_free(sig);
+    if (ec_key != NULL)
+        EVP_PKEY_free(ec_key);
+    if (sigbuf != NULL)
+        free(sigbuf);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+
+    return rc;
+}
+
+CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BYTE *in_data,
+                                 CK_ULONG in_data_len,
+                                 CK_BYTE *signature,
+                                 CK_ULONG signature_len, OBJECT *key_obj)
+{
+    EVP_PKEY *ec_key;
+    CK_ULONG privlen;
+    ECDSA_SIG *sig = NULL;
+    BIGNUM *r = NULL, *s = NULL;
+    CK_RV rc = CKR_OK;
+    size_t siglen;
+    CK_BYTE *sigbuf = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    rc = openssl_make_ec_key_from_template(key_obj->template, &ec_key);
+    if (rc != CKR_OK)
+        return rc;
+
+    privlen = ec_prime_len_from_pkey(ec_key);
+    if (privlen <= 0) {
+        TRACE_ERROR("ec_prime_len_from_pkey failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (signature_len < 2 * privlen) {
+        TRACE_ERROR("Signature is too short\n");
+        rc = CKR_SIGNATURE_LEN_RANGE;
+        goto out;
+    }
+
+    sig = ECDSA_SIG_new();
+    if (sig == NULL) {
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    r = BN_bin2bn(signature, privlen, NULL);
+    s = BN_bin2bn(signature + privlen, privlen, NULL);
+    if (r == NULL || s == NULL) {
+        TRACE_ERROR("BN_bin2bn failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (!ECDSA_SIG_set0(sig, r, s)) {
+        TRACE_ERROR("ECDSA_SIG_set0 failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    siglen = i2d_ECDSA_SIG(sig, &sigbuf);
+    if (siglen <= 0) {
+        TRACE_ERROR("i2d_ECDSA_SIG failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    ctx = EVP_PKEY_CTX_new(ec_key, NULL);
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_PKEY_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (EVP_PKEY_verify_init(ctx) <= 0) {
+        TRACE_ERROR("EVP_PKEY_verify_init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = EVP_PKEY_verify(ctx, sigbuf, siglen, in_data, in_data_len);
+    switch (rc) {
+    case 0:
+        rc = CKR_SIGNATURE_INVALID;
+        break;
+    case 1:
+        rc = CKR_OK;
+        break;
+    default:
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+out:
+    if (sig != NULL)
+        ECDSA_SIG_free(sig);
+    if (ec_key != NULL)
+        EVP_PKEY_free(ec_key);
+    if (sigbuf != NULL)
+        OPENSSL_free(sigbuf);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+
+    return rc;
+}
+
+CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
+                                        CK_BYTE *priv_bytes,
+                                        CK_ULONG priv_length,
+                                        CK_BYTE *pub_bytes,
+                                        CK_ULONG pub_length,
+                                        CK_BYTE *secret_value,
+                                        CK_ULONG *secret_value_len,
+                                        CK_BYTE *oid, CK_ULONG oid_length)
+{
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EC_KEY *pub = NULL, *priv = NULL;
+#else
+    OSSL_PARAM_BLD *tmpl = NULL;
+#endif
+    EVP_PKEY *ec_pub = NULL, *ec_priv = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+    size_t secret_len;
+    int nid;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    nid = curve_nid_from_params(oid, oid_length);
+    if (nid == NID_undef) {
+        TRACE_ERROR("curve not supported by OpenSSL.\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = make_ec_key_from_params(oid, oid_length, &priv);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("make_ec_key_from_params failed\n");
+        goto out;
+    }
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = fill_ec_key_from_privkey(priv, priv_bytes, priv_length, &ec_priv);
+#else
+    rc = fill_ec_key_from_privkey(tmpl, priv_bytes, priv_length, nid, &ec_priv);
+#endif
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("fill_ec_key_from_privkey failed\n");
+        goto out;
+    }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    priv = NULL;
+#else
+    OSSL_PARAM_BLD_free(tmpl);
+    tmpl = NULL;
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = make_ec_key_from_params(oid, oid_length, &pub);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("make_ec_key_from_params failed\n");
+        goto out;
+    }
+#else
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL) {
+        TRACE_ERROR("OSSL_PARAM_BLD_new failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto out;
+    }
+
+    if (!OSSL_PARAM_BLD_push_utf8_string(tmpl, OSSL_PKEY_PARAM_GROUP_NAME,
+                                         OBJ_nid2sn(nid), 0)) {
+        TRACE_ERROR("OSSL_PARAM_BLD_push_utf8_string failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = fill_ec_key_from_pubkey(pub, pub_bytes, pub_length, TRUE, nid,
+                                 &ec_pub);
+#else
+    rc = fill_ec_key_from_pubkey(tmpl, pub_bytes, pub_length, TRUE, nid,
+                                 &ec_pub);
+#endif
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("fill_ec_key_from_pubkey failed\n");
+        goto out;
+    }
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    pub = NULL;
+#else
+    OSSL_PARAM_BLD_free(tmpl);
+    tmpl = NULL;
+#endif
+
+    ctx = EVP_PKEY_CTX_new(ec_priv, NULL);
+    if (ctx == NULL) {
+        TRACE_DEVEL("EVP_PKEY_CTX_new failed\n");
+        goto out;
+    }
+
+    if (EVP_PKEY_derive_init(ctx) <= 0 ||
+        EVP_PKEY_derive_set_peer(ctx, ec_pub) <= 0) {
+        TRACE_DEVEL("EVP_PKEY_derive_init/EVP_PKEY_derive_set_peer failed\n");
+        goto out;
+    }
+
+    secret_len = ec_prime_len_from_nid(nid);
+    if (EVP_PKEY_derive(ctx, secret_value, &secret_len) <= 0) {
+        TRACE_DEVEL("ECDH_compute_key failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        *secret_value_len = 0;
+        goto out;
+    }
+
+    *secret_value_len = secret_len;
+
+out:
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    if (priv != NULL)
+        EC_KEY_free(priv);
+    if (pub != NULL)
+        EC_KEY_free(pub);
+#else
+    if (tmpl != NULL)
+        OSSL_PARAM_BLD_free(tmpl);
+#endif
+    if (ec_priv != NULL)
+        EVP_PKEY_free(ec_priv);
+    if (ec_pub != NULL)
+        EVP_PKEY_free(ec_pub);
+    if (ctx != NULL)
+        EVP_PKEY_CTX_free(ctx);
+
+    return rc;
+}
+
+#endif
