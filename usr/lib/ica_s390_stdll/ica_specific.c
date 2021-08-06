@@ -62,6 +62,7 @@ typedef struct {
     int ica_sha512_224_available;
     int ica_sha512_256_available;
     int ica_sha3_available;
+    int ica_aes_available;
     MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
     CK_ULONG mech_list_len;
 } ica_private_data_t;
@@ -2544,10 +2545,13 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     int rc = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_ecb(tokdata, in_data, in_data_len,
+                                        out_data, out_data_len, key, encrypt);
 
     /*
      * checks for input and output data length and block sizes
@@ -2586,10 +2590,14 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_cbc(tokdata, in_data, in_data_len,
+                                        out_data, out_data_len, key,
+                                        init_v, encrypt);
 
     /*
      * checks for input and output data length and block sizes
@@ -3194,10 +3202,13 @@ CK_RV token_specific_aes_cfb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                              CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_mac(tokdata, message, message_len,
+                                        key, mac);
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
@@ -3221,11 +3232,13 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                               CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                               CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
-    UNUSED(ctx);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_cmac(tokdata, message, message_len,
+                                        key, mac, first, last, ctx);
 
     if (key == NULL)
         return CKR_ARGUMENTS_BAD;
@@ -3593,6 +3606,15 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0);
 #endif
 
+    /* We have AES support (SW) in any case, regardless if libica supports it */
+    addMechanismToList(tokdata, CKM_AES_ECB, 0);
+    addMechanismToList(tokdata, CKM_AES_CBC, 0);
+    addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0);
+    addMechanismToList(tokdata, CKM_AES_MAC, 0);
+    addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0);
+    addMechanismToList(tokdata, CKM_AES_CMAC, 0);
+    addMechanismToList(tokdata, CKM_AES_CMAC_GENERAL, 0);
+
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ica_get_functionlist failed\n");
@@ -3654,6 +3676,10 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         if (libica_func_list[i].mech_mode_id == SHA3_512)
             ica_data->ica_sha3_available = TRUE;
 #endif
+
+        /* Remember if libica supports AES mechanisms (HW or SW) */
+        if (libica_func_list[i].mech_mode_id == AES_CBC)
+            ica_data->ica_aes_available = TRUE;
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
