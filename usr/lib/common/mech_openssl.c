@@ -29,6 +29,7 @@
 #include <openssl/rsa.h>
 #include <openssl/ec.h>
 #include <openssl/bn.h>
+#include <openssl/sha.h>
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
@@ -2749,3 +2750,338 @@ out:
 }
 
 #endif
+
+static const EVP_MD *md_from_mech(CK_MECHANISM *mech)
+{
+    const EVP_MD *md = NULL;
+
+    switch (mech->mechanism) {
+    case CKM_SHA_1:
+        md = EVP_sha1();
+        break;
+    case CKM_SHA224:
+        md = EVP_sha224();
+        break;
+    case CKM_SHA256:
+        md = EVP_sha256();
+        break;
+    case CKM_SHA384:
+        md = EVP_sha384();
+        break;
+    case CKM_SHA512:
+        md = EVP_sha512();
+        break;
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224:
+        md = EVP_sha512_224();
+        break;
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256:
+        md = EVP_sha512_256();
+        break;
+#endif
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224:
+        md = EVP_sha3_224();
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256:
+        md = EVP_sha3_256();
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384:
+        md = EVP_sha3_384();
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512:
+        md = EVP_sha3_512();
+        break;
+#endif
+    default:
+        break;
+    }
+
+    return md;
+}
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+static EVP_MD_CTX *md_ctx_from_context(DIGEST_CONTEXT *ctx)
+{
+    const EVP_MD *md;
+    EVP_MD_CTX *md_ctx;
+
+    md_ctx = EVP_MD_CTX_new();
+    if (md_ctx == NULL)
+        return NULL;
+
+    md = md_from_mech(&ctx->mech);
+    if (md == NULL ||
+        !EVP_DigestInit_ex(md_ctx, md, NULL)) {
+        TRACE_ERROR("md_from_mech or EVP_DigestInit_ex failed\n");
+        EVP_MD_CTX_free(md_ctx);
+        return NULL;
+    }
+
+    if (ctx->context_len == 0) {
+        ctx->context_len = EVP_MD_meth_get_app_datasize(EVP_MD_CTX_md(md_ctx));
+        ctx->context = malloc(ctx->context_len);
+        if (ctx->context == NULL) {
+            TRACE_ERROR("malloc failed\n");
+            EVP_MD_CTX_free(md_ctx);
+            ctx->context_len = 0;
+            return NULL;
+        }
+
+        /* Save context data for later use */
+        memcpy(ctx->context,  EVP_MD_CTX_md_data(md_ctx), ctx->context_len);
+    } else {
+        if (ctx->context_len !=
+                (CK_ULONG)EVP_MD_meth_get_app_datasize(EVP_MD_CTX_md(md_ctx))) {
+            TRACE_ERROR("context size mismatcht\n");
+            return NULL;
+        }
+        /* restore the MD context data */
+        memcpy(EVP_MD_CTX_md_data(md_ctx), ctx->context, ctx->context_len);
+    }
+
+    return md_ctx;
+}
+#endif
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+static void openssl_specific_sha_free(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      CK_BYTE *context, CK_ULONG context_len)
+{
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)context);
+}
+#endif
+
+CK_RV openssl_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                CK_MECHANISM *mech)
+{
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_MD_CTX *md_ctx;
+#else
+    const EVP_MD *md;
+#endif
+
+    UNUSED(tokdata);
+
+    ctx->mech.ulParameterLen = mech->ulParameterLen;
+    ctx->mech.mechanism = mech->mechanism;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    EVP_MD_CTX_free(md_ctx);
+#else
+    ctx->context_len = 1;
+    ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
+    if (ctx->context == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    md = md_from_mech(&ctx->mech);
+    if (md == NULL ||
+        !EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, md, NULL)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = openssl_specific_sha_free;
+#endif
+
+    return CKR_OK;
+}
+
+CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                           CK_BYTE *in_data, CK_ULONG in_data_len,
+                           CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    unsigned int len;
+    CK_RV rc = CKR_OK;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_MD_CTX *md_ctx;
+#endif
+
+    UNUSED(tokdata);
+
+    if (!ctx || !ctx->context)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    if (!in_data || !out_data)
+        return CKR_ARGUMENTS_BAD;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
+        return CKR_BUFFER_TOO_SMALL;
+
+    if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len) ||
+        !EVP_DigestFinal(md_ctx, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    *out_data_len = len;
+#else
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    len = *out_data_len;
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len) ||
+        !EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
+#endif
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+out:
+    EVP_MD_CTX_free(md_ctx);
+    free(ctx->context);
+#else
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+#endif
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+
+    return rc;
+}
+
+CK_RV openssl_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len)
+{
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_MD_CTX *md_ctx;
+#endif
+
+    UNUSED(tokdata);
+
+    if (!ctx || !ctx->context)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    if (!in_data)
+        return CKR_ARGUMENTS_BAD;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (!EVP_DigestUpdate(md_ctx, in_data, in_data_len)) {
+        EVP_MD_CTX_free(md_ctx);
+        free(ctx->context);
+        ctx->context = NULL;
+        ctx->context_len = 0;
+        ctx->context_free_func = NULL;
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Save context data for later use */
+    memcpy(ctx->context,  EVP_MD_CTX_md_data(md_ctx), ctx->context_len);
+
+    EVP_MD_CTX_free(md_ctx);
+#else
+    if (!EVP_DigestUpdate((EVP_MD_CTX *)ctx->context, in_data, in_data_len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+#endif
+
+    return CKR_OK;
+}
+
+CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                 CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    unsigned int len;
+    CK_RV rc = CKR_OK;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    EVP_MD_CTX *md_ctx;
+#endif
+
+    UNUSED(tokdata);
+
+    if (!ctx || !ctx->context)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    if (!out_data)
+        return CKR_ARGUMENTS_BAD;
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    /* Recreate the OpenSSL MD context from the saved context */
+    md_ctx = md_ctx_from_context(ctx);
+    if (md_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size(md_ctx))
+        return CKR_BUFFER_TOO_SMALL;
+
+    if (!EVP_DigestFinal(md_ctx, out_data, &len)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+    *out_data_len = len;
+
+out:
+    EVP_MD_CTX_free(md_ctx);
+    free(ctx->context);
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+#else
+    if (*out_data_len < (CK_ULONG)EVP_MD_CTX_size((EVP_MD_CTX *)ctx->context)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    len = *out_data_len;
+    if (!EVP_DigestFinal((EVP_MD_CTX *)ctx->context, out_data, &len)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *out_data_len = len;
+
+    EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+    ctx->context = NULL;
+    ctx->context_len = 0;
+    ctx->context_free_func = NULL;
+#endif
+
+    return rc;
+}

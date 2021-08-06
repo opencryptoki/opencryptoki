@@ -2910,6 +2910,16 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
                                         CK_ULONG *secret_value_len,
                                         CK_BYTE *oid, CK_ULONG oid_length);
 
+CK_RV openssl_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                CK_MECHANISM *mech);
+CK_RV openssl_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                           CK_BYTE *in_data, CK_ULONG in_data_len,
+                           CK_BYTE *out_data, CK_ULONG *out_data_len);
+CK_RV openssl_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len);
+CK_RV openssl_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
+                                 CK_BYTE *out_data, CK_ULONG *out_data_len);
+
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 
