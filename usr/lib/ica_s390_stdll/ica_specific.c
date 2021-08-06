@@ -57,6 +57,11 @@ typedef struct {
     int ica_rsa_keygen_available;
     int ica_rsa_endecrypt_available;
     int ica_p_rng_available;
+    int ica_sha1_available;
+    int ica_sha2_available;
+    int ica_sha512_224_available;
+    int ica_sha512_256_available;
+    int ica_sha3_available;
     MECH_LIST_ELEMENT mech_list[ICA_MAX_MECH_LIST_ENTRIES];
     CK_ULONG mech_list_len;
 } ica_private_data_t;
@@ -765,6 +770,32 @@ CK_RV token_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
+int ica_sha_supported(STDLL_TokData_t *tokdata, CK_MECHANISM_TYPE mech)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+
+    switch (mech) {
+    case CKM_SHA_1:
+        return ica_data->ica_sha1_available;
+    case CKM_SHA224:
+    case CKM_SHA256:
+    case CKM_SHA384:
+    case CKM_SHA512:
+        return ica_data->ica_sha2_available;
+    case CKM_SHA512_224:
+        return ica_data->ica_sha512_224_available;
+    case CKM_SHA512_256:
+        return ica_data->ica_sha512_256_available;
+    case CKM_IBM_SHA3_224:
+    case CKM_IBM_SHA3_256:
+    case CKM_IBM_SHA3_384:
+    case CKM_IBM_SHA3_512:
+        return ica_data->ica_sha2_available;
+    default:
+        return FALSE;
+    }
+}
+
 /*
  * Init SHA data structures
  */
@@ -774,7 +805,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     unsigned int ctxsize, devctxsize;
     struct oc_sha_ctx *sc;
 
-    UNUSED(tokdata);
+    if (!ica_sha_supported(tokdata, mech->mechanism))
+        return openssl_specific_sha_init(tokdata, ctx, mech);
 
     ctxsize = (sizeof(struct oc_sha_ctx) + 0x000F) & ~0x000F;
     switch (mech->mechanism) {
@@ -907,9 +939,14 @@ CK_RV token_specific_sha(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     struct oc_sha_ctx *sc;
     void *dev_ctx;
 
-    UNUSED(tokdata);
+    if (!ctx)
+         return CKR_OPERATION_NOT_INITIALIZED;
 
-    if (!ctx || !ctx->context)
+    if (!ica_sha_supported(tokdata, ctx->mech.mechanism))
+        return openssl_specific_sha(tokdata, ctx, in_data, in_data_len,
+                                    out_data, out_data_len);
+
+    if (!ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
     if (!in_data || !out_data)
@@ -1235,9 +1272,13 @@ CK_RV token_specific_sha_update(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     struct oc_sha_ctx *sc;
     int fill, len, rest, ret;
 
-    UNUSED(tokdata);
+    if (!ctx)
+         return CKR_OPERATION_NOT_INITIALIZED;
 
-    if (!ctx || !ctx->context)
+    if (!ica_sha_supported(tokdata, ctx->mech.mechanism))
+        return openssl_specific_sha_update(tokdata, ctx, in_data, in_data_len);
+
+    if (!ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
     if (!in_data_len)
@@ -1316,9 +1357,13 @@ CK_RV token_specific_sha_final(STDLL_TokData_t *tokdata, DIGEST_CONTEXT *ctx,
     struct oc_sha_ctx *sc;
     void *dev_ctx;
 
-    UNUSED(tokdata);
+    if (!ctx)
+         return CKR_OPERATION_NOT_INITIALIZED;
 
-    if (!ctx || !ctx->context)
+    if (!ica_sha_supported(tokdata, ctx->mech.mechanism))
+        return openssl_specific_sha_final(tokdata, ctx, out_data, out_data_len);
+
+    if (!ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
 
     if (!out_data || !out_data_len)
@@ -3523,6 +3568,31 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0);
     addMechanismToList(tokdata, CKM_ECDSA, 0);
 
+    /* We have SHA support (SW) in any case, regardless if libica supports it */
+    addMechanismToList(tokdata, CKM_SHA_1, 0);
+    addMechanismToList(tokdata, CKM_SHA224, 0);
+    addMechanismToList(tokdata, CKM_SHA256, 0);
+    addMechanismToList(tokdata, CKM_SHA384, 0);
+    addMechanismToList(tokdata, CKM_SHA512, 0);
+#ifdef NID_sha512_224WithRSAEncryption
+    addMechanismToList(tokdata, CKM_SHA512_224, 0);
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+    addMechanismToList(tokdata, CKM_SHA512_256, 0);
+#endif
+#ifdef NID_sha3_224
+    addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0);
+#endif
+#ifdef NID_sha3_256
+    addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0);
+#endif
+#ifdef NID_sha3_384
+    addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0);
+#endif
+#ifdef NID_sha3_512
+    addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0);
+#endif
+
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ica_get_functionlist failed\n");
@@ -3566,6 +3636,24 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             if (libica_func_list[i].mech_mode_id == EC_DH)
                 ica_data->ica_ec_derive_available = TRUE;
         }
+
+        /* Remember if libica supports SHA mechanisms (HW or SW) */
+        if (libica_func_list[i].mech_mode_id == SHA1)
+            ica_data->ica_sha1_available = TRUE;
+        if (libica_func_list[i].mech_mode_id == SHA512)
+            ica_data->ica_sha2_available = TRUE;
+#ifdef SHA512_224
+        if (libica_func_list[i].mech_mode_id == SHA512_224)
+            ica_data->ica_sha512_224_available = TRUE;
+#endif
+#ifdef SHA512_256
+        if (libica_func_list[i].mech_mode_id == SHA512_256)
+            ica_data->ica_sha512_256_available = TRUE;
+#endif
+#ifdef SHA3_512
+        if (libica_func_list[i].mech_mode_id == SHA3_512)
+            ica_data->ica_sha3_available = TRUE;
+#endif
 
         /* --- walk through the whole reflist and fetch all
          * matching mechanism's (if present) ---
