@@ -563,6 +563,45 @@ CK_RV run_DeriveECDHKey()
         // Testcase #2 - Now derive the secrets...
 
         for (j=0; j < NUM_KDFS; j++) {
+            switch (kdfs[j]) {
+            case CKD_SHA1_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA_1)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA1_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA224_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA224)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA224_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA256_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA256)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA256_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA384_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA384)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA384_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            case CKD_SHA512_KDF:
+                if (!mech_supported(SLOT_ID, CKM_SHA512)) {
+                    testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
+                                  (unsigned int) SLOT_ID);
+                    continue;
+                }
+                break;
+            default:
+                break;
+            }
 
             for (k=0; k<NUM_SECRET_KEY_LENGTHS; k++) {
 
@@ -868,6 +907,46 @@ CK_RV run_DeriveECDHKeyKAT()
 
         testcase_new_assertion();
         testcase_begin("Starting with shared secret i=%lu, pkey=%X", i, pkey);
+
+        switch (ecdh_tv[i].kdf) {
+        case CKD_SHA1_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA_1)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA1_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA224_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA224)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA224_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA256_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA256)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA256_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA384_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA384)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA384_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        case CKD_SHA512_KDF:
+            if (!mech_supported(SLOT_ID, CKM_SHA512)) {
+                testcase_skip("Slot %u doesn't support CKD_SHA512_KDF\n",
+                              (unsigned int) SLOT_ID);
+                continue;
+            }
+            break;
+        default:
+            break;
+        }
 
         // First, import the EC key pair for party A
         rc = create_ECPrivateKey(session,
