@@ -190,6 +190,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CBC, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC_PAD,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_CTR, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
@@ -522,6 +523,20 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
     return openssl_specific_aes_cbc(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key,
                                     init_v, encrypt);
+}
+
+CK_RV token_specific_aes_ctr(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data,
+                             CK_ULONG in_data_len,
+                             CK_BYTE *out_data,
+                             CK_ULONG *out_data_len,
+                             OBJECT *key,
+                             CK_BYTE *counterblock,
+                             CK_ULONG counter_width, CK_BYTE encrypt)
+{
+    return openssl_specific_aes_ctr(tokdata, in_data, in_data_len,
+                                    out_data, out_data_len, key,
+                                    counterblock, counter_width, encrypt);
 }
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
