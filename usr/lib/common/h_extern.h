@@ -2968,6 +2968,18 @@ CK_RV openssl_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                  CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                                  CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx);
 
+CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
+                                 SIGN_VERIFY_CONTEXT *ctx,
+                                 CK_MECHANISM_PTR mech,
+                                 CK_OBJECT_HANDLE Hkey);
+CK_RV openssl_specific_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                            CK_ULONG in_data_len, CK_BYTE *signature,
+                            CK_ULONG *sig_len, CK_BBOOL sign);
+CK_RV openssl_specific_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                                   CK_ULONG in_data_len, CK_BBOOL sign);
+CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+                                  CK_ULONG *sig_len, CK_BBOOL sign);
+
 #include "tok_spec_struct.h"
 extern token_spec_t token_specific;
 
