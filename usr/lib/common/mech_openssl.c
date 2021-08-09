@@ -3885,3 +3885,398 @@ err:
     *ctx = NULL;
     return rv;
 }
+
+CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
+                                 SIGN_VERIFY_CONTEXT *ctx,
+                                 CK_MECHANISM_PTR mech,
+                                 CK_OBJECT_HANDLE Hkey)
+{
+    int rc;
+    OBJECT *key = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    EVP_MD_CTX *mdctx = NULL;
+    EVP_PKEY *pkey = NULL;
+
+    rc = object_mgr_find_in_map1(tokdata, Hkey, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        goto done;
+    }
+
+    pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, attr->pValue,
+                                attr->ulValueLen);
+    if (pkey == NULL) {
+        TRACE_ERROR("EVP_PKEY_new_mac_key() failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    mdctx = EVP_MD_CTX_create();
+    if (mdctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_SHA_1_HMAC_GENERAL:
+    case CKM_SHA_1_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha1(), NULL, pkey);
+        break;
+    case CKM_SHA224_HMAC_GENERAL:
+    case CKM_SHA224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha224(), NULL, pkey);
+        break;
+    case CKM_SHA256_HMAC_GENERAL:
+    case CKM_SHA256_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey);
+        break;
+    case CKM_SHA384_HMAC_GENERAL:
+    case CKM_SHA384_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha384(), NULL, pkey);
+        break;
+    case CKM_SHA512_HMAC_GENERAL:
+    case CKM_SHA512_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512(), NULL, pkey);
+        break;
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC_GENERAL:
+    case CKM_SHA512_224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512_224(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC_GENERAL:
+    case CKM_SHA512_256_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha512_256(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_224(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_256(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_384(), NULL, pkey);
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha3_512(), NULL, pkey);
+        break;
+#endif
+    default:
+        EVP_MD_CTX_destroy(mdctx);
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    if (rc != 1) {
+        EVP_MD_CTX_destroy(mdctx);
+        ctx->context = NULL;
+        TRACE_ERROR("EVP_DigestSignInit failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    } else {
+        ctx->context = (CK_BYTE *) mdctx;
+    }
+
+    rc = CKR_OK;
+done:
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+    return rc;
+}
+
+CK_RV openssl_specific_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                            CK_ULONG in_data_len, CK_BYTE *signature,
+                            CK_ULONG *sig_len, CK_BBOOL sign)
+{
+    int rc;
+    size_t mac_len, len;
+    unsigned char mac[MAX_SHA_HASH_SIZE];
+    EVP_MD_CTX *mdctx = NULL;
+    CK_RV rv = CKR_OK;
+    CK_BBOOL general = FALSE;
+
+    if (!ctx || !ctx->context) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (sign && !sig_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA_1_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA_1_HMAC:
+        mac_len = SHA1_HASH_SIZE;
+        break;
+    case CKM_SHA224_HMAC_GENERAL:
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC_GENERAL:
+#endif
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA224_HMAC:
+#ifdef NID_sha512_224WithRSAEncryption
+    case CKM_SHA512_224_HMAC:
+#endif
+        mac_len = SHA224_HASH_SIZE;
+        break;
+    case CKM_SHA256_HMAC_GENERAL:
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC_GENERAL:
+#endif
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA256_HMAC:
+#ifdef NID_sha512_256WithRSAEncryption
+    case CKM_SHA512_256_HMAC:
+#endif
+        mac_len = SHA256_HASH_SIZE;
+        break;
+    case CKM_SHA384_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA384_HMAC:
+        mac_len = SHA384_HASH_SIZE;
+        break;
+    case CKM_SHA512_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA512_HMAC:
+        mac_len = SHA512_HASH_SIZE;
+        break;
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        mac_len = SHA3_224_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        mac_len = SHA3_256_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        mac_len = SHA3_384_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        mac_len = SHA3_512_HASH_SIZE;
+        break;
+#endif
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    mdctx = (EVP_MD_CTX *) ctx->context;
+
+    rc = EVP_DigestSignUpdate(mdctx, in_data, in_data_len);
+    if (rc != 1) {
+        TRACE_ERROR("EVP_DigestSignUpdate failed.\n");
+        rv = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);
+    if (rc != 1) {
+        TRACE_ERROR("EVP_DigestSignFinal failed.\n");
+        rv = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (sign) {
+        if (general)
+            *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
+        else
+            *sig_len = mac_len;
+
+        memcpy(signature, mac, *sig_len);
+
+    } else {
+        if (general)
+            len = *(CK_ULONG *) ctx->mech.pParameter;
+        else
+            len = mac_len;
+
+        if (CRYPTO_memcmp(signature, mac, len) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rv = CKR_SIGNATURE_INVALID;
+        }
+    }
+done:
+    EVP_MD_CTX_destroy(mdctx);
+    ctx->context = NULL;
+
+    return rv;
+}
+
+CK_RV openssl_specific_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
+                                   CK_ULONG in_data_len, CK_BBOOL sign)
+{
+    int rc;
+    EVP_MD_CTX *mdctx = NULL;
+    CK_RV rv = CKR_OK;
+
+    UNUSED(sign);
+
+    if (!ctx || !ctx->context)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    mdctx = (EVP_MD_CTX *) ctx->context;
+
+    rc = EVP_DigestSignUpdate(mdctx, in_data, in_data_len);
+    if (rc != 1) {
+        TRACE_ERROR("EVP_DigestSignUpdate failed.\n");
+        rv = CKR_FUNCTION_FAILED;
+    } else {
+        ctx->context = (CK_BYTE *) mdctx;
+        return CKR_OK;
+    }
+
+    EVP_MD_CTX_destroy(mdctx);
+    ctx->context = NULL;
+    return rv;
+}
+
+CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
+                                  CK_ULONG *sig_len, CK_BBOOL sign)
+{
+    int rc;
+    size_t mac_len, len;
+    unsigned char mac[MAX_SHA_HASH_SIZE];
+    EVP_MD_CTX *mdctx = NULL;
+    CK_RV rv = CKR_OK;
+    CK_BBOOL general = FALSE;
+
+    if (!ctx || !ctx->context)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    if (sign && !sig_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (ctx->mech.mechanism) {
+    case CKM_SHA_1_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA_1_HMAC:
+        mac_len = SHA1_HASH_SIZE;
+        break;
+    case CKM_SHA224_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA224_HMAC:
+        mac_len = SHA224_HASH_SIZE;
+        break;
+    case CKM_SHA256_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA256_HMAC:
+        mac_len = SHA256_HASH_SIZE;
+        break;
+    case CKM_SHA384_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA384_HMAC:
+        mac_len = SHA384_HASH_SIZE;
+        break;
+    case CKM_SHA512_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_SHA512_HMAC:
+        mac_len = SHA512_HASH_SIZE;
+        break;
+#ifdef NID_sha3_224
+    case CKM_IBM_SHA3_224_HMAC:
+        mac_len = SHA3_224_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_256
+    case CKM_IBM_SHA3_256_HMAC:
+        mac_len = SHA3_256_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_384
+    case CKM_IBM_SHA3_384_HMAC:
+        mac_len = SHA3_384_HASH_SIZE;
+        break;
+#endif
+#ifdef NID_sha3_512
+    case CKM_IBM_SHA3_512_HMAC:
+        mac_len = SHA3_512_HASH_SIZE;
+        break;
+#endif
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (signature == NULL) {
+        if (sign) {
+            if (general)
+                *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
+            else
+                *sig_len = (CK_ULONG) mac_len;
+        }
+        return CKR_OK;
+    }
+
+    mdctx = (EVP_MD_CTX *) ctx->context;
+
+    rc = EVP_DigestSignFinal(mdctx, mac, &mac_len);
+    if (rc != 1) {
+        TRACE_ERROR("EVP_DigestSignFinal failed.\n");
+        rv = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (sign) {
+        if (general)
+            *sig_len = *(CK_ULONG *) ctx->mech.pParameter;
+        else
+            *sig_len = mac_len;
+
+        memcpy(signature, mac, *sig_len);
+
+    } else {
+        if (general)
+            len = *(CK_ULONG *) ctx->mech.pParameter;
+        else
+            len = mac_len;
+
+        if (CRYPTO_memcmp(signature, mac, len) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
+            rv = CKR_SIGNATURE_INVALID;
+        }
+    }
+done:
+    EVP_MD_CTX_destroy(mdctx);
+    ctx->context = NULL;
+    return rv;
+}
