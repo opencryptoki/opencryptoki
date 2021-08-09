@@ -141,12 +141,13 @@ token_spec_t token_specific = {
     &token_specific_aes_key_gen,
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
+    &token_specific_aes_ctr,
 #else
     NULL,                       // aes_key_gen
     NULL,                       // aes_ecb
     NULL,                       // aes_cbc
-#endif
     NULL,                       // aes_ctr
+#endif
     NULL,                       // aes_gcm_init
     NULL,                       // aes_gcm
     NULL,                       // aes_gcm_update
