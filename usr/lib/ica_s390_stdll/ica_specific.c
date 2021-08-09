@@ -2660,10 +2660,14 @@ CK_RV token_specific_aes_ctr(STDLL_TokData_t *tokdata,
                              CK_BYTE *counterblock,
                              CK_ULONG counter_width, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_ctr(tokdata, in_data, in_data_len,
+                                        out_data, out_data_len, key,
+                                        counterblock, counter_width, encrypt);
 
     /*
      * checks for input and output data length and block sizes
@@ -3631,6 +3635,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_AES_ECB, 0);
     addMechanismToList(tokdata, CKM_AES_CBC, 0);
     addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0);
+    addMechanismToList(tokdata, CKM_AES_CTR, 0);
     addMechanismToList(tokdata, CKM_AES_MAC, 0);
     addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0);
     addMechanismToList(tokdata, CKM_AES_CMAC, 0);
