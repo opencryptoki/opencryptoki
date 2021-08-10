@@ -633,10 +633,13 @@ CK_RV token_specific_tdes_ofb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                               CK_BYTE *out_data, CK_ULONG data_len,
                               OBJECT *key, CK_BYTE *iv, uint_32 direction)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_des3_available)
+        return openssl_specific_tdes_ofb(tokdata, in_data, data_len, out_data,
+                                         key, iv, direction);
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
@@ -665,10 +668,13 @@ CK_RV token_specific_tdes_cfb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                               OBJECT *key, CK_BYTE *iv, uint_32 cfb_len,
                               uint_32 direction)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
-    UNUSED(tokdata);
+    if (!ica_data->ica_des3_available)
+        return openssl_specific_tdes_cfb(tokdata, in_data, data_len, out_data,
+                                         key, iv, cfb_len, direction);
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
@@ -3167,10 +3173,24 @@ CK_RV token_specific_aes_ofb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                              CK_ULONG in_data_len, CK_BYTE *out_data,
                              OBJECT *key, CK_BYTE *init_v, uint_32 direction)
 {
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+#endif
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    /*
+     * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
+     * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
+     * the IV in the context.
+     */
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_ofb(tokdata, in_data, in_data_len,
+                                        out_data, key, init_v, direction);
+#else
     UNUSED(tokdata);
+#endif
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
@@ -3201,10 +3221,25 @@ CK_RV token_specific_aes_cfb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                              OBJECT *key, CK_BYTE *init_v, uint_32 lcfb,
                              uint_32 direction)
 {
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+#endif
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
 
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    /*
+     * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
+     * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
+     * the IV in the context.
+     */
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_cfb(tokdata, in_data, in_data_len,
+                                        out_data, key, init_v, lcfb,
+                                        direction);
+#else
     UNUSED(tokdata);
+#endif
 
     rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
     if (rc != CKR_OK) {
@@ -3636,6 +3671,17 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_AES_CBC, 0);
     addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0);
     addMechanismToList(tokdata, CKM_AES_CTR, 0);
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    /*
+     * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
+     * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
+     * the IV in the context.
+     */
+    addMechanismToList(tokdata, CKM_AES_OFB, 0);
+    addMechanismToList(tokdata, CKM_AES_CFB8, 0);
+    /* CFB64 is not supported as SW fallback */
+    addMechanismToList(tokdata, CKM_AES_CFB128, 0);
+#endif
     addMechanismToList(tokdata, CKM_AES_MAC, 0);
     addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0);
     addMechanismToList(tokdata, CKM_AES_CMAC, 0);
@@ -3648,6 +3694,9 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     addMechanismToList(tokdata, CKM_DES3_ECB, 0);
     addMechanismToList(tokdata, CKM_DES3_CBC, 0);
     addMechanismToList(tokdata, CKM_DES3_CBC_PAD, 0);
+    addMechanismToList(tokdata, CKM_DES_OFB64, 0);
+    addMechanismToList(tokdata, CKM_DES_CFB8, 0);
+    addMechanismToList(tokdata, CKM_DES_CFB64, 0);
     addMechanismToList(tokdata, CKM_DES3_MAC, 0);
     addMechanismToList(tokdata, CKM_DES3_MAC_GENERAL, 0);
     addMechanismToList(tokdata, CKM_DES3_CMAC, 0);
