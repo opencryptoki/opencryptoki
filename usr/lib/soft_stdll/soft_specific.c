@@ -123,6 +123,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_OFB64, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_DES_CFB8, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_DES_CFB64, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES3_MAC, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_MAC_GENERAL, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
@@ -199,6 +201,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
      * the IV in the context.
      */
     {CKM_AES_OFB, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_CFB8, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_AES_CFB128, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
 #endif
     {CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -333,6 +337,19 @@ CK_RV token_specific_tdes_ofb(STDLL_TokData_t *tokdata,
 {
     return openssl_specific_tdes_ofb(tokdata, in_data, data_len,
                                      out_data, key, init_v, direction);
+}
+
+CK_RV token_specific_tdes_cfb(STDLL_TokData_t *tokdata,
+                              CK_BYTE *in_data,
+                              CK_BYTE *out_data,
+                              CK_ULONG data_len,
+                              OBJECT *key,
+                              CK_BYTE *init_v, uint_32 cfb_len,
+                              uint_32 direction)
+{
+    return openssl_specific_tdes_cfb(tokdata, in_data, data_len,
+                                     out_data, key, init_v, cfb_len,
+                                     direction);
 }
 
 CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
@@ -567,6 +584,19 @@ CK_RV token_specific_aes_ofb(STDLL_TokData_t *tokdata,
 {
     return openssl_specific_aes_ofb(tokdata, in_data, in_data_len,
                                     out_data, key, init_v, direction);
+}
+
+CK_RV token_specific_aes_cfb(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data,
+                             CK_ULONG in_data_len,
+                             CK_BYTE *out_data,
+                             OBJECT *key,
+                             CK_BYTE *init_v, uint_32 cfb_len,
+                             uint_32 direction)
+{
+    return openssl_specific_aes_cfb(tokdata, in_data, in_data_len,
+                                    out_data, key, init_v, cfb_len,
+                                    direction);
 }
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
