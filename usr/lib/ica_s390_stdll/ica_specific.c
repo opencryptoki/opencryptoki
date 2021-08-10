@@ -2718,6 +2718,7 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
                                   ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
                                   CK_OBJECT_HANDLE key, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc = CKR_OK;
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2726,7 +2727,9 @@ CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *icv, *icb, *ucb, *subkey;
     CK_ULONG icv_length;
 
-    UNUSED(sess);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_gcm_init(tokdata, sess, ctx, mech,
+                                             key, encrypt);
 
     /* find key object */
     rc = object_mgr_find_in_map1(tokdata, key, &key_obj, READ_LOCK);
@@ -2780,6 +2783,7 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
                              CK_ULONG in_data_len, CK_BYTE *out_data,
                              CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     OBJECT *key = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -2790,7 +2794,10 @@ CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG auth_data_len;
     CK_ULONG tag_data_len;
 
-    UNUSED(sess);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_gcm(tokdata, sess, ctx, in_data,
+                                        in_data_len, out_data, out_data_len,
+                                        encrypt);
 
     /*
      * Checks for input and output data length and block sizes are already
@@ -2870,6 +2877,7 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
                                     CK_ULONG in_data_len, CK_BYTE *out_data,
                                     CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     OBJECT *key = NULL;
@@ -2881,8 +2889,10 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *ucb, *subkey;
     CK_BYTE *buffer = NULL;
 
-    UNUSED(tokdata);
-    UNUSED(sess);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_gcm_update(tokdata, sess, ctx, in_data,
+                                               in_data_len, out_data,
+                                               out_data_len, encrypt);
 
     context = (AES_GCM_CONTEXT *) ctx->context;
     total = (context->len + in_data_len);
@@ -3020,6 +3030,7 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
                                    ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
                                    CK_ULONG *out_data_len, CK_BYTE encrypt)
 {
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
     OBJECT *key = NULL;
@@ -3030,8 +3041,9 @@ CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG auth_data_len, tag_data_len;
     CK_BYTE *buffer = NULL;
 
-    UNUSED(tokdata);
-    UNUSED(sess);
+    if (!ica_data->ica_aes_available)
+        return openssl_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
+                                              out_data_len, encrypt);
 
     /* find key object */
     rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
@@ -3682,6 +3694,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     /* CFB64 is not supported as SW fallback */
     addMechanismToList(tokdata, CKM_AES_CFB128, 0);
 #endif
+    addMechanismToList(tokdata, CKM_AES_GCM, 0);
     addMechanismToList(tokdata, CKM_AES_MAC, 0);
     addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0);
     addMechanismToList(tokdata, CKM_AES_CMAC, 0);
