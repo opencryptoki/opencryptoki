@@ -122,6 +122,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_DES3_CBC, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+    {CKM_DES_OFB64, {24, 24, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES3_MAC, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_MAC_GENERAL, {16, 24, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DES3_CMAC, {16, 24, CKF_SIGN | CKF_VERIFY}},
@@ -191,6 +192,14 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CBC_PAD,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CTR, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+#if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
+    /*
+     * AES-OFB currently only works with >= OpenSSl 3.0, or >= OpenSSL 1.1.1l,
+     * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
+     * the IV in the context.
+     */
+    {CKM_AES_OFB, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
+#endif
     {CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
@@ -314,6 +323,16 @@ CK_RV token_specific_tdes_cbc(STDLL_TokData_t *tokdata,
     return openssl_specific_tdes_cbc(tokdata, in_data, in_data_len,
                                      out_data, out_data_len, key,
                                      init_v, encrypt);
+}
+
+CK_RV token_specific_tdes_ofb(STDLL_TokData_t *tokdata,
+                              CK_BYTE *in_data,
+                              CK_BYTE *out_data,
+                              CK_ULONG data_len,
+                              OBJECT *key, CK_BYTE *init_v, uint_32 direction)
+{
+    return openssl_specific_tdes_ofb(tokdata, in_data, data_len,
+                                     out_data, key, init_v, direction);
 }
 
 CK_RV token_specific_tdes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
@@ -537,6 +556,17 @@ CK_RV token_specific_aes_ctr(STDLL_TokData_t *tokdata,
     return openssl_specific_aes_ctr(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key,
                                     counterblock, counter_width, encrypt);
+}
+
+CK_RV token_specific_aes_ofb(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data,
+                             CK_ULONG in_data_len,
+                             CK_BYTE *out_data,
+                             OBJECT *key,
+                             CK_BYTE *init_v, uint_32 direction)
+{
+    return openssl_specific_aes_ofb(tokdata, in_data, in_data_len,
+                                    out_data, key, init_v, direction);
 }
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
