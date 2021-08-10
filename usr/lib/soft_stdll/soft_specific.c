@@ -204,6 +204,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_CFB8, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CFB128, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
 #endif
+    {CKM_AES_GCM, {16, 32, CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_MAC, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
@@ -597,6 +598,41 @@ CK_RV token_specific_aes_cfb(STDLL_TokData_t *tokdata,
     return openssl_specific_aes_cfb(tokdata, in_data, in_data_len,
                                     out_data, key, init_v, cfb_len,
                                     direction);
+}
+
+CK_RV token_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+                                  ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+                                  CK_OBJECT_HANDLE key, CK_BYTE encrypt)
+{
+    return openssl_specific_aes_gcm_init(tokdata, sess, ctx, mech,
+                                         key, encrypt);
+}
+
+CK_RV token_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
+                             ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                             CK_ULONG in_data_len, CK_BYTE *out_data,
+                             CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    return openssl_specific_aes_gcm(tokdata, sess, ctx, in_data, in_data_len,
+                                    out_data, out_data_len, encrypt);
+}
+
+CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                    ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                                    CK_ULONG in_data_len, CK_BYTE *out_data,
+                                    CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    return openssl_specific_aes_gcm_update(tokdata, sess, ctx, in_data,
+                                           in_data_len, out_data, out_data_len,
+                                           encrypt);
+}
+
+CK_RV token_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                                   ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+                                   CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    return openssl_specific_aes_gcm_final(tokdata, sess, ctx, out_data,
+                                          out_data_len, encrypt);
 }
 
 CK_RV token_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
