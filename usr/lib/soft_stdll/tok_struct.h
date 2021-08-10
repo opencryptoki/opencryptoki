@@ -81,7 +81,7 @@ token_spec_t token_specific = {
     &token_specific_tdes_ecb,
     &token_specific_tdes_cbc,
     &token_specific_tdes_ofb,
-    NULL,                       // des3_cfb
+    &token_specific_tdes_cfb,
     &token_specific_tdes_mac,
     &token_specific_tdes_cmac,
     // RSA
@@ -154,16 +154,14 @@ token_spec_t token_specific = {
     NULL,                       // aes_gcm_final
 #ifndef NOAES
     &token_specific_aes_ofb,
-#else
-    NULL,                       // aes_ofb
-#endif
-    NULL,                       // aes_cfb
-#ifndef NOAES
+    &token_specific_aes_cfb,
     &token_specific_aes_mac,
     &token_specific_aes_cmac,
 #else
     NULL,                       // aes_mac
     NULL,                       // aes_cmac
+    NULL,                       // aes_ofb
+    NULL,                       // aes_cfb
 #endif
     // DSA
     NULL,                       // dsa_generate_keypair
