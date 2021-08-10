@@ -3311,6 +3311,80 @@ done:
     return rc;
 }
 
+CK_RV openssl_specific_aes_ofb(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data,
+                               CK_ULONG in_data_len,
+                               CK_BYTE *out_data,
+                               OBJECT *key,
+                               CK_BYTE *init_v, CK_BYTE encrypt)
+{
+    CK_RV rc;
+    int outlen;
+    unsigned char akey[32];
+    const EVP_CIPHER *cipher = NULL;
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    CK_ULONG keylen;
+
+    UNUSED(tokdata);
+
+    // get the key value
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc  != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
+        return rc;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8)
+        cipher = EVP_aes_128_ofb();
+    else if (keylen == 192 / 8)
+        cipher = EVP_aes_192_ofb();
+    else if (keylen == 256 / 8)
+        cipher = EVP_aes_256_ofb();
+
+    memcpy(akey, attr->pValue, keylen);
+
+    if (in_data_len % AES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        rc = CKR_DATA_LEN_RANGE;
+        goto done;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, akey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    memcpy(init_v, EVP_CIPHER_CTX_iv(ctx), AES_BLOCK_SIZE);
+#else
+    if (EVP_CIPHER_CTX_get_updated_iv(ctx, init_v, AES_BLOCK_SIZE) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+#endif
+
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(akey, sizeof(akey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
+
 CK_RV openssl_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
@@ -3758,6 +3832,82 @@ CK_RV openssl_specific_tdes_cbc(STDLL_TokData_t *tokdata,
     }
 
     *out_data_len = in_data_len;
+    rc = CKR_OK;
+done:
+    OPENSSL_cleanse(dkey, sizeof(dkey));
+    EVP_CIPHER_CTX_free(ctx);
+    return rc;
+}
+
+CK_RV openssl_specific_tdes_ofb(STDLL_TokData_t *tokdata,
+                                CK_BYTE *in_data,
+                                CK_ULONG in_data_len,
+                                CK_BYTE *out_data,
+                                OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
+{
+    const EVP_CIPHER *cipher = EVP_des_ede3_ofb();
+    EVP_CIPHER_CTX *ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char dkey[3 * DES_KEY_SIZE];
+    CK_KEY_TYPE keytype;
+    CK_RV rc;
+    int outlen;
+
+    UNUSED(tokdata);
+
+    // get the key type
+    rc = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+        return rc;
+    }
+
+    // get the key value
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
+        return rc;
+    }
+
+    if (keytype == CKK_DES2) {
+        memcpy(dkey, attr->pValue, 2 * DES_KEY_SIZE);
+        memcpy(dkey + (2 * DES_KEY_SIZE), attr->pValue, DES_KEY_SIZE);
+    } else {
+        memcpy(dkey, attr->pValue, 3 * DES_KEY_SIZE);
+    }
+
+    if (in_data_len % DES_BLOCK_SIZE || in_data_len > INT_MAX) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher,
+                          NULL, dkey, init_v, encrypt ? 1 : 0) != 1
+        || EVP_CIPHER_CTX_set_padding(ctx, 0) != 1
+        || EVP_CipherUpdate(ctx, out_data, &outlen, in_data, in_data_len) != 1
+        || EVP_CipherFinal_ex(ctx, out_data, &outlen) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    memcpy(init_v, EVP_CIPHER_CTX_iv(ctx), DES_BLOCK_SIZE);
+#else
+    if (EVP_CIPHER_CTX_get_updated_iv(ctx, init_v, DES_BLOCK_SIZE) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_GENERAL_ERROR));
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+#endif
+
     rc = CKR_OK;
 done:
     OPENSSL_cleanse(dkey, sizeof(dkey));

@@ -80,7 +80,7 @@ token_spec_t token_specific = {
     // Triple DES
     &token_specific_tdes_ecb,
     &token_specific_tdes_cbc,
-    NULL,                       // des3_ofb
+    &token_specific_tdes_ofb,
     NULL,                       // des3_cfb
     &token_specific_tdes_mac,
     &token_specific_tdes_cmac,
@@ -152,7 +152,11 @@ token_spec_t token_specific = {
     NULL,                       // aes_gcm
     NULL,                       // aes_gcm_update
     NULL,                       // aes_gcm_final
+#ifndef NOAES
+    &token_specific_aes_ofb,
+#else
     NULL,                       // aes_ofb
+#endif
     NULL,                       // aes_cfb
 #ifndef NOAES
     &token_specific_aes_mac,
