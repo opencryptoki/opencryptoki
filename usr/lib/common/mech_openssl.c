@@ -3499,6 +3499,404 @@ done:
     return rc;
 }
 
+static void openssl_specific_aes_gcm_free(STDLL_TokData_t *tokdata,
+                                          struct _SESSION *sess,
+                                          CK_BYTE *context,
+                                          CK_ULONG context_len)
+{
+    AES_GCM_CONTEXT *ctx = (AES_GCM_CONTEXT *)context;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    if (ctx == NULL)
+        return;
+
+    if ((EVP_CIPHER_CTX *)ctx->ulClen != NULL)
+        EVP_CIPHER_CTX_free((EVP_CIPHER_CTX *)ctx->ulClen);
+
+    free(context);
+}
+
+CK_RV openssl_specific_aes_gcm_init(STDLL_TokData_t *tokdata, SESSION *sess,
+                                    ENCR_DECR_CONTEXT *ctx, CK_MECHANISM *mech,
+                                    CK_OBJECT_HANDLE hkey, CK_BYTE encrypt)
+{
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    AES_GCM_CONTEXT *context = NULL;
+    OBJECT *key = NULL;
+    EVP_CIPHER_CTX *gcm_ctx = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    unsigned char akey[32];
+    const EVP_CIPHER *cipher = NULL;
+    CK_ULONG keylen, tag_len;
+    int outlen;
+    CK_RV rc;
+
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    aes_gcm_param = (CK_GCM_PARAMS *)mech->pParameter;
+
+    tag_len = (aes_gcm_param->ulTagBits + 7) / 8;
+    if (tag_len > AES_BLOCK_SIZE) {
+        TRACE_ERROR("Tag len too large.\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    // get the key value
+    rc = object_mgr_find_in_map_nocache(tokdata, hkey, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+    rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key\n");
+        goto done;
+    }
+
+    keylen = attr->ulValueLen;
+    if (keylen == 128 / 8)
+        cipher = EVP_aes_128_gcm();
+    else if (keylen == 192 / 8)
+        cipher = EVP_aes_192_gcm();
+    else if (keylen == 256 / 8)
+        cipher = EVP_aes_256_gcm();
+
+    memcpy(akey, attr->pValue, keylen);
+
+    gcm_ctx = EVP_CIPHER_CTX_new();
+    if (gcm_ctx == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (EVP_CipherInit_ex(gcm_ctx, cipher, NULL, NULL, NULL,
+                          encrypt ? 1 : 0) != 1 ||
+        EVP_CIPHER_CTX_ctrl(gcm_ctx, EVP_CTRL_AEAD_SET_IVLEN,
+                            aes_gcm_param->ulIvLen, NULL) != 1 ||
+        EVP_CipherInit_ex(gcm_ctx, NULL, NULL, akey, aes_gcm_param->pIv,
+                          encrypt ? 1 : 0) != 1) {
+        TRACE_ERROR("GCM context initialization failed\n");
+        rc = CKR_GENERAL_ERROR;
+        goto done;
+    }
+
+    if (aes_gcm_param->ulAADLen > 0) {
+        if (EVP_CipherUpdate(gcm_ctx, NULL, &outlen, aes_gcm_param->pAAD,
+                             aes_gcm_param->ulAADLen) != 1) {
+            TRACE_ERROR("GCM add AAD data failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+    }
+
+    /* (Miss-)use the ulClen of AES_GCM_CONTEXT to store the context */
+    context->ulClen = (CK_ULONG)gcm_ctx;
+    ctx->state_unsaveable = CK_TRUE;
+    ctx->context_free_func = openssl_specific_aes_gcm_free;
+
+done:
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    if (rc != CKR_OK)
+        EVP_CIPHER_CTX_free(gcm_ctx);
+
+    return rc;
+}
+
+CK_RV openssl_specific_aes_gcm(STDLL_TokData_t *tokdata, SESSION *sess,
+                               ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                               CK_ULONG in_data_len, CK_BYTE *out_data,
+                               CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    EVP_CIPHER_CTX *gcm_ctx = NULL;
+    CK_RV rc = CKR_OK;
+    CK_ULONG tag_len;
+    int outlen, finlen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (EVP_CIPHER_CTX *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+
+    tag_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    if (encrypt) {
+        /* encrypt */
+        if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                             in_data, in_data_len) != 1 ||
+            EVP_CipherFinal_ex(gcm_ctx, out_data + outlen, &finlen) != 1) {
+            TRACE_ERROR("GCM add plaintext data failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        /* Append the tag to the output */
+        if (EVP_CIPHER_CTX_ctrl(gcm_ctx, EVP_CTRL_AEAD_GET_TAG, tag_len,
+                                out_data + outlen + finlen) != 1) {
+            TRACE_ERROR("GCM get tag failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        *out_data_len = outlen + finlen + tag_len;
+    } else {
+        /* decrypt data exluding the tag */
+        if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                             in_data, in_data_len - tag_len) != 1) {
+            TRACE_ERROR("GCM add ciphertext data failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        /* Set the expected tag */
+        if (EVP_CIPHER_CTX_ctrl(gcm_ctx, EVP_CTRL_AEAD_SET_TAG, tag_len,
+                                in_data + in_data_len - tag_len) != 1) {
+            TRACE_ERROR("GCM set tag failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        /* Finalize the decryption */
+        if(EVP_CipherFinal_ex(gcm_ctx, out_data + outlen, &finlen) != 1) {
+            TRACE_ERROR("GCM finalize decryption failed\n");
+            rc = CKR_ENCRYPTED_DATA_INVALID;
+            goto done;
+        }
+
+        *out_data_len = outlen + finlen;
+    }
+
+done:
+    EVP_CIPHER_CTX_free(gcm_ctx);
+    context->ulClen = (CK_ULONG)NULL;
+
+    return rc;
+}
+
+CK_RV openssl_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
+                                      CK_ULONG in_data_len, CK_BYTE *out_data,
+                                      CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    EVP_CIPHER_CTX *gcm_ctx = NULL;
+    CK_RV rc = CKR_OK;
+    CK_ULONG tag_len, len, out_buf_len;
+    int outlen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (EVP_CIPHER_CTX *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+
+    if (gcm_ctx == NULL)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    tag_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    if (encrypt) {
+        /* encrypt */
+        if (*out_data_len < in_data_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            *out_data_len = in_data_len;
+            rc = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+
+        if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                             in_data, in_data_len) != 1) {
+            TRACE_ERROR("GCM update failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        *out_data_len = outlen;
+    } else {
+        /* decrypt */
+        out_buf_len = *out_data_len;
+        *out_data_len = 0;
+
+        /* Buffer the last tag_len input bytes */
+        if (in_data_len >= tag_len) {
+            if (out_buf_len < context->len + (in_data_len - tag_len)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                *out_data_len = context->len + (in_data_len - tag_len);
+                rc = CKR_BUFFER_TOO_SMALL;
+                goto done;
+            }
+
+            /* push buffered data */
+            if (context->len > 0) {
+                if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                                     context->data, context->len) != 1) {
+                    TRACE_ERROR("GCM update failed\n");
+                    rc = CKR_GENERAL_ERROR;
+                    goto done;
+                }
+                context->len = 0;
+                *out_data_len += outlen;
+                out_data += outlen;
+            }
+
+            /* push input data except tag_len last bytes */
+            if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                                 in_data, in_data_len - tag_len) != 1) {
+                 TRACE_ERROR("GCM update failed\n");
+                 rc = CKR_GENERAL_ERROR;
+                 goto done;
+             }
+             *out_data_len += outlen;
+             out_data += outlen;
+
+             /* save tag in buffer */
+             memcpy(context->data, in_data + in_data_len - tag_len, tag_len);
+             context->len = tag_len;
+        } else if (context->len + in_data_len > tag_len) {
+            /* push first bytes of buffer */
+            len = context->len + in_data_len - tag_len;
+            if (out_buf_len < len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+                *out_data_len = len;
+                rc = CKR_BUFFER_TOO_SMALL;
+                goto done;
+            }
+
+            if (EVP_CipherUpdate(gcm_ctx, out_data, &outlen,
+                                 context->data, len) != 1) {
+                TRACE_ERROR("GCM update failed\n");
+                rc = CKR_GENERAL_ERROR;
+                goto done;
+            }
+            *out_data_len += outlen;
+            out_data += outlen;
+
+            /* move remaining to beginning of buffer */
+            memmove(context->data, &context->data[len], context->len - len);
+            context->len = context->len - len;
+
+            /* append input data to buffer */
+            memcpy(&context->data[context->len], in_data, in_data_len);
+            context->len += in_data_len;
+        } else {
+            /* append input data to buffer */
+            memcpy(&context->data[context->len], in_data, in_data_len);
+            context->len += in_data_len;
+        }
+    }
+
+done:
+    return rc;
+}
+
+CK_RV openssl_specific_aes_gcm_final(STDLL_TokData_t *tokdata, SESSION *sess,
+                                     ENCR_DECR_CONTEXT *ctx, CK_BYTE *out_data,
+                                     CK_ULONG *out_data_len, CK_BYTE encrypt)
+{
+    AES_GCM_CONTEXT *context = NULL;
+    CK_GCM_PARAMS *aes_gcm_param = NULL;
+    EVP_CIPHER_CTX *gcm_ctx = NULL;
+    CK_RV rc = CKR_OK;
+    CK_ULONG tag_len;
+    int outlen;
+
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(encrypt);
+
+    context = (AES_GCM_CONTEXT *)ctx->context;
+    gcm_ctx = (EVP_CIPHER_CTX *)context->ulClen;
+    aes_gcm_param = (CK_GCM_PARAMS *)ctx->mech.pParameter;
+
+    if (gcm_ctx == NULL)
+        return CKR_OPERATION_NOT_INITIALIZED;
+
+    tag_len = (aes_gcm_param->ulTagBits + 7) / 8;
+
+    if (encrypt) {
+        /* encrypt */
+        if (context->len == 0) {
+            if (EVP_CipherFinal_ex(gcm_ctx, context->data, &outlen) != 1) {
+                TRACE_ERROR("GCM finalize encryption failed\n");
+                rc = CKR_GENERAL_ERROR;
+                goto done;
+            }
+            if (outlen > 0)
+                context->len = outlen;
+            else
+                context->len = (CK_ULONG)-1; /* no EVP_CipherFinal again */
+        }
+
+        outlen = (context->len == (CK_ULONG)-1 ? 0 : context->len);
+        if (outlen + tag_len > *out_data_len) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            /* Return here, do not cleanup the context */
+            *out_data_len = outlen + tag_len;
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        memcpy(out_data, context->data, outlen);
+
+        /* Append the tag to the output */
+        if (EVP_CIPHER_CTX_ctrl(gcm_ctx, EVP_CTRL_AEAD_GET_TAG, tag_len,
+                                out_data + outlen) != 1) {
+            TRACE_ERROR("GCM get tag failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        *out_data_len = outlen + tag_len;
+    } else {
+        if (context->len < tag_len) {
+            TRACE_ERROR("GCM ciphertext does not contain tag data\n");
+            rc = CKR_ENCRYPTED_DATA_INVALID;
+            goto done;
+        }
+
+        if (*out_data_len < AES_BLOCK_SIZE) {
+            TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+            /* Return here, do not cleanup the context */
+            *out_data_len = AES_BLOCK_SIZE;
+            return CKR_BUFFER_TOO_SMALL;
+        }
+
+        /* Set the expected tag */
+        if (EVP_CIPHER_CTX_ctrl(gcm_ctx, EVP_CTRL_AEAD_SET_TAG, tag_len,
+                                context->data) != 1) {
+            TRACE_ERROR("GCM set tag failed\n");
+            rc = CKR_GENERAL_ERROR;
+            goto done;
+        }
+
+        /* Finalize the decryption */
+        if(EVP_CipherFinal_ex(gcm_ctx, out_data, &outlen) != 1) {
+            TRACE_ERROR("GCM finalize decryption failed\n");
+            rc = CKR_ENCRYPTED_DATA_INVALID;
+            goto done;
+        }
+
+        *out_data_len = outlen;
+    }
+
+done:
+    EVP_CIPHER_CTX_free(gcm_ctx);
+    context->ulClen = (CK_ULONG)NULL;
+
+    return rc;
+}
+
 CK_RV openssl_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                CK_ULONG message_len, OBJECT *key, CK_BYTE *mac)
 {
