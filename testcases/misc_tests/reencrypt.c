@@ -280,14 +280,14 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
     testcase_begin("Reencrypt from '%s' to '%s'", mech1->name, mech2->name);
 
     if (!mech_supported(slot_id, mech2->key_gen_mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id,
                        mech_to_str(mech2->key_gen_mech.mechanism),
                        (unsigned int)mech2->key_gen_mech.mechanism);
         goto testcase_cleanup;
     }
     if (!mech_supported(slot_id, mech2->mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id,
                        mech_to_str(mech2->mech.mechanism),
                        (unsigned int)mech2->mech.mechanism);
@@ -542,14 +542,14 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
     testsuite_begin("with '%s'", mech1->name);
 
     if (!mech_supported(slot_id, mech1->key_gen_mech.mechanism)) {
-        testsuite_skip(NUM_REENCRYPT_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_REENCRYPT_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id,
                        mech_to_str(mech1->key_gen_mech.mechanism),
                        (unsigned int)mech1->key_gen_mech.mechanism);
         goto testcase_cleanup;
     }
     if (!mech_supported(slot_id, mech1->mech.mechanism)) {
-        testsuite_skip(NUM_REENCRYPT_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_REENCRYPT_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id,
                        mech_to_str(mech1->mech.mechanism),
                        (unsigned int)mech1->mech.mechanism);

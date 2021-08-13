@@ -531,14 +531,14 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                    mech_to_str(wrap_mech->mechanism));
 
     if (!mech_supported(slot_id1, tsuite->wrapped_key_gen_mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                       (unsigned int)slot_id1,
                       mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
                       (unsigned int)tsuite->wrapped_key_gen_mech.mechanism);
         goto testcase_cleanup;
     }
     if (!mech_supported(slot_id2, tsuite->wrapped_key_gen_mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                       (unsigned int)slot_id2,
                       mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
                       (unsigned int)tsuite->wrapped_key_gen_mech.mechanism);
@@ -546,14 +546,14 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     }
 
     if (!mech_supported(slot_id1, tsuite->operation_mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                       (unsigned int)slot_id1,
                       mech_to_str(tsuite->operation_mech.mechanism),
                       (unsigned int)tsuite->operation_mech.mechanism);
         goto testcase_cleanup;
     }
     if (!mech_supported(slot_id2, tsuite->operation_mech.mechanism)) {
-        testcase_skip("Slot %u doesn't support %s (%u)",
+        testcase_skip("Slot %u doesn't support %s (0x%x)",
                       (unsigned int)slot_id2,
                       mech_to_str(tsuite->operation_mech.mechanism),
                       (unsigned int)tsuite->operation_mech.mechanism);
@@ -906,7 +906,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     testsuite_begin("%s", tsuite->name);
 
     if (!mech_supported(slot_id1, tsuite->wrapping_key_gen_mech.mechanism)) {
-        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id1,
                        mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
                        (unsigned int)tsuite->wrapping_key_gen_mech.mechanism);
@@ -914,7 +914,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
 
     if (!mech_supported(slot_id2, tsuite->wrapping_key_gen_mech.mechanism)) {
-        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id2,
                        mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
                        (unsigned int)tsuite->wrapping_key_gen_mech.mechanism);
@@ -922,7 +922,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
 
     if (!mech_supported(slot_id1, tsuite->wrapping_mech.mechanism)) {
-        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id1,
                        mech_to_str(tsuite->wrapping_mech.mechanism),
                        (unsigned int)tsuite->wrapping_mech.mechanism);
@@ -930,14 +930,14 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
     if (!wrap_supported(slot_id1, tsuite->wrapping_mech)) {
         testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support key "
-                       "wrapping with %s (%u)", (unsigned int)slot_id1,
+                       "wrapping with %s (0x%x)", (unsigned int)slot_id1,
                        mech_to_str(tsuite->wrapping_mech.mechanism),
                        (unsigned int)tsuite->wrapping_mech.mechanism);
         goto testcase_cleanup;
     }
 
     if (!mech_supported(slot_id2, tsuite->wrapping_mech.mechanism)) {
-        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int)slot_id2,
                        mech_to_str(tsuite->wrapping_mech.mechanism),
                        (unsigned int)tsuite->wrapping_mech.mechanism);
@@ -945,7 +945,7 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
     if (!unwrap_supported(slot_id2, tsuite->wrapping_mech)) {
         testsuite_skip(NUM_WRAPPED_KEY_TESTS, "Slot %u doesn't support key "
-                       "wrapping with %s (%u)", (unsigned int)slot_id2,
+                       "wrapping with %s (0x%x)", (unsigned int)slot_id2,
                        mech_to_str(tsuite->wrapping_mech.mechanism),
                        (unsigned int)tsuite->wrapping_mech.mechanism);
         goto testcase_cleanup;
