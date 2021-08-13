@@ -615,7 +615,7 @@ CK_RV do_CheckMechanismInfo()
     // skip tests if the slot doesn't support this mechanism
     if (!mech_supported(SLOT_ID, CKM_IBM_ATTRIBUTEBOUND_WRAP)) {
         testsuite_skip(2,
-                      "Slot %u doesn't support CKM_IBM_ATTRIBUTEBOUND_WRAP (%u)",
+                      "Slot %u doesn't support CKM_IBM_ATTRIBUTEBOUND_WRAP (0x%x)",
                       (unsigned int) SLOT_ID,
                       (unsigned int) CKM_IBM_ATTRIBUTEBOUND_WRAP);
         res = CKR_FUNCTION_NOT_SUPPORTED;

@@ -96,12 +96,12 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
                    keylength, (int) sizeof(data1));
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
-        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (0x%x)",
                       SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
         return TRUE;
     }
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS)) {
-        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (0x%x)",
                       SLOT_ID, CKM_RSA_PKCS);
         return TRUE;
     }
@@ -275,7 +275,7 @@ int do_RSA_KeyGen(int keylength)
     testcase_begin("RSA KeyGen with keylen=%d", keylength);
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
-        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (0x%x)",
                       SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
         return TRUE;
     }
@@ -371,12 +371,12 @@ int do_RSA_PKCS_SignVerify(int keylength)
                    keylength, (int) sizeof(data1));
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
-        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (0x%x)",
                       SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN);
         return TRUE;
     }
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS)) {
-        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS (0x%x)",
                       SLOT_ID, CKM_RSA_PKCS);
         return TRUE;
     }
@@ -533,17 +533,17 @@ int do_DES3_EncrDecr(const char *mode)
     testcase_begin("DES3 Encrypt with mode=%s datalen=%d", mode, BIG_REQUEST);
 
     if (!mech_supported(SLOT_ID, CKM_DES3_KEY_GEN)) {
-        testcase_skip("Slot %lu doesn't support CKM_DES3_KEY_GEN (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_DES3_KEY_GEN (0x%x)",
                       SLOT_ID, CKM_DES3_KEY_GEN);
         return TRUE;
     }
     if (strcmp(mode, "ECB") == 0 && !mech_supported(SLOT_ID, CKM_DES3_ECB)) {
-        testcase_skip("Slot %lu doesn't support CKM_DES3_ECB (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_DES3_ECB (0x%x)",
                       SLOT_ID, CKM_DES3_ECB);
         return TRUE;
     }
     if (strcmp(mode, "CBC") == 0 && !mech_supported(SLOT_ID, CKM_DES3_CBC)) {
-        testcase_skip("Slot %lu doesn't support CKM_DES3_CBC (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_DES3_CBC (0x%x)",
                       SLOT_ID, CKM_DES3_CBC);
         return TRUE;
     }
@@ -726,17 +726,17 @@ int do_AES_EncrDecr(int keylength, const char *mode)
                    mode, key_len * 8, BIG_REQUEST);
 
     if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
-        testcase_skip("Slot %lu doesn't support CKM_AES_KEY_GEN (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_AES_KEY_GEN (0x%x)",
                       SLOT_ID, CKM_AES_KEY_GEN);
         return TRUE;
     }
     if (strcmp(mode, "ECB") == 0 && !mech_supported(SLOT_ID, CKM_AES_ECB)) {
-        testcase_skip("Slot %lu doesn't support CKM_AES_ECB (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_AES_ECB (0x%x)",
                       SLOT_ID, CKM_AES_ECB);
         return TRUE;
     }
     if (strcmp(mode, "CBC") == 0 && !mech_supported(SLOT_ID, CKM_AES_CBC)) {
-        testcase_skip("Slot %lu doesn't support CKM_AES_CBC (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_AES_CBC (0x%x)",
                       SLOT_ID, CKM_AES_CBC);
         return TRUE;
     }
@@ -900,17 +900,17 @@ int do_SHA(const char *mode)
     testcase_begin("SHA (%s) with datalen=%d", mode, BIG_REQUEST);
 
     if (strcmp(mode, "SHA1") == 0 && !mech_supported(SLOT_ID, CKM_SHA_1)) {
-        testcase_skip("Slot %lu doesn't support CKM_SHA_1 (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_SHA_1 (0x%x)",
                       SLOT_ID, CKM_SHA_1);
         return TRUE;
     }
     if (strcmp(mode, "SHA256") == 0 && !mech_supported(SLOT_ID, CKM_SHA256)) {
-        testcase_skip("Slot %lu doesn't support CKM_SHA256 (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_SHA256 (0x%x)",
                       SLOT_ID, CKM_SHA256);
         return TRUE;
     }
     if (strcmp(mode, "SHA512") == 0 && !mech_supported(SLOT_ID, CKM_SHA512)) {
-        testcase_skip("Slot %lu doesn't support CKM_SHA512 (%u)",
+        testcase_skip("Slot %lu doesn't support CKM_SHA512 (0x%x)",
                       SLOT_ID, CKM_SHA512);
         return TRUE;
     }

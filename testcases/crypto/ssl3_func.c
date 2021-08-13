@@ -61,7 +61,7 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, mech.mechanism)) {
-        testsuite_skip(48, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(48, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
                        mech_to_str(mech.mechanism),
                        (unsigned int) mech.mechanism);
@@ -230,7 +230,7 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, mech.mechanism)) {
-        testsuite_skip(48, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(48, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
                        mech_to_str(mech.mechanism),
                        (unsigned int) mech.mechanism);
@@ -313,7 +313,7 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, mech.mechanism)) {
-        testsuite_skip(1, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(1, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
                        mech_to_str(mech.mechanism),
                        (unsigned int) mech.mechanism);
@@ -378,7 +378,7 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
 
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, mech.mechanism)) {
-        testsuite_skip(32, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(32, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
                        mech_to_str(mech.mechanism),
                        (unsigned int) mech.mechanism);
@@ -530,7 +530,7 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
 
     /** skip test if the slot doesn't support this mechanism **/
     if (!mech_supported(slot_id, mech.mechanism)) {
-        testsuite_skip(3, "Slot %u doesn't support %s (%u)",
+        testsuite_skip(3, "Slot %u doesn't support %s (0x%x)",
                        (unsigned int) slot_id,
                        mech_to_str(mech.mechanism),
                        (unsigned int) mech.mechanism);
