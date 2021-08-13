@@ -16,6 +16,8 @@
 #include "pkcs11types.h"
 #include "regress.h"
 
+#define UNUSED(var)            ((void)(var))
+
 CK_FUNCTION_LIST *funcs;
 CK_FUNCTION_LIST_3_0 *funcs3;
 CK_INTERFACE *ifs;
@@ -879,11 +881,10 @@ int is_valid_cca_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
 /** Returns true if pubexp is valid for Soft Tokens **/
 int is_valid_soft_pubexp(CK_BYTE pubexp[], CK_ULONG pubexp_len)
 {
-    CK_BYTE exp3[] = { 0x03 };  // 3
-    CK_BYTE exp65537[] = { 0x01, 0x00, 0x01 };  // 65537
+    UNUSED(pubexp);
+    UNUSED(pubexp_len);
 
-    return (pubexp_len == 1 && (!memcmp(pubexp, exp3, 1)))
-        || (pubexp_len == 3 && (!memcmp(pubexp, exp65537, 3)));
+    return TRUE;
 }
 
 /** Returns true if slot_id is an ICSF token
