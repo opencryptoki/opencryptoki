@@ -66,7 +66,7 @@ CK_RV do_GenerateDSAKeyPair(void)
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
@@ -96,6 +96,8 @@ CK_RV do_GenerateDSAKeyPair(void)
         testcase_pass("GenerateDSAKeyPair passed");
 
 testcase_cleanup:
+    funcs->C_DestroyObject(session, priv_key);
+    funcs->C_DestroyObject(session, publ_key);
     testcase_user_logout();
     if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
         testcase_error("C_CloseAllSession failed.");
@@ -114,7 +116,7 @@ CK_RV do_SignDSA(void)
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_FLAGS flags;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
@@ -201,6 +203,8 @@ CK_RV do_SignDSA(void)
     }
 
 testcase_cleanup:
+    funcs->C_DestroyObject(session, priv_key);
+    funcs->C_DestroyObject(session, publ_key);
     testcase_user_logout();
     if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
         testcase_error("C_CloseAllSessions failed.");
@@ -274,7 +278,7 @@ CK_RV do_ImportDSAKeyPairSignVerify(void)
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
     CK_FLAGS flags;
-    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;
     CK_MECHANISM mech;
@@ -353,6 +357,8 @@ CK_RV do_ImportDSAKeyPairSignVerify(void)
     testcase_pass("DSA Import KeyPair Sign/Verify");
 
 testcase_cleanup:
+    funcs->C_DestroyObject(session, priv_key);
+    funcs->C_DestroyObject(session, publ_key);
     testcase_user_logout();
     if (funcs->C_CloseAllSessions(slot_id) != CKR_OK)
         testcase_error("C_CloseAllSessions failed.");
