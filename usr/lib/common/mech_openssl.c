@@ -3323,6 +3323,204 @@ done:
     return rc;
 }
 
+CK_RV openssl_cmac_perform(CK_MECHANISM_TYPE mech, CK_BYTE *message,
+                           CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
+                           CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
+{
+    int rc;
+    size_t maclen;
+    CK_RV rv = CKR_OK;
+    CK_ATTRIBUTE *key_attr = NULL;
+    const EVP_CIPHER *cipher;
+    CK_KEY_TYPE keytype = 0;
+    struct cmac_ctx {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        EVP_MD_CTX *mctx;
+        EVP_PKEY_CTX *pctx;
+        EVP_PKEY *pkey;
+#else
+        EVP_MAC *mac;
+        EVP_MAC_CTX *mctx;
+#endif
+        int macsize;
+    };
+    struct cmac_ctx *cmac = NULL;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    OSSL_PARAM params[2];
+#endif
+
+    if (first) {
+        if (key == NULL)
+            return CKR_ARGUMENTS_BAD;
+
+        rv = template_attribute_get_ulong(key->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rv != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
+            goto err;
+        }
+
+        rv = template_attribute_get_non_empty(key->template, CKA_VALUE,
+                                              &key_attr);
+        if (rv != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            goto err;
+        }
+
+        switch (mech) {
+        case CKM_AES_CMAC:
+            cipher = openssl_cipher_from_mech(CKM_AES_CBC,
+                                              key_attr->ulValueLen, keytype);
+            break;
+        case CKM_DES3_CMAC:
+            cipher = openssl_cipher_from_mech(CKM_DES3_CBC,
+                                              key_attr->ulValueLen,
+                                              keytype);
+            break;
+         default:
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+            rv = CKR_MECHANISM_INVALID;
+            goto err;
+        }
+
+        if (cipher == NULL) {
+            TRACE_ERROR("Cipher not supported.\n");
+            rv = CKR_MECHANISM_INVALID;
+            goto err;
+        }
+
+        cmac = calloc(1, sizeof(*cmac));
+        if (cmac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        cmac->macsize = EVP_CIPHER_block_size(cipher);
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        cmac->mctx = EVP_MD_CTX_new();
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        cmac->pkey = EVP_PKEY_new_CMAC_key(NULL, key_attr->pValue,
+                                           key_attr->ulValueLen, cipher);
+        if (cmac->pkey == NULL) {
+            TRACE_ERROR("EVP_DigestSignInit failed\n");
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        if (EVP_DigestSignInit(cmac->mctx, &cmac->pctx,
+                               NULL, NULL, cmac->pkey) != 1) {
+            TRACE_ERROR("EVP_DigestSignInit failed\n");
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#else
+        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
+        if (cmac->mac == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
+        if (cmac->mctx == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rv = CKR_HOST_MEMORY;
+            goto err;
+        }
+
+        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
+                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
+        params[1] = OSSL_PARAM_construct_end();
+
+        if (!EVP_MAC_init(cmac->mctx, key_attr->pValue, key_attr->ulValueLen,
+                          params)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+#endif
+
+        *ctx = cmac;
+    }
+
+    cmac = (struct cmac_ctx *)*ctx;
+    if (cmac == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rv =  CKR_FUNCTION_FAILED;
+        goto err;
+    }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+    rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
+#else
+    rc = EVP_MAC_update(cmac->mctx, message, message_len);
+#endif
+    if (rc != 1 || message_len > INT_MAX) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
+#else
+        TRACE_ERROR("EVP_MAC_update failed\n");
+#endif
+        rv =  CKR_FUNCTION_FAILED;
+        goto err;
+    }
+
+    if (last) {
+        maclen = cmac->macsize;
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
+#else
+        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
+#endif
+        if (rc != 1) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+            TRACE_ERROR("EVP_DigestSignFinal failed\n");
+#else
+            TRACE_ERROR("EVP_MAC_final failed\n");
+#endif
+            rv = CKR_FUNCTION_FAILED;
+            goto err;
+        }
+
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
+        EVP_PKEY_free(cmac->pkey);
+#else
+        EVP_MAC_CTX_free(cmac->mctx);
+        EVP_MAC_free(cmac->mac);
+#endif
+        free(cmac);
+        *ctx = NULL;
+    }
+
+    return CKR_OK;
+err:
+    if (cmac != NULL) {
+#if !OPENSSL_VERSION_PREREQ(3, 0)
+        if (cmac->mctx != NULL)
+            EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
+        if (cmac->pkey != NULL)
+            EVP_PKEY_free(cmac->pkey);
+#else
+        if (cmac->mctx != NULL)
+            EVP_MAC_CTX_free(cmac->mctx);
+        if (cmac->mac != NULL)
+            EVP_MAC_free(cmac->mac);
+#endif
+        free(cmac);
+    }
+    *ctx = NULL;
+    return rv;
+}
+
+
 #ifndef NOAES
 
 CK_RV openssl_specific_aes_ecb(STDLL_TokData_t *tokdata,
@@ -3858,182 +4056,10 @@ CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                 CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                                 CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
-    int rc;
-    size_t maclen;
-    CK_RV rv = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    const EVP_CIPHER *cipher;
-    struct cmac_ctx {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX *mctx;
-        EVP_PKEY_CTX *pctx;
-        EVP_PKEY *pkey;
-#else
-        EVP_MAC *mac;
-        EVP_MAC_CTX *mctx;
-#endif
-    };
-    struct cmac_ctx *cmac = NULL;
-#if OPENSSL_VERSION_PREREQ(3, 0)
-    OSSL_PARAM params[2];
-#endif
-
     UNUSED(tokdata);
 
-    if (first) {
-        if (key == NULL)
-            return CKR_ARGUMENTS_BAD;
-
-        // get the key value
-        rc = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
-            goto err;
-        }
-
-        switch (attr->ulValueLen * 8) {
-        case 128:
-            cipher = EVP_aes_128_cbc();
-            break;
-        case 192:
-            cipher = EVP_aes_192_cbc();
-            break;
-        case 256:
-            cipher = EVP_aes_256_cbc();
-            break;
-        default:
-            TRACE_ERROR("Invalid key size: %lu\n", attr->ulValueLen);
-            return CKR_KEY_TYPE_INCONSISTENT;
-        }
-
-        cmac = calloc(1, sizeof(*cmac));
-        if (cmac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = ERR_HOST_MEMORY;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        cmac->mctx = EVP_MD_CTX_new();
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = ERR_HOST_MEMORY;
-            goto err;
-        }
-
-        cmac->pkey = EVP_PKEY_new_CMAC_key(NULL,
-                                           attr->pValue, attr->ulValueLen,
-                                           cipher);
-        if (cmac->pkey == NULL) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        if (EVP_DigestSignInit(cmac->mctx, &cmac->pctx,
-                               NULL, NULL, cmac->pkey) != 1) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#else
-        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
-        if (cmac->mac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = CKR_HOST_MEMORY;
-            goto err;
-        }
-
-        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
-                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
-        params[1] = OSSL_PARAM_construct_end();
-
-        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#endif
-
-        *ctx = cmac;
-    }
-
-    cmac = (struct cmac_ctx *)*ctx;
-    if (cmac == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-    rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
-#else
-    rc = EVP_MAC_update(cmac->mctx, message, message_len);
-#endif
-    if (rc != 1 || message_len > INT_MAX) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
-#else
-        TRACE_ERROR("EVP_MAC_update failed\n");
-#endif
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-    if (last) {
-        maclen = AES_BLOCK_SIZE;
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
-#else
-        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
-#endif
-        if (rc != 1) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-            TRACE_ERROR("EVP_DigestSignFinal failed\n");
-#else
-            TRACE_ERROR("EVP_MAC_final failed\n");
-#endif
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        EVP_PKEY_free(cmac->pkey);
-#else
-        EVP_MAC_CTX_free(cmac->mctx);
-        EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-        *ctx = NULL;
-    }
-
-    return CKR_OK;
-err:
-    if (cmac != NULL) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        if (cmac->mctx != NULL)
-            EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        if (cmac->pkey != NULL)
-            EVP_PKEY_free(cmac->pkey);
-#else
-        if (cmac->mctx != NULL)
-            EVP_MAC_CTX_free(cmac->mctx);
-        if (cmac->mac != NULL)
-            EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-    }
-    *ctx = NULL;
-    return rv;
+    return openssl_cmac_perform(CKM_AES_CMAC, message, message_len, key, mac,
+                                first, last, ctx);
 }
 
 #endif
@@ -4168,188 +4194,10 @@ CK_RV openssl_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                  CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                                  CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx)
 {
-    int rc;
-    size_t maclen;
-    CK_RV rv = CKR_OK;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_KEY_TYPE keytype;
-    const EVP_CIPHER *cipher;
-    struct cmac_ctx {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX *mctx;
-        EVP_PKEY_CTX *pctx;
-        EVP_PKEY *pkey;
-#else
-        EVP_MAC *mac;
-        EVP_MAC_CTX *mctx;
-#endif
-    };
-    struct cmac_ctx *cmac = NULL;
-#if OPENSSL_VERSION_PREREQ(3, 0)
-    OSSL_PARAM params[2];
-#endif
-
     UNUSED(tokdata);
 
-    if (first) {
-        if (key == NULL)
-            return CKR_ARGUMENTS_BAD;
-
-        // get the key type
-        rv = template_attribute_get_ulong(key->template, CKA_KEY_TYPE, &keytype);
-        if (rv != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key\n");
-            return rv;
-        }
-
-        // get the key value
-        rv = template_attribute_get_non_empty(key->template, CKA_VALUE, &attr);
-        if (rv != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_VALUE for the key\n");
-            return rv;
-        }
-
-        switch (keytype) {
-        case CKK_DES2:
-            cipher = EVP_des_ede_cbc();
-            break;
-        case CKK_DES3:
-            cipher = EVP_des_ede3_cbc();
-            break;
-        default:
-            TRACE_ERROR("Invalid key type: %lu\n", keytype);
-            rv = CKR_KEY_TYPE_INCONSISTENT;
-            goto err;
-        }
-
-        cmac = calloc(1, sizeof(*cmac));
-        if (cmac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = ERR_HOST_MEMORY;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        cmac->mctx = EVP_MD_CTX_new();
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = CKR_HOST_MEMORY;
-            goto err;
-        }
-
-        cmac->pkey = EVP_PKEY_new_CMAC_key(NULL,
-                                           attr->pValue, attr->ulValueLen,
-                                           cipher);
-        if (cmac->pkey == NULL) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        if (EVP_DigestSignInit(cmac->mctx, &cmac->pctx,
-                               NULL, NULL, cmac->pkey) != 1) {
-            TRACE_ERROR("EVP_DigestSignInit failed\n");
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#else
-        cmac->mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
-        if (cmac->mac == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-        cmac->mctx = EVP_MAC_CTX_new(cmac->mac);
-        if (cmac->mctx == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rv = CKR_HOST_MEMORY;
-            goto err;
-        }
-
-        params[0] = OSSL_PARAM_construct_utf8_string(OSSL_MAC_PARAM_CIPHER,
-                                      (char *)EVP_CIPHER_get0_name(cipher), 0);
-        params[1] = OSSL_PARAM_construct_end();
-
-        if (!EVP_MAC_init(cmac->mctx, attr->pValue, attr->ulValueLen, params)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-#endif
-
-        *ctx = cmac;
-    }
-
-    cmac = (struct cmac_ctx *)*ctx;
-    if (cmac == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-    rc = EVP_DigestSignUpdate(cmac->mctx, message, message_len);
-#else
-    rc = EVP_MAC_update(cmac->mctx, message, message_len);
-#endif
-    if (rc != 1 || message_len > INT_MAX) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        TRACE_ERROR("EVP_DigestSignUpdate failed\n");
-#else
-        TRACE_ERROR("EVP_MAC_update failed\n");
-#endif
-        rv =  CKR_FUNCTION_FAILED;
-        goto err;
-    }
-
-    if (last) {
-        maclen = DES_BLOCK_SIZE;
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        rc = EVP_DigestSignFinal(cmac->mctx, mac, &maclen);
-#else
-        rc = EVP_MAC_final(cmac->mctx, mac, &maclen, maclen);
-#endif
-        if (rc != 1) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-            TRACE_ERROR("EVP_DigestSignFinal failed\n");
-#else
-            TRACE_ERROR("EVP_MAC_final failed\n");
-#endif
-            rv = CKR_FUNCTION_FAILED;
-            goto err;
-        }
-
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        EVP_PKEY_free(cmac->pkey);
-#else
-        EVP_MAC_CTX_free(cmac->mctx);
-        EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-        *ctx = NULL;
-    }
-
-    return CKR_OK;
-err:
-    if (cmac != NULL) {
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-        if (cmac->mctx != NULL)
-            EVP_MD_CTX_free(cmac->mctx); /* frees pctx */
-        if (cmac->pkey != NULL)
-            EVP_PKEY_free(cmac->pkey);
-#else
-        if (cmac->mctx != NULL)
-            EVP_MAC_CTX_free(cmac->mctx);
-        if (cmac->mac != NULL)
-            EVP_MAC_free(cmac->mac);
-#endif
-        free(cmac);
-    }
-    *ctx = NULL;
-    return rv;
+    return openssl_cmac_perform(CKM_DES3_CMAC, message, message_len, key, mac,
+                                first, last, ctx);
 }
 
 CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
