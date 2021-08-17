@@ -75,8 +75,8 @@ addslot 41 libpkcs11_ep11.so ep1 ep11tok41.conf
 # APQN_ANY
 # later appended: VHSM_MODE
 
-genep11cfg 42 "STRICT_MODE"
-addslot 42 libpkcs11_ep11.so ep2 ep11tok42.conf
+#genep11cfg 42 "STRICT_MODE"
+#addslot 42 libpkcs11_ep11.so ep2 ep11tok42.conf
 
 # 3:
 # OPTIMIZE_SINGLE_PART_OPERATIONS
