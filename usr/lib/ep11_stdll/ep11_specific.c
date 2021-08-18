@@ -12023,6 +12023,7 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr, *blob_attr = NULL;
     ep11_target_info_t* target_info;
     CK_RV rc = CKR_OK;
+    CK_ULONG *bool_attrs, *compliance;
     CK_ULONG i;
 
     CK_ATTRIBUTE ibm_attrs[] = {
@@ -12059,10 +12060,35 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     put_target_info(tokdata, target_info);
 
     if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc, NULL);
-        TRACE_ERROR("%s m_GetAttributeValue failed rc=0x%lx\n",
-                    __func__, rc);
-        return rc;
+        if (rc == CKR_IBM_BLOB_ERROR) {
+            /*
+             * A CEX5 may return CKR_IBM_BLOB_ERROR after m_DeriveKey().
+             * Extract the boolean attributes from the key blob instead.
+             */
+            TRACE_DEBUG_DUMP("BLOB:", blob_attr->pValue, blob_attr->ulValueLen);
+
+            bool_attrs = (CK_ULONG *)(((CK_BYTE *)blob_attr->pValue) + 48);
+            compliance = (CK_ULONG *)(((CK_BYTE *)blob_attr->pValue) + 56);
+            TRACE_DEBUG("bool_attrs: 0x%08lx\n", *bool_attrs);
+            TRACE_DEBUG("compliance: 0x%08lx\n", *compliance);
+
+            restr = (*bool_attrs & XCP_BLOB_RESTRICTABLE) ? CK_TRUE : CK_FALSE;
+            useasdata = (*bool_attrs & XCP_BLOB_USE_AS_DATA) ?
+                                                        CK_TRUE : CK_FALSE;
+            attrb = (*bool_attrs & XCP_BLOB_ATTRBOUND) ? CK_TRUE : CK_FALSE;
+            pkeyextr = (*bool_attrs & XCP_BLOB_PROTKEY_EXTRACTABLE) ?
+                                                        CK_TRUE : CK_FALSE;
+            pkeyneverextr = (*bool_attrs & XCP_BLOB_PROTKEY_NEVER_EXTRACTABLE) ?
+                                                        CK_TRUE : CK_FALSE;
+            stdcomp1 = *compliance;
+
+            rc = CKR_OK;
+        } else {
+            rc = ep11_error_to_pkcs11_error(rc, NULL);
+            TRACE_ERROR("%s m_GetAttributeValue failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
     }
 
     /* Set/Update all available attributes in the object's template */
