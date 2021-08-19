@@ -313,6 +313,47 @@ static unsigned int too_many_key_bytes_requested(unsigned int curve,
 }
 
 /*
+ * Perform a HMAC sign to verify that the key is usable.
+ */
+CK_RV run_HMACSign(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
+                   CK_ULONG key_len)
+{
+    CK_MECHANISM mech = { .mechanism = CKM_SHA_1_HMAC,
+                          .pParameter = NULL, .ulParameterLen = 0 };
+    CK_BYTE data[32] = { 0 };
+    CK_BYTE mac[SHA1_HASH_SIZE] = { 0 };
+    CK_ULONG mac_len = sizeof(mac);
+    CK_RV rc = CKR_OK;
+
+    if (!mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
+        testcase_notice("Mechanism CKM_SHA_1_HMAC is not supported with slot "
+                        "%ld. Skipping key check", SLOT_ID);
+        return CKR_OK;
+    }
+    if (!check_supp_keysize(SLOT_ID, CKM_SHA_1_HMAC, key_len * 8)) {
+        testcase_notice("Mechanism CKM_SHA_1_HMAC can not be used with keys "
+                        "of size %lu. Skipping key check", key_len);
+        return CKR_OK;
+    }
+
+    rc = funcs->C_SignInit(session, &mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_notice("C_SignInit rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    /** do signing  **/
+    rc = funcs->C_Sign(session, data, sizeof(data), mac, &mac_len);
+    if (rc != CKR_OK) {
+        testcase_notice("C_Sign rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+error:
+    return rc;
+}
+
+/*
  * Generate EC key-pairs for parties A and B.
  * Derive shared secrets based on Diffie Hellman key agreement defined in PKCS#3
  */
@@ -617,6 +658,15 @@ CK_RV run_DeriveECDHKey()
                         goto testcase_cleanup;
                     }
 
+                    rc = run_HMACSign(session, secret_keyA,
+                                      secret_key_len[k] > 0 ?
+                                          secret_key_len[k] : curve_len(i));
+                    if (rc != CKR_OK) {
+                        testcase_fail("Derived key #1 is not usable: %s",
+                                      p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
                     // Now, derive a generic secret key using B's private key
                     // and A's public key
                     ecdh_parmB.kdf = kdfs[j];
@@ -653,6 +703,15 @@ CK_RV run_DeriveECDHKey()
                         }
 
                         testcase_fail("C_DeriveKey #2: rc = %s",
+                                      p11_get_ckr(rc));
+                        goto testcase_cleanup;
+                    }
+
+                    rc = run_HMACSign(session, secret_keyB,
+                                      secret_key_len[k] > 0 ?
+                                          secret_key_len[k] : curve_len(i));
+                    if (rc != CKR_OK) {
+                        testcase_fail("Derived key #2 is not usable: %s",
                                       p11_get_ckr(rc));
                         goto testcase_cleanup;
                     }
