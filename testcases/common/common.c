@@ -102,6 +102,10 @@ int check_supp_keysize(CK_SLOT_ID slot_id, CK_ULONG mechanism, CK_ULONG keylen)
     if (rc != CKR_OK)
         return FALSE;
 
+    /* min and max being zero indicate no key size limitation */
+    if (mech_info.ulMinKeySize == 0 && mech_info.ulMaxKeySize == 0)
+        return TRUE;
+
     return ((mech_info.ulMinKeySize <= keylen)
             && (keylen <= mech_info.ulMaxKeySize));
 }
