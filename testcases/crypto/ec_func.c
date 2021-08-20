@@ -578,6 +578,18 @@ CK_RV run_DeriveECDHKey()
                                   der_ec_supported[i].name);
                     continue;
                 }
+                if (is_ep11_token(SLOT_ID) &&
+                    secret_key_len[k] > 0 && secret_key_len[k] <= 8) {
+                    /*
+                     * The CEX5P seems to have a firmware bug that hinders it
+                     * from deriving a valid EP11 key blob for a derived key
+                     * size <= 8. Skip this key sizes until the firmware bug
+                     * has been fixed.
+                     */
+                    testcase_skip("EP11 cannot provide %lu key bytes on a CEX5\n",
+                                   secret_key_len[k]);
+                    continue;
+                }
                 if (secret_key_len[k] == 0 &&
                     der_ec_supported[i].type == CURVE_MONTGOMERY) {
                     testcase_skip("Curve %s can not be used without the "
