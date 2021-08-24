@@ -390,74 +390,6 @@ done:
     return initial_vector;
 }
 
-static CK_RV encrypt_data(STDLL_TokData_t *tokdata, CK_BYTE *key,
-                          CK_ULONG keylen, const CK_BYTE *iv,
-                          CK_BYTE *clear, CK_ULONG clear_len,
-                          CK_BYTE *cipher, CK_ULONG *p_cipher_len)
-{
-#ifndef  CLEARTEXT
-    CK_RV rc = CKR_OK;
-    CK_BYTE *initial_vector = NULL;
-    OBJECT *keyobj = NULL;
-    CK_KEY_TYPE keyType;
-    CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
-    CK_ATTRIBUTE key_tmpl[] = {
-        {CKA_CLASS, &keyClass, sizeof(keyClass)}
-        ,
-        {CKA_KEY_TYPE, &keyType, sizeof(keyType)}
-        ,
-        {CKA_VALUE, key, keylen}
-    };
-
-    switch (token_specific.data_store.encryption_algorithm) {
-    case CKM_DES3_CBC:
-        keyType = CKK_DES3;
-        break;
-    case CKM_AES_CBC:
-        keyType = CKK_AES;
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
-    }
-    rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
-                            CKO_SECRET_KEY, keyType, &keyobj);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_create_skel failed.\n");
-        return rc;
-    }
-
-    initial_vector = duplicate_initial_vector(iv);
-    if (initial_vector == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    switch (token_specific.data_store.encryption_algorithm) {
-    case CKM_DES3_CBC:
-        rc = ckm_des3_cbc_encrypt(tokdata, clear, clear_len,
-                                  cipher, p_cipher_len, initial_vector, keyobj);
-        break;
-    case CKM_AES_CBC:
-        rc = ckm_aes_cbc_encrypt(tokdata, clear, clear_len,
-                                 cipher, p_cipher_len, initial_vector, keyobj);
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = CKR_MECHANISM_INVALID;
-    }
-
-    if (initial_vector)
-        free(initial_vector);
-
-    return rc;
-
-#else
-    memcpy(cipher, clear, clear_len);
-    return CKR_OK;
-#endif
-}
-
 static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
                                          CK_BYTE *key, CK_ULONG keylen,
                                          const CK_BYTE *iv,
@@ -469,14 +401,8 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    if (!token_specific.secure_key_token &&
-        token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
-        return encrypt_data(tokdata, key, keylen, iv, clear, clear_len,
-                            cipher, p_cipher_len);
-    }
+    UNUSED(tokdata);
 
-    /* Fall back to a software alternative if key is secure, or
-     * if token's data store encryption algorithm is 3DES_CBC */
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -508,72 +434,6 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
 #endif
 }
 
-static CK_RV decrypt_data(STDLL_TokData_t *tokdata,
-                          CK_BYTE *key, CK_ULONG keylen, const CK_BYTE *iv,
-                          CK_BYTE *cipher, CK_ULONG cipher_len,
-                          CK_BYTE *clear, CK_ULONG *p_clear_len)
-{
-#ifndef  CLEARTEXT
-    CK_RV rc = CKR_OK;
-    CK_BYTE *initial_vector = NULL;
-    OBJECT *keyobj = NULL;
-    CK_KEY_TYPE keyType;
-    CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
-    CK_ATTRIBUTE key_tmpl[] = {
-        { CKA_CLASS, &keyClass, sizeof(keyClass) },
-        { CKA_KEY_TYPE, &keyType, sizeof(keyType) },
-        { CKA_VALUE, key, keylen }
-    };
-
-    switch (token_specific.data_store.encryption_algorithm) {
-    case CKM_DES3_CBC:
-        keyType = CKK_DES3;
-        break;
-    case CKM_AES_CBC:
-        keyType = CKK_AES;
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
-    }
-    rc = object_create_skel(tokdata, key_tmpl, 3, MODE_CREATE,
-                            CKO_SECRET_KEY, keyType, &keyobj);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("object_create_skel failed.\n");
-        return rc;
-    }
-
-    initial_vector = duplicate_initial_vector(iv);
-    if (initial_vector == NULL) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        return CKR_HOST_MEMORY;
-    }
-
-    switch (token_specific.data_store.encryption_algorithm) {
-    case CKM_DES3_CBC:
-        rc = ckm_des3_cbc_decrypt(tokdata, cipher, cipher_len,
-                                  clear, p_clear_len, initial_vector, keyobj);
-        break;
-    case CKM_AES_CBC:
-        rc = ckm_aes_cbc_decrypt(tokdata, cipher, cipher_len,
-                                 clear, p_clear_len, initial_vector, keyobj);
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        rc = CKR_MECHANISM_INVALID;
-    }
-
-    if (initial_vector)
-        free(initial_vector);
-
-    return rc;
-
-#else
-    memcpy(clear, cipher, cipher_len);
-    return CKR_OK;
-#endif
-}
-
 static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
                                          CK_BYTE *key, CK_ULONG keylen,
                                          const CK_BYTE *iv,
@@ -585,14 +445,8 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
 
-    if (!token_specific.secure_key_token &&
-        token_specific.data_store.encryption_algorithm != CKM_DES3_CBC) {
-        return decrypt_data(tokdata, key, keylen, iv, cipher,
-                            cipher_len, clear, p_clear_len);
-    }
+    UNUSED(tokdata);
 
-    /* Fall back to a software alternative if key is secure, or
-     * if token's data store encryption algorithm is 3DES_CBC */
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
