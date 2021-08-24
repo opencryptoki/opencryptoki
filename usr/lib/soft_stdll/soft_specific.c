@@ -51,6 +51,7 @@
 #include <openssl/cmac.h>
 #include <openssl/ec.h>
 #include <openssl/bn.h>
+#include <openssl/err.h>
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
@@ -4548,7 +4549,10 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
 
     if (EVP_PKEY_keygen(ctx, &ec_pkey) <= 0) {
         TRACE_ERROR("EVP_PKEY_keygen failed\n");
-        rc = CKR_FUNCTION_FAILED;
+        if (ERR_GET_REASON(ERR_peek_last_error()) == EC_R_INVALID_CURVE)
+            rc = CKR_CURVE_NOT_SUPPORTED;
+        else
+            rc = CKR_FUNCTION_FAILED;
         goto out;
     }
 
