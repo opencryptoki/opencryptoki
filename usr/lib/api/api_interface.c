@@ -35,15 +35,19 @@
 #include "trace.h"
 #include "ock_syslog.h"
 
+#include <openssl/err.h>
+
 void api_init();
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)                                  \
         do {                                                                \
+            ERR_set_mark();                                                 \
             OSSL_LIB_CTX  *prev_ctx = OSSL_LIB_CTX_set0_default((ossl_ctx));\
             if (prev_ctx == NULL) {                                         \
                 (rc) = CKR_FUNCTION_FAILED;                                 \
                 TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");          \
+                ERR_pop_to_mark();                                          \
                 break;                                                      \
             }
 
@@ -53,10 +57,16 @@ void api_init();
                     (rc) = CKR_FUNCTION_FAILED;                             \
                 TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");          \
             }                                                               \
+            ERR_pop_to_mark();                                              \
         } while (0);
 #else
-#define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)  do {
-#define END_OPENSSL_LIBCTX(rc)              } while (0);
+#define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)                                  \
+        do {                                                                \
+            ERR_set_mark();
+
+#define END_OPENSSL_LIBCTX(rc)                                              \
+            ERR_pop_to_mark();                                              \
+        } while (0);
 #endif
 
 // NOTES:
@@ -1646,10 +1656,12 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     bt_destroy(&Anchor->sess_btree);
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    ERR_set_mark();
     if (Anchor->openssl_default_provider != NULL)
         OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
     if (Anchor->openssl_libctx != NULL)
         OSSL_LIB_CTX_free(Anchor->openssl_libctx);
+    ERR_pop_to_mark();
 #endif
 
     detach_shared_memory(Anchor->SharedMemP);
@@ -2937,10 +2949,12 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
      * Explicitly using the 'default' provider only for Opencrypoki's OpenSSL
      * usage breaks this loop.
      */
+    ERR_set_mark();
     Anchor->openssl_libctx = OSSL_LIB_CTX_new();
     if (Anchor->openssl_libctx == NULL) {
         TRACE_ERROR("OSSL_LIB_CTX_new failed.\n");
         rc = CKR_FUNCTION_FAILED;
+        ERR_pop_to_mark();
         goto error;
     }
 
@@ -2949,8 +2963,10 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     if (Anchor->openssl_default_provider == NULL) {
         TRACE_ERROR("OSSL_PROVIDER_load for 'default' failed.\n");
         rc = CKR_FUNCTION_FAILED;
+        ERR_pop_to_mark();
         goto error;
     }
+    ERR_pop_to_mark();
 #endif
 
     // Get shared memory
@@ -3059,10 +3075,12 @@ error:
         close(Anchor->socketfd);
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
+    ERR_set_mark();
     if (Anchor->openssl_default_provider != NULL)
         OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
     if (Anchor->openssl_libctx != NULL)
         OSSL_LIB_CTX_free(Anchor->openssl_libctx);
+    ERR_pop_to_mark();
 #endif
 
     free((void *) Anchor);
