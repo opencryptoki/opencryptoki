@@ -57,6 +57,8 @@ CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
                                     CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
                                     CK_ULONG operation);
 
+CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech);
+
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key);

@@ -121,6 +121,19 @@ static CK_RV statistics_increment(struct statistics *statistics,
         if (rc != CKR_OK)
             return rc;
         break;
+    case CKM_IBM_ECDSA_OTHER:
+        switch (((CK_IBM_ECDSA_OTHER_PARAMS *)mech->pParameter)->submechanism) {
+        case CKM_IBM_ECSDSA_RAND:
+        case CKM_IBM_ECSDSA_COMPR_MULTI:
+            /* Uses SHA-256 internally */
+            implicit_mech.mechanism = CKM_SHA256;
+            rc = statistics_increment(statistics, slot, &implicit_mech,
+                                      POLICY_STRENGTH_IDX_0);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+        }
+        break;
     default:
         break;
     }

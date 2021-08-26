@@ -7163,6 +7163,57 @@ error:
     return rc;
 }
 
+struct ECDSA_OTHER_MECH_PARAM {
+    CK_MECHANISM mech;
+    ECSG_Var_t param;
+};
+
+static CK_RV ep11tok_ecdsa_other_mech_adjust(CK_MECHANISM *mech,
+                                      struct ECDSA_OTHER_MECH_PARAM *mech_ep11)
+{
+    CK_IBM_ECDSA_OTHER_PARAMS *param;
+
+    if (mech->mechanism != CKM_IBM_ECDSA_OTHER)
+        return CKR_MECHANISM_INVALID;
+
+    if (mech->ulParameterLen != sizeof(CK_IBM_ECDSA_OTHER_PARAMS) ||
+        mech->pParameter == NULL) {
+        TRACE_ERROR("%s Invalid mechanism param for CKM_IBM_ECDSA_OTHER\n",
+                    __func__);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    mech_ep11->mech.mechanism = CKM_IBM_ECDSA_OTHER;
+    mech_ep11->mech.pParameter = &mech_ep11->param;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->param);
+
+    param = (CK_IBM_ECDSA_OTHER_PARAMS *)mech->pParameter;
+    switch (param->submechanism) {
+    case CKM_IBM_ECSDSA_RAND:
+        mech_ep11->param = ECSG_IBM_ECSDSA_S256;
+        break;
+    case CKM_IBM_ECSDSA_COMPR_MULTI:
+        mech_ep11->param = ECSG_IBM_ECSDSA_COMPR_MULTI;
+        break;
+    default:
+       TRACE_ERROR("%s Invalid sub mechanism for CKM_IBM_ECDSA_OTHER: %lu\n",
+                   __func__, param->submechanism);
+       return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
+{
+    switch (mech->mechanism) {
+    case CKM_IBM_ECDSA_OTHER:
+        return CK_TRUE;
+    default:
+        return CK_FALSE;
+    }
+}
+
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key)
@@ -7174,6 +7225,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
     CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     UNUSED(recover_mode);
 
@@ -7240,6 +7292,13 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     default:
         free(ep11_sign_state);
         goto done;
+    }
+
+    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+        rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &mech_ep11.mech;
     }
 
     RETRY_START(rc, tokdata)
@@ -7446,6 +7505,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -7466,6 +7526,13 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
+    }
+
+    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+        rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &mech_ep11.mech;
     }
 
     RETRY_START(rc, tokdata)
@@ -7501,6 +7568,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
     CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -7577,6 +7645,13 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     default:
         free(ep11_sign_state);
         goto done;
+    }
+
+    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+        rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &mech_ep11.mech;
     }
 
     RETRY_START(rc, tokdata)
@@ -7780,6 +7855,7 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     OBJECT *key_obj = NULL;
+    struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -7809,6 +7885,13 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check_key_restriction rc=0x%lx\n", __func__, rc);
         goto done;
+    }
+
+    if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
+        rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
+        if (rc != CKR_OK)
+            goto done;
+        mech = &mech_ep11.mech;
     }
 
     RETRY_START(rc, tokdata)

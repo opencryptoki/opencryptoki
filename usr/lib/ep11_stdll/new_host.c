@@ -2935,7 +2935,8 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->sign_ctx.multi_init = FALSE;
     sess->sign_ctx.multi = FALSE;
 
-    if (ep11tok_optimize_single_ops(tokdata) &&
+    if ((ep11tok_optimize_single_ops(tokdata) ||
+         ep11tok_mech_single_only(pMechanism)) &&
         !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
         /* In case of a single part sign operation we don't need the SignInit,
          * instead we can use the SignSingle which is much faster.
@@ -3043,7 +3044,8 @@ CK_RV SC_Sign(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_optimize_single_ops(tokdata) &&
+    if ((ep11tok_optimize_single_ops(tokdata) ||
+         ep11tok_mech_single_only(&sess->sign_ctx.mech)) &&
         !ep11tok_pkey_usage_ok(tokdata, sess, sess->sign_ctx.key, &sess->sign_ctx.mech)) {
         rc = ep11tok_sign_single(tokdata, sess, &sess->sign_ctx.mech,
                                  length_only, sess->sign_ctx.key,
@@ -3098,7 +3100,8 @@ CK_RV SC_SignUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (sess->sign_ctx.active == FALSE) {
+    if (sess->sign_ctx.active == FALSE ||
+        ep11tok_mech_single_only(&sess->sign_ctx.mech)) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
@@ -3180,7 +3183,8 @@ CK_RV SC_SignFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (sess->sign_ctx.active == FALSE) {
+    if (sess->sign_ctx.active == FALSE ||
+        ep11tok_mech_single_only(&sess->sign_ctx.mech)) {
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         rc = CKR_OPERATION_NOT_INITIALIZED;
         goto done;
@@ -3330,7 +3334,8 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     sess->verify_ctx.multi_init = FALSE;
     sess->verify_ctx.multi = FALSE;
 
-    if (ep11tok_optimize_single_ops(tokdata) &&
+    if ((ep11tok_optimize_single_ops(tokdata) ||
+         ep11tok_mech_single_only(pMechanism)) &&
         !ep11tok_pkey_usage_ok(tokdata, sess, hKey, pMechanism)) {
         /* In case of a single part verify operation we don't need the
          * VerifyInit, instead we can use the VerifySingle which is much
@@ -3435,7 +3440,8 @@ CK_RV SC_Verify(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (ep11tok_optimize_single_ops(tokdata) &&
+    if ((ep11tok_optimize_single_ops(tokdata) ||
+         ep11tok_mech_single_only(&sess->verify_ctx.mech)) &&
         !ep11tok_pkey_usage_ok(tokdata, sess, sess->verify_ctx.key, &sess->verify_ctx.mech)) {
         rc = ep11tok_verify_single(tokdata, sess, &sess->verify_ctx.mech,
                                    sess->verify_ctx.key, pData, ulDataLen,
@@ -3488,7 +3494,8 @@ CK_RV SC_VerifyUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (sess->verify_ctx.active == FALSE) {
+    if (sess->verify_ctx.active == FALSE ||
+        ep11tok_mech_single_only(&sess->verify_ctx.mech)) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         goto done;
@@ -3569,7 +3576,8 @@ CK_RV SC_VerifyFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
-    if (sess->verify_ctx.active == FALSE) {
+    if (sess->verify_ctx.active == FALSE ||
+        ep11tok_mech_single_only(&sess->verify_ctx.mech)) {
         rc = CKR_OPERATION_NOT_INITIALIZED;
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_NOT_INITIALIZED));
         goto done;

@@ -392,6 +392,17 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_IBM_ED25519_SHA512:
             *ssize = MIN(s->siglen, 512);
             break;
+        case CKM_IBM_ECDSA_OTHER:
+            switch (((CK_IBM_ECDSA_OTHER_PARAMS *)
+                                            mech->pParameter)->submechanism) {
+            case CKM_IBM_ECSDSA_RAND:
+            case CKM_IBM_ECSDSA_COMPR_MULTI:
+                *ssize = MIN(s->siglen, 256); /* Uses SHA-256 internally */
+                break;
+            default:
+                return CKR_FUNCTION_FAILED;
+            }
+            break;
         default:
             return CKR_FUNCTION_FAILED;
         }
@@ -588,6 +599,8 @@ static CK_RV policy_check_signature_size(struct policy_private *pp,
             case CKM_ECDSA_SHA384:
                 /* Fallthrough */
             case CKM_ECDSA_SHA512:
+                /* Fallthrough */
+            case CKM_IBM_ECDSA_OTHER:
                 if (pp->numallowedcurves == 0) {
                     /* No curve allowed */
                     return CKR_MECHANISM_INVALID;
@@ -804,6 +817,21 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                                       ((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf) != CKR_OK)
                 rv = CKR_FUNCTION_FAILED;
             break;
+        case CKM_IBM_ECDSA_OTHER:
+            switch (((CK_IBM_ECDSA_OTHER_PARAMS *) mech->pParameter)->submechanism) {
+            case CKM_IBM_ECSDSA_RAND:
+            case CKM_IBM_ECSDSA_COMPR_MULTI:
+                /* Uses SHA-256 internally */
+                if (hashmap_find(pp->allowedmechs, CKM_SHA256, NULL) == 0) {
+                    TRACE_WARNING("POLICY VIOLATION: ECDSA OTHER SHA-256 algorithm not allowed by policy.\n");
+                    rv = CKR_FUNCTION_FAILED;
+                }
+                break;
+            default:
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         default:
             break;
         }
@@ -927,6 +955,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_EC_C448:
         case CKM_IBM_ED25519_SHA512:
         case CKM_IBM_ED448_SHA3:
+        case CKM_IBM_ECDSA_OTHER:
             if (policy_update_ec(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
