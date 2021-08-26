@@ -1,49 +1,18 @@
 /*
- * COPYRIGHT (c) International Business Machines Corp. 2020
+ * (C) Copyright IBM Corp. 2012, 2022
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
  * software constitutes recipient's acceptance of CPL-1.0 terms which can be
  * found in the file LICENSE file or at
  * https://opensource.org/licenses/cpl1.0.php
- */
-
-/*----------------------------------------------------------------------
- * This EP11 header file is distributed under the following license
- *
- * Copyright 2020 IBM Corp. All Rights Reserved
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
- * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *----------------------------------------------------------------------
  *  EP11 service mail address: EP11SERV@de.ibm.com
  *
  *  Use this mail address for Bugs and Comments with the EP11 product.
- *----------------------------------------------------------------------*/
+ *----------------------------------------------------------------------
+ */
 
 #if ! defined(__xcpadm_h__)
 #define __xcpadm_h__
@@ -239,7 +208,7 @@ static const struct {
 	{ XCP_ADMS_FIPS2011, "fips2011",
 		3,
 		{ XCP_CPB_ALG_NFIPS2011,      XCP_CPB_KEYSZ_80BIT,
-		  XCP_CPB_KEYSZ_RSA65536                                  },
+		  XCP_CPB_KEYSZ_RSA65536,                                 },
 		0,
 		{                                                         },
 	},
@@ -279,8 +248,9 @@ static const struct {
 		  XCP_CPB_ALG_EC_NISTCRV,     XCP_CPB_ALG_NFIPS2011,
 		  XCP_CPB_ALG_NBSI2011,       XCP_CPB_ALG_DH,
 		  XCP_CPB_DERIVE                                          },
-	}
+	},
 } ;
+
 
 //-------------------------------------
 // Structure to collect all relevant data for state export/import
@@ -381,12 +351,21 @@ long xcpa_certreplace(unsigned char *blk, size_t blen,
 
 
 //-------------------------------------
-// Queries the current WK for the given target
+// xcpa_query_wk queries the hash of the current/next WK for the given target
+// xcpa_query_wk without the feature define EP11ADM_V2 can only query the hash
+// of the current WK. Latter version is deprecated and will be removed with the
+// next major release
 //
-// WK Hash is returned in (*wk, wlen) on success if wk is not NULL
+// Parameter description:
+// wk         pointer to the output buffer, contains current/next WK hash after
+//            call
+// wlen       needs to be set to the size of the output buffer
+// type       CK_IBM_DOM_CURR_WK or CK_IBM_DOM_NEXT_WK (only available with
+//            EP11ADM_V2 defined)
+// target     a single target set up with m_add_module
 //
 // returns >0 (bytecount) if present
-//          0 if valid but no current WK
+//          0 if valid but no current/next WK
 //         <0 if anything failed
 //
 // Possible error return codes:
@@ -396,7 +375,14 @@ long xcpa_certreplace(unsigned char *blk, size_t blen,
 //
 // Uses xcpa_queryblock() - See function header for possible return codes
 //
-long xcpa_query_wk(unsigned char *wk, size_t wlen, target_t target) ;
+#if defined(EP11ADM_V2)
+__asm__(".symver xcpa_query_wk, xcpa_query_wk@EP11ADM_V2");
+long xcpa_query_wk(unsigned char *wk, size_t wlen, int type,
+                   target_t target) ;
+#else
+long xcpa_query_wk(unsigned char *wk, size_t wlen, target_t target)
+                                       __attribute__ ((deprecated));
+#endif
 
 
 //-------------------------------------
@@ -837,8 +823,9 @@ typedef struct Encrdkey {
 		// EC only: RSA recipients must keep these lengths 0
 		//
 		// largest supported curve: P-521
+
 	unsigned char srcpublic[ 1+66+66 ];  /* originator public point */
-	size_t splen;                        /*     pub.point bytecount */
+	size_t splen;                        /* pub. point bytecount    */
 
 	unsigned char ukm[ XCP_RI_UKM_BYTES ];  /* user keymaterial */
 	size_t ulen;
@@ -853,12 +840,29 @@ typedef struct Encrdkey {
 	int ktype;      /* one of the wire-specified types */
 
 	CK_MECHANISM *alg;  /* currently, ignored */
-
 			// largest supported importer type: 4096-bit RSA
 	unsigned char raw[ 4096/8 ];               /* actual encrypted bytes */
 	size_t rlen;
+
+#if defined(EP11ADM_V2)
+	unsigned char srcprivate[ 66 ];      /* private key (PKCS#8)    */
+	size_t sprivlen;                     /* priv. key byte count    */
+	unsigned char *oid;                  /* EC curve OID            */
+	size_t olen;                         /* EC curve OID length     */
+
+	unsigned char wrap_alg[25];          /* AES Key Wrap algorithm OID */
+#endif
 } *Encrdkey_t;
 
+
+//-------------------------------------
+// Recipient info used for encrypted key part transport
+//
+typedef struct Recipient_info {
+	uint32_t version;                    /* struct version               */
+	unsigned char data[ 1024 ];          /* ASN.1 encoded recipient info */
+	size_t dlen;                         /* length of recipient info     */
+} *Recipient_info_t;
 
 //-------------------------------------
 // turn user key material (UKM), target key bitcount, wrapping alg into
@@ -889,6 +893,9 @@ long xcp_rcptinfo_sharedinfo(unsigned char *sinfo, size_t slen,
 // creates RecipientInfo ASN.1 sequence (asn) from encr structure following RFC
 // 3852 for RSA and RFC 5753 for EC
 //
+// uses encr->wrap_alg if EP11ADM_V2 defined. Otherwise assumes aes256-wrap is
+// used for EC
+//
 // verifies if a known importer key is used and if the SPKI does match
 // the importer key type
 //
@@ -900,21 +907,20 @@ long xcp_rcptinfo_sharedinfo(unsigned char *sinfo, size_t slen,
 //  XCP_ADMERR_RI_IMPR_INVALID: if the importer type or the key import structure
 //                              encr is not supported / invalid
 //
-long xcp_rcptinfo (unsigned char *asn, size_t alen,
-           const struct Encrdkey *encr,
-              const CK_MECHANISM *encrmech) ;
-
+long xcp_rcptinfo(unsigned char *asn, size_t alen,
+          const struct Encrdkey *encr,
+             const CK_MECHANISM *encrmech) ;
 
 //-------------------------------------
-// reads ASN.1 formated RecipientInfo (asn) and turns it into encr structure
+// reads ASN.1 formatted RecipientInfo (asn) and turns it into rinfo structure
 //
-// returns size of RecipientInfo if asn could be read and encr (if non NULL)
-// could be filed. Otherwise return failure.
+// returns size of RecipientInfo if asn could be read and rinfo (if non NULL)
+// could be filled. Otherwise return failure.
 //
-// xcp_rcptinfo_read() can not always recognize the exact importer key type,
-// because some EC public keys have the same size. If a brainpool and a NIST
-// curve have the same public key size the brainpool curve is prefered and
-// returned
+// Note: Depending on the ASN.1 information xcp_rcptinfo_read() may not
+// necessarily update all available fields of the Encrdkey structure.
+// It will not wipe the Encrdkey structure before, hence it may contain
+// unfilled sections. It's recommended to provide a zeroized Encrdkey struct.
 //
 // possible error return codes:
 //  XCP_EARG:                      missing RecipientInfo
@@ -984,8 +990,12 @@ long xcpa_import_keypart (unsigned char *out,    size_t olen,
 //  XCP_ADMERR_RI_IMPR_INVALID: importer key type invalid / unsupported or does
 //                              not match SPKI
 //
-// uses xcpa_cmdblock() - see function header for more return codes
+// uses xcp_rcptinfo and xcpa_cmdblock() - see function header for more return
+// codes and EP11AMD_V2 specific changes
 //
+#if defined(EP11ADM_V2)
+__asm__(".symver xcpa_import_cmdblock, xcpa_import_cmdblock@EP11ADM_V2");
+#endif
 long xcpa_import_cmdblock (unsigned char *out, size_t olen,
                    const struct Encrdkey *key,
                  const struct XCPadmresp *minf,
@@ -1023,6 +1033,15 @@ long xcpa_internal_rv(const unsigned char *rsp,   size_t rlen,
 
 
 //-------------------------------------
+// returns net bytecount (full T+L+V) if start of (asn,alen) is full tag
+//         0   if invalid
+//
+// sets *voffs to T+L bytecount if non-NULL
+//
+size_t xcpa_asn_tag(size_t *voffs, const unsigned char *asn, size_t alen);
+
+
+//-------------------------------------
 // return raw bytecount of ASN.1 SEQ
 // return XCP_EINVALID if malformed and XCP_ESIZE if ASN.1 lengths are not
 // correct
@@ -1036,6 +1055,18 @@ long xcpa_asn_bytes(const void *asn, size_t alen);
 // correct
 //
 long xcpa_asn_value_offset(const void *asn, size_t alen) ;
+
+
+//-------------------------------------
+// nonzero tag is compared to that of (asn,alen)
+// returns T+L+V bytecount  in case of success
+//         XCP_EINVALID     if asn is malformed
+//         XCP_EARG         if asn or alen arguments are invalid
+//         XCP_ESIZE        if ASN.1 lengths are not correct
+//
+long xcpa_asn_tlv (const void *asn, size_t alen,
+                 unsigned int tag,  size_t *voffset,
+                       size_t *vbytes);
 
 
 //-------------------------------------
@@ -1133,22 +1164,45 @@ long xcpa_fill_export_req(unsigned char *asn,         size_t alen,
 // Constructs key part file with ASN.1 envelope
 // writes output to (*reqprep, reqpreplen)
 //
+// default version:
 // statesave  contains the target domain mask
 // kphs       keypart holder certificates
-// kcnt       number of kphs
 // ekps       contains re-encrypted keyparts
+// kcnt       number of kphs
 // reqprep    output buffer
 // reqpreplen output length
 //
+// with EP11ADM_V2 feature define active:
+// domainmask target domain mask
+// kphs       keypart holder certificates
+// ekps       contains re-encrypted keyparts
+// kcnt       number of kphs
+// reqprep    output buffer
+// reqpreplen output length
+// headerinfo set to 0 if no header info requested
+//            set to 1 if header info requested
+//
 // returns  0 if successful
 //         <0 if something fails
+#if defined(EP11ADM_V2)
+__asm__(".symver xcpa_construct_keypart_file, "
+        "xcpa_construct_keypart_file@EP11ADM_V2");
+long xcpa_construct_keypart_file(unsigned char *domainmask,
+                              const struct KPH *kphs,
+                         const struct Encrdkey *ekps,
+                                  unsigned int kcnt,
+                                 unsigned char *reqprep,
+                                        size_t *reqpreplen,
+                                  unsigned int headerinfo);
+#else
 long xcpa_construct_keypart_file(struct STATESAVE *statesave,
                                  const struct KPH *kphs,
                             const struct Encrdkey *ekps,
                                      unsigned int kcnt,
                                     unsigned char *reqprep,
-                                           size_t *reqpreplen);
-
+                                           size_t *reqpreplen)
+                                   __attribute__((deprecated));
+#endif
 
 //-------------------------------------
 // Enable export WK permission
@@ -1159,6 +1213,18 @@ long xcpa_construct_keypart_file(struct STATESAVE *statesave,
 // signopts    number of signatures requested
 long xcpa_enable_exportwk(target_t target,
              xcpa_admin_signs_cb_t sign_cb, const void *signopts);
+
+
+//-------------------------------------
+// Enable export state permission
+//
+// target      target module/domain
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+//
+long xcpa_enable_export_state(target_t target,
+                 xcpa_admin_signs_cb_t sign_cb, const void *signopts);
 
 
 //-------------------------------------
@@ -1173,9 +1239,22 @@ long xcpa_enable_importwk(target_t target,
 
 
 //-------------------------------------
+// Enable import state permission
+//
+// target      target module/domain
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+//
+long xcpa_enable_import_state(target_t target,
+                 xcpa_admin_signs_cb_t sign_cb, const void *signopts);
+
+
+//-------------------------------------
 // Export the domain WK of the given target
 // writes output to (*resp, resplen)
 //
+// default version:
 // target      addresses target module/domain
 // keyparts    pointer to the encrypted keyparts
 // keypartlen  length of encrypted keyparts
@@ -1184,14 +1263,72 @@ long xcpa_enable_importwk(target_t target,
 // sign_cb     provide the callback for generating signatures
 //             may be NULL if no signatures required
 // signopts    number of signatures requested
-long xcpa_export_wk(target_t target,
+//
+// with EP11ADM_V2 feature define active:
+// target      addresses target module/domain
+// wktype      indicates either current or next WK
+// keyparts    pointer to the encrypted keyparts
+// keypartlen  length of encrypted keyparts
+// request     pointer to the export request data
+// requestlen  length of request data
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+//
+#if defined(EP11ADM_V2)
+__asm__(".symver xcpa_export_wk, xcpa_export_wk@EP11ADM_V2");
+long xcpa_export_wk(target_t target,         int wktype,
                unsigned char *keyparts,   size_t *keypartlen,
          const unsigned char *request,    size_t requestlen,
        xcpa_admin_signs_cb_t sign_cb, const void *signopts);
+#else
+long xcpa_export_wk(target_t target,
+                       unsigned char *keyparts,   size_t *keypartlen,
+                       const unsigned char *request,    size_t requestlen,
+                       xcpa_admin_signs_cb_t sign_cb, const void *signopts)
+                                                __attribute__((deprecated));
+#endif
+
+//-------------------------------------
+// Export the state of the given target
+// writes output to (*state/statelen, tkps/tkpslen)
+//
+// target      addresses target module/domain
+// state       pointer to exported state data
+// statelen    length of exported state data
+// keyparts    pointer to transport keyparts
+// keypartlen  length of transport keyparts
+// request     pointer to the export request
+// requestlen  length of export request
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+//
+long xcpa_export_state(target_t target,
+                  unsigned char *state,      size_t *statelen,
+                  unsigned char *tkps,       size_t *tkplen,
+            const unsigned char *request,    size_t requestlen,
+          xcpa_admin_signs_cb_t sign_cb, const void *signopts);
 
 
 //-------------------------------------
-// Import a domain WK to the given target
+// Import a domain WK (from recipient info) to the given target
+//
+// target      addresses target module/domain
+// rinfo       contains recipient infos
+// ricnt       number of recipient infos
+// wkvp        WK verification pattern
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+long xcpa_import_wk_rcptinfo(target_t target,
+                struct Recipient_info *rinfo, unsigned int ricnt,
+                  const unsigned char *wkvp,
+                xcpa_admin_signs_cb_t sign_cb,  const void *signopts);
+
+
+//-------------------------------------
+// Import a domain WK (from ekps struct) to the given target
 //
 // target      addresses target module/domain
 // ekps        contains re-encrypted keyparts
@@ -1200,9 +1337,34 @@ long xcpa_export_wk(target_t target,
 // sign_cb     provide the callback for generating signatures
 //             may be NULL if no signatures required
 // signopts    number of signatures requested
+//
+// uses xcp_rcptinfo and is therefore dependent on EP11ADM_V2
+#if defined(EP11ADM_V2)
+__asm__(".symver xcpa_import_wk, xcpa_import_wk@EP11ADM_V2");
+#endif
 long xcpa_import_wk(target_t target, const struct Encrdkey *ekps,
                 unsigned int kcnt,     const unsigned char *wkvp,
        xcpa_admin_signs_cb_t sign_cb,           const void *signopts);
+
+
+
+//-------------------------------------
+// Import module state data to a target
+//
+// target      addresses target module
+// domainmask  list of affected domains
+// ekps        contains re-encrypted keyparts
+// kpcnt       number of keyparts
+// state       module state data
+// statelen    state data len
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+//
+long xcpa_import_state(target_t target, unsigned char *domainmask,
+                  unsigned char *state,        size_t statelen,
+                struct Encrdkey *ekps,   unsigned int kpcnt,
+          xcpa_admin_signs_cb_t sign_cb,   const void *signopts);
 
 
 //-------------------------------------
@@ -1223,6 +1385,18 @@ long xcpa_commit_wk(target_t target, const unsigned char *wkvp,
 // target      addresses target module/domain
 // wkvp        WK verification pattern
 long xcpa_finalize_wk(target_t target, const unsigned char *wkvp);
+
+
+//-------------------------------------
+// Generate a random WK for the given target
+//
+// target      addresses target module/domain
+// wkvp        WK verification pattern
+// sign_cb     provide the callback for generating signatures
+//             may be NULL if no signatures required
+// signopts    number of signatures requested
+long xcpa_gen_random_wk(target_t target, unsigned char *wkvp,
+           xcpa_admin_signs_cb_t sign_cb, const void *signopts);
 
 
 //-------------------------------------
@@ -1262,11 +1436,11 @@ long xcpa_finalize_wk(target_t target, const unsigned char *wkvp);
 //  XCP_ADMERR_SI_OID_MECH_MISMATCH:    mismatch between signature and hash
 //                                      mechanism
 //
-long xcp_signerinfo (unsigned char *asn, size_t alen,
-               const unsigned char *ski, size_t skilen,  /* signer */
-               const unsigned char *sig, size_t siglen,
-               const  CK_MECHANISM *sigmech,
-               const  CK_MECHANISM *hashmech) ;
+long xcp_signerinfo(unsigned char *asn, size_t alen,
+              const unsigned char *ski, size_t skilen,  /* signer */
+              const unsigned char *sig, size_t siglen,
+              const  CK_MECHANISM *sigmech,
+              const  CK_MECHANISM *hashmech) ;
 
 
 //-------------------------------------
@@ -1287,13 +1461,13 @@ long xcp_signerinfo (unsigned char *asn, size_t alen,
 //
 // no length checks on signature or SKI, other than checking both for non-empty
 //
-long xcp_signerinfo_read (const unsigned char *sinfo, size_t silen,
-                          const unsigned char **ski,  size_t *skilen,
-                          const unsigned char **sig,  size_t *siglen,
-                          const unsigned char **hoid, size_t *hoidlen,
-                          const unsigned char **soid, size_t *soidlen,
-                                 CK_MECHANISM *signmech,
-                                 CK_MECHANISM *hashmech) ;
+long xcp_signerinfo_read(const unsigned char *sinfo, size_t silen,
+                         const unsigned char **ski,  size_t *skilen,
+                         const unsigned char **sig,  size_t *siglen,
+                         const unsigned char **hoid, size_t *hoidlen,
+                         const unsigned char **soid, size_t *soidlen,
+                                CK_MECHANISM *signmech,
+                                CK_MECHANISM *hashmech) ;
 
 
 //-------------------------------------
@@ -1314,8 +1488,8 @@ long xcp_signerinfo_read (const unsigned char *sinfo, size_t silen,
 //
 // note: we do not verify other details of SPKI; caller must do so
 //
-long xcp_spki2pubkey (const unsigned char **bitstr,
-                  const unsigned char *spki, size_t slen) ;
+long xcp_spki2pubkey(const unsigned char **bitstr,
+                     const unsigned char *spki, size_t slen) ;
 
 
 
@@ -1333,8 +1507,8 @@ long xcp_spki2pubkey (const unsigned char **bitstr,
  *  ignored for commands where those fields are ignored
  */
 long ep11a_cmdblock(unsigned char *blk, size_t blen,
-                    unsigned int fn,
-              const struct ep11_admresp *minf,
+                     unsigned int fn,
+        const struct ep11_admresp *minf,
               const unsigned char *tctr,    /* EP11_ADMCTR_BYTES */
               const unsigned char *payload, size_t plen)
               __attribute__ ((deprecated)) ;
@@ -1374,7 +1548,84 @@ CK_RV m_get_ep11_info(CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
  * mask        pointer to an 32 byte array that represents our domain mask
  * masksize    bit-length of the mask
  */
-int xcp_args2mask(char *args, unsigned char *mask, int masksize);
+int xcp_args2mask(char *args, unsigned char *mask, int masksize) ;
+
+
+/*
+ * Fills in 'file-ID', 'offset' and 'length' parameter into the file header
+ * hdr         pointer to the file header
+ * hlen        length of the header
+ * fileid      fileid to refer the file type
+ * offset      offset of data pointer
+ * bytes       number of bytes to transfer
+ */
+int xcpa_write_filepart_hdr(unsigned char *hdr,     size_t hlen,
+                                 uint32_t fileid, uint32_t offset,
+                                 uint32_t bytes);
+
+
+/* reads partial data from target/fileid
+ * returning payload to res, rlen
+ *
+ * returns >0 on success (bytecount)
+ *          0 if file access failed (not available, etc.)
+ *         <0 if anything unexpected failed
+ */
+long xcpa_query_filepart(unsigned char *res, size_t rlen,
+                   const unsigned char *hdr, size_t hlen,
+                              target_t target,
+                                 CK_RV exprv);
+
+
+/* reads complete data from target/fileid
+ * returning payload to res, rlen
+ *
+ * returns >0 on success (bytecount)
+ *          0 if file access failed (not available, etc.)
+ *         <0 if anything unexpected failed
+ */
+long xcpa_query_full_file(unsigned char *res, size_t rlen,
+                               target_t target,
+                           unsigned int fileid,
+                           unsigned int block);
+
+
+/* writes data to internal files
+ * takes data, dlen to write to target/fileid
+ *
+ * returns >0 if results have been all written
+ *         <0 if anything unexpected failed
+ */
+long xcpa_write_full_file(target_t target,
+             xcpa_admin_signs_cb_t sign_cb,  const void *signopts,
+               const unsigned char *data,        size_t dlen,
+                      unsigned int fileid, unsigned int block);
+
+
+/* brute-force section parser: enumerate all encrypted-KP sections
+ *
+ * returns >0 offset of full OCTET STRING T+L+V section
+ *         0  when there are no more sections
+ *         <0 if encoding is invalid (which SNH)
+ *
+ * sets *kpidx to index (sub-type) of keypart found if not NULL
+ *
+ * since external compound is SEQUENCE, it can't match KP at offset 0
+ * therefore, comparing <current offset> > <idx> is correct
+ */
+long xcpa_kp_next_section(const unsigned char *kps,  size_t kplen,
+                                unsigned long idx, uint32_t *kpidx);
+
+
+/* retrieve recipient infos from keypart sections
+ *
+ * returns >0 number of recipient infos found
+ *         <0 if anything failed
+ */
+long xcpa_kps_retrieve_rcptinfo(struct Recipient_info *rcpti,
+                                         unsigned int rimax,
+                                  const unsigned char *kpexport,
+                                               size_t kplen);
 
 #endif /* !defined(__xcpadm_h__) */
 
