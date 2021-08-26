@@ -383,6 +383,29 @@ static const version_req_t ibm_ab_ecdh_req_versions[] = {
 };
 #define NUM_AB_ECDH_REQ (sizeof(ibm_ab_ecdh_req_versions) / sizeof(version_req_t))
 
+static const CK_VERSION ibm_cex6p_btc_support = { .major = 6, .minor = 15 };
+static const CK_VERSION ibm_cex7p_btc_support = { .major = 7, .minor = 21 };
+
+static const version_req_t ibm_btc_req_versions[] = {
+        { .card_type = 6, .min_firmware_version = &ibm_cex6p_btc_support },
+        { .card_type = 7, .min_firmware_version =  &ibm_cex7p_btc_support }
+};
+#define NUM_BTC_REQ (sizeof(ibm_btc_req_versions) / sizeof(version_req_t))
+
+static const CK_VERSION ibm_cex6p_ecdsa_other_support =
+                                                { .major = 6, .minor = 15 };
+static const CK_VERSION ibm_cex7p_ecdsa_other_support =
+                                                { .major = 7, .minor = 21 };
+
+static const version_req_t ibm_ecdsa_other_req_versions[] = {
+        { .card_type = 6, .min_firmware_version =
+                                            &ibm_cex6p_ecdsa_other_support },
+        { .card_type = 7, .min_firmware_version =
+                                            &ibm_cex7p_ecdsa_other_support }
+};
+#define NUM_ECDSA_OTHER_REQ (sizeof(ibm_ecdsa_other_req_versions) / \
+                                            sizeof(version_req_t))
+
 /* Definitions for loading libica dynamically */
 
 typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
@@ -9032,6 +9055,8 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_SHA_1_HMAC,
     CKM_GENERIC_SECRET_KEY_GEN,
     CKM_IBM_ATTRIBUTEBOUND_WRAP,
+    CKM_IBM_ECDSA_OTHER,
+    CKM_IBM_BTC_DERIVE,
 };
 
 static const CK_ULONG supported_mech_list_len =
@@ -9219,6 +9244,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
     CK_VERSION ver3 = { .major = 3, .minor = 0 };
+    CK_VERSION ver3_1 = { .major = 3, .minor = 0x10 };
     CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
@@ -9381,6 +9407,40 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         status = check_required_versions(tokdata, ibm_cpacf_wrap_req_versions,
                                          NUM_CPACF_WRAP_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
+
+    case CKM_IBM_BTC_DERIVE:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3_1) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        status = check_required_versions(tokdata, ibm_btc_req_versions,
+                                         NUM_BTC_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
+
+    case CKM_IBM_ECDSA_OTHER:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3_1) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        status = check_required_versions(tokdata, ibm_ecdsa_other_req_versions,
+                                         NUM_ECDSA_OTHER_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));
@@ -10341,6 +10401,8 @@ static const_info_t ep11_cps[] = {
     CONSTINFO(XCP_CPB_CPACF_PK),
     CONSTINFO(XCP_CPB_ALG_PQC_DILITHIUM),
     CONSTINFO(XCP_CPB_ALG_PQC),
+    CONSTINFO(XCP_CPB_BTC),
+    CONSTINFO(XCP_CPB_ECDSA_OTHER),
 };
 
 #ifdef DEBUG
