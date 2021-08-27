@@ -211,7 +211,7 @@ const _ec_struct der_ec_notsupported[NUMECINVAL] = {
 };
 
 typedef struct signVerifyParam {
-    CK_MECHANISM_TYPE mechtype;
+    CK_MECHANISM mech;
     CK_ULONG inputlen;
     CK_ULONG parts;             /* 0 means process in 1 chunk via C_Sign,
                                  * >0 means process in n chunks via
@@ -219,34 +219,39 @@ typedef struct signVerifyParam {
                                  */
 } _signVerifyParam;
 
+CK_IBM_ECDSA_OTHER_PARAMS other_rand = { .submechanism = CKM_IBM_ECSDSA_RAND };
+CK_IBM_ECDSA_OTHER_PARAMS other_compr_multi =
+                                { .submechanism = CKM_IBM_ECSDSA_COMPR_MULTI };
 
 _signVerifyParam signVerifyInput[] = {
-    {CKM_ECDSA, 20, 0},
-    {CKM_ECDSA, 32, 0},
-    {CKM_ECDSA, 48, 0},
-    {CKM_ECDSA, 64, 0},
-    {CKM_ECDSA_SHA1, 100, 0},
-    {CKM_ECDSA_SHA1, 100, 4},
-    {CKM_ECDSA_SHA1, 0, 0}, /* Empty Message via C_Sign */
-    {CKM_ECDSA_SHA1, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {CKM_ECDSA_SHA224, 100, 0},
-    {CKM_ECDSA_SHA224, 100, 4},
-    {CKM_ECDSA_SHA224, 0, 0}, /* Empty Message via C_Sign */
-    {CKM_ECDSA_SHA224, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {CKM_ECDSA_SHA256, 100, 0},
-    {CKM_ECDSA_SHA256, 100, 4},
-    {CKM_ECDSA_SHA256, 0, 0}, /* Empty Message via C_Sign */
-    {CKM_ECDSA_SHA256, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {CKM_ECDSA_SHA384, 100, 0},
-    {CKM_ECDSA_SHA384, 100, 4},
-    {CKM_ECDSA_SHA384, 0, 0}, /* Empty Message via C_Sign */
-    {CKM_ECDSA_SHA384, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {CKM_ECDSA_SHA512, 100, 0},
-    {CKM_ECDSA_SHA512, 100, 4},
-    {CKM_ECDSA_SHA512, 0, 0}, /* Empty Message via C_Sign */
-    {CKM_ECDSA_SHA512, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
-    {CKM_IBM_ED25519_SHA512, 100, 0},
-    {CKM_IBM_ED448_SHA3, 100, 0},
+    {{CKM_ECDSA, NULL, 0}, 20, 0},
+    {{CKM_ECDSA, NULL, 0}, 32, 0},
+    {{CKM_ECDSA, NULL, 0}, 48, 0},
+    {{CKM_ECDSA, NULL, 0}, 64, 0},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA1, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA224, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA224, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA256, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA256, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA384, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA384, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 0},
+    {{CKM_ECDSA_SHA512, NULL, 0}, 100, 4},
+    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 0}, /* Empty Message via C_Sign */
+    {{CKM_ECDSA_SHA512, NULL, 0}, 0, 1}, /* Empty Message via C_SignInit+C_SignFinal */
+    {{CKM_IBM_ED25519_SHA512, NULL, 0}, 100, 0},
+    {{CKM_IBM_ED448_SHA3, NULL, 0}, 100, 0},
+    {{CKM_IBM_ECDSA_OTHER, &other_rand, sizeof(other_rand)}, 20, 0},
+    {{CKM_IBM_ECDSA_OTHER, &other_compr_multi, sizeof(other_compr_multi)}, 20, 0},
 };
 
 #define NUM_KDFS sizeof(kdfs)/sizeof(CK_EC_KDF_TYPE)
@@ -1250,7 +1255,7 @@ testcase_cleanup:
 } /* end run_DeriveECDHKeyKAT() */
 
 CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
-                                CK_MECHANISM_TYPE mechType,
+                                CK_MECHANISM *mech,
                                 CK_ULONG inputlen,
                                 CK_ULONG parts,
                                 CK_OBJECT_HANDLE priv_key,
@@ -1258,27 +1263,22 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
                                 enum curve_type curve_type,
                                 CK_BYTE *params, CK_ULONG params_len)
 {
-    CK_MECHANISM mech2;
     CK_BYTE_PTR data = NULL, signature = NULL;
     CK_ULONG i, signaturelen;
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu, pkey=%X",
-                   p11_get_ckm(&mechtable_funcs, mechType), inputlen, parts, pkey);
-
-    mech2.mechanism = mechType;
-    mech2.ulParameterLen = 0;
-    mech2.pParameter = NULL;
+                   p11_get_ckm(&mechtable_funcs, mech->mechanism), inputlen, parts, pkey);
 
     /* query the slot, check if this mech if supported */
-    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech2.mechanism, &mech_info);
+    rc = funcs->C_GetMechanismInfo(SLOT_ID, mech->mechanism, &mech_info);
     if (rc != CKR_OK) {
         if (rc == CKR_MECHANISM_INVALID) {
             /* no support for EC key gen? skip */
             testcase_skip("Slot %u doesn't support %s",
                           (unsigned int) SLOT_ID,
-                          p11_get_ckm(&mechtable_funcs, mechType));
+                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
             rc = CKR_OK;
             goto testcase_cleanup;
         } else {
@@ -1287,35 +1287,46 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         }
     }
 
-    if ((mechType == CKM_IBM_ED25519_SHA512 || mechType == CKM_IBM_ED448_SHA3)) {
+    if ((mech->mechanism == CKM_IBM_ED25519_SHA512 ||
+         mech->mechanism == CKM_IBM_ED448_SHA3)) {
         if (curve_type != CURVE_EDWARDS) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can only be used with Edwards curves",
-                          p11_get_ckm(&mechtable_funcs, mechType));
+                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (mechType == CKM_IBM_ED25519_SHA512 &&
+        if (mech->mechanism == CKM_IBM_ED25519_SHA512 &&
             memcmp(params, ed25519, MIN(params_len, sizeof(ed25519))) != 0) {
             /* Mechanism does not match to curve, skip */
             testcase_skip("Mechanism %s can only be used with Ed25519 curve",
-                          p11_get_ckm(&mechtable_funcs, mechType));
+                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
-        if (mechType == CKM_IBM_ED448_SHA3 &&
+        if (mech->mechanism == CKM_IBM_ED448_SHA3 &&
             memcmp(params, ed448, MIN(params_len, sizeof(ed448))) != 0) {
             /* Mechanism does not match to curve, skip */
             testcase_skip("Mechanism %s can only be used with Ed448 curve",
-                          p11_get_ckm(&mechtable_funcs, mechType));
+                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
+    } else if (mech->mechanism == CKM_IBM_ECDSA_OTHER &&
+               memcmp(params, secp256k1, MIN(params_len, sizeof(secp256k1))) != 0 &&
+               memcmp(params, prime256v1, MIN(params_len, sizeof(prime256v1))) != 0 &&
+               memcmp(params, brainpoolP256r1, MIN(params_len, sizeof(brainpoolP256r1))) != 0 &&
+               memcmp(params, brainpoolP256t1, MIN(params_len, sizeof(brainpoolP256t1)))) {
+        /* CKM_IBM_ECDSA_OTHER can only be used with 256-bit EC curves, skip */
+        testcase_skip("Mechanism %s can only be used with 256-bit EC curves",
+                      p11_get_ckm(&mechtable_funcs, mech->mechanism));
+        rc = CKR_OK;
+        goto testcase_cleanup;
     } else {
         if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can not be used with Edwards/Montogmery curves",
-                          p11_get_ckm(&mechtable_funcs, mechType));
+                          p11_get_ckm(&mechtable_funcs, mech->mechanism));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -1335,7 +1346,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         }
     }
 
-    rc = funcs->C_SignInit(session, &mech2, priv_key);
+    rc = funcs->C_SignInit(session, mech, priv_key);
     if (rc != CKR_OK) {
         testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -1397,7 +1408,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     }
 
     /****** Verify *******/
-    rc = funcs->C_VerifyInit(session, &mech2, publ_key);
+    rc = funcs->C_VerifyInit(session, mech, publ_key);
     if (rc != CKR_OK) {
         testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -1438,7 +1449,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     memcpy(signature, "ABCDEFGHIJKLMNOPQRSTUV",
            strlen("ABCDEFGHIJKLMNOPQRSTUV"));
 
-    rc = funcs->C_VerifyInit(session, &mech2, publ_key);
+    rc = funcs->C_VerifyInit(session, mech, publ_key);
     if (rc != CKR_OK) {
         testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -1605,7 +1616,7 @@ CK_RV run_GenerateECCKeyPairSignVerify()
              j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
             testcase_new_assertion();
             rc = run_GenerateSignVerifyECC(session,
-                                           signVerifyInput[j].mechtype,
+                                           &signVerifyInput[j].mech,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            priv_key, publ_key,
@@ -1775,7 +1786,7 @@ CK_RV run_ImportECCKeyPairSignVerify()
              j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
             testcase_new_assertion();
             rc = run_GenerateSignVerifyECC(session,
-                                           signVerifyInput[j].mechtype,
+                                           &signVerifyInput[j].mech,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            priv_key, publ_key,
@@ -2102,7 +2113,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
              j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
             testcase_new_assertion();
             rc = run_GenerateSignVerifyECC(session,
-                                           signVerifyInput[j].mechtype,
+                                           &signVerifyInput[j].mech,
                                            signVerifyInput[j].inputlen,
                                            signVerifyInput[j].parts,
                                            unwrapped_key, publ_key,
