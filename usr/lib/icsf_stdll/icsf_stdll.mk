@@ -17,7 +17,8 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
 	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll	\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"icsftok\"					\
-	-DTOK_NEW_DATA_STORE=0xffffffff
+	-DTOK_NEW_DATA_STORE=0xffffffff					\
+	-I${top_builddir}/usr/lib/icsf_stdll
 
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS =				\
 	-shared	-Wl,-z,defs,-Bsymbolic -lcrypto	-lldap -lpthread	\
@@ -57,3 +58,9 @@ opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS += -litm
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
 endif
+
+usr/lib/icsf_stdll/icsf_config_parse.c usr/lib/icsf_stdll/icsf_config_parse.output: usr/lib/icsf_stdll/icsf_config_parse.y
+	$(AM_V_YACC)$(am__skipyacc) $(SHELL) $(YLWRAP) $< icsf_config_parse.tab.c usr/lib/icsf_stdll/icsf_config_parse.c icsf_config_parse.tab.h usr/lib/icsf_stdll/icsf_config_parse.h icsf_config_parse.output usr/lib/icsf_stdll/icsf_config_parse.output -- $(YACCCOMPILE)
+
+usr/lib/icsf_stdll/icsf_config_lexer.c usr/lib/icsf_stdll/icsf_config_lexer.h: usr/lib/icsf_stdll/icsf_config_lexer.l
+	$(AM_V_LEX)$(am__skiplex) $(SHELL) $(YLWRAP) $< lex.yy.c usr/lib/icsf_stdll/icsf_config_lexer.c lex.yy.h usr/lib/icsf_stdll/icsf_config_lexer.h -- $(LEXCOMPILE)
