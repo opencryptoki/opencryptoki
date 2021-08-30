@@ -1889,6 +1889,7 @@ CK_RV ber_encode_DSAPrivateKey(CK_BBOOL length_only,
     //
     offset = 0;
     rc = 0;
+    len = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime1->ulValueLen);
     offset += len;
@@ -3095,6 +3096,7 @@ CK_RV ber_encode_DHPrivateKey(CK_BBOOL length_only,
     // build the DSS parameters first
     offset = 0;
     rc = 0;
+    len = 0;
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, prime->ulValueLen);
     offset += len;
