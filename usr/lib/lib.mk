@@ -21,3 +21,4 @@ include usr/lib/icsf_stdll/icsf_stdll.mk
 endif
 
 include usr/lib/common/common.mk
+include usr/lib/config/config.mk
