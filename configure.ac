@@ -63,13 +63,9 @@ if test "x$LEX" != "xflex"; then
     AC_MSG_ERROR(['flex' is missing on your system. Please install 'flex'.])
 fi
 
-AC_PROG_YACC
-if test "x$YACC" = "xyacc"; then
-    # AC_PROG_YACC only checks for yacc replacements, not for yacc itself
-    AC_CHECK_PROG([YACC_FOUND], [yacc], [yes], [no])
-    if test "x$YACC_FOUND" = "xno"; then
-	AC_MSG_ERROR(['YACC' program is missing on your system. Please install 'bison'.])
-    fi
+AC_CHECK_PROG([YACC], [bison], [bison], [no])
+if test "x$YACC" = "xno"; then
+    AC_MSG_ERROR(['bison' program is missing on your system. Please install 'bison'.])
 fi
 
 AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
