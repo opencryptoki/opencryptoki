@@ -404,6 +404,7 @@ static int do_vers(struct parse_data *d,
 static int slotmgr_key_str(void *private, int tok, const char *val)
 {
     struct parse_data *d = (struct parse_data *)private;
+    CK_VERSION vers;
     int res = 0;
 
     switch (tok) {
@@ -444,6 +445,12 @@ static int slotmgr_key_str(void *private, int tok, const char *val)
         if (do_vers(d, &d->sinfo_struct.pk_slot.firmwareVersion, tok, val))
             res = 1;
         break;
+    case KW_TOKVERSION:
+        if (do_vers(d, &vers, tok, val))
+            res = 1;
+        else
+            d->sinfo_struct.version = vers.major << 16 | vers.minor;
+        break;
     default:
         snprintf(d->errbuf, sizeof(d->errbuf),
                  "Unknown string-valued keyword detected: \"%s\"",
@@ -458,8 +465,17 @@ static int slotmgr_key_vers(void *private, int tok, unsigned int vers)
 {
     struct parse_data *d = (struct parse_data *)private;
 
-    if (tok == KW_TOKVERSION) {
+    switch (tok) {
+    case KW_TOKVERSION:
         d->sinfo_struct.version = vers;
+        return 0;
+    case KW_HWVERSION:
+        d->sinfo_struct.pk_slot.hardwareVersion.major = vers >> 16;
+        d->sinfo_struct.pk_slot.hardwareVersion.minor = vers & 0xffu;
+        return 0;
+    case KW_FWVERSION:
+        d->sinfo_struct.pk_slot.firmwareVersion.major = vers >> 16;
+        d->sinfo_struct.pk_slot.firmwareVersion.minor = vers & 0xffu;
         return 0;
     }
     snprintf(d->errbuf, sizeof(d->errbuf),
