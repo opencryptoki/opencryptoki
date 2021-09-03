@@ -2129,7 +2129,11 @@ static int parseupdate_key_str(void *private, int tok, const char *val)
     case KW_FWVERSION:
         fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
         break;
-	}
+    case KW_TOKVERSION:
+        if (!u->activeslot)
+            fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+        break;
+    }
     return 0;
 }
 
@@ -2137,9 +2141,19 @@ static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 {
     struct parseupdate *u = (struct parseupdate *)private;
 
-    if (tok == KW_TOKVERSION && !u->activeslot)
+    switch (tok) {
+    case KW_TOKVERSION:
+        if (!u->activeslot)
+            fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
+                    vers >> 16, vers & 0xffu);
+        break;
+    case KW_HWVERSION:
+    case KW_FWVERSION:
         fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
                 vers >> 16, vers & 0xffu);
+        break;
+    }
+
     return 0;
 }
 
