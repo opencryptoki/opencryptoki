@@ -2368,6 +2368,363 @@ testcase_cleanup:
     return rc;
 }
 
+struct btc_test {
+    const _ec_struct ec;
+    CK_ULONG master_key_derive;
+    CK_ULONG priv_to_pub;
+    CK_ULONG priv_to_priv;
+    CK_ULONG pub_to_pub;
+};
+
+static const struct btc_test btc_tests[] = {
+    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+              CURVE256_LENGTH, "secp256k1" },
+      .master_key_derive = CK_IBM_BTC_BIP0032_MASTERK,
+      .priv_to_pub = CK_IBM_BTC_BIP0032_PRV2PUB,
+      .priv_to_priv = CK_IBM_BTC_BIP0032_PRV2PRV,
+      .pub_to_pub = CK_IBM_BTC_BIP0032_PUB2PUB,
+    },
+    { .ec = { &secp256k1, sizeof(secp256k1), CK_FALSE, CURVE_PRIME,
+              CURVE256_LENGTH, "secp256k1" },
+      .master_key_derive = CK_IBM_BTC_SLIP0010_MASTERK,
+      .priv_to_pub = CK_IBM_BTC_SLIP0010_PRV2PUB,
+      .priv_to_priv = CK_IBM_BTC_SLIP0010_PRV2PRV,
+      .pub_to_pub = CK_IBM_BTC_SLIP0010_PUB2PUB,
+    },
+    { .ec = { &prime256v1, sizeof(prime256v1), CK_FALSE, CURVE_PRIME,
+              CURVE256_LENGTH, "prime256v1" },
+      .master_key_derive = CK_IBM_BTC_SLIP0010_MASTERK,
+      .priv_to_pub = CK_IBM_BTC_SLIP0010_PRV2PUB,
+      .priv_to_priv = CK_IBM_BTC_SLIP0010_PRV2PRV,
+      .pub_to_pub = CK_IBM_BTC_SLIP0010_PUB2PUB,
+    },
+    { .ec = { &ed25519, sizeof(ed25519), CK_FALSE, CURVE_EDWARDS,
+              CURVE256_LENGTH, "ed25519" },
+      .master_key_derive = CK_IBM_BTC_SLIP0010_MASTERK,
+      .priv_to_pub = CK_IBM_BTC_SLIP0010_PRV2PUB,
+      .priv_to_priv = CK_IBM_BTC_SLIP0010_PRV2PRV,
+      .pub_to_pub = CK_IBM_BTC_SLIP0010_PUB2PUB,
+    },
+};
+
+#define NUM_BTC_TESTS  4
+
+static const CK_ULONG btc_child_key_index[] = {
+    0,
+    0x12,
+    0x3456,
+    0x987654,
+    0x7fffffff,
+    0 + CK_IBM_BTC_BIP0032_HARDENED,
+    0x12 + CK_IBM_BTC_BIP0032_HARDENED,
+    0x3456 + CK_IBM_BTC_BIP0032_HARDENED,
+    0x987654 + CK_IBM_BTC_BIP0032_HARDENED,
+    0x7fffffff + CK_IBM_BTC_BIP0032_HARDENED,
+};
+
+#define NUM_BTC_CHILD_KEY_INDEXES  10
+
+static const char *btc_type_to_str(CK_ULONG btc_type)
+{
+    switch (btc_type) {
+    case CK_IBM_BTC_BIP0032_PRV2PRV:
+        return "CK_IBM_BTC_BIP0032_PRV2PRV";
+    case CK_IBM_BTC_BIP0032_PRV2PUB:
+        return "CK_IBM_BTC_BIP0032_PRV2PUB";
+    case CK_IBM_BTC_BIP0032_PUB2PUB:
+        return "CK_IBM_BTC_BIP0032_PUB2PUB";
+    case CK_IBM_BTC_BIP0032_MASTERK:
+        return "CK_IBM_BTC_BIP0032_MASTERK";
+    case CK_IBM_BTC_SLIP0010_PRV2PRV:
+        return "CK_IBM_BTC_SLIP0010_PRV2PRV";
+    case CK_IBM_BTC_SLIP0010_PRV2PUB:
+        return "CK_IBM_BTC_SLIP0010_PRV2PUB";
+    case CK_IBM_BTC_SLIP0010_PUB2PUB:
+        return "CK_IBM_BTC_SLIP0010_PUB2PUB";
+    case CK_IBM_BTC_SLIP0010_MASTERK:
+        return "CK_IBM_BTC_SLIP0010_MASTERK";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+/*
+ * Run Bitcoin Key Derivation tests:
+ * Derive a BTC master key from a generic secret key. Then derive a number of
+ * child keys (public and private, hardened and non hardened) from the master
+ * key.
+ */
+CK_RV run_DeriveBTC()
+{
+    CK_SESSION_HANDLE session;
+    CK_MECHANISM mech;
+    CK_FLAGS flags;
+    CK_OBJECT_HANDLE secret = CK_INVALID_HANDLE, master = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE child_priv = CK_INVALID_HANDLE, child_pub = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE child_pub2 = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc = CKR_OK;
+    CK_BBOOL true = CK_TRUE;
+    CK_IBM_BTC_DERIVE_PARAMS btc_parms;
+    CK_BYTE master_chain_code[CK_IBM_BTC_CHAINCODE_LENGTH];
+    CK_BYTE child_chain_code[CK_IBM_BTC_CHAINCODE_LENGTH];
+    CK_OBJECT_CLASS priv_class = CKO_PRIVATE_KEY;
+    CK_OBJECT_CLASS pub_class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE key_type = CKK_EC;
+    CK_OBJECT_CLASS secret_class = CKO_SECRET_KEY;
+    CK_ULONG secret_keylen = 32;
+    CK_ULONG i, k;
+
+    testsuite_begin("starting run_DeriveBTC with pkey=%X ...", pkey);
+    testcase_rw_session();
+    testcase_user_login();
+
+    /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
+    if (pkey && !is_ep11_token(SLOT_ID)) {
+        testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_GENERIC_SECRET_KEY_GEN)) {
+        testcase_skip("Slot %u doesn't support CKM_GENERIC_SECRET_KEY_GEN\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(SLOT_ID, CKM_IBM_BTC_DERIVE)) {
+        testcase_skip("Slot %u doesn't support CKM_IBM_BTC_DERIVE\n",
+                      (unsigned int) SLOT_ID);
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < NUM_BTC_TESTS; i++) {
+        CK_ATTRIBUTE secret_tmpl[] = {
+            {CKA_CLASS, &secret_class, sizeof(secret_class)},
+            {CKA_VALUE_LEN, &secret_keylen, sizeof(secret_keylen)},
+            {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+        };
+        CK_ULONG secret_tmpl_len = sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE priv_derive_tmpl[] = {
+            {CKA_CLASS, &priv_class, sizeof(priv_class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_EC_PARAMS, (CK_VOID_PTR)btc_tests[i].ec.curve, btc_tests[i].ec.size},
+            {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+        };
+        CK_ULONG priv_derive_tmpl_len =  sizeof(priv_derive_tmpl) / sizeof(CK_ATTRIBUTE);
+        CK_ATTRIBUTE pub_derive_tmpl[] = {
+            {CKA_CLASS, &pub_class, sizeof(pub_class)},
+            {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+            {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_EC_PARAMS, (CK_VOID_PTR)btc_tests[i].ec.curve, btc_tests[i].ec.size},
+            {CKA_IBM_USE_AS_DATA, &true, sizeof(true)},
+        };
+        CK_ULONG pub_derive_tmpl_len = sizeof(pub_derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        /* Testcase #1: Derive the BTC master key from a secret key */
+        testcase_new_assertion();
+        testcase_begin("BTC master key derive with curve=%s and type=%s, pkey=%X",
+                       btc_tests[i].ec.name,
+                       btc_type_to_str(btc_tests[i].master_key_derive), pkey);
+
+        mech.mechanism = CKM_GENERIC_SECRET_KEY_GEN;
+        mech.ulParameterLen = 0;
+        mech.pParameter = NULL;
+
+        rc = funcs->C_GenerateKey(session, &mech, secret_tmpl, secret_tmpl_len,
+                                  &secret);
+        if (rc != CKR_OK) {
+            testcase_fail("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+            goto run_cleanup;
+        }
+
+        mech.mechanism = CKM_IBM_BTC_DERIVE;
+        mech.ulParameterLen = sizeof(CK_IBM_BTC_DERIVE_PARAMS);
+        mech.pParameter = &btc_parms;
+
+        memset(master_chain_code, 0, sizeof(master_chain_code));
+        memset(&btc_parms, 0, sizeof(btc_parms));
+        btc_parms.version = CK_IBM_BTC_DERIVE_PARAMS_VERSION_1;
+        btc_parms.type = btc_tests[i].master_key_derive;
+        btc_parms.childKeyIndex = 0;
+        btc_parms.ulChainCodeLen = 0;
+        btc_parms.pChainCode = master_chain_code;
+
+        rc = funcs->C_DeriveKey(session, &mech,
+                                secret, priv_derive_tmpl,
+                                priv_derive_tmpl_len, &master);
+        if (rc != CKR_OK) {
+            testcase_fail("C_DeriveKey BTC master key: rc = %s",
+                          p11_get_ckr(rc));
+            goto run_cleanup;
+        }
+
+        testcase_pass("BTC master key derive with curve=%s and type=%s, pkey=%X",
+                      btc_tests[i].ec.name,
+                      btc_type_to_str(btc_tests[i].master_key_derive), pkey);
+
+        /* Derive child keys from the master key */
+        for (k = 0; k < NUM_BTC_CHILD_KEY_INDEXES; k++) {
+            /* Testcase #2: Derive private child key from private master key */
+
+            /* For ed25519 only hardened child keys are supported (SLIP0010) */
+            if (btc_tests[i].master_key_derive == CK_IBM_BTC_SLIP0010_MASTERK &&
+                btc_tests[i].ec.type == CURVE_EDWARDS &&
+                (btc_child_key_index[k] & CK_IBM_BTC_BIP0032_HARDENED) == 0)
+                continue;
+
+            testcase_new_assertion();
+            testcase_begin("BTC priv-to-priv child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                           btc_tests[i].ec.name, btc_child_key_index[k],
+                           btc_type_to_str(btc_tests[i].priv_to_priv), pkey);
+
+            mech.mechanism = CKM_IBM_BTC_DERIVE;
+            mech.ulParameterLen = sizeof(CK_IBM_BTC_DERIVE_PARAMS);
+            mech.pParameter = &btc_parms;
+
+            memcpy(child_chain_code, master_chain_code, sizeof(master_chain_code));
+            memset(&btc_parms, 0, sizeof(btc_parms));
+            btc_parms.version = CK_IBM_BTC_DERIVE_PARAMS_VERSION_1;
+            btc_parms.type = btc_tests[i].priv_to_priv;
+            btc_parms.childKeyIndex = btc_child_key_index[k];
+            btc_parms.ulChainCodeLen = sizeof(child_chain_code);
+            btc_parms.pChainCode = child_chain_code;
+
+            rc = funcs->C_DeriveKey(session, &mech,
+                                    master, priv_derive_tmpl,
+                                    priv_derive_tmpl_len, &child_priv);
+            if (rc != CKR_OK) {
+                testcase_fail("C_DeriveKey BTC child key (priv): rc = %s",
+                              p11_get_ckr(rc));
+                goto run_child_cleanup;
+            }
+
+            testcase_pass("BTC priv-to-priv child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                          btc_tests[i].ec.name, btc_child_key_index[k],
+                          btc_type_to_str(btc_tests[i].priv_to_priv), pkey);
+
+            /* Testcase #3: Derive public child key from private master key */
+            testcase_new_assertion();
+            testcase_begin("BTC priv-to-pub child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                           btc_tests[i].ec.name, btc_child_key_index[k],
+                           btc_type_to_str(btc_tests[i].priv_to_pub), pkey);
+
+            mech.mechanism = CKM_IBM_BTC_DERIVE;
+            mech.ulParameterLen = sizeof(CK_IBM_BTC_DERIVE_PARAMS);
+            mech.pParameter = &btc_parms;
+
+            memcpy(child_chain_code, master_chain_code, sizeof(master_chain_code));
+            memset(&btc_parms, 0, sizeof(btc_parms));
+            btc_parms.version = CK_IBM_BTC_DERIVE_PARAMS_VERSION_1;
+            btc_parms.type = btc_tests[i].priv_to_pub;
+            btc_parms.childKeyIndex = btc_child_key_index[k];
+            btc_parms.ulChainCodeLen = sizeof(child_chain_code);
+            btc_parms.pChainCode = child_chain_code;
+
+            rc = funcs->C_DeriveKey(session, &mech,
+                                    master, pub_derive_tmpl,
+                                    pub_derive_tmpl_len, &child_pub);
+            if (rc != CKR_OK) {
+                testcase_fail("C_DeriveKey BTC child key (pub): rc = %s",
+                              p11_get_ckr(rc));
+                goto run_child_cleanup;
+            }
+
+            testcase_pass("BTC priv-to-pub child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                          btc_tests[i].ec.name, btc_child_key_index[k],
+                          btc_type_to_str(btc_tests[i].priv_to_pub), pkey);
+
+            /* Testcase #4: Test if derived keys are usable */
+            testcase_new_assertion();
+
+            if (btc_tests[i].ec.type == CURVE_EDWARDS)
+                mech.mechanism = CKM_IBM_ED25519_SHA512;
+            else
+                mech.mechanism = CKM_ECDSA;
+            mech.ulParameterLen = 0;
+            mech.pParameter = NULL;
+
+            rc = run_GenerateSignVerifyECC(session, &mech, 20, 0,
+                                           child_priv, child_pub,
+                                           btc_tests[i].ec.type,
+                                           (CK_BYTE *)btc_tests[i].ec.curve,
+                                           btc_tests[i].ec.size);
+            if (rc != 0) {
+                testcase_fail("run_GenerateSignVerifyECC failed.");
+                goto testcase_cleanup;
+            }
+            testcase_pass("BTC check derived keys with curve=%s child-key-index=0x%lx, pkey=%X",
+                          btc_tests[i].ec.name, btc_child_key_index[k], pkey);
+
+            /*
+             * Testcase #5: Derive public child key from public key
+             * (non-hardened keys only, thus not supported for ed25519)
+             */
+            if ((btc_child_key_index[k] & CK_IBM_BTC_BIP0032_HARDENED) != 0)
+                goto run_child_cleanup;
+
+            testcase_new_assertion();
+            testcase_begin("BTC pub-to-pub child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                           btc_tests[i].ec.name, btc_child_key_index[k],
+                           btc_type_to_str(btc_tests[i].pub_to_pub), pkey);
+
+            mech.mechanism = CKM_IBM_BTC_DERIVE;
+            mech.ulParameterLen = sizeof(CK_IBM_BTC_DERIVE_PARAMS);
+            mech.pParameter = &btc_parms;
+
+            memset(&btc_parms, 0, sizeof(btc_parms));
+            btc_parms.version = CK_IBM_BTC_DERIVE_PARAMS_VERSION_1;
+            btc_parms.type = btc_tests[i].pub_to_pub;
+            btc_parms.childKeyIndex = btc_child_key_index[k];
+            btc_parms.ulChainCodeLen = sizeof(child_chain_code);
+            btc_parms.pChainCode = child_chain_code;
+
+            rc = funcs->C_DeriveKey(session, &mech,
+                                    child_pub, pub_derive_tmpl,
+                                    pub_derive_tmpl_len, &child_pub2);
+            if (rc != CKR_OK) {
+                testcase_fail("C_DeriveKey BTC child key (pub): rc = %s",
+                              p11_get_ckr(rc));
+                goto run_child_cleanup;
+            }
+
+            testcase_pass("BTC pub-to-pub child key derive with curve=%s child-key-index=0x%lx and type=%s, pkey=%X",
+                          btc_tests[i].ec.name, btc_child_key_index[k],
+                          btc_type_to_str(btc_tests[i].pub_to_pub), pkey);
+
+run_child_cleanup:
+            if (child_priv != CK_INVALID_HANDLE)
+                funcs->C_DestroyObject(session, child_priv);
+            child_priv = CK_INVALID_HANDLE;
+            if (child_pub != CK_INVALID_HANDLE)
+                funcs->C_DestroyObject(session, child_pub);
+            child_pub = CK_INVALID_HANDLE;
+            if (child_pub2 != CK_INVALID_HANDLE)
+                funcs->C_DestroyObject(session, child_pub2);
+            child_pub2 = CK_INVALID_HANDLE;
+        }
+
+run_cleanup:
+        if (secret != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, secret);
+        secret = CK_INVALID_HANDLE;
+        if (master != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, master);
+        master = CK_INVALID_HANDLE;
+    }
+
+testcase_cleanup:
+    if (secret != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, secret);
+    if (master != CK_INVALID_HANDLE)
+        funcs->C_DestroyObject(session, master);
+
+    testcase_user_logout();
+    testcase_close_session();
+
+    return rc;
+} /* end run_DeriveBTC() */
+
 int main(int argc, char **argv)
 {
     CK_C_INITIALIZE_ARGS cinit_args;
@@ -2414,6 +2771,7 @@ int main(int argc, char **argv)
     rv += run_TransferECCKeyPairSignVerify();
     rv += run_DeriveECDHKey();
     rv += run_DeriveECDHKeyKAT();
+    rv += run_DeriveBTC();
 
     if (is_ep11_token(SLOT_ID)) {
         pkey = CK_TRUE;
