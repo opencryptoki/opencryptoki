@@ -611,8 +611,8 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 #define CKA_NSS                   (CKA_VENDOR_DEFINED | NSSCK_VENDOR_NSS)
 #define CKA_NSS_MOZILLA_CA_POLICY (CKA_NSS + 34)
 
-/* CK_ATTRIBUTE is a structure that includes the type, length
- * and value of an attribute */
+/* CK_ATTRIBUTE is a structure that includes the type, value
+ * and length of an attribute */
 typedef struct CK_ATTRIBUTE {
     CK_ATTRIBUTE_TYPE type;
     CK_VOID_PTR pValue;

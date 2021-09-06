@@ -10,12 +10,16 @@
 
 #define _GNU_SOURCE
 
+#include "cfgparser.h"
+#include "configuration.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <pkcs11types.h>
 #include <dlfcn.h>
+#include <unistd.h>
 
 #include <termios.h>
 #include "p11util.h"
@@ -25,6 +29,72 @@ static const char *default_pkcs11lib = "libopencryptoki.so";
 
 static void *pkcs11lib = NULL;
 static CK_FUNCTION_LIST *funcs = NULL;
+
+static void error_hook(int line, int col, const char *msg)
+{
+  fprintf(stderr, "PARSE ERROR: %d:%d: %s\n", line, col, msg);
+}
+
+static void usage(char *prg)
+{
+  printf("USAGE: %s <path/to/p11sak-idx.conf> [<idx>]\n", prg);
+  printf(" where:\n");
+  printf("\t<path/to/p11sak-idx.conf> specifies the path to \"p11sak-idx.conf\"\n");
+  printf("\t<idx>                    specifies the index of the attribute set\n");
+}
+
+// -------------------- temp: fliegt wieder raus -------------------------------
+void dump_attr(CK_ATTRIBUTE_PTR a)
+{
+    const char *typestr;
+
+    typestr = p11_get_cka(a->type);
+
+    switch (a->ulValueLen) {
+    case 0:
+        printf("  %s: len=0 pValue=%p\n", typestr, a->pValue);
+        break;
+    case 1:
+    	printf("  %s: len=%lu value=0x%02hhx\n",
+                    typestr, a->ulValueLen, *((uint8_t *)(a->pValue)));
+        break;
+    case 2:
+    	printf("  %s: len=%lu value=0x%04hx\n",
+                    typestr, a->ulValueLen, *((uint16_t *)(a->pValue)));
+        break;
+    case 4:
+    	printf("  %s: len=%lu value=0x%08x\n",
+                    typestr, a->ulValueLen, *((uint32_t *)(a->pValue)));
+        break;
+    case 8:
+    	printf("  %s: len=%lu value=0x%016lx\n",
+                    typestr, a->ulValueLen, *((uint64_t *)(a->pValue)));
+        break;
+    default:
+		printf("          %s: len=%lu value:", typestr, a->ulValueLen);
+		unsigned char *p = a->pValue;
+		for (unsigned int z = 0; z < a->ulValueLen; z++) {
+            if (z % 16 == 0){
+                printf("\n            %02X ", p[z]);
+            } else {
+			    printf("%02X ", p[z]);
+
+            }
+        }
+        printf("\n");
+        
+		break;
+    }
+}
+
+void dump_attr_array(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len)
+{
+    CK_ATTRIBUTE_PTR it;
+
+    for (it = attrs; it != attrs + attrs_len; it++)
+        dump_attr(it);
+}
+// -----------------------------------------------------------------------------
 
 static void unload_pkcs11lib(void)
 {
@@ -370,7 +440,11 @@ static void print_gen_help(void)
     printf("      3des\n");
     printf("      aes [128 | 192 | 256]\n");
     printf("      rsa [1024 | 2048 | 4096]\n");
-    printf("      ec [prime256v1 | secp384r1 | secp521r1]\n");
+    printf("      ec [prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp256k1 | \n");
+    printf("          brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | \n");
+    printf("          brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | \n");
+    printf("          brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | \n");
+    printf("          brainpoolP512r1 | brainpoolP512t1]\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -460,8 +534,24 @@ static void print_gen_ec_help(void)
     printf("\n Usage: p11sak generate-key ec [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      prime256v1\n");
-    printf("      secp384r1\n");
+    printf("      prime192\n");
+    printf("      secp224\n");
     printf("      secp521r1\n");
+    printf("      secp265k1\n");
+    printf("      brainpoolP160r1\n");
+    printf("      brainpoolP160t1\n");
+    printf("      brainpoolP192r1\n");
+    printf("      brainpoolP192t1\n");
+    printf("      brainpoolP224r1\n");
+    printf("      brainpoolP224t1\n");
+    printf("      brainpoolP256r1\n");
+    printf("      brainpoolP256t1\n");
+    printf("      brainpoolP320r1\n");
+    printf("      brainpoolP320t1\n");
+    printf("      brainpoolP384r1\n");
+    printf("      brainpoolP384t1\n");
+    printf("      brainpoolP512r1\n");
+    printf("      brainpoolP512t1\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -925,7 +1015,6 @@ static CK_RV key_pair_gen(CK_SESSION_HANDLE session, p11sak_kt kt,
                           CK_ULONG prvcount, CK_OBJECT_HANDLE_PTR phpubkey,
                           CK_OBJECT_HANDLE_PTR phprvkey)
 {
-
     CK_RV rc;
 
     printf("Generate asymmetric key: %s\n", kt2str(kt));
@@ -1077,7 +1166,7 @@ static CK_BBOOL attr_na(const CK_ATTRIBUTE attr, p11sak_kt ktype)
     }
 }
 /**
- * Columns: T  P  M  R  L  S  E  D  G  V  W  U  X  A  N
+ * Columns: T  P  M  R  L  S  E  D  G  V  W  U  X  A  N  *
  */
 static CK_ATTRIBUTE_TYPE col2type(int col)
 {
@@ -1116,7 +1205,192 @@ static CK_ATTRIBUTE_TYPE col2type(int col)
         return 0;
     }
 }
+/**
+ *  Print in p11sak_defined_attrs.conf defined attributes in short format
+ */
+static void short_print_vendor() {
+    int f;
+    FILE *fp;
+    struct ConfigBaseNode *cfg, *c;
 
+    char file_loc[64] = P11SAK_DEFINED_ATTRS_LOCATION;
+
+    cfg = NULL;
+    if (access(P11SAK_DEFINED_ATTRS_LOCATION, F_OK) != 0) {
+        if (access("/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
+            if (access("/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
+                printf(" - ");
+                return;
+            } else {
+                strcpy(file_loc, "/etc/opencryptoki/p11sak_defined_attrs.conf");
+            }
+        } else {
+            strcpy(file_loc, "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf");
+        }
+    } 
+
+    if ((fp = fopen(file_loc, "r")) == NULL) {
+        fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
+        return 1;
+    }
+    if (parse_configlib_file(fp, &cfg, error_hook, 0)) {
+        fprintf(stderr, "Failed to parse %s\n", file_loc);
+        return 1;
+    }
+    fclose(fp);
+
+    if (cfg != NULL) {
+        confignode_foreach(c, cfg, f) {
+            if (confignode_hastype(c, CT_STRUCT) && strcmp(c->key, "attribute") == 0) {
+                printf(" 1 ");
+                return;
+            }
+        }
+    }
+
+    printf(" 0 ");
+    return;
+}
+/**
+ *  Print in p11sak_defined_attrs.conf defined attributes in long format
+ */
+static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey) {
+    CK_RV rc = CKR_OK;
+
+    int f;
+    FILE *fp;
+    struct ConfigBaseNode *cfg, *c, *name, *hex_string, *type;
+    struct ConfigStructNode *structnode;
+
+    char file_loc[64] = P11SAK_DEFINED_ATTRS_LOCATION;
+
+    // get file location
+    cfg = NULL;
+    if (access(P11SAK_DEFINED_ATTRS_LOCATION, F_OK) != 0) {
+        if (access("/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
+            if (access("/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
+                fprintf(stderr, "Failed to find p11sak_defined_attrs.conf\n");
+                return 1;
+            } else {
+                strcpy(file_loc, "/etc/opencryptoki/p11sak_defined_attrs.conf");
+            }
+        } else {
+            strcpy(file_loc, "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf");
+        }
+    } 
+
+    // open and parse file
+    if ((fp = fopen(file_loc, "r")) == NULL) {
+        fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
+        return 1;
+    }
+    if (parse_configlib_file(fp, &cfg, error_hook, 0)) {
+        fprintf(stderr, "Failed to parse %s\n", file_loc);
+        return 1;
+    }
+
+    // parse and print attributes
+    fclose(fp);
+    if (cfg != NULL)
+    {
+        confignode_foreach(c, cfg, f) {
+            if (confignode_hastype(c, CT_STRUCT) && strcmp(c->key, "attribute") == 0) {
+                // parse...
+                structnode = confignode_to_struct(c);
+                name = confignode_find(structnode->value, "name");
+                hex_string = confignode_find(structnode->value, "hex");
+                type = confignode_find(structnode->value, "type");
+
+                // checking syntax of attribute...
+                if (name == NULL || !confignode_hastype(name, CT_BAREVAL)) {
+                    fprintf(stderr, "Invalid name in Attribute in line %hu\n", c->line);
+                    return 1;
+                }
+                if (hex_string == NULL || !confignode_hastype(hex_string, CT_INTVAL)) {
+                    fprintf(stderr, "Invalid value in Attribute in line %hu\n", c->line);
+                    return 1;
+                }
+                if (type == NULL || !confignode_hastype(type, CT_BAREVAL)) {
+                    fprintf(stderr, "Invalid type in Attribute in line %hu\n", c->line);
+                    return 1;
+                }
+                
+                // print attribute by type
+                unsigned int hex = confignode_to_intval(hex_string)->value;
+                if (strcmp((confignode_to_bareval(type)->value), "bool") == 0) {
+                    // build template
+                    CK_BBOOL a_bool;
+                    CK_ULONG bs = sizeof(CK_BBOOL);
+                    CK_ATTRIBUTE temp[] = { {hex, &a_bool, bs} };
+
+                    // get attribute value
+                    rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
+                    if (rc == CKR_OK) {
+                        if (temp[0].ulValueLen != sizeof(CK_BBOOL)) {
+                            printf(" Error in retrieving Attribute %s: %lu\n",
+                                    confignode_to_bareval(name)->value, temp[0].ulValueLen);
+                        } else {
+                            printf("          %s: %s\n", confignode_to_bareval(name)->value,
+                                    CK_BBOOL2a(*(CK_BBOOL*) temp[0].pValue));
+                        }    
+                    } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
+                        printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    }
+                } else if (strcmp((confignode_to_bareval(type)->value), "ulong") == 0) {
+                    // build template
+                    CK_ULONG a_ulong;
+                    CK_ULONG us = sizeof(CK_ULONG);
+                    CK_ATTRIBUTE temp[] = { {hex, &a_ulong, us} };
+
+                    // get attribute value
+                    rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
+                    if (rc == CKR_OK) {
+                        if (temp[0].ulValueLen != sizeof(CK_ULONG)) {
+                            printf(" Error in retrieving Attribute %s: %lu\n",
+                                    confignode_to_bareval(name)->value, temp[0].ulValueLen);
+                        } else {
+                            printf("          %s: %lu (0x%X)\n", confignode_to_bareval(name)->value, 
+                                *(CK_ULONG*) temp[0].pValue, *(CK_ULONG*) temp[0].pValue);
+                        }    
+                    } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
+                        printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    }
+                } else if (strcmp((confignode_to_bareval(type)->value), "byte_array") == 0) {
+                    // get length 
+                    CK_ATTRIBUTE temp[] = { {hex, NULL, 0} };
+                    rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
+
+                    // build template
+                    CK_BYTE a_byte_array[temp[0].ulValueLen];
+                    CK_ULONG bas = sizeof(a_byte_array);
+                    temp[0].pValue = a_byte_array;
+
+                    // get attribute value
+                    rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
+                    if (rc == CKR_OK) {
+                        if (temp[0].ulValueLen != sizeof(a_byte_array)) {
+                            printf(" Error in retrieving Attribute %s: %lu\n",
+                                    confignode_to_bareval(name)->value, temp[0].ulValueLen);
+                        } else {
+                            dump_attr(&temp[0]);
+                        }    
+                    } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
+                        printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    }
+                } else {
+                    printf("Error: Attribute type [%s] invalid.\n", confignode_to_bareval(type)->value);
+                }
+                
+            } 
+        }
+    }
+    return CKR_OK;
+    printf("<- long_print_vendor \n");
+}
+
+/**
+ *  Print standard attributes 
+ */
 static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype)
 {
     int j = 0;
@@ -1176,12 +1450,12 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
     CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
             &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
     CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_ENCRYPT, &a_encrypt, bs }, {
-            CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, {
-    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
+    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_ENCRYPT, &a_encrypt, bs }, { 
+    CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, { 
+    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, { 
     CKA_UNWRAP, &a_unwrap, bs }, { CKA_EXTRACTABLE, &a_extractable, bs }, {
-            CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
-            CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs }, };
+    CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
+    CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
@@ -1201,11 +1475,15 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
+        rc = long_print_vendor(session, hkey);
+        if (rc != CKR_OK) {
+            return rc;
+        }
     } else {
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_SECRET);
+        short_print_vendor();
         printf("|");
     }
 
@@ -1263,12 +1541,16 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
+        rc = long_print_vendor(session, hkey);
+        if (rc != CKR_OK) {
+            return rc;
+        }
     } else {
         /* Short print */
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PRIVATE);
+        short_print_vendor();
         printf("|");
     }
 
@@ -1319,12 +1601,16 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
+        rc = long_print_vendor(session, hkey);
+        if (rc != CKR_OK) {
+            return rc;
+        }
     } else {
         /* Short print */
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PUBLIC);
+        short_print_vendor();
         printf("|");
     }
 
@@ -2169,9 +2455,9 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
     if (long_print == 0) {
         printf("\n");
         printf(
-                " | M  R  L  S  E  D  G  V  W  U  X  A  N |    KEY TYPE | LABEL\n");
+                " | M  R  L  S  E  D  G  V  W  U  X  A  N  * |    KEY TYPE | LABEL\n");
         printf(
-                " |---------------------------------------+-------------+-------------\n");
+                " |------------------------------------------+-------------+-------------\n");
     }
 
     while (1) {
@@ -2181,9 +2467,10 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
                     p11_get_ckr(rc));
             return rc;
         }
-        if (count == 0)
+        if (count == 0) {
             break;
-
+        }
+        
         rc = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
                 &keylength);
         if (rc != CKR_OK) {
@@ -2202,6 +2489,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
 
         if (long_print) {
             printf("\n      Key: ");
+            // RSA key length
             if (keylength > 0)
                 printf("%s %ld\t\t", keytype, keylength);
             else
@@ -2526,7 +2814,7 @@ static CK_RV start_session(CK_SESSION_HANDLE *session, CK_SLOT_ID slot,
     *session = tmp_sess;
     rc = CKR_OK;
 
-done:
+    done:
 
     return rc;
 }
@@ -2647,7 +2935,7 @@ int main(int argc, char *argv[])
 
     rc = CKR_OK;
 
-done:
+    done:
     if (pin_allocated)
         free(pin);
 
