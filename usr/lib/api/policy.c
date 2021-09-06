@@ -832,6 +832,30 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 break;
             }
             break;
+        case CKM_IBM_BTC_DERIVE:
+            if (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->version !=
+                                    CK_IBM_BTC_DERIVE_PARAMS_VERSION_1)
+                break;
+            switch (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->type) {
+            case CK_IBM_BTC_BIP0032_PRV2PRV:
+            case CK_IBM_BTC_BIP0032_PRV2PUB:
+            case CK_IBM_BTC_BIP0032_PUB2PUB:
+            case CK_IBM_BTC_BIP0032_MASTERK:
+            case CK_IBM_BTC_SLIP0010_PRV2PRV:
+            case CK_IBM_BTC_SLIP0010_PRV2PUB:
+            case CK_IBM_BTC_SLIP0010_PUB2PUB:
+            case CK_IBM_BTC_SLIP0010_MASTERK:
+                /* Uses SHA-512 internally */
+                if (hashmap_find(pp->allowedmechs, CKM_SHA512_HMAC, NULL) == 0) {
+                    TRACE_WARNING("POLICY VIOLATION: BTC SHA-512-HMAC algorithm not allowed by policy.\n");
+                    rv = CKR_FUNCTION_FAILED;
+                }
+                break;
+            default:
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
         default:
             break;
         }
@@ -956,6 +980,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_ED25519_SHA512:
         case CKM_IBM_ED448_SHA3:
         case CKM_IBM_ECDSA_OTHER:
+        case CKM_IBM_BTC_DERIVE:
             if (policy_update_ec(pp, info) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;

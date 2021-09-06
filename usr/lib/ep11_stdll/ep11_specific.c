@@ -1861,7 +1861,8 @@ static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
  */
 static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
                                          CK_ATTRIBUTE *attr, CK_KEY_TYPE ktype,
-                                         CK_OBJECT_CLASS class, int curve_type)
+                                         CK_OBJECT_CLASS class, int curve_type,
+                                         CK_MECHANISM_PTR mech)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
@@ -1883,7 +1884,8 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
             return CK_FALSE;
         break;
     case CKK_EC:
-        if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS)
+        if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS &&
+            mech->mechanism != CKM_IBM_BTC_DERIVE)
             return CK_FALSE;
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
             attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
@@ -1893,8 +1895,9 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
             return CK_FALSE;
         if (class == CKO_PUBLIC_KEY && curve_type == MONTGOMERY_CURVE && attr->type == CKA_VERIFY)
             return CK_FALSE;
-        /* Edwards curves cannot be used for derive */
-        if (curve_type == EDWARDS_CURVE && attr->type == CKA_DERIVE)
+        /* Edwards curves cannot be used for derive (except for CKM_IBM_BTC_DERIVE) */
+        if (curve_type == EDWARDS_CURVE && attr->type == CKA_DERIVE &&
+            mech->mechanism != CKM_IBM_BTC_DERIVE)
             return CK_FALSE;
         break;
     case CKK_DSA:
@@ -1934,7 +1937,7 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
 static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
                               CK_ATTRIBUTE_PTR *p_attrs, CK_ULONG_PTR p_attrs_len,
                               CK_KEY_TYPE ktype, CK_OBJECT_CLASS class,
-                              int curve_type)
+                              int curve_type, CK_MECHANISM_PTR mech)
 {
     DL_NODE *node;
     CK_ATTRIBUTE_PTR attr;
@@ -1953,7 +1956,8 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
             if (attr->ulValueLen > 0 && attr->pValue == NULL)
                 return CKR_ATTRIBUTE_VALUE_INVALID;
 
-            if (attr_applicable_for_ep11(tokdata, attr, ktype, class, curve_type)) {
+            if (attr_applicable_for_ep11(tokdata, attr, ktype, class,
+                                         curve_type, mech)) {
                 rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
                                             attr->pValue, attr->ulValueLen);
                 if (rc != CKR_OK) {
@@ -1997,7 +2001,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
 
     /* tell ep11 the attributes the user specified */
-    rc = build_ep11_attrs(tokdata, key_obj->template, &p_attrs, &attrs_len, ktype, CKO_SECRET_KEY, -1);
+    rc = build_ep11_attrs(tokdata, key_obj->template, &p_attrs, &attrs_len,
+                          ktype, CKO_SECRET_KEY, -1, &mech);
     if (rc != CKR_OK)
         goto rawkey_2_blob_end;
 
@@ -2595,7 +2600,7 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
         attr = node->data;
 
         if (!attr_applicable_for_ep11(tokdata, attr, keytype,
-                                      CKO_PUBLIC_KEY, curve_type))
+                                      CKO_PUBLIC_KEY, curve_type, &mech))
             goto make_maced_spki_next;
 
         switch (attr->type) {
@@ -2756,7 +2761,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(tokdata, rsa_key_obj->template, &p_attrs, &attrs_len, CKK_RSA, class, -1);
+    rc = build_ep11_attrs(tokdata, rsa_key_obj->template, &p_attrs, &attrs_len,
+                          CKK_RSA, class, -1, &mech_w);
     if (rc != CKR_OK)
         goto import_RSA_key_end;
 
@@ -2939,7 +2945,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
      * tell ep11 the attributes the user specified for that key.
      */
     rc = build_ep11_attrs(tokdata, ec_key_obj->template, &p_attrs, &attrs_len,
-                          CKK_EC, class, (int)curve->curve_type);
+                          CKK_EC, class, (int)curve->curve_type, &mech_w);
     if (rc != CKR_OK)
         goto import_EC_key_end;
 
@@ -3158,7 +3164,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(tokdata, dsa_key_obj->template, &p_attrs, &attrs_len, CKK_DSA, class, -1);
+    rc = build_ep11_attrs(tokdata, dsa_key_obj->template, &p_attrs, &attrs_len,
+                          CKK_DSA, class, -1, &mech_w);
     if (rc != CKR_OK)
         goto import_DSA_key_end;
 
@@ -3347,7 +3354,8 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(tokdata, dh_key_obj->template, &p_attrs, &attrs_len, CKK_DH, class, -1);
+    rc = build_ep11_attrs(tokdata, dh_key_obj->template, &p_attrs, &attrs_len,
+                          CKK_DH, class, -1, &mech_w);
     if (rc != CKR_OK)
         goto import_DH_key_end;
 
@@ -3556,7 +3564,9 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(tokdata, dilithium_key_obj->template, &p_attrs, &attrs_len, CKK_IBM_PQC_DILITHIUM, class, -1);
+    rc = build_ep11_attrs(tokdata, dilithium_key_obj->template,
+                          &p_attrs, &attrs_len,
+                          CKK_IBM_PQC_DILITHIUM, class, -1, &mech_w);
     if (rc != CKR_OK)
         goto done;
 
@@ -3918,7 +3928,9 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    rc = build_ep11_attrs(tokdata, key_obj->template, &new_attrs2, &new_attrs2_len, ktype, CKO_SECRET_KEY, -1);
+    rc = build_ep11_attrs(tokdata, key_obj->template,
+                          &new_attrs2, &new_attrs2_len,
+                          ktype, CKO_SECRET_KEY, -1, mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -4949,12 +4961,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ecpoint_len, field_len, key_len = 0;
     CK_ATTRIBUTE *new_attrs1 = NULL, *new_attrs2 = NULL;
     CK_ULONG new_attrs1_len = 0, new_attrs2_len = 0;
-    CK_ULONG privlen;
+    CK_ULONG privlen, i;
     int curve_type;
     CK_BBOOL allocated = FALSE;
     ep11_target_info_t* target_info;
     CK_ULONG used_firmware_API_version;
     CK_MECHANISM_PTR mech_orig = mech;
+    CK_ATTRIBUTE *ec_params;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5184,10 +5197,44 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     curve_type = get_curve_type_from_template(key_obj->template);
     rc = build_ep11_attrs(tokdata, key_obj->template,
                           &new_attrs2, &new_attrs2_len,
-                          ktype, class, curve_type);
+                          ktype, class, curve_type, mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
+    }
+
+    if (mech->mechanism == CKM_IBM_BTC_DERIVE) {
+        /*
+         * CKM_IBM_BTC_DERIVE requires CKA_VALUE_LEN to specify the byte length
+         * of the to be derived EC key. CKA_VALUE_LEN is dependent on the
+         * curve used.
+         * CKA_VALUE_LEN can not be already in the user supplied template,
+         * since this is not allowed by the key template check routines.
+         */
+        rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                              &ec_params);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("CKA_EC_PARAMS is required in derive template\n");
+            goto error;
+        }
+
+        for (i = 0; i < NUMEC; i++) {
+            if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
+                memcmp(ec_params->pValue, der_ec_supported[i].data,
+                       ec_params->ulValueLen) == 0) {
+                privlen = (der_ec_supported[i].len_bits + 7) / 8;
+                rc = add_to_attribute_array(&new_attrs2, &new_attrs2_len,
+                                            CKA_VALUE_LEN,
+                                            (CK_BYTE_PTR)&privlen,
+                                            sizeof(privlen));
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("Adding attribute failed type=CKA_VALUE_LEN "
+                                "rc=0x%lx\n", rc);
+                    goto error;
+                }
+                break;
+            }
+        }
     }
 
     trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
@@ -5203,6 +5250,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                     __func__, hBaseKey, rc, *handle, newblobsize);
         goto error;
@@ -5210,10 +5258,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                __func__, hBaseKey, rc, *handle, newblobsize);
 
-    if (check_expected_mkvp(tokdata, newblob, newblobsize) != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
-        rc = CKR_DEVICE_ERROR;
-        goto error;
+    if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
+        if (check_expected_mkvp(tokdata, newblob, newblobsize) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            rc = CKR_DEVICE_ERROR;
+            goto error;
+        }
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
@@ -5230,11 +5280,24 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     opaque_attr = NULL;
 
-    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
-                    __func__, rc);
-        goto error;
+    if (mech->mechanism == CKM_IBM_BTC_DERIVE && class == CKO_PUBLIC_KEY) {
+        /* Derived blob is an SPKI, extract public EC key attributes */
+        rc = ecdsa_priv_unwrap_get_data(key_obj->template,
+                                        newblob, newblobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ecdsa_priv_unwrap_get_data failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+    }
+
+    if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
+        rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
     }
 
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
@@ -5464,7 +5527,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         goto dh_generate_keypair_end;
     }
 
-    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, CKK_DH, CKO_PUBLIC_KEY, -1);
+    rc = build_ep11_attrs(tokdata, publ_tmpl,
+                          &new_publ_attrs, &new_publ_attrs_len,
+                          CKK_DH, CKO_PUBLIC_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
@@ -5478,7 +5543,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         goto dh_generate_keypair_end;
     }
 
-    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, CKK_DH, CKO_PRIVATE_KEY, -1);
+    rc = build_ep11_attrs(tokdata, priv_tmpl,
+                          &new_priv_attrs, &new_priv_attrs_len,
+                          CKK_DH, CKO_PRIVATE_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
@@ -5790,7 +5857,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
            &(pqgs[0]), sizeof(CK_ATTRIBUTE));
 
-    rc = build_ep11_attrs(tokdata, publ_tmpl, &new_publ_attrs, &new_publ_attrs_len, CKK_DSA, CKO_PUBLIC_KEY, -1);
+    rc = build_ep11_attrs(tokdata, publ_tmpl,
+                          &new_publ_attrs, &new_publ_attrs_len,
+                          CKK_DSA, CKO_PUBLIC_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
@@ -5813,7 +5882,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         goto dsa_generate_keypair_end;
     }
 
-    rc = build_ep11_attrs(tokdata, priv_tmpl, &new_priv_attrs, &new_priv_attrs_len, CKK_DSA, CKO_PRIVATE_KEY, -1);
+    rc = build_ep11_attrs(tokdata, priv_tmpl,
+                          &new_priv_attrs, &new_priv_attrs_len,
+                          CKK_DSA, CKO_PRIVATE_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
@@ -6010,7 +6081,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rc = build_ep11_attrs(tokdata, publ_tmpl,
                           &new_publ_attrs, &new_publ_attrs_len,
                           ktype, CKO_PUBLIC_KEY,
-                          curve != NULL ? curve->curve_type : -1);
+                          curve != NULL ? curve->curve_type : -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -6019,7 +6090,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rc = build_ep11_attrs(tokdata, priv_tmpl,
                           &new_priv_attrs, &new_priv_attrs_len,
                           ktype, CKO_PRIVATE_KEY,
-                          curve != NULL ? curve->curve_type : -1);
+                          curve != NULL ? curve->curve_type : -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -6366,7 +6437,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
 
     rc = build_ep11_attrs(tokdata, publ_tmpl,
                           &new_publ_attrs, &new_publ_attrs_len,
-                          ktype, CKO_PUBLIC_KEY, -1);
+                          ktype, CKO_PUBLIC_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -6374,7 +6445,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
 
     rc = build_ep11_attrs(tokdata, priv_tmpl,
                           &new_priv_attrs, &new_priv_attrs_len,
-                          ktype, CKO_PRIVATE_KEY, -1);
+                          ktype, CKO_PRIVATE_KEY, -1, pMechanism);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
@@ -8852,7 +8923,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    rc = build_ep11_attrs(tokdata, key_obj->template, &new_attrs2, &new_attrs2_len, ktype, *(CK_OBJECT_CLASS *) cla_attr->pValue, -1);
+    rc = build_ep11_attrs(tokdata, key_obj->template,
+                          &new_attrs2, &new_attrs2_len,
+                          ktype, *(CK_OBJECT_CLASS *) cla_attr->pValue, -1,
+                          mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
