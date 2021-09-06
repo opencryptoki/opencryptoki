@@ -375,6 +375,16 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
             return CKR_OK;
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_IBM_USE_AS_DATA:
+        if (attr->ulValueLen != sizeof(CK_BBOOL) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (mode == MODE_CREATE || mode == MODE_DERIVE || mode == MODE_KEYGEN
+            || mode == MODE_UNWRAP)
+            return CKR_OK;
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
     default:
         return template_validate_base_attribute(tmpl, attr, mode);
     }
