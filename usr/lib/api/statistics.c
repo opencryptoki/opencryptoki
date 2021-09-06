@@ -134,6 +134,28 @@ static CK_RV statistics_increment(struct statistics *statistics,
             break;
         }
         break;
+    case CKM_IBM_BTC_DERIVE:
+        if (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->version !=
+                                CK_IBM_BTC_DERIVE_PARAMS_VERSION_1)
+            break;
+        switch (((CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter)->type) {
+        case CK_IBM_BTC_BIP0032_PRV2PRV:
+        case CK_IBM_BTC_BIP0032_PRV2PUB:
+        case CK_IBM_BTC_BIP0032_PUB2PUB:
+        case CK_IBM_BTC_BIP0032_MASTERK:
+        case CK_IBM_BTC_SLIP0010_PRV2PRV:
+        case CK_IBM_BTC_SLIP0010_PRV2PUB:
+        case CK_IBM_BTC_SLIP0010_PUB2PUB:
+        case CK_IBM_BTC_SLIP0010_MASTERK:
+            /* Uses SHA-512 internally */
+            implicit_mech.mechanism = CKM_SHA512_HMAC;
+            rc = statistics_increment(statistics, slot, &implicit_mech,
+                                      POLICY_STRENGTH_IDX_0);
+            if (rc != CKR_OK)
+                return rc;
+            break;
+        }
+        break;
     default:
         break;
     }
