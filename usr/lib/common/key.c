@@ -3706,7 +3706,7 @@ CK_RV ecdsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 {
     switch (attr->type) {
     case CKA_ECDSA_PARAMS:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN)
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN || mode == MODE_DERIVE)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
@@ -3918,7 +3918,7 @@ CK_RV ecdsa_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 {
     switch (attr->type) {
     case CKA_ECDSA_PARAMS:
-        if (mode == MODE_CREATE)
+        if (mode == MODE_CREATE || mode == MODE_DERIVE)
             return CKR_OK;
 
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
