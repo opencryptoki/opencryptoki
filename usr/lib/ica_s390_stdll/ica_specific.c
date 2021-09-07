@@ -4282,132 +4282,6 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     return rc;
 }
 
-static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
-                                  CK_BYTE *in_data, CK_ULONG in_data_len,
-                                  CK_BYTE *out_data, CK_ULONG *out_data_len,
-                                  OBJECT *key_obj)
-{
-    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
-    CK_RV ret = CKR_OK;
-    CK_ATTRIBUTE *attr, *attr2;
-    ICA_EC_KEY *eckey;
-    unsigned int privlen;
-    unsigned char *d = NULL;
-    int rc, nid;
-
-    UNUSED(sess);
-
-    *out_data_len = 0;
-
-    if (!ica_data->ica_ec_support_available) {
-        TRACE_ERROR("ECC support is not available in Libica\n");
-        return CKR_FUNCTION_NOT_SUPPORTED;
-    }
-
-    /* Get CKA_ECDSA_PARAMS from template */
-    ret = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
-                                           &attr);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    /* Determine curve nid */
-    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
-    if (nid < 0) {
-        TRACE_ERROR("Cannot determine curve nid. \n");
-        return CKR_CURVE_NOT_SUPPORTED;
-    }
-
-    /* Create ICA_EC_KEY object */
-    eckey = p_ica_ec_key_new(nid, &privlen);
-    if (!eckey) {
-        TRACE_ERROR("ica_ec_key_new() failed for curve %i.\n", nid);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Get private key from template via CKA_VALUE */
-    ret = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
-                                           &attr2);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        ret = CKR_TEMPLATE_INCOMPLETE;
-        goto end;
-    }
-
-    /* Add zero padding if needed */
-    if (privlen > attr2->ulValueLen) {
-        d = calloc(privlen, 1);
-        if (d == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            ret = CKR_HOST_MEMORY;
-            goto end;
-        }
-
-        memcpy(d + privlen - attr2->ulValueLen, attr2->pValue,
-               attr2->ulValueLen);
-    }
-
-    /* Initialize ICA_EC_KEY with private key (D) */
-    rc = p_ica_ec_key_init(NULL, NULL, d != NULL ? d : attr2->pValue, eckey);
-    if (rc != 0) {
-        TRACE_ERROR("ica_ec_key_init() failed with rc = %d \n", rc);
-        ret = CKR_FUNCTION_FAILED;
-        goto end;
-    }
-
-    /* Create signature */
-    rc = p_ica_ecdsa_sign(ica_data->adapter_handle, eckey,
-                          (unsigned char *) in_data,
-                          (unsigned int) in_data_len,
-                          (unsigned char *) out_data, 2 * privlen);
-    if (rc != 0) {
-        switch (rc) {
-        case ENODEV:
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-            ret = CKR_FUNCTION_NOT_SUPPORTED;
-            break;
-        default:
-            TRACE_ERROR("ica_ecdsa_sign() failed with rc = %d. \n", rc);
-            ret = CKR_FUNCTION_FAILED;
-            break;
-        }
-        goto end;
-    }
-
-    *out_data_len = 2 * privlen;
-    ret = CKR_OK;
-
-end:
-    p_ica_ec_key_free(eckey);
-    if (d != NULL)
-        free(d);
-
-    return ret;
-}
-
-CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
-                             CK_BYTE *in_data, CK_ULONG in_data_len,
-                             CK_BYTE *out_data, CK_ULONG *out_data_len,
-                             OBJECT *key_obj)
-{
-    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
-    CK_RV rc = CKR_FUNCTION_FAILED;
-
-    if (ica_data->ica_ec_signverify_available) {
-        rc = ica_specific_ec_sign(tokdata, sess, in_data, in_data_len,
-                                  out_data, out_data_len, key_obj);
-        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
-            ica_data->ica_ec_signverify_available = FALSE;
-    }
-
-    if (!ica_data->ica_ec_signverify_available)
-        rc = openssl_specific_ec_sign(tokdata, sess, in_data, in_data_len,
-                                      out_data, out_data_len, key_obj);
-
-    return rc;
-}
-
 /**
  * decompress the given compressed public key. Sets x from given pub_key,
  * re-calculates y from format byte, x and nid.
@@ -4543,6 +4417,255 @@ static CK_RV set_pubkey_coordinates(unsigned int nid,
     return CKR_FUNCTION_FAILED;
 }
 
+static CK_RV ica_prepare_ec_key(OBJECT *key_obj, ICA_EC_KEY **eckey,
+                                unsigned int *privlen, int *nid)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+
+    /* Get CKA_ECDSA_PARAMS from template */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        return CKR_TEMPLATE_INCOMPLETE;
+    }
+
+    /* Determine curve nid */
+    *nid = nid_from_oid(attr->pValue, attr->ulValueLen);
+    if (*nid < 0) {
+        TRACE_ERROR("Cannot determine curve nid. \n");
+        return CKR_CURVE_NOT_SUPPORTED;
+    }
+
+    /* Create ICA_EC_KEY object */
+    *eckey = p_ica_ec_key_new(*nid, privlen);
+    if (!*eckey) {
+        TRACE_ERROR("ica_ec_key_new() failed for curve %i.\n", *nid);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ica_build_ec_priv_key(OBJECT *key_obj, ICA_EC_KEY **eckey,
+                                   unsigned int *privlen)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+    unsigned char *d = NULL;
+    int rc, nid;
+
+    /* Prepare the ICA key */
+    ret = ica_prepare_ec_key(key_obj, eckey, privlen, &nid);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ica_prepare_ec_key() failed with rc = 0x%lx. \n", ret);
+        return ret;
+    }
+
+    /* Get private key from template via CKA_VALUE */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* Add zero padding if needed */
+    if (*privlen > attr->ulValueLen) {
+        d = calloc(*privlen, 1);
+        if (d == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            ret = CKR_HOST_MEMORY;
+            goto end;
+        }
+
+        memcpy(d + *privlen - attr->ulValueLen, attr->pValue,
+               attr->ulValueLen);
+    }
+
+    /* Initialize ICA_EC_KEY with private key (D) */
+    rc = p_ica_ec_key_init(NULL, NULL, d != NULL ? d : attr->pValue, *eckey);
+    if (rc != 0) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        case EPERM:
+            TRACE_ERROR("ica_ec_key_init() failed with rc=EPERM, probably curve not supported by openssl.\n");
+            ret = CKR_CURVE_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_ec_key_init() failed with rc = %d \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
+        goto end;
+    }
+
+end:
+    if (ret != CKR_OK) {
+        p_ica_ec_key_free(*eckey);
+        *eckey = NULL;
+    }
+    if (d != NULL)
+        free(d);
+
+    return ret;
+}
+
+static CK_RV ica_build_ec_pub_key(OBJECT *key_obj, ICA_EC_KEY **eckey,
+                                  unsigned int *privlen)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *attr;
+    unsigned char x_array[ICATOK_EC_MAX_D_LEN];
+    unsigned char y_array[ICATOK_EC_MAX_D_LEN];
+    int rc, nid;
+    CK_BYTE *ecpoint;
+    CK_ULONG ecpoint_len, field_len;
+
+    /* Prepare the ICA key */
+    ret = ica_prepare_ec_key(key_obj, eckey, privlen, &nid);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ica_prepare_ec_key() failed with rc = 0x%lx. \n", ret);
+        return ret;
+    }
+
+    /* Get public key (X,Y) from template via CKA_EC_POINT */
+    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_POINT,
+                                           &attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
+        ret = CKR_TEMPLATE_INCOMPLETE;
+        goto end;
+    }
+
+    /* CKA_EC_POINT contains the EC point as OCTET STRING */
+    ret = ber_decode_OCTET_STRING(attr->pValue, &ecpoint, &ecpoint_len,
+                                  &field_len);
+    if (ret != CKR_OK || field_len != attr->ulValueLen) {
+        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
+        ret = CKR_ATTRIBUTE_VALUE_INVALID;
+        goto end;
+    }
+
+    /* Provide (X,Y), decompress key if necessary */
+    ret = set_pubkey_coordinates(nid, ecpoint, ecpoint_len,
+                                 *privlen, x_array, y_array);
+    if (ret != 0) {
+        TRACE_ERROR("Cannot determine public key coordinates from "
+                    "given public key\n");
+        goto end;
+    }
+
+    /* Initialize ICA_EC_KEY with public key (Q) */
+    rc = p_ica_ec_key_init(x_array, y_array, NULL, *eckey);
+    if (rc != 0) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        case EPERM:
+            TRACE_ERROR("ica_ec_key_init() failed with rc=EPERM, probably curve not supported by openssl.\n");
+            ret = CKR_CURVE_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_ec_key_init() failed with rc = %d \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
+        goto end;
+    }
+
+end:
+    if (ret != CKR_OK) {
+        p_ica_ec_key_free(*eckey);
+        *eckey = NULL;
+    }
+
+    return ret;
+}
+
+static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                                  CK_BYTE *in_data, CK_ULONG in_data_len,
+                                  CK_BYTE *out_data, CK_ULONG *out_data_len,
+                                  OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV ret = CKR_OK;
+    ICA_EC_KEY *eckey;
+    unsigned int privlen;
+    int rc;
+
+    UNUSED(sess);
+
+    *out_data_len = 0;
+
+    if (!ica_data->ica_ec_support_available) {
+        TRACE_ERROR("ECC support is not available in Libica\n");
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Get the private key */
+    ret = ica_build_ec_priv_key(key_obj, &eckey, &privlen);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ica_build_ec_priv_key() failed with rc = 0x%lx. \n", ret);
+        return ret;
+    }
+
+    /* Create signature */
+    rc = p_ica_ecdsa_sign(ica_data->adapter_handle, eckey,
+                          (unsigned char *) in_data,
+                          (unsigned int) in_data_len,
+                          (unsigned char *) out_data, 2 * privlen);
+    if (rc != 0) {
+        switch (rc) {
+        case ENODEV:
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+            ret = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        default:
+            TRACE_ERROR("ica_ecdsa_sign() failed with rc = %d. \n", rc);
+            ret = CKR_FUNCTION_FAILED;
+            break;
+        }
+        goto end;
+    }
+
+    *out_data_len = 2 * privlen;
+    ret = CKR_OK;
+
+end:
+    p_ica_ec_key_free(eckey);
+
+    return ret;
+}
+
+CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_RV rc = CKR_FUNCTION_FAILED;
+
+    if (ica_data->ica_ec_signverify_available) {
+        rc = ica_specific_ec_sign(tokdata, sess, in_data, in_data_len,
+                                  out_data, out_data_len, key_obj);
+        if (rc == CKR_FUNCTION_NOT_SUPPORTED)
+            ica_data->ica_ec_signverify_available = FALSE;
+    }
+
+    if (!ica_data->ica_ec_signverify_available)
+        rc = openssl_specific_ec_sign(tokdata, sess, in_data, in_data_len,
+                                      out_data, out_data_len, key_obj);
+
+    return rc;
+}
 
 static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
                                     SESSION *sess,
@@ -4553,14 +4676,9 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV ret = CKR_OK;
-    CK_ATTRIBUTE *attr, *attr2;
     ICA_EC_KEY *eckey;
     unsigned int privlen;
-    unsigned char x_array[ICATOK_EC_MAX_D_LEN];
-    unsigned char y_array[ICATOK_EC_MAX_D_LEN];
-    int rc, nid;
-    CK_BYTE *ecpoint;
-    CK_ULONG ecpoint_len, field_len;
+    int rc;
 
     UNUSED(sess);
 
@@ -4569,43 +4687,11 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    /* Get CKA_ECDSA_PARAMS from template */
-    ret = template_attribute_get_non_empty(key_obj->template, CKA_ECDSA_PARAMS,
-                                           &attr);
+    /* Get the public key */
+    ret = ica_build_ec_pub_key(key_obj, &eckey, &privlen);
     if (ret != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        return CKR_TEMPLATE_INCOMPLETE;
-    }
-
-    /* Create ICA_EC_KEY object */
-    nid = nid_from_oid(attr->pValue, attr->ulValueLen);
-    if (nid < 0) {
-        TRACE_ERROR("Cannot determine curve nid. \n");
-        return CKR_CURVE_NOT_SUPPORTED;
-    }
-
-    eckey = p_ica_ec_key_new(nid, &privlen);
-    if (!eckey) {
-        TRACE_ERROR("ica_ec_key_new() failed for curve %i. \n", nid);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    /* Get public key (X,Y) from template via CKA_EC_POINT */
-    ret = template_attribute_get_non_empty(key_obj->template, CKA_EC_POINT,
-                                           &attr2);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
-        ret = CKR_TEMPLATE_INCOMPLETE;
-        goto end;
-    }
-
-    /* CKA_EC_POINT contains the EC point as OCTET STRING */
-    ret = ber_decode_OCTET_STRING(attr2->pValue, &ecpoint, &ecpoint_len,
-                                  &field_len);
-    if (ret != CKR_OK || field_len != attr2->ulValueLen) {
-        TRACE_DEVEL("ber_decode_OCTET_STRING failed\n");
-        ret = CKR_ATTRIBUTE_VALUE_INVALID;
-        goto end;
+        TRACE_ERROR("ica_build_ec_pub_key() failed with rc = 0x%lx. \n", ret);
+        return ret;
     }
 
     /* Signature length ok? */
@@ -4614,24 +4700,6 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
                     "supplied length = %ld, length from libica = %i\n",
                     signature_len, 2 * privlen);
         ret = CKR_SIGNATURE_LEN_RANGE;
-        goto end;
-    }
-
-    /* Provide (X,Y), decompress key if necessary */
-    ret = set_pubkey_coordinates(nid, ecpoint, ecpoint_len,
-                                 privlen, x_array, y_array);
-    if (ret != 0) {
-        TRACE_ERROR("Cannot determine public key coordinates from "
-                    "given public key\n");
-        goto end;
-    }
-
-    /* Initialize ICA_EC_KEY with public key (Q) */
-    rc = p_ica_ec_key_init(x_array, y_array, NULL, eckey);
-    if (rc != 0) {
-        TRACE_ERROR("ica_ec_key_init() for public key failed "
-                    "with rc = %d \n", rc);
-        ret = CKR_FUNCTION_FAILED;
         goto end;
     }
 
@@ -4846,3 +4914,60 @@ CK_RV token_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
 }
 
 #endif
+
+CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
+                                OBJECT *obj)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE keytype;
+#ifndef NO_EC
+    ICA_EC_KEY *ica_eckey = NULL;
+    unsigned int privlen;
+    EVP_PKEY *ossl_eckey = NULL;
+#endif
+    CK_RV rc;
+
+    UNUSED(sess);
+
+    rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK)
+        return CKR_OK;
+
+    rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK)
+        return CKR_OK;
+
+    switch (keytype) {
+#ifndef NO_EC
+    case CKK_EC:
+        if (ica_data->ica_ec_keygen_available) {
+            /* Check if libica supports the curve */
+            switch (class) {
+            case CKO_PRIVATE_KEY:
+                rc = ica_build_ec_priv_key(obj, &ica_eckey, &privlen);
+                if (ica_eckey != NULL)
+                    p_ica_ec_key_free(ica_eckey);
+                return rc;
+            case CKO_PUBLIC_KEY:
+                rc = ica_build_ec_pub_key(obj, &ica_eckey, &privlen);
+                if (ica_eckey != NULL)
+                    p_ica_ec_key_free(ica_eckey);
+                return rc;
+            default:
+                return CKR_KEY_TYPE_INCONSISTENT;
+            }
+        } else {
+            /* Check if OpenSSL supports the curve */
+            rc = openssl_make_ec_key_from_template(obj->template, &ossl_eckey);
+            if (ossl_eckey != NULL)
+                    EVP_PKEY_free(ossl_eckey);
+            return rc;
+        }
+        return CKR_OK;
+#endif
+
+    default:
+        return CKR_OK;
+    }
+}
