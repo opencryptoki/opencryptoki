@@ -35,14 +35,6 @@ static void error_hook(int line, int col, const char *msg)
   fprintf(stderr, "PARSE ERROR: %d:%d: %s\n", line, col, msg);
 }
 
-static void usage(char *prg)
-{
-  printf("USAGE: %s <path/to/p11sak-idx.conf> [<idx>]\n", prg);
-  printf(" where:\n");
-  printf("\t<path/to/p11sak-idx.conf> specifies the path to \"p11sak-idx.conf\"\n");
-  printf("\t<idx>                    specifies the index of the attribute set\n");
-}
-
 // -------------------- temp: fliegt wieder raus -------------------------------
 void dump_attr(CK_ATTRIBUTE_PTR a)
 {
@@ -209,6 +201,8 @@ static const char* kt2str(p11sak_kt ktype)
         return "PUBLIC";
     case kt_PRIVATE:
         return "PRIVATE";
+    case kt_ALL:
+        return "ALL";
     case no_key_type:
         return "NO_KEYTYPE";
     default:
@@ -258,6 +252,9 @@ static CK_RV kt2CKO(p11sak_kt ktype, CK_OBJECT_CLASS *a_cko)
         break;
     case kt_PRIVATE:
         *a_cko = CKO_PRIVATE_KEY;
+        break;
+    case kt_ALL:
+        *a_cko = CKO_IBM_ALL_KEY;
         break;
     default:
         return CKR_ARGUMENTS_BAD;
@@ -1067,6 +1064,15 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
                     p11_get_ckr(rc));
             return rc;
         }
+    } else if (kt == kt_ALL) {
+        rc = funcs->C_FindObjectsInit(session, NULL, 0);
+        if (rc != CKR_OK) {
+            printf("C_FindObjectInit failed\n");
+            printf("in tok_key_list_init() (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            return rc;
+        }
+        return rc;
     } else {
         rc = kt2CKO(kt, &a_cko);
         if (rc != CKR_OK) {
@@ -1091,6 +1097,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_SECRET:
     case kt_PUBLIC:
     case kt_PRIVATE:
+    case kt_ALL:
         tmplt[2].type = CKA_CLASS;
         tmplt[2].pValue = &a_cko;
         tmplt[2].ulValueLen = sizeof(CK_OBJECT_CLASS);
@@ -1231,11 +1238,11 @@ static void short_print_vendor() {
 
     if ((fp = fopen(file_loc, "r")) == NULL) {
         fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
-        return 1;
+        return;
     }
     if (parse_configlib_file(fp, &cfg, error_hook, 0)) {
         fprintf(stderr, "Failed to parse %s\n", file_loc);
-        return 1;
+        return;
     }
     fclose(fp);
 
@@ -1349,7 +1356,7 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                             printf(" Error in retrieving Attribute %s: %lu\n",
                                     confignode_to_bareval(name)->value, temp[0].ulValueLen);
                         } else {
-                            printf("          %s: %lu (0x%X)\n", confignode_to_bareval(name)->value, 
+                            printf("          %s: %lu (0x%lX)\n", confignode_to_bareval(name)->value, 
                                 *(CK_ULONG*) temp[0].pValue, *(CK_ULONG*) temp[0].pValue);
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
@@ -1362,7 +1369,6 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
 
                     // build template
                     CK_BYTE a_byte_array[temp[0].ulValueLen];
-                    CK_ULONG bas = sizeof(a_byte_array);
                     temp[0].pValue = a_byte_array;
 
                     // get attribute value
@@ -1397,6 +1403,9 @@ static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype)
     int attr_count = 0;
 
     switch (ktype) {
+        case kt_ALL:
+        attr_count = KEY_MAX_BOOL_ATTR_COUNT;
+        break;
     case kt_SECRET:
         attr_count = SEC_KEY_MAX_BOOL_ATTR_COUNT;
         break;
@@ -1709,6 +1718,9 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
     case CKO_PRIVATE_KEY:
         strcpy(buffer, "private ");
         break;
+    case CKO_IBM_ALL_KEY:
+        strcpy(buffer, "all ");
+        break;
     default:
         // FIXIT - return code to represent object class invalid
         rc = CKR_KEY_HANDLE_INVALID;
@@ -1823,6 +1835,7 @@ static CK_RV check_args_list_key(p11sak_kt *kt)
     case kt_SECRET:
     case kt_PUBLIC:
     case kt_PRIVATE:
+    case kt_ALL:
         break;
     default:
         printf("Cipher key type [%d] is not set or not supported\n", *kt);
@@ -1949,6 +1962,9 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if (strcmp(argv[i], "PRIVATE") == 0
                 || strcmp(argv[i], "private") == 0) {
             *kt = kt_PRIVATE;
+        } else if (strcmp(argv[i], "ALL") == 0
+                || strcmp(argv[i], "all") == 0) {
+            *kt = kt_ALL;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
