@@ -85,6 +85,7 @@
 
 #include "tok_spec_struct.h"
 
+#include <openssl/rsa.h>
 
 // key_object_check_required_attributes()
 //
@@ -2165,7 +2166,7 @@ CK_RV rsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             } else {
                 CK_ULONG mod_bits = *(CK_ULONG *) attr->pValue;
 
-                if (mod_bits < 512 || mod_bits > 4096) {
+                if (mod_bits < 512 || mod_bits > OPENSSL_RSA_MAX_MODULUS_BITS) {
                     TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                     return CKR_ATTRIBUTE_VALUE_INVALID;
                 }
