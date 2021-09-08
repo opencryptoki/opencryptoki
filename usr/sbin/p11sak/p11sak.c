@@ -1215,7 +1215,9 @@ static CK_ATTRIBUTE_TYPE col2type(int col)
 /**
  *  Print in p11sak_defined_attrs.conf defined attributes in short format
  */
-static void short_print_vendor() {
+static CK_RV short_print_vendor() {
+    CK_RV rc = CKR_OK;
+
     int f;
     FILE *fp;
     struct ConfigBaseNode *cfg, *c;
@@ -1223,26 +1225,19 @@ static void short_print_vendor() {
     char file_loc[64] = P11SAK_DEFINED_ATTRS_LOCATION;
 
     cfg = NULL;
-    if (access(P11SAK_DEFINED_ATTRS_LOCATION, F_OK) != 0) {
-        if (access("/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
-            if (access("/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
-                printf(" - ");
-                return;
-            } else {
-                strcpy(file_loc, "/etc/opencryptoki/p11sak_defined_attrs.conf");
-            }
-        } else {
-            strcpy(file_loc, "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf");
-        }
-    } 
+    if (strcmp(P11SAK_DEFINED_ATTRS_LOCATION, "") == 1) {
+        strcpy(file_loc, P11SAK_DEFINED_ATTRS_LOCATION);
+    } else {
+        strcpy(file_loc, P11SAK_DEFAULT_CONF_FILE);
+    }
 
     if ((fp = fopen(file_loc, "r")) == NULL) {
-        fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
-        return;
+        fprintf(stderr, "\nFailed to load %s: %s\n", file_loc, strerror(errno));
+        return CKR_ARGUMENTS_BAD;
     }
     if (parse_configlib_file(fp, &cfg, error_hook, 0)) {
-        fprintf(stderr, "Failed to parse %s\n", file_loc);
-        return;
+        fprintf(stderr, "\nFailed to parse %s\n", file_loc);
+        return CKR_DATA_INVALID;
     }
     fclose(fp);
 
@@ -1250,13 +1245,13 @@ static void short_print_vendor() {
         confignode_foreach(c, cfg, f) {
             if (confignode_hastype(c, CT_STRUCT) && strcmp(c->key, "attribute") == 0) {
                 printf(" 1 ");
-                return;
+                return rc;
             }
         }
     }
 
     printf(" 0 ");
-    return;
+    return rc;
 }
 /**
  *  Print in p11sak_defined_attrs.conf defined attributes in long format
@@ -1273,27 +1268,20 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
 
     // get file location
     cfg = NULL;
-    if (access(P11SAK_DEFINED_ATTRS_LOCATION, F_OK) != 0) {
-        if (access("/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
-            if (access("/etc/opencryptoki/p11sak_defined_attrs.conf", F_OK) != 0) {
-                fprintf(stderr, "Failed to find p11sak_defined_attrs.conf\n");
-                return 1;
-            } else {
-                strcpy(file_loc, "/etc/opencryptoki/p11sak_defined_attrs.conf");
-            }
-        } else {
-            strcpy(file_loc, "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf");
-        }
+    if (strcmp(P11SAK_DEFINED_ATTRS_LOCATION, "") == 1) {
+        strcpy(file_loc, P11SAK_DEFINED_ATTRS_LOCATION);
+    } else {
+        strcpy(file_loc, P11SAK_DEFAULT_CONF_FILE);
     } 
 
     // open and parse file
     if ((fp = fopen(file_loc, "r")) == NULL) {
         fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
-        return 1;
+        return CKR_ARGUMENTS_BAD;
     }
     if (parse_configlib_file(fp, &cfg, error_hook, 0)) {
         fprintf(stderr, "Failed to parse %s\n", file_loc);
-        return 1;
+        return CKR_DATA_INVALID;
     }
 
     // parse and print attributes
@@ -1305,26 +1293,26 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                 // parse...
                 structnode = confignode_to_struct(c);
                 name = confignode_find(structnode->value, "name");
-                hex_string = confignode_find(structnode->value, "hex");
+                hex_string = confignode_find(structnode->value, "id");
                 type = confignode_find(structnode->value, "type");
 
                 // checking syntax of attribute...
                 if (name == NULL || !confignode_hastype(name, CT_BAREVAL)) {
                     fprintf(stderr, "Invalid name in Attribute in line %hu\n", c->line);
-                    return 1;
+                    return CKR_DATA_INVALID;
                 }
                 if (hex_string == NULL || !confignode_hastype(hex_string, CT_INTVAL)) {
                     fprintf(stderr, "Invalid value in Attribute in line %hu\n", c->line);
-                    return 1;
+                    return CKR_DATA_INVALID;
                 }
                 if (type == NULL || !confignode_hastype(type, CT_BAREVAL)) {
                     fprintf(stderr, "Invalid type in Attribute in line %hu\n", c->line);
-                    return 1;
+                    return CKR_DATA_INVALID;
                 }
                 
                 // print attribute by type
                 unsigned int hex = confignode_to_intval(hex_string)->value;
-                if (strcmp((confignode_to_bareval(type)->value), "bool") == 0) {
+                if (strcmp((confignode_to_bareval(type)->value), "CK_BBOOL") == 0) {
                     // build template
                     CK_BBOOL a_bool;
                     CK_ULONG bs = sizeof(CK_BBOOL);
@@ -1342,8 +1330,11 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
+                    } else {
+                        return rc;
                     }
-                } else if (strcmp((confignode_to_bareval(type)->value), "ulong") == 0) {
+                } else if (strcmp((confignode_to_bareval(type)->value), "CK_ULONG") == 0) {
                     // build template
                     CK_ULONG a_ulong;
                     CK_ULONG us = sizeof(CK_ULONG);
@@ -1361,8 +1352,11 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
+                    } else {
+                        return rc;
                     }
-                } else if (strcmp((confignode_to_bareval(type)->value), "byte_array") == 0) {
+                } else if (strcmp((confignode_to_bareval(type)->value), "CK_BYTE") == 0) {
                     // get length 
                     CK_ATTRIBUTE temp[] = { {hex, NULL, 0} };
                     rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
@@ -1382,6 +1376,9 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
+                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
+                    } else {
+                        return rc;
                     }
                 } else {
                     printf("Error: Attribute type [%s] invalid.\n", confignode_to_bareval(type)->value);
@@ -1391,7 +1388,6 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
         }
     }
     return CKR_OK;
-    printf("<- long_print_vendor \n");
 }
 
 /**
@@ -1403,9 +1399,6 @@ static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype)
     int attr_count = 0;
 
     switch (ktype) {
-        case kt_ALL:
-        attr_count = KEY_MAX_BOOL_ATTR_COUNT;
-        break;
     case kt_SECRET:
         attr_count = SEC_KEY_MAX_BOOL_ATTR_COUNT;
         break;
@@ -1492,7 +1485,12 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_SECRET);
-        short_print_vendor();
+        rc = short_print_vendor();
+        if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+            return rc;
+        }
         printf("|");
     }
 
@@ -1559,7 +1557,12 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PRIVATE);
-        short_print_vendor();
+        rc = short_print_vendor();
+        if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+            return rc;
+        }
         printf("|");
     }
 
@@ -1619,7 +1622,12 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PUBLIC);
-        short_print_vendor();
+        rc = short_print_vendor();
+        if (rc != CKR_OK) {
+        printf("Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+            return rc;
+        }
         printf("|");
     }
 
