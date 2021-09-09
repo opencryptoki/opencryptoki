@@ -931,15 +931,15 @@ static CK_ULONG char2attrtype(char c)
 
 static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string)
 {
-    int i;
-
-    if (!attr_string)
+    if (!attr_string) {
         return;
-
-    for (i = 0; i < (int) strlen(attr_string); i++) {
-        if (char2attrtype(attr_string[i]) == attr->type) {
-            attr->pValue = &ckb_true;
-        }
+    }
+    attr->type = char2attrtype(toupper(attr_string));
+    attr->ulValueLen = sizeof(CK_BBOOL);
+    if (attr_string > 90) {
+        attr->pValue = &ckb_false;
+    } else {
+        attr->pValue = &ckb_true;
     }
 }
 /**
@@ -955,46 +955,45 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
     /* Boolean attributes (cannot be specified by user) */
     CK_BBOOL a_token = ckb_true; // always true
     CK_BBOOL a_private = ckb_true; // always true
-
-    /* Boolean attributes from user input */
-    CK_BBOOL a_modifiable = ckb_false;
-    CK_BBOOL a_derive = ckb_false;
-    CK_BBOOL a_sensitive = ckb_false;
-    CK_BBOOL a_encrypt = ckb_false;
-    CK_BBOOL a_decrypt = ckb_false;
-    CK_BBOOL a_sign = ckb_false;
-    CK_BBOOL a_verify = ckb_false;
-    CK_BBOOL a_wrap = ckb_false;
-    CK_BBOOL a_unwrap = ckb_false;
-    CK_BBOOL a_extractable = ckb_false;
-    CK_ULONG bs = sizeof(CK_BBOOL);
+    CK_ULONG bs = sizeof(CK_BBOOL); 
 
     /* Non-boolean attributes */
     CK_ULONG a_value_len = keylength / 8;
+    
+    /* Standard template */
+    CK_ATTRIBUTE tmplt_std[] = {
+        { CKA_TOKEN, &a_token, bs }, 
+        { CKA_PRIVATE, &a_private, bs }, 
+        { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, 
+        { CKA_LABEL, label, strlen(label) } 
+    };
+    CK_ULONG num_attrs = sizeof(tmplt_std) / sizeof(CK_ATTRIBUTE);
 
-    CK_ATTRIBUTE tmplt[] = {
-            // boolean attrs
-            { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE, &a_private, bs }, {
-            CKA_MODIFIABLE, &a_modifiable, bs }, { CKA_DERIVE, &a_derive, bs },
-            { CKA_SENSITIVE, &a_sensitive, bs }, {
-            CKA_ENCRYPT, &a_encrypt, bs }, { CKA_DECRYPT, &a_decrypt, bs }, {
-                    CKA_SIGN, &a_sign, bs }, {
-            CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
-            CKA_UNWRAP, &a_unwrap, bs },
-            { CKA_EXTRACTABLE, &a_extractable, bs },
-            // non-boolean attrs
-            { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, { CKA_LABEL,
-                    label, strlen(label) } };
-    CK_ULONG num_attrs = sizeof(tmplt) / sizeof(CK_ATTRIBUTE);
-    CK_ULONG num_bools = num_attrs - 2;
+    /* init template from String */
+    CK_ULONG num_attrs2;
+    if (attr_string) {
+        num_attrs2 = strlen(attr_string);
+    } else {
+        num_attrs2 = 0;
+    }
+    CK_ATTRIBUTE tmplt[num_attrs2];
 
-    /* set boolean attributes */
-    for (i = 0; i < (int) num_bools; i++) {
-        set_bool_attr_from_string(&tmplt[i], attr_string);
+    /* set boolean attributes, set template from string */
+    for (i = 0; i < (int) num_attrs2; i++) {
+        set_bool_attr_from_string(&tmplt[i], attr_string[i]);
     }
 
+    /* build new template */
+    int mallocsize = (num_attrs + num_attrs2) * sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE* new_tmplt = malloc(mallocsize);
+    
+    memcpy(new_tmplt, tmplt_std, sizeof(tmplt_std));
+    memcpy(new_tmplt + num_attrs, tmplt, sizeof(tmplt));
+
+    num_attrs += num_attrs2;
+    
     /* generate key */
-    rc = funcs->C_GenerateKey(session, pmech, tmplt, num_attrs, phkey);
+    rc = funcs->C_GenerateKey(session, pmech, new_tmplt, num_attrs, phkey);
     if (rc != CKR_OK) {
         printf("Key generation of key of length %ld bytes failed\n",
                 a_value_len);
