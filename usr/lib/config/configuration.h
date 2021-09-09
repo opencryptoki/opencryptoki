@@ -310,6 +310,7 @@ static inline void confignode_freebarelist(struct ConfigBareListNode *n)
     if (n) {
         free(n->base.key);
         confignode_deepfree(n->beforeOpen);
+        confignode_deepfree(n->value);
         free(n);
     }
 }
