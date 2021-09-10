@@ -30,6 +30,7 @@ include man/man.mk
 include usr/usr.mk
 
 include tools/tools.mk
+include doc/doc.mk
 
 install-data-hook:
 if ENABLE_LIBRARY
