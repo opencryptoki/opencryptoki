@@ -20,3 +20,4 @@ nodist_usr_sbin_p11sak_p11sak_SOURCES = \
 	usr/lib/config/cfglex.c
 
 usr/sbin/p11sak/p11sak.$(OBJEXT): usr/lib/config/cfgparse.h
+
