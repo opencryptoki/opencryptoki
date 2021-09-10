@@ -922,6 +922,8 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_AES_CFB8                   0x00002106
 #define CKM_AES_CFB128                 0x00002107
 
+#define CKM_AES_KEY_WRAP               0x00002109
+
 #define CKM_VENDOR_DEFINED             0x80000000
 
 #ifndef OCK_NO_EP11_DEFINES
@@ -1516,6 +1518,10 @@ typedef struct CK_IBM_ATTRIBUTEBOUND_WRAP {
 #define CKD_SHA256_KDF              0x00000006UL
 #define CKD_SHA384_KDF              0x00000007UL
 #define CKD_SHA512_KDF              0x00000008UL
+
+/* PBKDF2 parameters */
+#define CKP_PKCS5_PBKD2_HMAC_SHA256        0x00000004UL
+#define CKP_PKCS5_PBKD2_HMAC_SHA512        0x00000006UL
 
 #define CKF_INTERFACE_FORK_SAFE     0x00000001UL
 
