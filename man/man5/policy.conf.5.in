@@ -1,0 +1,238 @@
+.TH POLICY.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+policy.conf \- Configuration file for openCryptoki policies.
+
+.SH DESCRIPTION
+openCryptoki uses a policy configuration file at
+/etc/opencryptoki/policy.conf
+
+This configuration file restricts the operations of openCryptoki to a
+specific set of allowed operations.  The policy allows users to
+restrict keys to a minimal cryptographic strength, restrict supported
+elliptic curves, mechanisms, MGFs, KDFs, or PRFs.
+
+.SH SYNTAX
+This file starts with a version specification of the form
+\fBversion policy-0\fR
+followed by policy constraints.
+
+.P
+
+A policy constraint assigns a value to a configuration key.  The
+syntax depends of the value of the key:
+
+.TP
+.BR strength
+
+This key defines the minimal required strength for keys, and digest
+and signature sizes.  It corresponds to the definition in
+/etc/opencryptoki/strength.conf.  Valid values are 0, 112, 128, 192,
+and 256.  The special value 0 allows every key and arbitrary size of
+digests and signatures.  The format is a simple assignment:
+
+strength = number
+
+If other values are used, they are rounded up to the next supported
+value.  Values greater than 256 are rounded down to 256.
+
+.TP
+.BR allowedmechs
+
+This key specifies a list of mechanisms that are allowed by this
+policy.  The list should contain a comma-separated list of
+.BR CKM_
+constants supported by openCryptoki. The list is placed inside
+brackets:
+
+allowedmechs ( mech1, mech2 )
+
+Note: This key is optional.  If not present, all mechanisms are
+allowed.  If an empty list is provided, no mechanism would be allowed.
+.TP
+.BR allowedcurves
+
+This key specifies a list of allowed elliptic curves.  Keys that do
+not belong to any of the allowed curves cannot be created or used.
+The list has the same format as the
+.BR allowedmechs
+key:
+
+allowedcurves ( curve1, curve2 )
+
+Valid curve names are:
+
+.RS
+.IP \(bu
+BRAINPOOL_P160R1
+.IP \(bu
+BRAINPOOL_P160T1
+.IP \(bu
+BRAINPOOL_P192R1
+.IP \(bu
+BRAINPOOL_P192T1
+.IP \(bu
+BRAINPOOL_P224R1
+.IP \(bu
+BRAINPOOL_P224T1
+.IP \(bu
+BRAINPOOL_P256R1
+.IP \(bu
+BRAINPOOL_P256T1
+.IP \(bu
+BRAINPOOL_P320R1
+.IP \(bu
+BRAINPOOL_P320T1
+.IP \(bu
+BRAINPOOL_P384R1
+.IP \(bu
+BRAINPOOL_P384T1
+.IP \(bu
+BRAINPOOL_P512R1
+.IP \(bu
+BRAINPOOL_P512T1
+.IP \(bu
+PRIME192V1
+.IP \(bu
+SECP224R1
+.IP \(bu
+PRIME256V1
+.IP \(bu
+SECP384R1
+.IP \(bu
+SECP521R1
+.IP \(bu
+SECP256K1
+.IP \(bu
+CURVE25519
+.IP \(bu
+CURVE448
+.IP \(bu
+ED25519
+.IP \(bu
+ED448
+.RE
+
+Note: This key is optional.  If not present, all curves are allowed.
+An empty list allows no curve.
+.TP
+.BR allowedmgfs
+
+This key specifies the allowed Message Generation Functions (MGFs) for
+use in RSA OAEP and RSA PSS.  The value is a list of
+.BR CKG_
+constants supported by openCryptoki.  The list has the same format as
+the
+.BR allowedmechs
+key:
+
+allowedmgfs ( mgf1, mgf2 )
+
+Note: This key is optional.  If not present, all MGFs are allowed.  An
+empty list allows no MGF.
+.TP
+.BR allowedkdfs
+
+This key specifies the allowed Key Derivation Functions (KDFs) for use
+in ECDH key derivation.  The value is a list of
+.BR CKD_
+constants supported by openCryptoki.  This list has the same format as
+the
+.BR allowedmechs
+key:
+
+allowedkdfs ( kdf1, kdf2 )
+
+Note: This key is optional.  If not present, all KDFs are allowed.  An
+empty list allows no KDF.
+.TP
+.BR allowedprfs
+
+This key specifies the allowed Pseudo-Random Functions (PRFs) for use
+in PKCS #5 PBKDF.  The value is a list of PRFs.  Currently, the only
+supported value is
+.BR CKP_PKCS5_PBKD2_HMAC_SHA256
+.BR CKP_PKCS5_PBKD2_HMAC_SHA512
+which leads to the list
+
+allowedprfs ( CKP_PKCS5_PBKD2_HMAC_SHA512, CKP_PKCS5_PBKD2_HMAC_SHA256 )
+
+Note: This key is optional.  If not present, all PRFs are allowed.  An
+empty list allows no PRF.
+
+.SH NOTES
+
+The policy configuration file has to be owned by \fBroot:pkcs11\fP and
+have mode 0640.  Otherwise, openCryptoki will return
+\fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log the reason
+into syslog.
+
+.PP
+
+The pound sign ('#') is used to indicate a comment.  Both the comment
+character and any text after it, up to the end of the line, are
+ignored. The comment character can be used at the beginning of a line
+(including before the file version specification), after the strength
+value, after a comma, and before and after the bracket.
+
+.PP
+Since the policy indirectly refers to a strength configuration, a
+strength configuration has to exist and be valid.  If no strength
+configuration exists, no policy will be enforced.  If an existing
+policy configuration is invalid, openCryptoki cannot be used.
+
+.PP
+
+openCryptoki uses some cryptographic operations to store token
+objects.  These operations have to be allowed by the policy.  Which
+operations are needed depends on the token store format and the token
+(since the ICSF Token as a remote token uses different crypto
+operations to store its management data):
+
+.RS
+.IP "FIPS compliant format"
+Token stores in the FIPS compliant format need the mechanisms
+.BR CKM_AES_KEY_GEN,
+.BR CKM_AES_KEY_WRAP,
+.BR CKM_AES_GCM,
+.BR CKM_PKCS5_PBKD2,
+the PRF
+.BR CKP_PKCS5_PBKD2_HMAC_SHA512,
+and must allow 256 bit AES keys.
+.IP "legacy format"
+Token stores in legacy format need the mechanisms
+.BR CKM_DES3_KEY_GEN,
+.BR CKM_DES3_CBC,
+.BR CKM_AES_KEY_GEN,
+.BR CKM_AES_CBC,
+.BR CKM_SHA1,
+.BR CKM_MD5
+and must allow 2-key TDES keys (80 bit symmetric keys with 64 bit signatures).
+.IP "ICSF Token store"
+.BR CKM_AES_KEY_GEN,
+.BR CKM_AES_CBC,
+.BR CKM_SHA1,
+.BR CKM_MD5
+.BR CKM_PKCS5_PBKD2,
+the PRF
+.BR CKP_PKCS5_PBKD2_HMAC_SHA256,
+and must allow 256 bit AES keys.
+.RE
+
+Tokens cannot be loaded if their token store format is not supported
+by the policy.  If a token cannot be loaded, a message is printed into
+syslog detailing the policy violation.  To fix this problem, make sure
+the token format is allowed by your policy (either by satisfying above
+constraints or by temporarily removing /etc/opencryptoki/policy.conf)
+and migrate your token store, e.g., to the FIPS-compliant format.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBstrength.conf\fP(5),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+\fBpkcstok_migrate\fP(1),
+.TP
+/usr/share/doc/opencryptoki/policy-example.conf
+.PD

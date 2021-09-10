@@ -682,7 +682,9 @@ AC_CONFIG_FILES([Makefile				\
 		 man/man1/pkcsep11_session.1		\
 		 man/man1/pkcstok_migrate.1		\
 		 man/man5/opencryptoki.conf.5		\
-		 man/man5/p11sak_defined_attrs.conf.5		\
+		 man/man5/p11sak_defined_attrs.conf.5	\
+		 man/man5/strength.conf.5		\
+		 man/man5/policy.conf.5			\
 		 man/man7/opencryptoki.7		\
 		 man/man8/pkcsslotd.8])
 

@@ -1,0 +1,105 @@
+.TH STRENGTH.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+strength.conf \- Configuration file for openCryptoki strength configuration.
+
+.SH DESCRIPTION
+openCryptoki uses a strength configuration file at
+/etc/opencryptoki/strength.conf
+
+This configuration file allows users to configure openCryptoki
+cryptographic key strength determination based on key attributes.
+This file is required by openCryptoki.
+
+.SH SYNTAX
+This file starts with a version specification of the form
+\fBversion strength-0\fR
+followed by the definition of various strengths.
+
+.P
+Each strength definition is composed of a strength, brackets and key-value pairs.
+
+ strength number
+ {
+     ...
+ }
+
+Supported numbers are 112, 128, 192, and 256 representing the
+corresponding strength in bits.
+
+Note: These definitions are optional.  If a definition is missing, no
+key can have the strength.  If no strength definition is present, all
+keys will have strength 0.
+
+More than one key-value pair may be used within a strength description.
+
+A key-value pair is composed of
+.B keyword = value
+where
+.B value
+is an unsigned number.
+
+The following keywords are valid:
+
+.TP
+.BR MOD_EXP
+Specifies the minimum number of bits required for RSA moduli, and DH
+and DSA primes such that the corresponding key is of the currently
+defined strength.
+
+Note: This key-value pair is optional.  If not present, no RSA, DH, or
+DSA key can have the currently defined strength.
+.TP
+.BR ECC
+Specifies the minimum number of bits in the prime field of the
+elliptic curve such that the corresponding key is of the currently
+defined strength.
+
+Note: This key-value pair is optional.  If not present, no EC key can
+have the currently defined strength.
+.TP
+.BR SYMMETRIC
+Specifies the minimum number of bits required for symmetric keys such
+that the corresponding key is of the currently defined strength.
+
+Note: This key-value pair is optional.  If not present, no symmetric
+key can have the currently defined strength.
+.TP
+.BR digest
+Specifies the minimum size in bits of digest outputs required by the
+currently defined strength.
+
+Note: This key-value pair is optional.  If not present, this strength
+definition does not constrain the size of digests.
+.TP
+.BR signature
+Specifies the minimum size in bits of signatures required by the
+currently defined strength.
+
+Note: This key-value pair is optional.  If not present, this strength
+definition does not constrain the size of signatures.
+
+.SH NOTES
+
+The strength configuration file has to be owned by \fBroot:pkcs11\fP,
+have mode 0640, and be parsable.  Otherwise, openCryptoki will return
+\fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log a
+corresponding message to syslog detailing the reason why the strength
+configuration could not be used.  In this case, fix the problem
+described in syslog to be able to use openCryptoki again.
+
+.PP
+The pound sign ('#') is used to indicate a comment.  Both the comment
+character and any text after it, up to the end of the line, are
+ignored. The comment character can be used at the beginning of a line
+(including before the file version specification), after a value, and
+before and after the braces.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBstrength.conf\fP(5),
+.TP
+\fBopencryptoki\fP(7),
+.TP
+/usr/share/doc/opencryptoki/strength-example.conf
+.PD
