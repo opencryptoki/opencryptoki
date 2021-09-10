@@ -11,6 +11,7 @@
 #ifndef _EC_DEFS
 #define _EC_DEFS
 
+#include <stdint.h>
 #include <openssl/opensslv.h>
 #include "ec_curves.h"
 
@@ -29,6 +30,7 @@
 #define CURVE256        0x0100
 #define CURVE320        0x0140
 #define CURVE384        0x0180
+#define CURVE448        0x01C0
 #define CURVE456        0x01C8
 #define CURVE512        0x0200
 #define CURVE521        0x0209
@@ -65,7 +67,8 @@ extern const CK_BYTE ed448[];
 
 struct _ec {
     uint8_t curve_type;         /* uint8_t - prime or brainpool curve */
-    uint16_t len_bits;          /* uint16_t - len in bits */
+    uint16_t len_bits;          /* uint16_t - signature len in bits */
+    uint16_t prime_bits;        /* len of the prime in bits */
     int nid;
     CK_ULONG data_size;
     void const *data;
