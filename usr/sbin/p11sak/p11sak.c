@@ -20,6 +20,7 @@
 #include <pkcs11types.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #include <termios.h>
 #include "p11util.h"
@@ -929,14 +930,14 @@ static CK_ULONG char2attrtype(char c)
     }
 }
 
-static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string)
+static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char attr_string)
 {
     if (!attr_string) {
         return;
     }
     attr->type = char2attrtype(toupper(attr_string));
     attr->ulValueLen = sizeof(CK_BBOOL);
-    if (attr_string > 90) {
+    if (isupper(attr_string) == 0) {
         attr->pValue = &ckb_false;
     } else {
         attr->pValue = &ckb_true;
@@ -1219,7 +1220,8 @@ static CK_RV short_print_vendor() {
 
     int f;
     FILE *fp;
-    struct ConfigBaseNode *cfg, *c;
+    struct ConfigBaseNode *cfg, *c, *name, *hex_string, *type;
+    struct ConfigStructNode *structnode;
 
     char file_loc[64] = P11SAK_DEFINED_ATTRS_LOCATION;
 
@@ -1243,8 +1245,20 @@ static CK_RV short_print_vendor() {
     if (cfg != NULL) {
         confignode_foreach(c, cfg, f) {
             if (confignode_hastype(c, CT_STRUCT) && strcmp(c->key, "attribute") == 0) {
-                printf(" 1 ");
-                return rc;
+                structnode = confignode_to_struct(c);
+                name = confignode_find(structnode->value, "name");
+                hex_string = confignode_find(structnode->value, "id");
+                type = confignode_find(structnode->value, "type");
+
+                // checking syntax of attribute...
+                if (confignode_hastype(name, CT_BAREVAL) && name != NULL) {
+                    if (confignode_hastype(hex_string, CT_INTVAL) && hex_string != NULL) {
+                        if (confignode_hastype(type, CT_BAREVAL) && type != NULL) {
+                            printf(" 1 ");
+                            return rc;
+                        }
+                    }
+                }
             }
         }
     }
@@ -1263,7 +1277,7 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
     struct ConfigBaseNode *cfg, *c, *name, *hex_string, *type;
     struct ConfigStructNode *structnode;
 
-    char file_loc[64] = P11SAK_DEFINED_ATTRS_LOCATION;
+    char file_loc[128] = P11SAK_DEFINED_ATTRS_LOCATION;
 
     // get file location
     cfg = NULL;
@@ -1320,7 +1334,9 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                     // get attribute value
                     rc = funcs->C_GetAttributeValue(session, hkey, temp, 1);
                     if (rc == CKR_OK) {
-                        if (temp[0].ulValueLen != sizeof(CK_BBOOL)) {
+                        if (temp[0].ulValueLen == 0) {
+                            printf("          %s: not exportable\n", confignode_to_bareval(name)->value);
+                        } else if (temp[0].ulValueLen != sizeof(CK_BBOOL)) {
                             printf(" Error in retrieving Attribute %s: %lu\n",
                                     confignode_to_bareval(name)->value, temp[0].ulValueLen);
                         } else {
@@ -1329,10 +1345,9 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
-                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
-                    } else {
+                    } else if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
                         return rc;
-                    }
+                    } 
                 } else if (strcmp((confignode_to_bareval(type)->value), "CK_ULONG") == 0) {
                     // build template
                     CK_ULONG a_ulong;
@@ -1351,10 +1366,9 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
-                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
-                    } else {
+                    } else if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
                         return rc;
-                    }
+                    } 
                 } else if (strcmp((confignode_to_bareval(type)->value), "CK_BYTE") == 0) {
                     // get length 
                     CK_ATTRIBUTE temp[] = { {hex, NULL, 0} };
@@ -1375,10 +1389,9 @@ static CK_RV long_print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey)
                         }    
                     } else if (rc == CKR_ATTRIBUTE_SENSITIVE) {
                         printf("          %s: SENSITIVE\n", confignode_to_bareval(name)->value);
-                    } else if (rc == CKR_ATTRIBUTE_TYPE_INVALID) {
-                    } else {
+                    } else if (rc != CKR_ATTRIBUTE_TYPE_INVALID) {
                         return rc;
-                    }
+                    } 
                 } else {
                     printf("Error: Attribute type [%s] invalid.\n", confignode_to_bareval(type)->value);
                 }
