@@ -36,6 +36,8 @@ typedef enum {
 #define  PRV_KEY_MAX_BOOL_ATTR_COUNT 12
 #define  PUB_KEY_MAX_BOOL_ATTR_COUNT 8
 
+#define P11SAK_DEFAULT_CONF_FILE OCK_CONFDIR "/p11sak_defined_attrs.conf"
+
 const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
 const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
 const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
