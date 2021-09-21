@@ -370,7 +370,11 @@ static void print_gen_help(void)
     printf("      3des\n");
     printf("      aes [128 | 192 | 256]\n");
     printf("      rsa [1024 | 2048 | 4096]\n");
-    printf("      ec [prime256v1 | secp384r1 | secp521r1]\n");
+    printf("      ec [prime256v1 | prime192v1 | secp224r1 | secp384r1 | secp521r1 | secp256k1 | \n");
+    printf("          brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | \n");
+    printf("          brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | \n");
+    printf("          brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | \n");
+    printf("          brainpoolP512r1 | brainpoolP512t1]\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -460,8 +464,25 @@ static void print_gen_ec_help(void)
     printf("\n Usage: p11sak generate-key ec [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      prime256v1\n");
+    printf("      prime192v1\n");
+    printf("      secp224r1\n");
     printf("      secp384r1\n");
     printf("      secp521r1\n");
+    printf("      secp265k1\n");
+    printf("      brainpoolP160r1\n");
+    printf("      brainpoolP160t1\n");
+    printf("      brainpoolP192r1\n");
+    printf("      brainpoolP192t1\n");
+    printf("      brainpoolP224r1\n");
+    printf("      brainpoolP224t1\n");
+    printf("      brainpoolP256r1\n");
+    printf("      brainpoolP256t1\n");
+    printf("      brainpoolP320r1\n");
+    printf("      brainpoolP320t1\n");
+    printf("      brainpoolP384r1\n");
+    printf("      brainpoolP384t1\n");
+    printf("      brainpoolP512r1\n");
+    printf("      brainpoolP512t1\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -589,12 +610,12 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
     if (strcmp(ECcurve, "prime256v1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) prime256v1;
         pubattr[*pubcount].ulValueLen = sizeof(prime256v1);
-    } else if (strcmp(ECcurve, "prime192") == 0) {
-        pubattr[*pubcount].pValue = (CK_BYTE*) prime192;
-        pubattr[*pubcount].ulValueLen = sizeof(prime192);
-    } else if (strcmp(ECcurve, "secp224") == 0) {
-        pubattr[*pubcount].pValue = (CK_BYTE*) secp224;
-        pubattr[*pubcount].ulValueLen = sizeof(secp224);
+    } else if (strcmp(ECcurve, "prime192v1") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) prime192v1;
+        pubattr[*pubcount].ulValueLen = sizeof(prime192v1);
+    } else if (strcmp(ECcurve, "secp224r1") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) secp224r1;
+        pubattr[*pubcount].ulValueLen = sizeof(secp224r1);
     } else if (strcmp(ECcurve, "secp384r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) secp384r1;
         pubattr[*pubcount].ulValueLen = sizeof(secp384r1);
@@ -887,17 +908,21 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
 
     CK_ATTRIBUTE tmplt[] = {
             // boolean attrs
-            { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE, &a_private, bs }, {
-            CKA_MODIFIABLE, &a_modifiable, bs }, { CKA_DERIVE, &a_derive, bs },
-            { CKA_SENSITIVE, &a_sensitive, bs }, {
-            CKA_ENCRYPT, &a_encrypt, bs }, { CKA_DECRYPT, &a_decrypt, bs }, {
-                    CKA_SIGN, &a_sign, bs }, {
-            CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
-            CKA_UNWRAP, &a_unwrap, bs },
+            { CKA_TOKEN, &a_token, bs }, 
+            { CKA_PRIVATE, &a_private, bs }, 
+            { CKA_MODIFIABLE, &a_modifiable, bs }, 
+            { CKA_DERIVE, &a_derive, bs },
+            { CKA_SENSITIVE, &a_sensitive, bs }, 
+            { CKA_ENCRYPT, &a_encrypt, bs }, 
+            { CKA_DECRYPT, &a_decrypt, bs }, 
+            { CKA_SIGN, &a_sign, bs }, 
+            { CKA_VERIFY, &a_verify, bs }, 
+            { CKA_WRAP, &a_wrap, bs }, 
+            { CKA_UNWRAP, &a_unwrap, bs },
             { CKA_EXTRACTABLE, &a_extractable, bs },
             // non-boolean attrs
-            { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, { CKA_LABEL,
-                    label, strlen(label) } };
+            { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, 
+            { CKA_LABEL, label, strlen(label) } };
     CK_ULONG num_attrs = sizeof(tmplt) / sizeof(CK_ATTRIBUTE);
     CK_ULONG num_bools = num_attrs - 2;
 
@@ -1173,15 +1198,22 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
     CK_BBOOL a_never_extractable;
     CK_ULONG bs = sizeof(CK_BBOOL);
 
-    CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
-            &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_ENCRYPT, &a_encrypt, bs }, {
-            CKA_DECRYPT, &a_decrypt, bs }, { CKA_SIGN, &a_sign, bs }, {
-    CKA_VERIFY, &a_verify, bs }, { CKA_WRAP, &a_wrap, bs }, {
-    CKA_UNWRAP, &a_unwrap, bs }, { CKA_EXTRACTABLE, &a_extractable, bs }, {
-            CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
-            CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs }, };
+    CK_ATTRIBUTE bool_tmplt[] = { 
+        { CKA_TOKEN, &a_token, bs }, 
+        { CKA_PRIVATE, &a_private, bs }, 
+        { CKA_MODIFIABLE, &a_modifiable, bs }, 
+        { CKA_DERIVE, &a_derive, bs }, 
+        { CKA_LOCAL, &a_local, bs }, 
+        { CKA_SENSITIVE, &a_sensitive, bs }, 
+        { CKA_ENCRYPT, &a_encrypt, bs }, 
+        { CKA_DECRYPT, &a_decrypt, bs }, 
+        { CKA_SIGN, &a_sign, bs }, 
+        { CKA_VERIFY, &a_verify, bs }, 
+        { CKA_WRAP, &a_wrap, bs }, 
+        { CKA_UNWRAP, &a_unwrap, bs }, 
+        { CKA_EXTRACTABLE, &a_extractable, bs }, 
+        { CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, 
+        { CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
@@ -1201,7 +1233,6 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
     } else {
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
@@ -1235,14 +1266,19 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
     CK_BBOOL a_never_extractable;
     CK_ULONG bs = sizeof(CK_BBOOL);
 
-    CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
-            &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-    CKA_SENSITIVE, &a_sensitive, bs }, { CKA_DECRYPT, &a_decrypt, bs }, {
-            CKA_SIGN, &a_sign, bs }, { CKA_UNWRAP, &a_unwrap, bs }, {
-    CKA_EXTRACTABLE, &a_extractable, bs }, {
-    CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, {
-    CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
+    CK_ATTRIBUTE bool_tmplt[] = { 
+        { CKA_TOKEN, &a_token, bs }, 
+        { CKA_PRIVATE, &a_private, bs }, 
+        { CKA_MODIFIABLE, &a_modifiable, bs }, 
+        { CKA_DERIVE, &a_derive, bs }, 
+        { CKA_LOCAL, &a_local, bs }, 
+        { CKA_SENSITIVE, &a_sensitive, bs }, 
+        { CKA_DECRYPT, &a_decrypt, bs }, 
+        { CKA_SIGN, &a_sign, bs }, 
+        { CKA_UNWRAP, &a_unwrap, bs }, 
+        { CKA_EXTRACTABLE, &a_extractable, bs }, 
+        { CKA_ALWAYS_SENSITIVE, &a_always_sensitive, bs }, 
+        { CKA_NEVER_EXTRACTABLE, &a_never_extractable, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
@@ -1263,7 +1299,6 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
     } else {
         /* Short print */
         printf(" |");
@@ -1294,11 +1329,15 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
     CK_BBOOL a_wrap;
     CK_ULONG bs = sizeof(CK_BBOOL);
 
-    CK_ATTRIBUTE bool_tmplt[] = { { CKA_TOKEN, &a_token, bs }, { CKA_PRIVATE,
-            &a_private, bs }, { CKA_MODIFIABLE, &a_modifiable, bs }, {
-    CKA_DERIVE, &a_derive, bs }, { CKA_LOCAL, &a_local, bs }, {
-    CKA_ENCRYPT, &a_encrypt, bs }, { CKA_VERIFY, &a_verify, bs }, {
-    CKA_WRAP, &a_wrap, bs } };
+    CK_ATTRIBUTE bool_tmplt[] = { 
+        { CKA_TOKEN, &a_token, bs }, 
+        { CKA_PRIVATE, &a_private, bs }, 
+        { CKA_MODIFIABLE, &a_modifiable, bs }, 
+        { CKA_DERIVE, &a_derive, bs }, 
+        { CKA_LOCAL, &a_local, bs }, 
+        { CKA_ENCRYPT, &a_encrypt, bs }, 
+        { CKA_VERIFY, &a_verify, bs }, 
+        { CKA_WRAP, &a_wrap, bs } };
     CK_ULONG count = sizeof(bool_tmplt) / sizeof(CK_ATTRIBUTE);
 
     rc = funcs->C_GetAttributeValue(session, hkey, bool_tmplt, count);
@@ -1319,7 +1358,6 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        printf("|\n");
     } else {
         /* Short print */
         printf(" |");
