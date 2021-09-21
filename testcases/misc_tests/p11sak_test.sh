@@ -20,14 +20,19 @@ echo "** Now executing 'p11sak_test.sh'"
 # tmp files
 
 P11SAK_DES_PRE=p11sak-des-pre.out
+P11SAK_DES_LONG=p11sak-des-long.out
 P11SAK_DES_POST=p11sak-des-post.out
 P11SAK_3DES_PRE=p11sak-3des-pre.out
+P11SAK_3DES_LONG=p11sak-3des-long.out
 P11SAK_3DES_POST=p11sak-3des-post.out
 P11SAK_AES_PRE=p11sak-aes-pre.out
+P11SAK_AES_LONG=p11sak-aes-long.out
 P11SAK_AES_POST=p11sak-aes-post.out
 P11SAK_RSA_PRE=p11sak-rsa-pre.out
+P11SAK_RSA_LONG=p11sak-rsa-long.out
 P11SAK_RSA_POST=p11sak-rsa-post.out
 P11SAK_EC_PRE=p11sak-ec-pre.out
+P11SAK_EC_LONG=p11sak-ec-long.out
 P11SAK_EC_POST=p11sak-ec-post.out
 
 
@@ -73,6 +78,11 @@ p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_PRE
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_PRE
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_PRE
 
+p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_DES_LONG
+p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_3DES_LONG
+p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AES_LONG
+p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_RSA_LONG
+p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_EC_LONG
 
 echo "** Now remove keys - 'p11sak_test.sh'"
 
@@ -137,6 +147,26 @@ echo "* TESTCASE remove-key des FAIL Failed to delete generated DES key"
 fi
 
 
+# CK_BBOOL
+if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+echo "* TESTCASE list-key des PASS Listed random des public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+echo "* TESTCASE list-key des PASS Listed random des public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+echo "* TESTCASE list-key des PASS Listed random des public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BYTE attribute"
+fi
+
+
 # check 3DES
 grep -q 'p11sak-3des' $P11SAK_3DES_PRE
 rc=$?
@@ -151,6 +181,26 @@ if [ $rc = 0 ]; then
 echo "* TESTCASE remove-key 3des PASS Deleted generated 3DES key"
 else
 echo "* TESTCASE remove-key 3des FAIL Failed to delete generated 3DES key"
+fi
+
+
+# CK_BBOOL
+if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BYTE attribute"
 fi
 
 
@@ -202,6 +252,26 @@ if [ $rc = 0 ]; then
 echo "* TESTCASE remove-key aes-256 PASS Deleted generated AES 256 key"
 else
 echo "* TESTCASE remove-key aes-256 FAIL Failed to delete generated AES 256 key"
+fi
+
+
+# CK_BBOOL
+if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "3" ]]; then
+echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BYTE attribute"
 fi
 
 
@@ -307,6 +377,26 @@ echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 4096 private
 fi
 
 
+# CK_BBOOL
+if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
+echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS_BITS:') == "3" ]]; then
+echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS:') == "6" ]]; then
+echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BYTE attribute"
+fi
+
+
 # check EC prime256v1 public key
 grep -q 'p11sak-ec-prime256v1:pub' $P11SAK_EC_PRE
 rc=$?
@@ -409,18 +499,43 @@ echo "* TESTCASE remove-key ec secp521r1 FAIL Failed to delete generated ec secp
 fi
 
 
+# CK_BBOOL
+if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
+echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribute"
+fi
+
+
 echo "** Now remove temporary output files - 'p11sak_test.sh'"
 
 
 rm -f $P11SAK_DES_PRE
+rm -f $P11SAK_DES_LONG
 rm -f $P11SAK_DES_POST
 rm -f $P11SAK_3DES_PRE
+rm -f $P11SAK_3DES_LONG
 rm -f $P11SAK_3DES_POST
 rm -f $P11SAK_AES_PRE
+rm -f $P11SAK_AES_LONG
 rm -f $P11SAK_AES_POST
 rm -f $P11SAK_RSA_PRE
+rm -f $P11SAK_RSA_LONG
 rm -f $P11SAK_RSA_POST
 rm -f $P11SAK_EC_PRE
+rm -f $P11SAK_EC_LONG
 rm -f $P11SAK_EC_POST
 
 echo "** Now DONE testing - 'p11sak_test.sh'"
