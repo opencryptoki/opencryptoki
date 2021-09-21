@@ -13,6 +13,9 @@ slot $1
 stdll = $2
 tokname = $3
 EOF
+    if test $(($(date +%y)%2)) == 1; then
+	echo "tokversion = 3.12" >> "${OCKCONFDIR}/opencryptoki.conf"
+    fi
     if [ "x$4" != "x" ]; then
        echo "confname = $4" >> "${OCKCONFDIR}/opencryptoki.conf"
     fi
