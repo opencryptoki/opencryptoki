@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include "cfgparser.h"
 #include "configuration.h"
+#include <ctype.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -782,86 +783,53 @@ static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech)
 
     return CKR_OK;
 }
+
 /**
- * Set default asymmetric key attributes.
+ * returns 1 if the given attribute is not applicable for the
+ * given key type, 0 otherwise.
  */
-static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr,
-                       CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr,
-                       CK_ULONG *prvcount)
+static CK_BBOOL attr_na(const CK_ULONG attr_type, p11sak_kt ktype)
 {
-    int i = 0;
-
-    pubattr[*pubcount].type = CKA_TOKEN;
-    pubattr[*pubcount].pValue = &ckb_true;
-    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-    (*pubcount)++;
-    pubattr[*pubcount].type = CKA_PRIVATE;
-    pubattr[*pubcount].pValue = &ckb_true;
-    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-    (*pubcount)++;
-
-    prvattr[*prvcount].type = CKA_TOKEN;
-    prvattr[*prvcount].pValue = &ckb_true;
-    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-    (*prvcount)++;
-    prvattr[*prvcount].type = CKA_PRIVATE;
-    prvattr[*prvcount].pValue = &ckb_true;
-    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-    (*prvcount)++;
-
-    if (attr_string) {
-        for (i = 0; i < (int) strlen(attr_string); i++) {
-
-            switch (attr_string[i]) {
-            case 'S': /* private sensitive */
-                prvattr[*prvcount].type = CKA_SENSITIVE;
-                prvattr[*prvcount].pValue = &ckb_true;
-                prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-                (*prvcount)++;
-                break;
-            case 'D': /* private decrypt RSA only*/
-                prvattr[*prvcount].type = CKA_DECRYPT;
-                prvattr[*prvcount].pValue = &ckb_true;
-                prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-                (*prvcount)++;
-                pubattr[*pubcount].type = CKA_ENCRYPT;
-                pubattr[*pubcount].pValue = &ckb_true;
-                pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-                (*pubcount)++;
-                break;
-            case 'G': /* private sign */
-                prvattr[*prvcount].type = CKA_SIGN;
-                prvattr[*prvcount].pValue = &ckb_true;
-                prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-                (*prvcount)++;
-                pubattr[*pubcount].type = CKA_VERIFY;
-                pubattr[*pubcount].pValue = &ckb_true;
-                pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-                (*pubcount)++;
-                break;
-            case 'U': /* private unwrap RSA only */
-                prvattr[*prvcount].type = CKA_UNWRAP;
-                prvattr[*prvcount].pValue = &ckb_true;
-                prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-                (*prvcount)++;
-                pubattr[*pubcount].type = CKA_WRAP;
-                pubattr[*pubcount].pValue = &ckb_true;
-                pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-                (*pubcount)++;
-                break;
-            case 'X': /* private extractable */
-                prvattr[*prvcount].type = CKA_EXTRACTABLE;
-                prvattr[*prvcount].pValue = &ckb_true;
-                prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-                (*prvcount)++;
-                break;
-            default:
-                printf("Ignoring attribute '%c', n/a for asymmetric keys\n",
-                       attr_string[i]);
-            }
+    switch (ktype) {
+    case kt_DES:
+    case kt_3DES:
+    case kt_AES:
+    case kt_SECRET:
+        switch (attr_type) {
+        case CKA_TRUSTED:
+            return 1;
+        default:
+            return 0;
         }
+        break;
+    case kt_PUBLIC:
+        switch (attr_type) {
+        case CKA_SENSITIVE:
+        case CKA_DECRYPT:
+        case CKA_SIGN:
+        case CKA_UNWRAP:
+        case CKA_EXTRACTABLE:
+        case CKA_ALWAYS_SENSITIVE:
+        case CKA_NEVER_EXTRACTABLE:
+            return 1;
+        default:
+            return 0;
+        }
+        break;
+    case kt_PRIVATE:
+        switch (attr_type) {
+        case CKA_ENCRYPT:
+        case CKA_VERIFY:
+        case CKA_WRAP:
+            return 1;
+        default:
+            return 0;
+        }
+        break;
+    default:
+        /* key type not handled here */
+        return 0;
     }
-    return CKR_OK;
 }
 
 static CK_ULONG char2attrtype(char c)
@@ -902,19 +870,65 @@ static CK_ULONG char2attrtype(char c)
     }
 }
 
-static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char *attr_string)
+static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char attr_char)
 {
-    int i;
-
-    if (!attr_string)
+    if (!attr_char) 
         return;
-
-    for (i = 0; i < (int) strlen(attr_string); i++) {
-        if (char2attrtype(attr_string[i]) == attr->type) {
-            attr->pValue = &ckb_true;
-        }
+    
+    attr->type = char2attrtype(toupper(attr_char));
+    attr->ulValueLen = sizeof(CK_BBOOL);
+    if (isupper(attr_char) == 0) {
+        attr->pValue = &ckb_false;
+    } else {
+        attr->pValue = &ckb_true;
     }
 }
+
+/**
+ * Set default asymmetric key attributes.
+ */
+static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr, 
+                       CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr, 
+                       CK_ULONG *prvcount)
+{
+    int i = 0;
+
+    pubattr[*pubcount].type = CKA_TOKEN;
+    pubattr[*pubcount].pValue = &ckb_true;
+    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
+    (*pubcount)++;
+    pubattr[*pubcount].type = CKA_PRIVATE;
+    pubattr[*pubcount].pValue = &ckb_true;
+    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
+    (*pubcount)++;
+
+    prvattr[*prvcount].type = CKA_TOKEN;
+    prvattr[*prvcount].pValue = &ckb_true;
+    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
+    (*prvcount)++;
+    prvattr[*prvcount].type = CKA_PRIVATE;
+    prvattr[*prvcount].pValue = &ckb_true;
+    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
+    (*prvcount)++;
+
+    if (attr_string) {
+        for (i = 0; i < (int) strlen(attr_string); i++) {
+            // attr_string length is checked in parse_gen_key_args to avoid memory problems
+            if (attr_na(char2attrtype(toupper(attr_string[i])), kt_PRIVATE) == 0) {
+                printf("private: %d\n", attr_string[i]);
+                set_bool_attr_from_string(&prvattr[*prvcount], attr_string[i]);
+                (*prvcount)++;
+            } 
+            if (attr_na(char2attrtype(toupper(attr_string[i])), kt_PUBLIC) == 0) {
+                printf("public: %d\n", attr_string[i]);
+                set_bool_attr_from_string(&pubattr[*pubcount], attr_string[i]);
+                (*pubcount)++;
+            }
+        }
+    }
+    return CKR_OK;
+}
+
 /**
  * Generation of the symmetric key
  */
@@ -929,49 +943,29 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
     CK_BBOOL a_token = ckb_true; // always true
     CK_BBOOL a_private = ckb_true; // always true
 
-    /* Boolean attributes from user input */
-    CK_BBOOL a_modifiable = ckb_false;
-    CK_BBOOL a_derive = ckb_false;
-    CK_BBOOL a_sensitive = ckb_false;
-    CK_BBOOL a_encrypt = ckb_false;
-    CK_BBOOL a_decrypt = ckb_false;
-    CK_BBOOL a_sign = ckb_false;
-    CK_BBOOL a_verify = ckb_false;
-    CK_BBOOL a_wrap = ckb_false;
-    CK_BBOOL a_unwrap = ckb_false;
-    CK_BBOOL a_extractable = ckb_false;
-    CK_ULONG bs = sizeof(CK_BBOOL);
-
     /* Non-boolean attributes */
     CK_ULONG a_value_len = keylength / 8;
 
-    CK_ATTRIBUTE tmplt[] = {
-            // boolean attrs
-            { CKA_TOKEN, &a_token, bs }, 
-            { CKA_PRIVATE, &a_private, bs }, 
-            { CKA_MODIFIABLE, &a_modifiable, bs }, 
-            { CKA_DERIVE, &a_derive, bs },
-            { CKA_SENSITIVE, &a_sensitive, bs }, 
-            { CKA_ENCRYPT, &a_encrypt, bs }, 
-            { CKA_DECRYPT, &a_decrypt, bs }, 
-            { CKA_SIGN, &a_sign, bs }, 
-            { CKA_VERIFY, &a_verify, bs }, 
-            { CKA_WRAP, &a_wrap, bs }, 
-            { CKA_UNWRAP, &a_unwrap, bs },
-            { CKA_EXTRACTABLE, &a_extractable, bs },
-            // non-boolean attrs
-            { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, 
-            { CKA_LABEL, label, strlen(label) } };
-    CK_ULONG num_attrs = sizeof(tmplt) / sizeof(CK_ATTRIBUTE);
-    CK_ULONG num_bools = num_attrs - 2;
-
-    /* set boolean attributes */
-    for (i = 0; i < (int) num_bools; i++) {
-        set_bool_attr_from_string(&tmplt[i], attr_string);
+    /* Standard template */
+    CK_ATTRIBUTE key_attr[4 + KEY_MAX_BOOL_ATTR_COUNT] = {
+        { CKA_TOKEN, &a_token, sizeof(CK_BBOOL) }, 
+        { CKA_PRIVATE, &a_private, sizeof(CK_BBOOL) }, 
+        { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, 
+        { CKA_LABEL, label, strlen(label) } 
+    };
+    CK_ULONG num_attrs = 4;
+    
+    /* set boolean attributes, set template from string 
+    attr_string length is checked in parse_gen_key_args to avoid memory problems */
+    if (attr_string) {
+        for (i = 0; i < (int) strlen(attr_string); i++) {
+            set_bool_attr_from_string(&key_attr[i+num_attrs], attr_string[i]);
+        }
+        num_attrs += strlen(attr_string);
     }
-
+    
     /* generate key */
-    rc = funcs->C_GenerateKey(session, pmech, tmplt, num_attrs, phkey);
+    rc = funcs->C_GenerateKey(session, pmech, key_attr, num_attrs, phkey);
     if (rc != CKR_OK) {
         printf("Key generation of key of length %ld bytes failed\n",
                 a_value_len);
@@ -1093,53 +1087,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
 
     return CKR_OK;
 }
-/**
- * returns 1 if the given attribute is not applicable for the
- * given key type, 0 otherwise.
- */
-static CK_BBOOL attr_na(const CK_ATTRIBUTE attr, p11sak_kt ktype)
-{
-    switch (ktype) {
-    case kt_DES:
-    case kt_3DES:
-    case kt_AES:
-    case kt_SECRET:
-        switch (attr.type) {
-        case CKA_TRUSTED:
-            return 1;
-        default:
-            return 0;
-        }
-        break;
-    case kt_PUBLIC:
-        switch (attr.type) {
-        case CKA_SENSITIVE:
-        case CKA_DECRYPT:
-        case CKA_SIGN:
-        case CKA_UNWRAP:
-        case CKA_EXTRACTABLE:
-        case CKA_ALWAYS_SENSITIVE:
-        case CKA_NEVER_EXTRACTABLE:
-            return 1;
-        default:
-            return 0;
-        }
-        break;
-    case kt_PRIVATE:
-        switch (attr.type) {
-        case CKA_ENCRYPT:
-        case CKA_VERIFY:
-        case CKA_WRAP:
-            return 1;
-        default:
-            return 0;
-        }
-        break;
-    default:
-        /* key type not handled here */
-        return 0;
-    }
-}
+
 /**
  * Columns: T  P  M  R  L  S  E  D  G  V  W  U  X  A  N  *
  */
@@ -1347,7 +1295,7 @@ static void short_print(int col, CK_ATTRIBUTE attr[], p11sak_kt ktype)
     }
 
     for (j = 0; j < attr_count; j++) {
-        if (attr[j].type == col2type(col) && !attr_na(attr[j], ktype)) {
+        if (attr[j].type == col2type(col) && !attr_na(attr[j].type, ktype)) {
             printf(" %d ", *(CK_BBOOL*) attr[j].pValue);
             return;
         }
@@ -2071,6 +2019,10 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if ((strcmp(argv[i], "--attr") == 0)) {
             if (i + 1 < argc) {
                 *attr_string = argv[i + 1];
+                if (strlen(argv[i + 1]) > KEY_MAX_BOOL_ATTR_COUNT) {
+                    fprintf(stderr, "--attr <ATTRIBUTES> argument is too long.\n");
+                    return CKR_ARGUMENTS_BAD;
+                }
             } else {
                 printf("--attr <ATTRIBUTES> argument is missing.\n");
                 return CKR_ARGUMENTS_BAD;
