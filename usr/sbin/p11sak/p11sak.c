@@ -179,6 +179,8 @@ static const char* kt2str(p11sak_kt ktype)
         return "PUBLIC";
     case kt_PRIVATE:
         return "PRIVATE";
+    case kt_ALL:
+        return "ALL";
     case no_key_type:
         return "NO_KEYTYPE";
     default:
@@ -394,6 +396,7 @@ static void print_listkeys_help(void)
     printf("      public\n");
     printf("      private\n");
     printf("      secret\n");
+    printf("      all\n");
     printf("\n Options:\n");
     printf("      -l, --long           list output with long format\n");
     printf(
@@ -1036,6 +1039,14 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
                     p11_get_ckr(rc));
             return rc;
         }
+    } else if (kt == kt_ALL) {
+        rc = funcs->C_FindObjectsInit(session, NULL, 0);
+        if (rc != CKR_OK) {
+            printf("C_FindObjectInit failed in tok_key_list_init() (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            return rc;
+        }
+        return rc;
     } else {
         rc = kt2CKO(kt, &a_cko);
         if (rc != CKR_OK) {
@@ -1741,6 +1752,7 @@ static CK_RV check_args_list_key(p11sak_kt *kt)
     case kt_SECRET:
     case kt_PUBLIC:
     case kt_PRIVATE:
+    case kt_ALL:
         break;
     default:
         printf("Cipher key type [%d] is not set or not supported\n", *kt);
@@ -1867,6 +1879,9 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if (strcmp(argv[i], "PRIVATE") == 0
                 || strcmp(argv[i], "private") == 0) {
             *kt = kt_PRIVATE;
+        } else if (strcmp(argv[i], "ALL") == 0
+                || strcmp(argv[i], "all") == 0) {
+            *kt = kt_ALL;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
