@@ -59,7 +59,7 @@ The
 option will show the arguments and options available.
 .
 .PP
-.SS "list-key"
+.SS "remove-key"
 .PP
 Use the
 .B remove-key|rm-key|rm
@@ -242,7 +242,7 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .
 .B p11sak
 .BR list-key | ls-key | ls
-.BR des | 3des | aes | rsa | ec | public | private | secret
+.BR des | 3des | aes | rsa | ec | public | private | secret | all
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -252,7 +252,7 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .PP
 Use the
 .B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private or secret keys can also be listed irrespective of key type.
+command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private, secret or all keys can also be listed irrespective of key type.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
@@ -271,7 +271,7 @@ command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. P
 .PP
 Use the
 .B remove-key | rm-key | rm
-command and key argument to delete DES, 3DES, AES, RSA or EC keys, respectively. All specified cipher keys will be promted to be deleted unless 
+command and key argument to delete DES, 3DES, AES, RSA, or EC keys, respectively. All specified cipher keys will be promted to be deleted unless 
 a specific key with the 
 .B \-\-label
 .IR LABEL
@@ -285,13 +285,13 @@ option.
 .
 .SH ARGS
 .
-.SS "des | 3des | aes | rsa | ec | public | private | secret"
+.SS "des | 3des | aes | rsa | ec | public | private | secret | all"
 
 selects the respective symmetric or asymetric key to be generated or listed. The
-.B public|private|secret
+.B public|private|secret|all
 argument can only be used with the
 .B list-key
-command to list either public, private or secret keys.
+command to list either public, private, secret, or all keys.
 .PP
 .
 .
@@ -403,10 +403,15 @@ when the letter that is associated with the given binary attribute is specified.
 .IP "\(bu" 2
 .B N
 - CKA_NEVER_EXTRACTABLE
+.IP "\(bu" 2
+.B *
+- if in p11sak_defined_attrs.conf additional attributes are defined.
 .PP
 CKA_TOKEN and CKA_PRIVATE are set by default to
 .B TRUE.
-For multiple attributes, combine the letters in a string without white space, e. g. 'MLD'.
+For multiple attributes, combine the letters in a string without white space, e. g. 'MlD'.
+An uppercase letter means true, while an lowercase letter equals false.
+From Example above: CKA_MODIFIABLE=true, CKA_LOCAL=false, CKA_DECRYPT=true
 .PP
 .
 .
@@ -432,3 +437,51 @@ prints help for the usage of
 .B p11sak
 and/or the respective command.
 .PP
+.
+.
+.
+.SH "FILES"
+
+.SS "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf"
+In the output config file a user can define additional attributes, which are not 
+mentioned in the PKCS#11 standard. A custom filepath can be set with an environment 
+variable.
+.PP
+.
+.
+.
+.SH "ENVIRONMENT VARIABLES"
+
+.SS "P11SAK_DEFAULT_CONF_FILE"
+A custom path for p11sak_defined_attrs.conf can be set with the environment variable
+P11SAK_DEFAULT_CONF_FILE. If none is set p11sak will first look for the file in the user 
+directory, followed by the standard installation path.
+.PP
+.
+.
+.
+.SH "EXIT STATUS"
+p11sak returns various error codes on fail:
+.SS CKR_ARGUMENTS_BAD (0x00000007):
+The p11sak_defined_attrs.conf is not found.
+.PP
+.
+.
+.
+.SS CKR_DATA_INVALID (0x00000020):
+The p11sak_defined_attrs.conf cannot be parsed or syntax is invalid.
+.PP
+.
+.
+.
+.SS CKR_ATTRIBUTE_TYPE_INVALID (0x00000012):
+A given attribute type cannot be set for this key.
+.PP
+.
+.
+.
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBp11sak_defined_attrs.conf\fP(5)
+.PD

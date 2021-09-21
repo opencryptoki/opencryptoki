@@ -1,0 +1,57 @@
+.TH P11SAK_DEFINED_ATTRS.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+p11sak_defined_attrs.conf \- Configuration file for p11sak list-key command.
+
+.SH DESCRIPTION
+p11sak uses a configuration file at /etc/opencryptoki/p11sak_defined_attrs.conf.
+This configuration file path can be overwritten by the user with the environment 
+variable P11SAK_DEFAULT_CONF_FILE.
+
+This is a text file that contains information used to configure
+non standard attributes that shall be printed with the p11sak list-key command. 
+
+.SH SYNTAX
+
+.P
+Each attribute description is composed of the attribute title, brackets and three key-value pairs.
+e.g.:
+
+ attribute
+ {
+     name = CKA_IBM_RESTRICTABLE
+     id = 0x80010001
+     type = CK_BBOOL
+ }
+
+All three keywords 
+.B name
+, 
+.B id
+, 
+.B type
+are required to define an attribute.
+
+The 
+.B name
+has to start with a letter followed by an arbitrary number of letters, numbers, underscores, dots, minuses, or slashes.
+The 
+.B id
+is defined in the PKCS#11 standard and can be 
+in decimal as well as in hexadecimal, when started with 0x, format.
+The only valid values for 
+.B type
+are 
+.B CK_BBOOL
+, 
+.B CK_ULONG 
+or 
+.B CK_BYTE.
+
+.SH Notes
+The pound sign ('#') is used to indicate a comment up to and including the end of line.
+
+.SH "SEE ALSO"
+.PD 0
+.TP
+\fBp11sak\fP(1),
+.PD
