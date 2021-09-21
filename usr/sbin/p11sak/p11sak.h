@@ -28,6 +28,7 @@ typedef enum {
     kt_SECRET,
     kt_PUBLIC,
     kt_PRIVATE,
+    kt_ALL,
     no_key_type
 } p11sak_kt;
 
