@@ -5,6 +5,8 @@ EPCONFDIR="$2"
 
 LATESTCEXP="CEX7P"
 
+USENEWFORMAT=/bin/false
+
 # Usage: addslot slot-num stdll slot-name [confname]
 function addslot() {
     cat <<EOF >> "${OCKCONFDIR}/opencryptoki.conf"
@@ -13,7 +15,7 @@ slot $1
 stdll = $2
 tokname = $3
 EOF
-    if test $(($(date +%y)%2)) == 1; then
+    if $USENEWFORMAT; then
 	echo "tokversion = 3.12" >> "${OCKCONFDIR}/opencryptoki.conf"
     fi
     if [ "x$4" != "x" ]; then
@@ -45,6 +47,13 @@ function genlatestep11cfg() {
     rm -f tmp.apqns
     return $res
 }
+
+if test $(($(date +%j)%2)) == 1; then
+    USENEWFORMAT=/bin/true
+    echo "Using FIPS compliant token store"
+else
+    echo "Using legacy token store"
+fi
 
 # initialize opencryptoki.conf
 echo "version opencryptoki-3.16" > "${OCKCONFDIR}/opencryptoki.conf"
