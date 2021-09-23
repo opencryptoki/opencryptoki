@@ -1,0 +1,221 @@
+#!/bin/bash
+
+# Get script directory as source directory for all other files
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+
+restoreconfig() {
+    if test -e @sysconfdir@/opencryptoki/strength.conf.ptbak; then
+	rm -f @sysconfdir@/opencryptoki/strength.conf
+	mv @sysconfdir@/opencryptoki/strength.conf.ptbak @sysconfdir@/opencryptoki/strength.conf
+	chown root:pkcs11 @sysconfdir@/opencryptoki/strength.conf
+	chmod 0640 @sysconfdir@/opencryptoki/strength.conf
+    fi
+    if test -e @sysconfdir@/opencryptoki/policy.conf.ptbak; then
+	rm -f @sysconfdir@/opencryptoki/policy.conf
+	mv @sysconfdir@/opencryptoki/policy.conf.ptbak @sysconfdir@/opencryptoki/policy.conf
+	chown root:pkcs11 @sysconfdir@/opencryptoki/policy.conf
+	chmod 0640 @sysconfdir@/opencryptoki/policy.conf
+    fi
+}
+
+backupconfig() {
+    if test -e @sysconfdir@/opencryptoki/strength.conf; then
+	mv @sysconfdir@/opencryptoki/strength.conf @sysconfdir@/opencryptoki/strength.conf.ptbak
+    fi
+    if test -e @sysconfdir@/opencryptoki/policy.conf; then
+	mv @sysconfdir@/opencryptoki/policy.conf @sysconfdir@/opencryptoki/policy.conf.ptbak
+    fi
+    trap restoreconfig EXIT
+}
+
+initstrength() {
+    cat <<EOF > @sysconfdir@/opencryptoki/strength.conf
+version strength-0
+
+strength 112 {
+         MOD_EXP   =  2048
+         ECC       =   224
+         SYMMETRIC =   112
+         digest    =   224
+         signature =   112
+}
+strength 128 {
+         MOD_EXP   =  3072
+         ECC       =   256
+         SYMMETRIC =   128
+         digest    =   256
+         signature =   128
+}
+strength 192 {
+         MOD_EXP   =  7680
+         ECC       =   384
+         SYMMETRIC =   192
+         digest    =   384
+         signature =   192
+}
+strength 256 {
+         MOD_EXP   = 15360
+         ECC       =   512
+         SYMMETRIC =   256
+         digest    =   512
+         signature =   256
+}
+EOF
+    chown root:pkcs11 @sysconfdir@/opencryptoki/strength.conf
+    chmod 0640 @sysconfdir@/opencryptoki/strength.conf
+}
+
+# Usage: genpolicy <strengthvalue>
+genpolicy() {
+    cat <<EOF > @sysconfdir@/opencryptoki/policy.conf
+version policy-0
+strength = $1
+EOF
+    chown root:pkcs11 @sysconfdir@/opencryptoki/policy.conf
+    chmod 0640 @sysconfdir@/opencryptoki/policy.conf
+}
+
+if test $# -ne 1; then
+    echo "USAGE: policytest <slotid>"
+    exit 1;
+fi
+
+SLOT=$1
+FAILED=/bin/false
+
+# basic initialization
+backupconfig
+initstrength
+
+# start with strength of 0
+genpolicy 0
+
+# check which tests we can run
+TESTS=""
+SEP=""
+
+if pkcsconf -m -c $SLOT | grep -q "(CKM_RSA_PKCS)"; then
+    TESTS="${TESTS}${SEP}RSA"
+    SEP=","
+fi
+if pkcsconf -m -c $SLOT | grep -q "(CKM_ECDSA)"; then
+    TESTS="${TESTS}${SEP}EC"
+    SEP=","
+fi
+if pkcsconf -m -c $SLOT | grep -q "(CKM_AES_CBC_PAD)" &&\
+   pkcsconf -m -c $SLOT | grep -A 2 "(CKM_AES_CBC_PAD)" | grep -q CKF_WRAP; then
+    TESTS="${TESTS}${SEP}AESWRAP"
+    SEP=","
+fi
+if pkcsconf -m -c $SLOT | grep -q "(CKM_SHA512)"; then
+    TESTS="${TESTS}${SEP}DIGEST"
+    SEP=","
+fi
+if pkcsconf -m -c $SLOT | grep -q "(CKM_DH_PKCS_DERIVE)"; then
+    TESTS="${TESTS}${SEP}DH"
+    SEP=","
+fi
+
+if test "x$TESTS" == "x"; then
+    echo "Cannot run any tests on this slot"
+    exit 0
+fi
+
+echo "Using test mask $TESTS"
+
+echo "Running tests with session keys..."
+
+${DIR}/policytest -s $SLOT -g -t -d -r $TESTS || {
+    echo "Failed with session keys for strength 0"
+    FAILED=/bin/true
+}
+
+genpolicy 112
+
+${DIR}/policytest -s $SLOT -g -t -d -r $TESTS -f DH || {
+    echo "Failed with session keys for strength 112"
+    FAILED=/bin/true
+}
+
+genpolicy 128
+
+${DIR}/policytest -s $SLOT -g -t -d -r $TESTS -f DH || {
+    echo "Failed with session keys for strength 128"
+    FAILED=/bin/true
+}
+
+genpolicy 192
+
+${DIR}/policytest -s $SLOT -g -t -d -r $TESTS -f DH,RSA || {
+    echo "Failed with session keys for strength 192"
+    FAILED=/bin/true
+}
+
+genpolicy 256
+
+${DIR}/policytest -s $SLOT -g -t -d -r $TESTS -f DH,RSA,EC || {
+    echo "Failed with session keys for strength 256"
+    FAILED=/bin/true
+}
+
+echo "...now generating token keys..."
+
+genpolicy 0
+
+${DIR}/policytest -s $SLOT -g -k || {
+    echo "Failed to generate token keys"
+    exit 1
+}
+
+echo "...now running tests with token keys..."
+
+${DIR}/policytest -s $SLOT -t -r $TESTS || {
+    echo "Failed with token keys from strength 0"
+    FAILED=/bin/true
+}
+
+genpolicy 112
+
+${DIR}/policytest -s $SLOT -t -r $TESTS -f DH || {
+    echo "Failed with token keys from strength 112"
+    FAILED=/bin/true
+}
+
+genpolicy 128
+
+${DIR}/policytest -s $SLOT -t -r $TESTS -f DH || {
+    echo "Failed with token keys from strength 128"
+    FAILED=/bin/true
+}
+
+genpolicy 192
+
+${DIR}/policytest -s $SLOT -t -r $TESTS -f DH,RSA || {
+    echo "Failed with token keys from strength 192"
+    FAILED=/bin/true
+}
+
+genpolicy 256
+
+${DIR}/policytest -s $SLOT -t -r $TESTS -f DH,RSA,EC || {
+    echo "Failed with token keys from strength 256"
+    FAILED=/bin/true
+}
+
+echo "...now deleting token keys"
+
+genpolicy 0
+ ${DIR}/policytest -s $SLOT -d || echo "Could not delete all generated tokens keys"
+
+if $FAILED; then
+    echo "Some tests have failed"
+    exit 1
+fi
+
+exit 0
