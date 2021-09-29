@@ -103,6 +103,8 @@ struct parseupdate {
     FILE *f;
     int   slotnum;
     int   activeslot;
+    int   tokvers_added;
+    int   at_newline;
 };
 
 /**
@@ -2040,6 +2042,7 @@ static int parseupdate_ockversion(void *private, const char *version)
     struct parseupdate *u = (struct parseupdate *)private;
 
     fprintf(u->f, "version %s", version);
+    u->at_newline = 0;
     return 0;
 }
 
@@ -2048,6 +2051,7 @@ static void parseupdate_disab_event_supp(void *private)
     struct parseupdate *u = (struct parseupdate *)private;
 
     fprintf(u->f, "disable-event-support");
+    u->at_newline = 0;
 }
 
 static void parseupdate_eol(void *private)
@@ -2055,6 +2059,7 @@ static void parseupdate_eol(void *private)
     struct parseupdate *u = (struct parseupdate *)private;
 
     fputc('\n', u->f);
+    u->at_newline = 1;
 }
 
 static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
@@ -2066,6 +2071,8 @@ static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
         fprintf(u->f, "slot %d\n{", slot);
     else
         fprintf(u->f, "slot %d {", slot);
+    u->tokvers_added = 0;
+    u->at_newline = 0;
     return 0;
 }
 
@@ -2073,10 +2080,12 @@ static int parseupdate_end_slot(void *private)
 {
     struct parseupdate *u = (struct parseupdate *)private;
 
-    if (u->activeslot)
+    if (u->activeslot && !u->tokvers_added)
         fprintf(u->f, "  tokversion = 3.12\n");
     fputc('}', u->f);
     u->activeslot = 0;
+    u->tokvers_added = 0;
+    u->at_newline = 0;
     return 0;
 }
 
@@ -2102,10 +2111,14 @@ static int parseupdate_key_str(void *private, int tok, const char *val)
         fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
         break;
     case KW_TOKVERSION:
-        if (!u->activeslot)
+        if (u->activeslot)
+            fprintf(u->f, "  tokversion = 3.12");
+        else
             fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
+        u->tokvers_added = 1;
         break;
     }
+    u->at_newline = 0;
     return 0;
 }
 
@@ -2115,9 +2128,12 @@ static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
 
     switch (tok) {
     case KW_TOKVERSION:
-        if (!u->activeslot)
+        if (u->activeslot)
+            fprintf(u->f, "  tokversion = 3.12");
+        else
             fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
                     vers >> 16, vers & 0xffu);
+        u->tokvers_added = 1;
         break;
     case KW_HWVERSION:
     case KW_FWVERSION:
@@ -2125,7 +2141,7 @@ static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
                 vers >> 16, vers & 0xffu);
         break;
     }
-
+    u->at_newline = 0;
     return 0;
 }
 
@@ -2133,7 +2149,11 @@ static void parseupdate_eolcomment(void *private, const char *comment)
 {
     struct parseupdate *u = (struct parseupdate *)private;
 
-    fprintf(u->f, "#%s", comment);
+    if (u->at_newline)
+        fprintf(u->f, "#%s", comment);
+    else
+        fprintf(u->f, " #%s", comment);
+    u->at_newline = 0;
 }
 
 static struct parsefuncs parseupdatefuncs = {
@@ -2183,6 +2203,8 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
     parseupdate.f = fp_w;
     parseupdate.slotnum = slot_id;
     parseupdate.activeslot = 0;
+    parseupdate.tokvers_added = 0;
+    parseupdate.at_newline = 1;
 
     if (load_and_parse(src_file, &parseupdatefuncs, &parseupdate)) {
         TRACE_ERROR("could not update config file\n");
