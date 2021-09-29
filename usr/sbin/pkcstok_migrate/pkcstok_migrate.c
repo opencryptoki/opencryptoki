@@ -2448,6 +2448,34 @@ done:
     return ret;
 }
 
+static CK_BBOOL backups_already_existent(const char *data_store,
+                                         const char *conf_dir)
+{
+    char fname[PATH_MAX];
+    struct stat statbuf;
+    CK_BBOOL ret = CK_FALSE;
+
+    memset(fname, 0, PATH_MAX);
+    snprintf(fname, PATH_MAX, "%s_BAK", data_store);
+
+    TRACE_INFO("Checking if backup datastore exists in %s ...\n", fname);
+    if (stat(fname, &statbuf) == 0) {
+        warnx("Error: datastore backup already exists already: %s", fname);
+        ret = CK_TRUE;
+    }
+
+    memset(fname, 0, PATH_MAX);
+    snprintf(fname, PATH_MAX, "%s/opencryptoki.conf_BAK", conf_dir);
+
+    TRACE_INFO("Checking if config file backup exists in %s ...\n", fname);
+    if (stat(fname, &statbuf) == 0) {
+        warnx("Error: config file backup already exists already: %s", fname);
+        ret = CK_TRUE;
+    }
+
+    return ret;
+}
+
 /**
  * Backs up the given data_store to data_store_PKCSTOK_MIGRATE_TMP.
  * All folders and files are recursively created and copied.
@@ -2753,6 +2781,12 @@ int main(int argc, char **argv)
     if (!conffile_exists(conf_dir)) {
         ret = CKR_FUNCTION_FAILED;
         warnx("%s does not exist or does not contain opencryptoki.conf", conf_dir);
+        goto done;
+    }
+
+    if (backups_already_existent(data_store, conf_dir)) {
+        warnx("Please remove the backups before running this utility.");
+        ret = CKR_FUNCTION_FAILED;
         goto done;
     }
 
