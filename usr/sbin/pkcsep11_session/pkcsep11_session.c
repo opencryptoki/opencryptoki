@@ -69,6 +69,7 @@ typedef CK_RV (*adapter_handler_t) (uint_32 adapter, uint_32 domain,
                                     void *handler_data);
 
 CK_FUNCTION_LIST *funcs;
+m_init_t dll_m_init;
 m_Logout_t dll_m_Logout;
 m_add_module_t dll_m_add_module;
 m_rm_module_t dll_m_rm_module;
@@ -87,6 +88,7 @@ CK_VERSION lib_version;
 #define ACTION_SHOW     1
 #define ACTION_LOGOUT   2
 #define ACTION_VHSMPIN  3
+#define ACTION_STATUS   4
 
 int get_pin(char **pin, size_t *pinlen)
 {
@@ -246,7 +248,7 @@ int is_ep11_token(CK_SLOT_ID slot_id)
 
 static void usage(char *fct)
 {
-    printf("usage:  %s show|logout|vhsmpin [-date <yyyy/mm/dd>] [-pid <pid>] "
+    printf("usage:  %s show|logout|vhsmpin|status [-date <yyyy/mm/dd>] [-pid <pid>] "
            "[-id <sess-id>] [-slot <num>] [-force] [-h]\n\n", fct);
     return;
 }
@@ -273,6 +275,8 @@ static int do_ParseArgs(int argc, char **argv)
         action = ACTION_LOGOUT;
     } else if (strcmp(argv[1], "vhsmpin") == 0) {
         action = ACTION_VHSMPIN;
+    } else if (strcmp(argv[1], "status") == 0) {
+        action = ACTION_STATUS;
     } else {
         printf("Unknown Action given. For help use the '--help' or '-h' "
                "option.\n");
@@ -283,6 +287,10 @@ static int do_ParseArgs(int argc, char **argv)
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
             return 0;
+        } else if (action == ACTION_STATUS) {
+            printf("Argument '%s' not accepted for 'status' command\n",
+                   argv[i]);
+            return -1;
         } else if (strcmp(argv[i], "-slot") == 0) {
             if (argc <= i + 1 || !isdigit(*argv[i + 1])) {
                 printf("Slot parameter is not numeric!\n");
@@ -338,7 +346,7 @@ static int do_ParseArgs(int argc, char **argv)
             return -1;
         }
     }
-    if (SLOT_ID == (CK_SLOT_ID)(-1)) {
+    if (action != ACTION_STATUS && SLOT_ID == (CK_SLOT_ID)(-1)) {
         printf("Slot-ID not set!\n");
         return -1;
     }
@@ -972,6 +980,108 @@ static CK_RV set_vhsmpin(CK_SESSION_HANDLE session)
     return CKR_OK;
 }
 
+static CK_RV status_handler(uint_32 adapter, uint_32 domain,
+                            void *handler_data)
+{
+    ep11_target_t target_list;
+    struct XCP_Module module;
+    target_t target = XCP_TGT_INIT;
+    uint32_t *res = NULL;
+    CK_ULONG reslen = 0;
+    CK_ULONG i;
+    uint32_t caps = 0;
+    CK_RV rc;
+    CK_BBOOL found = CK_FALSE;
+
+    UNUSED(handler_data);
+
+    if (dll_m_add_module != NULL) {
+        memset(&module, 0, sizeof(module));
+        module.version = lib_version.major >= 3 ? XCP_MOD_VERSION_2
+                                                : XCP_MOD_VERSION_1;
+        module.flags = XCP_MFL_MODULE;
+        module.module_nr = adapter;
+        XCPTGTMASK_SET_DOM(module.domainmask, domain);
+        rc = dll_m_add_module(&module, &target);
+        if (rc != 0) {
+            fprintf(stderr,
+                    "dll_m_add_module (EXT_CAPLIST) failed: rc=0x%lx\n", rc);
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        /* Fall back to old target handling */
+        memset(&target_list, 0, sizeof(ep11_target_t));
+        target_list.length = 1;
+        target_list.apqns[0] = adapter;
+        target_list.apqns[1] = domain;
+        target = (target_t)&target_list;
+    }
+
+    printf("APQN %02x.%04x:\n", adapter, domain);
+
+    reslen = sizeof(caps);
+    rc = dll_m_get_xcp_info(&caps, &reslen, CK_IBM_XCPQ_EXT_CAPS, 0, target);
+    if (rc != CKR_OK || reslen != sizeof(caps)) {
+        fprintf(stderr,
+                "dll_m_get_xcp_info (EXT_CAPS) failed: rc=0x%lx\n", rc);
+        goto done;
+    }
+
+    if (caps == 0)
+        goto no_info;
+
+    reslen = caps * sizeof(uint32_t) * 2;
+    res = calloc(1, reslen);
+    if (res == NULL) {
+        fprintf(stderr, "Failed to allocate memory\n");
+        goto done;
+    }
+
+    rc = dll_m_get_xcp_info(res, &reslen, CK_IBM_XCPQ_EXT_CAPLIST, 0, target);
+    if (rc != CKR_OK) {
+        fprintf(stderr,
+                "dll_m_get_xcp_info (EXT_CAPLIST) failed: rc=0x%lx\n", rc);
+        goto done;
+    }
+
+    for (i = 0; i < reslen / 4; i += 2) {
+        if (res[i] == CK_IBM_XCPXQ_MAX_SESSIONS) {
+            printf("  Max Sessions:        %u\n", res[i + 1]);
+            found = CK_TRUE;
+        } else if (res[i] == CK_IBM_XCPXQ_AVAIL_SESSIONS) {
+            printf("  Available Sessions:  %u\n", res[i + 1]);
+            found = CK_TRUE;
+        }
+    }
+
+no_info:
+    if (!found)
+        printf("  Information not available\n");
+
+done:
+    if (dll_m_rm_module != NULL)
+        dll_m_rm_module(&module, target);
+    if (res != NULL)
+        free(res);
+
+    return CKR_OK;
+}
+
+static CK_RV show_ep11_status()
+{
+    ep11_target_t any_target = { 0, 0, { 0 } };
+    CK_RV rc;
+
+    rc = handle_all_ep11_cards(&any_target, status_handler, NULL);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "handle_all_ep11_cards() rc = 0x%02lx [%s]\n", rc,
+                p11_get_ckr(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 #ifdef EP11_HSMSIM
 #define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW | RTLD_DEEPBIND
 #else
@@ -1047,9 +1157,11 @@ int main(int argc, char **argv)
     if (!lib_ep11)
         return CKR_FUNCTION_FAILED;
 
+    *(void **)(&dll_m_init) = dlsym(lib_ep11, "m_init");
     *(void **)(&dll_m_Logout) = dlsym(lib_ep11, "m_Logout");
     *(void **)(&dll_m_get_xcp_info) = dlsym(lib_ep11, "m_get_xcp_info");
-    if (dll_m_Logout == NULL || dll_m_get_xcp_info == NULL) {
+    if (dll_m_init == NULL || dll_m_Logout == NULL ||
+        dll_m_get_xcp_info == NULL) {
         fprintf(stderr, "ERROR loading shared lib '%s' [%s]\n",
                 EP11SHAREDLIB, dlerror());
         return CKR_FUNCTION_FAILED;
@@ -1066,9 +1178,20 @@ int main(int argc, char **argv)
         dll_m_rm_module = NULL;
     }
 
+    rc = dll_m_init();
+    if (rc != CKR_OK) {
+        fprintf(stderr, "ERROR dll_m_init() Failed, rx = 0x%0x\n", rc);
+        return rc;
+    }
+
     rc = get_ep11_library_version(&lib_version);
     if (rc != CKR_OK)
         return rc;
+
+    if (action == ACTION_STATUS) {
+        rc = show_ep11_status();
+        return rc;
+    }
 
     printf("Using slot #%lu...\n\n", SLOT_ID);
 

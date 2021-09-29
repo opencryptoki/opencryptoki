@@ -5,8 +5,9 @@ pkcsep11_session \- manage EP11 sessions.
 .SH SYNOPSIS
 \fBpkcep11_session\fP
 [\fB-h\fP]
-[\fBshow|logout|vhsmpin\fP \fB-slot\fP \fIslot-number\fP [\fB-id\fP \fIsession-ID\fP]
-[\fB-pid\fP \fIprocess-ID\fP] [\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
+[\fBshow|logout|vhsmpi|status\fP [\fB-slot\fP \fIslot-number\fP]
+[\fB-id\fP \fIsession-ID\fP] [\fB-pid\fP \fIprocess-ID\fP]
+[\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
 
 .SH DESCRIPTION
 Use pkcep11_session to list and logout leftover EP11 sessions.
@@ -33,10 +34,14 @@ contain between 8 and 16 alphanumeric characters.
 .br
 \fBNote:\fP When changing the VHSM PIN, all existing keys stored as
 token objects become unusable!
+.IP "\fBstatus\fP" 10
+shows the maximum and currently available number of EP11 sessions for each
+available EP11 APQN.
 
 .SH "OPTIONS"
 .IP "\fB-slot\fP \fIslot-number\fP" 10
-specifies the slot of the EP11 token
+specifies the slot of the EP11 token. This option is required for all commands
+except the \fBstatus\fP command.
 .IP "\fB-force\fP" 10
 deletes a session even if logout fails on some adapters.
 .IP "\fB-id\fP \fIsession-ID\fP" 10
