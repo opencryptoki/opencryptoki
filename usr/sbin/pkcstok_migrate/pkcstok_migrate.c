@@ -928,34 +928,6 @@ static CK_BBOOL datastore_exists(const char *data_store)
 }
 
 /**
- * Check if the data store is empty, which is the case when
- * there are no entries in OBJ.IDX.
- */
-static CK_BBOOL datastore_empty(const char *data_store)
-{
-    char fname[PATH_MAX];
-    struct stat statbuf;
-
-    TRACE_INFO("Checking if data store is empty ...\n");
-
-    /* Check if OBJ.IDX exists */
-    memset(fname, 0, PATH_MAX);
-    snprintf(fname, PATH_MAX, "%s/TOK_OBJ/OBJ.IDX", data_store);
-    if (stat(fname, &statbuf) != 0) {
-        TRACE_INFO("Cannot find %s, data store probably empty.\n", fname);
-        return CK_TRUE;
-    }
-
-    /* Check if OBJ.IDX is empty */
-    if (statbuf.st_size == 0) {
-        TRACE_INFO("OBJ.IDX file is empty. Thus no objects to migrate.\n");
-        return CK_TRUE;
-    }
-
-    return CK_FALSE;
-}
-
-/**
  *
  */
 static CK_RV load_MK_SO_00(const char *data_store, const char *sopin,
@@ -2635,6 +2607,7 @@ int main(int argc, char **argv)
     char *sopin = NULL, *userpin = NULL, *verbose = NULL;
     char *buff = NULL;
     char dll_name[PATH_MAX];
+    char data_store_new[PATH_MAX];
     CK_TOKEN_INFO_32 tokinfo;
     CK_BBOOL new;
 
@@ -2805,13 +2778,6 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    /* Check if there are token objects to migrate */
-    if (datastore_empty(data_store)) {
-        ret = CKR_OK;
-        warnx("Datastore %s is empty, no objects to migrate.", data_store);
-        goto done;
-    }
-
     /* Get token info from NVTOK.DAT */
     ret = get_token_info(data_store, &tokinfo);
     if (ret != CKR_OK) {
@@ -2867,10 +2833,7 @@ int main(int argc, char **argv)
     ret = datastore_is_312(data_store, sopin, userpin, &new);
     if (ret == 0 && new) {
         printf("Data store %s is already in new format.\n", data_store);
-        ret = update_opencryptoki_conf(slot_id, conf_dir);
-        if (ret != CKR_OK)
-            warnx("Failed to update opencryptoki.conf, you must do this manually.");
-        goto done;
+        goto finalize;
     }
 
     /* Backup repository if not already done */
@@ -2881,7 +2844,6 @@ int main(int argc, char **argv)
     }
 
     /* Perform all actions on the backup */
-    char data_store_new[PATH_MAX];
     data_store_old = data_store;
     snprintf(data_store_new, PATH_MAX, "%s_PKCSTOK_MIGRATE_TMP", data_store_old);
 
@@ -2907,6 +2869,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
+finalize:
     /* Remove the token's shared memory */
     ret = remove_shared_memory(data_store);
     if (ret != CKR_OK) {
@@ -2921,7 +2884,8 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    printf("Pre-migration data backed up at '%s_BAK'\n", data_store_old);
+    if (data_store_old != NULL)
+        printf("Pre-migration data backed up at '%s_BAK'\n", data_store_old);
     printf("Config file backed up at '%s/opencryptoki.conf_BAK'\n", conf_dir);
     printf("Remove these backups manually after testing the new repository.\n");
 
