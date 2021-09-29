@@ -2242,7 +2242,7 @@ static CK_RV remove_shared_memory(char *location)
     shm_name[k] = '\0';
 
     rc = shm_unlink(shm_name);
-    if (rc != 0) {
+    if (rc != 0 && errno != ENOENT) {
         warnx("shm_unlink(%s) failed, errno=%s", shm_name, strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
