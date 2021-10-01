@@ -17,8 +17,6 @@
 #ifndef _PKCSSLOTMGR_H
 #define _PKCSSLOTMGR_H  1
 
-#include <configparser.h>
-
 /***********
  * Defines *
  ***********/
