@@ -42,6 +42,8 @@ manually.
 After an unsuccessful migration, the original repository is still available
 unchanged. 
 
+The \fBpkcstok_migrate\fP utility must be run as root.
+
 .SH "OPTIONS SUMMARY"
 .IP "\fB--slotid -s\fP \fISLOT-NUMBER\fP" 10
 specifies the token slot number of the token repository to be migrated
