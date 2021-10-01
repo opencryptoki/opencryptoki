@@ -164,8 +164,8 @@ static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
             break;
         case CT_VERSIONVAL:
             fprintf(fp, "%s = %d.%d", i->key,
-                    (confignode_to_versionval(i)->value & 0xff00) >> 16,
-                    confignode_to_versionval(i)->value & 0xff);
+                    (confignode_to_versionval(i)->value & 0xffff0000) >> 16,
+                    confignode_to_versionval(i)->value & 0xffff);
             break;
         case CT_BAREVAL:
             fprintf(fp, "%s = %s", i->key, confignode_to_bareval(i)->value);
