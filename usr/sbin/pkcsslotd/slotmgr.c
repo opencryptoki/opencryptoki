@@ -21,10 +21,14 @@
 #include "log.h"
 #include "slotmgr.h"
 #include "pkcsslotd.h"
-#include "parser.h"
+#include "cfgparser.h"
+#include "configuration.h"
 
 #define OBJ_DIR "TOK_OBJ"
 #define MD5_HASH_SIZE 16
+
+#define DEF_MANUFID "IBM"
+#define DEF_SLOTDESC    "Linux"
 
 typedef char md5_hash_entry[MD5_HASH_SIZE];
 md5_hash_entry tokname_hash_table[NUMBER_SLOTS_MANAGED];
@@ -43,12 +47,6 @@ Slot_Mgr_Socket_t socketData;
 struct dircheckinfo_s {
     const char *dir;
     int mode;
-};
-
-struct parse_data {
-    Slot_Info_t_64    sinfo_struct;
-    unsigned long int index;
-    char              errbuf[256];
 };
 
 /*
@@ -329,182 +327,213 @@ static int create_pid_file(pid_t pid)
     return 0;
 }
 
-/*************************
- * Parser callouts
- ************************/
-static int slotmgr_begin_slot(void *private, int slot, int nl_before_slot)
+static void config_parse_error(int line, int col, const char *msg)
 {
-    struct parse_data *d = (struct parse_data *)private;
+    ErrLog("Error parsing config file: line %d column %d: %s\n", line, col,
+           msg);
+}
 
-    UNUSED(nl_before_slot);
-    memset(&d->sinfo_struct, 0, sizeof(d->sinfo_struct));
-    if (slot >= NUMBER_SLOTS_MANAGED) {
-        snprintf(d->errbuf, sizeof(d->errbuf),
-                "Slot number %d unsupported!  Slot number has to be less than %d!",
-                slot, NUMBER_SLOTS_MANAGED);
+static int do_str(char *slotinfo, size_t size, const char* file,
+                  const char* tok, const char *val, char padding)
+{
+    if (strlen(val) > size) {
+        ErrLog("Error parsing config file '%s': %s has too many characters\n",
+               file, tok);
+        return -1;
+    }
+    memset(slotinfo, padding, size);
+    memcpy(slotinfo, val, strlen(val));
+    return 0;
+}
+
+static int config_parse_slot(const char *config_file,
+                             struct ConfigIdxStructNode *slot)
+{
+    struct ConfigBaseNode *c;
+    int i, slot_no;
+    unsigned int vers;
+    char *str;
+
+    slot_no = slot->idx;
+    DbgLog(DL3, "Slot: %d\n", slot_no);
+
+    if (slot_no >= NUMBER_SLOTS_MANAGED) {
+        ErrLog("Error parsing config file '%s': Slot number %d unsupported! "
+               "Slot number has to be less than %d!", config_file, slot_no,
+               NUMBER_SLOTS_MANAGED);
         return 1;
     }
-    d->sinfo_struct.slot_number = slot;
-    d->index = slot;
-    return 0;
-}
 
-static int slotmgr_end_slot(void *private)
-{
-    struct parse_data *d = (struct parse_data *)private;
+    memset(&sinfo[slot_no].slot_number, 0, sizeof(sinfo[slot_no].slot_number));
+    sinfo[slot_no].slot_number = slot_no;
+
+    confignode_foreach(c, slot->value, i) {
+        DbgLog(DL3, "Config node: '%s' type: %u line: %u\n",
+               c->key, c->type, c->line);
+
+        if (strcmp(c->key, "stdll") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+
+            if (do_str((char *)&sinfo[slot_no].dll_location,
+                       sizeof(sinfo[slot_no].dll_location),
+                       config_file, c->key, str, 0))
+                return 1;
+
+            sinfo[slot_no].present = TRUE;
+            continue;
+        }
+
+        if (strcmp(c->key, "description") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+            if (do_str((char *)&sinfo[slot_no].pk_slot.slotDescription,
+                       sizeof(sinfo[slot_no].pk_slot.slotDescription),
+                       config_file, c->key, str, ' '))
+                return 1;
+
+            continue;
+        }
+
+        if (strcmp(c->key, "manufacturer") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+            if (do_str((char *)&sinfo[slot_no].pk_slot.manufacturerID,
+                       sizeof(sinfo[slot_no].pk_slot.manufacturerID),
+                       config_file, c->key, str, ' '))
+                return 1;
+
+            continue;
+        }
+
+        if (strcmp(c->key, "confname") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+            if (do_str((char *)&sinfo[slot_no].confname,
+                       sizeof(sinfo[slot_no].confname),
+                       config_file, c->key, str, 0))
+                return 1;
+
+            continue;
+        }
+
+        if (strcmp(c->key, "tokname") == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+            if (do_str((char *)&sinfo[slot_no].tokname,
+                       sizeof(sinfo[slot_no].tokname),
+                       config_file, c->key, str, 0))
+                return 1;
+
+            continue;
+        }
+
+        if (strcmp(c->key, "hwversion") == 0 &&
+            confignode_getversion(c, &vers) == 0) {
+            sinfo[slot_no].pk_slot.hardwareVersion.major = vers >> 16;
+            sinfo[slot_no].pk_slot.hardwareVersion.minor = vers & 0xffffu;
+            continue;
+        }
+
+        if (strcmp(c->key, "firmwareversion") == 0 &&
+            confignode_getversion(c, &vers) == 0) {
+            sinfo[slot_no].pk_slot.firmwareVersion.major = vers >> 16;
+            sinfo[slot_no].pk_slot.firmwareVersion.minor = vers & 0xffffu;
+            continue;
+        }
+
+        if (strcmp(c->key, "tokversion") == 0 &&
+            confignode_getversion(c, &sinfo[slot_no].version) == 0)
+            continue;
+
+        ErrLog("Error parsing config file '%s': unexpected token '%s' "
+               "at line %d: \n", config_file, c->key, c->line);
+        return 1;
+    }
 
     /* set some defaults if user hasn't set these. */
-	if (!d->sinfo_struct.pk_slot.slotDescription[0]) {
-		memset(&d->sinfo_struct.pk_slot.slotDescription[0], ' ',
-               sizeof(d->sinfo_struct.pk_slot.slotDescription));
-		memcpy(&d->sinfo_struct.pk_slot.slotDescription[0],
-			   DEF_SLOTDESC, strlen(DEF_SLOTDESC));
-	}
-	if (!d->sinfo_struct.pk_slot.manufacturerID[0]) {
-		memset(&d->sinfo_struct.pk_slot.manufacturerID[0], ' ',
-		       sizeof(d->sinfo_struct.pk_slot.manufacturerID));
-		memcpy(&d->sinfo_struct.pk_slot.manufacturerID[0],
-			   DEF_MANUFID, strlen(DEF_MANUFID));
-	}
-    memcpy(&(sinfo[d->index]), &d->sinfo_struct, sizeof(d->sinfo_struct));
+    if (!sinfo[slot_no].pk_slot.slotDescription[0]) {
+        memset(&sinfo[slot_no].pk_slot.slotDescription[0], ' ',
+               sizeof(sinfo[slot_no].pk_slot.slotDescription));
+        memcpy(&sinfo[slot_no].pk_slot.slotDescription[0],
+               DEF_SLOTDESC, strlen(DEF_SLOTDESC));
+    }
+    if (!sinfo[slot_no].pk_slot.manufacturerID[0]) {
+        memset(&sinfo[slot_no].pk_slot.manufacturerID[0], ' ',
+               sizeof(sinfo[slot_no].pk_slot.manufacturerID));
+        memcpy(&sinfo[slot_no].pk_slot.manufacturerID[0],
+               DEF_MANUFID, strlen(DEF_MANUFID));
+    }
+
     NumberSlotsInDB++;
+
     return 0;
 }
 
-static int do_str(struct parse_data *d, char *slotinfo, size_t size,
-                  int tok, const char *val, char padding)
+static int config_parse(const char *config_file)
 {
-	if (strlen(val) > size) {
-        snprintf(d->errbuf, sizeof(d->errbuf), "%s has too many characters\n",
-                 keyword_token_to_str(tok));
-		return -1;
-	}
-    memset(slotinfo, padding, size);
-	memcpy(slotinfo, val, strlen(val));
-	return 0;
-}
+    FILE *file;
+    struct ConfigBaseNode *c, *config = NULL;
+    struct ConfigIdxStructNode *slot;
+    int i, ret = 0;
 
-static int do_vers(struct parse_data *d,
-                   CK_VERSION *slotinfo, int kw, const char *val)
-{
-	char *dot;
+    file = fopen(config_file, "r");
+    if (file == NULL) {
+        ErrLog("Error opening config file '%s': %s\n", config_file,
+               strerror(errno));
+        return -1;
+    }
 
-	if (!val || !*val) {
-		snprintf(d->errbuf, sizeof(d->errbuf), "%s has no value\n",
-                 keyword_token_to_str(kw));
-		return -1 ;
-	}
+    ret = parse_configlib_file(file, &config, config_parse_error, 0);
+    fclose(file);
+    if (ret != 0) {
+        ErrLog("Error parsing config file '%s'\n", config_file);
+        goto done;
+    }
 
-    dot = strchr(val, '.');
-    slotinfo->major = strtol(val, NULL, 10);
-    slotinfo->minor = dot ? strtol(dot + 1, NULL, 10) : 0;
-	return 0;
-}
+    confignode_foreach(c, config, i) {
+        DbgLog(DL3, "Config node: '%s' type: %u line: %u\n",
+               c->key, c->type, c->line);
 
-static int slotmgr_key_str(void *private, int tok, const char *val)
-{
-    struct parse_data *d = (struct parse_data *)private;
-    CK_VERSION vers;
-    int res = 0;
+        if (confignode_hastype(c, CT_FILEVERSION)) {
+            DbgLog(DL0, "Config file version: '%s'\n",
+                   confignode_to_fileversion(c)->base.key);
+            continue;
+        }
 
-    switch (tok) {
-    case KW_STDLL:
-        if (do_str(d, (char *)&d->sinfo_struct.dll_location,
-                   sizeof(d->sinfo_struct.dll_location), tok, val, 0))
-            res = 1;
-        else
-            d->sinfo_struct.present = TRUE;
-        break;
-    case KW_SLOTDESC:
-        if (do_str(d, (char *)d->sinfo_struct.pk_slot.slotDescription,
-                   sizeof(d->sinfo_struct.pk_slot.slotDescription), tok, val, ' '))
-            res = 1;
-        break;
-    case KW_MANUFID:
-        if (do_str(d, (char *)d->sinfo_struct.pk_slot.manufacturerID,
-                   sizeof(d->sinfo_struct.pk_slot.manufacturerID), tok, val, ' '))
-            res = 1;
-        break;
-    case KW_CONFNAME:
-        if (do_str(d, (char *)d->sinfo_struct.confname,
-                   sizeof(d->sinfo_struct.confname), tok, val, 0))
-            res = 1;
-        break;
-    case KW_TOKNAME:
-        if (do_str(d, (char *)d->sinfo_struct.tokname,
-                   sizeof(d->sinfo_struct.tokname), tok, val, 0))
-            res = 1;
-        break;
-    case KW_HWVERSION:
-        if (do_vers(d, &d->sinfo_struct.pk_slot.hardwareVersion, tok, val))
-            res = 1;
-        break;
-    case KW_FWVERSION:
-        if (do_vers(d, &d->sinfo_struct.pk_slot.firmwareVersion, tok, val))
-            res = 1;
-        break;
-    case KW_TOKVERSION:
-        if (do_vers(d, &vers, tok, val))
-            res = 1;
-        else
-            d->sinfo_struct.version = vers.major << 16 | vers.minor;
-        break;
-    default:
-        snprintf(d->errbuf, sizeof(d->errbuf),
-                 "Unknown string-valued keyword detected: \"%s\"",
-                 keyword_token_to_str(tok));
-        res = 1;
+        if (confignode_hastype(c, CT_BARECONST)) {
+            if (strcmp(confignode_to_bareconst(c)->base.key,
+                       "disable-event-support") == 0) {
+                event_support_disabled = 1;
+                continue;
+            }
+
+            ErrLog("Error parsing config file '%s': unexpected token '%s' "
+                   "at line %d: \n", config_file, c->key, c->line);
+            ret = -1;
+            break;
+        }
+
+        if (confignode_hastype(c, CT_IDX_STRUCT)) {
+            slot = confignode_to_idxstruct(c);
+            if (strcmp(slot->base.key, "slot") == 0) {
+                ret = config_parse_slot(config_file, slot);
+                if (ret != 0)
+                    break;
+                continue;
+            }
+
+            ErrLog("Error parsing config file '%s': unexpected token '%s' "
+                   "at line %d: \n", config_file, c->key, c->line);
+            ret = -1;
+            break;
+        }
+
+        ErrLog("Error parsing config file '%s': unexpected token '%s' "
+               "at line %d: \n", config_file, c->key, c->line);
+        ret = -1;
         break;
     }
-    return res;
+
+done:
+    confignode_deepfree(config);
+    return ret;
 }
-
-static int slotmgr_key_vers(void *private, int tok, unsigned int vers)
-{
-    struct parse_data *d = (struct parse_data *)private;
-
-    switch (tok) {
-    case KW_TOKVERSION:
-        d->sinfo_struct.version = vers;
-        return 0;
-    case KW_HWVERSION:
-        d->sinfo_struct.pk_slot.hardwareVersion.major = vers >> 16;
-        d->sinfo_struct.pk_slot.hardwareVersion.minor = vers & 0xffu;
-        return 0;
-    case KW_FWVERSION:
-        d->sinfo_struct.pk_slot.firmwareVersion.major = vers >> 16;
-        d->sinfo_struct.pk_slot.firmwareVersion.minor = vers & 0xffu;
-        return 0;
-    }
-    snprintf(d->errbuf, sizeof(d->errbuf),
-             "Unkown version-valued keyword detected: \"%s\"",
-             keyword_token_to_str(tok));
-    return 1;
-}
-
-static void slotmgr_disab_event_supp(void *private)
-{
-    UNUSED(private);
-
-    event_support_disabled = 1;
-}
-
-static void slotmgr_parseerror(void *private, int line, const char *parsermsg)
-{
-    struct parse_data *d = (struct parse_data *)private;
-
-    ErrLog("Error parsing config file: line %d: %s\n",
-           line, parsermsg ? parsermsg : d->errbuf);
-}
-
-static struct parsefuncs slotmgr_parsefuncs = {
-    .begin_slot = slotmgr_begin_slot,
-    .end_slot   = slotmgr_end_slot,
-    .key_str    = slotmgr_key_str,
-    .key_vers   = slotmgr_key_vers,
-    .disab_event_supp = slotmgr_disab_event_supp,
-    .parseerror = slotmgr_parseerror
-};
 
 /*****************************************
  *  main() -
@@ -517,7 +546,6 @@ static struct parsefuncs slotmgr_parsefuncs = {
 int main(int argc, char *argv[], char *envp[])
 {
     int ret, i;
-    struct parse_data parsedata;
 
     /**********************************/
     /* Read in command-line arguments */
@@ -543,7 +571,7 @@ int main(int argc, char *argv[], char *envp[])
                GetDebugLevel(), DEBUG_NONE, DEBUG_LEVEL0, DEBUG_LEVEL1);
     }
 
-    ret = load_and_parse(OCK_CONFIG, &slotmgr_parsefuncs, &parsedata);
+    ret = config_parse(OCK_CONFIG);
     if (ret != 0) {
         ErrLog("Failed to read config file.\n");
         return 1;
