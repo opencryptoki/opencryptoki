@@ -3589,8 +3589,46 @@ static CK_BBOOL isMechanismHW(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
     return FALSE;
 }
 
+#define KEY_SIZE_512   0x01
+#define KEY_SIZE_1024  0x02
+#define KEY_SIZE_2048  0x04
+#define KEY_SIZE_4096  0x08
+
+static void adjust_rsa_key_sizes(unsigned int mask,
+                                 CK_MECHANISM_INFO *mech_info)
+{
+    CK_ULONG min = 0, max = 0;
+
+    if (mask == 0)
+        return;
+
+    if (mask & KEY_SIZE_512)
+        min = 512;
+    else if (mask & KEY_SIZE_1024)
+        min = 1024;
+    else if (mask & KEY_SIZE_2048)
+        min = 2048;
+    else if (mask & KEY_SIZE_4096)
+        min = 4096;
+
+    max = min;
+    if (mask & KEY_SIZE_4096)
+        max = 4096;
+    else if (mask & KEY_SIZE_2048)
+        max = 2048;
+    else if (mask & KEY_SIZE_1024)
+        max = 1024;
+    else if (mask & KEY_SIZE_512)
+        max = 512;
+
+    if (min > mech_info->ulMinKeySize)
+        mech_info->ulMinKeySize = min;
+    if (max < mech_info->ulMaxKeySize)
+        mech_info->ulMaxKeySize = max;
+}
+
 static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism,
-                                CK_BBOOL hw)
+                                CK_BBOOL hw, unsigned int rsa_keysize_mask)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ULONG ret;
@@ -3612,6 +3650,10 @@ static CK_RV addMechanismToList(STDLL_TokData_t *tokdata, CK_ULONG mechanism,
         ref_mech_list[refIdx].mech_info.ulMinKeySize;
     ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
         ref_mech_list[refIdx].mech_info.ulMaxKeySize;
+
+    adjust_rsa_key_sizes(rsa_keysize_mask,
+                     &ica_data->mech_list[ica_data->mech_list_len].mech_info);
+
     ica_data->mech_list_len++;
 
     return CKR_OK;
@@ -3625,95 +3667,95 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_ULONG ret, rc = CKR_OK;
-    unsigned int i, n;
+    unsigned int i, n, rsa_props = 0;
     unsigned int ica_specific_mech_list_len;
     CK_ULONG tmp, ulActMechCtr, ulPreDefMechCtr, refIdx;
     CK_BBOOL rsa_hw, ec_hw, sha_hw;
 
 #if !(NOMD5)
-    addMechanismToList(tokdata, CKM_MD5, 0);
-    addMechanismToList(tokdata, CKM_MD5_HMAC, 0);
-    addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0);
+    addMechanismToList(tokdata, CKM_MD5, 0, 0);
+    addMechanismToList(tokdata, CKM_MD5_HMAC, 0, 0);
+    addMechanismToList(tokdata, CKM_MD5_HMAC_GENERAL, 0, 0);
 #endif
 
     /* We have RSA support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_RSA_PKCS_KEY_PAIR_GEN, 0);
-    addMechanismToList(tokdata, CKM_RSA_PKCS, 0);
+    addMechanismToList(tokdata, CKM_RSA_PKCS_KEY_PAIR_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_RSA_PKCS, 0, 0);
 #if !(NOX509)
-    addMechanismToList(tokdata, CKM_RSA_X_509, 0);
+    addMechanismToList(tokdata, CKM_RSA_X_509, 0, 0);
 #endif
 
     /* We have RNG support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_GENERIC_SECRET_KEY_GEN, 0);
-    addMechanismToList(tokdata, CKM_DES_KEY_GEN, 0);
-    addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0);
-    addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0);
+    addMechanismToList(tokdata, CKM_GENERIC_SECRET_KEY_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_KEY_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_KEY_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_KEY_GEN, 0, 0);
 
     /* We have EC support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0);
-    addMechanismToList(tokdata, CKM_ECDSA, 0);
+    addMechanismToList(tokdata, CKM_EC_KEY_PAIR_GEN, 0, 0);
+    addMechanismToList(tokdata, CKM_ECDSA, 0, 0);
 
     /* We have SHA support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_SHA_1, 0);
-    addMechanismToList(tokdata, CKM_SHA224, 0);
-    addMechanismToList(tokdata, CKM_SHA256, 0);
-    addMechanismToList(tokdata, CKM_SHA384, 0);
-    addMechanismToList(tokdata, CKM_SHA512, 0);
+    addMechanismToList(tokdata, CKM_SHA_1, 0, 0);
+    addMechanismToList(tokdata, CKM_SHA224, 0, 0);
+    addMechanismToList(tokdata, CKM_SHA256, 0, 0);
+    addMechanismToList(tokdata, CKM_SHA384, 0, 0);
+    addMechanismToList(tokdata, CKM_SHA512, 0, 0);
 #ifdef NID_sha512_224WithRSAEncryption
-    addMechanismToList(tokdata, CKM_SHA512_224, 0);
+    addMechanismToList(tokdata, CKM_SHA512_224, 0, 0);
 #endif
 #ifdef NID_sha512_256WithRSAEncryption
-    addMechanismToList(tokdata, CKM_SHA512_256, 0);
+    addMechanismToList(tokdata, CKM_SHA512_256, 0, 0);
 #endif
 #ifdef NID_sha3_224
-    addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0);
+    addMechanismToList(tokdata, CKM_IBM_SHA3_224, 0, 0);
 #endif
 #ifdef NID_sha3_256
-    addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0);
+    addMechanismToList(tokdata, CKM_IBM_SHA3_256, 0, 0);
 #endif
 #ifdef NID_sha3_384
-    addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0);
+    addMechanismToList(tokdata, CKM_IBM_SHA3_384, 0, 0);
 #endif
 #ifdef NID_sha3_512
-    addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0);
+    addMechanismToList(tokdata, CKM_IBM_SHA3_512, 0, 0);
 #endif
 
     /* We have AES support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_AES_ECB, 0);
-    addMechanismToList(tokdata, CKM_AES_CBC, 0);
-    addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0);
-    addMechanismToList(tokdata, CKM_AES_CTR, 0);
+    addMechanismToList(tokdata, CKM_AES_ECB, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CBC, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CBC_PAD, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CTR, 0, 0);
 #if OPENSSL_VERSION_PREREQ(3, 0) || OPENSSL_VERSION_NUMBER >= 0x101010cfL
     /*
      * AES-OFB/CFB currently only works with >= OpenSSl 3.0 or >= OpenSSL 1.1.1l,
      * due to a bug in OpenSSL <= 1.1.1k in s390x_aes_ofb_cipher() not updating
      * the IV in the context.
      */
-    addMechanismToList(tokdata, CKM_AES_OFB, 0);
-    addMechanismToList(tokdata, CKM_AES_CFB8, 0);
+    addMechanismToList(tokdata, CKM_AES_OFB, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CFB8, 0, 0);
     /* CFB64 is not supported as SW fallback */
-    addMechanismToList(tokdata, CKM_AES_CFB128, 0);
+    addMechanismToList(tokdata, CKM_AES_CFB128, 0, 0);
 #endif
-    addMechanismToList(tokdata, CKM_AES_GCM, 0);
-    addMechanismToList(tokdata, CKM_AES_MAC, 0);
-    addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0);
-    addMechanismToList(tokdata, CKM_AES_CMAC, 0);
-    addMechanismToList(tokdata, CKM_AES_CMAC_GENERAL, 0);
+    addMechanismToList(tokdata, CKM_AES_GCM, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_MAC, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_MAC_GENERAL, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CMAC, 0, 0);
+    addMechanismToList(tokdata, CKM_AES_CMAC_GENERAL, 0, 0);
 
     /* We have DES/3DES support (SW) in any case, regardless if libica supports it */
-    addMechanismToList(tokdata, CKM_DES_ECB, 0);
-    addMechanismToList(tokdata, CKM_DES_CBC, 0);
-    addMechanismToList(tokdata, CKM_DES_CBC_PAD, 0);
-    addMechanismToList(tokdata, CKM_DES3_ECB, 0);
-    addMechanismToList(tokdata, CKM_DES3_CBC, 0);
-    addMechanismToList(tokdata, CKM_DES3_CBC_PAD, 0);
-    addMechanismToList(tokdata, CKM_DES_OFB64, 0);
-    addMechanismToList(tokdata, CKM_DES_CFB8, 0);
-    addMechanismToList(tokdata, CKM_DES_CFB64, 0);
-    addMechanismToList(tokdata, CKM_DES3_MAC, 0);
-    addMechanismToList(tokdata, CKM_DES3_MAC_GENERAL, 0);
-    addMechanismToList(tokdata, CKM_DES3_CMAC, 0);
-    addMechanismToList(tokdata, CKM_DES3_CMAC_GENERAL, 0);
+    addMechanismToList(tokdata, CKM_DES_ECB, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_CBC, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_CBC_PAD, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_ECB, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_CBC, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_CBC_PAD, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_OFB64, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_CFB8, 0, 0);
+    addMechanismToList(tokdata, CKM_DES_CFB64, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_MAC, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_MAC_GENERAL, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_CMAC, 0, 0);
+    addMechanismToList(tokdata, CKM_DES3_CMAC_GENERAL, 0, 0);
 
     rc = ica_get_functionlist(NULL, &ica_specific_mech_list_len);
     if (rc != CKR_OK) {
@@ -3740,10 +3782,16 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             continue;
 
         /* Remember if libica supports RSA mechanisms (HW or SW) */
-        if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME)
+        if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME) {
             ica_data->ica_rsa_keygen_available = TRUE;
-        if (libica_func_list[i].mech_mode_id == RSA_ME)
+            if (libica_func_list[i].property != 0)
+                rsa_props = libica_func_list[i].property;
+        }
+        if (libica_func_list[i].mech_mode_id == RSA_ME) {
             ica_data->ica_rsa_endecrypt_available = TRUE;
+            if (libica_func_list[i].property != 0)
+                rsa_props = libica_func_list[i].property;
+        }
 
         /* Remember if libica supports RNG mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == P_RNG)
@@ -3821,12 +3869,23 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                     ref_mech_list[refIdx].mech_info.ulMinKeySize;
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMaxKeySize =
                     ref_mech_list[refIdx].mech_info.ulMaxKeySize;
+
+                if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME ||
+                    libica_func_list[i].mech_mode_id == RSA_ME)
+                    adjust_rsa_key_sizes(rsa_props,
+                                     &ica_data->mech_list[ica_data->mech_list_len].mech_info);
+
                 ica_data->mech_list_len++;
             } else {
                 /* replace existing entry */
                 ica_data->mech_list[ulActMechCtr].mech_info.flags =
                     (libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW) ? CKF_HW : 0) |
                     (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW));
+
+                if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME ||
+                    libica_func_list[i].mech_mode_id == RSA_ME)
+                    adjust_rsa_key_sizes(rsa_props,
+                                     &ica_data->mech_list[ulActMechCtr].mech_info);
             }
             refIdx++;
         }
@@ -3848,117 +3907,117 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_SHA512)) {
-        addMechanismToList(tokdata, CKM_RSA_PKCS_OAEP, 0);
-        addMechanismToList(tokdata, CKM_RSA_PKCS_PSS, 0);
+        addMechanismToList(tokdata, CKM_RSA_PKCS_OAEP, 0, rsa_props);
+        addMechanismToList(tokdata, CKM_RSA_PKCS_PSS, 0, rsa_props);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA224) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_MD2) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_MD2_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_MD2_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_MD5) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
-        addMechanismToList(tokdata, CKM_MD5_RSA_PKCS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_MD5_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
-        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS_PSS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA1_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA224) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
-        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS_PSS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA224_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
-        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS_PSS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA256_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
-        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS_PSS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA384_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS_PSS))
-        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS_PSS, rsa_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS_PSS, rsa_hw && sha_hw, rsa_props);
 
     ec_hw = isMechanismHW(tokdata, CKM_ECDSA);
     if (isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
-        addMechanismToList(tokdata, CKM_ECDSA_SHA1, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDSA_SHA1, ec_hw && sha_hw, 0);
     if (isMechanismAvailable(tokdata, CKM_SHA224) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
-        addMechanismToList(tokdata, CKM_ECDSA_SHA224, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDSA_SHA224, ec_hw && sha_hw, 0);
     if (isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
-        addMechanismToList(tokdata, CKM_ECDSA_SHA256, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDSA_SHA256, ec_hw && sha_hw, 0);
     if (isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
-        addMechanismToList(tokdata, CKM_ECDSA_SHA384, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDSA_SHA384, ec_hw && sha_hw, 0);
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_ECDSA))
-        addMechanismToList(tokdata, CKM_ECDSA_SHA512, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDSA_SHA512, ec_hw && sha_hw, 0);
     if (isMechanismAvailable(tokdata, CKM_EC_KEY_PAIR_GEN) &&
         isMechanismAvailable(tokdata, CKM_SHA_1) &&
         isMechanismAvailable(tokdata, CKM_SHA224) &&
         isMechanismAvailable(tokdata, CKM_SHA256) &&
         isMechanismAvailable(tokdata, CKM_SHA384) &&
         isMechanismAvailable(tokdata, CKM_SHA512))
-        addMechanismToList(tokdata, CKM_ECDH1_DERIVE, ec_hw && sha_hw);
+        addMechanismToList(tokdata, CKM_ECDH1_DERIVE, ec_hw && sha_hw, 0);
 
     if (isMechanismAvailable(tokdata, CKM_SHA_1)) {
-        addMechanismToList(tokdata, CKM_SHA_1_HMAC, sha_hw);
-        addMechanismToList(tokdata, CKM_SHA_1_HMAC_GENERAL, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA_1_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA_1_HMAC_GENERAL, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA224)) {
-        addMechanismToList(tokdata, CKM_SHA224_HMAC, sha_hw);
-        addMechanismToList(tokdata, CKM_SHA224_HMAC_GENERAL, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA224_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA224_HMAC_GENERAL, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA256)) {
-        addMechanismToList(tokdata, CKM_SHA256_HMAC, sha_hw);
-        addMechanismToList(tokdata, CKM_SHA256_HMAC_GENERAL, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA256_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA256_HMAC_GENERAL, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA384)) {
-        addMechanismToList(tokdata, CKM_SHA384_HMAC, sha_hw);
-        addMechanismToList(tokdata, CKM_SHA384_HMAC_GENERAL, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA384_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA384_HMAC_GENERAL, sha_hw, 0);
     }
     if (isMechanismAvailable(tokdata, CKM_SHA512)) {
-        addMechanismToList(tokdata, CKM_SHA512_HMAC, sha_hw);
-        addMechanismToList(tokdata, CKM_SHA512_HMAC_GENERAL, sha_hw);
+        addMechanismToList(tokdata, CKM_SHA512_HMAC, sha_hw, 0);
+        addMechanismToList(tokdata, CKM_SHA512_HMAC_GENERAL, sha_hw, 0);
     }
 #ifdef NID_sha512_224WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_224)) {
-        addMechanismToList(tokdata, CKM_SHA512_224_HMAC, 0);
-        addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA512_224_HMAC_GENERAL, 0, 0);
     }
 #endif
 #ifdef NID_sha512_256WithRSAEncryption
     if (isMechanismAvailable(tokdata, CKM_SHA512_256)) {
-        addMechanismToList(tokdata, CKM_SHA512_256_HMAC, 0);
-        addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC, 0, 0);
+        addMechanismToList(tokdata, CKM_SHA512_256_HMAC_GENERAL, 0, 0);
     }
 #endif
 #ifdef NID_sha3_224
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_224))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_224_HMAC, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_224_HMAC, 0, 0);
 #endif
 #ifdef NID_sha3_256
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_256))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_256_HMAC, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_256_HMAC, 0, 0);
 #endif
 #ifdef NID_sha3_384
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_384))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_384_HMAC, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_384_HMAC, 0, 0);
 #endif
 #ifdef NID_sha3_512
     if (isMechanismAvailable(tokdata, CKM_IBM_SHA3_512))
-        addMechanismToList(tokdata, CKM_IBM_SHA3_512_HMAC, 0);
+        addMechanismToList(tokdata, CKM_IBM_SHA3_512_HMAC, 0, 0);
 #endif
 
     /* sort the mech_list_ica by mechanism ID's (bubble sort)  */
