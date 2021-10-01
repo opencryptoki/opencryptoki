@@ -1351,6 +1351,22 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    if (!mech_supported(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_GetMechanismInfo(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN, &mech_info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetMechanismInfo rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    if (bits < mech_info.ulMinKeySize)
+        bits = mech_info.ulMinKeySize;
+
     for (i = 0; i < 3; i++) {
 
         testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
@@ -1575,6 +1591,21 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    if (!mech_supported(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_GetMechanismInfo(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN, &mech_info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetMechanismInfo rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    if (bits < mech_info.ulMinKeySize)
+        bits = mech_info.ulMinKeySize;
 
     for (i = 0; i < 3; i++) {
 
@@ -1743,6 +1774,22 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
                        (unsigned int) slot_id);
         goto testcase_cleanup;
     }
+
+    if (!mech_supported(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
+                       (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    rc = funcs->C_GetMechanismInfo(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN, &mech_info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetMechanismInfo rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    if (bits < mech_info.ulMinKeySize)
+        bits = mech_info.ulMinKeySize;
 
     for (i = 0; i < 3; i++) {
 
