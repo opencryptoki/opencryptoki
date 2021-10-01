@@ -59,6 +59,11 @@
  * A bare value.
  */
 #define CT_BARE         (1u << 9u)
+/*
+ * A bare constant, i.e., a bare word outside of a list that
+ * represents its own configuration element.
+ */
+#define CT_BARECONST    (1u << 10u)
 
 /*
  * Mask for all types that have a key.  This excludes FILEVERSION,
@@ -66,7 +71,7 @@
  */
 #define CT_HAS_KEY_MASK (CT_INTVAL | CT_STRINGVAL | CT_VERSIONVAL |  \
 			 CT_BAREVAL | CT_STRINGVAL | CT_IDX_STRUCT | \
-			 CT_BARELIST)
+			 CT_BARELIST | CT_BARECONST)
 
 /***** Node Types *****/
 struct ConfigBaseNode;
@@ -130,6 +135,10 @@ struct ConfigBareListNode {
 
 struct ConfigEOCNode {
     /* Reuses base.key for comment */
+    struct ConfigBaseNode base;
+};
+
+struct ConfigBareConstNode {
     struct ConfigBaseNode base;
 };
 
@@ -202,6 +211,13 @@ confignode_to_eoc(struct ConfigBaseNode *n)
 {
     return (struct ConfigEOCNode *)
         (((char *)n) - offsetof(struct ConfigEOCNode, base));
+}
+
+static inline struct ConfigBareConstNode *
+confignode_to_bareconst(struct ConfigBaseNode *n)
+{
+    return (struct ConfigBareConstNode *)
+        (((char *)n) - offsetof(struct ConfigBareConstNode, base));
 }
 
 /* Freeing functions */
@@ -299,6 +315,14 @@ static inline void confignode_freebarelist(struct ConfigBareListNode *n)
 }
 
 static inline void confignode_freeeoc(struct ConfigEOCNode *n)
+{
+    if (n) {
+        free(n->base.key);
+        free(n);
+    }
+}
+
+static inline void confignode_freebareconst(struct ConfigBareConstNode *n)
 {
     if (n) {
         free(n->base.key);
@@ -478,6 +502,21 @@ static inline struct ConfigEOCNode *confignode_alloceoc(char *comment, int line)
     return res;
 }
 
+static inline struct ConfigBareConstNode *confignode_allocbareconst(char *key,
+                                                                    int line)
+{
+    struct ConfigBareConstNode *res = malloc(sizeof(struct ConfigBareConstNode));
+
+    if (res) {
+        res->base.next = res->base.prev = &(res->base);
+        res->base.key = key;
+        res->base.type = CT_BARECONST;
+        res->base.line = line;
+        res->base.flags = 0;
+    }
+    return res;
+}
+
 /* Convenience functions for AST manipulation.  These functions
    automatically append an EOC-node to the correct node which
    optionally includes a comment.  If no comment is desired, simply
@@ -521,6 +560,9 @@ confignode_allocbarelistdumpable(char *key,
 
 struct ConfigBareNode *
 confignode_allocbaredumpable(char *bareval, int line, char *comment);
+
+struct ConfigBareConstNode *
+confignode_allocbareconstdumpable(char *key, int line, char *comment);
 
 /* Append the list n2 to the end of the list n1.
    NULL is considered as empty list. */

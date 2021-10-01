@@ -33,10 +33,10 @@ typedef void (*error_hook_f)(int line, int col, const char *msg);
 
  
   static inline void configerror(CONFIGLTYPE *lloc, configscan_t scanner,
-  	      	                 struct ConfigBaseNode **res,
-		                 error_hook_f error_hook,
-				 int trackComments,
-			         const char *msg)
+                                 struct ConfigBaseNode **res,
+                                 error_hook_f error_hook,
+                                 int trackComments,
+                                 const char *msg)
   {
     (void)scanner;
     (void)res;
@@ -69,7 +69,7 @@ typedef void (*error_hook_f)(int line, int col, const char *msg);
   <str> STRING_TOK
 
 %type <node>       configelemstar configelem barelist barelist_ne
-                   eoc eocstar eocplus
+                   eoc eocstar eocplus commentedconfigelemstar
 
 %defines
 %destructor { free($$); } <str>
@@ -88,19 +88,25 @@ typedef void (*error_hook_f)(int line, int col, const char *msg);
 %%
 
 /* Parse the whole config file:
-configfile ::= configelem*
+configfile ::= commentedconfigelem*
 */
 configfile:
-	configelemstar { *res = $1; $1 = NULL; }
+    commentedconfigelemstar { *res = $1; $1 = NULL; }
 
-/* 0-n configuration elements with comments between them:
-Ideally this would be just configelem*, but it actually is 
-(end-of-line-comment? configelem?)* since we track comments
+/* Parse configelemstar that might start with an arbitrary number of
+   initial comments.  This is used to take care of comments before the
+   first configelem.  The rules for configelem take care of comments
+   after the configelem.  Since "after configelem i" is "before
+   configelem (i+1)", we cannot add comment tracking to before and
+   after a configelem.  So we use this rule to fill the vacant
+   position before the first configelem.
 */
+commentedconfigelemstar :
+    eocstar configelemstar { $$ = confignode_append($1, $2); $1 = $2 = NULL; }
+
+/* 0-n configuration elements with comments between them. */
 configelemstar:
 	configelem configelemstar { $$ = confignode_append($1, $2); $1 = $2 = NULL; }
-	|
-	eoc configelemstar { $$ = confignode_append($1, $2); $1 = NULL; $2 = NULL; }
 	|
 	/* empty */ { $$ = NULL; }
 
@@ -123,76 +129,94 @@ configuration element.  You may have an arbitrary number of comments and
 newlines before, but the first keyword can either be version (in which case it
 is seen as FILEVERSION and not BARE), or any other BARE to start a different
 alternative.
+
+Every config elem has to end with eocstar to allow an arbitrary number
+of comments at the end of the element.  The element also has to take
+care of all the positions where it wants to allow comments.
 */
 configelem:
 	/* version somestring*/
-        FILEVERSION BARE {
+    FILEVERSION BARE eocstar {
 	    struct ConfigFileVersionNode *n = confignode_allocfileversion($2, @1.first_line);
 	    if (!n) { YYERROR; }
-	    $$ = &n->base;
+	    $$ = confignode_append(&(n->base), $3);
 	    $2 = NULL;
+        $3 = NULL;
         }
-        |
+    |
 	/* conf = 42 */
-	BARE EQUAL NUMBER {
+	BARE EQUAL NUMBER eocstar {
 	    struct ConfigIntValNode *n = confignode_allocintval($1, $3, @1.first_line);
 	    if (!n) { YYERROR; }
-	    $$ = &n->base;
+	    $$ = confignode_append(&(n->base), $4);
 	    $1 = NULL;
+        $4 = NULL;
 	}
 	|
 	/* conf = 1.0 */
-	BARE EQUAL VERSION_TOK {
+	BARE EQUAL VERSION_TOK eocstar {
 	    struct ConfigVersionValNode *n = confignode_allocversionval($1, $3, @1.first_line);
 	    if (!n) { YYERROR; }
-	    $$ = &n->base;
+	    $$ = confignode_append(&(n->base), $4);
 	    $1 = NULL;
+        $4 = NULL;
 	}
 	|
 	/* conf = "A string" */
-	BARE EQUAL STRING_TOK {
+	BARE EQUAL STRING_TOK eocstar {
 	    struct ConfigStringValNode *n = confignode_allocstringval($1, $3, @1.first_line);
 	    if (!n) { YYERROR; }
-	    $$ = &n->base;
+	    $$ = confignode_append(&(n->base), $4);
 	    $1 = NULL;
 	    $3 = NULL;
+        $4 = NULL;
 	}
 	|
 	/* conf = configuration */
-	BARE EQUAL BARE {
+	BARE EQUAL BARE eocstar {
 	    struct ConfigBareValNode *n = confignode_allocbareval($1, $3, @1.first_line);
 	    if (!n) { YYERROR; }
-	    $$ = &n->base;
+	    $$ = confignode_append(&(n->base), $4);
 	    $1 = NULL;
 	    $3 = NULL;
+        $4 = NULL;
 	}
 	|
 	/* conf 42 { subconf = 73 } */
-	BARE NUMBER eocstar BEGIN_DEF configelemstar END_DEF {
+	BARE NUMBER eocstar BEGIN_DEF commentedconfigelemstar END_DEF eocstar {
 	     struct ConfigIdxStructNode *n = confignode_allocidxstruct($1, $2, $3, $5, @1.first_line);
-             if (!n) { YYERROR; }
-	     $$ = &n->base;
+         if (!n) { YYERROR; }
+	     $$ = confignode_append(&(n->base), $7);
 	     $1 = NULL;
-	     $3 = $5 = NULL;
+	     $3 = $5 = $7 = NULL;
 	}
 	|
 	/* conf { subconf = 73 } */
-	BARE eocstar BEGIN_DEF configelemstar END_DEF {
+	BARE eocstar BEGIN_DEF commentedconfigelemstar END_DEF eocstar {
+        
 	     struct ConfigStructNode *n = confignode_allocstruct($1, $2, $4, @1.first_line);
-             if (!n) { YYERROR; }
-	     $$ = &n->base;
+         if (!n) { YYERROR; }
+	     $$ = confignode_append(&(n->base), $6);
 	     $1 = NULL;
-	     $2 = $4 = NULL;
+	     $2 = $4 = $6 = NULL;
 	}
 	|
 	/* conf ( A, B, C ) */
-	BARE eocstar BEGIN_LIST barelist END_LIST {
+	BARE eocstar BEGIN_LIST barelist END_LIST eocstar {
 	     struct ConfigBareListNode *n = confignode_allocbarelist($1, $2, $4, @1.first_line);
-             if (!n) { YYERROR; }
-	     $$ = &n->base;
+         if (!n) { YYERROR; }
+	     $$ = confignode_append(&(n->base), $6);
 	     $1 = NULL;
-	     $2 = $4 = NULL;
+	     $2 = $4 = $6 = NULL;
 	}
+    |
+    BARE eocstar {
+        struct ConfigBareConstNode *n = confignode_allocbareconst($1, @1.first_line);
+        if (!n) { YYERROR; }
+        $$ = confignode_append(&(n->base), $2);
+        $1 = NULL;
+        $2 = NULL;
+    }
 
 /*
 A possibly empty list of barewords or comments.  Two bare words have to be
