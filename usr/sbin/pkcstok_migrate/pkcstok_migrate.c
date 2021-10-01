@@ -33,7 +33,8 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <pkcs11types.h>
-#include <configparser.h>
+#include "cfgparser.h"
+#include "configuration.h"
 
 #include "sw_crypt.h"
 #include "defs.h"
@@ -48,6 +49,7 @@
 
 #define TOKVERSION_00         0x00000000
 #define TOKVERSION_312        0x0003000C
+#define TOKVERSION_312_STRING "3.12"
 
 #define INVALID_TOKEN         "unknown/unsupported"
 
@@ -1154,54 +1156,30 @@ static CK_RV get_token_info(const char *data_store, CK_TOKEN_INFO_32 *tokinfo)
     return CKR_OK;
 }
 
-/**
- * Support for finding the right stdll via the parser interface.  The begin
- * slot callback checks and sets activeslot if the current slot is the target
- * slot.
- */
-static int parsefind_begin_slot(void *private, int slot, int nl_before_begin)
+static void config_parse_error(int line, int col, const char *msg)
 {
-    struct findstdll *d = (struct findstdll *)private;
-
-    UNUSED(nl_before_begin);
-    if (d->slotnum == slot)
-        d->activeslot = 1;
-    return 0;
+    fprintf(stderr, "Error parsing config file: line %d column %d: %s\n", line,
+            col, msg);
 }
 
-/**
- * Support for finding the right stdll via the parser interface.  The end
- * slot callback resets activeslot since we are no longer in a slot definition.
- */
-static int parsefind_end_slot(void *private)
+static struct ConfigBaseNode *config_parse(const char *config_file,
+                                           CK_BBOOL track_comments)
 {
-    struct findstdll *d = (struct findstdll *)private;
+    FILE *file;
+    struct ConfigBaseNode *config = NULL;
+    int ret;
 
-    d->activeslot = 0;
-    return 0;
+    file = fopen(config_file, "r");
+    if (file == NULL)
+        return NULL;
+
+    ret = parse_configlib_file(file, &config, config_parse_error, track_comments);
+    fclose(file);
+    if (ret != 0)
+        return NULL;
+
+    return config;
 }
-
-/**
- * Support for finding the right stdll via the parser interface.  The key-str
- * callback detects and copies the stdll path for the target slot.
- */
-static int parsefind_key_str(void *private, int tok, const char *val)
-{
-    struct findstdll *d = (struct findstdll *)private;
-
-    if (d->activeslot && tok == KW_STDLL) {
-        strncpy(d->stdll, val, d->len);
-        // Make sure it is 0-terminated
-        d->stdll[d->len] = 0;
-    }
-    return 0;
-}
-
-static struct parsefuncs parsefindfuncs = {
-    .begin_slot = parsefind_begin_slot,
-    .end_slot   = parsefind_end_slot,
-    .key_str    = parsefind_key_str
-};
 
 /**
  * Identify the token that belongs to the given slot ID.
@@ -1211,15 +1189,13 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
 {
     char conf_file[PATH_MAX];
     CK_RV ret;
-    struct findstdll finddll;
+    struct ConfigBaseNode *config = NULL, *c;
+    struct ConfigIdxStructNode *slot;
     size_t max_cpy_size;
+    char *stdll;
 
     max_cpy_size = dll_name_len > sizeof(((Slot_Info_t_64 *)NULL)->dll_location)
         ? sizeof(((Slot_Info_t_64 *)NULL)->dll_location) : dll_name_len;
-    finddll.stdll = dll_name;
-    finddll.len = max_cpy_size - 1;
-    finddll.slotnum = slot_id;
-    finddll.activeslot = 0;
 
     TRACE_INFO("Identifying the token that belongs to slot %ld ...\n", slot_id);
 
@@ -1235,13 +1211,36 @@ static CK_RV identify_token(CK_SLOT_ID slot_id, char *conf_dir,
         return CKR_FUNCTION_FAILED;
     }
 
-    ret = CKR_OK;
-    if (load_and_parse(conf_file, &parsefindfuncs, &finddll)) {
+    config = config_parse(conf_file, FALSE);
+    if (config == NULL) {
         TRACE_ERROR("failed to parse config file %s\n", conf_file);
         ret = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
+    slot = confignode_findidx(config, "slot", slot_id);
+    if (slot == NULL) {
+        TRACE_ERROR("failed to find slot %lu in config file %s\n", slot_id,
+                    conf_file);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    c = confignode_find(slot->value, "stdll");
+    if (c == NULL || (stdll = confignode_getstr(c)) == NULL) {
+        TRACE_ERROR("failed to find stdll for slot %lu in config file %s\n",
+                    slot_id, conf_file);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    strncpy(dll_name, stdll, max_cpy_size);
+    dll_name[max_cpy_size - 1] = 0;
+
+    ret = CKR_OK;
+
 done:
+    confignode_deepfree(config);
 
     return ret;
 }
@@ -2033,142 +2032,6 @@ done:
 }
 
 /**
- * Use a parser to create a new config file.  The parser callouts
- * basically copy the original input and add the new tokversion line
- * for the token we just migrated.
- */
-static int parseupdate_ockversion(void *private, const char *version)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    fprintf(u->f, "version %s", version);
-    u->at_newline = 0;
-    return 0;
-}
-
-static void parseupdate_disab_event_supp(void *private)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    fprintf(u->f, "disable-event-support");
-    u->at_newline = 0;
-}
-
-static void parseupdate_eol(void *private)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    fputc('\n', u->f);
-    u->at_newline = 1;
-}
-
-static int parseupdate_begin_slot(void *private, int slot, int nl_before_begin)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    u->activeslot = (slot == u->slotnum);
-    if (nl_before_begin)
-        fprintf(u->f, "slot %d\n{", slot);
-    else
-        fprintf(u->f, "slot %d {", slot);
-    u->tokvers_added = 0;
-    u->at_newline = 0;
-    return 0;
-}
-
-static int parseupdate_end_slot(void *private)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    if (u->activeslot && !u->tokvers_added)
-        fprintf(u->f, "  tokversion = 3.12\n");
-    fputc('}', u->f);
-    u->activeslot = 0;
-    u->tokvers_added = 0;
-    u->at_newline = 0;
-    return 0;
-}
-
-static int parseupdate_key_str(void *private, int tok, const char *val)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    switch (tok) {
-    case KW_SLOTDESC:
-    case KW_MANUFID:
-        fprintf(u->f, "  %s = \"%s\"", keyword_token_to_str(tok), val);
-        break;
-    case KW_STDLL:
-    case KW_CONFNAME:
-    case KW_TOKNAME:
-        if (strchr(val, ' ') != NULL)
-            fprintf(u->f, "  %s = \"%s\"", keyword_token_to_str(tok), val);
-        else
-            fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
-        break;
-    case KW_HWVERSION:
-    case KW_FWVERSION:
-        fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
-        break;
-    case KW_TOKVERSION:
-        if (u->activeslot)
-            fprintf(u->f, "  tokversion = 3.12");
-        else
-            fprintf(u->f, "  %s = %s", keyword_token_to_str(tok), val);
-        u->tokvers_added = 1;
-        break;
-    }
-    u->at_newline = 0;
-    return 0;
-}
-
-static int parseupdate_key_vers(void *private, int tok, unsigned int vers)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    switch (tok) {
-    case KW_TOKVERSION:
-        if (u->activeslot)
-            fprintf(u->f, "  tokversion = 3.12");
-        else
-            fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
-                    vers >> 16, vers & 0xffu);
-        u->tokvers_added = 1;
-        break;
-    case KW_HWVERSION:
-    case KW_FWVERSION:
-        fprintf(u->f, "  %s = %d.%d", keyword_token_to_str(tok),
-                vers >> 16, vers & 0xffu);
-        break;
-    }
-    u->at_newline = 0;
-    return 0;
-}
-
-static void parseupdate_eolcomment(void *private, const char *comment)
-{
-    struct parseupdate *u = (struct parseupdate *)private;
-
-    if (u->at_newline)
-        fprintf(u->f, "#%s", comment);
-    else
-        fprintf(u->f, " #%s", comment);
-    u->at_newline = 0;
-}
-
-static struct parsefuncs parseupdatefuncs = {
-    .version    = parseupdate_ockversion,
-    .disab_event_supp = parseupdate_disab_event_supp,
-    .eol        = parseupdate_eol,
-    .begin_slot = parseupdate_begin_slot,
-    .end_slot   = parseupdate_end_slot,
-    .key_str    = parseupdate_key_str,
-    .key_vers   = parseupdate_key_vers,
-    .eolcomment = parseupdate_eolcomment
-};
-
-
-/**
  * Inserts the new tokversion parm in the token's slot configuration, e.g.
  *
  *   slot 2
@@ -2180,15 +2043,66 @@ static struct parsefuncs parseupdatefuncs = {
 static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 {
     char dst_file[PATH_MAX], src_file[PATH_MAX], fname[PATH_MAX+20];
+    struct ConfigBaseNode *config = NULL, *c;
+    struct ConfigVersionValNode *v;
+    struct ConfigIdxStructNode *slot;
     FILE *fp_w = NULL;
     CK_RV ret;
     int rc;
-    struct parseupdate parseupdate;
 
     TRACE_INFO("Updating config file ...\n");
 
     /* Open current conf file for read */
     snprintf(src_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf");
+
+    config = config_parse(src_file, TRUE);
+    if (config == NULL) {
+        TRACE_ERROR("failed to parse config file %s\n", src_file);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Update the tokeversion for the selected slot */
+    slot = confignode_findidx(config, "slot", slot_id);
+    if (slot == NULL) {
+        TRACE_ERROR("failed to find slot %lu in config file %s\n", slot_id,
+                    src_file);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    c = confignode_find(slot->value, "tokversion");
+    if (c != NULL) {
+        /* modify existing tokversion */
+        if (confignode_hastype(c, CT_VERSIONVAL)) {
+            confignode_to_versionval(c)->value = TOKVERSION_312;
+        } else if (confignode_hastype(c, CT_STRINGVAL)) {
+            free(confignode_to_stringval(c)->value);
+            confignode_to_stringval(c)->value = strdup(TOKVERSION_312_STRING);
+            if (confignode_to_stringval(c)->value == NULL) {
+                TRACE_ERROR("strdup failed\n");
+                ret = CKR_HOST_MEMORY;
+                goto done;
+            }
+        } else {
+            TRACE_ERROR("tokversion is invalid in slot %lu in config file %s\n",
+                        slot_id, src_file);
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    } else {
+        /* add new tokversion */
+        v = confignode_allocversionvaldumpable("tokversion", TOKVERSION_312, 0,
+                                               " added by pkcstok_migrate");
+        if (v == NULL) {
+            TRACE_ERROR("failed to allocate config node for config file %s\n",
+                        src_file);
+            ret = CKR_HOST_MEMORY;
+            goto done;
+        }
+
+        confignode_append(slot->value, &v->base);
+    }
 
     /* Open new conf file for write */
     snprintf(dst_file, PATH_MAX, "%s/%s", location, "opencryptoki.conf_new");
@@ -2198,19 +2112,9 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
         ret = CKR_FUNCTION_FAILED;
         goto done;
     }
-    set_perm(fileno(fp_w));
+    fchmod(fileno(fp_w), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-    parseupdate.f = fp_w;
-    parseupdate.slotnum = slot_id;
-    parseupdate.activeslot = 0;
-    parseupdate.tokvers_added = 0;
-    parseupdate.at_newline = 1;
-
-    if (load_and_parse(src_file, &parseupdatefuncs, &parseupdate)) {
-        TRACE_ERROR("could not update config file\n");
-        ret = CKR_FUNCTION_FAILED;
-        goto done;
-    }
+    confignode_dump(fp_w, config, NULL, 2);
 
     fclose(fp_w);
     fp_w = NULL;
@@ -2235,6 +2139,7 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
     ret = CKR_OK;
 
 done:
+    confignode_deepfree(config);
     if (fp_w)
         fclose(fp_w);
 
@@ -2734,6 +2639,11 @@ int main(int argc, char **argv)
     if (argc == 1) {
         usage(argv[0]);
         exit(1);
+    }
+
+    if (geteuid() != 0) {
+        fprintf(stderr, "%s can only be used as root.\n", argv[0]);
+        exit(-1);
     }
 
     printf("\npkcstok_migrate:\n");
