@@ -59,14 +59,6 @@
 
 #endif                          /* DEV */
 
-
-#define SEV_EXPECTED          0x01
-#define SEV_ALLOWED           0x02
-#define SEV_ERROR             0x03
-#define SEV_FATAL             0x04
-
-
-
 typedef struct _ConstInfo {
     unsigned const int Code;
     const char *Name;
@@ -81,10 +73,6 @@ const unsigned char *ConstName(pConstInfo pInfoArray,
                                unsigned int InfoArraySize,
                                unsigned int ConstValue);
 
-#ifdef _DAE_H
-const unsigned char *DAEConst(unsigned int Val);
-#endif                          /* _DAE_H */
-
 #ifndef _H_ERRNO
 #define _H_ERRNO
 #endif
@@ -95,21 +83,5 @@ extern const unsigned char *SysConst(unsigned int Val);
 #endif                          /* _H_ERRNO */
 
 extern const unsigned char *SignalConst(unsigned int Val);
-
-#ifdef _H_ODMI
-const unsigned char *ODMConst(unsigned int Val);
-#endif                          /* _H_ODMI */
-
-#ifdef _PKCS11TYPES_H_
-const unsigned char *PkcsReturn(unsigned int Val);
-const unsigned char *PkcsFlags(unsigned int Val);
-const unsigned char *PkcsMechanism(unsigned int Val);
-const unsigned char *PkcsObject(unsigned int Val);
-const unsigned char *PkcsKey(unsigned int Val);
-const unsigned char *PkcsAttribute(unsigned int Val);
-#endif                          /* _PKCS11TYPES_H_ */
-
-const unsigned char *ResponseSeverity(unsigned int Val);
-
 
 #endif                          /* _SLOTD_ERR_H */

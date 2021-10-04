@@ -24,8 +24,6 @@
 
 #define PROC_BASE "/proc"
 
-extern BOOL GCBlockSignals(void);
-
 #if !defined(NOGARBAGE)
 
 #include "garbage_linux.h"

@@ -162,29 +162,3 @@ int SetupSignalHandlers(void)
     return TRUE;
 }
 
-
-
-/***********************************************************************
- * GCBlockSignals -
- *
- *    Garbage collector calls this to prevent signals from getting
- *    sent to the GC thread.
- *
- ***********************************************************************/
-
-BOOL GCBlockSignals(void)
-{
-    unsigned int i;
-    int ret;
-    sigset_t SigSet;
-
-    sigemptyset(&SigSet);
-    for (i = 0;
-         i < (sizeof(SigsToIntercept) / sizeof(SigsToIntercept[0])); i++) {
-        sigaddset(&SigSet, SigsToIntercept[i]);
-    }
-
-    ret = pthread_sigmask(SIG_SETMASK, &SigSet, NULL);
-
-    return ret;
-}

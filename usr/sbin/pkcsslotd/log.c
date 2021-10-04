@@ -719,24 +719,6 @@ u_int32 GetDebugLevel(void)
 
 
 
-#if 0
-int main(int argc, char *argv[], char *envp[])
-{
-
-    ErrLog("This is an error test, attempt 1");
-    DbgLog(DEBUG_LEVEL0, "This is a DEBUG test level 0, attempt 1");
-    DbgLog(DEBUG_LEVEL1, "This is a DEBUG test level 1, attempt 1");
-    SetDebugLevel(DEBUG_NONE);
-    DbgLog(DEBUG_LEVEL1, "This is a DEBUG test level 1, attempt 2");
-    DbgLog(DEBUG_LEVEL0, "This is a DEBUG test level 0, attempt 2");
-    ErrLog("This is an error test, attempt 2");
-    return 0;
-
-}
-#endif                          /* 0 */
-
-
-
 static BOOL SyslogOpen(pLoggingFacilityInfo pInfo)
 {
     ASSERT(pInfo != NULL);
