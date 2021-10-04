@@ -23,7 +23,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
-
+#include "../api/statistics.h"
 
 //
 //
@@ -127,6 +127,9 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
     ctx->multi = FALSE;
     ctx->active = TRUE;
 
+    if (ctx->count_statistics == TRUE)
+        INC_COUNTER(tokdata, sess, mech, NULL, POLICY_STRENGTH_IDX_0);
+
     return CKR_OK;
 }
 
@@ -147,6 +150,7 @@ CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->active = FALSE;
     ctx->context_len = 0;
     ctx->state_unsaveable = FALSE;
+    ctx->count_statistics = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);

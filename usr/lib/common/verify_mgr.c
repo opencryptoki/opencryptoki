@@ -26,6 +26,7 @@
 #include "trace.h"
 
 #include "../api/policy.h"
+#include "../api/statistics.h"
 
 //
 //
@@ -800,6 +801,9 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 done:
+    if (ctx->count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -827,6 +831,7 @@ CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->context_len = 0;
     ctx->pkey_active = FALSE;
     ctx->state_unsaveable = FALSE;
+    ctx->count_statistics = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);

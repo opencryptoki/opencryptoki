@@ -1303,6 +1303,8 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
     // occur in a separate call to C_DestroyObject
     //
 
+    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
 
@@ -1683,6 +1685,8 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         params->pReturnedKeyMaterial->pIVServer = p2;
 #endif
     }
+
+    INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
 error:
     object_put(tokdata, base_key_obj, TRUE);

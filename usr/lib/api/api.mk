@@ -1,6 +1,7 @@
 nobase_lib_LTLIBRARIES += opencryptoki/libopencryptoki.la
 
-noinst_HEADERS += usr/lib/api/apiproto.h usr/lib/api/policy.h
+noinst_HEADERS += usr/lib/api/apiproto.h usr/lib/api/policy.h		\
+	usr/lib/api/statistics.h
 
 SO_CURRENT=0
 SO_REVISION=0
@@ -14,7 +15,7 @@ opencryptoki_libopencryptoki_la_CFLAGS =				\
 	-I${top_builddir}/usr/lib/api
 
 opencryptoki_libopencryptoki_la_LDFLAGS =				\
-	-shared	-Wl,-z,defs,-Bsymbolic -lc -ldl -lpthread -lcrypto	\
+	-shared	-Wl,-z,defs,-Bsymbolic -lc -ldl -lpthread -lcrypto -lrt	\
 	-version-info $(SO_CURRENT):$(SO_REVISION):$(SO_AGE)		\
 	-Wl,--version-script=${srcdir}/opencryptoki.map
 
@@ -22,6 +23,7 @@ opencryptoki_libopencryptoki_la_SOURCES = usr/lib/api/api_interface.c	\
 	usr/lib/api/shrd_mem.c usr/lib/api/socket_client.c		\
 	usr/lib/api/apiutil.c usr/lib/common/trace.c			\
 	usr/lib/api/policy.c usr/lib/api/hashmap.c			\
+	usr/lib/api/statistics.c					\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/config/configuration.c					\
 	usr/lib/common/ec_curve_translation.c				\

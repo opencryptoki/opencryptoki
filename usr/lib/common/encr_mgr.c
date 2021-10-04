@@ -25,6 +25,7 @@
 #include "trace.h"
 
 #include "../api/policy.h"
+#include "../api/statistics.h"
 
 #include <openssl/crypto.h>
 
@@ -43,6 +44,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     CK_BBOOL flag;
     CK_RV rc;
     int check;
+    CK_ULONG strength = POLICY_STRENGTH_IDX_0;
 
     if (!sess || !ctx || !mech) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -550,6 +552,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(AES_GCM_CONTEXT));
 
+        strength = key_obj->strength.strength;
+
         /* Release obj lock, token specific aes-gcm may re-acquire the lock */
         object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
@@ -622,6 +626,9 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     rc = CKR_OK;
 
 done:
+    if (ctx->count_statistics == TRUE && rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, key_obj, strength);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -647,6 +654,7 @@ CK_RV encr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->context_len = 0;
     ctx->pkey_active = FALSE;
     ctx->state_unsaveable = FALSE;
+    ctx->count_statistics = FALSE;
 
     if (ctx->mech.pParameter) {
         free(ctx->mech.pParameter);
@@ -1189,6 +1197,13 @@ CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
                                                 out_data_len);
         if (rc != CKR_OK)
             TRACE_DEVEL("Token specific reencrypt single failed.\n");
+
+        if (decr_ctx->count_statistics == TRUE && rc == CKR_OK)
+            INC_COUNTER(tokdata, sess, decr_mech, decr_key_obj,
+                        POLICY_STRENGTH_IDX_0);
+        if (encr_ctx->count_statistics == TRUE && rc == CKR_OK)
+            INC_COUNTER(tokdata, sess, encr_mech, encr_key_obj,
+                        POLICY_STRENGTH_IDX_0);
 
         goto done;
     }

@@ -35,6 +35,7 @@
 #include "trace.h"
 #include "ock_syslog.h"
 #include "policy.h"
+#include "statistics.h"
 
 #include <openssl/err.h>
 
@@ -91,6 +92,7 @@ API_Proc_Struct_t *Anchor = NULL;       // Initialized to NULL
 unsigned int Initialized = 0;   // Initialized flag
 pthread_mutex_t GlobMutex = PTHREAD_MUTEX_INITIALIZER; // Global Mutex
 struct policy policy;
+struct statistics statistics;
 
 static CK_IBM_FUNCTION_LIST_1_0 func_list_ibm_1_0 = {
     {1, 0},
@@ -1723,6 +1725,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
 
     trace_finalize();
     policy_unload(&policy);
+    statistics_term(&statistics);
 
     //close the lock file descriptor here to avoid memory leak
     ProcClose();
@@ -3089,6 +3092,12 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         goto error;
     }
 
+    rc = statistics_init(&statistics, &Anchor->SocketDataP);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
+        goto error;
+    }
+
     //Register with pkcsslotd
     if (!API_Register()) {
         //   free memory allocated
@@ -3103,7 +3112,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
-        slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID, &policy);
+        slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID, &policy,
+                                               &statistics);
     }
     END_OPENSSL_LIBCTX(rc)
     if (rc != CKR_OK)

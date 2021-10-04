@@ -37,6 +37,7 @@
 #include "trace.h"
 
 #include "../api/policy.h"
+#include "../api/statistics.h"
 
 #include <openssl/crypto.h>
 
@@ -284,6 +285,9 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("object_mgr_create_final failed.\n");
         goto error;
     }
+
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;
 
@@ -629,6 +633,9 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
         publ_key_obj = NULL;
         goto error;
     }
+
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, priv_key_obj, POLICY_STRENGTH_IDX_0);
 
     return rc;
 
@@ -1045,6 +1052,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     free(ctx);
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, wrapping_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
     if (wrapping_key_obj != NULL) {
         object_put(tokdata, wrapping_key_obj, TRUE);
         wrapping_key_obj = NULL;
@@ -1371,6 +1382,10 @@ final:
     }
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, unwrapping_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
     if (rc != CKR_OK && key_obj)
         object_free(key_obj);
     if (unwrapping_key_obj != NULL) {

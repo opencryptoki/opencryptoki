@@ -94,7 +94,8 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
     // Extract public-key from mechanism parameters. base-key contains the
     // private key, prime, and base. The return value will be in the handle.
 
-    rc = ckm_dh_pkcs_derive(tokdata, mech->pParameter, mech->ulParameterLen,
+    rc = ckm_dh_pkcs_derive(tokdata, sess,
+                            mech->pParameter, mech->ulParameterLen,
                             base_key, secret_key_value, &secret_key_value_len,
                             mech);
     if (rc != CKR_OK)
@@ -147,6 +148,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
 //
 //
 CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
+                         SESSION *sess,
                          CK_VOID_PTR other_pubkey,
                          CK_ULONG other_pubkey_len,
                          CK_OBJECT_HANDLE base_key,
@@ -246,6 +248,9 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
         TRACE_DEVEL("Token specific dh pkcs derive failed.\n");
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
 

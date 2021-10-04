@@ -2679,6 +2679,7 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    sess->digest_ctx.count_statistics = TRUE;
     /* Policy already checked. */
     rc = digest_mgr_init(tokdata, sess, &sess->digest_ctx, pMechanism, FALSE);
     if (rc != CKR_OK)
@@ -2891,6 +2892,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+        sess->sign_ctx.count_statistics = TRUE;
         rc = sign_mgr_init(tokdata, sess, &sess->sign_ctx, pMechanism, FALSE,
                            hKey, TRUE);
         if (rc != CKR_OK)
@@ -3279,6 +3281,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     if (ep11tok_libica_mech_available(tokdata, pMechanism->mechanism, hKey)) {
+        sess->verify_ctx.count_statistics = TRUE;
         rc = verify_mgr_init(tokdata, sess, &sess->verify_ctx, pMechanism,
                              FALSE, hKey, TRUE);
         if (rc != CKR_OK)
@@ -4253,6 +4256,8 @@ CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
         goto done;
     }
 
+    sess->decr_ctx.count_statistics = TRUE;
+    sess->encr_ctx.count_statistics = TRUE;
     rc = encr_mgr_reencrypt_single(tokdata, sess, &sess->decr_ctx, pDecrMech,
                                    hDecrKey, &sess->encr_ctx, pEncrMech,
                                    hEncrKey, pEncryptedData, ulEncryptedDataLen,

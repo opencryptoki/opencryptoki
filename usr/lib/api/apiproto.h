@@ -20,6 +20,7 @@
 
 #include "apictl.h"
 #include "policy.h"
+#include "statistics.h"
 
 void *attach_shared_memory();
 void detach_shared_memory(char *);
@@ -28,7 +29,8 @@ void detach_shared_memory(char *);
 int API_Initialized();
 int API_Register();
 void API_UnRegister();
-int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID, policy_t policy);
+int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID, policy_t policy,
+                     statistics_t statistics);
 
 
 CK_RV CreateProcLock();
