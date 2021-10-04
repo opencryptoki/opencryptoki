@@ -3822,6 +3822,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     goto done;
 error:
     if (key_obj)
@@ -5053,6 +5055,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
         goto error;
     }
+
+    INC_COUNTER(tokdata, session, mech_orig, base_key_obj,
+                POLICY_STRENGTH_IDX_0);
 
     goto out;
 error:
@@ -6562,6 +6567,10 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         public_key_obj = NULL;
         goto error;
     }
+
+    INC_COUNTER(tokdata, sess, pMechanism, private_key_obj,
+                POLICY_STRENGTH_IDX_0);
+
     return rc;
 
 error:
@@ -6876,6 +6885,9 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -7038,8 +7050,6 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
-    UNUSED(length_only);
-
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
@@ -7073,6 +7083,9 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
 done:
+    if (rc == CKR_OK && length_only == FALSE)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -7193,6 +7206,9 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -7395,6 +7411,9 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
 done:
+    if (rc == CKR_OK || rc == CKR_SIGNATURE_INVALID)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -7557,8 +7576,6 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
-    UNUSED(length_only);
-
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
@@ -7591,6 +7608,9 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+    if (rc == CKR_OK && length_only == FALSE)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
 
  done:
     object_put(tokdata, key_obj, TRUE);
@@ -7755,8 +7775,6 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
 
-    UNUSED(length_only);
-
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
     if (rc != CKR_OK) {
@@ -7800,6 +7818,9 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     } else {
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
+
+    if (rc == CKR_OK && length_only == FALSE)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
 
 done:
     object_put(tokdata, key_obj, TRUE);
@@ -7940,6 +7961,9 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
 
@@ -8127,6 +8151,10 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         free(wrapped_key);
 
 done:
+    if (rc == CKR_OK && !size_query)
+        INC_COUNTER(tokdata, session, mech, wrap_key_obj,
+                    POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, wrap_key_obj, TRUE);
     wrap_key_obj = NULL;
     object_put(tokdata, key_obj, TRUE);
@@ -8472,6 +8500,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s object_mgr_create_final with rc=0x%lx\n", __func__, rc);
         goto error;
     }
+
+    INC_COUNTER(tokdata, session, mech, kobj, POLICY_STRENGTH_IDX_0);
 
     goto done;
 

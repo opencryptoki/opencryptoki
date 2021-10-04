@@ -2122,6 +2122,12 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     *p_priv_key = priv_node_number;
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech,
+                                            priv_key_mapping->strength.strength);
+
     free_attribute_array(new_pub_attrs, new_pub_attrs_len);
     free_attribute_array(new_priv_attrs, new_priv_attrs_len);
 
@@ -2239,6 +2245,11 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     *handle = node_number;
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech, mapping->strength.strength);
+
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
 
@@ -2387,8 +2398,6 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
                                           &mapping->strength,
                                           POLICY_CHECK_ENCRYPT,
                                           session);
-    bt_put_node_value(&icsf_data->objects, mapping);
-    mapping = NULL;
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: encrypt init\n");
         goto done;
@@ -2456,8 +2465,15 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech, mapping->strength.strength);
+
     if (rc != CKR_OK)
         free_encr_ctx(encr_ctx);
+    bt_put_node_value(&icsf_data->objects, mapping);
+    mapping = NULL;
 
     return rc;
 }
@@ -2899,8 +2915,6 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
                                           &mapping->strength,
                                           POLICY_CHECK_DECRYPT,
                                           session);
-    bt_put_node_value(&icsf_data->objects, mapping);
-    mapping = NULL;
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: decrypt init\n");
         goto done;
@@ -2968,8 +2982,15 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech, mapping->strength.strength);
+
     if (rc != CKR_OK)
         free_encr_ctx(decr_ctx);
+    bt_put_node_value(&icsf_data->objects, mapping);
+    mapping = NULL;
 
     return rc;
 }
@@ -4014,6 +4035,11 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
     ctx->active = TRUE;
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech, mapping->strength.strength);
+
     if (mapping) {
         bt_put_node_value(&icsf_data->objects, mapping);
         mapping = NULL;
@@ -4606,6 +4632,11 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
     ctx->active = TRUE;
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech, mapping->strength.strength);
+
     if (mapping) {
         bt_put_node_value(&icsf_data->objects, mapping);
         mapping = NULL;
@@ -5088,6 +5119,12 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
     }
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech,
+                                            wrapping_key_mapping->strength.strength);
+
     if (wrapping_key_mapping) {
         bt_put_node_value(&icsf_data->objects, wrapping_key_mapping);
         wrapping_key_mapping = NULL;
@@ -5221,6 +5258,12 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     *p_key = node_number;
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech,
+                                            wrapping_key_mapping->strength.strength);
+
     if (wrapping_key_mapping) {
         bt_put_node_value(&icsf_data->objects, wrapping_key_mapping);
         wrapping_key_mapping = NULL;
@@ -5404,6 +5447,12 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
 done:
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            session->session_info.slotID,
+                                            mech,
+                                            base_key_mapping->strength.strength);
+
     if (base_key_mapping) {
         bt_put_node_value(&icsf_data->objects, base_key_mapping);
         base_key_mapping = NULL;

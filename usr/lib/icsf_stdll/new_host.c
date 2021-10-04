@@ -1937,6 +1937,7 @@ CK_RV SC_DigestInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         goto done;
     }
 
+    sess->digest_ctx.count_statistics = TRUE;
     rc = digest_mgr_init(tokdata, sess, &sess->digest_ctx, pMechanism, TRUE);
     if (rc != CKR_OK)
         TRACE_DEVEL("digest_mgr_init() failed.\n");

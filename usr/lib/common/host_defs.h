@@ -22,6 +22,7 @@
 #include "local_types.h"
 #include "../api/policy.h"
 #include "../api/mechtable.h"
+#include "../api/statistics.h"
 
 struct _SESSION;
 
@@ -41,6 +42,7 @@ typedef struct _ENCR_DECR_CONTEXT {
                                 // on first call *after* init
     CK_BBOOL pkey_active;
     CK_BBOOL state_unsaveable;
+    CK_BBOOL count_statistics;
 } ENCR_DECR_CONTEXT;
 
 typedef struct _DIGEST_CONTEXT {
@@ -53,6 +55,7 @@ typedef struct _DIGEST_CONTEXT {
     CK_BBOOL multi_init;        // multi field is initialized
                                 // on first call *after* init
     CK_BBOOL state_unsaveable;
+    CK_BBOOL count_statistics;
 } DIGEST_CONTEXT;
 
 typedef struct _SIGN_VERIFY_CONTEXT {
@@ -69,6 +72,7 @@ typedef struct _SIGN_VERIFY_CONTEXT {
                                 // on first call *after* init
     CK_BBOOL pkey_active;
     CK_BBOOL state_unsaveable;
+    CK_BBOOL count_statistics;
 } SIGN_VERIFY_CONTEXT;
 
 
@@ -386,6 +390,7 @@ struct _STDLL_TokData_t {
     CK_ULONG mech_list_len;
     struct policy *policy;
     const struct mechtable_funcs *mechtable_funcs;
+    struct statistics *statistics;
 };
 
 #endif

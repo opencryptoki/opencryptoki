@@ -832,6 +832,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
 // DH mechanisms
 //
 CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
+                         SESSION *sess,
                          CK_VOID_PTR other_pubkey,
                          CK_ULONG other_pubkey_len,
                          CK_OBJECT_HANDLE base_key,

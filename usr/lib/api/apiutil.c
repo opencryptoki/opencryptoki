@@ -553,7 +553,8 @@ void DL_Unload(API_Slot_t *sltp)
     sltp->pSTcloseall = NULL;
 }
 
-int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy)
+int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
+                     statistics_t statistics)
 {
     Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 #ifdef PKCS64
@@ -598,6 +599,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy)
     pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
     sltp->TokData->policy = policy;
     sltp->TokData->mechtable_funcs = &mechtable_funcs;
+    sltp->TokData->statistics = statistics;
     
     if (strlen(sinfp->dll_location) > 0) {
         // Check if this DLL has been loaded already.. If so, just increment

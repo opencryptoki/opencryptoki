@@ -790,8 +790,9 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
     return CKR_OK;
 }
 
-CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
-                           CK_ULONG other_pubkey_len, CK_OBJECT_HANDLE base_key,
+CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
+                           CK_VOID_PTR other_pubkey, CK_ULONG other_pubkey_len,
+                           CK_OBJECT_HANDLE base_key,
                            CK_BYTE *secret_value, CK_ULONG *secret_value_len,
                            CK_MECHANISM_PTR mech)
 {
@@ -890,6 +891,9 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
     }
 
 done:
+    if (rc == CKR_OK)
+        INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
+
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
 
@@ -1147,7 +1151,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* Derive the shared secret */
-    rc = ckm_ecdh_pkcs_derive(tokdata, pParms->pPublicData,
+    rc = ckm_ecdh_pkcs_derive(tokdata, sess, pParms->pPublicData,
                               pParms->ulPublicDataLen, base_key, z_value,
                               &z_len, mech);
     if (rc != CKR_OK) {
