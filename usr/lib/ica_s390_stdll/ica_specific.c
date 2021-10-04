@@ -1928,6 +1928,11 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         rc = CKR_FUNCTION_NOT_SUPPORTED;
         goto privkey_cleanup;
         break;
+    case EPERM:
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+        rc = CKR_KEY_SIZE_RANGE;
+        goto privkey_cleanup;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
@@ -2204,6 +2209,10 @@ static CK_RV ica_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
         rc = CKR_FUNCTION_NOT_SUPPORTED;
         break;
+    case EPERM:
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+        rc = CKR_KEY_SIZE_RANGE;
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
@@ -2289,6 +2298,10 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
             rc = CKR_FUNCTION_NOT_SUPPORTED;
             break;
+        case EPERM:
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+            rc = CKR_KEY_SIZE_RANGE;
+            break;
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
             rc = CKR_FUNCTION_FAILED;
@@ -2327,6 +2340,10 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
         case ENODEV:
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
             rc = CKR_FUNCTION_NOT_SUPPORTED;
+            break;
+        case EPERM:
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+            rc = CKR_KEY_SIZE_RANGE;
             break;
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
