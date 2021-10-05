@@ -63,10 +63,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #if !(NODSA)
     {CKM_DSA_KEY_PAIR_GEN, {512, 1024, CKF_GENERATE_KEY_PAIR}},
 #endif
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-    /* OpenSSL 3.0 supports single-DES only with the legacy provider */
     {CKM_DES_KEY_GEN, {8, 8, CKF_GENERATE}},
-#endif
     {CKM_DES3_KEY_GEN, {24, 24, CKF_GENERATE}},
 #if !(NOCDMF)
     {CKM_CDMF_KEY_GEN, {0, 0, CKF_GENERATE}},
@@ -107,13 +104,10 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_DH_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
 #endif
 /* End code contributed by Corrent corp. */
-#if !OPENSSL_VERSION_PREREQ(3, 0)
-    /* OpenSSL 3.0 supports single-DES only with the legacy provider */
     {CKM_DES_ECB, {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_CBC, {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_DES_CBC_PAD,
      {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
-#endif
 #if !(NOCDMF)
     {CKM_CDMF_ECB, {0, 0, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_CDMF_CBC, {0, 0, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
