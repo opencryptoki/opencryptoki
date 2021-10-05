@@ -1709,6 +1709,8 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     ERR_set_mark();
     if (Anchor->openssl_default_provider != NULL)
         OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
+    if (Anchor->openssl_legacy_provider != NULL)
+        OSSL_PROVIDER_unload(Anchor->openssl_legacy_provider);
     if (Anchor->openssl_libctx != NULL)
         OSSL_LIB_CTX_free(Anchor->openssl_libctx);
     ERR_pop_to_mark();
@@ -2994,7 +2996,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     /*
      * OpenSSL >= 3.0:
      * Create a separate library context for Opencryptoki's use of OpenSSL
-     * services and explicitly load the 'default' provider for this context.
+     * services and explicitly load the 'default' and 'legacy' providers for
+     * this context.
      * This prevents call loops when the calling application has configured a
      * PKCS#11 provider that uses Opencryptoki under the covers. This could
      * produce a loop with the following calling tree:
@@ -3020,6 +3023,16 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         ERR_pop_to_mark();
         goto error;
     }
+
+    Anchor->openssl_legacy_provider =
+                    OSSL_PROVIDER_load(Anchor->openssl_libctx, "legacy");
+    if (Anchor->openssl_legacy_provider == NULL) {
+        TRACE_ERROR("OSSL_PROVIDER_load for 'legacy' failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        ERR_pop_to_mark();
+        goto error;
+    }
+
     ERR_pop_to_mark();
 #endif
 

@@ -66,6 +66,7 @@ typedef struct {
 #if OPENSSL_VERSION_PREREQ(3, 0)
     OSSL_LIB_CTX *openssl_libctx;
     OSSL_PROVIDER *openssl_default_provider;
+    OSSL_PROVIDER *openssl_legacy_provider;
 #endif
 } API_Proc_Struct_t;
 
