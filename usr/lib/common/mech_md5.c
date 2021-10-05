@@ -43,12 +43,15 @@ CK_RV sw_md5_init(DIGEST_CONTEXT *ctx)
     ctx->context = (CK_BYTE *)EVP_MD_CTX_new();
     if (ctx->context == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        ctx->context_len = 0;
         return CKR_HOST_MEMORY;
     }
 
     if (!EVP_DigestInit_ex((EVP_MD_CTX *)ctx->context, EVP_md5(), NULL)) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         EVP_MD_CTX_free((EVP_MD_CTX *)ctx->context);
+        ctx->context = NULL;
+        ctx->context_len = 0;
         return CKR_FUNCTION_FAILED;
     }
 
