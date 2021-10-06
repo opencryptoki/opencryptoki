@@ -1768,7 +1768,6 @@ CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count);
 //get keytype
 CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
                   CK_KEY_TYPE *keytype);
-CK_RV check_user_and_group();
 
 //lock and unlock routines
 CK_RV XProcLock(STDLL_TokData_t *tokdata);

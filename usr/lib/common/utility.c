@@ -957,55 +957,6 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
     return rc;
 }
 
-CK_RV check_user_and_group()
-{
-    int i;
-    uid_t uid, euid;
-    struct passwd *pw, *epw;
-    struct group *grp;
-
-    /*
-     * Check for root user or Group PKCS#11 Membershp.
-     * Only these are allowed.
-     */
-    uid = getuid();
-    euid = geteuid();
-
-    /* Root or effective Root is ok */
-    if (uid == 0 || euid == 0)
-        return CKR_OK;
-
-    /*
-     * Check for member of group. SAB get login seems to not work
-     * with some instances of application invocations (particularly
-     * when forked). So we need to get the group information.
-     * Really need to take the uid and map it to a name.
-     */
-    grp = getgrnam("pkcs11");
-    if (grp == NULL) {
-        OCK_SYSLOG(LOG_ERR, "getgrnam() failed: %s\n", strerror(errno));
-        goto error;
-    }
-
-    if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
-        return CKR_OK;
-    /* Check if user or effective user is member of pkcs11 group */
-    pw = getpwuid(uid);
-    epw = getpwuid(euid);
-    for (i = 0; grp->gr_mem[i]; i++) {
-        if ((pw && (strncmp(pw->pw_name, grp->gr_mem[i],
-                            strlen(pw->pw_name)) == 0)) ||
-            (epw && (strncmp(epw->pw_name, grp->gr_mem[i],
-                             strlen(epw->pw_name)) == 0)))
-            return CKR_OK;
-    }
-
-error:
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-
-    return CKR_FUNCTION_FAILED;
-}
-
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data)
 {
