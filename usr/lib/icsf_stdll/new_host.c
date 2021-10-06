@@ -71,32 +71,8 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     CK_RV rc = CKR_OK;
     char abs_tokdir_name[PATH_MAX];
 
-    if ((rc = check_user_and_group()) != CKR_OK)
-        return rc;
-
     /* set trace info */
     set_trace(t);
-
-    if (sltp->TokData != NULL) {
-        TRACE_ERROR("Already initialized.\n");
-        return CKR_CRYPTOKI_ALREADY_INITIALIZED;
-    }
-
-    /*
-     * Create separate memory area for each token specific data
-     */
-    sltp->TokData = (STDLL_TokData_t *) calloc(1, sizeof(STDLL_TokData_t));
-    if (!sltp->TokData) {
-        TRACE_ERROR("Allocating host memory failed.\n");
-        return CKR_HOST_MEMORY;
-    }
-
-    sltp->TokData->ro_session_count = 0;
-    sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
-#ifdef ENABLE_LOCKS
-    pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
-#endif
-    pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
 
     bt_init(&sltp->TokData->sess_btree, free);
     bt_init(&sltp->TokData->object_map_btree, free);
@@ -163,9 +139,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
             sltp->FcnList = NULL;
             detach_shm(sltp->TokData, 0);
             final_data_store(sltp->TokData);
-            if (sltp->TokData)
-                free(sltp->TokData);
-            sltp->TokData = NULL;
             TRACE_DEVEL("Token Specific Init failed.\n");
             goto done;
         }
@@ -176,9 +149,6 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK) {
         sltp->FcnList = NULL;
         final_data_store(sltp->TokData);
-        if (sltp->TokData)
-            free(sltp->TokData);
-        sltp->TokData = NULL;
         TRACE_DEVEL("Failed to load token data. (rc=0x%02lx)\n", rc);
         goto done;
     }
@@ -209,8 +179,6 @@ done:
         } else {
             CloseXProcLock(sltp->TokData);
             final_data_store(sltp->TokData);
-            free(sltp->TokData);
-            sltp->TokData = NULL;
         }
     }
 
@@ -249,11 +217,6 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     bt_destroy(&tokdata->priv_token_obj_btree);
     bt_destroy(&tokdata->publ_token_obj_btree);
 
-#ifdef ENABLE_LOCKS
-    pthread_rwlock_destroy(&tokdata->sess_list_rwlock);
-#endif
-    pthread_mutex_destroy(&tokdata->login_mutex);
-
     detach_shm(tokdata, in_fork_initializer);
     /* close spin lock file */
     CloseXProcLock(tokdata);
@@ -265,8 +228,6 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     }
 
     final_data_store(tokdata);
-
-    free(tokdata);
 
     return rc;
 }

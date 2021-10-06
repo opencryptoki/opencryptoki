@@ -449,6 +449,12 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
     Slot_Info_t *sinfp;
 #endif
 
+#ifdef ENABLE_LOCKS
+    pthread_rwlock_destroy(&sltp->TokData->sess_list_rwlock);
+#endif
+    pthread_mutex_destroy(&sltp->TokData->login_mutex);
+    free(sltp->TokData);
+
     sinfp = &(shData->slot_info[slotID]);
 
     if (sinfp->present == FALSE) {
@@ -566,6 +572,26 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
         return FALSE;
     }
 
+    if (sltp->TokData != NULL) {
+        TRACE_ERROR("Already initialized.\n");
+        return FALSE;
+    }
+
+    /*
+     * Create separate memory area for each token specific data
+     */
+    sltp->TokData = (STDLL_TokData_t *) calloc(1, sizeof(STDLL_TokData_t));
+    if (!sltp->TokData) {
+        TRACE_ERROR("Allocating host memory failed.\n");
+        return FALSE;
+    }
+    sltp->TokData->ro_session_count = 0;
+    sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
+#ifdef ENABLE_LOCKS
+    pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
+#endif
+    pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
+
     if (strlen(sinfp->dll_location) > 0) {
         // Check if this DLL has been loaded already.. If so, just increment
         // the counter in the dllload structure and copy the data to
@@ -584,8 +610,8 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     }
 
     if (!sltp->dlop_p) {
-        TRACE_DEBUG("DL_Load_and_Init pointer %p\n", sltp->dlop_p);
-
+        TRACE_DEBUG("DL_Load_and_Init pointer NULL\n");
+        DL_Unload(sltp);
         return FALSE;
     }
 
