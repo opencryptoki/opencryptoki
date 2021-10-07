@@ -8800,7 +8800,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         } while (rc == CKR_BUFFER_TOO_SMALL);
 
         for (i = 0; i < counter; i++) {
-            if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) != CKR_OK) {
+            if (mlist[i] == CKM_IBM_CPACF_WRAP) {
+                /* Internal mechanisms should not be exposed. */
+                *pulCount = *pulCount - 1;
+            } else if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) != CKR_OK) {
                 /* banned mech found,
                  * decrement reported list size
                  */
@@ -8859,6 +8862,9 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
         /* copy only mechanisms not banned */
         *pulCount = 0;
         for (i = 0; i < counter; i++) {
+            if (mlist[i] == CKM_IBM_CPACF_WRAP)
+                /* Internal mechanisms should not be exposed. */
+                continue;
             if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) == CKR_OK) {
                 if (*pulCount < size)
                     pMechanismList[*pulCount] = mlist[i];
