@@ -9382,10 +9382,12 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
         token = strtok(str, "\n\t ");
 
         if (i == 0) {
-            /* expecting APQN_WHITELIST or APQN_ANY or LOGLEVEL or eof */
+            /* expecting APQN_ALLOWLIST or APQN_WHITELIST or APQN_ANY
+               or LOGLEVEL or eof */
             if (token == NULL)
                 break;
-            if (strncmp(token, "APQN_WHITELIST", 14) == 0) {
+            if (strncmp(token, "APQN_WHITELIST", 14) == 0 ||
+                strncmp(token, "APQN_ALLOWLIST", 14) == 0) {
                 whitemode = 1;
                 i = 1;
             } else if (strncmp(token, "APQN_ANY", 8) == 0) {
@@ -9417,14 +9419,14 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                token_specific.t_rng = NULL;
             } else {
                 /* syntax error */
-                TRACE_ERROR("%s Expected APQN_WHITELIST,"
+                TRACE_ERROR("%s Expected APQN_ALLOWLIST,"
                             " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                             " STRICT_MODE, VHSM_MODE, "
                             " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
                             "or USE_PRANDOM keyword, found '%s' in config file "
                             "'%s'\n", __func__,
                             token, fname);
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_WHITELIST,"
+                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_ALLOWLIST,"
                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
                            " STRICT_MODE, VHSM_MODE,"
                            " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
@@ -9617,18 +9619,18 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
     if (rc == 0) {
         if (!(whitemode || anymode)) {
             TRACE_ERROR("%s At least one APQN mode needs to be present in "
-                        "config file: APQN_WHITEMODE or APQN_ANY\n", __func__);
+                        "config file: APQN_ALLOWLIST or APQN_ANY\n", __func__);
             OCK_SYSLOG(LOG_ERR,
                        "%s: Error: At least one APQN mode needs to be present "
-                       " in config file '%s': APQN_WHITEMODE or APQN_ANY\n",
+                       " in config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
                        __func__, fname);
             rc = APQN_FILE_NO_APQN_MODE;
         } else if (whitemode && anymode) {
             TRACE_ERROR("%s Only one APQN mode can be present in config file:"
-                        " APQN_WHITEMODE or APQN_ANY\n", __func__);
+                        " APQN_ALLOWLIST or APQN_ANY\n", __func__);
             OCK_SYSLOG(LOG_ERR,
                        "%s: Error: Only one APQN mode can be present in"
-                       " config file '%s': APQN_WHITEMODE or APQN_ANY\n",
+                       " config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
                        __func__, fname);
             rc = APQN_FILE_NO_APQN_MODE;
         } else if (whitemode) {
@@ -10153,7 +10155,7 @@ static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
     CK_RV rc;
 
     if (ep11_targets->length > 0) {
-        /* APQN_WHITELIST is specified */
+        /* APQN_WHITELIST or APQN_ALLOWLIST is specified */
         for (i = 0; i < ep11_targets->length; i++) {
             rc = handler(ep11_targets->apqns[2 * i],
                          ep11_targets->apqns[2 * i + 1], handler_data);
@@ -11802,7 +11804,7 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
 
     /* Is it one of the configured APQNs ?*/
     if (ep11_data->target_list.length > 0) {
-        /* APQN_WHITELIST is specified */
+        /* APQN_WHITELIST or APQN_ALLOWLIST is specified */
         for (i = 0; i < ep11_data->target_list.length; i++) {
             if (ep11_data->target_list.apqns[2 * i] == apqn_data->card &&
                 ep11_data->target_list.apqns[2 * i + 1] == apqn_data->domain) {
