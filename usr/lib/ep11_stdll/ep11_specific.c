@@ -8833,13 +8833,14 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * larger list.
          */
         do {
-            mlist = (CK_MECHANISM_TYPE *) malloc(
+            tmp = (CK_MECHANISM_TYPE *) realloc(
                                     sizeof(CK_MECHANISM_TYPE) * counter);
-            if (!mlist) {
+            if (!tmp) {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
                 goto out;
             }
+            mlist = tmp;
             /* all the card has */
             rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
             if (rc != CKR_OK) {
