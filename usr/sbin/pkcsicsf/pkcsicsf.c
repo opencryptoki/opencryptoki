@@ -223,7 +223,7 @@ int add_token_config(const char *configname,
                            ? "SIMPLE" : "SASL");
 
     /* add BIND info */
-    if (memcmp(mech, "simple", strlen("simple")) == 0) {
+    if (strcmp(mech, "simple") == 0) {
         add_token_config_entry(tfp, "BINDDN", binddn);
         add_token_config_entry(tfp, "URI", uri);
     } else {
@@ -546,7 +546,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "strdup failed: line %d\n", __LINE__);
                 goto cleanup;
             }
-            if (memcmp(mech, SASL, sizeof(SASL)) == 0)
+            if (strcmp(mech, SASL) == 0)
                 flags |= CFG_MECH_SASL;
             else
                 flags |= CFG_MECH_SIMPLE;
@@ -574,7 +574,7 @@ int main(int argc, char **argv)
      * When ready to support multiple icsf tokens, this
      * check can be removed.
      */
-    if ((flags & CFG_ADD) && !(memcmp(tokenname, "all", strlen(tokenname))))
+    if ((flags & CFG_ADD) && !(strcmp(tokenname, "all")))
         usage(argv[0]);
 
     /* If add, then must specify a mechanism and a name */
@@ -627,7 +627,7 @@ int main(int argc, char **argv)
 
     /* Add token(s) */
     if (flags & CFG_ADD) {
-        if (memcmp(tokenname, "all", strlen(tokenname)) == 0) {
+        if (strcmp(tokenname, "all") == 0) {
             rc = retrieve_all();
             if (rc) {
                 fprintf(stderr, "Could not add the list of " "tokens.\n");
