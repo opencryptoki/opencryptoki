@@ -1695,8 +1695,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
          * Since the atfork handler table is currently locked when we are in
          * an atfork handler, this would produce a deadlock.
          */
-        if (!in_child_fork_initializer)
-            DL_UnLoad(sltp, slotID);
+        DL_UnLoad(sltp, slotID, in_child_fork_initializer);
     }
     END_OPENSSL_LIBCTX(rc)
 
@@ -3120,7 +3119,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
                                   &trace, 0);
                 }
             }
-            DL_UnLoad(sltp, slotID);
+            DL_UnLoad(sltp, slotID, FALSE);
         }
         END_OPENSSL_LIBCTX(rc)
 

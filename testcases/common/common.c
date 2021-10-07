@@ -53,7 +53,7 @@ static void *pkcs11lib = NULL;
 static void unload_pkcslib(void)
 {
     if (pkcs11lib != NULL) {
-        dlclose(pkcs11lib);
+         dlclose(pkcs11lib);
     }
 }
 
