@@ -8747,6 +8747,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
     CK_RV rc = 0;
     CK_ULONG counter = 0, size = 0;
     CK_MECHANISM_TYPE_PTR mlist = NULL;
+    CK_MECHANISM_TYPE_PTR tmp;
     CK_ULONG i;
     ep11_target_info_t* target_info;
 
@@ -8780,13 +8781,14 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * larger list.
          */
         do {
-            mlist = (CK_MECHANISM_TYPE *) malloc(
+            tmp = (CK_MECHANISM_TYPE *) realloc(mlist,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
-            if (!mlist) {
+            if (!tmp) {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
                 goto out;
             }
+            mlist = tmp;
             rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
