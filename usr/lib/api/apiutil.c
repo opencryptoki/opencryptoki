@@ -440,7 +440,7 @@ void API_UnRegister()
     ProcUnLock();
 }
 
-void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
+void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID, CK_BBOOL inchildforkinit)
 {
     Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 #ifdef PKCS64
@@ -449,11 +449,13 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
     Slot_Info_t *sinfp;
 #endif
 
+    if (sltp->TokData) {
 #ifdef ENABLE_LOCKS
-    pthread_rwlock_destroy(&sltp->TokData->sess_list_rwlock);
+        pthread_rwlock_destroy(&sltp->TokData->sess_list_rwlock);
 #endif
-    pthread_mutex_destroy(&sltp->TokData->login_mutex);
-    free(sltp->TokData);
+        pthread_mutex_destroy(&sltp->TokData->login_mutex);
+        free(sltp->TokData);
+    }
 
     sinfp = &(shData->slot_info[slotID]);
 
@@ -463,6 +465,8 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID)
     if (!sltp->dlop_p) {
         return;
     }
+    if (inchildforkinit)
+        return;
     // Call the routine to properly unload the DLL
     DL_Unload(sltp);
 
@@ -611,14 +615,14 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 
     if (!sltp->dlop_p) {
         TRACE_DEBUG("DL_Load_and_Init pointer NULL\n");
-        DL_Unload(sltp);
+        DL_UnLoad(sltp, slotID, FALSE);
         return FALSE;
     }
 
     *(void **)(&pSTinit) = dlsym(sltp->dlop_p, "ST_Initialize");
     if (!pSTinit) {
         // Unload the DLL
-        DL_Unload(sltp);
+        DL_UnLoad(sltp, slotID, FALSE);
         return FALSE;
     }
     // Returns true or false
@@ -627,7 +631,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
 
     if (rv != CKR_OK) {
         // clean up and unload
-        DL_Unload(sltp);
+        DL_UnLoad(sltp, slotID, FALSE);
         sltp->DLLoaded = FALSE;
         return FALSE;
     } else {
