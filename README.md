@@ -1,15 +1,15 @@
-['![Travis CI Build Status](https://travis-ci.org/opencryptoki/opencryptoki.svg?branch=master)'](https://travis-ci.org/opencryptoki/opencryptoki)
+[![Build Status](https://app.travis-ci.com/opencryptoki/opencryptoki.svg?branch=master)](https://app.travis-ci.com/opencryptoki/opencryptoki)
 ['![Coverity Scan Build Status](https://img.shields.io/coverity/scan/16802.svg)'](https://scan.coverity.com/projects/opencryptoki-opencryptoki)
 
 # openCryptoki
 
-Package version 3.16
+Package version 3.17
 
 Please see [ChangeLog](ChangeLog) for release specific information.
 
 ## OVERVIEW
 
-openCryptoki version 3.16 implements the PKCS#11 specification version 3.0.
+openCryptoki version 3.17 implements the PKCS#11 specification version 3.0.
 
 This package includes several cryptographic tokens:
 CCA, ICA, TPM , SWToken, ICSF and EP11.
@@ -27,7 +27,7 @@ libraries and tools version 4.1 (or higher).
 
 - TPM     - requires a TPM, TPM tools, and TCG software stack.
 
-- SWToken - The software token uses OpenSSL version 1.0.2 or higher.
+- SWToken - The software token uses OpenSSL version 1.1.1 or higher.
 
 - ICSF    - The Integrated Cryptographic Service Facility (ICSF) token requires
 openldap and openldap client software version 2.4.23 or higher. Lex and Yacc are

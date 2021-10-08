@@ -1,3 +1,9 @@
++ openCryptoki 3.17
+- tools: added function to list keys to p11sak
+- common: added support for OpenSSL 3.0
+- common: added support for event notifications
+- ICA: added SW fallbacks
+
 + openCryptoki 3.16
 - EP11: protected-key option
 - EP11: support attribute-bound keys
