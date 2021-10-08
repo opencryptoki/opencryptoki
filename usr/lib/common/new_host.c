@@ -1763,13 +1763,14 @@ done:
     for (i = 0; i < ulCount; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
-
-        if (attr->ulValueLen >= sizeof(val) && attr->pValue != NULL) {
-            memset(val, 0, sizeof(val));
-            memcpy(val, attr->pValue, attr->ulValueLen > sizeof(val) ?
-                                            sizeof(val) : attr->ulValueLen);
-            TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
-                        val[0], val[1], val[2], val[3]);
+        if (rc == CKR_OK && attr->ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+            if (attr->ulValueLen >= sizeof(val) && attr->pValue != NULL) {
+                memset(val, 0, sizeof(val));
+                memcpy(val, attr->pValue, attr->ulValueLen > sizeof(val) ?
+                       sizeof(val) : attr->ulValueLen);
+                TRACE_DEBUG("First 4 bytes: %02x %02x %02x %02x\n",
+                            val[0], val[1], val[2], val[3]);
+            }
         }
     }
 #endif
