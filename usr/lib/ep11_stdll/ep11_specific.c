@@ -8836,7 +8836,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * larger list.
          */
         do {
-            tmp = (CK_MECHANISM_TYPE *) realloc(
+            tmp = (CK_MECHANISM_TYPE *) realloc(mlist,
                                     sizeof(CK_MECHANISM_TYPE) * counter);
             if (!tmp) {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
