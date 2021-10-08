@@ -36,7 +36,7 @@ P11SAK_EC_LONG=p11sak-ec-long.out
 P11SAK_EC_POST=p11sak-ec-post.out
 
 
-echo "** Setting SLOT=3 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
+echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
 
 
 # setting SLOT=30 to the Softtoken
