@@ -2,7 +2,7 @@
 
 Name:			opencryptoki
 Summary:		Implementation of the PKCS#11 (Cryptoki) specification v3.0
-Version:		3.16.0
+Version:		3.17.0
 Release:		1%{?dist}
 License:		CPL
 Group:			System Environment/Base
@@ -10,7 +10,7 @@ URL:			https://github.com/opencryptoki/opencryptoki
 Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 Requires(pre):		coreutils
-BuildRequires:		openssl-devel >= 1.0.2
+BuildRequires:		openssl-devel >= 1.1.1
 BuildRequires:		trousers-devel
 BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool
