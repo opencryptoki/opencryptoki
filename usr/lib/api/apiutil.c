@@ -455,6 +455,7 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID, CK_BBOOL inchildforkinit)
 #endif
         pthread_mutex_destroy(&sltp->TokData->login_mutex);
         free(sltp->TokData);
+        sltp->TokData = NULL;
     }
 
     sinfp = &(shData->slot_info[slotID]);
