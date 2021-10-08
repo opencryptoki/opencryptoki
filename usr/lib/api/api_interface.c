@@ -3144,6 +3144,8 @@ error:
     ERR_set_mark();
     if (Anchor->openssl_default_provider != NULL)
         OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
+    if (Anchor->openssl_legacy_provider != NULL)
+        OSSL_PROVIDER_unload(Anchor->openssl_legacy_provider);
     if (Anchor->openssl_libctx != NULL)
         OSSL_LIB_CTX_free(Anchor->openssl_libctx);
     ERR_pop_to_mark();
