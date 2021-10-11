@@ -818,7 +818,7 @@ int ica_sha_supported(STDLL_TokData_t *tokdata, CK_MECHANISM_TYPE mech)
     case CKM_IBM_SHA3_256:
     case CKM_IBM_SHA3_384:
     case CKM_IBM_SHA3_512:
-        return ica_data->ica_sha2_available;
+        return ica_data->ica_sha3_available;
     default:
         return FALSE;
     }
