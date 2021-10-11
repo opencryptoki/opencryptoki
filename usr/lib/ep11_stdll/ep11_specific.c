@@ -9690,7 +9690,6 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                                         &ep11_data->cp_config);
     }
 
-    tokdata->initialized = TRUE;
     return rc;
 }
 
