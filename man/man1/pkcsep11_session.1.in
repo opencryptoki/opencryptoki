@@ -5,7 +5,7 @@ pkcsep11_session \- manage EP11 sessions.
 .SH SYNOPSIS
 \fBpkcep11_session\fP
 [\fB-h\fP]
-[\fBshow|logout|vhsmpi|status\fP [\fB-slot\fP \fIslot-number\fP]
+[\fBshow|logout|vhsmpin|status\fP [\fB-slot\fP \fIslot-number\fP]
 [\fB-id\fP \fIsession-ID\fP] [\fB-pid\fP \fIprocess-ID\fP]
 [\fB-date\fP \fIyyyy/mm/dd\fP] [\fB-force\fP] ]
 
