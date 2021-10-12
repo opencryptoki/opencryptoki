@@ -14,7 +14,8 @@ endif
 
 usr_sbin_pkcsslotd_pkcsslotd_CFLAGS = -DPROGRAM_NAME=\"$(@)\"	\
 	-I${srcdir}/usr/include -I${srcdir}/usr/lib/common	\
-	-I${top_builddir}/usr/lib/common
+	-I${top_builddir}/usr/lib/common  			\
+	-I${top_builddir}/usr/lib/api
 
 usr_sbin_pkcsslotd_pkcsslotd_SOURCES =							\
 	usr/sbin/pkcsslotd/slotmgr.c usr/sbin/pkcsslotd/shmem.c				\

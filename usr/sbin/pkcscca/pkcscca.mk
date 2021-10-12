@@ -15,7 +15,7 @@ usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DOCK_NO_SET_PERM -DOCK_NO_LOCAL_RNG				\
 	-I${srcdir}/usr/include 					\
 	-I${srcdir}/usr/lib/common					\
-	-I${srcdir}/usr/sbin/pkcscca
+	-I${srcdir}/usr/sbin/pkcscca -I${top_builddir}/usr/lib/api
 
 usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/dig_mgr.c usr/lib/common/hwf_obj.c		\

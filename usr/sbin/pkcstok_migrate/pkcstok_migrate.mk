@@ -12,7 +12,8 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_CFLAGS  =		\
 	-DSTDLL_NAME=\"pkcstok_migrate\"			\
 	-I${srcdir}/usr/include 				\
 	-I${srcdir}/usr/lib/common				\
-	-I${srcdir}/usr/sbin/pkcstok_migrate
+	-I${srcdir}/usr/sbin/pkcstok_migrate			\
+	-I${top_builddir}/usr/lib/api
 
 usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
 	usr/lib/common/p11util.c 			\
