@@ -29,6 +29,7 @@ endif
 include man/man.mk
 include usr/usr.mk
 
+include tools/tools.mk
 
 install-data-hook:
 if ENABLE_LIBRARY

@@ -1,0 +1,151 @@
+/* -*- mode: C -*- */
+/*
+ * COPYRIGHT (c) International Business Machines Corp. 2021
+ *
+ * This program is provided under the terms of the Common Public License,
+ * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
+ * software constitutes recipient's acceptance of CPL-1.0 terms which can be
+ * found in the file LICENSE file or at
+ * https://opensource.org/licenses/cpl1.0.php
+ */
+
+/* This table will be included in the generated table index file to
+   provide the global data.  Since the inclusion happens at top level,
+   keep the table constant.  Order of the table elements matters as
+   the order in this table reflects the index returned by the index
+   search functions.
+
+   The numeric value has to be unique (the string value also has to be
+   unique, but that is easier to ensure).  If you need to map multiple
+   strings to the same numeric value (e.g., for EC_KEY_GEN and
+   ECDSA_KEY_GEN), the update the aliaslist in the tableidxgen.c
+   generator source.
+
+   Feel free to add new rows or columns.  The generator only cares
+   about the columns "string" and "numeric".  Everything else is
+   ignored by the generator and simply included in the generated C
+   file.
+*/
+const struct mechrow mechtable_rows[] =
+    {
+     /* string,                       numeric,               blocksize,                 outputsize, flags */
+     { "CKM_AES_CBC",                 CKM_AES_CBC,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_AES_CBC_PAD",             CKM_AES_CBC_PAD,              16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_AES_CFB128",              CKM_AES_CFB128,               16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_NEEDSPARAM },
+     { "CKM_AES_CFB64",               CKM_AES_CFB64,                16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_NEEDSPARAM },
+     { "CKM_AES_CFB8",                CKM_AES_CFB8,                 16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_NEEDSPARAM },
+     { "CKM_AES_CMAC",                CKM_AES_CMAC,                 16,                         16, MCF_SIGNVERIFY },
+     { "CKM_AES_CMAC_GENERAL",        CKM_AES_CMAC_GENERAL,         16,                         16, MCF_SIGNVERIFY | MCF_MAC_GENERAL | MCF_NEEDSPARAM },
+     { "CKM_AES_CTR",                 CKM_AES_CTR,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_AES_ECB",                 CKM_AES_ECB,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP },
+     { "CKM_AES_GCM",                 CKM_AES_GCM,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_AES_KEY_GEN",             CKM_AES_KEY_GEN,               0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_AES_MAC",                 CKM_AES_MAC,                  16,                          8, MCF_SIGNVERIFY },
+     { "CKM_AES_MAC_GENERAL",         CKM_AES_MAC_GENERAL,          16,                         16, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_AES_OFB",                 CKM_AES_OFB,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DES2_KEY_GEN",            CKM_DES2_KEY_GEN,              0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DES3_CBC",                CKM_DES3_CBC,                  8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DES3_CBC_PAD",            CKM_DES3_CBC_PAD,              8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DES3_CMAC",               CKM_DES3_CMAC,                 8,                          8, MCF_SIGNVERIFY },
+     { "CKM_DES3_CMAC_GENERAL",       CKM_DES3_CMAC_GENERAL,         8,                          8, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_DES3_ECB",                CKM_DES3_ECB,                  8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP },
+     { "CKM_DES3_KEY_GEN",            CKM_DES3_KEY_GEN,              0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DES3_MAC",                CKM_DES3_MAC,                  8,                          4, MCF_SIGNVERIFY },
+     { "CKM_DES3_MAC_GENERAL",        CKM_DES3_MAC_GENERAL,          8,                          8, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_DES_CBC",                 CKM_DES_CBC,                   8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DES_CBC_PAD",             CKM_DES_CBC_PAD,               8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DES_CFB64",               CKM_DES_CFB64,                 8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_NEEDSPARAM },
+     { "CKM_DES_CFB8",                CKM_DES_CFB8,                  8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_NEEDSPARAM },
+     { "CKM_DES_ECB",                 CKM_DES_ECB,                   8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP },
+     { "CKM_DES_KEY_GEN",             CKM_DES_KEY_GEN,               0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DES_OFB64",               CKM_DES_OFB64,                 8, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_DH_PKCS_DERIVE",          CKM_DH_PKCS_DERIVE,            0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_DH_PKCS_KEY_PAIR_GEN",    CKM_DH_PKCS_KEY_PAIR_GEN,      0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DH_PKCS_PARAMETER_GEN",   CKM_DH_PKCS_PARAMETER_GEN,     0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DSA",                     CKM_DSA,                       0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_DSA_KEY_PAIR_GEN",        CKM_DSA_KEY_PAIR_GEN,          0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DSA_PARAMETER_GEN",       CKM_DSA_PARAMETER_GEN,         0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_DSA_SHA1",                CKM_DSA_SHA1,                  0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDH1_DERIVE",            CKM_ECDH1_DERIVE,              0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_ECDSA",                   CKM_ECDSA,                     0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDSA_SHA1",              CKM_ECDSA_SHA1,                0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDSA_SHA224",            CKM_ECDSA_SHA224,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDSA_SHA256",            CKM_ECDSA_SHA256,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDSA_SHA384",            CKM_ECDSA_SHA384,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_ECDSA_SHA512",            CKM_ECDSA_SHA512,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_EC_KEY_PAIR_GEN",         CKM_EC_KEY_PAIR_GEN,           0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_GENERIC_SECRET_KEY_GEN",  CKM_GENERIC_SECRET_KEY_GEN,    0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_IBM_ATTRIBUTEBOUND_WRAP", CKM_IBM_ATTRIBUTEBOUND_WRAP,   0, MC_INFORMATION_UNAVAILABLE, MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_IBM_CMAC",                CKM_IBM_CMAC,                  0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_IBM_DILITHIUM",           CKM_IBM_DILITHIUM,             0,                       3366, MCF_SIGNVERIFY },/* Size unknown */
+     { "CKM_IBM_EC_X25519",           CKM_IBM_EC_X25519,             0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_IBM_EC_X448",             CKM_IBM_EC_X448,               0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_IBM_ED25519_SHA512",      CKM_IBM_ED25519_SHA512,      128,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_IBM_ED448_SHA3",          CKM_IBM_ED448_SHA3,          144,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_IBM_SHA3_224",            CKM_IBM_SHA3_224,            144,                         24, MCF_DIGEST },
+     { "CKM_IBM_SHA3_224_HMAC",       CKM_IBM_SHA3_224_HMAC,       144,                         24, MCF_SIGNVERIFY },
+     { "CKM_IBM_SHA3_256",            CKM_IBM_SHA3_256,            136,                         32, MCF_DIGEST },
+     { "CKM_IBM_SHA3_256_HMAC",       CKM_IBM_SHA3_256_HMAC,       136,                         32, MCF_SIGNVERIFY },
+     { "CKM_IBM_SHA3_384",            CKM_IBM_SHA3_384,            104,                         48, MCF_DIGEST },
+     { "CKM_IBM_SHA3_384_HMAC",       CKM_IBM_SHA3_384_HMAC,       104,                         48, MCF_SIGNVERIFY },
+     { "CKM_IBM_SHA3_512",            CKM_IBM_SHA3_512,             72,                         64, MCF_DIGEST },
+     { "CKM_IBM_SHA3_512_HMAC",       CKM_IBM_SHA3_512_HMAC,        72,                         64, MCF_SIGNVERIFY },
+     { "CKM_MD5",                     CKM_MD5,                      64,                         16, MCF_DIGEST },
+     { "CKM_MD5_HMAC",                CKM_MD5_HMAC,                 64,                         16, MCF_SIGNVERIFY },
+     { "CKM_MD5_HMAC_GENERAL",        CKM_MD5_HMAC_GENERAL,         64,                         16, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_MD5_RSA_PKCS",            CKM_MD5_RSA_PKCS,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_PBE_SHA1_DES3_EDE_CBC",   CKM_PBE_SHA1_DES3_EDE_CBC,     0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN | MCF_NEEDSPARAM },
+     { "CKM_RSA_PKCS",                CKM_RSA_PKCS,                  0,           MC_KEY_DEPENDENT, MCF_ENCRYPTDECRYPT | MCF_SIGNVERIFY | MCF_WRAPUNWRAP },
+     { "CKM_RSA_PKCS_KEY_PAIR_GEN",   CKM_RSA_PKCS_KEY_PAIR_GEN,     0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_RSA_PKCS_OAEP",           CKM_RSA_PKCS_OAEP,             0,           MC_KEY_DEPENDENT, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
+     { "CKM_RSA_PKCS_PSS",            CKM_RSA_PKCS_PSS,              0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_RSA_X_509",               CKM_RSA_X_509,                 0,           MC_KEY_DEPENDENT, MCF_ENCRYPTDECRYPT | MCF_SIGNVERIFY | MCF_WRAPUNWRAP },
+     { "CKM_RSA_X9_31",               CKM_RSA_X9_31,                 0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_RSA_X9_31_KEY_PAIR_GEN",  CKM_RSA_X9_31_KEY_PAIR_GEN,    0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_SHA_1",                   CKM_SHA_1,                    64,                         20, MCF_DIGEST },
+     { "CKM_SHA_1_HMAC",              CKM_SHA_1_HMAC,               64,                         20, MCF_SIGNVERIFY },
+     { "CKM_SHA_1_HMAC_GENERAL",      CKM_SHA_1_HMAC_GENERAL,       64,                         20, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA1_KEY_DERIVATION",     CKM_SHA1_KEY_DERIVATION,       0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_SHA1_RSA_PKCS",           CKM_SHA1_RSA_PKCS,             0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA1_RSA_PKCS_PSS",       CKM_SHA1_RSA_PKCS_PSS,         0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SHA1_RSA_X9_31",          CKM_SHA1_RSA_X9_31,            0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA224",                  CKM_SHA224,                   64,                         28, MCF_DIGEST },
+     { "CKM_SHA224_HMAC",             CKM_SHA224_HMAC,              64,                         28, MCF_SIGNVERIFY },
+     { "CKM_SHA224_HMAC_GENERAL",     CKM_SHA224_HMAC_GENERAL,      64,                         28, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA224_KEY_DERIVATION",   CKM_SHA224_KEY_DERIVATION,     0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_SHA224_RSA_PKCS",         CKM_SHA224_RSA_PKCS,           0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA224_RSA_PKCS_PSS",     CKM_SHA224_RSA_PKCS_PSS,       0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SHA256",                  CKM_SHA256,                   64,                         32, MCF_DIGEST },
+     { "CKM_SHA256_HMAC",             CKM_SHA256_HMAC,              64,                         32, MCF_SIGNVERIFY },
+     { "CKM_SHA256_HMAC_GENERAL",     CKM_SHA256_HMAC_GENERAL,      64,                         32, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA256_KEY_DERIVATION",   CKM_SHA256_KEY_DERIVATION,     0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_SHA256_RSA_PKCS",         CKM_SHA256_RSA_PKCS,           0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA256_RSA_PKCS_PSS",     CKM_SHA256_RSA_PKCS_PSS,       0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SHA384",                  CKM_SHA384,                  128,                         48, MCF_DIGEST },
+     { "CKM_SHA384_HMAC",             CKM_SHA384_HMAC,             128,                         48, MCF_SIGNVERIFY },
+     { "CKM_SHA384_HMAC_GENERAL",     CKM_SHA384_HMAC_GENERAL,     128,                         48, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA384_KEY_DERIVATION",   CKM_SHA384_KEY_DERIVATION,     0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE },
+     { "CKM_SHA384_RSA_PKCS",         CKM_SHA384_RSA_PKCS,           0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA384_RSA_PKCS_PSS",     CKM_SHA384_RSA_PKCS_PSS,       0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SHA512",                  CKM_SHA512,                  128,                         64, MCF_DIGEST },
+     { "CKM_SHA512_224",              CKM_SHA512_224,              128,                         28, MCF_DIGEST },
+     { "CKM_SHA512_224_HMAC",         CKM_SHA512_224_HMAC,         128,                         28, MCF_SIGNVERIFY },
+     { "CKM_SHA512_224_HMAC_GENERAL", CKM_SHA512_224_HMAC_GENERAL, 128,                         28, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA512_256",              CKM_SHA512_256,              128,                         32, MCF_DIGEST },
+     { "CKM_SHA512_256_HMAC",         CKM_SHA512_256_HMAC,         128,                         32, MCF_SIGNVERIFY },
+     { "CKM_SHA512_256_HMAC_GENERAL", CKM_SHA512_256_HMAC_GENERAL, 128,                         32, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA512_HMAC",             CKM_SHA512_HMAC,             128,                         64, MCF_SIGNVERIFY },
+     { "CKM_SHA512_HMAC_GENERAL",     CKM_SHA512_HMAC_GENERAL,     128,                         64, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
+     { "CKM_SHA512_KEY_DERIVATION",   CKM_SHA512_KEY_DERIVATION,     0, MC_INFORMATION_UNAVAILABLE, MCF_DIGEST },
+     { "CKM_SHA512_RSA_PKCS",         CKM_SHA512_RSA_PKCS,           0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY },
+     { "CKM_SHA512_RSA_PKCS_PSS",     CKM_SHA512_RSA_PKCS_PSS,       0,           MC_KEY_DEPENDENT, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SSL3_KEY_AND_MAC_DERIVE", CKM_SSL3_KEY_AND_MAC_DERIVE,   0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_SSL3_MASTER_KEY_DERIVE",  CKM_SSL3_MASTER_KEY_DERIVE,    0,                         48, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_SSL3_MD5_MAC",            CKM_SSL3_MD5_MAC,             64,                          8, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_SSL3_PRE_MASTER_KEY_GEN", CKM_SSL3_PRE_MASTER_KEY_GEN,   0,                         48, MCF_DERIVE | MCF_NEEDSPARAM },
+     { "CKM_SSL3_SHA1_MAC",           CKM_SSL3_SHA1_MAC,            64,                          8, MCF_SIGNVERIFY | MCF_NEEDSPARAM },
+     { "CKM_TLS_KEY_AND_MAC_DERIVE",  CKM_TLS_KEY_AND_MAC_DERIVE,    0, MC_INFORMATION_UNAVAILABLE, MCF_DERIVE | MCF_NEEDSPARAM },
+     /* Not supported by any token, but needed for Token Store */
+     { "CKM_AES_KEY_WRAP",            CKM_AES_KEY_WRAP,             16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_OPTIONALPARAM },
+     { "CKM_PKCS5_PBKD2",             CKM_PKCS5_PBKD2,               0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN | MCF_NEEDSPARAM },
+    };
