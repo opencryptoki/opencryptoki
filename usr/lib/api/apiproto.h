@@ -1,5 +1,5 @@
 /*
- * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2021
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -19,6 +19,7 @@
 #define _APIEXT_H
 
 #include "apictl.h"
+#include "policy.h"
 
 void *attach_shared_memory();
 void detach_shared_memory(char *);
@@ -27,7 +28,7 @@ void detach_shared_memory(char *);
 int API_Initialized();
 int API_Register();
 void API_UnRegister();
-int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID);
+int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID, policy_t policy);
 
 
 CK_RV CreateProcLock();

@@ -309,8 +309,15 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
         goto out;
     }
 
-    tokdata->mech_list = ica_data->mech_list;
-    tokdata->mech_list_len = ica_data->mech_list_len;
+    rc = ock_generic_filter_mechanism_list(tokdata,
+                                           ica_data->mech_list,
+                                           ica_data->mech_list_len,
+                                           &(tokdata->mech_list),
+                                           &(tokdata->mech_list_len));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
+        return rc;
+    }
 
     TRACE_INFO("ica %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -338,6 +345,7 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     TRACE_INFO("ica %s running\n", __func__);
     ica_close_adapter(ica_data->adapter_handle);
 
+    free(tokdata->mech_list);
     free(ica_data);
     tokdata->private_data = NULL;
 

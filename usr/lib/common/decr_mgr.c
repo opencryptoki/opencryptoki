@@ -24,19 +24,23 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include "../api/policy.h"
+
 //
 //
 CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
-                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle)
+                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
+                    CK_BBOOL checkpolicy)
 {
     OBJECT *key_obj = NULL;
     CK_BYTE *ptr = NULL;
     CK_KEY_TYPE keytype;
     CK_BBOOL flag;
     CK_RV rc;
+    int check;
 
     if (!sess) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -71,6 +75,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
+        check = POLICY_CHECK_DECRYPT;
     } else if (operation == OP_UNWRAP) {
         rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
@@ -93,10 +98,20 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
+        check = POLICY_CHECK_UNWRAP;
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
+    }
+
+    if (checkpolicy) {
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              &key_obj->strength, check, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: decrypt/unwrap init\n");
+            goto done;
+        }
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {

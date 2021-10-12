@@ -25,13 +25,16 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include "../api/policy.h"
+
 //
 //
 CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     SIGN_VERIFY_CONTEXT *ctx,
                     CK_MECHANISM *mech,
-                    CK_BBOOL recover_mode, CK_OBJECT_HANDLE key)
+                    CK_BBOOL recover_mode, CK_OBJECT_HANDLE key,
+                    CK_BBOOL checkpolicy)
 {
     OBJECT *key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
@@ -59,6 +62,15 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
             return CKR_KEY_HANDLE_INVALID;
         else
             return rc;
+    }
+    if (checkpolicy) {
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              &key_obj->strength,
+                                              POLICY_CHECK_SIGNATURE, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+            goto done;
+        }
     }
 
     if (recover_mode) {

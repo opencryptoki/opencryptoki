@@ -28,7 +28,8 @@
 //
 //
 CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
-                      SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech)
+                      SESSION *sess, DIGEST_CONTEXT *ctx, CK_MECHANISM *mech,
+                      CK_BBOOL checkpolicy)
 {
     CK_RV rc = CKR_OK;
     CK_BYTE *ptr = NULL;
@@ -41,6 +42,16 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
         return CKR_OPERATION_ACTIVE;
     }
+    if (checkpolicy) {
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              NULL, POLICY_CHECK_DIGEST, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: digest init\n");
+            return rc;
+        }
+    }
+
+
     // is the mechanism supported?  is the parameter present if required?
     //
     switch (mech->mechanism) {

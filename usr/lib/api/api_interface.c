@@ -34,6 +34,7 @@
 #include <apiproto.h>
 #include "trace.h"
 #include "ock_syslog.h"
+#include "policy.h"
 
 #include <openssl/err.h>
 
@@ -89,6 +90,7 @@ void api_init();
 API_Proc_Struct_t *Anchor = NULL;       // Initialized to NULL
 unsigned int Initialized = 0;   // Initialized flag
 pthread_mutex_t GlobMutex = PTHREAD_MUTEX_INITIALIZER; // Global Mutex
+struct policy policy;
 
 static CK_IBM_FUNCTION_LIST_1_0 func_list_ibm_1_0 = {
     {1, 0},
@@ -1720,6 +1722,7 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     Anchor = NULL;
 
     trace_finalize();
+    policy_unload(&policy);
 
     //close the lock file descriptor here to avoid memory leak
     ProcClose();
@@ -2894,7 +2897,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     memset(Anchor, 0, sizeof(API_Proc_Struct_t));
     Anchor->socketfd = -1;
 
-    TRACE_DEBUG("Anchor allocated at %s\n", (char *) Anchor);
+    TRACE_DEBUG("Anchor allocated at %p\n", (void *) Anchor);
 
     // Validation of the parameters passed
 
@@ -3080,6 +3083,12 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         }
     }
 
+    rc = policy_load(&policy);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Policy loading failed!  rc=0x%lx\n", rc);
+        goto error;
+    }
+
     //Register with pkcsslotd
     if (!API_Register()) {
         //   free memory allocated
@@ -3094,7 +3103,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rc)
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {
         sltp = &(Anchor->SltList[slotID]);
-        slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID);
+        slot_loaded[slotID] = DL_Load_and_Init(sltp, slotID, &policy);
     }
     END_OPENSSL_LIBCTX(rc)
     if (rc != CKR_OK)
@@ -3136,6 +3145,7 @@ error_shm:
     detach_shared_memory(Anchor->SharedMemP);
 
 error:
+    policy_unload(&policy);
     bt_destroy(&Anchor->sess_btree);
     if (Anchor->socketfd >= 0)
         close(Anchor->socketfd);

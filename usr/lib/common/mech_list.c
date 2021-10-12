@@ -18,6 +18,29 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+CK_RV ock_generic_filter_mechanism_list(STDLL_TokData_t *tokdata,
+                                        const MECH_LIST_ELEMENT *list,
+                                        CK_ULONG listlen,
+                                        MECH_LIST_ELEMENT **reslist,
+                                        CK_ULONG *reslen)
+{
+    CK_ULONG i, j;
+
+    *reslist = calloc(listlen, sizeof(MECH_LIST_ELEMENT));
+    if (!*reslist)
+        return CKR_HOST_MEMORY;
+    for (i = 0, j = 0; i < listlen; ++i) {
+        memcpy(*reslist + j, list + i, sizeof(MECH_LIST_ELEMENT));
+        if (tokdata->policy->update_mech_info(tokdata->policy,
+                                              (*reslist)[j].mech_type,
+                                              &(*reslist)[j].mech_info) ==
+            CKR_OK)
+            ++j;
+    }
+    *reslen = j;
+    *reslist = realloc(*reslist, sizeof(MECH_LIST_ELEMENT) * j);
+    return CKR_OK;
+}
 
 CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_TYPE_PTR pMechanismList,

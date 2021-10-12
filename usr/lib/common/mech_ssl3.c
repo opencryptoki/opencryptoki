@@ -128,7 +128,7 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
 
     // inner hash
     //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         goto done;
@@ -166,7 +166,7 @@ CK_RV ssl3_mac_sign(STDLL_TokData_t *tokdata,
 
     // outer hash
     //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         goto done;
@@ -267,7 +267,7 @@ CK_RV ssl3_mac_sign_update(STDLL_TokData_t *tokdata,
         // inner hash
         //
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Init failed.\n");
             goto done;
@@ -394,7 +394,8 @@ CK_RV ssl3_mac_sign_final(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech,
+                         FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         goto done;
@@ -463,7 +464,8 @@ CK_RV ssl3_mac_verify(STDLL_TokData_t *tokdata,
 
     memset(&mac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-    rc = sign_mgr_init(tokdata, sess, &mac_ctx, &ctx->mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &mac_ctx, &ctx->mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Init failed.\n");
         goto error;
@@ -552,7 +554,7 @@ CK_RV ssl3_mac_verify_update(STDLL_TokData_t *tokdata,
         // inner hash
         //
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Init failed.\n");
             goto done;
@@ -666,7 +668,8 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &context->hash_context, &digest_mech,
+                         FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         goto done;
@@ -873,7 +876,7 @@ static CK_RV ssl3_sha_then_md5(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         return rc;
@@ -914,7 +917,7 @@ static CK_RV ssl3_sha_then_md5(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         return rc;
@@ -969,7 +972,7 @@ static CK_RV ssl3_md5_only(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Init failed.\n");
         return rc;
@@ -1048,6 +1051,14 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
             return CKR_KEY_HANDLE_INVALID;
         else
             return rc;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &base_key_obj->strength,
+                                          POLICY_CHECK_DERIVE,
+                                          sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive key\n");
+        goto error;
     }
 
     if (!key_object_is_mechanism_allowed(base_key_obj->template,
@@ -1379,6 +1390,14 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
             return rc;
     }
 
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &base_key_obj->strength,
+                                          POLICY_CHECK_DERIVE,
+                                          sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive wrap\n");
+        goto error;
+    }
     if (!key_object_is_mechanism_allowed(base_key_obj->template,
                                          CKM_SSL3_KEY_AND_MAC_DERIVE)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");

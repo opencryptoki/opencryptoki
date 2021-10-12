@@ -48,13 +48,13 @@ typedef int int_32;
 
 #define CK_PTR *
 
-#define CK_CALLBACK_FUNCTION(returnType, name) \
+#define CK_CALLBACK_FUNCTION(returnType, name)  \
   returnType (* name)
 
 #ifndef NULL_PTR
 #define NULL_PTR NULL
 #endif                          /* NULL_PTR */
-
+    
 /* an unsigned 8-bit value */
 typedef unsigned char CK_BYTE;
 
@@ -1152,6 +1152,9 @@ typedef CK_ULONG CK_RV;
 #define CKR_FUNCTION_REJECTED                 0x00000200
 
 #define CKR_VENDOR_DEFINED                    0x80000000
+/* Not really a return value, but stored in ulDeviceError of session
+   info for policy violations. */
+#define CKR_POLICY_VIOLATION                  (CKR_VENDOR_DEFINED + 0x1)
 
 
 /* CK_NOTIFY is an application callback that processes events */
