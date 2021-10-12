@@ -129,6 +129,7 @@ endif
 if ENABLE_DAEMON
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || $(INSTALL) -m 644 $(srcdir)/usr/sbin/pkcsslotd/opencryptoki.conf $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || $(INSTALL) -m 640 -o root -g pkcs11 -T $(srcdir)/doc/strength-example.conf $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || true
 if ENABLE_SYSTEMD
 	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
 	cp $(srcdir)/misc/tmpfiles.conf $(DESTDIR)/usr/lib/tmpfiles.d/opencryptoki.conf
