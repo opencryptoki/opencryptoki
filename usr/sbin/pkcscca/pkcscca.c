@@ -194,7 +194,7 @@ int adjust_key_object_attributes(unsigned char *data, unsigned long data_len,
     *new_data_len = 0;
 
     /* Now unflatten the OBJ */
-    rc = object_restore_withSize(data, &obj, CK_FALSE, data_len);
+    rc = object_restore_withSize(NULL, data, &obj, CK_FALSE, data_len);
     if (rc)
         goto cleanup;
 

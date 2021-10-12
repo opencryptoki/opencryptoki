@@ -28,6 +28,7 @@
 #include "trace.h"
 
 #include "../api/apiproto.h"
+#include "../api/policy.h"
 
 static CK_RV object_mgr_check_session(SESSION *sess, CK_BBOOL priv_obj,
                                       CK_BBOOL sess_obj)
@@ -432,6 +433,14 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
     if (!sess || !obj || !handle) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_FUNCTION_FAILED;
+    }
+
+    rc = tokdata->policy->store_object_strength(tokdata->policy, &obj->strength,
+                                                policy_get_attr_from_template,
+                                                obj->template, NULL, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to store acceptable object strength.\n");
+        return rc;
     }
 
     sess_obj = object_is_session_object(obj);
@@ -1420,9 +1429,11 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
 
     if (oldObj != NULL) {
         obj = oldObj;
-        rc = object_restore_withSize(data, &obj, TRUE, data_size);
+        rc = object_restore_withSize(tokdata->policy,
+                                     data, &obj, TRUE, data_size);
     } else {
-        rc = object_restore_withSize(data, &obj, FALSE, data_size);
+        rc = object_restore_withSize(tokdata->policy,
+                                     data, &obj, FALSE, data_size);
         if (rc == CKR_OK) {
             rc = XProcLock(tokdata);
             if (rc != CKR_OK) {

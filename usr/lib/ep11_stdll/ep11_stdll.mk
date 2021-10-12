@@ -39,7 +39,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/dlist.c usr/lib/common/pkey_utils.c		\
 	usr/lib/ep11_stdll/new_host.c					\
 	usr/lib/ep11_stdll/ep11_specific.c				\
-	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c
+	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
+	usr/lib/api/policyhelper.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ep11_la_SOURCES +=				\

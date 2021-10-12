@@ -1209,7 +1209,7 @@ static CK_RV check_ab_wrap(STDLL_TokData_t * tokdata,
                            CK_BYTE **sblob, size_t *sblob_len,
                            OBJECT **sobj,
                            OBJECT *key_obj, OBJECT *wrap_key_obj,
-                           CK_MECHANISM_PTR mech)
+                           CK_MECHANISM_PTR mech, SESSION *sess)
 {
     CK_RV rc;
     CK_BBOOL abkey, abwrapkey, absignkey, signsignkey;
@@ -1257,6 +1257,11 @@ static CK_RV check_ab_wrap(STDLL_TokData_t * tokdata,
             TRACE_ERROR("Failed to get sign key for AB wrapping\n");
             return rc;
         }
+        rc = tokdata->policy->is_key_allowed(tokdata->policy, &(*sobj)->strength, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: AB wrap signing key too weak\n");
+            goto out;
+        }
         rc = template_attribute_get_bool((*sobj)->template, CKA_IBM_ATTRBOUND, &absignkey);
         if (rc != CKR_OK || !absignkey) {
             TRACE_ERROR("AB-Wrap: sign key not AB\n");
@@ -1287,7 +1292,8 @@ static CK_RV check_ab_unwrap(STDLL_TokData_t * tokdata,
                              CK_BYTE **vblob, size_t *vblob_len,
                              OBJECT **vobj, OBJECT *unwrap_key_obj,
                              CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len,
-                             CK_MECHANISM_PTR mech, CK_BBOOL *isab)
+                             CK_MECHANISM_PTR mech, CK_BBOOL *isab,
+                             SESSION *sess)
 {
     CK_RV rc;
     CK_BBOOL abkey, abunwrapkey, abverifykey, verifyverifykey;
@@ -1332,6 +1338,11 @@ static CK_RV check_ab_unwrap(STDLL_TokData_t * tokdata,
         if (rc != CKR_OK) {
             TRACE_ERROR("Failed to get verification key for AB wrapping\n");
             return rc;
+        }
+        rc = tokdata->policy->is_key_allowed(tokdata->policy, &(*vobj)->strength, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: AB verification key too weak\n");
+            goto out;
         }
         rc = template_attribute_get_bool((*vobj)->template, CKA_IBM_ATTRBOUND, &abverifykey);
         if (rc != CKR_OK || !abverifykey) {
@@ -4069,7 +4080,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     attr = NULL;
 
     /* key should be fully constructed.
-     * Assign an object handle and store key
+     * Assign an object handle and store key.
+     * Enforce policy.
      */
     rc = object_mgr_create_final(tokdata, session, key_obj, handle);
     if (rc != CKR_OK) {
@@ -5011,6 +5023,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BBOOL allocated = FALSE;
     ep11_target_info_t* target_info;
     CK_ULONG used_firmware_API_version;
+    CK_MECHANISM_PTR mech_orig = mech;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5134,6 +5147,14 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
         return rc;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
+                                          &base_key_obj->strength,
+                                          POLICY_CHECK_DERIVE,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive key\n");
+        goto error;
     }
 
     if (!key_object_is_mechanism_allowed(base_key_obj->template,
@@ -5288,7 +5309,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     /* key should be fully constructed.
-     * Assign an object handle and store key
+     * Assign an object handle and store key.
+     * Enforce policy.
      */
     rc = object_mgr_create_final(tokdata, session, key_obj, handle);
     if (rc != CKR_OK) {
@@ -6796,6 +6818,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         goto error;
     }
 
+    /* Enforce policy */
     rc = object_mgr_create_final(tokdata, sess, private_key_obj, phPrivateKey);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s Object mgr create final failed\n", __func__);
@@ -7039,6 +7062,14 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_sign_state);
         return rc;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_SIGNATURE,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+        goto done;
+    }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
@@ -7065,7 +7096,9 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
             rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session, ctx,
                                                  mech, key, CK_TRUE);
         else
-            rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key);
+            /* Policy already checked. */
+            rc = sign_mgr_init(tokdata, session, ctx, mech, recover_mode, key,
+                               FALSE);
         if (rc == CKR_OK)
             ctx->pkey_active = TRUE;
         /* Regardless of the rc goto done here, because ep11tok_pkey_check
@@ -7277,6 +7310,14 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
         return rc;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_SIGNATURE,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Sign single\n");
+        goto done;
+    }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
@@ -7326,6 +7367,14 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_sign_state);
         return rc;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_VERIFY,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Verify init\n");
+        goto done;
+    }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
@@ -7365,7 +7414,9 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
             rc = ep11tok_sign_verify_init_ibm_ed(tokdata, session,
                                                  ctx, mech, key, CK_FALSE);
         else
-            rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key);
+            /* Policy already checked */
+            rc = verify_mgr_init(tokdata, session, ctx, mech, CK_FALSE, key,
+                                 FALSE);
         if (rc == CKR_OK)
             ctx->pkey_active = TRUE;
         /* Regardless of the rc goto done here, because ep11tok_pkey_check
@@ -7570,6 +7621,14 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
         return rc;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_VERIFY,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Verify single\n");
+        goto done;
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
@@ -7776,6 +7835,14 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_DECRYPT,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY_VIOLATION on decrypt single\n");
+        goto done;
+    }
 
     RETRY_START(rc, tokdata)
     rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
@@ -7966,6 +8033,14 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          POLICY_CHECK_ENCRYPT,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY_VIOLATION on encrypt single\n");
+        goto done;
+    }
 
     /*
      * Enforce key usage restrictions. EP11 does not allow to restrict
@@ -8025,6 +8100,15 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_MECHANISM_INVALID;
         goto error;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength,
+                                          op == DECRYPT ? POLICY_CHECK_DECRYPT :
+                                            POLICY_CHECK_ENCRYPT,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY_VIOLATION on encrypt/decrypt initialization\n");
+        goto error;
+    }
 
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
@@ -8034,11 +8118,13 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         key_obj = NULL;
 
         if (op == DECRYPT) {
+            /* Policy already checked */
             rc = decr_mgr_init(tokdata, session, &session->decr_ctx,
-                               OP_DECRYPT_INIT, mech, key);
+                               OP_DECRYPT_INIT, mech, key, FALSE);
         } else {
+            /* Policy already checked */
             rc = encr_mgr_init(tokdata, session, &session->encr_ctx,
-                               OP_ENCRYPT_INIT, mech, key);
+                               OP_ENCRYPT_INIT, mech, key, FALSE);
         }
         if (rc == CKR_OK) {
             if (op == DECRYPT)
@@ -8231,7 +8317,19 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
             free(wrapped_key);
         goto done;
     }
-
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &wrap_key_obj->strength,
+                                          POLICY_CHECK_WRAP, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key wrap\n");
+        goto done;
+    }
+    rc = tokdata->policy->is_key_allowed(tokdata->policy, &key_obj->strength,
+                                         session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key wrap\n");
+        goto done;
+    }
     if (!key_object_wrap_template_matches(wrap_key_obj->template,
                                           key_obj->template)) {
         TRACE_ERROR("Wrap template does not match.\n");
@@ -8242,7 +8340,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     rc = check_ab_wrap(tokdata, &sign_blob, &sign_blob_len, &sobj,
-                       key_obj, wrap_key_obj, mech);
+                       key_obj, wrap_key_obj, mech, session);
     if (rc != CKR_OK) {
         TRACE_ERROR("AB wrapping check failed (rc=0x%lx).\n", rc);
         goto done;
@@ -8345,6 +8443,13 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         return rc;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &kobj->strength,
+                                          POLICY_CHECK_UNWRAP, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key unwrap\n");
+        goto done;
+    }
 
     TRACE_DEVEL("%s start unwrapKey:  mech=0x%lx attrs_len=0x%lx "
                 "wr_key=0x%lx\n", __func__, mech->mechanism, attrs_len,
@@ -8373,7 +8478,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     rc = check_ab_unwrap(tokdata, &verifyblob, &verifyblobsize, &vobj, kobj,
-                         attrs, attrs_len, mech, &isab);
+                         attrs, attrs_len, mech, &isab, session);
     if (rc != CKR_OK) {
         TRACE_ERROR("check_ab_unwrap failed with rc=0x%08lx\n", rc);
         goto error;
@@ -8624,6 +8729,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     /* key should be fully constructed.
      * Assign an object handle and store key.
+     * Enforce policy.
      */
     rc = object_mgr_create_final(tokdata, session, key_obj, p_key);
     if (rc != CKR_OK) {
@@ -8737,6 +8843,24 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
 static const CK_ULONG supported_mech_list_len =
     (sizeof(ep11_supported_mech_list) / sizeof(CK_MECHANISM_TYPE));
 
+/* Note: Do not move this function inside
+   ep11tok_is_mechanism_supported since that would introduce an
+   endless loop.  Also do not use it in ep11tok_get_mechanism_info for
+   the same reason. */
+static CK_RV ep11tok_check_policy_for_mech(STDLL_TokData_t *tokdata,
+                                           CK_MECHANISM_TYPE mech,
+                                           CK_MECHANISM_INFO_PTR pinfo)
+{
+    CK_RV rc;
+
+    if (tokdata->policy->active == CK_FALSE)
+        return CKR_OK;
+    rc = ep11tok_get_mechanism_info(tokdata, mech, pinfo);
+    if (rc != CKR_OK)
+        return rc;
+    return tokdata->policy->update_mech_info(tokdata->policy, mech, pinfo);
+}
+
 /* filtering out some mechanisms we do not want to provide
  * makes it complicated
  */
@@ -8750,12 +8874,13 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
     CK_MECHANISM_TYPE_PTR tmp;
     CK_ULONG i;
     ep11_target_info_t* target_info;
+    CK_MECHANISM_INFO info;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    /* size querry */
+    /* size query */
     if (pMechanismList == NULL) {
         rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
                                     target_info->target);
@@ -8808,6 +8933,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                  * decrement reported list size
                  */
                 *pulCount = *pulCount - 1;
+            } else if (ep11tok_check_policy_for_mech(tokdata, mlist[i], &info) !=
+                    CKR_OK) {
+                TRACE_DEVEL("Policy blocks mechanism 0x%lx!\n", mlist[i]);
+                *pulCount -= 1;
             }
         }
     } else {
@@ -8865,6 +8994,11 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             if (mlist[i] == CKM_IBM_CPACF_WRAP)
                 /* Internal mechanisms should not be exposed. */
                 continue;
+            if (ep11tok_check_policy_for_mech(tokdata, mlist[i], &info) !=
+                CKR_OK) {
+                TRACE_DEVEL("Policy blocks mechanism 0x%lx!\n", mlist[i]);
+                continue;
+            }
             if (ep11tok_is_mechanism_supported(tokdata, mlist[i]) == CKR_OK) {
                 if (*pulCount < size)
                     pMechanismList[*pulCount] = mlist[i];
@@ -9215,7 +9349,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     }
 #endif                          /* DEFENSIVE_MECHLIST */
 
-    return CKR_OK;
+    return tokdata->policy->update_mech_info(tokdata->policy, type, pInfo);
 }
 
 

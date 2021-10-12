@@ -25,8 +25,12 @@
 
 #include <stdio.h>
 #include "dlist.h"
+#include "host_defs.h"
 
 #include <openssl/evp.h>
+
+/* Forward declaration to keep dependencies as small as possible. */
+struct policy;
 
 // global variables
 //
@@ -831,7 +835,8 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          CK_VOID_PTR other_pubkey,
                          CK_ULONG other_pubkey_len,
                          CK_OBJECT_HANDLE base_key,
-                         CK_BYTE *secret, CK_ULONG *secret_len);
+                         CK_BYTE *secret, CK_ULONG *secret_len,
+                         CK_MECHANISM_PTR mech);
 
 CK_RV ckm_dh_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
                           TEMPLATE *priv_tmpl);
@@ -1789,7 +1794,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
-                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle);
+                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
+                    CK_BBOOL checkpolicy);
 
 CK_RV encr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                        ENCR_DECR_CONTEXT *ctx);
@@ -1825,7 +1831,8 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
-                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle);
+                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
+                    CK_BBOOL checkpolicy);
 
 CK_RV decr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                        ENCR_DECR_CONTEXT *ctx);
@@ -1874,7 +1881,8 @@ CK_RV digest_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
 
 CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
                       SESSION *sess,
-                      DIGEST_CONTEXT *ctx, CK_MECHANISM *mech);
+                      DIGEST_CONTEXT *ctx, CK_MECHANISM *mech,
+                      CK_BBOOL checkpolicy);
 
 CK_RV digest_mgr_digest(STDLL_TokData_t *tokdata,
                         SESSION *sess, CK_BBOOL length_only,
@@ -1957,7 +1965,8 @@ CK_RV sign_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     SIGN_VERIFY_CONTEXT *ctx,
                     CK_MECHANISM *mech,
-                    CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle);
+                    CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle,
+                    CK_BBOOL checkpolicy);
 
 CK_RV sign_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                        SIGN_VERIFY_CONTEXT *ctx);
@@ -1995,7 +2004,8 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                       SESSION *sess,
                       SIGN_VERIFY_CONTEXT *ctx,
                       CK_MECHANISM *mech,
-                      CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle);
+                      CK_BBOOL recover_mode, CK_OBJECT_HANDLE key_handle,
+                      CK_BBOOL checkpolicy);
 
 CK_RV verify_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
                          SIGN_VERIFY_CONTEXT *ctx);
@@ -2033,6 +2043,8 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE);
 CK_RV session_mgr_new(STDLL_TokData_t *tokdata, CK_ULONG flags,
                       CK_SLOT_ID slot_id, CK_SESSION_HANDLE_PTR phSession);
 SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle);
+SESSION *session_mgr_find_reset_error(STDLL_TokData_t *tokdata,
+                                      CK_SESSION_HANDLE handle);
 void session_mgr_put(STDLL_TokData_t *tokdata, SESSION *session);
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type);
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata);
@@ -2222,9 +2234,7 @@ CK_RV object_get_attribute_values(OBJECT *obj,
 
 CK_ULONG object_get_size(OBJECT *obj);
 
-CK_RV object_restore(CK_BYTE *data, OBJECT **obj, CK_BBOOL replace);
-
-CK_RV object_restore_withSize(CK_BYTE *data,
+CK_RV object_restore_withSize(struct policy *policy, CK_BYTE *data,
                               OBJECT **obj, CK_BBOOL replace, int data_size);
 
 CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata,

@@ -304,7 +304,7 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -322,7 +322,8 @@ CK_RV ec_hash_sign(STDLL_TokData_t *tokdata,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter = NULL;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto error;
@@ -379,7 +380,7 @@ CK_RV ec_hash_sign_update(STDLL_TokData_t *tokdata,
         digest_mech.pParameter = NULL;
 
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
@@ -444,7 +445,8 @@ CK_RV ec_hash_sign_final(STDLL_TokData_t *tokdata,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter = NULL;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
@@ -518,7 +520,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -538,7 +540,7 @@ CK_RV ec_hash_verify(STDLL_TokData_t *tokdata,
     verify_mech.pParameter = NULL;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;
@@ -596,7 +598,7 @@ CK_RV ec_hash_verify_update(STDLL_TokData_t *tokdata,
         digest_mech.pParameter = NULL;
 
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
@@ -659,7 +661,7 @@ CK_RV ec_hash_verify_final(STDLL_TokData_t *tokdata,
     verify_mech.pParameter = NULL;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;
@@ -715,7 +717,7 @@ CK_RV ckm_kdf(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    rc = digest_mgr_init(tokdata, sess, &ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return rc;
@@ -790,7 +792,8 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
 
 CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
                            CK_ULONG other_pubkey_len, CK_OBJECT_HANDLE base_key,
-                           CK_BYTE *secret_value, CK_ULONG *secret_value_len)
+                           CK_BYTE *secret_value, CK_ULONG *secret_value_len,
+                           CK_MECHANISM_PTR mech)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr;
@@ -813,6 +816,14 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, CK_VOID_PTR other_pubkey,
             return CKR_KEY_HANDLE_INVALID;
         else
             return rc;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &base_key_obj->strength,
+                                          POLICY_CHECK_DERIVE,
+                                          base_key_obj->session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive key\n");
+        goto done;
     }
 
     if (!key_object_is_mechanism_allowed(base_key_obj->template,
@@ -1135,7 +1146,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     /* Derive the shared secret */
     rc = ckm_ecdh_pkcs_derive(tokdata, pParms->pPublicData,
                               pParms->ulPublicDataLen, base_key, z_value,
-                              &z_len);
+                              &z_len, mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("Error deriving the shared secret.\n");
         return rc;

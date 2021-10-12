@@ -1466,7 +1466,7 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -1485,7 +1485,8 @@ CK_RV rsa_hash_pss_sign(STDLL_TokData_t *tokdata, SESSION *sess,
     sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
     sign_mech.pParameter = ctx->mech.pParameter;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
@@ -1541,7 +1542,7 @@ CK_RV rsa_hash_pss_update(STDLL_TokData_t *tokdata, SESSION *sess,
         digest_mech.ulParameterLen = 0;
         digest_mech.pParameter = NULL;
 
-        rc = digest_mgr_init(tokdata, sess, digest_ctx, &digest_mech);
+        rc = digest_mgr_init(tokdata, sess, digest_ctx, &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
@@ -1602,7 +1603,8 @@ CK_RV rsa_hash_pss_sign_final(STDLL_TokData_t *tokdata, SESSION *sess,
     sign_mech.ulParameterLen = ctx->mech.ulParameterLen;
     sign_mech.pParameter = ctx->mech.pParameter;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
@@ -1667,7 +1669,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_MECHANISM_PARAM_INVALID;
     }
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -1687,7 +1689,7 @@ CK_RV rsa_hash_pss_verify(STDLL_TokData_t *tokdata, SESSION *sess,
     verify_mech.pParameter = ctx->mech.pParameter;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;
@@ -1749,7 +1751,7 @@ CK_RV rsa_hash_pss_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
     verify_mech.pParameter = ctx->mech.pParameter;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;
@@ -1833,7 +1835,7 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -1871,7 +1873,8 @@ CK_RV rsa_hash_pkcs_sign(STDLL_TokData_t *tokdata,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter = NULL;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto error;
@@ -1929,7 +1932,7 @@ CK_RV rsa_hash_pkcs_sign_update(STDLL_TokData_t *tokdata,
         digest_mech.pParameter = NULL;
 
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
@@ -2013,7 +2016,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
     digest_mech.ulParameterLen = 0;
     digest_mech.pParameter = NULL;
 
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         return rc;
@@ -2051,7 +2054,7 @@ CK_RV rsa_hash_pkcs_verify(STDLL_TokData_t *tokdata,
     verify_mech.pParameter = NULL;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;
@@ -2107,7 +2110,7 @@ CK_RV rsa_hash_pkcs_verify_update(STDLL_TokData_t *tokdata,
         digest_mech.pParameter = NULL;
 
         rc = digest_mgr_init(tokdata, sess, &context->hash_context,
-                             &digest_mech);
+                             &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             return rc;
@@ -2220,7 +2223,8 @@ CK_RV rsa_hash_pkcs_sign_final(STDLL_TokData_t *tokdata,
     sign_mech.ulParameterLen = 0;
     sign_mech.pParameter = NULL;
 
-    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &sign_ctx, &sign_mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;
@@ -2336,7 +2340,7 @@ CK_RV rsa_hash_pkcs_verify_final(STDLL_TokData_t *tokdata,
     verify_mech.pParameter = NULL;
 
     rc = verify_mgr_init(tokdata, sess, &verify_ctx, &verify_mech, FALSE,
-                         ctx->key);
+                         ctx->key, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Verify Mgr Init failed.\n");
         goto done;

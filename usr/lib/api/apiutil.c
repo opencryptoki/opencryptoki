@@ -553,7 +553,7 @@ void DL_Unload(API_Slot_t *sltp)
     sltp->pSTcloseall = NULL;
 }
 
-int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
+int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy)
 {
     Slot_Mgr_Socket_t *shData = &(Anchor->SocketDataP);
 #ifdef PKCS64
@@ -562,7 +562,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     Slot_Info_t *sinfp;
 #endif
     CK_RV (*pSTinit)(API_Slot_t *, CK_SLOT_ID, SLOT_INFO *,
-                     struct trace_handle_t);
+                    struct trace_handle_t);
     CK_RV rv;
     int dl_index;
     DLL_Load_t *dllload;
@@ -596,7 +596,8 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
     pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
 #endif
     pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
-
+    sltp->TokData->policy = policy;
+    
     if (strlen(sinfp->dll_location) > 0) {
         // Check if this DLL has been loaded already.. If so, just increment
         // the counter in the dllload structure and copy the data to

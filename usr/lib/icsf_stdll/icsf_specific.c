@@ -44,6 +44,7 @@
 #include "trace.h"
 #include "shared_memory.h"
 #include "slotmgr.h"
+#include "../api/policy.h"
 
 /* Default token attributes */
 const char manuf[] = "IBM";
@@ -128,6 +129,7 @@ struct icsf_object_mapping {
     struct bt_ref_hdr hdr;
     CK_SESSION_HANDLE session_id;
     struct icsf_object_record icsf_object;
+    struct objstrength strength;
 };
 
 /*
@@ -140,6 +142,55 @@ struct icsf_multi_part_context {
     size_t data_len;
     size_t used_data_len;
 };
+
+struct icsf_policy_attr {
+    LDAP *ld;
+    struct icsf_object_record *icsf_object;
+};
+
+int icsf_to_ock_err(int icsf_return_code, int icsf_reason_code);
+
+static CK_RV icsf_policy_get_attr(void *data,
+                                  CK_ATTRIBUTE_TYPE type,
+                                  CK_ATTRIBUTE **attr)
+{
+    CK_RV rc;
+    int reason;
+    struct icsf_policy_attr *d = data;
+    CK_ATTRIBUTE *a;
+    CK_ATTRIBUTE s = { .type = type, .ulValueLen = 0, .pValue = NULL };
+    
+    rc = icsf_get_attribute(d->ld, &reason, d->icsf_object, &s, 1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("icsf_get_attribute failed\n");
+        return icsf_to_ock_err(rc, reason);
+    }
+    if (s.ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+        TRACE_DEVEL("Size information for attribute 0x%lx not available\n",
+                    type);
+        return CKR_FUNCTION_FAILED;
+    }
+    a = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + s.ulValueLen);
+    if (!a) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+    a->type = type;
+    a->ulValueLen = s.ulValueLen;
+    a->pValue = (CK_BYTE *) a + sizeof(CK_ATTRIBUTE);
+    rc = icsf_get_attribute(d->ld, &reason, d->icsf_object, a, 1);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("icsf_get_attribute failed\n");
+        return icsf_to_ock_err(rc, reason);
+    }
+    *attr = a;
+    return rc;
+}
+
+static void icsf_policy_free_attr(CK_ATTRIBUTE *attr)
+{
+    free(attr);
+}
 
 /*
  * Get the session specific structure.
@@ -289,8 +340,15 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
         return CKR_FUNCTION_FAILED;
     }
 
-    tokdata->mech_list = (MECH_LIST_ELEMENT *)icsf_mech_list;
-    tokdata->mech_list_len = icsf_mech_list_len;
+    rc = ock_generic_filter_mechanism_list(tokdata,
+                                           icsf_mech_list,
+                                           icsf_mech_list_len,
+                                           &(tokdata->mech_list),
+                                           &(tokdata->mech_list_len));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
+        return rc;
+    }
 
     icsf_data = calloc(1, sizeof(icsf_private_data_t));
     if (icsf_data == NULL)
@@ -1263,6 +1321,7 @@ CK_RV icsftok_final(STDLL_TokData_t * tokdata, CK_BBOOL finalize,
         pthread_mutex_destroy(&icsf_data->sess_list_mutex);
         free(icsf_data);
         tokdata->private_data = NULL;
+        free(tokdata->mech_list);
     }
 
     return rc;
@@ -1544,6 +1603,8 @@ CK_RV icsftok_copy_object(STDLL_TokData_t * tokdata,
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+    memcpy(&mapping_dst->strength, &mapping_src->strength,
+           sizeof(struct objstrength));
 
     /* Use node number as handle */
     *dst = node_number;
@@ -1575,6 +1636,7 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG node_number;
     char token_name[sizeof(tokdata->nv_token_data->token_info.label) + 1];
     int reason = 0;
+    struct icsf_policy_attr pattr;
 
     /* Check permissions based on attributes and session */
     rc = check_session_permissions(session, attrs, attrs_len);
@@ -1624,6 +1686,17 @@ CK_RV icsftok_create_object(STDLL_TokData_t * tokdata, SESSION * session,
                                  attrs, attrs_len, &mapping->icsf_object))) {
         TRACE_DEVEL("icsf_create_object failed\n");
         rc = icsf_to_ock_err(rc, reason);
+        goto done;
+    }
+    /* Policy check */
+    pattr.ld = session_state->ld;
+    pattr.icsf_object = &mapping->icsf_object;
+    rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                &mapping->strength,
+                                                icsf_policy_get_attr, &pattr,
+                                                icsf_policy_free_attr, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Object too weak\n");
         goto done;
     }
 
@@ -1765,6 +1838,7 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ATTRIBUTE_PTR new_priv_attrs = NULL;
     CK_ULONG new_priv_attrs_len = 0;
     CK_ULONG key_type;
+    struct icsf_policy_attr pattr;
 
     /* Check and set default attributes based on mech */
     if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
@@ -1840,6 +1914,25 @@ CK_RV icsftok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * session,
         rc = icsf_to_ock_err(rc, reason);
         goto done;
     }
+    pattr.ld = session_state->ld;
+    pattr.icsf_object = &pub_key_mapping->icsf_object;
+    rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                &pub_key_mapping->strength,
+                                                icsf_policy_get_attr, &pattr,
+                                                icsf_policy_free_attr, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Public key too weak\n");
+        goto done;
+    }
+    pattr.icsf_object = &priv_key_mapping->icsf_object;
+    rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                &priv_key_mapping->strength,
+                                                icsf_policy_get_attr, &pattr,
+                                                icsf_policy_free_attr, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Private key too weak\n");
+        goto done;
+    }
 
     /* Add info about objects into session */
     if (!(pub_node_number = bt_node_add(&icsf_data->objects, pub_key_mapping)) ||
@@ -1884,6 +1977,7 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG class = CKO_SECRET_KEY;
     CK_ULONG key_type = 0;
     int reason = 0;
+    struct icsf_policy_attr pattr;
 
     /* Check attributes */
     if ((key_type = get_generate_key_type(mech)) == (CK_ULONG)-1) {
@@ -1946,6 +2040,16 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                                        &mapping->icsf_object))) {
         TRACE_DEVEL("icsf_generate_secret_key failed\n");
         rc = icsf_to_ock_err(rc, reason);
+        goto done;
+    }
+    pattr.ld = session_state->ld;
+    pattr.icsf_object = &mapping->icsf_object;
+    rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                &mapping->strength,
+                                                icsf_policy_get_attr, &pattr,
+                                                icsf_policy_free_attr, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Public key too weak\n");
         goto done;
     }
 
@@ -2104,8 +2208,16 @@ CK_RV icsftok_encrypt_init(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &mapping->strength,
+                                          POLICY_CHECK_ENCRYPT,
+                                          session);
     bt_put_node_value(&icsf_data->objects, mapping);
     mapping = NULL;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: encrypt init\n");
+        goto done;
+    }
 
         /** validate the mechanism parameter length here */
     if ((rc = validate_mech_parameters(mech)))
@@ -2608,10 +2720,18 @@ CK_RV icsftok_decrypt_init(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &mapping->strength,
+                                          POLICY_CHECK_DECRYPT,
+                                          session);
     bt_put_node_value(&icsf_data->objects, mapping);
     mapping = NULL;
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: decrypt init\n");
+        goto done;
+    }
 
-        /** validate the mechanism parameter length here */
+    /** validate the mechanism parameter length here */
     if ((rc = validate_mech_parameters(mech)))
         goto done;
 
@@ -3280,6 +3400,7 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
     int node_number, rc;
     int reason = 0;
     CK_RV rv = CKR_OK;
+    struct icsf_policy_attr pattr;
 
     /* Whether we retrieve public or private objects is determined by
      * the caller's SAF authority on the token, something ock doesn't
@@ -3401,6 +3522,16 @@ CK_RV icsftok_find_objects_init(STDLL_TokData_t * tokdata, SESSION * sess,
                 }
                 new_mapping->session_id = sess->handle;
                 new_mapping->icsf_object = records[i];
+                /* Policy check */
+                pattr.ld = session_state->ld;
+                pattr.icsf_object = &new_mapping->icsf_object;
+                rc = tokdata->policy->store_object_strength(
+                     tokdata->policy, &new_mapping->strength,
+                     icsf_policy_get_attr, &pattr, icsf_policy_free_attr, sess);
+                if (rc != CKR_OK) {
+                    TRACE_ERROR("POLICY VIOLATION: Object too weak\n");
+                    goto done;
+                }
 
                 if (!(node_number = bt_node_add(&icsf_data->objects,
                                                 new_mapping))) {
@@ -3568,6 +3699,14 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         rc = CKR_KEY_HANDLE_INVALID;
         return rc;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &mapping->strength,
+                                          POLICY_CHECK_SIGNATURE,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+        goto done;
     }
 
     /* Check the mechanism info */
@@ -4148,6 +4287,14 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
         rc = CKR_KEY_HANDLE_INVALID;
         return rc;
     }
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              &mapping->strength,
+                                              POLICY_CHECK_VERIFY,
+                                              session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+        goto done;
+    }
 
     /* Check the mechanism info */
     switch (mech->mechanism) {
@@ -4706,6 +4853,20 @@ CK_RV icsftok_wrap_key(STDLL_TokData_t * tokdata,
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &wrapping_key_mapping->strength,
+                                          POLICY_CHECK_WRAP, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Wrap init\n");
+        goto done;
+    }
+    rc = tokdata->policy->is_key_allowed(tokdata->policy,
+                                         &key_mapping->strength,
+                                         session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Wrap init\n");
+        goto done;
+    }
 
     /* validate mechanism parameters. Only 4 mechanisms support
      * key wrapping in icsf token */
@@ -4782,6 +4943,7 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
     struct icsf_object_mapping *key_mapping = NULL;
     CK_ULONG node_number;
     size_t expected_block_size = 0;
+    struct icsf_policy_attr pattr;
 
     /* Check session */
     if (!(session_state = get_session_state(tokdata, session->handle))) {
@@ -4801,6 +4963,14 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s\n", ock_err(ERR_KEY_HANDLE_INVALID));
         return CKR_KEY_HANDLE_INVALID;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &wrapping_key_mapping->strength,
+                                          POLICY_CHECK_UNWRAP, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Unwrap init\n");
+        goto done;
+    }
+
 
     /* Allocate structure to keep ICSF object information */
     if (!(key_mapping = malloc(sizeof(*key_mapping)))) {
@@ -4854,6 +5024,16 @@ CK_RV icsftok_unwrap_key(STDLL_TokData_t * tokdata,
         rc = icsf_to_ock_err(rc, reason);
         goto done;
     }
+    pattr.ld = session_state->ld;
+    pattr.icsf_object = &key_mapping->icsf_object;
+    rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                &key_mapping->strength,
+                                                icsf_policy_get_attr, &pattr,
+                                                icsf_policy_free_attr, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Unwrapped key too weak\n");
+        goto done;
+    }
 
     /* Add info about object into session */
     if (!(node_number = bt_node_add(&icsf_data->objects, key_mapping))) {
@@ -4895,6 +5075,7 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_SSL3_KEY_MAT_PARAMS *params = { 0 };
     unsigned int i;
     int reason = 0;
+    struct icsf_policy_attr pattr;
 
     /* Variable for multiple keys derivation */
     int multiple = 0;
@@ -4971,13 +5152,36 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         rc = CKR_KEY_HANDLE_INVALID;
         goto done;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &base_key_mapping->strength,
+                                          POLICY_CHECK_DERIVE, session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Derive key\n");
+        goto done;
+    }
 
     /* Call ICSF service */
-    if (!multiple)
+    if (!multiple) {
         rc = icsf_derive_key(session_state->ld, &reason, mech,
                              &base_key_mapping->icsf_object,
                              &mappings[0]->icsf_object, attrs, attrs_len);
-    else
+        if (rc) {
+            rc = icsf_to_ock_err(rc, reason);
+            goto done;
+        }
+        pattr.ld = session_state->ld;
+        pattr.icsf_object = &mappings[0]->icsf_object;
+        rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                    &mappings[0]->strength,
+                                                    icsf_policy_get_attr,
+                                                    &pattr,
+                                                    icsf_policy_free_attr,
+                                                    session);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: Derived key too weak\n");
+            goto done;
+        }
+    } else {
         rc = icsf_derive_multiple_keys(session_state->ld, &reason,
                                        mech, &base_key_mapping->icsf_object,
                                        attrs, attrs_len,
@@ -4987,10 +5191,26 @@ CK_RV icsftok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                                        &mappings[3]->icsf_object,
                                        params->pReturnedKeyMaterial->pIVClient,
                                        params->pReturnedKeyMaterial->pIVServer);
-    if (rc) {
-        rc = icsf_to_ock_err(rc, reason);
-        goto done;
+        if (rc) {
+            rc = icsf_to_ock_err(rc, reason);
+            goto done;
+        }
+        pattr.ld = session_state->ld;
+        for (i = 0; i < 4; ++i) {
+            pattr.icsf_object = &mappings[i]->icsf_object;
+            rc = tokdata->policy->store_object_strength(tokdata->policy,
+                                                        &mappings[i]->strength,
+                                                        icsf_policy_get_attr,
+                                                        &pattr,
+                                                        icsf_policy_free_attr,
+                                                        session);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("POLICY VIOLATION: Derived key too weak\n");
+                goto done;
+            }
+        }
     }
+    
 
     for (i = 0; i < sizeof(mappings) / sizeof(*mappings); i++) {
         /* Add info about object into session */

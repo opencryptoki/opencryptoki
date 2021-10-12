@@ -20,6 +20,8 @@
 #include <pthread.h>
 
 #include "local_types.h"
+#include "../api/policy.h"
+#include "../api/mechtable.h"
 
 struct _SESSION;
 
@@ -196,6 +198,9 @@ typedef struct _OBJECT {
     CK_ULONG count_lo;          // only significant for token objects
     CK_ULONG index;             // SAB  Index into the SHM
     CK_OBJECT_HANDLE map_handle;
+
+    // policy support (set via store_object_strength_f pointer)
+    struct objstrength strength;
 } OBJECT;
 
 
@@ -316,6 +321,13 @@ struct mech_list_item *find_mech_list_item_for_type(CK_MECHANISM_TYPE type,
                                                     *head);
 
 /* mech_list.c */
+CK_RV ock_generic_filter_mechanism_list(STDLL_TokData_t *tokdata,
+                                        const MECH_LIST_ELEMENT *list,
+                                        CK_ULONG listlen,
+                                        MECH_LIST_ELEMENT **reslist,
+                                        CK_ULONG *reslen);
+
+/* mech_list.c */
 CK_RV ock_generic_get_mechanism_list(STDLL_TokData_t * tokdata,
                                      CK_MECHANISM_TYPE_PTR pMechanismList,
                                      CK_ULONG_PTR pulCount);
@@ -372,6 +384,7 @@ struct _STDLL_TokData_t {
     struct btree priv_token_obj_btree;
     MECH_LIST_ELEMENT *mech_list;
     CK_ULONG mech_list_len;
+    struct policy *policy;
 };
 
 #endif

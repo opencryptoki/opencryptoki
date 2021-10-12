@@ -36,6 +36,8 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include "../api/policy.h"
+
 #include <openssl/crypto.h>
 
 static CK_BBOOL true = TRUE, false = FALSE;
@@ -63,6 +65,13 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech, NULL,
+                                          POLICY_CHECK_KEYGEN, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Key generation mechanism not allowed\n");
+        return rc;
+    }
+
     // it's silly but Cryptoki allows the user to specify the CKA_CLASS
     // in the template.  so we have to iterate through the provided template
     // and make sure that if CKA_CLASS is CKO_SECRET_KEY, if it is present.
@@ -269,7 +278,7 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
     // at this point, the key should be fully constructed...assign
     // an object handle and store the key
-    //
+    // Enforce policy
     rc = object_mgr_create_final(tokdata, sess, key_obj, handle);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_final failed.\n");
@@ -322,6 +331,12 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
     if (!priv_tmpl && (priv_count != 0)) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
+    }
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech, NULL,
+                                          POLICY_CHECK_KEYGEN, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: Keypair generation mechanism not allowed\n");
+        return rc;
     }
     // it's silly but Cryptoki allows the user to specify the CKA_CLASS
     // in the template.  so we have to iterate through the provided template
@@ -601,7 +616,7 @@ CK_RV key_mgr_generate_key_pair(STDLL_TokData_t *tokdata,
 
     // at this point, the keys should be fully constructed...assign
     // object handles and store the keys
-    //
+    // Enforce policy
     rc = object_mgr_create_final(tokdata, sess, publ_key_obj, publ_key_handle);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_mgr_create_final failed.\n");
@@ -676,6 +691,19 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &wrapping_key_obj->strength,
+                                          POLICY_CHECK_WRAP, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key wrap\n");
+        goto done;
+    }
+    rc = tokdata->policy->is_key_allowed(tokdata->policy, &key_obj->strength,
+                                         sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key wrap\n");
+        goto done;
+    }
     if (!key_object_is_mechanism_allowed(wrapping_key_obj->template,
                                          mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
@@ -992,7 +1020,9 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
 
     // prepare to do the encryption
     //
-    rc = encr_mgr_init(tokdata, sess, ctx, OP_WRAP, mech, h_wrapping_key);
+    /* Policy already checked */
+    rc = encr_mgr_init(tokdata, sess, ctx, OP_WRAP, mech, h_wrapping_key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("encr_mgr_init failed.\n");
         free(ctx);
@@ -1064,6 +1094,13 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &unwrapping_key_obj->strength,
+                                          POLICY_CHECK_UNWRAP, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: key unwrap\n");
+        goto done;
+    }
     if (!key_object_is_mechanism_allowed(unwrapping_key_obj->template,
                                          mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
@@ -1235,7 +1272,9 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     }
     memset(ctx, 0x0, sizeof(ENCR_DECR_CONTEXT));
 
-    rc = decr_mgr_init(tokdata, sess, ctx, OP_UNWRAP, mech, h_unwrapping_key);
+    /* Policy already checked */
+    rc = decr_mgr_init(tokdata, sess, ctx, OP_UNWRAP, mech, h_unwrapping_key,
+                       FALSE);
     if (rc != CKR_OK)
         goto done;
 

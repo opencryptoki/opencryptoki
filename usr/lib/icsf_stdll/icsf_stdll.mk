@@ -50,7 +50,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/icsf_stdll/icsf_config_parse.y				\
 	usr/lib/icsf_stdll/icsf_config_lexer.l				\
 	usr/lib/icsf_stdll/icsf.c usr/lib/common/utility_common.c	\
-	usr/lib/common/ec_supported.c
+	usr/lib/common/ec_supported.c usr/lib/api/policyhelper.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\

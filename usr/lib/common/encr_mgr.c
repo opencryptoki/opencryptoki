@@ -24,6 +24,8 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
+#include "../api/policy.h"
+
 #include <openssl/crypto.h>
 
 //
@@ -32,14 +34,15 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
                     SESSION *sess,
                     ENCR_DECR_CONTEXT *ctx,
                     CK_ULONG operation,
-                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle)
+                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key_handle,
+                    CK_BBOOL checkpolicy)
 {
     OBJECT *key_obj = NULL;
     CK_BYTE *ptr = NULL;
     CK_KEY_TYPE keytype;
     CK_BBOOL flag;
     CK_RV rc;
-
+    int check;
 
     if (!sess || !ctx || !mech) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -74,6 +77,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
+        check = POLICY_CHECK_ENCRYPT;
     } else if (operation == OP_WRAP) {
         rc = object_mgr_find_in_map1(tokdata, key_handle, &key_obj, READ_LOCK);
         if (rc != CKR_OK) {
@@ -97,12 +101,21 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
             goto done;
         }
+        check = POLICY_CHECK_WRAP;
     } else {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
 
+    if (checkpolicy) {
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                              &key_obj->strength, check, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: encrypt/wrap init\n");
+            goto done;
+        }
+    }
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
         TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
@@ -1109,6 +1122,20 @@ CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
                 rc = CKR_KEY_HANDLE_INVALID;
             goto done;
         }
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, decr_mech,
+                                              &decr_key_obj->strength,
+                                              POLICY_CHECK_DECRYPT, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: Reencrypt_single decryption\n");
+            goto done;
+        }
+        rc = tokdata->policy->is_mech_allowed(tokdata->policy, encr_mech,
+                                              &encr_key_obj->strength,
+                                              POLICY_CHECK_ENCRYPT, sess);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("POLICY VIOLATION: Reencrypt_single encryption\n");
+            goto done;
+        }
 
         if (!key_object_is_mechanism_allowed(decr_key_obj->template,
                                              decr_mech->mechanism)) {
@@ -1167,14 +1194,14 @@ CK_RV encr_mgr_reencrypt_single(STDLL_TokData_t *tokdata, SESSION *sess,
     }
 
     /* No token specific reencrypt_single function, perform it manually */
-
+    /* Enforces policy */
     rc = decr_mgr_init(tokdata, sess, decr_ctx, OP_DECRYPT_INIT, decr_mech,
-                       decr_key);
+                       decr_key, TRUE);
     if (rc != CKR_OK)
         goto done;
-
+    /* Enforces Policy */
     rc = encr_mgr_init(tokdata, sess, encr_ctx, OP_ENCRYPT_INIT, encr_mech,
-                       encr_key);
+                       encr_key, TRUE);
     if (rc != CKR_OK)
         goto done;
 

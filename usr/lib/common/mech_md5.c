@@ -301,7 +301,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
         digest_mech.ulParameterLen = 0;
         digest_mech.pParameter = NULL;
 
-        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Digest Mgr Init failed.\n");
             goto done;
@@ -343,7 +343,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
 
     // inner hash
     //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         goto done;
@@ -375,7 +375,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
 
     // outer hash
     //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech);
+    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Digest Mgr Init failed.\n");
         goto done;
@@ -434,7 +434,8 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
 
     memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
 
-    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key);
+    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key,
+                       FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Sign Mgr Init failed.\n");
         goto done;

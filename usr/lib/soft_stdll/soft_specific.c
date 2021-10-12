@@ -231,9 +231,16 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
     UNUSED(conf_name);
+    CK_RV rc;
 
-    tokdata->mech_list = (MECH_LIST_ELEMENT *)soft_mech_list;
-    tokdata->mech_list_len = soft_mech_list_len;
+    rc = ock_generic_filter_mechanism_list(tokdata,
+                                           soft_mech_list, soft_mech_list_len,
+                                           &(tokdata->mech_list),
+                                           &(tokdata->mech_list_len));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
+        return rc;
+    }
 
     TRACE_INFO("soft %s slot=%lu running\n", __func__, SlotNumber);
 
@@ -243,11 +250,12 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
 CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                            CK_BBOOL token_specific_final)
 {
-    UNUSED(tokdata);
     UNUSED(token_specific_final);
 
     TRACE_INFO("soft %s running\n", __func__);
 
+    free(tokdata->mech_list);
+    
     return CKR_OK;
 }
 

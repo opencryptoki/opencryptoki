@@ -36,6 +36,7 @@
 #include "tok_spec_struct.h"
 #include "pkcs32.h"
 #include "trace.h"
+#include "../api/policy.h"
 
 // object_create()
 //
@@ -698,16 +699,10 @@ error:
 
 
 //
-//
-CK_RV object_restore(CK_BYTE * data, OBJECT ** new_obj, CK_BBOOL replace)
-{
-    return object_restore_withSize(data, new_obj, replace, -1);
-}
-
-//
 //Modified object_restore to prevent buffer overflow
 //If data_size=-1, won't do bounds checking
-CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
+CK_RV object_restore_withSize(struct policy *policy,
+                              CK_BYTE * data, OBJECT ** new_obj,
                               CK_BBOOL replace, int data_size)
 {
     TEMPLATE *tmpl = NULL;
@@ -747,6 +742,17 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
         TRACE_DEVEL("template_unflatten_withSize failed.\n");
         goto error;
     }
+    /* External tools (e.g., pkcscca) might use this function and not
+       be aware of any policy.  Allow them to pass NULL. */
+    if (policy) {
+        /* Ignore policy violations here since the point is to get the
+           correct strength classification for the usage scenario
+           which will then allow or block key usage. */
+        policy->store_object_strength(policy, &obj->strength,
+                                      policy_get_attr_from_template,
+                                      tmpl, NULL, NULL);
+    }
+
     obj->template = tmpl;
     tmpl = NULL;
 
@@ -760,6 +766,9 @@ CK_RV object_restore_withSize(CK_BYTE * data, OBJECT ** new_obj,
         /* Reload of existing object only changes the template */
         template_free((*new_obj)->template);
         (*new_obj)->template = obj->template;
+        (*new_obj)->strength.strength = obj->strength.strength;
+        (*new_obj)->strength.siglen = obj->strength.siglen;
+        (*new_obj)->strength.allowed = obj->strength.allowed;
         free(obj);              // don't want to do object_free() here!
     }
 

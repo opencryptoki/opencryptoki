@@ -47,6 +47,27 @@ SESSION *session_mgr_find(STDLL_TokData_t *tokdata, CK_SESSION_HANDLE handle)
     return result;
 }
 
+// session_mgr_find_reset_error()
+//
+// search for the specified session and reset the ulDeviceError field
+// in the session info. returning a pointer to the session might be
+// dangerous, but performs well
+//
+// The returned session must be put back (using bt_put_node_value()) by the
+// caller to decrease the reference count!
+//
+// Returns:  SESSION * or NULL
+//
+SESSION *session_mgr_find_reset_error(STDLL_TokData_t *tokdata,
+                                      CK_SESSION_HANDLE handle)
+{
+    SESSION *res = session_mgr_find(tokdata, handle);
+
+    if (res)
+        res->session_info.ulDeviceError = 0;
+    return res;
+}
+
 void session_mgr_put(STDLL_TokData_t *tokdata, SESSION *session)
 {
     bt_put_node_value(&tokdata->sess_btree, session);
