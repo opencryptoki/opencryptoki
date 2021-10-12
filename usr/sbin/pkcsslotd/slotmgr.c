@@ -410,12 +410,10 @@ static int slotmgr_key_str(void *private, int tok, const char *val)
     switch (tok) {
     case KW_STDLL:
         if (do_str(d, (char *)&d->sinfo_struct.dll_location,
-                   sizeof(d->sinfo_struct.dll_location), tok, val, 0)) {
+                   sizeof(d->sinfo_struct.dll_location), tok, val, 0))
             res = 1;
-        } else {
+        else
             d->sinfo_struct.present = TRUE;
-            d->sinfo_struct.pk_slot.flags |= (CKF_TOKEN_PRESENT);
-        }
         break;
     case KW_SLOTDESC:
         if (do_str(d, (char *)d->sinfo_struct.pk_slot.slotDescription,

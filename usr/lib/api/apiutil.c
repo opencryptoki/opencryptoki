@@ -637,6 +637,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID)
         return FALSE;
     } else {
         sltp->DLLoaded = TRUE;
+        sinfp->pk_slot.flags |= CKF_TOKEN_PRESENT;
         // Check if a SC_Finalize function has been exported
         *(void **)(&sltp->pSTfini) = dlsym(sltp->dlop_p, "SC_Finalize");
         *(void **)(&sltp->pSTcloseall) =

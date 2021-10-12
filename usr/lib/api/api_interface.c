@@ -2708,7 +2708,7 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
     for (index = 0; index < NUMBER_SLOTS_MANAGED; index++) {
         // if there is a STDLL in the slot then we have to count it
         // otherwise the slot is NOT counted.
-        if (sinfp[index].present == TRUE && slot_loaded[index] == TRUE) {
+        if (sinfp[index].present == TRUE) {
             if (tokenPresent) {
                 if ((sinfp[index].pk_slot.flags & CKF_TOKEN_PRESENT)) {
                     count++;
@@ -2744,7 +2744,7 @@ CK_RV C_GetSlotList(CK_BBOOL tokenPresent,
     //
     for (sindx = 0, index = 0;
          (index < NUMBER_SLOTS_MANAGED) && (sindx < count); index++) {
-        if (sinfp[index].present == TRUE && slot_loaded[index] == TRUE) {
+        if (sinfp[index].present == TRUE) {
             if (tokenPresent) {
                 if (sinfp[index].pk_slot.flags & CKF_TOKEN_PRESENT) {
                     pSlotList[sindx] = sinfp[index].slot_number;

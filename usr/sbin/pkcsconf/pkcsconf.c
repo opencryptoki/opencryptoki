@@ -58,7 +58,7 @@ int get_pin(CK_CHAR **);
 int get_slot(char *);
 CK_RV cleanup(void);
 CK_RV display_pkcs11_info(void);
-CK_RV get_slot_list(void);
+CK_RV get_slot_list(CK_BOOL tokenPresent);
 CK_RV display_slot_info(int);
 CK_RV display_token_info(int);
 CK_RV display_mechanism_info(int);
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
     }
 
     /* Get the slot list and indicate if a slot number was passed in or not */
-    if ((rv = get_slot_list()))
+    if ((rv = get_slot_list((flags & (CFG_SLOT_INFO | CFG_LIST_SLOT)) == 0)))
         goto done;
 
     /* If the user tries to set the user and SO pin at the same time print an
@@ -594,12 +594,12 @@ CK_RV display_pkcs11_info(void)
     return rc;
 }
 
-CK_RV get_slot_list()
+CK_RV get_slot_list(CK_BOOL tokenPresent)
 {
     CK_RV rc;                   // Return Code
 
     /* Find out how many tokens are present in slots */
-    rc = FunctionPtr->C_GetSlotList(TRUE, NULL_PTR, &SlotCount);
+    rc = FunctionPtr->C_GetSlotList(tokenPresent, NULL_PTR, &SlotCount);
     if (rc != CKR_OK) {
         printf("Error getting number of slots: 0x%lX (%s)\n", rc,
                p11_get_ckr(rc));
@@ -615,7 +615,7 @@ CK_RV get_slot_list()
     /* Allocate enough space for the slots information */
     SlotList = (CK_SLOT_ID_PTR) malloc(SlotCount * sizeof(CK_SLOT_ID));
 
-    rc = FunctionPtr->C_GetSlotList(TRUE, SlotList, &SlotCount);
+    rc = FunctionPtr->C_GetSlotList(tokenPresent, SlotList, &SlotCount);
     if (rc != CKR_OK) {
         printf("Error getting slot list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         return rc;
@@ -737,7 +737,8 @@ void print_slot_info(int slot_id, CK_SLOT_INFO *SlotInfo)
     printf("Slot #%d Info\n", slot_id);
     printf("\tDescription: %.64s\n", SlotInfo->slotDescription);
     printf("\tManufacturer: %.32s\n", SlotInfo->manufacturerID);
-    printf("\tFlags: 0x%lX (", SlotInfo->flags);
+    printf("\tFlags: 0x%lX %c", SlotInfo->flags,
+           SlotInfo->flags != 0 ? '(' : ' ');
 
     if (SlotInfo->flags & CKF_TOKEN_PRESENT)
         printf("TOKEN_PRESENT|");
@@ -745,7 +746,9 @@ void print_slot_info(int slot_id, CK_SLOT_INFO *SlotInfo)
         printf("REMOVABLE_DEVICE|");
     if (SlotInfo->flags & CKF_HW_SLOT)
         printf("HW_SLOT|");
-    printf(")\n");
+    if (SlotInfo->flags != 0)
+        printf(")");
+    printf("\n");
 
     printf("\tHardware Version: %d.%d\n", SlotInfo->hardwareVersion.major,
            SlotInfo->hardwareVersion.minor);
