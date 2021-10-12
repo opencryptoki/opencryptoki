@@ -1,5 +1,9 @@
 man1_MANS += man/man1/pkcsconf.1 man/man1/pkcsicsf.1
 
+if ENABLE_PKCSSTATS
+man1_MANS += man/man1/pkcsstats.1
+endif
+
 if ENABLE_PKCSTOK_MIGRATE
 man1_MANS += man/man1/pkcstok_migrate.1
 endif

@@ -189,6 +189,12 @@ AC_ARG_ENABLE([pkcstok_migrate],
 	[],
 	[enable_pkcstok_migrate=yes])
 
+dnl --- pkcsstats
+AC_ARG_ENABLE([pkcsstats],
+	AS_HELP_STRING([--enable-pkcsstats],[build pkcsstats tool @<:@default=enabled@:>@]),
+	[],
+	[enable_pkcsstats=yes])
+
 dnl ---
 dnl --- Check for external software
 dnl --- Define what to check based on enabled features
@@ -637,6 +643,9 @@ AM_CONDITIONAL([ENABLE_P11SAK], [test "x$enable_p11sak" = "xyes"])
 dnl --- enable_pkcstok_migrate
 AM_CONDITIONAL([ENABLE_PKCSTOK_MIGRATE], [test "x$enable_pkcstok_migrate" = "xyes"])
 
+dnl --- enable_pkcsstats
+AM_CONDITIONAL([ENABLE_PKCSSTATS], [test "x$enable_pkcsstats" = "xyes"])
+
 dnl --- enable_locks
 if test "x$enable_locks" != "xno"; then
 	enable_locks=yes
@@ -681,6 +690,7 @@ AC_CONFIG_FILES([Makefile				\
 		 man/man1/pkcsep11_migrate.1		\
 		 man/man1/pkcsep11_session.1		\
 		 man/man1/pkcstok_migrate.1		\
+		 man/man1/pkcsstats.1			\
 		 man/man5/opencryptoki.conf.5		\
 		 man/man5/p11sak_defined_attrs.conf.5	\
 		 man/man5/strength.conf.5		\
@@ -700,6 +710,7 @@ echo "	Build with locks:	$enable_locks"
 echo "	Build with libudev:	$with_libudev"
 echo "	Build p11sak tool:	$enable_p11sak"
 echo "	token migrate tool:	$enable_pkcstok_migrate"
+echo "	statistics tool:	$enable_pkcsstats"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"
