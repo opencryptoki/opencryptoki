@@ -1,0 +1,141 @@
+.\" pkcsstats.1
+.\"
+.\" Copyright IBM Corp. 2021
+.\" See LICENSE for details.
+.\"
+.TH PKCSSTATS 1 "October 2021" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcsstats \- utility to display mechanism usage statistics for openCryptoki.
+
+.SH SYNOPSIS
+.B pkcsstats
+.RB [ OPTIONS ]
+.
+.PP
+.B pkcsstats
+.BR \-\-help | \-h
+.br
+
+.SH DESCRIPTION
+Displays mechanism usage statistics for openCryptoki. Usage statistics are
+collected by openCryptoki on a per user basis. For each user, mechanism
+usage is counted per configured slot and mechanism. For each mechanism a set of
+counters exist, one for each cryptographic strength of the cryptographic
+key used with the mechanism.
+.PP
+The available strengths are defined in the strength configuration file
+\fB/etc/opencryptoki/strength.conf\fP. Supported strengths are 112, 128, 192,
+and 256 representing the corresponding strength in bits.
+The strength configuration file defines how the strength is determined for the
+various key types. A strength of zero is used to count those mechanisms that
+do not use a key, or where the key strength is less than 112 bits.
+.PP
+.B Note:
+The strength does not specify the cryptographic strength of the mechanism, but
+the cryptographic strength of the key used with the mechanism (if any).
+For example, usage of mechanism CKM\_SHA256 is reported under strength 0,
+because no key is used with this mechanism. However, usage of mechanism
+CKM\_AES\_CBC is reported under strength 128, 192, or 256, dependent on the
+cryptographic size of the AES key used with it (and the definitions in the
+strength configuration file).
+.PP
+Statistics collection is enabled by default. It can be disabled and configured
+in the openCryptoki configuration file
+\fB/etc/opencryptoki/opencryptoki.conf\fP.
+By default only explicit mechanism usage statistics from PKCS#11 applications
+are collected.
+.PP
+Optionally, implicit mechanism usage statistics can be collected, where
+additional mechanisms are specified in mechanism parameters. For example,
+RSA\-PSS or RSA\-OAEP allows to specify a hash mechanism and a mask generation
+function (MGF) in the mechanism parameter. ECDH allows to specify a key
+derivation function (KDF) in the mechanism parameter. The PBKDF2 mechanism
+allows to specify a pseudo random function (PRF) in the mechanism parameter.
+.PP
+Also optionally, opencryptoki\-internal mechanism usage statistics can be
+collected. This collects usage statistics for crypto operations used internally
+for pin handling and encryption of private token objects in the data store.
+.PP
+.B Note:
+Implicit or internal mechanism usage can not be distinguished from explicit
+mechanism usage of PKCS#11 applications in the displayed statistics.
+.PP
+Statistics are collected in a POSIX shared memory segment per user. This shared
+memory segment contains all counters for all configured slots, mechanisms, and
+strengths. The shared memory segments are named
+\fBvar.lib.opencryptoki_stats_<uid>\fP, where \fBuid\fP is the numeric user\-id
+of the user the statistics belong to. The shared memory segments are
+automatically created for a user on the first attempt to collect statistics
+(when not already existent). The shared memory segments can be deleted using
+the \fBpkcsstats\fP command with the \fB\-\-delete\fP, or \fB\-\-delete\-all\fP
+options.
+.PP
+The usage of a mechanism is counted once when the cryptographic operation is
+sucessfully initialized, i.e. during \fBC_DigestInit\fP, \fBC_EncryptInit\fP,
+\fBC_DecryptInit\fP, \fBC_SignInit\fP, \fBC_SignRecoverInit\fP, and
+\fBC_VerifyInit\fP. Multi-part operations involving the update functions like
+\fBC_DigestUpdate\fP, \fBC_EncryptUpdate\fP, \fBC_DecryptUpdate\fP,
+\fBC_SignUpdate\fP, and \fBC_VerifyUpdate\fP, are not counted additionally.
+.PP
+Other operations such as key generation, key derivation, key wrapping and
+unwrapping are counted during the respective functions like \fBC_GenerateKey\fP,
+\fBC_GenerateKeyPair\fP, \fBC_DeriveKey\fP, \fBC_DeriveKey\fP,
+\fBC_UnwrapKey\fP.
+
+.SH "OPTIONS"
+
+.TP
+.BR \-U ", " \-\-user\~\fIuser\-id\fP
+Specifies the user\-id of the user to display, reset, or delete statistics for.
+If this option is omitted, the statistics of the current user are displayed,
+resetted, or deleted. Only the \fBroot\fP user can display, reset, or delete
+statistics of other users.
+.TP
+.BR \-S ", " \-\-summary
+Shows the accumulated statistics from all users. Only the \fBroot\fP user can
+display the accumulated statistics from other users.
+.TP
+.BR \-A ", " \-\-all
+Shows the statistics from all users. Only the \fBroot\fP user can display
+statistics from all users.
+.TP
+.BR \-a ", " \-\-all\-mechs
+Shows the statistics for all mechanisms, also those with all\-zero counters.
+If this option is omitted, only those mechanisms are displayed where at least
+one counter is non\-zero.
+.TP
+.BR \-s ", " \-\-slot\~\fIslot\-id\fP
+Specifies the slot\-id to display statistics for. If this option is omitted,
+the statistics for all configured slots are displayed.
+.TP
+.BR \-r ", " \-\-reset
+Resets the statistics counters for the current user, or for the user specified
+with the \fB\-\-user\fP option. Only the \fBroot\fP user can reset the
+statistics from other users.
+.TP
+.BR \-R ", " \-\-reset\-all
+Resets the statistics counters for all users. Only the \fBroot\fP user
+can reset the statistics from other users.
+.TP
+.BR \-d ", " \-\-delete
+Deletes the shared memory segment containing the statistics counters for the
+current user, or for the user specified with the \fB\-\-user\fP option.
+Only the \fBroot\fP user can delete the statistics from other users.
+.TP
+.BR \-D ", " \-\-delete\-all
+Deletes the shared memory segment containing the statistics counters for all
+users. Only the \fBroot\fP user can delete the statistics from other users.
+.TP
+.BR \-h ", " \-\-help
+Displays help text and exits.
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBopencryptoki.conf\fP(5).
+.TP
+\fBstrength.conf\fP(5),
+.TP
+\fBopencryptoki\fP(7),
+
+.PD

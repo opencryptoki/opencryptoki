@@ -16,6 +16,9 @@ endif
 if ENABLE_PKCSTOK_MIGRATE
 include usr/sbin/pkcstok_migrate/pkcstok_migrate.mk
 endif
+if ENABLE_PKCSSTATS
+include usr/sbin/pkcsstats/pkcsstats.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk
