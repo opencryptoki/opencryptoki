@@ -2234,7 +2234,7 @@ CK_RV C_GetMechanismInfo(CK_SLOT_ID slotID,
     API_Slot_t *sltp;
     STDLL_FcnList_t *fcn;
 
-    TRACE_INFO("C_GetMechansimInfo %lu  %lx  %p\n", slotID, type,
+    TRACE_INFO("C_GetMechanismInfo %lu  %lx  %p\n", slotID, type,
                (void *)pInfo);
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
