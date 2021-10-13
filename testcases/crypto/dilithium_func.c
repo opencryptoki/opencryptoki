@@ -20,6 +20,7 @@
 #include "common.c"
 #include "defs.h"
 #include "dilithium.h"
+#include "mechtable.h"
 
 /**
  * Experimental Support for Dilithium keys and signatures
@@ -63,7 +64,8 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
         if (rc == CKR_MECHANISM_INVALID) {
             /* no support for Dilithium? skip */
             testcase_skip("Slot %u doesn't support %s",
-                          (unsigned int) SLOT_ID, p11_get_ckm(mechType));
+                          (unsigned int) SLOT_ID,
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         } else {

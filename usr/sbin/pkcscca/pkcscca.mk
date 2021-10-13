@@ -15,7 +15,8 @@ usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DOCK_NO_SET_PERM -DOCK_NO_LOCAL_RNG				\
 	-I${srcdir}/usr/include 					\
 	-I${srcdir}/usr/lib/common					\
-	-I${srcdir}/usr/sbin/pkcscca -I${top_builddir}/usr/lib/api
+	-I${srcdir}/usr/sbin/pkcscca -I${top_builddir}/usr/lib/api 	\
+	-I${srcdir}/usr/lib/api
 
 usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/dig_mgr.c usr/lib/common/hwf_obj.c		\
@@ -39,6 +40,8 @@ usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/dlist.c usr/sbin/pkcscca/pkcscca.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c   \
 	usr/lib/api/policyhelper.c
+
+nodist_usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/api/mechtable.c
 
 if ENABLE_LOCKS
 usr_sbin_pkcscca_pkcscca_SOURCES +=				\

@@ -8,7 +8,7 @@ opencryptoki_stdll_libpkcs11_ica_la_CFLAGS =				\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	$(ICA_INC_DIRS) -I${srcdir}/usr/lib/ica_s390_stdll		\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
-	-I${top_builddir}/usr/lib/api
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api
 
 opencryptoki_stdll_libpkcs11_ica_la_LDFLAGS =				\
 	$(LCRYPTO) $(ICA_LIB_DIRS) -nostartfiles -shared		\

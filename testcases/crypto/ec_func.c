@@ -21,6 +21,7 @@
 #include "ec.h"
 #include "defs.h"
 #include "ec_curves.h"
+#include "mechtable.h"
 
 /*
  * Below is a list for the OIDs and DER encodings of the brainpool.
@@ -492,7 +493,8 @@ CK_RV run_DeriveECDHKey()
         }
         if (!mech_supported(SLOT_ID, derive_mech_type)) {
             testcase_skip("Slot %u doesn't support %s\n",
-                          (unsigned int) SLOT_ID, p11_get_ckm(derive_mech_type));
+                         (unsigned int) SLOT_ID,
+                         p11_get_ckm(&mechtable_funcs, derive_mech_type));
             goto testcase_cleanup;
         }
 
@@ -669,7 +671,8 @@ CK_RV run_DeriveECDHKey()
                                   der_ec_supported[i].name,
                                   p11_get_ckd(kdfs[j]), secret_key_len[k],
                                   shared_data[m].length,
-                                  p11_get_ckm(derive_mech_type), pkey);
+                                  p11_get_ckm(&mechtable_funcs, derive_mech_type),
+                                  pkey);
 
                     // Now, derive a generic secret key using party A's private
                     // key and B's public key
@@ -814,7 +817,7 @@ CK_RV run_DeriveECDHKey()
                                   der_ec_supported[i].name,
                                   p11_get_ckd(kdfs[j]), secret_key_len[k],
                                   shared_data[m].length,
-                                  p11_get_ckm(derive_mech_type));
+                                  p11_get_ckm(&mechtable_funcs, derive_mech_type));
 
                     if (secret_keyA != CK_INVALID_HANDLE)
                         funcs->C_DestroyObject(session, secret_keyA);
@@ -1232,7 +1235,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
     CK_RV rc;
 
     testcase_begin("Starting with mechtype='%s', inputlen=%lu parts=%lu, pkey=%X",
-                   p11_get_ckm(mechType), inputlen, parts, pkey);
+                   p11_get_ckm(&mechtable_funcs, mechType), inputlen, parts, pkey);
 
     mech2.mechanism = mechType;
     mech2.ulParameterLen = 0;
@@ -1244,7 +1247,8 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         if (rc == CKR_MECHANISM_INVALID) {
             /* no support for EC key gen? skip */
             testcase_skip("Slot %u doesn't support %s",
-                          (unsigned int) SLOT_ID, p11_get_ckm(mechType));
+                          (unsigned int) SLOT_ID,
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         } else {
@@ -1257,7 +1261,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         if (curve_type != CURVE_EDWARDS) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can only be used with Edwards curves",
-                          p11_get_ckm(mechType));
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -1265,7 +1269,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             memcmp(params, ed25519, MIN(params_len, sizeof(ed25519))) != 0) {
             /* Mechanism does not match to curve, skip */
             testcase_skip("Mechanism %s can only be used with Ed25519 curve",
-                          p11_get_ckm(mechType));
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -1273,7 +1277,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
             memcmp(params, ed448, MIN(params_len, sizeof(ed448))) != 0) {
             /* Mechanism does not match to curve, skip */
             testcase_skip("Mechanism %s can only be used with Ed448 curve",
-                          p11_get_ckm(mechType));
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -1281,7 +1285,7 @@ CK_RV run_GenerateSignVerifyECC(CK_SESSION_HANDLE session,
         if (curve_type == CURVE_EDWARDS || curve_type == CURVE_MONTGOMERY) {
             /* Mechanism does not match to curve type, skip */
             testcase_skip("Mechanism %s can not be used with Edwards/Montogmery curves",
-                          p11_get_ckm(mechType));
+                          p11_get_ckm(&mechtable_funcs, mechType));
             rc = CKR_OK;
             goto testcase_cleanup;
         }

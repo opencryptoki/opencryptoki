@@ -14,6 +14,8 @@
 
 #include "pkcs11types.h"
 
+struct mechtable_funcs;
+
 //
 // p11_get_ckr - return textual interpretation of a CKR_ error code
 // @rc is the CKR_.. error
@@ -23,7 +25,7 @@ const char *p11_get_ckr(CK_RV rc);
 // p11_get_ckm - return textual interpretation of a CKM_ mechanism code
 // @rc is the CKM_.. as a string
 //
-const char *p11_get_ckm(CK_ULONG);
+const char *p11_get_ckm(const struct mechtable_funcs *,CK_ULONG);
 
 //
 // p11_get_cka - return textual interpretation of an attribute type

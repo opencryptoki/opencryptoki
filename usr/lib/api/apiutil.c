@@ -597,6 +597,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy)
 #endif
     pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
     sltp->TokData->policy = policy;
+    sltp->TokData->mechtable_funcs = &mechtable_funcs;
     
     if (strlen(sinfp->dll_location) > 0) {
         // Check if this DLL has been loaded already.. If so, just increment

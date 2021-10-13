@@ -7,7 +7,8 @@ opencryptoki_stdll_libpkcs11_sw_la_CFLAGS =				\
 	-DNOMD2 -DNODSA -DNORIPE -fPIC -I${srcdir}/usr/lib/soft_stdll	\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
-	-DSTDLL_NAME=\"swtok\" -I${top_builddir}/usr/lib/api
+	-DSTDLL_NAME=\"swtok\" -I${top_builddir}/usr/lib/api		\
+	-I${srcdir}/usr/lib/api
 
 opencryptoki_stdll_libpkcs11_sw_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\
