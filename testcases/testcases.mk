@@ -1,8 +1,8 @@
-testcases_inc =								\
-	-I${srcdir}/usr/include -I${srcdir}/usr/lib/common		\
+testcases_inc = -I${srcdir}/usr/include -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/testcases/include -I${srcdir}/testcases/common	\
 	-I${srcdir}/testcases/login -I${srcdir}/testcases/crypto	\
-	-I${srcdir}/testcases/misc_tests -I${srcdir}/testcases/pkcs11
+	-I${srcdir}/testcases/misc_tests -I${srcdir}/testcases/pkcs11	\
+	-I${srcdir}/usr/lib/api -I${top_builddir}/usr/lib/api
 
 include testcases/include/include.mk
 include testcases/common/common.mk

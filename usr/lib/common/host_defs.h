@@ -385,6 +385,7 @@ struct _STDLL_TokData_t {
     MECH_LIST_ELEMENT *mech_list;
     CK_ULONG mech_list_len;
     struct policy *policy;
+    const struct mechtable_funcs *mechtable_funcs;
 };
 
 #endif

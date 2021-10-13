@@ -24,6 +24,7 @@
 #include "pkcs11types.h"
 #include "common.c"
 #include "regress.h"
+#include "mechtable.h"
 #include "mech_to_str.h"
 
 #include "rsa.h"
@@ -1260,7 +1261,8 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu', "
                        "keytype='%s'", tsuite->name, i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen,
-                       p11_get_ckm(tsuite->tv[i].keytype.mechanism));
+                       p11_get_ckm(&mechtable_funcs,
+                                   tsuite->tv[i].keytype.mechanism));
 
         // free memory
         if (s)

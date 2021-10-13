@@ -244,7 +244,8 @@ static void free_cp_config(cp_config_t * cp);
 static const char *ep11_get_cp(unsigned int cp);
 #endif
 static CK_ULONG ep11_get_cp_by_name(const char *name);
-static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
+static CK_RV check_cps_for_mechanism(STDLL_TokData_t *tokdata,
+                                     cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
                                      unsigned char *cp, size_t cp_len,
                                      size_t max_cp_index);
@@ -1669,299 +1670,29 @@ static CK_RV check_key_restriction(OBJECT *key_obj, CK_ATTRIBUTE_TYPE type)
     return CKR_OK;
 }
 
-static const_info_t ep11_mechanisms[] = {
-    CONSTINFO(CKM_RSA_PKCS_KEY_PAIR_GEN),
-    CONSTINFO(CKM_RSA_PKCS),
-    CONSTINFO(CKM_RSA_9796),
-    CONSTINFO(CKM_RSA_X_509),
-    CONSTINFO(CKM_MD2_RSA_PKCS),
-    CONSTINFO(CKM_MD5_RSA_PKCS),
-    CONSTINFO(CKM_SHA1_RSA_PKCS),
-    CONSTINFO(CKM_RIPEMD128_RSA_PKCS),
-    CONSTINFO(CKM_RIPEMD160_RSA_PKCS),
-    CONSTINFO(CKM_RSA_PKCS_OAEP),
-    CONSTINFO(CKM_RSA_X9_31_KEY_PAIR_GEN),
-    CONSTINFO(CKM_RSA_X9_31),
-    CONSTINFO(CKM_SHA1_RSA_X9_31),
-    CONSTINFO(CKM_RSA_PKCS_PSS),
-    CONSTINFO(CKM_SHA1_RSA_PKCS_PSS),
-    CONSTINFO(CKM_DSA_KEY_PAIR_GEN),
-    CONSTINFO(CKM_DSA),
-    CONSTINFO(CKM_DSA_SHA1),
-    CONSTINFO(CKM_DH_PKCS_KEY_PAIR_GEN),
-    CONSTINFO(CKM_DH_PKCS_DERIVE),
-    CONSTINFO(CKM_X9_42_DH_KEY_PAIR_GEN),
-    CONSTINFO(CKM_X9_42_DH_DERIVE),
-    CONSTINFO(CKM_X9_42_DH_HYBRID_DERIVE),
-    CONSTINFO(CKM_X9_42_MQV_DERIVE),
-    CONSTINFO(CKM_SHA256_RSA_PKCS),
-    CONSTINFO(CKM_SHA384_RSA_PKCS),
-    CONSTINFO(CKM_SHA512_RSA_PKCS),
-    CONSTINFO(CKM_RC2_KEY_GEN),
-    CONSTINFO(CKM_RC2_ECB),
-    CONSTINFO(CKM_RC2_CBC),
-    CONSTINFO(CKM_RC2_MAC),
-    CONSTINFO(CKM_RC2_MAC_GENERAL),
-    CONSTINFO(CKM_RC2_CBC_PAD),
-    CONSTINFO(CKM_RC4_KEY_GEN),
-    CONSTINFO(CKM_RC4),
-    CONSTINFO(CKM_DES_KEY_GEN),
-    CONSTINFO(CKM_DES_ECB),
-    CONSTINFO(CKM_DES_CBC),
-    CONSTINFO(CKM_DES_MAC),
-    CONSTINFO(CKM_DES_MAC_GENERAL),
-    CONSTINFO(CKM_DES_CBC_PAD),
-    CONSTINFO(CKM_DES2_KEY_GEN),
-    CONSTINFO(CKM_DES3_KEY_GEN),
-    CONSTINFO(CKM_DES3_ECB),
-    CONSTINFO(CKM_DES3_CBC),
-    CONSTINFO(CKM_DES3_MAC),
-    CONSTINFO(CKM_DES3_MAC_GENERAL),
-    CONSTINFO(CKM_DES3_CMAC),
-    CONSTINFO(CKM_DES3_CMAC_GENERAL),
-    CONSTINFO(CKM_DES3_CBC_PAD),
-    CONSTINFO(CKM_CDMF_KEY_GEN),
-    CONSTINFO(CKM_CDMF_ECB),
-    CONSTINFO(CKM_CDMF_CBC),
-    CONSTINFO(CKM_CDMF_MAC),
-    CONSTINFO(CKM_CDMF_MAC_GENERAL),
-    CONSTINFO(CKM_CDMF_CBC_PAD),
-    CONSTINFO(CKM_MD2),
-    CONSTINFO(CKM_MD2_HMAC),
-    CONSTINFO(CKM_MD2_HMAC_GENERAL),
-    CONSTINFO(CKM_MD5),
-    CONSTINFO(CKM_MD5_HMAC),
-    CONSTINFO(CKM_MD5_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA_1),
-    CONSTINFO(CKM_SHA_1_HMAC),
-    CONSTINFO(CKM_SHA_1_HMAC_GENERAL),
-    CONSTINFO(CKM_RIPEMD128),
-    CONSTINFO(CKM_RIPEMD128_HMAC),
-    CONSTINFO(CKM_RIPEMD128_HMAC_GENERAL),
-    CONSTINFO(CKM_RIPEMD160),
-    CONSTINFO(CKM_RIPEMD160_HMAC),
-    CONSTINFO(CKM_RIPEMD160_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA224),
-    CONSTINFO(CKM_SHA224_HMAC),
-    CONSTINFO(CKM_SHA224_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA256),
-    CONSTINFO(CKM_SHA256_HMAC),
-    CONSTINFO(CKM_SHA256_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA384),
-    CONSTINFO(CKM_SHA384_HMAC),
-    CONSTINFO(CKM_SHA384_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA512),
-    CONSTINFO(CKM_SHA512_HMAC),
-    CONSTINFO(CKM_SHA512_HMAC_GENERAL),
-    CONSTINFO(CKM_CAST_KEY_GEN),
-    CONSTINFO(CKM_CAST_ECB),
-    CONSTINFO(CKM_CAST_CBC),
-    CONSTINFO(CKM_CAST_MAC),
-    CONSTINFO(CKM_CAST_MAC_GENERAL),
-    CONSTINFO(CKM_CAST_CBC_PAD),
-    CONSTINFO(CKM_CAST3_KEY_GEN),
-    CONSTINFO(CKM_CAST3_ECB),
-    CONSTINFO(CKM_CAST3_CBC),
-    CONSTINFO(CKM_CAST3_MAC),
-    CONSTINFO(CKM_CAST3_MAC_GENERAL),
-    CONSTINFO(CKM_CAST3_CBC_PAD),
-    CONSTINFO(CKM_CAST5_KEY_GEN),
-    CONSTINFO(CKM_CAST5_ECB),
-    CONSTINFO(CKM_CAST5_CBC),
-    CONSTINFO(CKM_CAST5_MAC),
-    CONSTINFO(CKM_CAST5_MAC_GENERAL),
-    CONSTINFO(CKM_CAST5_CBC_PAD),
-    CONSTINFO(CKM_RC5_KEY_GEN),
-    CONSTINFO(CKM_RC5_ECB),
-    CONSTINFO(CKM_RC5_CBC),
-    CONSTINFO(CKM_RC5_MAC),
-    CONSTINFO(CKM_RC5_MAC_GENERAL),
-    CONSTINFO(CKM_RC5_CBC_PAD),
-    CONSTINFO(CKM_IDEA_KEY_GEN),
-    CONSTINFO(CKM_IDEA_ECB),
-    CONSTINFO(CKM_IDEA_CBC),
-    CONSTINFO(CKM_IDEA_MAC),
-    CONSTINFO(CKM_IDEA_MAC_GENERAL),
-    CONSTINFO(CKM_IDEA_CBC_PAD),
-    CONSTINFO(CKM_GENERIC_SECRET_KEY_GEN),
-    CONSTINFO(CKM_CONCATENATE_BASE_AND_KEY),
-    CONSTINFO(CKM_CONCATENATE_BASE_AND_DATA),
-    CONSTINFO(CKM_CONCATENATE_DATA_AND_BASE),
-    CONSTINFO(CKM_XOR_BASE_AND_DATA),
-    CONSTINFO(CKM_EXTRACT_KEY_FROM_KEY),
-    CONSTINFO(CKM_SSL3_PRE_MASTER_KEY_GEN),
-    CONSTINFO(CKM_SSL3_MASTER_KEY_DERIVE),
-    CONSTINFO(CKM_SSL3_KEY_AND_MAC_DERIVE),
-    CONSTINFO(CKM_SSL3_MASTER_KEY_DERIVE_DH),
-    CONSTINFO(CKM_TLS_PRE_MASTER_KEY_GEN),
-    CONSTINFO(CKM_TLS_MASTER_KEY_DERIVE),
-    CONSTINFO(CKM_TLS_KEY_AND_MAC_DERIVE),
-    CONSTINFO(CKM_TLS_MASTER_KEY_DERIVE_DH),
-    CONSTINFO(CKM_SSL3_MD5_MAC),
-    CONSTINFO(CKM_SSL3_SHA1_MAC),
-    CONSTINFO(CKM_MD5_KEY_DERIVATION),
-    CONSTINFO(CKM_MD2_KEY_DERIVATION),
-    CONSTINFO(CKM_SHA1_KEY_DERIVATION),
-    CONSTINFO(CKM_SHA256_KEY_DERIVATION),
-    CONSTINFO(CKM_PBE_MD2_DES_CBC),
-    CONSTINFO(CKM_PBE_MD5_DES_CBC),
-    CONSTINFO(CKM_PBE_MD5_CAST_CBC),
-    CONSTINFO(CKM_PBE_MD5_CAST3_CBC),
-    CONSTINFO(CKM_PBE_MD5_CAST5_CBC),
-    CONSTINFO(CKM_PBE_SHA1_CAST5_CBC),
-    CONSTINFO(CKM_PBE_SHA1_RC4_128),
-    CONSTINFO(CKM_PBE_SHA1_RC4_40),
-    CONSTINFO(CKM_PBE_SHA1_DES3_EDE_CBC),
-    CONSTINFO(CKM_PBE_SHA1_DES2_EDE_CBC),
-    CONSTINFO(CKM_PBE_SHA1_RC2_128_CBC),
-    CONSTINFO(CKM_PBE_SHA1_RC2_40_CBC),
-    CONSTINFO(CKM_PKCS5_PBKD2),
-    CONSTINFO(CKM_PBA_SHA1_WITH_SHA1_HMAC),
-    CONSTINFO(CKM_KEY_WRAP_LYNKS),
-    CONSTINFO(CKM_KEY_WRAP_SET_OAEP),
-    CONSTINFO(CKM_SKIPJACK_KEY_GEN),
-    CONSTINFO(CKM_SKIPJACK_ECB64),
-    CONSTINFO(CKM_SKIPJACK_CBC64),
-    CONSTINFO(CKM_SKIPJACK_OFB64),
-    CONSTINFO(CKM_SKIPJACK_CFB64),
-    CONSTINFO(CKM_SKIPJACK_CFB32),
-    CONSTINFO(CKM_SKIPJACK_CFB16),
-    CONSTINFO(CKM_SKIPJACK_CFB8),
-    CONSTINFO(CKM_SKIPJACK_WRAP),
-    CONSTINFO(CKM_SKIPJACK_PRIVATE_WRAP),
-    CONSTINFO(CKM_SKIPJACK_RELAYX),
-    CONSTINFO(CKM_KEA_KEY_PAIR_GEN),
-    CONSTINFO(CKM_KEA_KEY_DERIVE),
-    CONSTINFO(CKM_FORTEZZA_TIMESTAMP),
-    CONSTINFO(CKM_BATON_KEY_GEN),
-    CONSTINFO(CKM_BATON_ECB128),
-    CONSTINFO(CKM_BATON_ECB96),
-    CONSTINFO(CKM_BATON_CBC128),
-    CONSTINFO(CKM_BATON_COUNTER),
-    CONSTINFO(CKM_BATON_SHUFFLE),
-    CONSTINFO(CKM_BATON_WRAP),
-    CONSTINFO(CKM_EC_KEY_PAIR_GEN),
-    CONSTINFO(CKM_ECDSA),
-    CONSTINFO(CKM_ECDSA_SHA1),
-    CONSTINFO(CKM_ECDSA_SHA224),
-    CONSTINFO(CKM_ECDSA_SHA256),
-    CONSTINFO(CKM_ECDSA_SHA384),
-    CONSTINFO(CKM_ECDSA_SHA512),
-    CONSTINFO(CKM_ECDH1_DERIVE),
-    CONSTINFO(CKM_ECDH1_COFACTOR_DERIVE),
-    CONSTINFO(CKM_ECMQV_DERIVE),
-    CONSTINFO(CKM_JUNIPER_KEY_GEN),
-    CONSTINFO(CKM_JUNIPER_ECB128),
-    CONSTINFO(CKM_JUNIPER_CBC128),
-    CONSTINFO(CKM_JUNIPER_COUNTER),
-    CONSTINFO(CKM_JUNIPER_SHUFFLE),
-    CONSTINFO(CKM_JUNIPER_WRAP),
-    CONSTINFO(CKM_FASTHASH),
-    CONSTINFO(CKM_AES_KEY_GEN),
-    CONSTINFO(CKM_AES_ECB),
-    CONSTINFO(CKM_AES_CBC),
-    CONSTINFO(CKM_AES_MAC),
-    CONSTINFO(CKM_AES_MAC_GENERAL),
-    CONSTINFO(CKM_AES_CBC_PAD),
-    CONSTINFO(CKM_AES_CTR),
-    CONSTINFO(CKM_AES_CMAC),
-    CONSTINFO(CKM_AES_CMAC_GENERAL),
-    CONSTINFO(CKM_DSA_PARAMETER_GEN),
-    CONSTINFO(CKM_DH_PKCS_PARAMETER_GEN),
-    CONSTINFO(CKM_X9_42_DH_PARAMETER_GEN),
-    CONSTINFO(CKM_VENDOR_DEFINED),
-    CONSTINFO(CKM_SHA256_RSA_PKCS_PSS),
-    CONSTINFO(CKM_SHA224_RSA_PKCS),
-    CONSTINFO(CKM_SHA224_RSA_PKCS_PSS),
-    CONSTINFO(CKM_SHA384_RSA_PKCS_PSS),
-    CONSTINFO(CKM_SHA512_RSA_PKCS_PSS),
-    CONSTINFO(CKM_SHA224_KEY_DERIVATION),
-    CONSTINFO(CKM_SHA384_KEY_DERIVATION),
-    CONSTINFO(CKM_SHA512_KEY_DERIVATION),
-    CONSTINFO(CKM_SHA512_224),
-    CONSTINFO(CKM_SHA512_224_HMAC),
-    CONSTINFO(CKM_SHA512_224_HMAC_GENERAL),
-    CONSTINFO(CKM_SHA512_256),
-    CONSTINFO(CKM_SHA512_256_HMAC),
-    CONSTINFO(CKM_SHA512_256_HMAC_GENERAL),
-    CONSTINFO(CKM_EP11_SHA512_224),
-    CONSTINFO(CKM_EP11_SHA512_224_HMAC),
-    CONSTINFO(CKM_EP11_SHA512_224_HMAC_GENERAL),
-    CONSTINFO(CKM_EP11_SHA512_256),
-    CONSTINFO(CKM_EP11_SHA512_256_HMAC),
-    CONSTINFO(CKM_EP11_SHA512_256_HMAC_GENERAL),
-    CONSTINFO(CKM_IBM_CMAC),
-    CONSTINFO(CKM_IBM_ECDSA_SHA224),
-    CONSTINFO(CKM_IBM_ECDSA_SHA256),
-    CONSTINFO(CKM_IBM_ECDSA_SHA384),
-    CONSTINFO(CKM_IBM_ECDSA_SHA512),
-    CONSTINFO(CKM_IBM_EC_MULTIPLY),
-    CONSTINFO(CKM_IBM_EAC),
-    CONSTINFO(CKM_IBM_TESTCODE),
-    CONSTINFO(CKM_IBM_SHA512_256),
-    CONSTINFO(CKM_IBM_SHA512_224),
-    CONSTINFO(CKM_IBM_SHA512_256_HMAC),
-    CONSTINFO(CKM_IBM_SHA512_224_HMAC),
-    CONSTINFO(CKM_IBM_SHA512_256_KEY_DERIVATION),
-    CONSTINFO(CKM_IBM_SHA512_224_KEY_DERIVATION),
-    CONSTINFO(CKM_IBM_EC_C25519),
-    CONSTINFO(CKM_IBM_EC_X25519),
-    CONSTINFO(CKM_IBM_ED25519_SHA512),
-    CONSTINFO(CKM_IBM_EDDSA_SHA512),
-    CONSTINFO(CKM_IBM_EDDSA_PH_SHA512),
-    CONSTINFO(CKM_IBM_EC_C448),
-    CONSTINFO(CKM_IBM_EC_X448),
-    CONSTINFO(CKM_IBM_ED448_SHA3),
-    CONSTINFO(CKM_IBM_SIPHASH),
-    CONSTINFO(CKM_IBM_CLEARKEY_TRANSPORT),
-    CONSTINFO(CKM_IBM_ATTRIBUTEBOUND_WRAP),
-    CONSTINFO(CKM_IBM_TRANSPORTKEY),
-    CONSTINFO(CKM_IBM_DH_PKCS_DERIVE_RAW),
-    CONSTINFO(CKM_IBM_ECDH1_DERIVE_RAW),
-    CONSTINFO(CKM_IBM_WIRETEST),
-    CONSTINFO(CKM_IBM_RETAINKEY),
-    CONSTINFO(CKM_IBM_CPACF_WRAP),
-    CONSTINFO(CKM_IBM_SM3),
-    CONSTINFO(CKM_IBM_DILITHIUM),
-    CONSTINFO(CKM_IBM_SHA3_224),
-    CONSTINFO(CKM_IBM_SHA3_256),
-    CONSTINFO(CKM_IBM_SHA3_384),
-    CONSTINFO(CKM_IBM_SHA3_512),
-    CONSTINFO(CKM_IBM_SHA3_224_HMAC),
-    CONSTINFO(CKM_IBM_SHA3_256_HMAC),
-    CONSTINFO(CKM_IBM_SHA3_384_HMAC),
-    CONSTINFO(CKM_IBM_SHA3_512_HMAC),
-    CONSTINFO(CKM_IBM_ATTRIBUTEBOUND_WRAP),
-};
-
 #define UNKNOWN_MECHANISM   0xFFFFFFFF
 
 /* for logging, debugging */
-static const char *ep11_get_ckm(CK_ULONG mechanism)
+static const char *ep11_get_ckm(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
 {
-    unsigned int i;
+    const struct mechrow *row;
 
-    for (i = 0;
-         i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0]));
-         i++) {
-        if (ep11_mechanisms[i].code == mechanism)
-            return ep11_mechanisms[i].name;
-    }
+    row = tokdata->mechtable_funcs->p_row_from_num(mechanism);
+    if (row)
+        return row->string;
 
     TRACE_WARNING("%s unknown mechanism %lx\n", __func__, mechanism);
     return "UNKNOWN";
 }
 
-static CK_ULONG ep11_get_mechanisms_by_name(const char *name)
+static CK_ULONG ep11_get_mechanisms_by_name(STDLL_TokData_t *tokdata,
+                                            const char *name)
 {
-    unsigned int i;
+    const struct mechrow *row;
 
-    for (i = 0;
-         i < (sizeof(ep11_mechanisms) / sizeof(ep11_mechanisms[0]));
-         i++) {
-        if (strcmp(ep11_mechanisms[i].name, name) == 0)
-            return ep11_mechanisms[i].code;
-    }
+    row = tokdata->mechtable_funcs->p_row_from_str(name);
+    if (row)
+        return row->numeric;
 
     TRACE_WARNING("%s unknown mechanism name '%s'\n", __func__, name);
     return UNKNOWN_MECHANISM;
@@ -1991,7 +1722,8 @@ static const int APQN_OUT_OF_MEMORY = 19;
 
 static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                                     const char *conf_name);
-static int read_cp_filter_config_file(const char *conf_name,
+static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
+                                      const char *conf_name,
                                       cp_config_t ** cp_config);
 
 static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
@@ -4018,12 +3750,13 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
-                    __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
+                    __func__, rc, ep11_get_ckm(tokdata, mech->mechanism),
+                    attrs_len);
         goto done;
     }
 
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
-               __func__, rc, ep11_get_ckm(mech->mechanism), attrs_len);
+               __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
 
     rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
     if (rc != CKR_OK) {
@@ -4104,7 +3837,8 @@ done:
     return rc;
 }
 
-static CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
+static CK_BBOOL ep11tok_libica_digest_available(STDLL_TokData_t * tokdata,
+                                                ep11_private_data_t *ep11_data,
                                                 CK_MECHANISM_TYPE mech)
 {
     int use_libica;
@@ -4151,7 +3885,7 @@ static CK_BBOOL ep11tok_libica_digest_available(ep11_private_data_t *ep11_data,
 
     if (use_libica == 0)
         TRACE_DEVEL("%s mech=%s is not supported by libica\n", __func__,
-                    ep11_get_ckm(mech));
+                    ep11_get_ckm(tokdata, mech));
 
     return use_libica ? CK_TRUE : CK_FALSE;
 }
@@ -4335,10 +4069,11 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
            break;
     }
 
-    return ep11tok_libica_digest_available(ep11_data, digest_mech);
+    return ep11tok_libica_digest_available(tokdata, ep11_data, digest_mech);
 }
 
-static CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
+static CK_RV ep11tok_libica_digest(STDLL_TokData_t * tokdata,
+                                   ep11_private_data_t *ep11_data,
                                    CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
                                    CK_BYTE *in_data, CK_ULONG in_data_len,
                                    CK_BYTE *out_data, CK_ULONG *out_data_len,
@@ -4355,7 +4090,7 @@ static CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
         return CKR_BUFFER_TOO_SMALL;
 
     TRACE_DEVEL("%s mech=%s part=%u\n", __func__,
-                ep11_get_ckm(mech), message_part);
+                ep11_get_ckm(tokdata, mech), message_part);
 
     switch (mech) {
     case CKM_SHA_1:
@@ -4406,13 +4141,13 @@ static CK_RV ep11tok_libica_digest(ep11_private_data_t *ep11_data,
 #endif
     default:
         TRACE_ERROR("%s Invalid mechanism: mech=%s\n", __func__,
-                    ep11_get_ckm(mech));
+                    ep11_get_ckm(tokdata, mech));
         return CKR_MECHANISM_INVALID;
     }
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Libica SHA failed. mech=%s rc=0x%lx\n", __func__,
-                    ep11_get_ckm(mech), rc);
+                    ep11_get_ckm(tokdata, mech), rc);
 
         switch (rc) {
         case EINVAL:
@@ -4448,7 +4183,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    if (ep11tok_libica_digest_available(ep11_data, mech->mechanism)) {
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, mech->mechanism)) {
         libica_ctx = (libica_sha_context_t *)state;
         state_len = sizeof(libica_sha_context_t);
         libica_ctx->first = CK_TRUE;
@@ -4494,8 +4229,8 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
-        rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, c->mech.mechanism)) {
+        rc = ep11tok_libica_digest(tokdata, ep11_data, c->mech.mechanism,
                                    (libica_sha_context_t *)c->context,
                                    in_data, in_data_len,
                                    out_data, out_data_len,
@@ -4532,7 +4267,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, c->mech.mechanism)) {
         if (libica_ctx->offset > 0 || in_data_len < libica_ctx->block_size) {
             len = MIN(libica_ctx->block_size - libica_ctx->offset,
                       in_data_len);
@@ -4543,7 +4278,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
             in_data_len -= len;
 
             if (libica_ctx->offset == libica_ctx->block_size) {
-                rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+                rc = ep11tok_libica_digest(tokdata,
+                                           ep11_data, c->mech.mechanism,
                                            libica_ctx, libica_ctx->buffer,
                                            libica_ctx->offset, temp_out,
                                            &out_len, libica_ctx->first ?
@@ -4560,7 +4296,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
 
         if (in_data_len > 0) {
             len = (in_data_len / libica_ctx->block_size) * libica_ctx->block_size;
-            rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+            rc = ep11tok_libica_digest(tokdata, ep11_data, c->mech.mechanism,
                                        libica_ctx, in_data, len, temp_out,
                                        &out_len, libica_ctx->first ?
                                                     SHA_MSG_PART_FIRST :
@@ -4608,8 +4344,8 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    if (ep11tok_libica_digest_available(ep11_data, c->mech.mechanism)) {
-        rc = ep11tok_libica_digest(ep11_data, c->mech.mechanism,
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, c->mech.mechanism)) {
+        rc = ep11tok_libica_digest(tokdata, ep11_data, c->mech.mechanism,
                                    libica_ctx, libica_ctx->buffer,
                                    libica_ctx->offset,
                                    out_data, out_data_len,
@@ -5033,7 +4769,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         if (mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS) ||
             mech->pParameter == NULL) {
             TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
-                        __func__, ep11_get_ckm(mech->mechanism ),
+                        __func__, ep11_get_ckm(tokdata, mech->mechanism),
                         mech->ulParameterLen);
             return CKR_MECHANISM_PARAM_INVALID;
         }
@@ -6099,13 +5835,13 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                     "privkey_blob_len=0x%zx mech='%s'\n",
                     __func__, rc, spki_len, privkey_blob_len,
-                    ep11_get_ckm(pMechanism->mechanism));
+                    ep11_get_ckm(tokdata, pMechanism->mechanism));
         goto error;
     }
     TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
-               ep11_get_ckm(pMechanism->mechanism));
+              ep11_get_ckm(tokdata, pMechanism->mechanism));
 
     if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
         TRACE_ERROR("%s blobsize error\n", __func__);
@@ -6439,13 +6175,13 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                     "privkey_blob_len=0x%zx mech='%s'\n",
                     __func__, rc, spki_len, privkey_blob_len,
-                    ep11_get_ckm(pMechanism->mechanism));
+                    ep11_get_ckm(tokdata, pMechanism->mechanism));
         goto error;
     }
     TRACE_INFO("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
-               ep11_get_ckm(pMechanism->mechanism));
+              ep11_get_ckm(tokdata, pMechanism->mechanism));
 
     if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
         TRACE_ERROR("%s blobsize error\n", __func__);
@@ -6671,7 +6407,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
         break;
     default:
         TRACE_ERROR("%s invalid mech %s\n", __func__,
-                    ep11_get_ckm(pMechanism->mechanism));
+                    ep11_get_ckm(tokdata, pMechanism->mechanism));
         rc = CKR_MECHANISM_INVALID;
         goto error;
     }
@@ -8987,7 +8723,7 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
 
         for (i = 0; i < counter; i++)
             TRACE_INFO("%s raw mech list entry '%s'\n",
-                       __func__, ep11_get_ckm(mlist[i]));
+                       __func__, ep11_get_ckm(tokdata, mlist[i]));
 
         /* copy only mechanisms not banned */
         *pulCount = 0;
@@ -9039,7 +8775,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
 
     if (!found) {
         TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
-                   ep11_get_ckm(type));
+                   ep11_get_ckm(tokdata, type));
         return CKR_MECHANISM_INVALID;
     }
 
@@ -9047,12 +8783,12 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    if (check_cps_for_mechanism(ep11_data->cp_config,
+    if (check_cps_for_mechanism(tokdata, ep11_data->cp_config,
                                 type, target_info->control_points,
                                 target_info->control_points_len,
                                 target_info->max_control_point_index) != CKR_OK) {
         TRACE_INFO("%s Mech '%s' banned due to control point\n",
-                                   __func__, ep11_get_ckm(type));
+                   __func__, ep11_get_ckm(tokdata, type));
         rc = CKR_MECHANISM_INVALID;
         goto out;
     }
@@ -9083,7 +8819,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_HMAC_REQ);
         if (status == -1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                        __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9100,7 +8836,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_OAEP_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9118,7 +8854,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_IBM_SHA3_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9132,7 +8868,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_CMAC_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9144,7 +8880,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_ED448_SHA3:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) < 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9153,7 +8889,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_EDWARDS_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9162,7 +8898,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_DILITHIUM:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                                     __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9170,7 +8906,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_DILITHIUM_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9179,7 +8915,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     case CKM_IBM_CPACF_WRAP:
         if (compare_ck_version(&ep11_data->ep11_lib_version, &ver3) <= 0) {
             TRACE_INFO("%s Mech '%s' banned due to host library version\n",
-                                     __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
 
             rc = CKR_MECHANISM_INVALID;
             goto out;
@@ -9188,7 +8924,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
                                          NUM_CPACF_WRAP_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
-                                    __func__, ep11_get_ckm(type));
+                       __func__, ep11_get_ckm(tokdata, type));
             rc = CKR_MECHANISM_INVALID;
             goto out;
         }
@@ -9249,7 +8985,7 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     rc = ep11tok_is_mechanism_supported(tokdata, type);
     if (rc != CKR_OK) {
         TRACE_DEBUG("%s rc=0x%lx unsupported '%s'\n", __func__, rc,
-                    ep11_get_ckm(type));
+                    ep11_get_ckm(tokdata, type));
         return rc;
     }
 
@@ -9821,7 +9557,8 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
                 sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
         }
 
-        rc = read_cp_filter_config_file(ep11_data->cp_filter_config_filename,
+        rc = read_cp_filter_config_file(tokdata,
+                                        ep11_data->cp_filter_config_filename,
                                         &ep11_data->cp_config);
     }
 
@@ -9834,7 +9571,8 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
 #define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
 #define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
 
-static int read_cp_filter_config_file(const char *conf_name,
+static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
+                                      const char *conf_name,
                                       cp_config_t ** cp_config)
 {
     int rc = 0;
@@ -9903,7 +9641,7 @@ static int read_cp_filter_config_file(const char *conf_name,
 
             val = strtoul(tok, &endp, 0);
             if (*endp != '\0') {
-                val = ep11_get_mechanisms_by_name(tok);
+                val = ep11_get_mechanisms_by_name(tokdata, tok);
                 if (val == UNKNOWN_MECHANISM) {
                     TRACE_ERROR("%s Syntax error in EP 11 CP-filter config file"
                                 " found. \n", __func__);
@@ -9959,7 +9697,7 @@ static int read_cp_filter_config_file(const char *conf_name,
         mech = cp->mech;
         while (mech != NULL) {
             TRACE_INFO("    Mechanism 0x%08lx (%s)\n", mech->mech,
-                       ep11_get_ckm(mech->mech));
+                       ep11_get_ckm(tokdata, mech->mech));
             mech = mech->next;
         }
         cp = cp->next;
@@ -10077,16 +9815,18 @@ static CK_ULONG ep11_get_cp_by_name(const char *name)
     return UNKNOWN_CP;
 }
 
-static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
+static CK_RV check_cps_for_mechanism(STDLL_TokData_t *tokdata,
+                                     cp_config_t * cp_config,
                                      CK_MECHANISM_TYPE mech,
                                      unsigned char *cp, size_t cp_len,
                                      size_t max_cp_index)
 {
+    UNUSED(tokdata);
     cp_config_t *cp_cfg = cp_config;
     cp_mech_config_t *mech_cfg;
 
     TRACE_DEBUG("%s Check mechanism 0x%08lx ('%s')\n", __func__, mech,
-                ep11_get_ckm(mech));
+                ep11_get_ckm(tokdata, mech));
 
     while (cp_cfg != NULL) {
         if (CP_BYTE_NO(cp_cfg->cp) < cp_len &&
@@ -10098,7 +9838,7 @@ static CK_RV check_cps_for_mechanism(cp_config_t * cp_config,
             while (mech_cfg != NULL) {
                 if (mech_cfg->mech == mech) {
                     TRACE_DEBUG("%s mechanism 0x%08lx ('%s') not enabled\n",
-                                __func__, mech, ep11_get_ckm(mech));
+                                __func__, mech, ep11_get_ckm(tokdata, mech));
                     return CKR_MECHANISM_INVALID;
                 }
                 mech_cfg = mech_cfg->next;
@@ -10555,8 +10295,8 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     mech.ulParameterLen = 0;
 
     len = sizeof(ep11_session->session_id);
-    if (ep11tok_libica_digest_available(ep11_data, mech.mechanism))
-        rc = ep11tok_libica_digest(ep11_data, mech.mechanism, &ctx,
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, mech.mechanism))
+        rc = ep11tok_libica_digest(tokdata, ep11_data, mech.mechanism, &ctx,
                                    (CK_BYTE_PTR)&session_id_data,
                                    sizeof(session_id_data),
                                    ep11_session->session_id, &len,

@@ -13,6 +13,7 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_CFLAGS  =		\
 	-I${srcdir}/usr/include 				\
 	-I${srcdir}/usr/lib/common				\
 	-I${srcdir}/usr/sbin/pkcstok_migrate			\
+	-I${srcdir}/usr/lib/api					\
 	-I${top_builddir}/usr/lib/api
 
 usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
@@ -23,3 +24,6 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
 	usr/sbin/pkcstok_migrate/pkcstok_migrate.c	\
 	usr/lib/common/parser.y				\
 	usr/lib/common/lexer.l
+
+nodist_usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =	\
+	usr/lib/api/mechtable.c

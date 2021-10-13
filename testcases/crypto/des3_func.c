@@ -18,6 +18,7 @@
 #include "des3.h"
 #include "common.c"
 #include "mech_to_str.h"
+#include "mechtable.h"
 
 /** Tests triple DES encryption with published test vectors. **/
 CK_RV do_EncryptDES3(struct published_test_suite_info *tsuite)
@@ -1184,7 +1185,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
             break;
         default:
             testcase_error("Invalid mechanism: %s",
-                           p11_get_ckm(mech.mechanism));
+                           p11_get_ckm(&mechtable_funcs, mech.mechanism));
             goto error;
         }
 

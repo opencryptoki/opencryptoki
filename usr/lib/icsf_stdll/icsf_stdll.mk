@@ -19,7 +19,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
 	-DSTDLL_NAME=\"icsftok\"					\
 	-DTOK_NEW_DATA_STORE=0xffffffff					\
 	-I${top_builddir}/usr/lib/icsf_stdll				\
-	-I${top_builddir}/usr/lib/api
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api
 
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS =				\
 	-shared	-Wl,-z,defs,-Bsymbolic -lcrypto	-lldap -lpthread	\

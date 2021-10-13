@@ -17,6 +17,7 @@
 #include "regress.h"
 #include "aes.h"
 #include "common.c"
+#include "mechtable.h"
 #include "mech_to_str.h"
 
 CK_ULONG key_lens[] = { 16, 24, 32 };
@@ -1963,7 +1964,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
             break;
         default:
             testcase_error("Invalid mechanism: %s",
-                           p11_get_ckm(mech.mechanism));
+                           p11_get_ckm(&mechtable_funcs, mech.mechanism));
             goto error;
         }
 

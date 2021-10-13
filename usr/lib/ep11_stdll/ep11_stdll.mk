@@ -11,7 +11,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS =				\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-DSTDLL_NAME=\"ep11tok\"					\
 	-I${srcdir}/usr/lib/ep11_stdll -I${srcdir}/usr/lib/common	\
-	-I${srcdir}/usr/include -I${top_builddir}/usr/lib/api
+	-I${srcdir}/usr/include -I${top_builddir}/usr/lib/api		\
+	-I${srcdir}/usr/lib/api
 
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\

@@ -29,6 +29,7 @@
 #include "pkcsconf_msg.h"
 #include "p11util.h"
 #include "defs.h"
+#include "mechtable.h"
 
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
@@ -626,14 +627,10 @@ CK_RV get_slot_list(CK_BOOL tokenPresent)
 
 void display_mechanism_name(CK_MECHANISM_TYPE mech)
 {
-    CK_ULONG i;
+    const struct mechrow *row = mechrow_from_numeric(mech);
 
-    for (i = 0; pkcs11_mech_list[i].name; i++) {
-        if (pkcs11_mech_list[i].mech == mech) {
-            printf("(%s)", pkcs11_mech_list[i].name);
-            return;
-        }
-    }
+    if (row)
+        printf("(%s)", row->string);
 }
 
 void display_mechanism_flags(CK_FLAGS flags)
