@@ -2034,6 +2034,7 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
         goto error;
     }
     switch (keytype) {
+    case CKK_AES:
     case CKK_GENERIC_SECRET:
     case CKK_DES:
     case CKK_DES2:
