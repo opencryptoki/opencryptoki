@@ -10,6 +10,7 @@
 
 #include "pkcs11types.h"
 #include "defs.h"
+#include "trace.h"
 
 CK_RV get_sha_size(CK_ULONG mech, CK_ULONG *hsize)
 {
@@ -159,5 +160,69 @@ CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
     default:
         return CKR_MECHANISM_INVALID;
     }
+    return CKR_OK;
+}
+
+CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
+{
+    switch (kdf) {
+    case CKD_SHA1_KDF:
+        *mech = CKM_SHA_1;
+        break;
+    case CKD_SHA224_KDF:
+        *mech = CKM_SHA224;
+        break;
+    case CKD_SHA256_KDF:
+        *mech = CKM_SHA256;
+        break;
+    case CKD_SHA384_KDF:
+        *mech = CKM_SHA384;
+        break;
+    case CKD_SHA512_KDF:
+        *mech = CKM_SHA512;
+        break;
+    default:
+        TRACE_ERROR("Error unsupported KDF %ld.\n", kdf);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+/* helper function for rsa-oaep and rsa-pss */
+CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
+{
+    switch (mgf) {
+    case CKG_MGF1_SHA1:
+        *mech = CKM_SHA_1;
+        break;
+    case CKG_MGF1_SHA224:
+        *mech = CKM_SHA224;
+        break;
+    case CKG_MGF1_SHA256:
+        *mech = CKM_SHA256;
+        break;
+    case CKG_MGF1_SHA384:
+        *mech = CKM_SHA384;
+        break;
+    case CKG_MGF1_SHA512:
+        *mech = CKM_SHA512;
+        break;
+    case CKG_IBM_MGF1_SHA3_224:
+        *mech = CKM_IBM_SHA3_224;
+        break;
+    case CKG_IBM_MGF1_SHA3_256:
+        *mech = CKM_IBM_SHA3_256;
+        break;
+    case CKG_IBM_MGF1_SHA3_384:
+        *mech = CKM_IBM_SHA3_384;
+        break;
+    case CKG_IBM_MGF1_SHA3_512:
+        *mech = CKM_IBM_SHA3_512;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
     return CKR_OK;
 }

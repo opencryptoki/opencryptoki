@@ -730,6 +730,8 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
                       CK_BYTE *out_data,
                       CK_ULONG *out_data_len, CK_ULONG type);
 
+CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech);
+
 // RSA mechanisms
 //
 CK_RV ckm_rsa_key_pair_gen(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl,
@@ -846,6 +848,8 @@ CK_RV ckm_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
                                TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 #endif
 /* End code contributed by Corrent corp. */
+
+CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech);
 
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class);

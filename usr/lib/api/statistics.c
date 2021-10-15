@@ -19,6 +19,7 @@
 
 #include "statistics.h"
 #include "trace.h"
+#include "h_extern.h"
 #include "ock_syslog.h"
 
 static CK_RV statistics_increment(struct statistics *statistics,
@@ -29,6 +30,8 @@ static CK_RV statistics_increment(struct statistics *statistics,
     CK_ULONG ofs;
     counter_t *counter;
     int mech_idx;
+    CK_MECHANISM implicit_mech = { 0, NULL, 0 };
+    CK_RV rc;
 
     if (slot >= NUMBER_SLOTS_MANAGED || strength_idx > POLICY_STRENGTH_IDX_0 ||
         mech == NULL)
@@ -52,6 +55,66 @@ static CK_RV statistics_increment(struct statistics *statistics,
 
     counter = (counter_t*)(statistics->shm_data + ofs);
     __sync_add_and_fetch(counter, 1);
+
+    if ((statistics->flags & STATISTICS_FLAG_COUNT_IMPLICIT) == 0)
+        return CKR_OK;
+
+    /* deep inspect certain mechanism params for implicit mechanism use */
+    switch (mech->mechanism) {
+    case CKM_RSA_PKCS_PSS:
+    case CKM_SHA1_RSA_PKCS_PSS:
+    case CKM_SHA224_RSA_PKCS_PSS:
+    case CKM_SHA256_RSA_PKCS_PSS:
+    case CKM_SHA384_RSA_PKCS_PSS:
+    case CKM_SHA512_RSA_PKCS_PSS:
+        implicit_mech.mechanism =
+                ((CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter)->hashAlg;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+
+        rc = get_mgf_mech(((CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter)->mgf,
+                          &implicit_mech.mechanism);
+        if (rc != CKR_OK)
+            return rc;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    case CKM_RSA_PKCS_OAEP:
+        implicit_mech.mechanism =
+                ((CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter)->hashAlg;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+
+        rc = get_mgf_mech(((CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter)->mgf,
+                          &implicit_mech.mechanism);
+        if (rc != CKR_OK)
+            return rc;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    case CKM_ECDH1_DERIVE:
+        if (((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf == CKD_NULL)
+            break;
+        rc = digest_from_kdf(((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf,
+                             &implicit_mech.mechanism);
+        if (rc != CKR_OK)
+            return rc;
+        rc = statistics_increment(statistics, slot, &implicit_mech,
+                                  POLICY_STRENGTH_IDX_0);
+        if (rc != CKR_OK)
+            return rc;
+        break;
+    default:
+        break;
+    }
 
     return CKR_OK;
 }
@@ -210,11 +273,12 @@ static CK_RV statistics_close_shm(struct statistics *statistics,
 }
 
 CK_RV statistics_init(struct statistics *statistics,
-                      Slot_Mgr_Socket_t *slots_infos)
+                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags)
 {
     CK_ULONG i;
     CK_RV rc;
 
+    statistics->flags = flags;
     statistics->shm_handle = -1;
     statistics->shm_data = NULL;
 

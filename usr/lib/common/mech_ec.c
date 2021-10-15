@@ -900,32 +900,6 @@ done:
     return rc;
 }
 
-static CK_RV digest_from_kdf(CK_EC_KDF_TYPE kdf, CK_MECHANISM_TYPE *mech)
-{
-    switch (kdf) {
-    case CKD_SHA1_KDF:
-        *mech = CKM_SHA_1;
-        break;
-    case CKD_SHA224_KDF:
-        *mech = CKM_SHA224;
-        break;
-    case CKD_SHA256_KDF:
-        *mech = CKM_SHA256;
-        break;
-    case CKD_SHA384_KDF:
-        *mech = CKM_SHA384;
-        break;
-    case CKD_SHA512_KDF:
-        *mech = CKM_SHA512;
-        break;
-    default:
-        TRACE_ERROR("Error unsupported KDF %ld.\n", kdf);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    return CKR_OK;
-}
-
 CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
                        CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
 {
