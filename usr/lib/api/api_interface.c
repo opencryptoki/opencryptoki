@@ -3093,7 +3093,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     }
 
     rc = statistics_init(&statistics, &Anchor->SocketDataP,
-                         STATISTICS_FLAG_COUNT_IMPLICIT);
+                         STATISTICS_FLAG_COUNT_IMPLICIT |
+                         STATISTICS_FLAG_COUNT_INTERNAL);
     if (rc != CKR_OK) {
         TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
         goto error;

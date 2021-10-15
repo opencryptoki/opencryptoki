@@ -820,13 +820,13 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
             TRACE_ERROR("MK_SO buffer overflow\n");
             return CKR_FUNCTION_FAILED;
         }
-        if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
+        if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to get masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
         }
 
         /* Load RACF password */
-        if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
+        if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
             TRACE_DEVEL("Failed to get RACF password.\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -886,13 +886,13 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             TRACE_ERROR("MK_SO filename buffer overflow\n");
             return CKR_FUNCTION_FAILED;
         }
-        if (get_masterkey(pin, pin_len, fname, mk, &mk_len)) {
+        if (get_masterkey(tokdata, pin, pin_len, fname, mk, &mk_len)) {
             TRACE_DEVEL("Failed to load masterkey \"%s\".\n", fname);
             return CKR_FUNCTION_FAILED;
         }
 
         /* Load RACF password */
-        if (get_racf(mk, mk_len, racf_pass, &racf_pass_len)) {
+        if (get_racf(tokdata, mk, mk_len, racf_pass, &racf_pass_len)) {
             TRACE_DEVEL("Failed to get RACF password.\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -903,8 +903,14 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
             return CKR_FUNCTION_FAILED;
         }
 
+        if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_keygen,
+                                                tokdata->store_strength.mk_strength);
+
         /* Save racf password using the new master key */
-        if (secure_racf(racf_pass, racf_pass_len, mk, mk_len)) {
+        if (secure_racf(tokdata, racf_pass, racf_pass_len, mk, mk_len)) {
             TRACE_DEVEL("Failed to save racf password.\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -921,7 +927,7 @@ CK_RV reset_token_data(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
         /* Save master key */
-        if (secure_masterkey(mk, mk_len, pin, pin_len, fname)) {
+        if (secure_masterkey(tokdata, mk, mk_len, pin, pin_len, fname)) {
             TRACE_DEVEL("Failed to save the new master key.\n");
             return CKR_FUNCTION_FAILED;
         }
@@ -1057,7 +1063,7 @@ CK_RV icsftok_init_pin(STDLL_TokData_t * tokdata, SESSION * sess,
             return CKR_FUNCTION_FAILED;
         }
 
-        rc = secure_masterkey(tokdata->master_key,
+        rc = secure_masterkey(tokdata, tokdata->master_key,
                               AES_KEY_SIZE_256, pPin, ulPinLen, fname);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Could not create MK_USER.\n");
@@ -1138,7 +1144,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                 TRACE_ERROR("MK_USER buffer overflow\n");
                 return CKR_FUNCTION_FAILED;
             }
-            rc = secure_masterkey(tokdata->master_key,
+            rc = secure_masterkey(tokdata, tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
@@ -1195,7 +1201,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                 return CKR_FUNCTION_FAILED;
             }
 
-            rc = secure_masterkey(tokdata->master_key,
+            rc = secure_masterkey(tokdata, tokdata->master_key,
                                   AES_KEY_SIZE_256, pNewPin, ulNewLen, fname);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Save Master Key Failed.\n");
@@ -1249,7 +1255,8 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
     if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
         TRACE_INFO("Using SIMPLE auth with slot ID: %lu\n", slot_id);
         /* get racf passwd */
-        rc = get_racf(tokdata->master_key, AES_KEY_SIZE_256, racfpwd, &racflen);
+        rc = get_racf(tokdata, tokdata->master_key, AES_KEY_SIZE_256,
+                      racfpwd, &racflen);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Failed to get racf passwd.\n");
             return NULL;
@@ -1559,7 +1566,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                 TRACE_ERROR("MK_USER buffer overflow\n");
                 return CKR_FUNCTION_FAILED;
             }
-            rc = get_masterkey(pPin, ulPinLen, fname,
+            rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("Failed to load master key.\n");
@@ -1589,7 +1596,7 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
                 TRACE_ERROR("MK_SO buffer overflow\n");
                 return CKR_FUNCTION_FAILED;
             }
-            rc = get_masterkey(pPin, ulPinLen, fname,
+            rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("Failed to load master key.\n");

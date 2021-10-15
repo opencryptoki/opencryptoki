@@ -76,8 +76,10 @@ CK_RV set_perms(int file)
     return CKR_OK;
 }
 
-CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
-                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen)
+CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
+                  CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
+                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen,
+                  CK_BBOOL wrap)
 {
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
     int tmplen;
@@ -100,11 +102,27 @@ CK_RV encrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
     *outbuflen = (*outbuflen) + tmplen;
     EVP_CIPHER_CTX_free(ctx);
 
+    if (tokdata != NULL &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        if (wrap)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.wrap_crypt,
+                                                tokdata->store_strength.wrap_strength);
+        else
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_crypt,
+                                                tokdata->store_strength.mk_strength);
+    }
+
     return CKR_OK;
 }
 
-CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
-                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen)
+CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
+                  CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
+                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen,
+                  CK_BBOOL unwrap)
 {
     int size;
     const EVP_CIPHER *cipher = EVP_aes_256_cbc();
@@ -133,10 +151,25 @@ CK_RV decrypt_aes(CK_BYTE * inbuf, int inbuflen, CK_BYTE * dkey,
 
     EVP_CIPHER_CTX_free(ctx);
 
+    if (tokdata != NULL &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        if (unwrap)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.wrap_crypt,
+                                                tokdata->store_strength.wrap_strength);
+        else
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_crypt,
+                                                tokdata->store_strength.mk_strength);
+    }
+
     return CKR_OK;
 }
 
-CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
+CK_RV get_masterkey(STDLL_TokData_t *tokdata,
+                    CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
                     CK_BYTE *masterkey, int *len)
 {
     struct stat statbuf;
@@ -189,7 +222,7 @@ CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
 
     /* now derive the key using the salt and PIN */
     dkeysize = AES_KEY_SIZE_256;
-    rc = pbkdf(pin, pinlen, salt, dkey, dkeysize);
+    rc = pbkdf(tokdata, pin, pinlen, salt, dkey, dkeysize);
     if (rc != CKR_OK) {
         TRACE_DEBUG("pbkdf(): Failed to derive a key.\n");
         return CKR_FUNCTION_FAILED;
@@ -197,7 +230,8 @@ CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
 
     /* decrypt the masterkey */
     /* re-use salt for iv */
-    rc = decrypt_aes(outbuf, datasize, dkey, salt, masterkey, len);
+    rc = decrypt_aes(tokdata, outbuf, datasize, dkey, salt, masterkey, len,
+                     CK_TRUE);
     if (rc != CKR_OK) {
         TRACE_DEBUG("Failed to decrypt the racf pwd.\n");
         return CKR_FUNCTION_FAILED;
@@ -212,7 +246,8 @@ CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
     return rc;
 }
 
-CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
+CK_RV get_racf(STDLL_TokData_t *tokdata,
+               CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
                int *racflen)
 {
     struct stat statbuf;
@@ -262,7 +297,8 @@ CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
     fclose(fp);
 
     /* decrypt the data using the masterkey */
-    rc = decrypt_aes(outbuf, datasize, masterkey, iv, racfpwd, racflen);
+    rc = decrypt_aes(tokdata, outbuf, datasize, masterkey, iv, racfpwd, racflen,
+                     CK_FALSE);
 
     /* terminate the decrypted string. */
     memset(racfpwd + (*racflen), 0, 1);
@@ -275,7 +311,8 @@ CK_RV get_racf(CK_BYTE * masterkey, CK_ULONG mklen, CK_BYTE * racfpwd,
     return CKR_OK;
 }
 
-CK_RV pbkdf(CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
+CK_RV pbkdf(STDLL_TokData_t *tokdata,
+            CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
             CK_ULONG klen)
 {
 
@@ -287,6 +324,8 @@ CK_RV pbkdf(CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
     CK_ULONG rc = CKR_OK;
     unsigned int i, j;
     int k;
+    const CK_MECHANISM mech = { CKM_PKCS5_PBKD2, NULL, 0 };
+    const CK_MECHANISM mech2 = { CKM_SHA256_HMAC, NULL, 0 };
 
     /* check inputs */
     if (!password || !salt) {
@@ -371,10 +410,28 @@ CK_RV pbkdf(CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
     }
 
 out:
+    if (rc == CKR_OK && tokdata != NULL &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id, &mech,
+                                            POLICY_STRENGTH_IDX_0);
+        if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_IMPLICIT) != 0) {
+            /*
+             * We use CKM_PKCS5_PBKD2 with CKP_PKCS5_PBKD2_HMAC_SHA256.
+             * Use strength 0 because the HMAC key is the pin, and it is max
+             * 8 char (i.e. 64 bit) long, which is way below 112 bit anyway.
+             */
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id, &mech2,
+                                                POLICY_STRENGTH_IDX_0);
+        }
+    }
+
     return rc;
 }
 
-CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
+CK_RV secure_racf(STDLL_TokData_t *tokdata,
+                  CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
                   CK_ULONG keylen)
 {
     CK_RV rc = CKR_OK;
@@ -393,7 +450,8 @@ CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
     }
 
     /* encrypt the racf passwd using the masterkey */
-    rc = encrypt_aes(racf, racflen, key, iv, output, &outputlen);
+    rc = encrypt_aes(tokdata, racf, racflen, key, iv, output, &outputlen,
+                     CK_FALSE);
     if (rc != 0) {
         TRACE_DEBUG("Failed to encrypt racf pwd.\n");
         return CKR_FUNCTION_FAILED;
@@ -432,7 +490,8 @@ CK_RV secure_racf(CK_BYTE * racf, CK_ULONG racflen, CK_BYTE * key,
     return rc;
 }
 
-CK_RV secure_masterkey(CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
+CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
+                       CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
                        CK_ULONG pinlen, const char *fname)
 {
     CK_RV rc = CKR_OK;
@@ -454,7 +513,7 @@ CK_RV secure_masterkey(CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
     }
 
     /* get a 32 byte key */
-    rc = pbkdf(pin, pinlen, salt, dkey, dkey_size);
+    rc = pbkdf(tokdata, pin, pinlen, salt, dkey, dkey_size);
     if (rc != 0) {
         TRACE_DEBUG("Failed to derive a key for encryption.\n");
         return CKR_FUNCTION_FAILED;
@@ -462,7 +521,8 @@ CK_RV secure_masterkey(CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
 
     /* encrypt the masterkey using the derived key */
     /* re-use the salt for the iv... */
-    rc = encrypt_aes(masterkey, len, dkey, salt, output, &outputlen);
+    rc = encrypt_aes(tokdata, masterkey, len, dkey, salt, output, &outputlen,
+                     CK_TRUE);
     if (rc != 0) {
         TRACE_DEBUG("Failed to encrypt masterkey.\n");
         return CKR_FUNCTION_FAILED;

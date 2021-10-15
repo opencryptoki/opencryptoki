@@ -113,11 +113,12 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     newdatastore = sinfp->version >= TOK_NEW_DATA_STORE ? CK_TRUE : CK_FALSE;
     rc = policy->check_token_store(policy, newdatastore,
                                    token_specific.data_store.encryption_algorithm,
-                                   SlotNumber, NULL);
+                                   SlotNumber, &sltp->TokData->store_strength);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Token cannot load since data store encryption is too weak for policy.\n");
         goto done;
     }
+
     /* Initialize Lock */
     if (XProcLock_Init(sltp->TokData) != CKR_OK) {
         TRACE_ERROR("Thread lock failed.\n");

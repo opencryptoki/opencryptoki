@@ -42,6 +42,7 @@ typedef CK_RV (*statistics_increment_f)(struct statistics *statistics,
                                         CK_ULONG strength);
 
 #define STATISTICS_FLAG_COUNT_IMPLICIT      (1 << 0)
+#define STATISTICS_FLAG_COUNT_INTERNAL      (1 << 1)
 
 struct statistics {
     CK_ULONG flags;

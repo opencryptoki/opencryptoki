@@ -591,6 +591,7 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
         TRACE_ERROR("Allocating host memory failed.\n");
         return FALSE;
     }
+    sltp->TokData->slot_id = slotID;
     sltp->TokData->ro_session_count = 0;
     sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
 #ifdef ENABLE_LOCKS

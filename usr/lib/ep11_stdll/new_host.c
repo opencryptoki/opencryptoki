@@ -115,7 +115,7 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     newdatastore = sinfp->version >= TOK_NEW_DATA_STORE ? CK_TRUE : CK_FALSE;
     rc = policy->check_token_store(policy, newdatastore,
                                    token_specific.data_store.encryption_algorithm,
-                                   SlotNumber, NULL);
+                                   SlotNumber, &sltp->TokData->store_strength);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Token cannot load since data store encryption is too weak for policy.\n");
         goto done;
@@ -424,13 +424,12 @@ CK_RV SC_InitToken(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, CK_CHAR_PTR pPin,
             goto done;
         }
     } else {
-        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-                               dat->so_login_salt, 64,
-                               dat->so_login_it, EVP_sha512(),
-                               256 / 8, login_key);
-        if (rc != 1) {
+        rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                       dat->so_login_salt, 64,
+                                       dat->so_login_it, EVP_sha512(),
+                                       256 / 8, login_key);
+        if (rc != CKR_OK) {
             TRACE_DEVEL("PBKDF2 failed.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
         if (CRYPTO_memcmp(dat->so_login_key, login_key, 32) != 0) {
@@ -538,13 +537,13 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
         rng_generate(tokdata, login_salt + 32, 32);
 
-        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-                               login_salt, 64,
-                               login_it, EVP_sha512(),
-                               256 / 8, login_key);
-        if (rc != 1) {
+
+        rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                       login_salt, 64,
+                                       login_it, EVP_sha512(),
+                                       256 / 8, login_key);
+        if (rc != CKR_OK) {
             TRACE_DEVEL("PBKDF2 failed.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
 
@@ -552,13 +551,12 @@ CK_RV SC_InitPIN(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
         memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
         rng_generate(tokdata, wrap_salt + 32, 32);
 
-        rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-                               wrap_salt, 64,
-                               wrap_it, EVP_sha512(),
-                               256 / 8, wrap_key);
-        if (rc != 1) {
+        rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                       wrap_salt, 64,
+                                       wrap_it, EVP_sha512(),
+                                       256 / 8, wrap_key);
+        if (rc != CKR_OK) {
             TRACE_DEVEL("PBKDF2 failed.\n");
-            rc = CKR_FUNCTION_FAILED;
             goto done;
         }
     }
@@ -708,13 +706,12 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             memcpy(login_salt, USER_KDF_LOGIN_PURPOSE, 32);
             rng_generate(tokdata, login_salt + 32, 32);
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           login_salt, 64,
-                                   login_it, EVP_sha512(),
-                                   256 / 8, new_login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           login_salt, 64,
+                                           login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -722,32 +719,30 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             memcpy(wrap_salt, USER_KDF_WRAP_PURPOSE, 32);
             rng_generate(tokdata, wrap_salt + 32, 32);
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           wrap_salt, 64,
-                                   wrap_it, EVP_sha512(),
-                                   256 / 8, new_wrap_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           wrap_salt, 64,
+                                           wrap_it, EVP_sha512(),
+                                           256 / 8, new_wrap_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pOldPin, ulOldLen,
-	                           dat->user_login_salt, 64,
-                                   dat->user_login_it, EVP_sha512(),
-                                   256 / 8, old_login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, old_login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           dat->user_login_salt, 64,
-                                   dat->user_login_it, EVP_sha512(),
-                                   256 / 8, new_login_key_old_salt);
-            if (rc != 1) {
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key_old_salt);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -832,13 +827,12 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             memcpy(login_salt, SO_KDF_LOGIN_PURPOSE, 32);
             rng_generate(tokdata, login_salt + 32, 32);
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           login_salt, 64,
-                                   login_it, EVP_sha512(),
-                                   256 / 8, new_login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           login_salt, 64,
+                                           login_it, EVP_sha512(),
+                                           256 / 8, new_login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -846,32 +840,30 @@ CK_RV SC_SetPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             memcpy(wrap_salt, SO_KDF_WRAP_PURPOSE, 32);
             rng_generate(tokdata, wrap_salt + 32, 32);
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           wrap_salt, 64,
-                                   wrap_it, EVP_sha512(),
-                                   256 / 8, new_wrap_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           wrap_salt, 64,
+                                           wrap_it, EVP_sha512(),
+                                           256 / 8, new_wrap_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
-            rc = PKCS5_PBKDF2_HMAC((char *)pOldPin, ulOldLen,
-	                           dat->so_login_salt, 64,
-                                   dat->so_login_it, EVP_sha512(),
-                                   256 / 8, old_login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pOldPin, ulOldLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, old_login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
-            rc = PKCS5_PBKDF2_HMAC((char *)pNewPin, ulNewLen,
-	                           dat->so_login_salt, 64,
-                                   dat->so_login_it, EVP_sha512(),
-                                   256 / 8, new_login_key_old_salt);
-            if (rc != 1) {
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pNewPin, ulNewLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, new_login_key_old_salt);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -1334,22 +1326,21 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             compute_md5(tokdata, pPin, ulPinLen, tokdata->user_pin_md5);
             memset(tokdata->so_pin_md5, 0x0, MD5_HASH_SIZE);
         } else {
-            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-	                           dat->user_login_salt, 64,
-                                   dat->user_login_it, EVP_sha512(),
-                                   256 / 8, login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_login_salt, 64,
+                                           dat->user_login_it, EVP_sha512(),
+                                           256 / 8, login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
-            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-	                           dat->user_wrap_salt, 64,
-                                   dat->user_wrap_it, EVP_sha512(),
-                                   256 / 8, wrap_key);
-            if (rc != 1) {
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->user_wrap_salt, 64,
+                                           dat->user_wrap_it, EVP_sha512(),
+                                           256 / 8, wrap_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 
@@ -1420,22 +1411,21 @@ CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             compute_md5(tokdata, pPin, ulPinLen, tokdata->so_pin_md5);
             memset(tokdata->user_pin_md5, 0x0, MD5_HASH_SIZE);
         } else {
-            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-	                           dat->so_login_salt, 64,
-                                   dat->so_login_it, EVP_sha512(),
-                                   256 / 8, login_key);
-            if (rc != 1) {
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->so_login_salt, 64,
+                                           dat->so_login_it, EVP_sha512(),
+                                           256 / 8, login_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
-            rc = PKCS5_PBKDF2_HMAC((char *)pPin, ulPinLen,
-	                           dat->so_wrap_salt, 64,
-                                   dat->so_wrap_it, EVP_sha512(),
-                                   256 / 8, wrap_key);
-            if (rc != 1) {
+
+            rc = compute_PKCS5_PBKDF2_HMAC(tokdata, pPin, ulPinLen,
+                                           dat->so_wrap_salt, 64,
+                                           dat->so_wrap_it, EVP_sha512(),
+                                           256 / 8, wrap_key);
+            if (rc != CKR_OK) {
                 TRACE_DEVEL("PBKDF2 failed.\n");
-                rc = CKR_FUNCTION_FAILED;
                 goto done;
             }
 

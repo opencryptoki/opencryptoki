@@ -395,13 +395,12 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
                                          const CK_BYTE *iv,
                                          CK_BYTE *clear, CK_ULONG clear_len,
                                          CK_BYTE *cipher,
-                                         CK_ULONG *p_cipher_len)
+                                         CK_ULONG *p_cipher_len,
+                                         CK_BBOOL mk_crypt)
 {
 #ifndef CLEARTEXT
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
-
-    UNUSED(tokdata);
 
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
@@ -426,6 +425,20 @@ static CK_RV encrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
     if (initial_vector)
         free(initial_vector);
 
+    if (rc == CKR_OK &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        if (mk_crypt)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_crypt,
+                                                tokdata->store_strength.mk_strength);
+        else
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.wrap_crypt,
+                                                tokdata->store_strength.wrap_strength);
+    }
+
     return rc;
 
 #else
@@ -439,13 +452,12 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
                                          const CK_BYTE *iv,
                                          CK_BYTE *cipher, CK_ULONG cipher_len,
                                          CK_BYTE *clear,
-                                         CK_ULONG *p_clear_len)
+                                         CK_ULONG *p_clear_len,
+                                         CK_BBOOL mk_crypt)
 {
 #ifndef CLEARTEXT
     CK_RV rc = CKR_OK;
     CK_BYTE *initial_vector = NULL;
-
-    UNUSED(tokdata);
 
     initial_vector = duplicate_initial_vector(iv);
     if (initial_vector == NULL) {
@@ -469,6 +481,20 @@ static CK_RV decrypt_data_with_clear_key(STDLL_TokData_t *tokdata,
 
     if (initial_vector)
         free(initial_vector);
+
+    if (rc == CKR_OK &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        if (mk_crypt)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_crypt,
+                                                tokdata->store_strength.mk_strength);
+        else
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.wrap_crypt,
+                                                tokdata->store_strength.wrap_strength);
+    }
 
     return rc;
 
@@ -690,7 +716,7 @@ static CK_RV save_private_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj
     rc = encrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      obj_initial_vector, clear, padded_len,
-                                     cipher, &cipher_len);
+                                     cipher, &cipher_len, CK_FALSE);
     if (rc != CKR_OK) {
         goto error;
     }
@@ -911,7 +937,7 @@ CK_RV load_masterkey_so_old(STDLL_TokData_t *tokdata)
     rc = decrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      pin_initial_vector, cipher, cipher_len,
-                                     clear, &clear_len);
+                                     clear, &clear_len, CK_TRUE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("decrypt_data_with_clear_key failed.\n");
         goto done;
@@ -1036,7 +1062,7 @@ CK_RV load_masterkey_user_old(STDLL_TokData_t *tokdata)
     rc = decrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      pin_initial_vector, cipher, cipher_len,
-                                     clear, &clear_len);
+                                     clear, &clear_len, CK_TRUE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("decrypt_data_with_clear_key failed.\n");
         goto done;
@@ -1123,7 +1149,7 @@ CK_RV save_masterkey_so_old(STDLL_TokData_t *tokdata)
     rc = encrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      pin_initial_vector, clear, clear_len,
-                                     cipher, &cipher_len);
+                                     cipher, &cipher_len, CK_TRUE);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -1204,7 +1230,7 @@ CK_RV save_masterkey_user_old(STDLL_TokData_t *tokdata)
     rc = encrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      pin_initial_vector, clear, clear_len,
-                                     cipher, &cipher_len);
+                                     cipher, &cipher_len, CK_TRUE);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -1259,8 +1285,18 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     /* For secure key tokens, object encrypt/decrypt uses
      * software(openssl), not token. So generate masterkey via RNG.
      */
-    if (token_specific.secure_key_token)
-        return rng_generate(tokdata, key, key_len);
+    if (token_specific.secure_key_token) {
+        rc = rng_generate(tokdata, key, key_len);
+
+        if (rc == CKR_OK &&
+            (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id,
+                                                &tokdata->store_strength.mk_keygen,
+                                                tokdata->store_strength.mk_strength);
+
+        return rc;
+    }
 
     /* For clear key tokens, let token generate masterkey
      * since token will also encrypt/decrypt the objects.
@@ -1291,6 +1327,12 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
 
     memcpy(key, master_key, master_key_len);
     free(master_key);
+
+    if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.mk_keygen,
+                                            tokdata->store_strength.mk_strength);
 
     return CKR_OK;
 }
@@ -1340,7 +1382,7 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     rc = decrypt_data_with_clear_key(tokdata, key, key_len,
                                      token_specific.data_store.
                                      obj_initial_vector, data, len, clear,
-                                     &clear_len);
+                                     &clear_len, CK_FALSE);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -1608,7 +1650,8 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
  * tokversion >= 3.12 object store
  */
 
-static CK_RV aes_256_gcm_seal(unsigned char *out,
+static CK_RV aes_256_gcm_seal(STDLL_TokData_t *tokdata,
+                              unsigned char *out,
                               unsigned char tag[16],
                               const unsigned char *aad,
                               size_t aadlen,
@@ -1642,12 +1685,20 @@ static CK_RV aes_256_gcm_seal(unsigned char *out,
     }
 
     rc = CKR_OK;
+
+    if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.mk_crypt,
+                                            tokdata->store_strength.mk_strength);
+
 done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
 }
 
-static CK_RV aes_256_gcm_unseal(unsigned char *out,
+static CK_RV aes_256_gcm_unseal(STDLL_TokData_t *tokdata,
+                                unsigned char *out,
                                 const unsigned char *aad,
                                 size_t aadlen,
                                 const unsigned char *in,
@@ -1681,12 +1732,20 @@ static CK_RV aes_256_gcm_unseal(unsigned char *out,
     }
 
     rc = CKR_OK;
+
+    if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.mk_crypt,
+                                            tokdata->store_strength.mk_strength);
+
 done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
 }
 
-static CK_RV aes_256_wrap(unsigned char out[40],
+static CK_RV aes_256_wrap(STDLL_TokData_t *tokdata,
+                          unsigned char out[40],
                           const unsigned char in[32],
                           const unsigned char kek[32])
 {
@@ -1715,12 +1774,20 @@ static CK_RV aes_256_wrap(unsigned char out[40],
 
     memcpy(out, buffer, 40);
     rc = CKR_OK;
+
+    if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.wrap_crypt,
+                                            tokdata->store_strength.wrap_strength);
+
 done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
 }
 
-static CK_RV aes_256_unwrap(unsigned char key[32],
+static CK_RV aes_256_unwrap(STDLL_TokData_t *tokdata,
+                            unsigned char key[32],
                             const unsigned char in[40],
                             const unsigned char kek[32])
 {
@@ -1749,6 +1816,13 @@ static CK_RV aes_256_unwrap(unsigned char key[32],
 
     memcpy(key, buffer, 32);
     rc = CKR_OK;
+
+    if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.wrap_crypt,
+                                            tokdata->store_strength.wrap_strength);
+
 done:
     EVP_CIPHER_CTX_free(ctx);
     return rc;
@@ -1756,11 +1830,23 @@ done:
 
 CK_RV generate_master_key(STDLL_TokData_t *tokdata, CK_BYTE *key)
 {
+    CK_RV rc;
+
     if (tokdata->version < TOK_NEW_DATA_STORE)
         return generate_master_key_old(tokdata, key);
 
     /* generate a 256-bit AES key */
-    return rng_generate(tokdata, key, 32);
+    rc = rng_generate(tokdata, key, 32);
+
+    if (rc == CKR_OK &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0)
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id,
+                                            &tokdata->store_strength.mk_keygen,
+                                            tokdata->store_strength.mk_strength);
+
+    return rc;
+
 }
 
 /**
@@ -1783,7 +1869,8 @@ CK_RV save_masterkey_so(STDLL_TokData_t *tokdata)
         return CKR_OK;
 
     /* wrap master key with so_wrap_key */
-    rc = aes_256_wrap(outbuf, tokdata->master_key, tokdata->so_wrap_key);
+    rc = aes_256_wrap(tokdata, outbuf, tokdata->master_key,
+                      tokdata->so_wrap_key);
     if (rc != CKR_OK)
         goto done;
 
@@ -1844,7 +1931,8 @@ CK_RV load_masterkey_so(STDLL_TokData_t *tokdata)
     }
 
     /* unwrap master key with so_wrap_key */
-    rc = aes_256_unwrap(tokdata->master_key, inbuf, tokdata->so_wrap_key);
+    rc = aes_256_unwrap(tokdata, tokdata->master_key, inbuf,
+                        tokdata->so_wrap_key);
     if (rc != CKR_OK)
         goto done;
 
@@ -1871,7 +1959,8 @@ CK_RV save_masterkey_user(STDLL_TokData_t *tokdata)
         return save_masterkey_user_old(tokdata);
 
     /* wrap master key with so_wrap_key */
-    rc = aes_256_wrap(outbuf, tokdata->master_key, tokdata->user_wrap_key);
+    rc = aes_256_wrap(tokdata, outbuf, tokdata->master_key,
+                      tokdata->user_wrap_key);
     if (rc != CKR_OK)
         goto done;
 
@@ -1933,7 +2022,8 @@ CK_RV load_masterkey_user(STDLL_TokData_t *tokdata)
     }
 
     /* unwrap master key with user_wrap_key */
-    rc = aes_256_unwrap(tokdata->master_key, inbuf, tokdata->user_wrap_key);
+    rc = aes_256_unwrap(tokdata, tokdata->master_key, inbuf,
+                        tokdata->user_wrap_key);
     if (rc != CKR_OK)
         goto done;
 
@@ -2241,7 +2331,8 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
             memcpy(obj_key_wrapped, data + 8, 40);
 
             /* get key */
-            rc = aes_256_unwrap(obj_key, obj_key_wrapped, tokdata->master_key);
+            rc = aes_256_unwrap(tokdata, obj_key, obj_key_wrapped,
+                                tokdata->master_key);
             if (rc != CKR_OK)
                 goto done;
         }
@@ -2258,7 +2349,8 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         obj_iv[11] = 1;
 
         /* get wrapped key */
-        rc = aes_256_wrap(obj_key_wrapped, obj_key, tokdata->master_key);
+        rc = aes_256_wrap(tokdata, obj_key_wrapped, obj_key,
+                          tokdata->master_key);
         if (rc != CKR_OK)
             goto done;
     }
@@ -2278,7 +2370,8 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     tmp = htobe32(obj_data_len_32);
     memcpy(data + 60, &tmp, 4);
 
-    rc = aes_256_gcm_seal(/* ciphertext */
+    rc = aes_256_gcm_seal(tokdata,
+                          /* ciphertext */
                           data + HEADER_LEN,
                           /* tag */
                           data + HEADER_LEN
@@ -2433,7 +2526,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
     /* iv */
     memcpy(obj_iv, header + 48, 12);
 
-    rc = aes_256_unwrap(obj_key, obj_key_wrapped, tokdata->master_key);
+    rc = aes_256_unwrap(tokdata, obj_key, obj_key_wrapped, tokdata->master_key);
     if (rc != CKR_OK) {
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -2446,7 +2539,8 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = aes_256_gcm_unseal(buff, /* plain-text */
+    rc = aes_256_gcm_unseal(tokdata,
+                            buff, /* plain-text */
                             header, HEADER_LEN, /* aad */
                             data, len, /* cipher-text*/
                             footer, /* tag */
