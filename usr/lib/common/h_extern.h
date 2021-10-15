@@ -457,6 +457,11 @@ void final_data_store(STDLL_TokData_t * tokdata);
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data);
 
+CK_RV compute_PKCS5_PBKDF2_HMAC(STDLL_TokData_t *tokdata,
+                                CK_CHAR *pPin, CK_ULONG ulPinLen,
+                                CK_BYTE *salt, CK_ULONG salt_len,
+                                CK_ULONG it_count, const EVP_MD *digest,
+                                CK_ULONG key_len, CK_BYTE *key);
 CK_RV compute_md5(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,
                   CK_BYTE *hash);
 CK_RV compute_sha1(STDLL_TokData_t *tokdata, CK_BYTE *data, CK_ULONG len,

@@ -503,7 +503,7 @@ static int secure_racf_passwd(char *racfpwd, unsigned int len)
     }
 
     /* use the master key to secure the racf passwd */
-    rc = secure_racf((CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256);
+    rc = secure_racf(NULL, (CK_BYTE *)racfpwd, len, masterkey, AES_KEY_SIZE_256);
     if (rc != 0) {
         fprintf(stderr, "Failed to secure racf passwd.\n");
         rc = -1;
@@ -513,7 +513,7 @@ static int secure_racf_passwd(char *racfpwd, unsigned int len)
     /* now secure the master key with a derived key */
     /* first get the filename to put the  encrypted masterkey */
     snprintf(fname, sizeof(fname), "%s/MK_SO", ICSF_CONFIG_PATH);
-    rc = secure_masterkey(masterkey, AES_KEY_SIZE_256, (CK_BYTE *)sopin,
+    rc = secure_masterkey(NULL, masterkey, AES_KEY_SIZE_256, (CK_BYTE *)sopin,
                           strlen(sopin), fname);
 
     if (rc != 0) {

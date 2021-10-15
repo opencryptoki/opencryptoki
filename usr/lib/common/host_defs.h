@@ -360,6 +360,7 @@ struct _LW_SHM_TYPE {
 
 struct _STDLL_TokData_t {
     CK_SLOT_INFO slot_info;
+    CK_SLOT_ID slot_id;
     int spinxplfd;              // token specific lock
     unsigned int spinxplfd_count; // counter for recursive file lock
     pthread_mutex_t spinxplfd_mutex; // token specific pthread lock
@@ -391,6 +392,7 @@ struct _STDLL_TokData_t {
     struct policy *policy;
     const struct mechtable_funcs *mechtable_funcs;
     struct statistics *statistics;
+    struct tokstore_strength store_strength;
 };
 
 #endif

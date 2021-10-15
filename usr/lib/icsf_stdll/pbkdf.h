@@ -28,24 +28,33 @@
 
 CK_RV get_randombytes(unsigned char *output, int bytes);
 
-CK_RV encrypt_aes(CK_BYTE * racfpwd, int racflen, CK_BYTE * dkey,
-                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen);
+CK_RV encrypt_aes(STDLL_TokData_t *tokdata,
+                  CK_BYTE * racfpwd, int racflen, CK_BYTE * dkey,
+                  CK_BYTE * iv, CK_BYTE * outbuf, int *outbuflen,
+                  CK_BBOOL wrap);
 
-CK_RV decrypt_aes(CK_BYTE * edata, int edatalen, CK_BYTE * dkey,
-                  CK_BYTE * iv, CK_BYTE * ddata, int *ddatalen);
+CK_RV decrypt_aes(STDLL_TokData_t *tokdata,
+                  CK_BYTE * edata, int edatalen, CK_BYTE * dkey,
+                  CK_BYTE * iv, CK_BYTE * ddata, int *ddatalen,
+                  CK_BBOOL unwrap);
 
-CK_RV get_racf(CK_BYTE * mk, CK_ULONG mklen, CK_BYTE * racfpwd, int *racflen);
+CK_RV get_racf(STDLL_TokData_t *tokdata,
+               CK_BYTE * mk, CK_ULONG mklen, CK_BYTE * racfpwd, int *racflen);
 
-CK_RV get_masterkey(CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
+CK_RV get_masterkey(STDLL_TokData_t *tokdata,
+                    CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
                     CK_BYTE *masterkey, int *len);
 
-CK_RV pbkdf(CK_BYTE * passwd, CK_ULONG passwdlen, CK_BYTE * salt,
+CK_RV pbkdf(STDLL_TokData_t *tokdata,
+            CK_BYTE * passwd, CK_ULONG passwdlen, CK_BYTE * salt,
             CK_BYTE * dkey, CK_ULONG klen);
 
-CK_RV secure_racf(CK_BYTE * racfpwd, CK_ULONG racflen, CK_BYTE * mk,
+CK_RV secure_racf(STDLL_TokData_t *tokdata,
+                  CK_BYTE * racfpwd, CK_ULONG racflen, CK_BYTE * mk,
                   CK_ULONG mklen);
 
-CK_RV secure_masterkey(CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
+CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
+                       CK_BYTE * masterkey, CK_ULONG len, CK_BYTE * pin,
                        CK_ULONG pinlen, const char *fname);
 
 #endif
