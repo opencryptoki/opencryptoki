@@ -41,7 +41,10 @@ typedef CK_RV (*statistics_increment_f)(struct statistics *statistics,
                                         const CK_MECHANISM *mech,
                                         CK_ULONG strength);
 
+#define STATISTICS_FLAG_COUNT_IMPLICIT      (1 << 0)
+
 struct statistics {
+    CK_ULONG flags;
     CK_ULONG num_slots;
     CK_ULONG slot_shm_offsets[NUMBER_SLOTS_MANAGED];
     CK_ULONG shm_size;
@@ -60,7 +63,7 @@ struct statistics {
     } while (0)
 
 CK_RV statistics_init(struct statistics *statistics,
-                      Slot_Mgr_Socket_t *slots_infos);
+                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags);
 void statistics_term(struct statistics *statistics);
 
 #endif

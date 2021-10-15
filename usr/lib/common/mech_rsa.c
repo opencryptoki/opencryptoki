@@ -307,32 +307,6 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
     return rc;
 }
 
-/* helper function for rsa-oaep */
-CK_RV get_mgf_mech(CK_RSA_PKCS_MGF_TYPE mgf, CK_MECHANISM_TYPE *mech)
-{
-    switch (mgf) {
-    case CKG_MGF1_SHA1:
-        *mech = CKM_SHA_1;
-        break;
-    case CKG_MGF1_SHA224:
-        *mech = CKM_SHA224;
-        break;
-	case CKG_MGF1_SHA256:
-        *mech = CKM_SHA256;
-        break;
-    case CKG_MGF1_SHA384:
-        *mech = CKM_SHA384;
-        break;
-    case CKG_MGF1_SHA512:
-        *mech = CKM_SHA512;
-        break;
-    default:
-        return CKR_MECHANISM_INVALID;
-    }
-
-    return CKR_OK;
-}
-
 //
 //
 CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
