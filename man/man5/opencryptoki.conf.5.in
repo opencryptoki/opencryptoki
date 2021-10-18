@@ -18,6 +18,29 @@ The following global definitions are valid:
 .BR disable-event-support
 If this keyword is specified the openCryptoki event support is disabled.
 
+.TP
+.BR statistics\~(off | on [ ,implicit ][ ,internal ] )
+Enables or disables collection of statistics of mechanism usage. By default,
+statistics collection is enabled. A value of \fB(off)\fP disables all statistics
+collection. A value of \fB(on)\fP enables collection of mechanism usage.
+The collected statistics can be displayed using the \fBpkcsstats\fP tool.
+
+In addition to enabling statistics collection for mechanisms used by PKCS#11
+applications, you can specify \fB(on,implicit)\fP to also enable collection
+of implicit mechanism usage, where additional mechanisms are specified in
+mechanism parameters. For example, RSA-PSS or RSA-OAEP allow to specify a hash
+mechanism and a mask generation function (MGF) in the mechanism parameter.
+ECDH allows to specify a key derivation function (KDF) in the mechanism
+parameter.
+
+You can additionally enable statistics collection of mechanisms internally used
+by Opencryptoki by specifying \fB(on,internal)\fP. This additionally collects
+usage statistics for crypto operations used internally for pin handling and
+encryption of private token objects in the data store.
+
+Implicit and internal statistics collection can also be combined:
+\fB(on,implicit,internal)\fP
+
 .P
 Each slot description is composed of a slot number, brackets and key-value pairs.
 
@@ -88,4 +111,6 @@ slot descriptions, as this will cause a syntax error.
 \fBopencryptoki\fP(7),
 .TP
 \fBpkcsslotd\fP(8),
+.TP
+\fBpkcsstats\fP(1),
 .PD

@@ -465,12 +465,50 @@ static int config_parse_slot(const char *config_file,
     return 0;
 }
 
+static int config_parse_statistics(const char *config_file,
+                                   struct ConfigBareListNode *statistics)
+{
+    struct ConfigBaseNode *c;
+    int i;
+
+    confignode_foreach(c, statistics->value, i) {
+        DbgLog(DL3, "Config node: '%s' type: %u line: %u\n",
+               c->key, c->type, c->line);
+
+        if (c->type == CT_BARE && strcmp(c->key, "off") == 0) {
+            socketData.flags &= ~(FLAG_STATISTICS_ENABLED |
+                                  FLAG_STATISTICS_IMPLICIT |
+                                  FLAG_STATISTICS_INTERNAL);
+            continue;
+        }
+        if (c->type == CT_BARE && strcmp(c->key, "on") == 0) {
+            socketData.flags |= FLAG_STATISTICS_ENABLED;
+            continue;
+        }
+        if (c->type == CT_BARE && strcmp(c->key, "implicit") == 0) {
+            socketData.flags |= FLAG_STATISTICS_IMPLICIT;
+            continue;
+        }
+        if (c->type == CT_BARE && strcmp(c->key, "internal") == 0) {
+            socketData.flags |= FLAG_STATISTICS_INTERNAL;
+            continue;
+        }
+
+        ErrLog("Error parsing config file '%s': unexpected token '%s' "
+               "at line %d: \n", config_file, c->key, c->line);
+        return 1;
+    }
+
+    return 0;
+}
+
 static int config_parse(const char *config_file)
 {
     FILE *file;
     struct stat statbuf;
     struct ConfigBaseNode *c, *config = NULL;
     struct ConfigIdxStructNode *slot;
+    struct ConfigBareListNode *statistics;
     int i, ret = 0;
 
     file = fopen(config_file, "r");
@@ -516,6 +554,21 @@ static int config_parse(const char *config_file)
             if (strcmp(confignode_to_bareconst(c)->base.key,
                        "disable-event-support") == 0) {
                 event_support_disabled = 1;
+                continue;
+            }
+
+            ErrLog("Error parsing config file '%s': unexpected token '%s' "
+                   "at line %d: \n", config_file, c->key, c->line);
+            ret = -1;
+            break;
+        }
+
+        if (confignode_hastype(c, CT_BARELIST)) {
+            statistics = confignode_to_barelist(c);
+            if (strcmp(statistics->base.key, "statistics") == 0) {
+                ret = config_parse_statistics(config_file, statistics);
+                if (ret != 0)
+                    break;
                 continue;
             }
 
@@ -587,6 +640,7 @@ int main(int argc, char *argv[], char *envp[])
                GetDebugLevel(), DEBUG_NONE, DEBUG_LEVEL0, DEBUG_LEVEL1);
     }
 
+    socketData.flags |= FLAG_STATISTICS_ENABLED;
     ret = config_parse(OCK_CONFIG);
     if (ret != 0) {
         ErrLog("Failed to read config file.\n");

@@ -100,6 +100,9 @@ typedef struct {
 } Slot_Info_t;
 
 #define FLAG_EVENT_SUPPORT_DISABLED   0x01
+#define FLAG_STATISTICS_ENABLED       0x02
+#define FLAG_STATISTICS_IMPLICIT      0x04
+#define FLAG_STATISTICS_INTERNAL      0x08
 
 #ifdef PKCS64
 

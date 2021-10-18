@@ -1640,7 +1640,6 @@ int init_socket_data(Slot_Mgr_Socket_t *socketData)
 {
     unsigned int processed = 0;
 
-    socketData->flags = 0;
     PopulateCKInfo(&(socketData->ck_info));
     socketData->num_slots = NumberSlotsInDB;
     PopulateSlotInfo(socketData->slot_info, &processed);
