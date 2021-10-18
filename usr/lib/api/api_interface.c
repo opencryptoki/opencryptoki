@@ -2859,6 +2859,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     CK_RV rc = CKR_OK;
     CK_SLOT_ID slotID;
     API_Slot_t *sltp;
+    CK_ULONG stat_flags = 0;
 
     /*
      * Lock so that only one thread can run C_Initialize or C_Finalize at
@@ -3092,12 +3093,17 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         goto error;
     }
 
-    rc = statistics_init(&statistics, &Anchor->SocketDataP,
-                         STATISTICS_FLAG_COUNT_IMPLICIT |
-                         STATISTICS_FLAG_COUNT_INTERNAL);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
-        goto error;
+    if (Anchor->SocketDataP.flags & FLAG_STATISTICS_ENABLED) {
+        if (Anchor->SocketDataP.flags & FLAG_STATISTICS_IMPLICIT)
+            stat_flags |= STATISTICS_FLAG_COUNT_IMPLICIT;
+        if (Anchor->SocketDataP.flags & FLAG_STATISTICS_INTERNAL)
+            stat_flags |= STATISTICS_FLAG_COUNT_INTERNAL;
+
+        rc = statistics_init(&statistics, &Anchor->SocketDataP, stat_flags);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
+            goto error;
+        }
     }
 
     //Register with pkcsslotd
