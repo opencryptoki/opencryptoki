@@ -58,6 +58,9 @@ fi
 # initialize opencryptoki.conf
 echo "version opencryptoki-3.16" > "${OCKCONFDIR}/opencryptoki.conf"
 
+# enable full statistics
+echo "statistics (on,implicit,internal)" >> "${OCKCONFDIR}/opencryptoki.conf"
+
 # ICA token
 addslot 10 libpkcs11_ica.so ica0
 addslot 11 libpkcs11_ica.so ica1
