@@ -214,6 +214,7 @@ ci-prepare:
 	killall -HUP pkcsslotd || true
 	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
 	@sbindir@/pkcsslotd
+	@sbindir@/pkcsstats --reset-all
 	for slot in `awk '/slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so ${srcdir}/testcases/init_token.sh $$slot; done
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_VHSM_PIN=$(PKCS11_VHSM_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so ./init_vhsm.exp 42
 #	echo "VHSM_MODE" >> "$(sysconfdir)/opencryptoki/ep11tok42.conf"
@@ -235,10 +236,12 @@ ci-installcheck: ci-prepare installcheck
 	killall -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
 	cd ${srcdir}/testcases && export PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so && export PKCS11_USER_PIN=$(PKCS11_USER_PIN) && ./misc_tests/p11sak_test.sh | tee log-p11sak.txt
+	@sbindir@/pkcsstats --all
 	killall -HUP pkcsslotd
 	@echo "done"
 
 ci-cleanup:
+	@sbindir@/pkcsstats --delete-all || true
 	killall -HUP pkcsslotd || true
 #	@sbindir@/pkcsslotd
 #	cd ${srcdir}/testcases && PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so ./cleanup_vhsm.exp 42
