@@ -198,6 +198,11 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                        &publ_key, &priv_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("generate_RSA_PKCS_KeyPair(), "
                            "rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -501,6 +506,11 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                   tsuite->tv[i].exp2_len,
                                   tsuite->tv[i].coef_len, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -512,6 +522,12 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
                                  tsuite->tv[i].mod_len,
                                  tsuite->tv[i].pubexp_len, &publ_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
+
             testcase_error("create_RSAPublicKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -774,6 +790,11 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("generate_RSA_PKCS_KeyPair(), "
                            "rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -999,6 +1020,11 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                        tsuite->tv[i].publ_exp_len, &publ_key,
                                        &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("generate_RSA_PKCS_KeyPair(), "
                            "rc=%s", p11_get_ckr(rc));
             goto error;
@@ -1015,6 +1041,14 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             mech.ulParameterLen = 0;
 
             h_len = MAX_HASH_SIZE;
+
+            if (!mech_supported(slot_id, mech.mechanism)) {
+                testcase_skip("Slot %u doesn't support %s (0x%x)",
+                              (unsigned int)slot_id,
+                              mech_to_str(mech.mechanism),
+                              (unsigned int)mech.mechanism);
+                goto cleanup;
+            }
 
             rc = funcs->C_DigestInit(session, &mech);
             if (rc != CKR_OK) {
@@ -1073,6 +1107,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
         else
             testcase_fail("C_Verify(), rc=%s", p11_get_ckr(rc));
 
+cleanup:
         // clean up
         rc = funcs->C_DestroyObject(session, publ_key);
         if (rc != CKR_OK) {
@@ -1271,6 +1306,13 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         // get key gen mechanism
         keygen_mech = tsuite->tv[i].keytype;
 
+        if (!mech_supported(slot_id, keygen_mech.mechanism)) {
+            testcase_skip("Slot %u doesn't support %s (0x%x)",
+                          (unsigned int)slot_id,
+                          mech_to_str(keygen_mech.mechanism),
+                          (unsigned int)keygen_mech.mechanism);
+            continue;
+        }
         // get wrapping mechanism
         wrap_mech = tsuite->mech;
         if (wrap_mech.mechanism == CKM_RSA_PKCS_OAEP) {
@@ -1278,6 +1320,15 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             wrap_mech.pParameter = &oaep_params;
             wrap_mech.ulParameterLen = sizeof(CK_RSA_PKCS_OAEP_PARAMS);
         }
+
+        if (!mech_supported(slot_id, wrap_mech.mechanism)) {
+            testcase_skip("Slot %u doesn't support %s (0x%x)",
+                          (unsigned int)slot_id,
+                          mech_to_str(wrap_mech.mechanism),
+                          (unsigned int)wrap_mech.mechanism);
+            continue;
+        }
+
         // clear out buffers
         memset(cipher, 0, sizeof(cipher));
         memset(re_cipher, 0, sizeof(re_cipher));
@@ -1291,6 +1342,11 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKeyPair() rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1298,6 +1354,11 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
         rc = generate_SecretKey(session, tsuite->tv[i].keylen,
                                 &keygen_mech, &secret_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("Generic secret key generation is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
             testcase_error("generate_SecretKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1656,6 +1717,11 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                   tsuite->tv[i].exp2_len,
                                   tsuite->tv[i].coef_len, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1818,6 +1884,11 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                  tsuite->tv[i].pubexp_len, &publ_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_RSAPublicKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }

@@ -510,6 +510,10 @@ CK_RV run_DeriveECDHKey()
                                       prv_attr_gen, prv_attr_gen_len,
                                       &publ_keyA, &priv_keyA);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                continue;
+            }
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
                 rc == CKR_ATTRIBUTE_VALUE_INVALID ||
                 rc == CKR_CURVE_NOT_SUPPORTED) {
@@ -541,6 +545,10 @@ CK_RV run_DeriveECDHKey()
                                       prv_attr_gen, prv_attr_gen_len,
                                       &publ_keyB, &priv_keyB);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                goto testcase_cleanup;
+            }
             testcase_fail("C_GenerateKeyPair with valid input failed at i=%lu "
                           "(%s), rc=%s", i, der_ec_supported[i].name,
                           p11_get_ckr(rc));
@@ -706,6 +714,10 @@ CK_RV run_DeriveECDHKey()
                                           "versions\n");
                             continue;
                         }
+                        if (is_rejected_by_policy(rc, session)) {
+                            testcase_skip("key derivation is not allowed by policy");
+                            continue;
+                        }
 
                         testcase_fail("C_DeriveKey #1: rc = %s",
                                       p11_get_ckr(rc));
@@ -751,6 +763,12 @@ CK_RV run_DeriveECDHKey()
                             testcase_skip("EP11 does not support KDFs and "
                                           "shared data with older firmware "
                                           "versions\n");
+                            if (secret_keyA != CK_INVALID_HANDLE)
+                                funcs->C_DestroyObject(session, secret_keyA);
+                            continue;
+                        }
+                        if (is_rejected_by_policy(rc, session)) {
+                            testcase_skip("key derivation is not allowed by policy");
                             if (secret_keyA != CK_INVALID_HANDLE)
                                 funcs->C_DestroyObject(session, secret_keyA);
                             continue;
@@ -958,6 +976,10 @@ CK_RV run_DeriveECDHKeyKAT()
                                  ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                  &priv_keyA, !pkey);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ecdh_tv[i].name);
@@ -974,6 +996,11 @@ CK_RV run_DeriveECDHKeyKAT()
                                 ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                 &publ_keyA);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_keyA);
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ecdh_tv[i].name);
@@ -1543,6 +1570,10 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                                       &publ_key, &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("EC key generation is not allowed by policy");
+                continue;
+            }
             if (rc == CKR_MECHANISM_PARAM_INVALID ||
                 rc == CKR_ATTRIBUTE_VALUE_INVALID ||
                 rc == CKR_CURVE_NOT_SUPPORTED) {
@@ -1665,6 +1696,10 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ec_tv[i].name);
@@ -1694,6 +1729,11 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ec_tv[i].name);
@@ -1867,6 +1907,10 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ec_tv[i].name);
@@ -1897,6 +1941,11 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("EC key import is not allowed by policy");
+                funcs->C_DestroyObject(session, priv_key);
+                continue;
+            }
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int) SLOT_ID, ec_tv[i].name);
@@ -2182,6 +2231,10 @@ CK_RV run_ImportSignVerify_Pkey()
                                        sizeof(priv_tmpl) / sizeof(CK_ATTRIBUTE),
                                        &priv_key);
             if (rc != CKR_OK) {
+                if (is_rejected_by_policy(rc, session)) {
+                    testcase_skip("EC key generation is not allowed by policy");
+                    continue;
+                }
                 if (rc == CKR_CURVE_NOT_SUPPORTED) {
                     testcase_skip("Slot %u doesn't support this curve: %s",
                                   (unsigned int) SLOT_ID, ec_tv[i].name);
@@ -2196,6 +2249,10 @@ CK_RV run_ImportSignVerify_Pkey()
                                        sizeof(publ_tmpl) / sizeof(CK_ATTRIBUTE),
                                        &publ_key);
             if (rc != CKR_OK) {
+                if (is_rejected_by_policy(rc, session)) {
+                    testcase_skip("EC key generation is not allowed by policy");
+                    goto testcase_cleanup;
+                }
                 testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
             }

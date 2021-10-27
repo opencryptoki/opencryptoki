@@ -90,10 +90,16 @@ CK_RV do_GenerateDSAKeyPair(void)
 
     rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL, 0,
                                   &publ_key, &priv_key);
-    if (rc != CKR_OK)
-        testcase_fail("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
-    else
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("DSA key generation is not allowed by policy");
+            rc = CKR_OK;
+        } else {
+            testcase_fail("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
+        }
+    } else {
         testcase_pass("GenerateDSAKeyPair passed");
+    }
 
 testcase_cleanup:
     funcs->C_DestroyObject(session, priv_key);
@@ -143,6 +149,10 @@ CK_RV do_SignDSA(void)
     rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL, 0,
                                   &publ_key, &priv_key);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("DSA key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -302,6 +312,10 @@ CK_RV do_ImportDSAKeyPairSignVerify(void)
                               DSA1024_PRIVATE, sizeof(DSA1024_PRIVATE),
                               &priv_key);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("DSA key import is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_fail("C_CreateObject (DSA Private Key) failed rc=%s",
                       p11_get_ckr(rc));
         goto testcase_cleanup;
@@ -313,6 +327,10 @@ CK_RV do_ImportDSAKeyPairSignVerify(void)
                              DSA1024_BASE, sizeof(DSA1024_BASE),
                              DSA1024_PUBLIC, sizeof(DSA1024_PUBLIC), &publ_key);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("DSA key import is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_fail("C_CreateObject (DSA Public Key) failed rc=%s",
                       p11_get_ckr(rc));
         goto testcase_cleanup;

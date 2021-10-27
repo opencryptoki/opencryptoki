@@ -82,6 +82,11 @@ CK_RV do_EncryptDES(struct published_test_suite_info *tsuite)
         rc = create_DESKey(session,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -205,6 +210,11 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info * tsuite)
         rc = create_DESKey(session,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -356,6 +366,11 @@ CK_RV do_DecryptDES(struct published_test_suite_info * tsuite)
         rc = create_DESKey(session,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -497,6 +512,11 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info * tsuite)
         rc = create_DESKey(session,
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }

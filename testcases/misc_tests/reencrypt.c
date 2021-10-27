@@ -429,6 +429,15 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
     }
 
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("generate key-2 with mech %s (%u) in slot %lu "
+                          "is not allowed by policy",
+                          mech_to_str(mech2->key_gen_mech.mechanism),
+                          (unsigned int)mech2->key_gen_mech.mechanism,
+                          slot_id);
+            goto testcase_cleanup;
+        }
+
         testcase_error("generate key-2 with mech %s (%u) in slot %lu "
                        "failed, rc=%s",
                        mech_to_str(mech2->key_gen_mech.mechanism),
@@ -674,6 +683,15 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
     }
 
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("generate key-1 with mech %s (%u) in slot %lu "
+                          "is not allowed by policy",
+                          mech_to_str(mech1->key_gen_mech.mechanism),
+                          (unsigned int)mech1->key_gen_mech.mechanism,
+                          slot_id);
+            goto testcase_cleanup;
+        }
+
         testcase_error("generate key-1 with mech %s (%u) in slot %lu "
                        "failed, rc=%s",
                        mech_to_str(mech1->key_gen_mech.mechanism),

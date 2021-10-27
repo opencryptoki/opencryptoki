@@ -113,18 +113,30 @@ CK_RV do_CopyObjects(void)
     // Create an AES Key Object.
     rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key import is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 
     rc = funcs->C_CreateObject(session, aes_tmpl_no_copy, 5, &keyobj_no_copy);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key import is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 
     rc = funcs->C_CreateObject(session, aes_tmpl_copy, 5, &keyobj_copy);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key import is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }

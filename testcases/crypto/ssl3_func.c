@@ -76,6 +76,10 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
 
     rc = funcs->C_CreateObject(session, key_attribs, 4, &h_key);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key import is not allowed by policy");
+            return CKR_OK;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         return rc;
     }
@@ -245,6 +249,10 @@ CK_RV do_SignVerify_SSL3_SHA1_MAC(CK_SESSION_HANDLE session)
 
     rc = funcs->C_CreateObject(session, key_attribs, 4, &h_key);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key import is not allowed by policy");
+            return CKR_OK;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         return rc;
     }
@@ -322,10 +330,15 @@ CK_RV do_SSL3_PreMasterKeyGen(CK_SESSION_HANDLE session)
 
     testcase_new_assertion();
     rc = funcs->C_GenerateKey(session, &mech, NULL, 0, &h_key);
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key generation is not allowed by policy");
+            return CKR_OK;
+        }
         testcase_fail("C_GenerateKey() rc = %s", p11_get_ckr(rc));
-    else
+    } else {
         testcase_pass("Successfully generated a generic secret key.");
+    }
 
     if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
         testcase_error("C_DestroyObject() failed");
@@ -388,6 +401,10 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
     testcase_new_assertion();
     rc = funcs->C_GenerateKey(session, &mech, pm_tmpl, 2, &h_pm_secret);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key generation is not allowed by policy");
+            return CKR_OK;
+        }
         testcase_fail("C_GenerateKey() rc= %s", p11_get_ckr(rc));
         goto done;
     } else {
@@ -416,6 +433,10 @@ CK_RV do_SSL3_MasterKeyDerive(CK_SESSION_HANDLE session)
     testcase_new_assertion();
     rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, m_tmpl, 2, &h_mk);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key derivation is not allowed by policy");
+            goto done;
+        }
         testcase_fail("C_DeriveKey() rc= %s", p11_get_ckr(rc));
         goto done;
     } else {
@@ -541,6 +562,10 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
     rc = funcs->C_GenerateKey(session, &mech, pm_tmpl,
                               sizeof(pm_tmpl) / sizeof(*pm_tmpl), &h_pm_secret);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key generation is not allowed by policy");
+            goto done;
+        }
         testcase_fail("C_GenerateKey() rc= %s", p11_get_ckr(rc));
         goto done;
     } else {
@@ -563,6 +588,10 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
     rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, incomplete_tmpl,
                             sizeof(incomplete_tmpl) / sizeof(*incomplete_tmpl),
                             NULL);
+    if (is_rejected_by_policy(rc, session)) {
+        testcase_skip("key derivation is not allowed by policy");
+        goto done;
+    }
     if (rc != CKR_TEMPLATE_INCOMPLETE) {
         testcase_fail("C_DeriveKey did not recognize missing attributes.");
         goto done;
@@ -580,6 +609,10 @@ CK_RV do_SSL3_MultipleKeysDerive(CK_SESSION_HANDLE session)
                             sizeof(complete_tmpl) / sizeof(*complete_tmpl),
                             NULL);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key derivation is not allowed by policy");
+            goto done;
+        }
         testcase_fail("C_DeriveKey() rc= %s", p11_get_ckr(rc));
         goto done;
     } else {

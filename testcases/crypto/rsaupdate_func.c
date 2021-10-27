@@ -168,6 +168,11 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -424,6 +429,11 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
                                        tsuite->tv[i].publ_exp_len,
                                        &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("generate_RSA_PKCS_KeyPair(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -710,6 +720,11 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                  tsuite->tv[i].pubexp_len, &publ_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_RSAPublicKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -938,6 +953,11 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                                   tsuite->tv[i].exp2_len,
                                   tsuite->tv[i].coef_len, &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("RSA key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_RSAPrivateKey(), rc=%s", p11_get_ckr(rc));
             goto error;
         }

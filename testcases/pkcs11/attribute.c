@@ -169,6 +169,10 @@ CK_RV do_TestAttributes(void)
     /* create a public key object */
     rc = funcs->C_CreateObject(session, pub_template, 6, &obj_handle);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -452,13 +456,17 @@ CK_RV do_TestAttributes(void)
         testcase_pass("Successfully verified attribute-array elements.");
 
 testcase_cleanup:
-    rv = funcs->C_DestroyObject(session, obj_handle);
-    if (rv != CKR_OK)
-        testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+    if (obj_handle != CK_INVALID_HANDLE) {
+        rv = funcs->C_DestroyObject(session, obj_handle);
+        if (rv != CKR_OK)
+            testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+    }
 
-    rv = funcs->C_DestroyObject(session, obj_handle_no_mod);
-     if (rv != CKR_OK)
-         testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+    if (obj_handle_no_mod != CK_INVALID_HANDLE) {
+        rv = funcs->C_DestroyObject(session, obj_handle_no_mod);
+         if (rv != CKR_OK)
+             testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+    }
 
     testcase_user_logout();
     rv = funcs->C_CloseSession(session);

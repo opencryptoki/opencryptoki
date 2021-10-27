@@ -81,6 +81,11 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
         rc = generate_AESKey(session, key_lens[i], !pkey,
                              &mechkey, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -220,6 +225,11 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
         rc = generate_AESKey(session, key_lens[i], !pkey,
                              &mechkey, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -447,6 +457,11 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -584,6 +599,11 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -762,6 +782,11 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -896,6 +921,11 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1104,6 +1134,11 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         /** generate crypto key (must be extractable) **/
         rc = generate_AESKey(session, key_lens[i], CK_TRUE, &mechkey, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1391,6 +1426,11 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
                                       NULL, 0, &publ_key, &priv_key);
 
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1401,6 +1441,11 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
                                   &w_key);
 
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1631,6 +1676,11 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
                                       NULL, 0,
                                       &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1640,6 +1690,11 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
                                   key_gen_tmpl, key_gen_tmpl_len,
                                   &w_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1815,6 +1870,11 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
                                       NULL, 0,
                                       &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("RSA key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKeyPair rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1824,6 +1884,11 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
                                   key_gen_tmpl, key_gen_tmpl_len,
                                   &w_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("AES key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1941,6 +2006,11 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
                            tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
 
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1971,6 +2041,12 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
         /** initialize signing **/
         rc = funcs->C_SignInit(session, &mech, h_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("C_SignInit with mech %s is not allowed by policy",
+                              mech_to_str(mech.mechanism));
+                goto error;
+            }
+
             testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -2117,6 +2193,11 @@ CK_RV do_SetAttributeValuesPkey()
     /* Generate a test key */
     rc = generate_AESKey(session, 16, CK_FALSE, &keygen_mech, &h_key);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
         testcase_fail("generate_AESKey rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -2227,6 +2308,11 @@ CK_RV do_EncryptDecryptAESPkey()
     /* Generate token object */
     rc = funcs->C_GenerateKey(session, &keygen_mech, keygen_tmpl, keygen_tmpl_len, &h_key);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
         testcase_fail("C_GenerateKey rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }

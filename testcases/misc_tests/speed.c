@@ -752,6 +752,10 @@ int do_AES_EncrDecr(int keylength, const char *mode)
 
     rc = generate_AESKey(session, key_len, CK_TRUE, &mech, &h_key);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
