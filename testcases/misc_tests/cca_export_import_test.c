@@ -379,6 +379,11 @@ static CK_RV cca_des_data_export_import_tests(void)
 
     rc = create_DESKey(session, key, sizeof(key), &hkey);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("DES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
 	testcase_error("create_DESKey() rc=%s", p11_get_ckr(rc));
 	goto testcase_cleanup;
     }
@@ -488,6 +493,11 @@ static CK_RV cca_des3_data_export_import_tests(void)
 
     rc = create_DES3Key(session, key, sizeof(key), &hkey);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("DES3 key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
 	testcase_error("create_DES3Key() rc=%s", p11_get_ckr(rc));
 	goto testcase_cleanup;
     }
@@ -601,6 +611,11 @@ static CK_RV cca_aes_data_export_import_tests(void)
 
 	rc = create_AESKey(session, CK_TRUE, key, keylen, &hkey);
 	if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key generation is not allowed by policy");
+            continue;
+        }
+
 	    testcase_error("create_AESKey() rc=%s", p11_get_ckr(rc));
 	    goto error;
 	}
@@ -793,6 +808,11 @@ static CK_RV cca_hmac_data_export_import_tests(void)
         goto out;
     }
 
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("this slot does not support CKM_SHA_1_HMAC");
+        goto out;
+    }
+
     testcase_rw_session();
     testcase_user_login();
 
@@ -804,6 +824,11 @@ static CK_RV cca_hmac_data_export_import_tests(void)
 
 	rc = create_GenericSecretKey(session, key, keybits[i] / 8, &hkey);
 	if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("Generic Secret key import is not allowed by policy");
+            continue;
+        }
+
 	    testcase_error("create_GenericSecretKey() rc=%s", p11_get_ckr(rc));
 	    goto error;
 	}
@@ -909,6 +934,14 @@ static CK_RV cca_rsa_export_import_tests(void)
         testcase_skip("this slot is not a CCA token");
         goto out;
     }
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+            testcase_skip("this slot does not support CKM_RSA_PKCS_KEY_PAIR_GEN");
+            goto out;
+        }
+    if (!mech_supported(SLOT_ID, mech.mechanism)) {
+        testcase_skip("this slot does not support CKM_RSA_PKCS");
+        goto out;
+    }
 
     testcase_rw_session();
     testcase_user_login();
@@ -924,6 +957,11 @@ static CK_RV cca_rsa_export_import_tests(void)
 				       exp, sizeof(exp),
 				       &publ_key, &priv_key);
 	if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("RSA key generation is not allowed by policy");
+            goto error;
+        }
+
 	    testcase_error("generate_RSA_PKCS_KeyPair() rc=%s", p11_get_ckr(rc));
 	    goto error;
 	}
@@ -1190,6 +1228,11 @@ static CK_RV cca_ecc_export_import_tests(void)
 	    goto error;
 	}
 	if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("ECC key generation is not allowed by policy");
+            goto error;
+        }
+
 	    testcase_error("generate_EC_KeyPair() rc=%s", p11_get_ckr(rc));
 	    goto error;
 	}

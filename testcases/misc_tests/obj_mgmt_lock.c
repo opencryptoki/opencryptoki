@@ -97,12 +97,22 @@ CK_RV do_CreateSessionObject(void)
     // now, create the objects
     rc = funcs->C_CreateObject(h_session, data_attribs, 4, &h_data);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto done;
     }
@@ -209,6 +219,11 @@ CK_RV do_CopyObject(void)
     /* create the object */
     rc = funcs->C_CreateObject(h_session, data_attribs, 3, &h_data);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto done;
     }
@@ -383,6 +398,11 @@ CK_RV do_SetAttributeValues(void)
     /* create the object */
     rc = funcs->C_CreateObject(h_session, cert_attribs, 6, &h_cert);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto error;
     }
@@ -595,18 +615,33 @@ CK_RV do_FindObjects(void)
     /* create the objects */
     rc = funcs->C_CreateObject(h_session, cert1_attribs, 6, &h_cert1);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert2_attribs, 6, &h_cert2);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_1;
     }
 
     rc = funcs->C_CreateObject(h_session, cert3_attribs, 6, &h_cert3);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_2;
     }
@@ -825,18 +860,33 @@ CK_RV do_CreateTokenObjects(void)
     /* create the token objects */
     rc = funcs->C_CreateObject(h_session, cert1_attribs, 7, &h_cert1);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_CreateObject(h_session, cert2_attribs, 7, &h_cert2);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_1;
     }
 
     rc = funcs->C_CreateObject(h_session, cert3_attribs, 7, &h_cert3);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto done;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_2;
     }
@@ -1113,12 +1163,22 @@ CK_RV do_HWFeatureSearch(void)
     /* Create the 3 test objects */
     if ((rc = funcs->C_CreateObject(h_session, obj1_template,
                                     4, &h_obj1)) != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto session_close;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto session_close;
     }
 
     if ((rc = funcs->C_CreateObject(h_session, obj2_template,
                                     5, &h_obj2)) != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto destroy_1;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_1;
     }
@@ -1128,12 +1188,22 @@ CK_RV do_HWFeatureSearch(void)
      */
     if ((rc = funcs->C_CreateObject(h_session, counter1_template, 6,
                                     &h_counter1)) != CKR_ATTRIBUTE_READ_ONLY) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto destroy_2;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_2;
     }
 
     if ((rc = funcs->C_CreateObject(h_session, clock_template,
                                     4, &h_clock)) != CKR_OK) {
+        if (is_rejected_by_policy(rc, h_session)) {
+            testcase_skip("Key import is not allowed by policy");
+            rc = CKR_OK;
+            goto destroy_2;
+        }
         testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto destroy_2;
     }

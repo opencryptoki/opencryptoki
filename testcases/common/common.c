@@ -144,10 +144,30 @@ int unwrap_supported(CK_SLOT_ID slot_id, CK_MECHANISM mech)
     return rc;
 }
 
+/**
+ * Check if the last CKR_FUNCTION__FAILED error was due to policy restrictions
+ */
+int is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
+{
+    CK_SESSION_INFO info;
+    CK_RV rc;
+
+    if (ret_code != CKR_FUNCTION_FAILED)
+        return 0;
+
+    rc = funcs->C_GetSessionInfo(session, &info);
+    if (rc != CKR_OK) {
+        testcase_error("C_GetSessionInfo(), rc=%s.", p11_get_ckr(rc));
+        return 0;
+    }
+
+    return (info.ulDeviceError == CKR_POLICY_VIOLATION);
+}
+
 /** Create an AES key handle with given value **/
-int create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
-                  unsigned char key[], unsigned char key_len,
-                  CK_OBJECT_HANDLE * h_key)
+CK_RV create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
+                    unsigned char key[], unsigned char key_len,
+                    CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_BBOOL true = TRUE;
@@ -166,16 +186,19 @@ int create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
 
     rc = funcs->C_CreateObject(session, keyTemplate, keyTemplate_len, h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
 }
 
 /** Generate an AES key handle **/
-int generate_AESKey(CK_SESSION_HANDLE session,
-                    CK_ULONG key_len, CK_BBOOL extractable,
-                    CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key)
+CK_RV generate_AESKey(CK_SESSION_HANDLE session,
+                      CK_ULONG key_len, CK_BBOOL extractable,
+                      CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key)
 {
     CK_ATTRIBUTE key_gen_tmpl[] = {
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
@@ -187,16 +210,19 @@ int generate_AESKey(CK_SESSION_HANDLE session,
                                     key_gen_tmpl, key_gen_tmpl_len,
                                     h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
 }
 
 /** Create a DES key handle with given value **/
-int create_DESKey(CK_SESSION_HANDLE session,
-                  unsigned char key[], unsigned char klen,
-                  CK_OBJECT_HANDLE * h_key)
+CK_RV create_DESKey(CK_SESSION_HANDLE session,
+                    unsigned char key[], unsigned char klen,
+                    CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -217,16 +243,19 @@ int create_DESKey(CK_SESSION_HANDLE session,
     memcpy(value, key, klen);
     rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
 }
 
 /** Create DES2 key handle with given value **/
-int create_DES2Key(CK_SESSION_HANDLE session,
-                   unsigned char key[], unsigned char klen,
-                   CK_OBJECT_HANDLE * h_key)
+CK_RV create_DES2Key(CK_SESSION_HANDLE session,
+                     unsigned char key[], unsigned char klen,
+                     CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -246,16 +275,19 @@ int create_DES2Key(CK_SESSION_HANDLE session,
     memcpy(value, key, klen);
     rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
 }
 
 /** Create DES3 key handle with given value **/
-int create_DES3Key(CK_SESSION_HANDLE session,
-                   unsigned char key[], unsigned char klen,
-                   CK_OBJECT_HANDLE * h_key)
+CK_RV create_DES3Key(CK_SESSION_HANDLE session,
+                     unsigned char key[], unsigned char klen,
+                     CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -275,14 +307,17 @@ int create_DES3Key(CK_SESSION_HANDLE session,
     memcpy(value, key, klen);
     rc = funcs->C_CreateObject(session, keyTemplate, 5, h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
 }
 
 /** Create Generic Secret key handle with given value **/
-int create_GenericSecretKey(CK_SESSION_HANDLE session,
+CK_RV create_GenericSecretKey(CK_SESSION_HANDLE session,
                             CK_BYTE key[],
                             CK_ULONG key_len, CK_OBJECT_HANDLE * h_key)
 {
@@ -299,7 +334,10 @@ int create_GenericSecretKey(CK_SESSION_HANDLE session,
 
     rc = funcs->C_CreateObject(session, key_attribs, 4, h_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -358,7 +396,10 @@ CK_RV create_RSAPrivateKey(CK_SESSION_HANDLE session,
     // create key
     rc = funcs->C_CreateObject(session, template, 17, priv_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -392,7 +433,10 @@ CK_RV create_RSAPublicKey(CK_SESSION_HANDLE session,
     // create key
     rc = funcs->C_CreateObject(session, template, 8, publ_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -435,6 +479,9 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
                                   publicKeyTemplate,
                                   5, privateKeyTemplate, 8, publ_key, priv_key);
 
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
     return rc;
     // no error checking due to
     // ICA Token + public exponent values + CKR_TEMPLATE_INCONSISTENT
@@ -475,6 +522,9 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
                                   publicKeyTemplate, num_publ_attrs,
                                   privateKeyTemplate, num_priv_attrs,
                                   publ_key, priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
 
     return rc;
 }
@@ -521,6 +571,10 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
     rc = funcs->C_CreateObject(session, template,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                priv_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
     return rc;
 }
 
@@ -552,6 +606,10 @@ CK_RV create_ECPublicKey(CK_SESSION_HANDLE session,
     rc = funcs->C_CreateObject(session, template,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                publ_key);
+
+    if (is_rejected_by_policy(rc, session))
+        rc = CKR_POLICY_VIOLATION;
+
     return rc;
 }
 
@@ -600,7 +658,10 @@ CK_RV create_DilithiumPrivateKey(CK_SESSION_HANDLE session,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                priv_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -634,7 +695,10 @@ CK_RV create_DilithiumPublicKey(CK_SESSION_HANDLE session,
                            sizeof(template) / sizeof(CK_ATTRIBUTE),
                            publ_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -681,7 +745,10 @@ CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                priv_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -721,7 +788,10 @@ CK_RV create_DSAPublicKey(CK_SESSION_HANDLE session,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                publ_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -766,7 +836,10 @@ CK_RV create_DHPrivateKey(CK_SESSION_HANDLE session,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                priv_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -803,7 +876,10 @@ CK_RV create_DHPublicKey(CK_SESSION_HANDLE session,
                                sizeof(template) / sizeof(CK_ATTRIBUTE),
                                publ_key);
     if (rc != CKR_OK) {
-        testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
     }
 
     return rc;
@@ -823,7 +899,10 @@ CK_RV generate_SecretKey(CK_SESSION_HANDLE session,
 
     rc = funcs->C_GenerateKey(session, mech, secret_tmpl, 2, secret_key);
     if (rc != CKR_OK) {
-        testcase_fail("C_GenerateKey, rc=%s", p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_fail("C_GenerateKey, rc=%s", p11_get_ckr(rc));
     }
 
     return rc;

@@ -19,6 +19,7 @@
 #include "regress.h"
 #include "digest.h"
 #include "common.c"
+#include "mech_to_str.h"
 
 #define DIGEST_UPDATE_SIZE 32
 
@@ -314,6 +315,11 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -321,6 +327,12 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** initialize signing **/
         rc = funcs->C_SignInit(session, &mech, h_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("C_SignInit with mech %s is not allowed by policy",
+                              mech_to_str(mech.mechanism));
+                goto error;
+            }
+
             testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -429,6 +441,11 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -436,6 +453,12 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** initilaize verification **/
         rc = funcs->C_VerifyInit(session, &mech, h_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("C_VerifyInit with mech %s is not allowed by policy",
+                              mech_to_str(mech.mechanism));
+                goto error;
+            }
+
             testcase_error("C_VerifyInit rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -567,6 +590,11 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -711,6 +739,11 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -853,6 +886,11 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1037,6 +1075,11 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1184,6 +1227,11 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1191,6 +1239,12 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** initialize signing **/
         rc = funcs->C_SignInit(session, &mech, h_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("C_SignInit with mech %s is not allowed by policy",
+                              mech_to_str(mech.mechanism));
+                goto error;
+            }
+
             testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1326,6 +1380,11 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         /** create key object **/
         rc = create_GenericSecretKey(session, key, key_len, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("generic secret key generation is not allowed by policy");
+                continue;
+            }
+
             testcase_error("create_GenericSecretKey rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -1495,6 +1554,11 @@ CK_RV do_HMAC_SignVerify_WithGenKey(void)
     /** generate key object **/
     rc = generate_SecretKey(session, key_len, &secret_mech, &h_key);
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testsuite_skip(1, "generic secret key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
         testcase_error("generate_SecretKey rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }

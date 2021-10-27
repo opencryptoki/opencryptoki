@@ -75,6 +75,12 @@ int sess_opstate_funcs(int loops)
         goto out;
     }
 
+    if (!mech_supported(SLOT_ID, mech1.mechanism)) {
+        testcase_skip("Mechanism CKM_SHA256 is not supported with slot "
+                      "%ld. Skipping key check", SLOT_ID);
+        goto out;
+    }
+
     // init digest for both sessions
     rc = funcs->C_DigestInit(s1, &mech1);
     if (rc != CKR_OK) {
@@ -159,6 +165,12 @@ int sess_opstate_funcs(int loops)
         if (rc != CKR_OK) {
             testcase_error("C_DigestFinal rc=%s", p11_get_ckr(rc));
             goto out;
+        }
+
+        if (!mech_supported(SLOT_ID, mech2.mechanism)) {
+            testcase_skip("Mechanism CKM_SHA_1 is not supported with slot "
+                          "%ld. Skipping key check", SLOT_ID);
+            continue;
         }
 
         // so now let's do a digest init/update/finish

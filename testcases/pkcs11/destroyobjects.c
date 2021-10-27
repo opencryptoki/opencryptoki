@@ -85,6 +85,10 @@ CK_RV do_DestroyObjects(void)
     for (i = 0; i < 4; i++) {
         rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj[num_objs]);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("Key generation is not allowed by policy");
+                goto testcase_cleanup;
+            }
             testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -100,6 +104,10 @@ CK_RV do_DestroyObjects(void)
         rc = funcs->C_GenerateKey(session, &mech, aesgen_tmpl, 5,
                                   &keyobj[num_objs]);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("Key generation is not allowed by policy");
+                goto testcase_cleanup;
+            }
             testcase_error("C_GenerateObject() rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }

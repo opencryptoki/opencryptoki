@@ -25,6 +25,7 @@
 
 #include "pkcs11types.h"
 #include "regress.h"
+#include "common.c"
 
 CK_BYTE user_pin[128];
 CK_ULONG user_pin_len;
@@ -53,8 +54,12 @@ CK_RV do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label,
     rv = funcs->C_GetMechanismInfo(slot_id, CKM_RSA_PKCS_KEY_PAIR_GEN,
                                    &rsakeygeninfo);
     if (rv != CKR_OK) {
+        if (rv == CKR_MECHANISM_INVALID) {
+            testcase_skip("Mechanism CKM_RSA_PKCS_KEY_PAIR_GEN not supported");
+            return CKR_POLICY_VIOLATION;
+        }
         testcase_fail("C_GetMechanismInfo(CKM_RSA_PKCS_KEY_PAIR_GEN) rc = %s", p11_get_ckr(rv));
-        return rv;;
+        return rv;
     }
 
     mech.mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN;
@@ -64,6 +69,11 @@ CK_RV do_GenerateTokenRSAKeyPair(CK_SESSION_HANDLE sess, CK_BYTE *label,
     rv = funcs->C_GenerateKeyPair(sess, &mech, pub_tmpl, 4, priv_tmpl, 2,
                                   hPubKey, hPrivKey);
     if (rv != CKR_OK) {
+        if (is_rejected_by_policy(rv, sess)) {
+            testcase_skip("Key generation is not allowed by policy");
+            return CKR_POLICY_VIOLATION;
+        }
+
         testcase_fail("C_GenerateKeyPair rc = %s", p11_get_ckr(rv));
         return rv;
     }
@@ -154,6 +164,10 @@ CK_RV do_fork(CK_SESSION_HANDLE parent_session, CK_OBJECT_HANDLE parent_object)
     rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-1024-CLIENT",
                                     1024, &hPubKey, &hPrivKey);
     if (rv != CKR_OK) {
+        if (rv == CKR_POLICY_VIOLATION) {
+            rv = 0;
+            goto close_session;
+        }
         testcase_fail("do_GenerateTokenRSAKeyPair (client) rc = %s", p11_get_ckr(rv));
         goto close_session;
     }
@@ -282,6 +296,10 @@ int main(int argc, char **argv)
     rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-1024-PARENT",
                                     1024, &hPubKey, &hPrivKey);
     if (rv != CKR_OK) {
+        if (rv == CKR_POLICY_VIOLATION) {
+            ret = 0;
+            goto close_session;
+        }
         testcase_fail("do_GenerateTokenRSAKeyPair (parent) rc = %s", p11_get_ckr(rv));
         goto close_session;
     }

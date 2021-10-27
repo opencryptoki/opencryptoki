@@ -666,6 +666,16 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     }
 
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("generate to be wrapped key with mech %s (%u) in slot "
+                          "%lu is not allowed by policy",
+                          mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapped_key_gen_mech.mechanism,
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+
         testcase_error("generate to be wrapped key with mech %s (%u) in slot "
                        "%lu failed, rc=%s",
                        mech_to_str(tsuite->wrapped_key_gen_mech.mechanism),
@@ -1034,6 +1044,11 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         }
 
         rc = create_AESKey(session2, CK_TRUE, key, key_size, &sym_wrap_key2);
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES key import is not allowed by policy");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
         break;
 
     case CKM_DES3_KEY_GEN:
@@ -1077,6 +1092,16 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
 
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("generate wrapping key with mech %s (%u) in slot %lu "
+                          "is not allowed by policy",
+                          mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
+                          (unsigned int)tsuite->wrapping_key_gen_mech.mechanism,
+                          slot_id2);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+
         testcase_error("generate wrapping key with mech %s (%u) in slot %lu "
                        "failed, rc=%s",
                        mech_to_str(tsuite->wrapping_key_gen_mech.mechanism),
@@ -1141,6 +1166,13 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     }
 
     if (rc != CKR_OK) {
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("import wrapping key in slot %lu is not allowed by policy",
+                          slot_id1);
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+
         testcase_error("import wrapping key in slot %lu failed, rc=%s",
                        slot_id1, p11_get_ckr(rc));
         goto testcase_cleanup;

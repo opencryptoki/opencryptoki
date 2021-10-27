@@ -86,6 +86,10 @@ CK_RV do_FindObjects(void)
     /* Create 2 des3 session key objects */
     rc = funcs->C_CreateObject(session, des3_tmpl, 4, &keyobj[num_objs]);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key import is not allowed by policy");
+            return CKR_OK;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         return rc;
     }
@@ -93,6 +97,10 @@ CK_RV do_FindObjects(void)
 
     rc = funcs->C_CreateObject(session, des3_tmpl, 4, &keyobj[num_objs]);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("EC key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -101,6 +109,10 @@ CK_RV do_FindObjects(void)
     /* Create 2 aes private session key objects */
     rc = funcs->C_CreateObject(session, aes_tmpl, 5, &keyobj[num_objs]);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("EC key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
@@ -108,6 +120,10 @@ CK_RV do_FindObjects(void)
 
     rc = funcs->C_CreateObject(session, aes_tmpl, 5, &keyobj[num_objs]);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("EC key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_error("C_CreateObject() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }

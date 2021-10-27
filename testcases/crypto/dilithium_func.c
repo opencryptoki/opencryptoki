@@ -371,6 +371,10 @@ CK_RV run_ImportDilithiumKeyPairSignVerify()
                             &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("Dilithium key import is not allowed by policy");
+                continue;
+            }
             testcase_fail("C_CreateObject (Dilithium Private Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -385,6 +389,10 @@ CK_RV run_ImportDilithiumKeyPairSignVerify()
                                 &publ_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("Dilithium key import is not allowed by policy");
+                goto testcase_cleanup;
+            }
             testcase_fail("C_CreateObject (Dilithium Public Key) failed at i=%lu, "
                           "rc=%s", i, p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -571,6 +579,10 @@ CK_RV run_TransferDilithiumKeyPairSignVerify()
                             &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("Dilithium key import is not allowed by policy");
+                continue;
+            }
             testcase_fail
                 ("C_CreateObject (Dilithium Private Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
@@ -586,6 +598,10 @@ CK_RV run_TransferDilithiumKeyPairSignVerify()
                                 &publ_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("Dilithium key import is not allowed by policy");
+                goto testcase_cleanup;
+            }
             testcase_fail
                 ("C_CreateObject (Dilithium Public Key) failed at i=%lu, rc=%s", i,
                  p11_get_ckr(rc));
@@ -600,6 +616,11 @@ CK_RV run_TransferDilithiumKeyPairSignVerify()
         wkey_mech.ulParameterLen = 0;
         rc = generate_AESKey(session, 32, CK_TRUE, &wkey_mech, &secret_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("AES key generation is not allowed by policy");
+                goto testcase_cleanup;
+            }
+
             testcase_error("generate_AESKey, rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }

@@ -239,6 +239,11 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
         rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 5,
                                       priv_tmpl, 4, &publ_key, &priv_key);
         if (rc != CKR_OK) {
+            if (is_rejected_by_policy(rc, session)) {
+                testcase_skip("DH key generation is not allowed by policy");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
             testcase_fail("C_GenerateKeyPair #1: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -271,6 +276,11 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
                                  DH_PUBL_BASE, sizeof(DH_PUBL_BASE),
                                  DH_PRIVATE_A, sizeof(DH_PRIVATE_A), &priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DH key import is not allowed by policy");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
             testcase_fail("C_CreateObject (DH Private Key) failed rc=%s",
                           p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -281,6 +291,11 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
                                 DH_PUBL_BASE, sizeof(DH_PUBL_BASE),
                                 DH_PUBLIC_A, sizeof(DH_PUBLIC_A), &publ_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DH key import is not allowed by policy");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
             testcase_fail("C_CreateObject (DH Public Key) failed rc=%s",
                           p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -292,6 +307,11 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
                                  DH_PRIVATE_B, sizeof(DH_PRIVATE_B),
                                  &peer_priv_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DH key import is not allowed by policy");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
             testcase_fail("C_CreateObject (DH Private Key) failed rc=%s",
                           p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -303,6 +323,11 @@ CK_RV do_DeriveDHKey(CK_BBOOL do_import)
                                 DH_PUBLIC_B, sizeof(DH_PUBLIC_B),
                                 &peer_publ_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DH key import is not allowed by policy");
+                rc = CKR_OK;
+                goto testcase_cleanup;
+            }
             testcase_fail("C_CreateObject (DH Public Key) failed rc=%s",
                           p11_get_ckr(rc));
             goto testcase_cleanup;

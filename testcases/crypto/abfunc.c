@@ -691,7 +691,9 @@ void do_CreateKeyObjects(CK_SESSION_HANDLE session)
     testcase_begin("Create AB AES key via C_CreateObject");
     testcase_new_assertion();
     rc = createABAESKey(session, &handle);
-    if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key import is not allowed by policy");
+    else if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
         testcase_fail("C_CreateObject for AB AES key returned %s (expected CKR_ATTRIBUTE_VALUE_INVALID)", p11_get_ckr(rc));
     else
         testcase_pass("C_CreateObject for AB AES key returned CKR_ATTRIBUTE_VALUE_INVALID as expected");
@@ -701,7 +703,9 @@ void do_CreateKeyObjects(CK_SESSION_HANDLE session)
     testcase_begin("Create AB DSA private key via C_CreateObject");
     testcase_new_assertion();
     rc = createABPrivateDSAKey(session, &handle);
-    if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key import is not allowed by policy");
+    else if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
         testcase_fail("C_CreateObject for AB DSA private key returned %s (expected CKR_ATTRIBUTE_VALUE_INVALID)", p11_get_ckr(rc));
     else
         testcase_pass("C_CreateObject for AB DSA private key returned CKR_ATTRIBUTE_VALUE_INVALID as expected");
@@ -711,7 +715,9 @@ void do_CreateKeyObjects(CK_SESSION_HANDLE session)
     testcase_begin("Create AB DSA public key via C_CreateObject");
     testcase_new_assertion();
     rc = createABPublicDSAKey(session, &handle);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key import is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("C_CreateObject for AB DSA public key returned %s (expected CKR_OK)", p11_get_ckr(rc));
     else
         testcase_pass("C_CreateObject for AB DSA public key returned CKR_OK as expected");
@@ -730,21 +736,27 @@ CK_RV do_SetupKeys(CK_SESSION_HANDLE session)
     testcase_begin("Create AB AES key");
     testcase_new_assertion();
     rc = generateABAESKey(session, 32, &keys.u.d.aes);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB AES key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB AES key");
     testcase_begin("Create AB DES2 key");
     testcase_new_assertion();
     rc = generateABDESKey(session, CKM_DES2_KEY_GEN, &keys.u.d.des2);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB DES2 key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB DES2 key");
     testcase_begin("Create AB DES3 key");
     testcase_new_assertion();
     rc = generateABDESKey(session, CKM_DES3_KEY_GEN, &keys.u.d.des3);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB DES3 key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB DES3 key");
@@ -754,7 +766,9 @@ CK_RV do_SetupKeys(CK_SESSION_HANDLE session)
         testcase_skip("CKM_GENERIC_SECRET_KEY_GEN not supported");
     } else {
         rc = generateABGenericSecret(session, &keys.u.d.generic);
-        if (rc != CKR_OK)
+        if (is_rejected_by_policy(rc, session))
+            testcase_skip("Key generation is not allowed by policy");
+        else if (rc != CKR_OK)
             testcase_fail("Create AB generic secret key failed with rc=%s", p11_get_ckr(rc));
         else
             testcase_pass("Successfully created AB generic secret key");
@@ -762,36 +776,58 @@ CK_RV do_SetupKeys(CK_SESSION_HANDLE session)
     testcase_begin("Create AB RSA key");
     testcase_new_assertion();
     rc = generateABRSAKey(session, TRUE, TRUE, TRUE, &keys.u.d.rsapub, &keys.u.d.rsapriv);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB RSA key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB RSA key");
     testcase_begin("Create AB EC key");
     testcase_new_assertion();
     rc = generateABECKey(session, TRUE, &keys.u.d.ecpub, &keys.u.d.ecpriv);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB EC key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB EC key");
     testcase_begin("Create AB DSA key");
     testcase_new_assertion();
     rc = generateABDSAKey(session, &keys.u.d.dsapub, &keys.u.d.dsapriv);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB DSA key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB DSA key");
     testcase_begin("Create AB DH key");
     testcase_new_assertion();
     rc = generateABDHKey(session, &keys.u.d.dhpub, &keys.u.d.dhpriv);
-    if (rc != CKR_OK)
+    if (is_rejected_by_policy(rc, session))
+        testcase_skip("Key generation is not allowed by policy");
+    else if (rc != CKR_OK)
         testcase_fail("Create AB DH key failed with rc=%s", p11_get_ckr(rc));
     else
         testcase_pass("Successfully created AB DH key");
     // These are not a test in this suite since it is covered by other suites...
     rc = generateABRSAKey(session, FALSE, FALSE, FALSE, &keys.u.d.nonabpub, &keys.u.d.nonabpriv);
+    if (is_rejected_by_policy(rc, session)) {
+        testcase_skip("Key generation is not allowed by policy");
+        rc = CKR_POLICY_VIOLATION;
+    }
     if (rc != CKR_OK)
         return rc;
     rc = generateABECKey(session, FALSE, &keys.u.d.nonabecpub, &keys.u.d.nonabecpriv);
+    if (is_rejected_by_policy(rc, session)) {
+        testcase_skip("Key generation is not allowed by policy");
+        rc = CKR_POLICY_VIOLATION;
+    }
+
+    for (i = 0; i < NUMKEYS; ++i) {
+        if (keys.u.keys[i] == CK_INVALID_HANDLE)
+            rc = CKR_POLICY_VIOLATION;
+    }
+
     return rc;
 }
 
@@ -1090,6 +1126,10 @@ void testdriver()
     do_CreateKeyObjects(session);
 
     rc = do_SetupKeys(session);
+    if (rc == CKR_POLICY_VIOLATION) {
+        rc = CKR_OK;
+        goto testcase_cleanup;
+    }
     if (rc != CKR_OK) {
         testcase_error("Bail out since keys were not properly created!");
         goto testcase_cleanup;

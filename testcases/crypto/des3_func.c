@@ -81,6 +81,11 @@ CK_RV do_EncryptDES3(struct published_test_suite_info *tsuite)
         rc = create_DES3Key(session,
                             tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES3 key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -205,6 +210,11 @@ CK_RV do_EncryptUpdateDES3(struct published_test_suite_info * tsuite)
         rc = create_DES3Key(session,
                             tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES3 key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
@@ -371,6 +381,11 @@ CK_RV do_DecryptDES3(struct published_test_suite_info * tsuite)
         rc = create_DES3Key(session,
                             tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES3 key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -495,6 +510,11 @@ CK_RV do_DecryptUpdateDES3(struct published_test_suite_info * tsuite)
         rc = create_DES3Key(session,
                             tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES3 key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1162,6 +1182,11 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
         else
             rc = CKR_KEY_TYPE_INCONSISTENT;
         if (rc != CKR_OK) {
+            if (rc == CKR_POLICY_VIOLATION) {
+                testcase_skip("DES2/DES3 key import is not allowed by policy");
+                continue;
+            }
+
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }

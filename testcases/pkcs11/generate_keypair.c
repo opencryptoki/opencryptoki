@@ -101,12 +101,22 @@ CK_RV do_GenerateKeyPairRSA(void)
     mech.ulParameterLen = 0;
     mech.pParameter = NULL;
 
+    if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
+        testcase_skip("Mechanism CKM_RSA_PKCS_KEY_PAIR_GEN is not supported with slot "
+                      "%ld. Skipping key check", SLOT_ID);
+        goto testcase_cleanup;
+    }
+
     /* Assertion #1: generate an RSA key pair. */
     testcase_new_assertion();
 
     rc = funcs->C_GenerateKeyPair(session, &mech, publ_tmpl, 3, NULL,
                                   0, &publ_key, &priv_key);
     if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
         testcase_fail("C_GenerateKeyPair() rc = %s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
