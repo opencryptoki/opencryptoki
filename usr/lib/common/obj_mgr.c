@@ -91,7 +91,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
     CK_KEY_TYPE keytype;
     CK_BYTE *spki = NULL;
     CK_ULONG spki_len = 0;
-    CK_ATTRIBUTE *spki_attr = NULL;
+    CK_ATTRIBUTE *spki_attr = NULL, *value_attr = NULL, *vallen_attr = NULL;
 
     if (!sess || !pTemplate || !handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -146,6 +146,40 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                 free(spki_attr);
                 goto done;
             }
+        }
+        break;
+    case CKO_SECRET_KEY:
+        rc = template_attribute_get_ulong(o->template, CKA_KEY_TYPE, &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key object.\n");
+            goto done;
+        }
+
+        switch (keytype) {
+        case CKK_GENERIC_SECRET:
+        case CKK_AES:
+            rc = template_attribute_get_non_empty(o->template, CKA_VALUE,
+                                                  &value_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Could not find CKA_VALUE for the key object.\n");
+                goto done;
+            }
+            rc = build_attribute(CKA_VALUE_LEN,
+                                 (CK_BYTE *)&value_attr->ulValueLen,
+                                 sizeof(CK_ULONG), &vallen_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute failed\n");
+                goto done;
+            }
+            rc = template_update_attribute(o->template, vallen_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("template_update_attribute failed\n");
+                free(vallen_attr);
+                goto done;
+            }
+            break;
+        default:
+            break;
         }
         break;
     default:
