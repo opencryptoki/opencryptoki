@@ -1103,7 +1103,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 {
     CK_RV rc;
     CK_ULONG class = 0, keytype = 0, key_len = 0;
-    CK_ATTRIBUTE *new_attr;
+    CK_ATTRIBUTE *value_attr, *vallen_attr = NULL;
     OBJECT *temp_obj = NULL;
     CK_ECDH1_DERIVE_PARAMS *pParms;
     CK_BYTE z_value[MAX_ECDH_SHARED_SECRET_SIZE];
@@ -1203,11 +1203,28 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
         goto end;
 
     /* Return the hashed and truncated derived bytes as CKA_VALUE attribute */
-    rc = build_attribute(CKA_VALUE, derived_key, key_len, &new_attr);
+    rc = build_attribute(CKA_VALUE, derived_key, key_len, &value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to build the attribute from CKA_VALUE, rc=%s.\n",
                     ock_err(rc));
         goto end;
+    }
+
+    switch (keytype) {
+    case CKK_GENERIC_SECRET:
+    case CKK_AES:
+        /* Supply CKA_VAUE_LEN since this is required for those key types */
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&key_len,
+                             sizeof(key_len), &vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to build the attribute from CKA_VALUE_LEN, rc=%s.\n",
+                        ock_err(rc));
+            free(value_attr);
+            goto end;
+        }
+        break;
+    default:
+        break;
     }
 
     /* Create the object that will be passed back as a handle. This will contain
@@ -1216,16 +1233,27 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                                 class, keytype, &temp_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("Object Mgr create skeleton failed, rc=%s.\n", ock_err(rc));
-        free(new_attr);
+        free(value_attr);
+        free(vallen_attr);
         goto end;
     }
 
     /* Update the template in the object with the new attribute */
-    rc = template_update_attribute(temp_obj->template, new_attr);
+    rc = template_update_attribute(temp_obj->template, value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
-        free(new_attr);
+        free(value_attr);
+        free(vallen_attr);
         goto end;
+    }
+
+    if (vallen_attr != NULL) {
+        rc = template_update_attribute(temp_obj->template, vallen_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            free(vallen_attr);
+            goto end;
+        }
     }
 
     /* At this point, the derived key is fully constructed...assign an object
