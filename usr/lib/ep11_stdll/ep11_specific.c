@@ -5513,7 +5513,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         goto dsa_generate_keypair_end;
     }
 
-    rc = build_attribute(CKA_PRIME, sub_prime_attr->pValue,
+    rc = build_attribute(CKA_SUBPRIME, sub_prime_attr->pValue,
                          sub_prime_attr->ulValueLen, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
