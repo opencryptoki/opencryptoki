@@ -1051,6 +1051,9 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     case CKM_AES_KEY_GEN:
         *type = CKK_AES;
         break;
+    case CKM_GENERIC_SECRET_KEY_GEN:
+        *type = CKK_GENERIC_SECRET;
+        break;
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
         *type = CKK_RSA;
         break;

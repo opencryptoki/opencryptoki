@@ -1547,9 +1547,9 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
     CK_ULONG check_types_sec_sensitive[] =
         { CKA_ENCRYPT, CKA_DECRYPT, CKA_WRAP, CKA_UNWRAP, CKA_SENSITIVE };
     CK_ULONG check_types_gen_sec[] =
-        { CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT };
+        { CKA_SIGN, CKA_VERIFY };
     CK_ULONG check_types_gen_sec_sensitive[] =
-        { CKA_SIGN, CKA_VERIFY, CKA_ENCRYPT, CKA_DECRYPT, CKA_SENSITIVE };
+        { CKA_SIGN, CKA_VERIFY, CKA_SENSITIVE };
     CK_ULONG check_types_derive[] = { CKA_DERIVE };
     CK_ULONG *check_types = NULL;
     CK_BBOOL *check_values[] = { &cktrue, &cktrue, &cktrue, &cktrue, &cktrue };
@@ -8731,6 +8731,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_SHA512_RSA_PKCS_PSS,
     CKM_SHA_1,
     CKM_SHA_1_HMAC,
+    CKM_GENERIC_SECRET_KEY_GEN,
     CKM_IBM_ATTRIBUTEBOUND_WRAP,
 };
 
