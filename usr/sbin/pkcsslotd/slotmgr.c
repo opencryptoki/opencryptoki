@@ -468,6 +468,7 @@ static int config_parse_slot(const char *config_file,
 static int config_parse(const char *config_file)
 {
     FILE *file;
+    struct stat statbuf;
     struct ConfigBaseNode *c, *config = NULL;
     struct ConfigIdxStructNode *slot;
     int i, ret = 0;
@@ -477,6 +478,21 @@ static int config_parse(const char *config_file)
         ErrLog("Error opening config file '%s': %s\n", config_file,
                strerror(errno));
         return -1;
+    }
+
+    if (fstat(fileno(file), &statbuf)) {
+        ErrLog("Error get file information for config file '%s': %s\n",
+               config_file,
+               strerror(errno));
+        fclose(file);
+        return -1;
+    }
+
+    if ((statbuf.st_mode & S_IWOTH)) {
+        ErrLog("Config file %s is world writable, this is not accepted\n",
+               config_file);
+        fclose(file);
+         return -1;
     }
 
     ret = parse_configlib_file(file, &config, config_parse_error, 0);
