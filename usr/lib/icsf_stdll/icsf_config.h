@@ -32,7 +32,7 @@ struct icsf_config {
     int mech;
 };
 
-CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
-                        struct icsf_config *data);
+static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
+                               struct icsf_config *data);
 
 #endif

@@ -393,13 +393,7 @@ usr/lib/ica_s390_stdll/.libs/
 usr/lib/ica_s390_stdll/opencryptoki_stdll_libpkcs11_ica_la-ica_specific.lo
 usr/lib/icsf_stdll/.dirstamp
 usr/lib/icsf_stdll/.libs/
-usr/lib/icsf_stdll/icsf_config_lexer.c
-usr/lib/icsf_stdll/icsf_config_parse.c
-usr/lib/icsf_stdll/icsf_config_parse.h
-usr/lib/icsf_stdll/icsf_config_parse.output
 usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-icsf.lo
-usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-icsf_config_lexer.lo
-usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-icsf_config_parse.lo
 usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-icsf_specific.lo
 usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-new_host.lo
 usr/lib/icsf_stdll/opencryptoki_stdll_libpkcs11_icsf_la-pbkdf.lo

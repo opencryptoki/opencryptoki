@@ -6,20 +6,14 @@ noinst_HEADERS +=							\
 	usr/lib/icsf_stdll/icsf_specific.h				\
 	usr/lib/icsf_stdll/tok_struct.h
 
-BUILT_SOURCES += usr/lib/icsf_stdll/icsf_config_parse.h
-CLEANFILES +=								\
-	usr/lib/icsf_stdll/icsf_config_lexer.c				\
-	usr/lib/icsf_stdll/icsf_config_parse.c				\
-	usr/lib/icsf_stdll/icsf_config_parse.h				\
-	usr/lib/icsf_stdll/icsf_config_parse.output
-
 opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
 	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll	\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"icsftok\"					\
 	-DTOK_NEW_DATA_STORE=0xffffffff					\
 	-I${top_builddir}/usr/lib/icsf_stdll				\
-	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api		\
+	-I${top_builddir}/usr/lib/config -I${srcdir}/usr/lib/config
 
 opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS =				\
 	-shared	-Wl,-z,defs,-Bsymbolic -lcrypto	-lldap -lpthread	\
@@ -47,10 +41,10 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/icsf_stdll/new_host.c usr/lib/common/profile_obj.c	\
 	usr/lib/common/dlist.c usr/lib/icsf_stdll/pbkdf.c		\
 	usr/lib/icsf_stdll/icsf_specific.c				\
-	usr/lib/icsf_stdll/icsf_config_parse.y				\
-	usr/lib/icsf_stdll/icsf_config_lexer.l				\
 	usr/lib/icsf_stdll/icsf.c usr/lib/common/utility_common.c	\
-	usr/lib/common/ec_supported.c usr/lib/api/policyhelper.c
+	usr/lib/common/ec_supported.c usr/lib/api/policyhelper.c	\
+	usr/lib/config/configuration.c					\
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
@@ -61,8 +55,4 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
 endif
 
-usr/lib/icsf_stdll/icsf_config_parse.c usr/lib/icsf_stdll/icsf_config_parse.output: usr/lib/icsf_stdll/icsf_config_parse.y
-	$(AM_V_YACC)$(am__skipyacc) $(SHELL) $(YLWRAP) $< icsf_config_parse.tab.c usr/lib/icsf_stdll/icsf_config_parse.c icsf_config_parse.tab.h usr/lib/icsf_stdll/icsf_config_parse.h icsf_config_parse.output usr/lib/icsf_stdll/icsf_config_parse.output -- $(YACCCOMPILE)
-
-usr/lib/icsf_stdll/icsf_config_lexer.c usr/lib/icsf_stdll/icsf_config_lexer.h: usr/lib/icsf_stdll/icsf_config_lexer.l
-	$(AM_V_LEX)$(am__skiplex) $(SHELL) $(YLWRAP) $< lex.yy.c usr/lib/icsf_stdll/icsf_config_lexer.c lex.yy.h usr/lib/icsf_stdll/icsf_config_lexer.h -- $(LEXCOMPILE)
+usr/lib/icsf_stdll/icsf_specific.$(OBJEXT): usr/lib/config/cfgparse.h
