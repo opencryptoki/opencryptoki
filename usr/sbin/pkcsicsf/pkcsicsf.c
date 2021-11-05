@@ -30,6 +30,8 @@
 #include "slotmgr.h"
 #include "pbkdf.h"
 #include "defs.h"
+#include "cfgparser.h"
+#include "configuration.h"
 
 #define CFG_ADD         0x0001
 #define CFG_LIST        0x0002
@@ -42,7 +44,6 @@
 #define CFG_MECH_SASL   0x0100
 #define CFG_MECH_SIMPLE 0x0200
 
-#define MAX_RECORDS 10
 #define SALT_SIZE   16
 #define SASL    "sasl"
 #define SLOT    "slot"
@@ -61,7 +62,7 @@ char *cacert = NULL;
 char *privkey = NULL;
 unsigned long flags = 0;
 
-void usage(char *progname)
+static void usage(char *progname)
 {
     printf("usage:\t%s [-h] [ -l | -a token-name] [-b BINDDN]"
            " [-c client-cert-file] [-C CA-cert-file] [-k key] [-u URI]"
@@ -80,7 +81,7 @@ void usage(char *progname)
     exit(-1);
 }
 
-int get_pin(char **pin, size_t *pinlen)
+static int get_pin(char **pin, size_t *pinlen)
 {
     struct termios old, new;
     int nread;
@@ -136,46 +137,31 @@ done:
     return rc;
 }
 
-int get_start_slot(void)
+static int get_free_slot(struct ConfigBaseNode *config)
 {
+    struct ConfigBaseNode *c;
+    struct ConfigIdxStructNode *slot;
+    CK_BBOOL slot_used[NUMBER_SLOTS_MANAGED] = { 0 };
+    int i;
 
-    FILE *fp;
-    char temp[LINESIZ];
-    int num;
-    int found = -1;
-    struct stat statbuf;
-
-    /* if file doesn't exist, then first slot will be 0. */
-    if ((stat(OCK_CONFIG, &statbuf) < 0) && (errno == ENOENT))
-        return 0;
-
-    fp = fopen(OCK_CONFIG, "r");
-    if (fp == NULL) {
-        fprintf(stderr, "open failed, line %d: %s\n",
-                __LINE__, strerror(errno));
-        return -1;
-    }
-
-    /* step thru config file and get biggest slot number used */
-    while (fgets(temp, LINESIZ, fp) != NULL) {
-        if (strstr(temp, SLOT) != NULL) {
-            if (sscanf(temp, "%*s %d", &num) == 1)
-                if (num > found)
-                    found = num;
+    confignode_foreach(c, config, i) {
+        if (confignode_hastype(c, CT_IDX_STRUCT)) {
+            slot = confignode_to_idxstruct(c);
+            if (strcmp(slot->base.key, "slot") == 0 &&
+                slot->idx < NUMBER_SLOTS_MANAGED)
+                slot_used[slot->idx] = CK_TRUE;
         }
     }
 
-    /* bump up the slot number, since this will be next new slot entry.
-     * if it was an empty file or a file with no slot entries,
-     * then next new slot entry will be 0.
-     */
+    for (i = 0; i < NUMBER_SLOTS_MANAGED; i++) {
+        if (slot_used[i] == CK_FALSE)
+            return i;
+    }
 
-    fclose(fp);
-
-    return ++found;
+    return -1;
 }
 
-int remove_file(char *filename)
+static int remove_file(char *filename)
 {
     struct stat statbuf;
 
@@ -191,85 +177,120 @@ int remove_file(char *filename)
     return 0;
 }
 
-static void add_token_config_entry(FILE *fp, const char *key, const char *value)
+static void add_token_config_entry(struct ConfigIdxStructNode *s, char *key, char *value)
 {
+    struct ConfigStringValNode *v;
+
     if (!key || !value)
         return;
 
-    fprintf(fp, "%s = \"%s\"\n", key, value);
+    v = confignode_allocstringvaldumpable(key, value, 0, NULL);
+    confignode_append(s->value, &v->base);
 }
 
-int add_token_config(const char *configname,
-                     struct icsf_token_record token, int slot)
+static int add_token_config(const char *configname,
+                            struct icsf_token_record token, int slot)
 {
+    struct ConfigIdxStructNode *s;
+    struct ConfigEOCNode *eoc1, *eoc2;
     FILE *tfp;
-    int rc = 0;
+
+    eoc1 = confignode_alloceoc(NULL, 0);
+    eoc2 = confignode_alloceoc(NULL, 0);
+    s = confignode_allocidxstructdumpable("slot", slot,
+                                          (struct ConfigBaseNode *)eoc1,
+                                          (struct ConfigBaseNode *)eoc2,
+                                          0, NULL);
+    if (s == NULL || eoc1 == NULL || eoc2 == NULL) {
+        if (s == NULL) {
+            confignode_freeeoc(eoc1);
+            confignode_freeeoc(eoc2);
+        }
+        confignode_freeidxstruct(s);
+        fprintf(stderr, "Failed to add an entry for %s token\n", token.name);
+        return -1;
+    }
+
+    /* add the info */
+    add_token_config_entry(s, "TOKEN_NAME", token.name);
+    add_token_config_entry(s, "TOKEN_MANUFACTURE", token.manufacturer);
+    add_token_config_entry(s, "TOKEN_MODEL", token.model);
+    add_token_config_entry(s, "TOKEN_SERIAL", token.serial);
+    add_token_config_entry(s, "MECH", (flags & CFG_MECH_SIMPLE)
+                           ? "SIMPLE" : "SASL");
+
+    /* add BIND info */
+    if (strcmp(mech, "simple") == 0) {
+        add_token_config_entry(s, "BINDDN", binddn);
+        add_token_config_entry(s, "URI", uri);
+    } else {
+        add_token_config_entry(s, "URI", uri);
+        add_token_config_entry(s, "CERT", cert);
+        add_token_config_entry(s, "CACERT", cacert);
+        add_token_config_entry(s, "KEY", privkey);
+    }
 
     /* create the token config file */
     tfp = fopen(configname, "w");
     if (tfp == NULL) {
         fprintf(stderr, "fopen failed, line %d: %s\n",
                 __LINE__, strerror(errno));
+        confignode_freeidxstruct(s);
         return -1;
     }
 
-    /* add the info */
-    fprintf(tfp, "slot %d {\n", slot);
-    add_token_config_entry(tfp, "TOKEN_NAME", token.name);
-    add_token_config_entry(tfp, "TOKEN_MANUFACTURE", token.manufacturer);
-    add_token_config_entry(tfp, "TOKEN_MODEL", token.model);
-    add_token_config_entry(tfp, "TOKEN_SERIAL", token.serial);
-    add_token_config_entry(tfp, "MECH", (flags & CFG_MECH_SIMPLE)
-                           ? "SIMPLE" : "SASL");
+    fchmod(fileno(tfp), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
-    /* add BIND info */
-    if (strcmp(mech, "simple") == 0) {
-        add_token_config_entry(tfp, "BINDDN", binddn);
-        add_token_config_entry(tfp, "URI", uri);
-    } else {
-        add_token_config_entry(tfp, "URI", uri);
-        add_token_config_entry(tfp, "CERT", cert);
-        add_token_config_entry(tfp, "CACERT", cacert);
-        add_token_config_entry(tfp, "KEY", privkey);
-    }
-
-    fprintf(tfp, "}\n");
-
-    fflush(tfp);
-    if (ferror(tfp) != 0) {
-        fprintf(stderr, "failed to add token named, %s\n", token.name);
-        rc = -1;
-    }
+    confignode_dump(tfp, &s->base, NULL, 2);
 
     fclose(tfp);
+    confignode_freeidxstruct(s);
 
-    return rc;
+    return 0;
 }
 
-int config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
+static void config_parse_error(int line, int col, const char *msg)
 {
-    struct stat statbuf;
-    FILE *fp;
-    int start_slot = -1;
+    fprintf(stderr, "Error parsing config file: line %d column %d: %s\n", line,
+            col, msg);
+}
+
+static struct ConfigBaseNode *config_parse(const char *config_file,
+                                           CK_BBOOL track_comments)
+{
+    FILE *file;
+    struct ConfigBaseNode *config = NULL;
+    int ret;
+
+    file = fopen(config_file, "r");
+    if (file == NULL)
+        return NULL;
+
+    ret = parse_configlib_file(file, &config, config_parse_error,
+                               track_comments);
+    fclose(file);
+    if (ret != 0)
+        return NULL;
+
+    return config;
+}
+
+static int config_add_slotinfo(int num_of_slots,
+                               struct icsf_token_record *tokens)
+{
+    int slot_id = -1;
     char configname[LINESIZ];
+    struct ConfigBaseNode *config = NULL;
+    struct ConfigIdxStructNode *slot;
+    struct ConfigBareValNode *stdll_val, *confname_val;
+    struct ConfigEOCNode *eoc1, *eoc2, *eoc3;
+    FILE *fp = NULL;
     int i, rc;
 
-    /* get the starting slot for next entry */
-    start_slot = get_start_slot();
-    if (start_slot == -1)
-        return -1;
-
-    /* open the config file. if it doesn't exist, create it */
-    if ((stat(OCK_CONFIG, &statbuf) == -1) && (errno == ENOENT))
-        /* doesn't exist, create it */
-        fp = fopen(OCK_CONFIG, "w");
-    else
-        fp = fopen(OCK_CONFIG, "a");
-
-    if (fp == NULL) {
-        fprintf(stderr, "open failed, line %d: %s\n",
-                __LINE__, strerror(errno));
-        return -1;
+    config = config_parse(OCK_CONFIG, TRUE);
+    if (config == NULL) {
+        fprintf(stderr, "failed to parse config file %s\n", OCK_CONFIG);
+        return 1;
     }
 
     /* For each token in the list do,
@@ -279,6 +300,13 @@ int config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
      *        from the ICSF and the BIND authentication info.
      */
     for (i = 0; i < num_of_slots; i++) {
+        /* get the slot for next entry */
+        slot_id = get_free_slot(config);
+        if (slot_id == -1) {
+            fprintf(stderr, "No more free slot found\n");
+            confignode_deepfree(config);
+            return 1;
+        }
 
         /* create the config name using the token's name */
         memset(configname, 0, sizeof(configname));
@@ -286,7 +314,7 @@ int config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
                  OCK_CONFDIR, tokens[i].name);
 
         /* write the token info to the token's config file */
-        rc = add_token_config(configname, tokens[i], start_slot);
+        rc = add_token_config(configname, tokens[i], slot_id);
         if (rc == -1) {
             fprintf(stderr, "failed to add %s token.\n", tokens[i].name);
             /* skip adding this entry */
@@ -294,28 +322,59 @@ int config_add_slotinfo(int num_of_slots, struct icsf_token_record *tokens)
         }
 
         /* add the slot entry to the ock config file */
-        fprintf(fp, "\nslot %d {\n", start_slot);
-        fprintf(fp, "stdll = %s\n", STDLL);
-        fprintf(fp, "confname = %s\n", configname);
-        fprintf(fp, "}\n");
-        fflush(fp);
-        if (ferror(fp) != 0) {
-            fprintf(stderr, "Failed to add an entry for %s token: "
-                    "%s\n", tokens[i].name, strerror(errno));
+        eoc1 = confignode_alloceoc(NULL, 0);
+        eoc2 = confignode_alloceoc(NULL, 0);
+        eoc3 = confignode_alloceoc(NULL, 0);
+        slot = confignode_allocidxstructdumpable("slot", slot_id,
+                                                 (struct ConfigBaseNode *)eoc1,
+                                                 (struct ConfigBaseNode *)eoc2,
+                                                 0, NULL);
+        stdll_val = confignode_allocbarevaldumpable("stdll", STDLL, 0, NULL);
+        confname_val = confignode_allocbarevaldumpable("confname", configname,
+                                                       0, NULL);
+
+        if (slot == NULL || stdll_val == NULL || confname_val == NULL ||
+            eoc1 == NULL || eoc2 == NULL || eoc3 == NULL) {
+            fprintf(stderr, "Failed to add an entry for %s token: %s\n",
+                    tokens[i].name, strerror(errno));
             remove_file(configname);
+            if (slot == NULL) {
+                confignode_freeeoc(eoc1);
+                confignode_freeeoc(eoc2);
+            }
+            confignode_freeidxstruct(slot);
+            confignode_freebareval(stdll_val);
+            confignode_freebareval(confname_val);
+            confignode_freeeoc(eoc3);
             continue;
         }
 
-        /* bump the slot number */
-        start_slot++;
+        confignode_append(slot->value, &stdll_val->base);
+        confignode_append(slot->value, &confname_val->base);
+        confignode_append(config, &eoc3->base);
+        confignode_append(config, &slot->base);
     }
 
+    /* Open conf file for write */
+    fp = fopen(OCK_CONFIG, "w");
+    if (!fp) {
+        fprintf(stderr, "fopen(%s) failed, errno=%s\n", OCK_CONFIG,
+                strerror(errno));
+        confignode_deepfree(config);
+        return -1;
+    }
+
+    fchmod(fileno(fp), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+    confignode_dump(fp, config, NULL, 2);
     fclose(fp);
+
+    confignode_deepfree(config);
 
     return 0;
 }
 
-int list_tokens(void)
+static int list_tokens(void)
 {
     size_t i, tokenCount = MAX_RECORDS;
     struct icsf_token_record *previous = NULL;
@@ -350,7 +409,7 @@ int list_tokens(void)
     return 0;
 }
 
-int lookup_name(char *name, struct icsf_token_record *found)
+static int lookup_name(char *name, struct icsf_token_record *found)
 {
     size_t i, tokenCount = MAX_RECORDS;
     struct icsf_token_record *previous = NULL;
@@ -384,7 +443,7 @@ int lookup_name(char *name, struct icsf_token_record *found)
     return -1;
 }
 
-void remove_racf_file(void)
+static void remove_racf_file(void)
 {
     char fname[PATH_MAX];
 
@@ -393,19 +452,14 @@ void remove_racf_file(void)
     remove_file(fname);
 }
 
-int retrieve_all(void)
+static int retrieve_all(void)
 {
     size_t tokenCount;
     struct icsf_token_record *previous = NULL;
     struct icsf_token_record tokens[MAX_RECORDS];
     int rc;
 
-
-    /* since pkcsslotd can only manage
-     * NUMBER_SLOTS_MANAGED at a time, use this as
-     * the maxiumum amount of tokens to retrieve...
-     */
-    tokenCount = NUMBER_SLOTS_MANAGED;
+    tokenCount = MAX_RECORDS;
     rc = icsf_list_tokens(ld, NULL, previous, tokens, &tokenCount);
     if (ICSF_RC_IS_ERROR(rc)) {
         fprintf(stderr, "Could not get list of tokens.\n");
@@ -422,7 +476,7 @@ int retrieve_all(void)
     return 0;
 }
 
-int secure_racf_passwd(char *racfpwd, unsigned int len)
+static int secure_racf_passwd(char *racfpwd, unsigned int len)
 {
     char *sopin = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
@@ -570,13 +624,6 @@ int main(int argc, char **argv)
     if ((!flags) || (!(flags & CFG_ADD) && !(flags & CFG_LIST)))
         usage(argv[0]);
 
-    /* Currently, do not allow user to add a list of tokens.
-     * When ready to support multiple icsf tokens, this
-     * check can be removed.
-     */
-    if ((flags & CFG_ADD) && !(strcmp(tokenname, "all")))
-        usage(argv[0]);
-
     /* If add, then must specify a mechanism and a name */
     if ((flags & CFG_ADD) && (!(flags & CFG_MECH) || tokenname == NULL))
         usage(argv[0]);
@@ -601,6 +648,11 @@ int main(int argc, char **argv)
     if ((flags & CFG_MECH_SIMPLE)
         && (flags & (CFG_CERT | CFG_PRIVKEY | CFG_CACERT)))
         usage(argv[0]);
+
+    if ((flags & CFG_ADD) && geteuid() != 0) {
+        fprintf(stderr, "%s can only be used as root.\n", argv[0]);
+        exit(-1);
+    }
 
     /* get racf password if needed */
     if ((flags & CFG_ADD) || (flags & CFG_LIST)) {
