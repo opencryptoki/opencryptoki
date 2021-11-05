@@ -38,6 +38,9 @@ to be used in the ldap calls. When using simple authentication,
 the user will be prompted for the racf password when listing
 or adding a token.
 
+The \fBpkcsicsf\fP utility must be run as root when adding an ICSF token to
+opencryptoki.
+
 .SH "OPTIONS"
 .IP "\fB-a\fP \fItoken name\fp" 10
 add the specified ICSF token to opencryptoki.
