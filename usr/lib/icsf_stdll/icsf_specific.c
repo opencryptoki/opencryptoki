@@ -45,6 +45,8 @@
 #include "shared_memory.h"
 #include "slotmgr.h"
 #include "../api/policy.h"
+#include "cfgparser.h"
+#include "configuration.h"
 
 /* Default token attributes */
 const char manuf[] = "IBM";
@@ -380,6 +382,179 @@ done:
         XProcUnLock(tokdata);
 
     return rc;
+}
+
+static void config_parse_error(int line, int col, const char *msg)
+{
+    TRACE_ERROR("Error parsing config file: line %d column %d: %s\n", line, col,
+                msg);
+}
+
+static struct icsf_config out_config;
+static char out_str_mech[64] = "";
+
+struct ref {
+    char *key;
+    char *addr;
+    size_t len;
+    int required;
+};
+
+static struct ref refs[] = {
+    { "token_name",        out_config.name,    sizeof(out_config.name),    1 },
+    { "token_manufacture", out_config.manuf,   sizeof(out_config.manuf),   1 },
+    { "token_model",       out_config.model,   sizeof(out_config.model),   1 },
+    { "token_serial",      out_config.serial,  sizeof(out_config.serial),  1 },
+    { "mech",              out_str_mech,       sizeof(out_str_mech),       1 },
+    { "uri",               out_config.uri,     sizeof(out_config.uri),     0 },
+    { "binddn",            out_config.dn,      sizeof(out_config.dn),      0 },
+    { "cacert",            out_config.ca_file, sizeof(out_config.ca_file), 0 },
+    { "cert",              out_config.cert_file, sizeof(out_config.cert_file), 0 },
+    { "key",               out_config.key_file, sizeof(out_config.key_file), 0 },
+};
+static const size_t refs_len = sizeof(refs)/sizeof(*refs);
+
+static int check_keys(const char *conf_name)
+{
+    size_t i;
+
+    for (i = 0; i < refs_len; i++) {
+        if (refs[i].required && *refs[i].addr == '\0') {
+            TRACE_ERROR("Missing required key \"%s\" in \"%s\".\n",
+                        refs[i].key, conf_name);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static CK_RV config_parse_slot(const char *config_file,
+                               struct ConfigIdxStructNode *slot)
+{
+    struct ConfigBaseNode *c;
+    int i;
+    size_t k;
+    char *str;
+
+    TRACE_DEVEL("Slot: %lu\n", slot->idx);
+
+    confignode_foreach(c, slot->value, i) {
+        TRACE_DEVEL("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        str = confignode_getstr(c);
+        if (str != NULL) {
+            for (k = 0; k < refs_len; k++) {
+                if (!strcasecmp(refs[k].key, c->key)) {
+                    strncpy(refs[k].addr, str, refs[i].len);
+                    refs[k].addr[refs[k].len - 1] = '\0';
+                    goto found;
+                }
+            }
+
+            TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                        "at line %d: \n", config_file, c->key, c->line);
+            return CKR_FUNCTION_FAILED;
+
+found:
+            continue;
+        }
+
+        TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                    "at line %d: \n", config_file, c->key, c->line);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV parse_config_file(const char *conf_name, CK_SLOT_ID slot_id,
+                               struct icsf_config *data)
+{
+    FILE *file;
+    struct ConfigBaseNode *c, *config = NULL;
+    struct ConfigIdxStructNode *slot;
+    CK_RV ret = CKR_OK;
+    int i;
+
+    file = fopen(conf_name, "r");
+    if (file == NULL) {
+        TRACE_ERROR("Error opening config file '%s': %s\n", conf_name,
+                    strerror(errno));
+       return CKR_FUNCTION_FAILED;
+    }
+
+    ret = parse_configlib_file(file, &config, config_parse_error, 0);
+    fclose(file);
+    if (ret != 0) {
+        TRACE_ERROR("Error parsing config file '%s'\n", conf_name);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    confignode_foreach(c, config, i) {
+        TRACE_DEVEL("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        if (confignode_hastype(c, CT_IDX_STRUCT)) {
+            slot = confignode_to_idxstruct(c);
+            if (strcmp(slot->base.key, "slot") == 0 &&
+                slot->idx == slot_id) {
+                ret = config_parse_slot(conf_name, slot);
+                if (ret != 0)
+                    break;
+                continue;
+            }
+
+            TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                        "at line %d: \n", conf_name, c->key, c->line);
+            ret = -1;
+            break;
+        }
+
+        TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                    "at line %d: \n", conf_name, c->key, c->line);
+        ret = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+    if (ret != CKR_OK)
+        goto done;
+
+    if (check_keys(conf_name)) {
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Parse mechanism type */
+    if (!strcmp(out_str_mech, "SIMPLE")) {
+        out_config.mech = ICSF_CFG_MECH_SIMPLE;
+    } else if (!strcmp(out_str_mech, "SASL")) {
+        out_config.mech = ICSF_CFG_MECH_SASL;
+    } else {
+        TRACE_ERROR("Unknown mechanism type found: %s\n", out_str_mech);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Copy output data. */
+    memcpy(data, &out_config, sizeof(*data));
+
+    #if DEBUG
+    {
+        size_t i;
+        TRACE_DEVEL("ICSF configs for slot %lu.\n", slot_id);
+        for (i = 0; i < refs_len; i++) {
+            TRACE_DEVEL(" %s = \"%s\"\n", refs[i].key,
+                        refs[i].addr);
+        }
+    }
+    #endif
+
+done:
+    confignode_deepfree(config);
+    return ret;
 }
 
 CK_RV token_specific_init_token_data(STDLL_TokData_t * tokdata,
