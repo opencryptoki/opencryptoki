@@ -67,9 +67,10 @@ static void confignode_dump_indent(FILE *fp, unsigned indent)
         fputc(' ', fp);
 }
 
-static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
-                              struct ConfigDumpCb *cb, unsigned flags,
-                              unsigned indent, unsigned curindent);
+static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
+                             struct ConfigDumpCb *cb, unsigned flags,
+                             unsigned indent, unsigned curindent,
+                             unsigned numbares, int curatbol);
 
 static void confignode_dumpstruct(FILE *fp, struct ConfigStructNode *n,
                                   struct ConfigDumpCb *cb,
@@ -78,13 +79,15 @@ static void confignode_dumpstruct(FILE *fp, struct ConfigStructNode *n,
 {
     if (n->beforeOpen) {
         fputs(n->base.key, fp);
-        confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent);
+        if (confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent, 0, 0))
+            confignode_dump_indent(fp, curindent);
         fputc('{', fp);
     } else {
         fprintf(fp, "%s {", n->base.key);
     }
     if (n->value)
-        confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent);
+        if (confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent, 0, 0))
+            confignode_dump_indent(fp, curindent);
     fputc('}', fp);
 }
 
@@ -95,13 +98,15 @@ static void confignode_dumpidxstruct(FILE *fp, struct ConfigIdxStructNode *n,
 {
     if (n->beforeOpen) {
         fprintf(fp, "%s %lu", n->base.key, n->idx);
-        confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent);
+        if (confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent, 0, 0))
+            confignode_dump_indent(fp, curindent);
         fputc('{', fp);
     } else {
         fprintf(fp, "%s %lu {", n->base.key, n->idx);
     }
     if (n->value)
-        confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent);
+        if (confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent, 0, 0))
+            confignode_dump_indent(fp, curindent);
     fputc('}', fp);
 }
 
@@ -110,15 +115,30 @@ static void confignode_dumpbarelist(FILE *fp, struct ConfigBareListNode *n,
                                     unsigned flags, unsigned indent,
                                     unsigned curindent)
 {
+    struct ConfigBaseNode *i;
+    unsigned num = 0, braceindent = curindent, valindent = 2;
+    int f;
+
     if (n->beforeOpen) {
         fputs(n->base.key, fp);
-        confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent);
+        if (confignode_dump_i(fp, n->beforeOpen, cb, flags, indent, curindent, 0, 0)) {
+            confignode_dump_indent(fp, curindent);
+            valindent = indent;
+        } else {
+            braceindent += strlen(n->base.key) + 1;
+        }
         fputc('(', fp);
     } else {
         fprintf(fp, "%s (", n->base.key);
+        braceindent += strlen(n->base.key) + 1;
     }
-    if (n->value)
-        confignode_dump_i(fp, n->value, cb, flags, indent, curindent + indent);
+    if (n->value) {
+        confignode_foreach(i, n->value, f)
+            num += (unsigned) confignode_hastype(i, CT_BARE);
+        if (confignode_dump_i(fp, n->value, cb, flags, indent,
+                              braceindent + valindent, num, 0))
+            confignode_dump_indent(fp, braceindent);
+    }
     fputc(')', fp);
 }
 
@@ -131,12 +151,13 @@ static void confignode_dumpintval(FILE *fp, struct ConfigIntValNode *n,
         fprintf(fp, "%s = %lu", n->base.key, n->value);
 }
 
-static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
-                              struct ConfigDumpCb *cb, unsigned flags,
-                              unsigned indent, unsigned curindent)
+static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
+                             struct ConfigDumpCb *cb, unsigned flags,
+                             unsigned indent, unsigned curindent,
+                             unsigned numbares, int curatbol)
 {
     struct ConfigBaseNode *i;
-    int atbol = 1,newatbol;
+    int atbol = curatbol, newatbol;
 
     i = n;
     do {
@@ -144,8 +165,9 @@ static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
         if (cb) {
             flags = cb->flags(i, flags);
         }
-        confignode_dump_indent(fp, curindent);
-        if (curindent == 0 && i->type != CT_EOC && !atbol)
+        if (atbol)
+            confignode_dump_indent(fp, curindent);
+        else if (i->type != CT_EOC)
             /* In this case, we did not indent, but if a user writes
                multiple configurations in one line, we will
                concatenate value of previous item with key of new item
@@ -193,7 +215,17 @@ static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
             newatbol = 1;
             break;
         case CT_BARE:
-            /* Fallthrough */
+            fputs(i->key, fp);
+            if (numbares > 1) {
+                fputc(',', fp);
+                --numbares;
+            } else if (i->next == n) {
+                /* In this case, there is no EOL node after the last
+                   element of the list.  Put a blank to separate it
+                   from the closing bracket. */
+                fputc(' ', fp);
+            }
+            break;
         case CT_BARECONST:
             fputs(i->key, fp);
             break;
@@ -203,13 +235,14 @@ static void confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
         atbol = newatbol;
         i = i->next;
     } while (i != n);
+    return atbol;
 }
 
 void confignode_dump(FILE *fp, struct ConfigBaseNode *n,
                      struct ConfigDumpCb *cb, unsigned indent)
 {
     if (n)
-        confignode_dump_i(fp, n, cb, 0, indent, 0);
+        confignode_dump_i(fp, n, cb, 0, indent, 0, 0, 1);
 }
 
 /* dumpable allocations */
