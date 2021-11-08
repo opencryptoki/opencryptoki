@@ -1,8 +1,8 @@
 check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
-	testcases/unit/mechtabletest
+	testcases/unit/mechtabletest testcases/unit/configdump
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
-	testcases/unit/mechtabletest
+	testcases/unit/mechtabletest testcases/unit/configdump
 
 testcases_unit_policytest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/lib/api -I${top_srcdir}/usr/include		\
@@ -35,3 +35,10 @@ testcases_unit_mechtabletest_CFLAGS=-I${top_srcdir}/usr/lib/api		\
 testcases_unit_mechtabletest_SOURCES=testcases/unit/mechtabletest.c
 
 nodist_testcases_unit_mechtabletest_SOURCES=usr/lib/api/mechtable.c	
+
+testcases_unit_configdump_SOURCES = testcases/unit/configdump.c	\
+	usr/lib/config/cfglex.l usr/lib/config/cfgparse.y	\
+	usr/lib/config/configuration.c
+
+testcases_unit_configdump_CFLAGS=-I${top_srcdir}/usr/lib/config	\
+	-I${top_builddir}/usr/lib/config
