@@ -10,10 +10,10 @@ usr_sbin_p11sak_p11sak_CFLAGS = -DLINUX -DPROGRAM_NAME=\"$(@)\"		\
 	-I${srcdir}/usr/lib/api
 
 usr_sbin_p11sak_p11sak_SOURCES = usr/lib/common/p11util.c		\
-	usr/sbin/p11sak/p11sak.c usr/lib/config/configuration.c
+	usr/sbin/p11sak/p11sak.c usr/lib/config/configuration.c		\
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
-nodist_usr_sbin_p11sak_p11sak_SOURCES = usr/lib/config/cfgparse.c	\
-	usr/lib/config/cfglex.c usr/lib/api/mechtable.c
+nodist_usr_sbin_p11sak_p11sak_SOURCES = usr/lib/api/mechtable.c
 
 usr/sbin/p11sak/p11sak.$(OBJEXT): usr/lib/config/cfgparse.h
 

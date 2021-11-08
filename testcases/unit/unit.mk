@@ -17,10 +17,10 @@ testcases_unit_policytest_SOURCES=testcases/unit/policytest.c	\
 	usr/lib/common/ec_curve_translation.c			\
 	usr/lib/common/kdf_translation.c			\
 	usr/lib/common/mgf_translation.c			\
-	usr/lib/api/supportedstrengths.c
+	usr/lib/api/supportedstrengths.c			\
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
-nodist_testcases_unit_policytest_SOURCES=usr/lib/config/cfglex.c	\
-	usr/lib/config/cfgparse.c usr/lib/api/mechtable.c
+nodist_testcases_unit_policytest_SOURCES=usr/lib/api/mechtable.c
 
 testcases_unit_hashmaptest_CFLAGS=-I${top_srcdir}/usr/lib/api		\
 	-I${top_srcdir}/usr/include
