@@ -27,10 +27,10 @@ opencryptoki_libopencryptoki_la_SOURCES = usr/lib/api/api_interface.c	\
 	usr/lib/common/ec_curve_translation.c				\
 	usr/lib/common/kdf_translation.c				\
 	usr/lib/common/mgf_translation.c				\
-	usr/lib/api/supportedstrengths.c
+	usr/lib/api/supportedstrengths.c				\
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
 nodist_opencryptoki_libopencryptoki_la_SOURCES =			\
-	usr/lib/config/cfgparse.c usr/lib/config/cfglex.c 		\
 	usr/lib/api/mechtable.c
 
 if ENABLE_LOCKS
