@@ -388,6 +388,8 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_SHA512_RSA_PKCS:
             /* Fallthrough */
         case CKM_SHA512_RSA_PKCS_PSS:
+            /* Fallthrough */
+        case CKM_IBM_ED25519_SHA512:
             *ssize = MIN(s->siglen, 512);
             break;
         default:
