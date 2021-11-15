@@ -29,6 +29,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
+#include <sys/utsname.h>
 #include <dirent.h>
 #include <pkcs11types.h>
 
@@ -51,6 +53,7 @@ static void usage(char *progname)
     printf(" -R, --reset-all    reset the statistics from all users. (root user only)\n");
     printf(" -d, --delete       delete your own statistics.\n");
     printf(" -D, --delete-all   delete the statistics from all users. (root user only)\n");
+    printf(" -j, --json         output the statistics in JSON format.\n");
     printf(" -h, --help         display help information.\n");
 
     return;
@@ -406,24 +409,45 @@ int get_token_infos(CK_FUNCTION_LIST_PTR func_list, CK_SLOT_ID slot,
     return 0;
 }
 
+struct display_mech {
+    bool json;
+    bool first_mech;
+};
+
 static int display_mech_cb(CK_MECHANISM_TYPE mech, const char *mech_name,
                            CK_BYTE *mech_data, CK_ULONG mech_size,
                            CK_ULONG ofs, void *private)
 {
     counter_t *counter = (counter_t *)mech_data;
+    struct display_mech *dm = private;
     int i;
 
     UNUSED(mech);
-    UNUSED(private);
     UNUSED(ofs);
 
-    printf("%-30s |", mech_name);
+    if (dm->json && dm->first_mech == false)
+        printf(",");
+
+    if (dm->json)
+        printf("\n\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\"mechanism\": \"%s\",\n", mech_name);
+    else
+        printf("%-30s |", mech_name);
 
     for (i = 0; i < NUM_SUPPORTED_STRENGTHS + 1 &&
-                 i * sizeof(counter_t) < mech_size; i++)
-         printf(" %15lu", counter[i]);
+                 i * sizeof(counter_t) < mech_size; i++) {
+        if (dm->json)
+            printf("\t\t\t\t\t\t\t\"strength-%lu\": %lu%s\n",
+                   i == 0 ? 0 : supportedstrengths[NUM_SUPPORTED_STRENGTHS - i],
+                   counter[i], i == NUM_SUPPORTED_STRENGTHS ? "" : ",");
+        else
+            printf(" %15lu", counter[i]);
+    }
 
-    printf("\n");
+    if (dm->json)
+        printf("\t\t\t\t\t\t}");
+    else
+        printf("\n");
+    dm->first_mech = false;
 
     return 0;
 }
@@ -435,6 +459,9 @@ struct display_data {
     bool slot_id_specified;
     CK_SLOT_ID slot_id;
     bool all_mechs;
+    bool json;
+    bool first_user;
+    bool first_slot;
 };
 
 static void print_horizontal_line()
@@ -470,9 +497,10 @@ static void print_footer()
 
 static int display_slot_stats(CK_FUNCTION_LIST *func_list, CK_SLOT_ID slot,
                               CK_BYTE *slot_data, CK_ULONG slot_size,
-                              bool all_mechs)
+                              bool all_mechs, bool json, bool *first)
 {
     char label[33], model[33];
+    struct display_mech dm;
     int rc;
 
     rc = get_token_infos(func_list, slot, label, sizeof(label),
@@ -480,20 +508,48 @@ static int display_slot_stats(CK_FUNCTION_LIST *func_list, CK_SLOT_ID slot,
     if (rc > 0)
         return rc;
 
-    if (rc == 0)
-        printf("Slot: %lu (label: '%s' model: '%s')\n\n", slot, label, model);
+    if (json && *first == false)
+        printf(",");
+    if (json)
+        printf("\n\t\t\t\t{\n\t\t\t\t\t\"slot\": %lu,\n", slot);
+
+    if (rc == 0) {
+        if (json) {
+            printf("\t\t\t\t\t\"token-present\": true,\n");
+            printf("\t\t\t\t\t\"label\": \"%s\",\n", label);
+            printf("\t\t\t\t\t\"model\": \"%s\",\n", model);
+        } else {
+            printf("Slot: %lu (label: '%s' model: '%s')\n\n", slot, label,
+                   model);
+        }
+    } else {
+        if (json)
+            printf("\t\t\t\t\t\"token-present\": false,\n");
+        else
+            printf("Slot: %lu (no token present)\n\n", slot);
+    }
+
+    if (json)
+        printf("\t\t\t\t\t\"mechanisms\": [");
     else
-        printf("Slot: %lu (no token present)\n\n", slot);
+        print_header();
 
-    print_header();
-
-    rc = for_each_mech(display_mech_cb, NULL, slot_data, slot_size, all_mechs);
-    if (rc < 0)
-        printf("[no mechanisms were used]      |\n");
-    else if (rc != 0)
+    dm.json = json;
+    dm.first_mech = true;
+    rc = for_each_mech(display_mech_cb, &dm, slot_data, slot_size, all_mechs);
+    if (rc < 0) {
+        if (!json)
+            printf("[no mechanisms were used]      |\n");
+    } else if (rc != 0) {
         return rc;
+    }
 
-    print_footer();
+    if (json)
+        printf("\n\t\t\t\t\t]\n\t\t\t\t}");
+    else
+        print_footer();
+
+    *first = false;
 
     return 0;
 }
@@ -501,9 +557,10 @@ static int display_slot_stats(CK_FUNCTION_LIST *func_list, CK_SLOT_ID slot,
 static int display_slot_cb(CK_SLOT_ID slot_id, CK_BYTE *slot_data,
                            CK_ULONG slot_size, void *private)
 {
-    return display_slot_stats(((struct display_data *)private)->func_list,
-                               slot_id, slot_data, slot_size,
-                              ((struct display_data *)private)->all_mechs);
+    struct display_data *dd = private;
+
+    return display_slot_stats(dd->func_list, slot_id, slot_data, slot_size,
+                              dd->all_mechs, dd->json, &dd->first_slot);
 }
 
 static int display_stats(int user_id, const char *user_name,
@@ -518,11 +575,22 @@ static int display_stats(int user_id, const char *user_name,
     if (rc != 0)
         return rc;
 
-    printf("User: %s\n\n", user_name);
+    if (dd->json) {
+        if (!dd->first_user)
+            printf(",\n");
+        printf("\t\t{\n\t\t\t\"user\": \"%s\",\n\t\t\t\"slots\": [", user_name);
+    } else {
+        printf("User: %s\n\n", user_name);
+    }
 
+    dd->first_slot = true;
     rc = for_all_slots(display_slot_cb, dd, shm_data, shm_size,
                        dd->num_slots, dd->slots,
                        dd->slot_id_specified, dd->slot_id);
+
+    if (dd->json)
+        printf("\n\t\t\t]\n\t\t}");
+    dd->first_user = false;
 
     close_shm(shm_fd, shm_data, shm_size);
     return rc;
@@ -620,11 +688,21 @@ static int display_summary(struct display_data* dd)
     if (rc != 0)
         goto done;
 
-    printf("Summary (all users):\n\n");
+    if (dd->json) {
+        if (!dd->first_user)
+            printf(",\n");
+        printf("\t\t{\n\t\t\t\"user\": \"(all users)\",\n\t\t\t\"slots\": [");
+    } else {
+        printf("Summary (all users):\n\n");
+    }
 
+    dd->first_slot = true;
     rc = for_all_slots(display_slot_cb, dd, sd.summary_data, sd.summary_size,
                        dd->num_slots, dd->slots,
                        dd->slot_id_specified, dd->slot_id);
+
+    if (dd->json)
+        printf("\n\t\t\t]\n\t\t}");
 
 done:
     free(sd.summary_data);
@@ -673,6 +751,35 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     return 0;
 }
 
+static int print_json_start()
+{
+    char timestamp[200];
+    struct utsname un;
+    struct tm *tm;
+    time_t t;
+
+    time(&t);
+    tm = gmtime(&t);
+    /* ISO 8601 format: e.g. 2021-11-17T08:01:23Z (always UTC) */
+    strftime(timestamp, sizeof(timestamp), "%FT%TZ", tm);
+
+    if (uname(&un) != 0) {
+        warnx("Failed to obtain system information, uname: %s",
+               strerror(errno));
+        return 1;
+    }
+
+    printf("{\n\t\"host\": {\n");
+    printf("\t\t\"nodename\": \"%s\",\n", un.nodename);
+    printf("\t\t\"sysname\": \"%s\",\n", un.sysname);
+    printf("\t\t\"release\": \"%s\",\n", un.release);
+    printf("\t\t\"machine\": \"%s\",\n", un.machine);
+    printf("\t\t\"date\": \"%s\"\n", timestamp);
+    printf("\t},\n\t\"users\": [\n");
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int opt = 0;
@@ -682,6 +789,7 @@ int main(int argc, char **argv)
     bool reset = false, reset_all = false;
     bool delete = false, delete_all = false;
     bool slot_id_specified = false;
+    bool json = false;
     CK_SLOT_ID slot_id = 0;
     void *dll = NULL;
     CK_FUNCTION_LIST *func_list = NULL;
@@ -702,11 +810,12 @@ int main(int argc, char **argv)
         {"reset-all", no_argument, NULL, 'R'},
         {"delete", no_argument, NULL, 'd'},
         {"delete-all", no_argument, NULL, 'D'},
+        {"json", no_argument, NULL, 'j'},
         {"help", no_argument, NULL, 'h'},
         {0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "U:SAas:rRdDh", long_opts, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "U:SAas:rRdDjh", long_opts, NULL)) != -1) {
         switch (opt) {
         case 'U':
             if ((pswd = getpwnam(optarg)) == NULL) {
@@ -765,6 +874,9 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
             delete_all = true;
+            break;
+        case 'j':
+            json = true;
             break;
         case 'h':
             usage(basename(argv[0]));
@@ -837,12 +949,17 @@ int main(int argc, char **argv)
         goto done;
     }
 
+    if (json && print_json_start() != 0)
+        goto done;
+
     dd.func_list = func_list;
     dd.num_slots = num_slots;
     dd.slots = slots;
     dd.slot_id_specified = slot_id_specified;
     dd.slot_id = slot_id;
     dd.all_mechs = all_mechs;
+    dd.json = json;
+    dd.first_user = true;
     if (all_users) {
         rc = for_all_users(display_all_cb, &dd);
         goto done;
@@ -855,6 +972,9 @@ int main(int argc, char **argv)
     }
 
 done:
+    if (rc == 0 && json)
+        printf("\n\t]\n}\n");
+
     if (slots != NULL)
         free(slots);
 
