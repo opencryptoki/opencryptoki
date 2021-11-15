@@ -126,6 +126,10 @@ Only the \fBroot\fP user can delete the statistics from other users.
 Deletes the shared memory segment containing the statistics counters for all
 users. Only the \fBroot\fP user can delete the statistics from other users.
 .TP
+.BR \-j ", " \-\-json
+Shows the statistics in JSON format. This is usefull to get the statistics in
+a machine readable format.
+.TP
 .BR \-h ", " \-\-help
 Displays help text and exits.
 
