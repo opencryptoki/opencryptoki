@@ -2872,7 +2872,7 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
 
     rc = check_user_and_group();
     if (rc != CKR_OK)
-        return rc;
+        goto done;
 
     if (!Anchor) {
         Anchor = (API_Proc_Struct_t *) malloc(sizeof(API_Proc_Struct_t));
