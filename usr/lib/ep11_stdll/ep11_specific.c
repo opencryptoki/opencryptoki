@@ -68,7 +68,8 @@
 #define EP11SHAREDLIB_V2 "libep11.so.2"
 #define EP11SHAREDLIB_V1 "libep11.so.1"
 #define EP11SHAREDLIB "libep11.so"
-#define ICASHAREDLIB  "libica.so.3"
+#define ICASHAREDLIB_V4  "libica.so.4"
+#define ICASHAREDLIB_V3  "libica.so.3"
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR mlist,
@@ -2044,9 +2045,9 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 }
 
 #ifdef EP11_HSMSIM
-#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW | RTLD_DEEPBIND
+#define DLOPEN_FLAGS        RTLD_NOW | RTLD_DEEPBIND
 #else
-#define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW
+#define DLOPEN_FLAGS        RTLD_NOW
 #endif
 
 static void *ep11_load_host_lib()
@@ -2209,12 +2210,16 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
         return CKR_OK;
 
     if (strcmp(ep11_data->digest_libica_path, "") == 0) {
-        strcpy(ep11_data->digest_libica_path, ICASHAREDLIB);
+        strcpy(ep11_data->digest_libica_path, ICASHAREDLIB_V4);
         default_libica = 1;
+        libica->library = dlopen(ep11_data->digest_libica_path, RTLD_NOW);
+        if (libica->library == NULL) {
+            strcpy(ep11_data->digest_libica_path, ICASHAREDLIB_V3);
+            libica->library = dlopen(ep11_data->digest_libica_path, RTLD_NOW);
+        }
+    } else {
+        libica->library = dlopen(ep11_data->digest_libica_path, RTLD_NOW);
     }
-
-    libica->library = dlopen(ep11_data->digest_libica_path,
-                             RTLD_GLOBAL | RTLD_NOW);
     if (libica->library == NULL) {
         errstr = dlerror();
         OCK_SYSLOG(default_libica ? LOG_WARNING : LOG_ERR,
