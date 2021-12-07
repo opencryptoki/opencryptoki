@@ -83,7 +83,8 @@ const char label[] = "icatok";
 
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
-#define LIBICA_SHARED_LIB "libica.so.3"
+#define LIBICA_SHARED_LIB_V3 "libica.so.3"
+#define LIBICA_SHARED_LIB_V4 "libica.so.4"
 #define BIND(dso, sym)  do {                                             \
                             if (p_##sym == NULL)                         \
                                 *(void **)(&p_##sym) = dlsym(dso, #sym); \
@@ -221,9 +222,13 @@ static CK_RV load_libica(void)
     void *ibmca_dso = NULL;
 
     /* Load libica */
-    ibmca_dso = dlopen(LIBICA_SHARED_LIB, RTLD_NOW);
+    ibmca_dso = dlopen(LIBICA_SHARED_LIB_V4, RTLD_NOW);
+    if (ibmca_dso == NULL)
+        ibmca_dso = dlopen(LIBICA_SHARED_LIB_V3, RTLD_NOW);
+
     if (ibmca_dso == NULL) {
-        TRACE_ERROR("%s: dlopen(%s) failed\n", __func__, LIBICA_SHARED_LIB);
+        TRACE_ERROR("%s: dlopen(%s or %s) failed: %s\n", __func__,
+                    LIBICA_SHARED_LIB_V4, LIBICA_SHARED_LIB_V3, dlerror());
         return CKR_FUNCTION_FAILED;
     }
 
