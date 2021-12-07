@@ -1303,6 +1303,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
          * support the attribute, the command SHALL return
          * CKR_ATTRIBUTE_TYPE_INVALID.
          */
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
         return CKR_ATTRIBUTE_TYPE_INVALID;
     case CKA_UNWRAP_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
