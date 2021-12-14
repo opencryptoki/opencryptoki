@@ -1143,7 +1143,7 @@ static CK_ATTRIBUTE_TYPE col2type(int col)
 /**
  *  Print in p11sak_defined_attrs.conf defined attributes in long format
  */
-static CK_RV print_vendor(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey, int long_print) 
+static CK_RV print_custom_attrs(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey, int long_print) 
 {
     CK_RV rc = CKR_OK;
     int f;
@@ -1376,7 +1376,7 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -1386,7 +1386,7 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_SECRET);
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -1453,7 +1453,7 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -1464,7 +1464,7 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PRIVATE);
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -1523,7 +1523,7 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
                         CK_BBOOL2a(*(CK_BBOOL*) bool_tmplt[i].pValue));
             }
         }
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -1534,7 +1534,7 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
         printf(" |");
         for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PUBLIC);
-        rc = print_vendor(session, hkey, long_print);
+        rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
             fprintf(stderr, "Attribute retrieval failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
