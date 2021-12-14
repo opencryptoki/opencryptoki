@@ -19,6 +19,7 @@
 #include "cfgparser.h"
 #include "configuration.h"
 #include <ctype.h>
+#include <linux/limits.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -2773,34 +2774,31 @@ static CK_RV close_session(CK_SESSION_HANDLE session)
 }
 
 static CK_RV parse_file() {
-    FILE *fp;
+    FILE *fp = NULL;
     char *file_loc = getenv("P11SAK_DEFAULT_CONF_FILE");
-    char *buf;
+    char pathname[PATH_MAX];
     struct passwd *pw;
 
     // open and parse file
     if (file_loc != NULL) {
         if ((fp = fopen(file_loc, "r")) == NULL) {
-            fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
+            fprintf(stderr, "Cannot load config file from env variable P11SAK_DEFAULT_CONF_FILE(%s): %s\n",
+                    file_loc, strerror(errno));
+            fprintf(stderr, "Printing of custom attributes not available.\n");
             return CKR_ARGUMENTS_BAD;
         }
     } else {
         pw = getpwuid(getuid());
-        if (pw == NULL) {
-            perror("Could not find home directory of current user!");
-            return CKR_CANCEL;
+        if (pw != NULL) {
+            snprintf(pathname, sizeof(pathname), "%s/.p11sak_defined_attrs.conf", pw->pw_dir);
+            fp = fopen(pathname, "r");
         }
-        if (asprintf(&buf, "%s/.p11sak_defined_attrs.conf", pw->pw_dir) == -1) {
-            perror("Could not allocate memory for home directory path!");
-            return CKR_HOST_MEMORY;
-        }
-        fp = fopen(buf, "r");
-        free(buf);
-
         if (!fp) {
             file_loc = P11SAK_DEFAULT_CONF_FILE;
             if ((fp = fopen(file_loc, "r")) == NULL) {
-                fprintf(stderr, "Failed to load %s: %s\n", file_loc, strerror(errno));
+                fprintf(stderr, "Cannot load config file from default location %s: %s\n",
+                        file_loc, strerror(errno));
+                fprintf(stderr, "Printing of custom attributes not available.\n");
                 return CKR_ARGUMENTS_BAD;
             }
         } 
@@ -2892,7 +2890,7 @@ int main(int argc, char *argv[])
 
     /* Parse p11sak_defined_attrs.conf */
     rc = parse_file();
-    if (rc != CKR_OK) 
+    if (rc == CKR_DATA_INVALID)
         goto done;
 
     /* Execute command */
