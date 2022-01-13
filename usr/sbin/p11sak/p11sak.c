@@ -577,6 +577,7 @@ static void print_gen_attr_help(void)
     printf("\n");
     printf("      Setting CK_ATTRIBUTE\n");
     printf("\n");
+    printf("           'P': CKA_PRIVATE\n");
     printf("           'M': CKA_MODIFIABLE\n");
     printf("           'R': CKA_DERIVE\n");
     printf("           'L': CKA_LOCAL\n");
@@ -591,7 +592,7 @@ static void print_gen_attr_help(void)
     printf("           'X': CKA_EXTRACTABLE\n");
     printf("           'N': CKA_NEVER_EXTRACTABLE\n");
     printf("\n");
-    printf("           CKA_TOKEN and CKA_PRIVATE are set by default.\n");
+    printf("           CKA_TOKEN is set by default.\n");
     printf(
             "           If an attribute is not set explicitly, the default values are used.\n");
     printf(
@@ -900,16 +901,8 @@ static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr,
     pubattr[*pubcount].pValue = &ckb_true;
     pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
     (*pubcount)++;
-    pubattr[*pubcount].type = CKA_PRIVATE;
-    pubattr[*pubcount].pValue = &ckb_true;
-    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-    (*pubcount)++;
 
     prvattr[*prvcount].type = CKA_TOKEN;
-    prvattr[*prvcount].pValue = &ckb_true;
-    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-    (*prvcount)++;
-    prvattr[*prvcount].type = CKA_PRIVATE;
     prvattr[*prvcount].pValue = &ckb_true;
     prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
     (*prvcount)++;
@@ -944,19 +937,17 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
 
     /* Boolean attributes (cannot be specified by user) */
     CK_BBOOL a_token = ckb_true; // always true
-    CK_BBOOL a_private = ckb_true; // always true
 
     /* Non-boolean attributes */
     CK_ULONG a_value_len = keylength / 8;
 
     /* Standard template */
-    CK_ATTRIBUTE key_attr[4 + KEY_MAX_BOOL_ATTR_COUNT] = {
+    CK_ATTRIBUTE key_attr[3 + KEY_MAX_BOOL_ATTR_COUNT] = {
         { CKA_TOKEN, &a_token, sizeof(CK_BBOOL) }, 
-        { CKA_PRIVATE, &a_private, sizeof(CK_BBOOL) }, 
         { CKA_VALUE_LEN, &a_value_len, sizeof(CK_ULONG) }, 
         { CKA_LABEL, label, strlen(label) } 
     };
-    CK_ULONG num_attrs = 4;
+    CK_ULONG num_attrs = 3;
     
     /* set boolean attributes, set template from string 
     attr_string length is checked in parse_gen_key_args to avoid memory problems */
@@ -1014,23 +1005,18 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
 
     /* Boolean Attributes */
     CK_BBOOL a_token;
-    CK_BBOOL a_private;
     CK_ULONG bs = sizeof(CK_BBOOL);
 
     /* key Type attributes */
     CK_KEY_TYPE a_key_type;
     CK_OBJECT_CLASS a_cko;
 
-    CK_ATTRIBUTE tmplt[4];
+    CK_ATTRIBUTE tmplt[3];
 
     a_token = CK_TRUE;
     tmplt[0].type = CKA_TOKEN;
     tmplt[0].pValue = &a_token;
     tmplt[0].ulValueLen = bs;
-    a_private = CK_TRUE;
-    tmplt[1].type = CKA_PRIVATE;
-    tmplt[1].pValue = &a_private;
-    tmplt[1].ulValueLen = bs;
 
     if (kt < kt_SECRET) {
         rc = kt2CKK(kt, &a_key_type);
@@ -1064,16 +1050,16 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_GENERIC:
     case kt_RSAPKCS:
     case kt_EC:
-        tmplt[2].type = CKA_KEY_TYPE;
-        tmplt[2].pValue = &a_key_type;
-        tmplt[2].ulValueLen = sizeof(CK_KEY_TYPE);
+        tmplt[1].type = CKA_KEY_TYPE;
+        tmplt[1].pValue = &a_key_type;
+        tmplt[1].ulValueLen = sizeof(CK_KEY_TYPE);
         break;
     case kt_SECRET:
     case kt_PUBLIC:
     case kt_PRIVATE:
-        tmplt[2].type = CKA_CLASS;
-        tmplt[2].pValue = &a_cko;
-        tmplt[2].ulValueLen = sizeof(CK_OBJECT_CLASS);
+        tmplt[1].type = CKA_CLASS;
+        tmplt[1].pValue = &a_cko;
+        tmplt[1].ulValueLen = sizeof(CK_OBJECT_CLASS);
         break;
     default:
         fprintf(stderr, "Unknown key type\n");
@@ -1081,12 +1067,12 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     }
 
     if (label != NULL_PTR) {
-        tmplt[3].type = CKA_LABEL;
-        tmplt[3].pValue = label;
-        tmplt[3].ulValueLen = strlen(label);
-        count = 4;
-    } else
+        tmplt[2].type = CKA_LABEL;
+        tmplt[2].pValue = label;
+        tmplt[2].ulValueLen = strlen(label);
         count = 3;
+    } else
+        count = 2;
 
     rc = funcs->C_FindObjectsInit(session, tmplt, count);
     if (rc != CKR_OK) {
@@ -1384,7 +1370,7 @@ static CK_RV sec_key_print_attributes(CK_SESSION_HANDLE session,
         }
     } else {
         printf(" |");
-        for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
+        for (i = 1; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_SECRET);
         rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
@@ -1462,7 +1448,7 @@ static CK_RV priv_key_print_attributes(CK_SESSION_HANDLE session,
     } else {
         /* Short print */
         printf(" |");
-        for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
+        for (i = 1; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PRIVATE);
         rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
@@ -1532,7 +1518,7 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
     } else {
         /* Short print */
         printf(" |");
-        for (i = 2; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
+        for (i = 1; i < KEY_MAX_BOOL_ATTR_COUNT; i++)
             short_print(i, bool_tmplt, kt_PUBLIC);
         rc = print_custom_attrs(session, hkey, long_print);
         if (rc != CKR_OK) {
@@ -2392,9 +2378,9 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
     if (long_print == 0) {
         printf("\n");
         printf(
-                " | M  R  L  S  E  D  G  V  W  U  X  A  N  * |    KEY TYPE | LABEL\n");
+                " | P  M  R  L  S  E  D  G  V  W  U  X  A  N  * |    KEY TYPE | LABEL\n");
         printf(
-                " |------------------------------------------+-------------+-------------\n");
+                " |---------------------------------------------+-------------+-------------\n");
     }
 
     while (1) {
