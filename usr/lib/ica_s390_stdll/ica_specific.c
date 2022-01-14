@@ -274,7 +274,10 @@ CK_RV token_specific_rng(STDLL_TokData_t *tokdata, CK_BYTE *output,
     CK_RV rc = CKR_FUNCTION_FAILED;
 
     if (ica_data->ica_p_rng_available) {
-        pthread_mutex_lock(&rngmtx);
+        if (pthread_mutex_lock(&rngmtx)) {
+            TRACE_ERROR("ICA Rng Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
 
         rc = ica_random_number_generate((unsigned int)bytes, output);
         if (rc != 0)
