@@ -416,6 +416,13 @@ For multiple attributes, combine the letters in a string without white space, e.
 An uppercase letter means true, while an lowercase letter equals false.
 From Example above: CKA_MODIFIABLE=true, CKA_LOCAL=false, CKA_DECRYPT=true
 .PP
+For asymmetric keys a user can set different custom attributes for the public and the private key.
+The separator is the symbol ":". The defined attributes in front of the separator are set for the
+public key and the attributes defined after the separator are set for the private key. When the 
+separator is not in the string, the defined attribute set is used for public and private key. To set 
+a configuration for only the public key, the string has to end with the separator and respectively, 
+to use a configuration for the private key only, the string has to start with the separator.
+.PP
 .
 .
 .
