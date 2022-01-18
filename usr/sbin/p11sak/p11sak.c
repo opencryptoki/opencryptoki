@@ -428,6 +428,9 @@ static void print_gen_help(void)
             "      --exponent EXP                          set RSA exponent EXP\n");
     printf(
             "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf(
+            "      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf( "             for asymmetric keys: set individual key attributes, values see above\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -891,34 +894,28 @@ static void set_bool_attr_from_string(CK_ATTRIBUTE *attr, char attr_char)
 /**
  * Set default asymmetric key attributes.
  */
-static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *pubattr, 
-                       CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr, 
-                       CK_ULONG *prvcount)
+static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *attr, 
+                        CK_ULONG *count, int prv)
 {
     int i = 0;
 
-    pubattr[*pubcount].type = CKA_TOKEN;
-    pubattr[*pubcount].pValue = &ckb_true;
-    pubattr[*pubcount].ulValueLen = sizeof(CK_BBOOL);
-    (*pubcount)++;
-
-    prvattr[*prvcount].type = CKA_TOKEN;
-    prvattr[*prvcount].pValue = &ckb_true;
-    prvattr[*prvcount].ulValueLen = sizeof(CK_BBOOL);
-    (*prvcount)++;
+    attr[*count].type = CKA_TOKEN;
+    attr[*count].pValue = &ckb_true;
+    attr[*count].ulValueLen = sizeof(CK_BBOOL);
+    (*count)++;
 
     if (attr_string) {
         for (i = 0; i < (int) strlen(attr_string); i++) {
             // attr_string length is checked in parse_gen_key_args to avoid memory problems
-            if (attr_na(char2attrtype(toupper(attr_string[i])), kt_PRIVATE) == 0) {
+            if (prv == 1 && attr_na(char2attrtype(toupper(attr_string[i])), kt_PRIVATE) == 0) {
                 printf("private: %d\n", attr_string[i]);
-                set_bool_attr_from_string(&prvattr[*prvcount], attr_string[i]);
-                (*prvcount)++;
+                set_bool_attr_from_string(&attr[*count], attr_string[i]);
+                (*count)++;
             } 
-            if (attr_na(char2attrtype(toupper(attr_string[i])), kt_PUBLIC) == 0) {
+            if (prv == 0 && attr_na(char2attrtype(toupper(attr_string[i])), kt_PUBLIC) == 0) {
                 printf("public: %d\n", attr_string[i]);
-                set_bool_attr_from_string(&pubattr[*pubcount], attr_string[i]);
-                (*pubcount)++;
+                set_bool_attr_from_string(&attr[*count], attr_string[i]);
+                (*count)++;
             }
         }
     }
@@ -2254,6 +2251,7 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     CK_MECHANISM mech;
     CK_ULONG i;
     CK_RV rc;
+    const char separator = ':';
 
     memset(pub_attr, 0, sizeof(pub_attr));
     memset(prv_attr, 0, sizeof(prv_attr));
@@ -2292,11 +2290,46 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         goto done;
     }
 
-    rc = set_battr(attr_string, pub_attr, &pub_acount, prv_attr, &prv_acount);
-    if (rc != CKR_OK) {
-        fprintf(stderr, "Error setting binary attributes (error code 0x%lX: %s)\n", rc,
-                p11_get_ckr(rc));
-        goto done;
+    /**
+     * if the separator sign is not in the string the custom attributes apply for 
+     * public and private key
+     * else the attributes in front of the separator sign are set for the public 
+     * key and the ones behind are set for the private key
+     */
+    char *ret = NULL;
+    if (attr_string)
+        ret = strchr(attr_string, separator);
+
+    if (attr_string && ret != NULL) {
+        // setting the attributes after the separator for the private key
+        rc = set_battr(ret + 1, prv_attr, &prv_acount, 1);
+        if (rc != CKR_OK) {
+            fprintf(stderr, "Error setting binary attributes for private key (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            goto done;
+        }
+        // setting the attributes in front of the separator for the public key
+        *ret = '\0';
+        rc = set_battr(attr_string, pub_attr, &pub_acount, 0);
+        *ret = separator;
+        if (rc != CKR_OK) {
+            fprintf(stderr, "Error setting binary attributes for public key (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            goto done;
+        }
+    } else {
+        rc = set_battr(attr_string, pub_attr, &pub_acount, 0);
+        if (rc != CKR_OK) {
+            fprintf(stderr, "Error setting binary attributes for public key (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            goto done;
+        }
+        rc = set_battr(attr_string, prv_attr, &prv_acount, 1);
+        if (rc != CKR_OK) {
+            fprintf(stderr, "Error setting binary attributes for private key (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+            goto done;
+        }
     }
 
     rc = key_pair_gen(session, kt, &mech, pub_attr, pub_acount, prv_attr,
