@@ -174,7 +174,7 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
 {
     struct stat statbuf;
     FILE *fp;
-    CK_ULONG_32 totallen, datasize, readsize;
+    CK_ULONG_32 totallen, datasize, readsize, version;
     int dkeysize;
     CK_BYTE salt[SALTSIZE];
     CK_BYTE dkey[AES_KEY_SIZE_256];
@@ -195,11 +195,30 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    ret = fread(&totallen, sizeof(CK_ULONG_32), 1, fp);
+    ret = fread(&version, sizeof(CK_ULONG_32), 1, fp);
     if (ret != 1) {
         fclose(fp);
         TRACE_ERROR("fread failed.\n");
         return CKR_FUNCTION_FAILED;
+    }
+
+    /*
+     * Version 1 files did not have the version field, thus the first field read
+     * is the total length. If the first field is not a known version number,
+     * we assume it is an old version file. For an old version file, the total
+     * length is 64 bytes, this is it is much higher than the version number.
+     */
+    if (version == ICSF_MK_FILE_VERSION) {
+        /* New version file detected */
+        ret = fread(&totallen, sizeof(CK_ULONG_32), 1, fp);
+        if (ret != 1) {
+            fclose(fp);
+            TRACE_ERROR("fread failed.\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        TRACE_DEVEL("Old version master key file detected\n");
+        totallen = version;
     }
 
     ret = fread(salt, SALTSIZE, 1, fp);
@@ -222,7 +241,10 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
 
     /* now derive the key using the salt and PIN */
     dkeysize = AES_KEY_SIZE_256;
-    rc = pbkdf(tokdata, pin, pinlen, salt, dkey, dkeysize);
+    if (version == ICSF_MK_FILE_VERSION)
+        rc = pbkdf_openssl(tokdata, pin, pinlen, salt, dkey, dkeysize);
+    else
+        rc = pbkdf_old(tokdata, pin, pinlen, salt, dkey, dkeysize);
     if (rc != CKR_OK) {
         TRACE_DEBUG("pbkdf(): Failed to derive a key.\n");
         return CKR_FUNCTION_FAILED;
@@ -311,11 +333,50 @@ CK_RV get_racf(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV pbkdf(STDLL_TokData_t *tokdata,
-            CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
-            CK_ULONG klen)
+CK_RV pbkdf_openssl(STDLL_TokData_t *tokdata,
+                    CK_BYTE *password, CK_ULONG len, CK_BYTE *salt,
+                    CK_BYTE *dkey, CK_ULONG klen)
 {
+    const CK_MECHANISM mech = { CKM_PKCS5_PBKD2, NULL, 0 };
+    const CK_MECHANISM mech2 = { CKM_SHA256_HMAC, NULL, 0 };
+    int rc;
 
+    if (!password || !salt || len > INT_MAX || klen > INT_MAX) {
+        TRACE_ERROR("Invalid function argument(s).\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = PKCS5_PBKDF2_HMAC((char *)password, len, salt, SALTSIZE,
+                            ITERATIONS, EVP_sha256(), klen, dkey);
+    if (rc != 1) {
+        TRACE_ERROR("PBKDF2 failed.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (tokdata != NULL &&
+        (tokdata->statistics->flags & STATISTICS_FLAG_COUNT_INTERNAL) != 0) {
+        tokdata->statistics->increment_func(tokdata->statistics,
+                                            tokdata->slot_id, &mech,
+                                            POLICY_STRENGTH_IDX_0);
+        if ((tokdata->statistics->flags & STATISTICS_FLAG_COUNT_IMPLICIT) != 0) {
+            /*
+             * We use CKM_PKCS5_PBKD2 with CKP_PKCS5_PBKD2_HMAC_SHA256.
+             * Use strength 0 because the HMAC key is the pin, and it is max
+             * 8 char (i.e. 64 bit) long, which is way below 112 bit anyway.
+             */
+            tokdata->statistics->increment_func(tokdata->statistics,
+                                                tokdata->slot_id, &mech2,
+                                                POLICY_STRENGTH_IDX_0);
+        }
+    }
+
+    return CKR_OK;
+}
+
+CK_RV pbkdf_old(STDLL_TokData_t *tokdata,
+                CK_BYTE * password, CK_ULONG len, CK_BYTE * salt, CK_BYTE * dkey,
+                CK_ULONG klen)
+{
     unsigned char hash[SHA256_HASH_SIZE];
     unsigned char hash_block[SHA256_HASH_SIZE];
     unsigned char *result;
@@ -497,7 +558,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
     CK_RV rc = CKR_OK;
     CK_BYTE salt[SALTSIZE];
     CK_BYTE dkey[AES_KEY_SIZE_256];
-    CK_ULONG_32 totallen, dkey_size;
+    CK_ULONG_32 totallen, dkey_size, version;
     int outputlen;
     CK_BYTE output[ENCRYPT_SIZE];
     FILE *fp;
@@ -513,7 +574,7 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
     }
 
     /* get a 32 byte key */
-    rc = pbkdf(tokdata, pin, pinlen, salt, dkey, dkey_size);
+    rc = pbkdf_openssl(tokdata, pin, pinlen, salt, dkey, dkey_size);
     if (rc != 0) {
         TRACE_DEBUG("Failed to derive a key for encryption.\n");
         return CKR_FUNCTION_FAILED;
@@ -530,9 +591,10 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
 
     /* write the encrypted masterkey to named file */
     /* store the following:
-     * 1. total length = salt + encrypted data
-     * 2. salt (always SALTSIZE)
-     * 3. encrypted data
+     * 1. version field
+     * 2. total length = salt + encrypted data
+     * 3. salt (always SALTSIZE)
+     * 4. encrypted data
      */
 
     /* get the total length */
@@ -552,7 +614,9 @@ CK_RV secure_masterkey(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    /* write the info to the file */
+    /* write the info to the file (always new version format) */
+    version = ICSF_MK_FILE_VERSION;
+    (void) fwrite(&version, sizeof(CK_ULONG_32), 1, fp);
     (void) fwrite(&totallen, sizeof(CK_ULONG_32), 1, fp);
     (void) fwrite(salt, SALTSIZE, 1, fp);
     (void) fwrite(output, outputlen, 1, fp);

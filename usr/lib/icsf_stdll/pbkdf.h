@@ -20,11 +20,19 @@
 
 #define SALTSIZE        16      // salt is 16 bytes
 #define DKEYLEN  32      // 256 bytes is max key size to be derived
-#define PIN_SIZE 80      // samedefine in pkcsconf
+#define PIN_SIZE 80      // same define in pkcsconf
 #define ENCRYPT_SIZE 96      // PIN_SIZE + AES_BLOCK_SIZE (for padding)
+
+/*
+ * SP 800-132 recommends a minimum iteration count of 1000.
+ * so lets try that for now...
+ */
+#define ITERATIONS 1000
 
 #define ICSF_CONFIG_PATH CONFIG_PATH "/icsf"
 #define RACFFILE ICSF_CONFIG_PATH "/RACF"
+
+#define ICSF_MK_FILE_VERSION    2
 
 CK_RV get_randombytes(unsigned char *output, int bytes);
 
@@ -45,9 +53,13 @@ CK_RV get_masterkey(STDLL_TokData_t *tokdata,
                     CK_BYTE *pin, CK_ULONG pinlen, const char *fname,
                     CK_BYTE *masterkey, int *len);
 
-CK_RV pbkdf(STDLL_TokData_t *tokdata,
-            CK_BYTE * passwd, CK_ULONG passwdlen, CK_BYTE * salt,
-            CK_BYTE * dkey, CK_ULONG klen);
+CK_RV pbkdf_old(STDLL_TokData_t *tokdata,
+                CK_BYTE * passwd, CK_ULONG passwdlen, CK_BYTE * salt,
+                CK_BYTE * dkey, CK_ULONG klen);
+
+CK_RV pbkdf_openssl(STDLL_TokData_t *tokdata,
+                    CK_BYTE *password, CK_ULONG len, CK_BYTE *salt,
+                    CK_BYTE *dkey, CK_ULONG klen);
 
 CK_RV secure_racf(STDLL_TokData_t *tokdata,
                   CK_BYTE * racfpwd, CK_ULONG racflen, CK_BYTE * mk,
