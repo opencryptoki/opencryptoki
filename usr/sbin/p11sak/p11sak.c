@@ -402,6 +402,7 @@ static void print_listkeys_help(void)
     printf("\n Options:\n");
     printf("      -l, --long           list output with long format\n");
     printf("          --detailed-uri   enable detailed PKCS#11 URI\n");
+    printf("      --label LABEL        filter keys by key label\n");
     printf(
             "      --slot SLOTID        openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN            pkcs11 user PIN\n");
@@ -1094,7 +1095,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
                                char *label)
 {
     CK_RV rc;
-    CK_ULONG count;
+    CK_ULONG count = 0;
 
     /* Boolean Attributes */
     CK_BBOOL a_token;
@@ -1107,9 +1108,10 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     CK_ATTRIBUTE tmplt[3];
 
     a_token = CK_TRUE;
-    tmplt[0].type = CKA_TOKEN;
-    tmplt[0].pValue = &a_token;
-    tmplt[0].ulValueLen = bs;
+    tmplt[count].type = CKA_TOKEN;
+    tmplt[count].pValue = &a_token;
+    tmplt[count].ulValueLen = bs;
+    count++;
 
     if (kt < kt_SECRET) {
         rc = kt2CKK(kt, &a_key_type);
@@ -1118,15 +1120,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
                     p11_get_ckr(rc));
             return rc;
         }
-    } else if (kt == kt_ALL) {
-        rc = funcs->C_FindObjectsInit(session, NULL, 0);
-        if (rc != CKR_OK) {
-            fprintf(stderr, "C_FindObjectInit failed in tok_key_list_init() (error code 0x%lX: %s)\n", rc,
-                    p11_get_ckr(rc));
-            return rc;
-        }
-        return rc;
-    } else {
+    } else if (kt != kt_ALL) {
         rc = kt2CKO(kt, &a_cko);
         if (rc != CKR_OK) {
             fprintf(stderr, "Keyobject could not be set (error code 0x%lX: %s)\n", rc,
@@ -1143,16 +1137,20 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_GENERIC:
     case kt_RSAPKCS:
     case kt_EC:
-        tmplt[1].type = CKA_KEY_TYPE;
-        tmplt[1].pValue = &a_key_type;
-        tmplt[1].ulValueLen = sizeof(CK_KEY_TYPE);
+        tmplt[count].type = CKA_KEY_TYPE;
+        tmplt[count].pValue = &a_key_type;
+        tmplt[count].ulValueLen = sizeof(CK_KEY_TYPE);
+        count++;
         break;
     case kt_SECRET:
     case kt_PUBLIC:
     case kt_PRIVATE:
-        tmplt[1].type = CKA_CLASS;
-        tmplt[1].pValue = &a_cko;
-        tmplt[1].ulValueLen = sizeof(CK_OBJECT_CLASS);
+        tmplt[count].type = CKA_CLASS;
+        tmplt[count].pValue = &a_cko;
+        tmplt[count].ulValueLen = sizeof(CK_OBJECT_CLASS);
+        count++;
+        break;
+    case kt_ALL:
         break;
     default:
         fprintf(stderr, "Unknown key type\n");
@@ -1160,12 +1158,11 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     }
 
     if (label != NULL_PTR) {
-        tmplt[2].type = CKA_LABEL;
-        tmplt[2].pValue = label;
-        tmplt[2].ulValueLen = strlen(label);
-        count = 3;
-    } else
-        count = 2;
+        tmplt[count].type = CKA_LABEL;
+        tmplt[count].pValue = label;
+        tmplt[count].ulValueLen = strlen(label);
+        count++;
+    }
 
     rc = funcs->C_FindObjectsInit(session, tmplt, count);
     if (rc != CKR_OK) {
@@ -1970,7 +1967,8 @@ static char* get_string_arg(int pos, char *argv[], int argc)
  */
 static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
                                  CK_ULONG *keylength, CK_SLOT_ID *slot,
-                                 char **pin, int *long_print, int *full_uri)
+                                 char **pin, int *long_print, char **label,
+                                 int *full_uri)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2047,6 +2045,14 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if ((strcmp(argv[i], "-l") == 0)
                 || (strcmp(argv[i], "--long") == 0)) {
             *long_print = 1;
+        } else if (strcmp(argv[i], "--label") == 0) {
+            if (i + 1 < argc) {
+                *label = argv[i + 1];
+            } else {
+                fprintf(stderr, "--label <LABEL> argument is missing.\n");
+                return CKR_ARGUMENTS_BAD;
+            }
+            i++;
         } else if (strcmp(argv[i], "--detailed-uri") == 0) {
             *full_uri = 1;
         } else if ((strcmp(argv[i], "-h") == 0)
@@ -2330,7 +2336,7 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
         break;
     case list_key:
         rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
-                long_print, full_uri);
+                long_print, label, full_uri);
         break;
     case remove_key:
         rc = parse_remove_key_args(argv, argc, kt, slot, pin, label, keylength,
@@ -2535,13 +2541,13 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
  * List the given key.
  */
 static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
-                       p11sak_kt kt, int long_print, int full_uri)
+                       p11sak_kt kt, int long_print, char *label, 
+                       int full_uri)
 {
     CK_ULONG keylength, count;
     CK_OBJECT_CLASS keyclass;
     CK_OBJECT_HANDLE hkey;
     char *keytype = NULL;
-    char *label = NULL;
     CK_RV rc;
     int CELL_SIZE = 11;
     CK_INFO info;
@@ -2922,7 +2928,7 @@ static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 label, attr_string);
         break;
     case list_key:
-        rc = list_ckey(session, slot, kt, long_print, full_uri);
+        rc = list_ckey(session, slot, kt, long_print, label, full_uri);
         break;
     case remove_key:
         rc = delete_key(session, kt, label, forceAll);

@@ -247,12 +247,17 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .IR SLOTID
 .B \-\-pin
 .IR PIN
+.B \-\-label
+.IR LABEL
 .B \-\-long | \-l
 .B \-\-help | \-h
 .PP
 Use the
 .B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
+command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type. 
+Keys can be filtered by their given 
+.IR LABEL
+.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
