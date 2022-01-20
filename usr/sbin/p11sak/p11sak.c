@@ -1932,32 +1932,26 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
 
     for (i = 2; i < argc; i++) {
         /* Get arguments */
-        if (strcmp(argv[i], "DES") == 0 || strcmp(argv[i], "des") == 0) {
+        if (strcasecmp(argv[i], "des") == 0) {
             *kt = kt_DES;
             *keylength = 64;
-        } else if (strcmp(argv[i], "3DES") == 0
-                || strcmp(argv[i], "3des") == 0) {
+        } else if (strcasecmp(argv[i], "3des") == 0) {
             *kt = kt_3DES;
-        } else if (strcmp(argv[i], "AES") == 0 || strcmp(argv[i], "aes") == 0) {
+        } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
-        } else if (strcmp(argv[i], "RSA") == 0 || strcmp(argv[i], "rsa") == 0) {
+        } else if (strcasecmp(argv[i], "rsa") == 0) {
             *kt = kt_RSAPKCS;
-        } else if (strcmp(argv[i], "EC") == 0 || strcmp(argv[i], "ec") == 0) {
+        } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
-        } else if (strcmp(argv[i], "GENERIC") == 0
-                || strcmp(argv[i], "generic") == 0) {
+        } else if (strcasecmp(argv[i], "generic") == 0) {
             *kt = kt_GENERIC;
-        } else if (strcmp(argv[i], "SECRET") == 0
-                || strcmp(argv[i], "secret") == 0) {
+        } else if (strcasecmp(argv[i], "secret") == 0) {
             *kt = kt_SECRET;
-        } else if (strcmp(argv[i], "PUBLIC") == 0
-                || strcmp(argv[i], "public") == 0) {
+        } else if (strcasecmp(argv[i], "public") == 0) {
             *kt = kt_PUBLIC;
-        } else if (strcmp(argv[i], "PRIVATE") == 0
-                || strcmp(argv[i], "private") == 0) {
+        } else if (strcasecmp(argv[i], "private") == 0) {
             *kt = kt_PRIVATE;
-        } else if (strcmp(argv[i], "ALL") == 0
-                || strcmp(argv[i], "all") == 0) {
+        } else if (strcasecmp(argv[i], "all") == 0) {
             *kt = kt_ALL;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
@@ -2036,22 +2030,21 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
 
     for (i = 2; i < argc; i++) {
         /* Get arguments */
-        if (strcmp(argv[i], "DES") == 0 || strcmp(argv[i], "des") == 0) {
+        if (strcasecmp(argv[i], "des") == 0) {
             *kt = kt_DES;
             *keylength = 64;
-        } else if (strcmp(argv[i], "3DES") == 0
-                || strcmp(argv[i], "3des") == 0) {
+        } else if (strcasecmp(argv[i], "3des") == 0) {
             *kt = kt_3DES;
             *keylength = 192;
-        } else if (strcmp(argv[i], "AES") == 0 || strcmp(argv[i], "aes") == 0) {
+        } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
             *keylength = get_ulong_arg(i + 1, argv, argc);
             i++;
-        } else if (strcmp(argv[i], "RSA") == 0 || strcmp(argv[i], "rsa") == 0) {
+        } else if (strcasecmp(argv[i], "rsa") == 0) {
             *kt = kt_RSAPKCS;
             *keylength = get_ulong_arg(i + 1, argv, argc);
             i++;
-        } else if (strcmp(argv[i], "EC") == 0 || strcmp(argv[i], "ec") == 0) {
+        } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
             *ECcurve = get_string_arg(i + 1, argv, argc);
             i++;
@@ -2178,17 +2171,16 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
 
     for (i = 2; i < argc; i++) {
         /* Get arguments */
-        if (strcmp(argv[i], "DES") == 0 || strcmp(argv[i], "des") == 0) {
+        if (strcasecmp(argv[i], "des") == 0) {
             *kt = kt_DES;
             *keylength = 64;
-        } else if (strcmp(argv[i], "3DES") == 0
-                || strcmp(argv[i], "3des") == 0) {
+        } else if (strcasecmp(argv[i], "3des") == 0) {
             *kt = kt_3DES;
-        } else if (strcmp(argv[i], "AES") == 0 || strcmp(argv[i], "aes") == 0) {
+        } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
-        } else if (strcmp(argv[i], "RSA") == 0 || strcmp(argv[i], "rsa") == 0) {
+        } else if (strcasecmp(argv[i], "rsa") == 0) {
             *kt = kt_RSAPKCS;
-        } else if (strcmp(argv[i], "EC") == 0 || strcmp(argv[i], "ec") == 0) {
+        } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
