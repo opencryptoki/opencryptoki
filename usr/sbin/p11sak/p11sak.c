@@ -922,6 +922,24 @@ static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *attr,
     return CKR_OK;
 }
 
+CK_BBOOL is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
+{
+    CK_SESSION_INFO info;
+    CK_RV rc;
+
+    if (ret_code != CKR_FUNCTION_FAILED)
+        return CK_FALSE;
+
+    rc = funcs->C_GetSessionInfo(session, &info);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_GetSessionInfo failed (error code 0x%lX: %s)\n", rc,
+                p11_get_ckr(rc));
+        return CK_FALSE;
+    }
+
+    return (info.ulDeviceError == CKR_POLICY_VIOLATION) ? CK_TRUE : CK_FALSE;
+}
+
 /**
  * Generation of the symmetric key
  */
@@ -958,10 +976,15 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
     /* generate key */
     rc = funcs->C_GenerateKey(session, pmech, key_attr, num_attrs, phkey);
     if (rc != CKR_OK) {
-        fprintf(stderr, "Key generation of key of length %ld bytes failed\n",
-                a_value_len);
-        fprintf(stderr, "in tok_key_gen() (error code 0x%lX: %s)\n", rc,
-                p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session)) {
+            fprintf(stderr, "Key generation of key of length %ld bytes is rejected by policy\n",
+                    a_value_len);
+        } else {
+            fprintf(stderr, "Key generation of key of length %ld bytes failed\n",
+                    a_value_len);
+            fprintf(stderr, "in tok_key_gen() (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
+        }
     }
     return rc;
 }
@@ -982,8 +1005,11 @@ static CK_RV key_pair_gen(CK_SESSION_HANDLE session, p11sak_kt kt,
     rc = funcs->C_GenerateKeyPair(session, pmech, pubattr, pubcount, prvattr,
             prvcount, phpubkey, phprvkey);
     if (rc != CKR_OK) {
-        fprintf(stderr, "Key pair generation failed (error code 0x%lX: %s)\n", rc,
-                p11_get_ckr(rc));
+        if (is_rejected_by_policy(rc, session))
+            fprintf(stderr, "Key pair generation rejected by policy\n");
+        else
+            fprintf(stderr, "Key pair generation failed (error code 0x%lX: %s)\n", rc,
+                    p11_get_ckr(rc));
         return rc;
     }
 
