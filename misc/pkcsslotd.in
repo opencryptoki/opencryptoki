@@ -12,7 +12,7 @@
 
 . /etc/init.d/functions
 
-PIDFILE=/var/run/pkcsslotd.pid
+PIDFILE=/run/pkcsslotd.pid
 LOCKFILE=/var/lock/subsys/pkcsslotd
 SLOTDBIN=@sbindir@/pkcsslotd
 
