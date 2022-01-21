@@ -28,6 +28,7 @@
 #include <termios.h>
 #include "p11util.h"
 #include "p11sak.h"
+#include "mechtable.h"
 
 static const char *default_pkcs11lib = "libopencryptoki.so";
 
@@ -651,69 +652,89 @@ static CK_RV read_rsa_args(CK_ULONG modulusbits, CK_ULONG exponent,
  * Builds the CKA_EC_PARAMS attribute from the given ECcurve.
  */
 static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
-                          CK_ULONG *pubcount)
+                          CK_ULONG *pubcount, CK_ULONG *keybits)
 {
     pubattr[*pubcount].type = CKA_EC_PARAMS;
     if (strcmp(ECcurve, "prime256v1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) prime256v1;
         pubattr[*pubcount].ulValueLen = sizeof(prime256v1);
+        *keybits = 256;
     } else if (strcmp(ECcurve, "prime192v1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) prime192v1;
         pubattr[*pubcount].ulValueLen = sizeof(prime192v1);
+        *keybits = 192;
     } else if (strcmp(ECcurve, "secp224r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) secp224r1;
         pubattr[*pubcount].ulValueLen = sizeof(secp224r1);
+        *keybits = 224;
     } else if (strcmp(ECcurve, "secp384r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) secp384r1;
         pubattr[*pubcount].ulValueLen = sizeof(secp384r1);
+        *keybits = 384;
     } else if (strcmp(ECcurve, "secp521r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) secp521r1;
         pubattr[*pubcount].ulValueLen = sizeof(secp521r1);
+        *keybits = 521;
     } else if (strcmp(ECcurve, "secp265k1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) secp256k1;
         pubattr[*pubcount].ulValueLen = sizeof(secp256k1);
+        *keybits = 256;
     } else if (strcmp(ECcurve, "brainpoolP160r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP160r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP160r1);
+        *keybits = 160;
     } else if (strcmp(ECcurve, "brainpoolP160t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP160t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP160t1);
+        *keybits = 160;
     } else if (strcmp(ECcurve, "brainpoolP192r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP192r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP192r1);
+        *keybits = 192;
     } else if (strcmp(ECcurve, "brainpoolP192t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP192t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP192t1);
+        *keybits = 192;
     } else if (strcmp(ECcurve, "brainpoolP224r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP224r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP224r1);
+        *keybits = 224;
     } else if (strcmp(ECcurve, "brainpoolP224t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP224t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP224t1);
+        *keybits = 224;
     } else if (strcmp(ECcurve, "brainpoolP256r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP256r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP256r1);
+        *keybits = 256;
     } else if (strcmp(ECcurve, "brainpoolP256t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP256t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP256t1);
+        *keybits = 256;
     } else if (strcmp(ECcurve, "brainpoolP320r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP320r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP320r1);
+        *keybits = 320;
     } else if (strcmp(ECcurve, "brainpoolP320t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP320t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP320t1);
+        *keybits = 320;
     } else if (strcmp(ECcurve, "brainpoolP384r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP384r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP384r1);
+        *keybits = 384;
     } else if (strcmp(ECcurve, "brainpoolP384t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP384t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP384t1);
+        *keybits = 384;
     } else if (strcmp(ECcurve, "brainpoolP512r1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP512r1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP512r1);
+        *keybits = 512;
     } else if (strcmp(ECcurve, "brainpoolP512t1") == 0) {
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP512t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP512t1);
+        *keybits = 512;
     } else {
         fprintf(stderr, "Unexpected case while parsing EC curves.\n");
         fprintf(stderr, "Note: not all tokens support all curves.\n");
@@ -940,12 +961,46 @@ CK_BBOOL is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
     return (info.ulDeviceError == CKR_POLICY_VIOLATION) ? CK_TRUE : CK_FALSE;
 }
 
+CK_BBOOL is_mech_supported(CK_SLOT_ID slot, CK_MECHANISM *pmech,
+                           CK_ULONG keybits)
+{
+    CK_MECHANISM_INFO mech_info;
+    int rc;
+
+    rc = funcs->C_GetMechanismInfo(slot, pmech->mechanism, &mech_info);
+    if (rc != CKR_OK)
+        return CK_FALSE;
+
+    if ((mech_info.flags & (CKF_GENERATE | CKF_GENERATE_KEY_PAIR)) == 0)
+        return CK_FALSE;
+
+    if (keybits > 0) {
+        switch (pmech->mechanism) {
+        case CKM_DES_KEY_GEN:
+        case CKM_DES3_KEY_GEN:
+        case CKM_AES_KEY_GEN:
+            keybits /= 8; /* mechinfo reports key size in bytes */
+            break;
+        }
+
+        if (mech_info.ulMinKeySize == 0 && mech_info.ulMaxKeySize == 0)
+            return CK_TRUE;
+        if (mech_info.ulMinKeySize > keybits)
+            return CK_FALSE;
+        if (mech_info.ulMaxKeySize < keybits)
+            return CK_FALSE;
+    }
+
+    return CK_TRUE;
+}
+
 /**
  * Generation of the symmetric key
  */
-static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
-                         CK_MECHANISM *pmech, char *attr_string,
-                         CK_OBJECT_HANDLE *phkey, char *label)
+static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                         CK_ULONG keylength, CK_MECHANISM *pmech,
+                         char *attr_string, CK_OBJECT_HANDLE *phkey,
+                         char *label)
 {
     CK_RV rc;
     int i = 0;
@@ -973,6 +1028,13 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
         num_attrs += strlen(attr_string);
     }
     
+    if (!is_mech_supported(slot, pmech, keylength)) {
+        fprintf(stderr, "Key generation mechanism %s with key length %lu is not supported by slot %lu\n",
+                p11_get_ckm(&mechtable_funcs, pmech->mechanism), a_value_len,
+                slot);
+        return CKR_MECHANISM_INVALID;
+    }
+
     /* generate key */
     rc = funcs->C_GenerateKey(session, pmech, key_attr, num_attrs, phkey);
     if (rc != CKR_OK) {
@@ -991,16 +1053,22 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_ULONG keylength,
 /**
  * Generation of the asymmetric key pair
  */
-static CK_RV key_pair_gen(CK_SESSION_HANDLE session, p11sak_kt kt,
-                          CK_MECHANISM_PTR pmech, CK_ATTRIBUTE *pubattr,
-                          CK_ULONG pubcount, CK_ATTRIBUTE *prvattr,
-                          CK_ULONG prvcount, CK_OBJECT_HANDLE_PTR phpubkey,
-                          CK_OBJECT_HANDLE_PTR phprvkey)
+static CK_RV key_pair_gen(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                          p11sak_kt kt, CK_MECHANISM_PTR pmech,
+                          CK_ATTRIBUTE *pubattr, CK_ULONG pubcount,
+                          CK_ATTRIBUTE *prvattr, CK_ULONG prvcount,
+                          CK_OBJECT_HANDLE_PTR phpubkey,
+                          CK_OBJECT_HANDLE_PTR phprvkey, CK_ULONG keybits)
 {
-
     CK_RV rc;
 
     printf("Generate asymmetric key: %s\n", kt2str(kt));
+
+    if (!is_mech_supported(slot, pmech, keybits)) {
+        fprintf(stderr, "Key generation mechanism %s with key length %lu is not supported by slot %lu\n",
+                p11_get_ckm(&mechtable_funcs, pmech->mechanism), keybits, slot);
+        return CKR_MECHANISM_INVALID;
+    }
 
     rc = funcs->C_GenerateKeyPair(session, pmech, pubattr, pubcount, prvattr,
             prvcount, phpubkey, phprvkey);
@@ -2230,9 +2298,9 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
 /**
  * Generate a symmetric key.
  */
-static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, p11sak_kt kt,
-                                    CK_ULONG keylength, char *label,
-                                    char *attr_string)
+static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                                    p11sak_kt kt, CK_ULONG keylength,
+                                    char *label, char *attr_string)
 {
     CK_OBJECT_HANDLE hkey;
     CK_MECHANISM mech;
@@ -2248,7 +2316,8 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, p11sak_kt kt,
         goto done;
     }
 
-    rc = tok_key_gen(session, keylength, &mech, attr_string, &hkey, label);
+    rc = tok_key_gen(session, slot, keylength, &mech, attr_string, &hkey,
+                     label);
     if (rc != CKR_OK) {
         fprintf(stderr, "Key generation failed (error code 0x%lX: %s)\n", rc,
                 p11_get_ckr(rc));
@@ -2290,7 +2359,7 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             goto done;
         }
     } else if (kt == kt_EC) {
-        rc = read_ec_args(ECcurve, pub_attr, &pub_acount);
+        rc = read_ec_args(ECcurve, pub_attr, &pub_acount, &keylength);
         if (rc) {
             fprintf(stderr, "Error parsing EC parameters!\n");
             goto done;
@@ -2358,8 +2427,8 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         }
     }
 
-    rc = key_pair_gen(session, kt, &mech, pub_attr, pub_acount, prv_attr,
-            prv_acount, &pub_keyh, &prv_keyh);
+    rc = key_pair_gen(session, slot, kt, &mech, pub_attr, pub_acount, prv_attr,
+            prv_acount, &pub_keyh, &prv_keyh, keylength);
     if (rc != CKR_OK) {
         fprintf(stderr, 
                 "Generating a key pair in the token in slot %ld failed (error code 0x%lX: %s)\n",
@@ -2403,7 +2472,7 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     case kt_DES:
     case kt_3DES:
     case kt_AES:
-        return generate_symmetric_key(session, kt, keylength, label,
+        return generate_symmetric_key(session, slot, kt, keylength, label,
                 attr_string);
     case kt_RSAPKCS:
     case kt_EC:
