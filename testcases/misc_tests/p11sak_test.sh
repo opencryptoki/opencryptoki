@@ -34,6 +34,9 @@ P11SAK_RSA_POST=p11sak-rsa-post.out
 P11SAK_EC_PRE=p11sak-ec-pre.out
 P11SAK_EC_LONG=p11sak-ec-long.out
 P11SAK_EC_POST=p11sak-ec-post.out
+P11SAK_IBM_DIL_PRE=p11sak-ibm-dil-pre.out
+P11SAK_IBM_DIL_LONG=p11sak-ibm-dil-long.out
+P11SAK_IBM_DIL_POST=p11sak-ibm-dil-post.out
 
 
 echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
@@ -66,6 +69,8 @@ p11sak generate-key rsa 4096 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-
 p11sak generate-key ec prime256v1 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-prime256v1
 p11sak generate-key ec secp384r1 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp384r1
 p11sak generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp521r1
+# ibm-dilithium
+p11sak generate-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium
 
 
 echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
@@ -77,12 +82,14 @@ p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_3DES_PRE
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_PRE
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_PRE
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_PRE
+p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_DIL_PRE
 
 p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_DES_LONG
 p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_3DES_LONG
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AES_LONG
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_RSA_LONG
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_EC_LONG
+p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_IBM_DIL_LONG
 
 echo "** Now remove keys - 'p11sak_test.sh'"
 
@@ -114,6 +121,9 @@ p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp5
 p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-prime256v1:prv -f
 p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp384r1:prv -f
 p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp521r1:prv -f
+# remove ibm dilithium keys
+p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium:pub -f
+p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium:prv -f
 
 
 echo "** Now list keys and rediirect to post-files - 'p11sak_test.sh'"
@@ -125,6 +135,7 @@ p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_3DES_POST
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_POST
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_POST
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_POST
+p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_DIL_POST
 
 
 echo "** Now checking output files to determine PASS/FAIL of tests - 'p11sak_test.sh'"
@@ -519,6 +530,26 @@ echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribut
 fi
 
 
+# CK_BBOOL
+if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CK_TRUE') == "14" ]]; then
+echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BBOOL attribute"
+else
+echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BBOOL attribute"
+fi
+# CK_ULONG
+if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_ULONG attribute"
+else
+echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_ULONG attribute"
+fi
+# CK_BYTE
+if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BYTE attribute"
+else
+echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BYTE attribute"
+fi
+
+
 echo "** Now remove temporary output files - 'p11sak_test.sh'"
 
 
@@ -537,6 +568,9 @@ rm -f $P11SAK_RSA_POST
 rm -f $P11SAK_EC_PRE
 rm -f $P11SAK_EC_LONG
 rm -f $P11SAK_EC_POST
+rm -f $P11SAK_IBM_DIL_PRE
+rm -f $P11SAK_IBM_DIL_LONG
+rm -f $P11SAK_IBM_DIL_POST
 
 echo "** Now DONE testing - 'p11sak_test.sh'"
 
