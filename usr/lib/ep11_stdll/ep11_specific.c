@@ -551,6 +551,27 @@ typedef struct const_info {
 
 #define CONSTINFO(_X) { (_X), (#_X) }
 
+static void trace_attributes(const char *func, const char *heading,
+                             CK_ATTRIBUTE_PTR attrs, CK_ULONG num_attrs)
+{
+    CK_ULONG i;
+
+#ifndef DEBUG
+    UNUSED(func);
+    UNUSED(heading);
+    UNUSED(attrs);
+    UNUSED(num_attrs);
+#endif
+
+    if (trace.level < TRACE_LEVEL_DEBUG)
+        return;
+
+    TRACE_DEBUG("%s: %s\n", func, heading);
+    for (i = 0; i < num_attrs; i++) {
+        TRACE_DEBUG_DUMPATTR(&attrs[i]);
+    }
+}
+
 static CK_RV cleanse_attribute(TEMPLATE *template,
                                CK_ATTRIBUTE_TYPE attr_type)
 {
@@ -750,6 +771,8 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     }
 
     memset(&ep11_data->pkey_mk_vp, 0, PKEY_MK_VP_LENGTH);
+
+    trace_attributes(__func__, "Generate prot. test key:", tmpl, tmpl_len);
 
     /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
     ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
@@ -1929,6 +1952,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
+    trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
+
     ep11_get_pin_blob(ep11_session, object_is_session_object(key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -2020,6 +2045,8 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
                    __func__, ep11_data->raw2key_wrap_blob_l);
         return CKR_OK;
     }
+
+    trace_attributes(__func__, "Generate wrap blog key:", tmpl_in, tmpl_len);
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
@@ -2528,6 +2555,8 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
         node = node->next;
     }
 
+    trace_attributes(__func__, "MACed SPKI import:", p_attrs, attrs_len);
+
     ep11_get_pin_blob(ep11_session, object_is_session_object(pub_key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -2713,6 +2742,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
                         "rc=0x%lx\n", __func__, rc);
             goto import_RSA_key_end;
         }
+
+        trace_attributes(__func__, "RSA import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(rsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
@@ -2941,6 +2972,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_EC_key_end;
         }
 
+        trace_attributes(__func__, "EC import:", new_p_attrs, new_attrs_len);
+
         ep11_get_pin_blob(ep11_session, object_is_session_object(ec_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3130,6 +3163,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_DSA_key_end;
         }
 
+        trace_attributes(__func__, "DSA import:", new_p_attrs, new_attrs_len);
+
         ep11_get_pin_blob(ep11_session, object_is_session_object(dsa_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -3307,6 +3342,8 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
                         "rc=0x%lx\n", __func__, rc);
             goto import_DH_key_end;
         }
+
+        trace_attributes(__func__, "DH import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dh_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
@@ -3497,6 +3534,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
                         "rc=0x%lx\n", __func__, rc);
             goto done;
         }
+
+        trace_attributes(__func__, "Dilithium import:", new_p_attrs, new_attrs_len);
 
         ep11_get_pin_blob(ep11_session, object_is_session_object(dilithium_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
@@ -3743,6 +3782,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
+
+    trace_attributes(__func__, "Generate key:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
@@ -4993,6 +5034,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
+
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
@@ -5277,6 +5320,11 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto dh_generate_keypair_end;
     }
+
+    trace_attributes(__func__, "DH public key attributes:",
+                     new_publ_attrs, new_publ_attrs_len);
+    trace_attributes(__func__, "DH private key attributes:",
+                     new_priv_attrs, new_priv_attrs_len);
 
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
@@ -5611,6 +5659,11 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         goto dsa_generate_keypair_end;
     }
 
+    trace_attributes(__func__, "DSA public key attributes:",
+                     new_publ_attrs2, new_publ_attrs2_len);
+    trace_attributes(__func__, "DSA private key attributes:",
+                     new_priv_attrs2, new_priv_attrs2_len);
+
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
                        (pPublicKeyTemplate, ulPublicKeyAttributeCount)
@@ -5824,6 +5877,11 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                    new_pPrivateKeyTemplate[i].ulValueLen,
                    new_ulPrivateKeyAttributeCount);
     }
+
+    trace_attributes(__func__, "RSA/EC public key attributes:",
+                     new_publ_attrs2, new_publ_attrs2_len);
+    trace_attributes(__func__, "RSA/EC private key attributes:",
+                     new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
@@ -6164,6 +6222,11 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                    new_pPrivateKeyTemplate[i].ulValueLen,
                    new_ulPrivateKeyAttributeCount);
     }
+
+    trace_attributes(__func__, "Dilithium public key attributes:",
+                     new_publ_attrs2, new_publ_attrs2_len);
+    trace_attributes(__func__, "Dilithium private key attributes:",
+                     new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
                       (ep11_is_session_object
@@ -8337,6 +8400,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
+
+    trace_attributes(__func__, "Unwrap:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
