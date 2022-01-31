@@ -1979,6 +1979,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
         CK_ULONG keylen = 32;
         CK_BBOOL true = TRUE;
         CK_BBOOL false = FALSE;
+        CK_BBOOL sign = TRUE;
+        CK_BBOOL derive = TRUE;
         CK_BYTE wrap_key_label[] = "Wrap_Key";
         CK_OBJECT_CLASS wclass = CKO_PRIVATE_KEY;
         CK_KEY_TYPE keyType = CKK_EC;
@@ -1989,8 +1991,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
         };
         CK_ATTRIBUTE cka_unwrap_tmpl[] = {
             {CKA_DECRYPT, &true, sizeof(true)},
-            {CKA_SIGN, &true, sizeof(true)},
-            {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_SIGN, &sign, sizeof(sign)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
             {CKA_PRIVATE, &true, sizeof(true)},
             {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &false, sizeof(false)},
@@ -2005,6 +2007,11 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_WRAP_TEMPLATE, &cka_wrap_tmpl, sizeof(cka_wrap_tmpl)},
             {CKA_UNWRAP_TEMPLATE, &cka_unwrap_tmpl, sizeof(cka_unwrap_tmpl)},
         };
+
+        if (ec_tv[i].curve_type == CURVE_EDWARDS)
+            derive = FALSE;
+        if (ec_tv[i].curve_type == CURVE_MONTGOMERY)
+            sign = FALSE;
 
         rc = funcs->C_GenerateKey(session, &aes_keygen_mech, secret_tmpl,
                                   sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE),
@@ -2058,8 +2065,8 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_SUBJECT, subject, sizeof(subject)},
             {CKA_ID, id, sizeof(id)},
             {CKA_SENSITIVE, &true, sizeof(true)},
-            {CKA_DECRYPT, &true, sizeof(true)},
-            {CKA_SIGN, &true, sizeof(true)},
+            {CKA_DERIVE, &derive, sizeof(derive)},
+            {CKA_SIGN, &sign, sizeof(sign)},
             {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &false, sizeof(false)},
         };
