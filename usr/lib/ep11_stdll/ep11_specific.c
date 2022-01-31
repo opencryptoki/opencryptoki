@@ -1801,6 +1801,10 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         ep11_data->pkey_wrap_supported == 0)
         return CK_FALSE;
 
+    /* EP11 does not support sign/verify recover */
+    if (attr->type == CKA_SIGN_RECOVER || attr->type == CKA_VERIFY_RECOVER)
+        return CK_FALSE;
+
     switch (ktype) {
     case CKK_RSA:
         if (class == CKO_PRIVATE_KEY && attr->type == CKA_PUBLIC_EXPONENT)
@@ -1810,7 +1814,7 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS)
             return CK_FALSE;
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_SIGN_RECOVER)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
             return CK_FALSE;
         /* Montgomery curves cannot be used for sign/verify */
         if (class == CKO_PRIVATE_KEY && curve_type == MONTGOMERY_CURVE && attr->type == CKA_SIGN)
@@ -1823,7 +1827,7 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         break;
     case CKK_DSA:
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_SIGN_RECOVER)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
             return CK_FALSE;
         if (attr->type == CKA_PRIME || attr->type == CKA_SUBPRIME ||
             attr->type == CKA_BASE)
@@ -1831,14 +1835,15 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         break;
     case CKK_DH:
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_SIGN || attr->type == CKA_SIGN_RECOVER)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_SIGN || attr->type == CKA_VERIFY)
             return CK_FALSE;
         if (attr->type == CKA_BASE || attr->type == CKA_PRIME)
             return CK_FALSE;
         break;
     case CKK_IBM_PQC_DILITHIUM:
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_SIGN_RECOVER)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
             return CK_FALSE;
         break;
     default:
@@ -2464,7 +2469,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
 static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
                              OBJECT *pub_key_obj,
                              CK_BYTE *spki, CK_ULONG spki_len,
-                             CK_BYTE *maced_spki, CK_ULONG *maced_spki_len)
+                             CK_BYTE *maced_spki, CK_ULONG *maced_spki_len,
+                             int curve_type)
 {
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
@@ -2494,6 +2500,10 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
     node = pub_key_obj->template->attribute_list;
     while (node != NULL) {
         attr = node->data;
+
+        if (!attr_applicable_for_ep11(tokdata, attr, keytype,
+                                      CKO_PUBLIC_KEY, curve_type))
+            goto make_maced_spki_next;
 
         switch (attr->type) {
         case CKA_ENCRYPT:
@@ -2526,11 +2536,9 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
             break;
 
         case CKA_EXTRACTABLE:
-
         case CKA_MODIFIABLE:
         case CKA_DERIVE:
         case CKA_WRAP:
-
         case CKA_TRUSTED:
         case CKA_IBM_RESTRICTABLE:
         case CKA_IBM_NEVER_MODIFIABLE:
@@ -2552,6 +2560,7 @@ static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
         default:
             break;
         }
+make_maced_spki_next:
         node = node->next;
     }
 
@@ -2696,7 +2705,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, rsa_key_obj, data, data_len,
-                             blob, blob_size);
+                             blob, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -2924,7 +2933,7 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, ec_key_obj, data, data_len,
-                             blob, blob_size);
+                             blob, blob_size, (int)curve->curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -3115,7 +3124,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, dsa_key_obj, data, data_len,
-                             blob, blob_size);
+                             blob, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -3296,7 +3305,7 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, dh_key_obj, data, data_len,
-                             blob, blob_size);
+                             blob, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -3486,7 +3495,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, dilithium_key_obj, data, data_len,
-                             blob, blob_size);
+                             blob, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
