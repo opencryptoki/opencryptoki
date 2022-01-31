@@ -11711,17 +11711,21 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
 
         /* EP11 can set certain boolean attributes only */
         switch (attr->type) {
+        case CKA_VERIFY:
+        case CKA_VERIFY_RECOVER:
+        case CKA_ENCRYPT:
+            /* Can not restrict public key for verify and encrypt */
+            if (class == CKO_PUBLIC_KEY)
+                break;
+            /* Fallthrough */
         case CKA_EXTRACTABLE:
         case CKA_MODIFIABLE:
         case CKA_SIGN:
         case CKA_SIGN_RECOVER:
         case CKA_DECRYPT:
-        case CKA_ENCRYPT:
         case CKA_DERIVE:
         case CKA_UNWRAP:
         case CKA_WRAP:
-        case CKA_VERIFY:
-        case CKA_VERIFY_RECOVER:
         case CKA_WRAP_WITH_TRUSTED:
         case CKA_TRUSTED:
         case CKA_IBM_RESTRICTABLE:
