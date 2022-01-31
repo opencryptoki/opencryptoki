@@ -4311,11 +4311,16 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     prime_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     base_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
-    value_bits_attr =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP)
+        value_bits_attr =
+            (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
 
-    if (!type_attr || !prime_attr || !base_attr || !value_attr
-        || !value_bits_attr) {
+    if (!type_attr || !prime_attr || !base_attr || !value_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc =  CKR_HOST_MEMORY;
+        goto error;
+    }
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP && !value_bits_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc =  CKR_HOST_MEMORY;
         goto error;
@@ -4333,11 +4338,13 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr->ulValueLen = 0;
     value_attr->pValue = NULL;
 
-    value_bits_attr->type = CKA_VALUE_BITS;
-    value_bits_attr->ulValueLen = sizeof(CK_ULONG);
-    value_bits_attr->pValue =
-        (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) value_bits_attr->pValue = bits;
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP) {
+        value_bits_attr->type = CKA_VALUE_BITS;
+        value_bits_attr->ulValueLen = sizeof(CK_ULONG);
+        value_bits_attr->pValue =
+            (CK_BYTE *) value_bits_attr + sizeof(CK_ATTRIBUTE);
+        *(CK_ULONG *) value_bits_attr->pValue = bits;
+    }
 
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
@@ -4368,12 +4375,14 @@ CK_RV dh_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     value_attr = NULL;
-    rc = template_update_attribute(tmpl, value_bits_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (mode != MODE_CREATE && mode != MODE_UNWRAP) {
+        rc = template_update_attribute(tmpl, value_bits_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        value_bits_attr = NULL;
     }
-    value_bits_attr = NULL;
 
     return CKR_OK;
 
