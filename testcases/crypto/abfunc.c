@@ -1008,7 +1008,7 @@ void do_TestDerive(CK_SESSION_HANDLE session)
     CK_BBOOL val, checkval, true = TRUE;
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
-    CK_ULONG valuelen = 0;
+    CK_ULONG valuelen = 10;
     // Cannot be static because of @val
     CK_ATTRIBUTE derive_tmpl[] = {
         {CKA_CLASS, &class, sizeof(class)},
