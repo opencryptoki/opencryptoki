@@ -4510,6 +4510,8 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *prime = NULL;
     CK_ATTRIBUTE *base = NULL;
     CK_ATTRIBUTE *value = NULL;
+    CK_ATTRIBUTE *value_bits = NULL;
+    CK_ULONG num_bits;
     CK_RV rc;
 
     rc = ber_decode_DHPublicKey(data, total_length, &prime, &base, &value);
@@ -4542,6 +4544,19 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     }
     value = NULL;
 
+    rc = build_attribute(CKA_VALUE_BITS, (CK_BYTE *)&num_bits, sizeof(num_bits),
+                         &value_bits);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    rc = template_update_attribute(tmpl, value_bits);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_bits = NULL;
+
     return CKR_OK;
 
 error:
@@ -4551,6 +4566,8 @@ error:
         free(base);
     if (value)
         free(value);
+    if (value_bits)
+        free(value_bits);
 
     return rc;
 }
