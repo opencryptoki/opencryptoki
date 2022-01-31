@@ -3313,6 +3313,9 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         }
 
     } else {
+        CK_ATTRIBUTE *value;
+        CK_ATTRIBUTE *value_bits;
+        CK_ULONG num_bits;
 
         /* imported private DH key goes here */
 
@@ -3325,6 +3328,15 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
             TRACE_DEVEL("%s DH wrap get data failed\n", __func__);
             goto import_DH_key_end;
         }
+
+        rc = template_attribute_get_non_empty(dh_key_obj->template, CKA_VALUE,
+                                              &value);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+            goto import_DH_key_end;
+        }
+
+        num_bits = value->ulValueLen * 8;
 
         /* encrypt */
         RETRY_START(rc, tokdata)
@@ -3377,6 +3389,21 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
         } else {
             TRACE_INFO("%s wrapping unwrap key rc=0x%lx blob_size=0x%zx\n",
                        __func__, rc, *blob_size);
+        }
+
+        rc = build_attribute(CKA_VALUE_BITS, (CK_BYTE *)&num_bits,
+                             sizeof(num_bits), &value_bits);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+            goto import_DH_key_end;
+        }
+
+        rc = template_update_attribute(dh_key_obj->template, value_bits);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(value_bits);
+            goto import_DH_key_end;
         }
 
         cleanse_attribute(dh_key_obj->template, CKA_VALUE);
