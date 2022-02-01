@@ -6209,6 +6209,8 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
+    const CK_BYTE dilithium_oid[] = { 0x06, 0x0b, 0x2b, 0x06, 0x01, 0x04, 0x01,
+                                      0x02, 0x82, 0x0b, 0x01, 0x06, 0x05 };
 
     UNUSED(h);
 
@@ -6230,6 +6232,24 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                           ktype, CKO_PRIVATE_KEY, -1);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
+                                CKA_IBM_PQC_PARAMS, (CK_BYTE *)dilithium_oid,
+                                sizeof(dilithium_oid));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto error;
+    }
+
+    rc = add_to_attribute_array(&new_priv_attrs, &new_priv_attrs_len,
+                                CKA_IBM_PQC_PARAMS,(CK_BYTE *)dilithium_oid,
+                                sizeof(dilithium_oid));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
 
