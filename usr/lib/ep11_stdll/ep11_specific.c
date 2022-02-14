@@ -6375,13 +6375,27 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
-    /* build and add CKA_IBM_DILITHIUM_RHO */
+    /* build and add CKA_IBM_DILITHIUM_RHO for public key */
     rc = build_attribute(CKA_IBM_DILITHIUM_RHO, data, data_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
     rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                __func__, rc);
+        free(attr);
+        goto error;
+    }
+
+    /* build and add CKA_IBM_DILITHIUM_RHO for private key */
+    rc = build_attribute(CKA_IBM_DILITHIUM_RHO, data, data_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                 __func__, rc);
@@ -6404,13 +6418,27 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     TRACE_DEBUG_DUMP("    ", data, data_len);
 #endif
 
-    /* build and add CKA_IBM_DILITHIUM_T1 */
+    /* build and add CKA_IBM_DILITHIUM_T1 for public key */
     rc = build_attribute(CKA_IBM_DILITHIUM_T1, data, data_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto error;
     }
     rc = template_update_attribute(publ_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                __func__, rc);
+        free(attr);
+        goto error;
+    }
+
+    /* build and add CKA_IBM_DILITHIUM_T1 for private key */
+    rc = build_attribute(CKA_IBM_DILITHIUM_T1, data, data_len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
                 __func__, rc);
