@@ -10922,13 +10922,18 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
 #ifdef DEBUG
     TRACE_DEBUG("Control points from adapter %02X.%04X\n", adapter, domain);
     TRACE_DEBUG_DUMP("    ", cp, cp_len);
+    TRACE_DEBUG("Max control point index: %lu\n", max_cp_index);
 #endif
 
     if (data->first) {
         data->first_adapter = adapter;
         data->first_domain = domain;
-        memcpy(data->first_cp, cp, cp_len);
-        memcpy(data->combined_cp, cp, cp_len);
+        /* Apply CP bits 0 to max_cp_index-1 only */
+        for (i = 0; i < max_cp_index; i++) {
+            data->combined_cp[CP_BYTE_NO(i)] &=
+                                    (cp[CP_BYTE_NO(i)] | ~CP_BIT_MASK(i));
+        }
+        memcpy(data->first_cp, data->combined_cp, sizeof(data->first_cp));
         data->max_cp_index = max_cp_index;
         data->first = 0;
     } else {
@@ -10945,8 +10950,10 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
                        data->first_domain);
         }
 
-        for (i = 0; i < cp_len; i++) {
-            data->combined_cp[i] &= cp[i];
+        for (i = 0; i < max_cp_index; i++) {
+            /* Apply CP bits 0 to max_cp_index-1 only */
+            data->combined_cp[CP_BYTE_NO(i)] &=
+                                    (cp[CP_BYTE_NO(i)] | ~CP_BIT_MASK(i));
         }
 
         if (max_cp_index != data->max_cp_index) {
@@ -10991,6 +10998,11 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
     memset(&data, 0, sizeof(data));
+    /*
+     * Turn all CPs ON by default, so that newer control points that are unknown
+     * to older cards default to ON. CPs being OFF disable functionality.
+     */
+    memset(data.combined_cp, 0xff, sizeof(data.combined_cp));
     data.first = 1;
     rc = handle_all_ep11_cards(&ep11_data->target_list, control_point_handler,
                                &data);
@@ -11005,6 +11017,7 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
     TRACE_DEBUG("Combined control points from all cards (%lu CPs):\n",
                 data.max_cp_index);
     TRACE_DEBUG_DUMP("    ", cp, *cp_len);
+    TRACE_DEBUG("Max control point index: %lu\n", data.max_cp_index);
     print_control_points(cp, *cp_len, data.max_cp_index);
 #endif
 
