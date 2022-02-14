@@ -5023,7 +5023,7 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
     keyform_attr->ulValueLen = sizeof(CK_ULONG);
     keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) keyform_attr->pValue = 1;
+    *(CK_ULONG *) keyform_attr->pValue = IBM_DILITHIUM_KEYFORM_ROUND2;
 
     rho_attr->type = CKA_IBM_DILITHIUM_RHO;
     rho_attr->ulValueLen = 0;
@@ -5115,7 +5115,7 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
     keyform_attr->ulValueLen = sizeof(CK_ULONG);
     keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) keyform_attr->pValue = 1;
+    *(CK_ULONG *) keyform_attr->pValue = IBM_DILITHIUM_KEYFORM_ROUND2;
 
     rho_attr->type = CKA_IBM_DILITHIUM_RHO;
     rho_attr->ulValueLen = 0;
