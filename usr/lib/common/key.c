@@ -2887,10 +2887,12 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
         goto error;
     }
     t0 = NULL;
-    rc = template_update_attribute(tmpl, t1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
+    if (t1 != NULL) {
+        rc = template_update_attribute(tmpl, t1);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
     }
     t1 = NULL;
 

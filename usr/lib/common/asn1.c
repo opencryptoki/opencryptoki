@@ -4098,7 +4098,7 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
     CK_BYTE *dilithium_priv_key = NULL;
     CK_BYTE *buf = NULL;
     CK_BYTE *tmp = NULL;
-    CK_ULONG offset, buf_len, field_len, len;
+    CK_ULONG offset, buf_len, field_len, len, option;
     CK_RV rc;
 
     /* Check if this is a Dilithium private key */
@@ -4215,12 +4215,28 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         offset += field_len;
     }
 
-    /* t1 */
-    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
-        goto cleanup;
-    } else {
+    /* t1 (optional, within choice) */
+    if (offset < buf_len) {
+        rc = ber_decode_CHOICE(buf + offset, &tmp, &len, &field_len, &option);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+            goto cleanup;
+        }
+
+        if (option != 0x00) {
+            TRACE_DEVEL("ber_decode_CHOICE returned invalid option %ld\n",
+                        option);
+            goto cleanup;
+        }
+
+        offset += field_len - len;
+
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+            goto cleanup;
+        }
+
         rc = build_attribute(CKA_IBM_DILITHIUM_T1, tmp, len, &t1_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (t1) failed\n");
