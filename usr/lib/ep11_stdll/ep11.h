@@ -16,7 +16,6 @@
 
 #if !defined(XCP_H__)
 #define XCP_H__
-
 #if !defined(CKR_OK)
 #include "pkcs11.h"
 #endif
@@ -25,194 +24,9 @@
 #error "We need 64-bit <stdint.h> types, please include before this file."
 #endif
 
-// SHA224 etc. are additions to PKCS#11 2.20
-// remove these if host migrates beyond 2.20 as base minimum [unlikely]
-//
-#if !defined(CKM_SHA224)
-#define  CKM_SHA224                 0x00000255
-#define  CKM_SHA224_HMAC            0x00000256
-#define  CKM_SHA224_HMAC_GENERAL    0x00000257
-#define  CKM_SHA224_RSA_PKCS        0x00000046
-#define  CKM_SHA224_RSA_PKCS_PSS    0x00000047
-#define  CKM_SHA224_KEY_DERIVATION  0x00000396
-#define  CKM_AES_CTR                0x00001086
-#define  CKG_MGF1_SHA224            0x00000005
-#endif
-
-#if !defined(CKM_AES_CMAC)
-#define  CKM_AES_CMAC               0x0000108a
-#endif
-
-#if !defined(CKM_DES3_CMAC)
-#define  CKM_DES3_CMAC              0x00000138
-#endif
-
-
-
-// max value for target groups
-#define XCP_MAX_GRPIDX 1024u
-//
-// current version of XCP_Module structure; host code SHOULD interact with
-// future/past versions, MUST be set by caller before using m_add_module()
-// valid versions are all >0
-#define  XCP_MOD_VERSION  2
 //
 // used for internal and external paths/addresses
 #define  MAX_FNAME_CHARS  256
-
-// macros for setting/checking and removing domains from (tgt.mgmt) domain mask
-#define XCPTGTMASK_SET_DOM(mask, domain)      \
-                           mask[((domain)/8)] |=   (1 << (7-(domain)%8))
-#define XCPTGTMASK_DOM_IS_SET(mask, domain)   \
-                           (mask[((domain)/8)] &   (1 << (7-(domain)%8)))
-#define XCPTGTMASK_CLR_DOM(mask, domain)      \
-                           mask[((domain)/8)] &=  ~(1 << (7-(domain)%8))
-//
-
-
-/* flags that can be set for the target tokens
- *
- * This flags are domain specific and are therefore called domain flags
- *
- * start of flags is >16 Bit. Max value for domains is 0xFF. Should be enough
- * room for extensions
- */
-#define XCP_TGTFL_WCAP     0x10000000  /* Capture wire request in output buffer
-                                        * without sending it to the module
-                                        */
-#define XCP_TGTFL_WCAP_SQ  0x20000000  /* Size query: Return size of request in
-                                        * output buffer length field
-                                        */
-#define XCP_TGTFL_SET_SCMD 0x40000000  /* Protected key special command: Set the
-                                        * special command flag in the CPRB
-                                        * header
-                                        */
-#define XCP_TGTFL_API_CHKD 0x80000000  /* supported API version of modules in
-                                        * target (group) has been checked
-                                        */
-
-#define XCP_TGTFL_NO_LOCK 0x01000000   /* target token ignores sequential locks
-                                        * for target probing
-                                        */
-#define XCP_TGTFL_SET_ACMD 0x04000000  /* add CPRB admin flag to CPRB header */
-
-//--------------------------------------
-// socket use only
-#define  XCP_MAXCONNECTIONS 64       /* max value for active connections */
-#define  XCP_MAX_PORT     0xffff
-
-// hostname and port value fore one module
-typedef struct XCP_ModuleSocket {
-	char host[ MAX_FNAME_CHARS +1 ];
-	uint32_t port;
-} *XCP_ModuleSocket_t ;
-
-
-//--------------------------------------
-// diagnostics use only
-typedef struct XCP_DomainPerf {
-	/* perf value of last request per domain
-	 *
-	 * At the moment unused
-	 * */
-	unsigned int lastperf[ 256 ];
-} *XCP_DomainPerf_t;
-
-
-//--------------------------------------
-// subsequent communications with a module MAY skip infrastructure-specific
-// fields, such as a query not reporting device handles etc., even if they
-// have been supplied originally when the module has been registered.
-//
-typedef struct XCP_Module {
-	uint32_t version;     /* >0 for supported API versions */
-
-	uint64_t flags;       /* see XCP_Module_Flags */
-
-	uint32_t domains;     /* max# addressable under this module;
-	                       * cached from OS
-	                       *
-	                       * when callers set domains  to 0, the library
-	                       * returns the module-claimed domain count.
-	                       */
-
-	unsigned char domainmask[ 256 /8 ];
-	                      /* higher domain# through future flags (none
-	                       * currently defined) which would add things
-	                       * like 'FLAG_256_1023' etc. at the same time,
-	                       * we would add domainmask2[] etc.
-	                       * corresponding new fields.
-	                       *
-	                       * new fields would then store mask for
-	                       * domains 256+ etc.
-	                       *
-	                       * domain #0 is bit x80 of 1st byte,
-	                       * #255 is bit 0x01 of last byte.
-	                       */
-
-		// when a domainmask is supplied, with bits set beyond
-		// what the module supports, the bitmask is trimmed to
-		// the supported range, but this is NOT reported as an
-		// error, unless XCP_MFL_STRICT is also supplied.
-		//
-		// without XCP_MFL_STRICT, callers are expected to check
-		// at least the returned domain count.
-
-			/* used only when flags includes XCP_MFL_SOCKET */
-	struct XCP_ModuleSocket socket;
-
-			/* used when system exposes modules through an
-			 * array of transparent pipes, or similar abstraction
-			 * (such as mainframe AP Queues, or other Linux
-			 * 'device-minor' numbers etc.). Interpretation
-			 * is platform-dependent.
-			 *
-			 * used only when flags includes XCP_MFL_MODULE
-			 */
-	uint32_t module_nr;
-
-			/* used by systems which associate devices with
-			 * device handles/structs/etc. persistent state.
-			 * opaque pointer, usually a const pointer to
-			 * such aux structs, MAY be stored here.
-			 *
-			 * interpretation is platform-dependent.
-			 * used only when flags includes XCP_MFL_MHANDLE
-			 */
-	void *mhandle;
-			/* diagnostics use only, when XCP_MFL_PERF is set */
-	struct XCP_DomainPerf perf;
-	//-----  end of v1 fields  -------------------------------------------
-
-	uint32_t api; /* module api version*/
-	//-----  end of v2 fields  -------------------------------------------
-} *XCP_Module_t ;
-
-typedef enum {
-	XCP_MFL_SOCKET       =    1,  /* backend is socket-attached */
-	XCP_MFL_MODULE       =    2,  /* backends identified in
-	                                 array-of-modules */
-	XCP_MFL_MHANDLE      =    4,  /* backends uses 'module handle' field */
-	XCP_MFL_PERF         =    8,  /* performance statistics collected
-	                               * for this module, see .perf
-	                               */
-	XCP_MFL_VIRTUAL      = 0x10,  /* queried 'target' is a load-balancer,
-	                               * other other group.
-	                               */
-	XCP_MFL_STRICT       = 0x20,  /* enable aggressive error checking,
-	                               * see field descriptions for effect
-	                               */
-	XCP_MFL_PROBE        = 0x40,  /* send api query to module, to check if
-	                               * target(s) can be used
-	                               */
-	XCP_MFL_ALW_TGT_ADD  = 0x80,  /* Allows it to use a target in any
-	                               * functional and admin call without
-	                               * adding it beforehand with
-	                               * m_add_module()
-	                               */
-	XCP_MFL_MAX          = 0xff
-} XCP_Module_Flags;
-
 
 // Error Values for functions that do not return CK_RV
 // general errors
@@ -282,17 +96,15 @@ typedef enum {
                                       * flag is not active
                                       */
 
-
 /*--------------------------------------------------------------------------*/
 #define XCP_COMMON_PUBLIC_H__
 
 
-#define  XCP_API_VERSION  0x071d     /* major[8] minor[8] */
+#define  XCP_API_VERSION  0x0810     /* major[8] minor[8] */
 #define  XCP_API_ORDINAL  0x0004
                        /* increment this with every major/minor change */
 
-#define  XCP_HOST_API_VER  0x030100   /* major[8] minor[8] fixpack[8] */
-#define  XCP_RPM_VERSION   XCP_HOST_API_VER   /* deprecated */
+#define  XCP_HOST_API_VER  0x040000   /* major[8] minor[8] fixpack[8] */
 
 /* HSM connection information; not for PKCS11 user consumption */
 #define  XCP_HSM_AGENT_ID   0x5843           /* ASCII "XC" */
@@ -375,6 +187,8 @@ typedef enum {
 #define  CKR_IBM_TARGET_INVALID     (CKR_VENDOR_DEFINED +0x10030)
 
 
+#define  CKR_IBM_PQC_PARAMS_NOT_SUPPORTED  (CKR_VENDOR_DEFINED +0x10031)
+
 
 // Error returned if internal verification of crypto engines fail
 #define CKR_IBM_ERROR_STATE       (CKR_VENDOR_DEFINED +0x10101)
@@ -445,12 +259,18 @@ typedef enum {
 #define  CKM_IBM_ED448_SHA3                 (CKM_VENDOR_DEFINED +0x1001f)
 
 
+// round counts are passed as mechanism parameters
+#define  CKM_IBM_SIPHASH                    (CKM_VENDOR_DEFINED +0x10021)
+
+
 // these need a strength definition
 // XCP_U32_VALUE_BITS/CKA_VALUE_BITS would be sufficient; strength->K/L mapping
 //
 // umbrella mech for PQC/Crystals variants
 #define  CKM_IBM_DILITHIUM                  (CKM_VENDOR_DEFINED +0x10023)
          // ^^^ sign/verify plus keygen only
+#define  CKM_IBM_KYBER                      (CKM_VENDOR_DEFINED +0x10024)
+         // ^^^ en/decrypt, keygen, key transport, and (hybrid) key derivation
 
 // SHA-3 HMAC variants
 #define  CKM_IBM_SHA3_224_HMAC              (CKM_VENDOR_DEFINED +0x10025)
@@ -480,6 +300,10 @@ typedef enum {
 
 	ECSG_IBM_MAX                = ECSG_IBM_ECSDSA_COMPR_MULTI,
 } ECSG_Var_t;
+
+#define  CK_IBM_ECSG_IBM_ECSDSA_S256             ECSG_IBM_ECSDSA_S256
+#define  CK_IBM_ECSG_IBM_ECDSA_COMPR_MULTI_S256  ECSG_IBM_ECDSA_COMPR_MULTI_S256
+#define  CK_IBM_ECSG_IBM_MAX                     ECSG_IBM_MAX
 
 
 //---  transport additions  --------------------------------------------------
@@ -565,6 +389,12 @@ typedef enum {
 
 #define CKA_IBM_PQC_PARAMS (CKA_VENDOR_DEFINED +0x1000e)
 
+// query or modify login session an object is bound to
+#define  CKA_IBM_LOGIN_SESSION     (CKA_VENDOR_DEFINED +0x1000f)
+
+// query MAC'd spki from a private key
+#define  CKA_IBM_MACED_PUBLIC_KEY_INFO (CKA_VENDOR_DEFINED +0x20002)
+
 // direct access to attributes' wire form
 // parameters of this attribute, if it's the only one present,
 // inserted verbatim into request package
@@ -574,6 +404,9 @@ typedef enum {
 // matches the key type constant for clear key Dilithium with ICSF
 #define CKK_IBM_PQC_DILITHIUM      (CKK_VENDOR_DEFINED +0x10023)
 
+#define CKK_IBM_PQC_KYBER          (CKK_VENDOR_DEFINED +0x10024)
+
+
 
 
 
@@ -582,6 +415,7 @@ typedef enum {
 #define XCP_MOD_ERROR_STATE_KEYPAIR_GEN_PCT   0x00000002
 #define XCP_MOD_ERROR_STATE_SYSTEST_CMD       0x00000003
 #define XCP_MOD_ERROR_STATE_TRNG_HEALTH       0x00000004
+
 
 /*----------------------------------------------------------------------------
  * sizes related to blobs and host-visible entities
@@ -599,10 +433,10 @@ typedef enum {
 #define  XCP_BLOBCLRATTR_BYTES           8  /* clear blob attr's bytecount    */
                                             /* keep in sync with objattr_t    */
 #define  XCP_BLOBCLRMODE_BYTES           8  /* clear blob modefield bytecount */
-#define  MOD_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
+#define  XCP_WRAP_BLOCKSIZE ((size_t) (128 /8)) /* blob crypt block bytecount */
 #define  XCP_MACKEY_BYTES       (256 /8)   /* derived from controlling WK     */
 //
-#define  XCP_PIN_SALT_BYTES  MOD_WRAP_BLOCKSIZE
+#define  XCP_PIN_SALT_BYTES  XCP_WRAP_BLOCKSIZE
 #define  XCP_PINBLOB_BYTES  \
         (XCP_WK_BYTES +XCP_PIN_SALT_BYTES +XCP_HMAC_BYTES)
 
@@ -664,6 +498,18 @@ typedef enum {
 
 #define  XCP_BTC_VERSION  1
 
+#define  XCP_KYBER_KEM_VERSION  0
+
+#define  XCP_KYBER_KEM_MIN_WIRE_BYTES (4 + 4 + 4 + 4 + 4 + 4) /* version[32] ||
+                                                                 kdf[32]     ||
+                                                                 mode[32]    ||
+                                                                 cphr[32]    ||
+                                                                 shrd[32]    ||
+                                                                 blob  [32] */
+
+#define  XCP_KYBER_RAW_BYTES  32
+
+
 #define  XCP_ECDH1_DERIVE_MAX_PUBLIC_BYTES 1024 /* limit public data length to
                                                    reasonable number of bytes */
 //
@@ -698,6 +544,8 @@ typedef enum {
 	                             // related to the protected-key capability
 	                             // see also CKA_IBM_PROTKEY_* description
 
+	CKF_IBM_HW_DUAL_OA = 0x1000, // module supports dual OA certs/signatures
+	                             // see CK_IBM_XCPXQ_OA_CAP for more details
 } XCP_CK_EXTFLAGS_t;
 
 // these numbers apply to current version, subject to change
@@ -720,7 +568,7 @@ typedef enum {
 
 // ~arbitrary limit on acceptable admin. certificates
 // additional limits, such as transport-bytecount, may restrict further
-#define  XCP_CERT_MAX_BYTES   ((size_t) 4096)
+#define  XCP_CERT_MAX_BYTES   ((size_t) 12288) /* fits dil certs (8k + meta) */
 #define  XCP_CERTHASH_BYTES   (256/8)
       /* hash or SKI of public key, or other hash-identified things; SHA-256 */
 
@@ -733,6 +581,9 @@ typedef enum {
 #define  XCP_MIN_EC_CURVE_BITS   192
 		/* ^^^ increase this when policy moves beyond shorter curves */
 #define  XCP_MAX_EC_CURVE_BITS   521
+
+#define  XCP_MAX_DIL_SIGNATURE_BYTES 4668 /* max. length of dil. 8-7 sigs    */
+#define  XCP_MAX_SINFO_META_BYTES     100 /* signer info framework bytes     */
 
 /* bytecount of raw (generic) keys, not key schedules */
 #define  MOD_MAX_SYMMKEY_BYTES   256
@@ -754,8 +605,20 @@ typedef enum {
 	/* trailing big-endian bitcount field after UnwrapKey() checksum */
 
 /* card(OA) signature bytecount: SKI-identified SignerInfo,
-   4096-bit RSA signature, with SHA-256 hash */
-#define  XCP_RSPSIG_MAX_BYTES    (75 +4096/8)
+ * Non quantum safe: Must contain space for either:
+ *  - 4096-bit RSA signature, hash OID, encr. OID and SKI
+ *  - EC-P521 signature, hash OID, encr. OID and SKI
+ */
+#define  XCP_RSPSIG_RSA          (4096 / 8)
+#define  XCP_RSPSIG_MAX_BYTES    (XCP_MAX_SINFO_META_BYTES + \
+                                  XCP_RSPSIG_RSA)
+
+/* card(OA) signature bytecount: SKI-identified SignerInfo,
+ * Quantum safe: Must contain space for:
+ *  - DIL signature, hash OID, encr. OID and SKI
+ */
+#define  XCP_RSPSIG_QS_MAX_BYTES (XCP_MAX_SINFO_META_BYTES + \
+                                  XCP_MAX_DIL_SIGNATURE_BYTES)
 
 /* minimal padding for raw RSA enc/dec/sign/ver/wr/unwr
  * Used for example in CKM_RSA_PKCS. See RFC 2313 chapter 8 for a complete
@@ -772,84 +635,85 @@ typedef enum {
       /* indicates particular events, not generic event types/categories, */
       /* if bits in this region are non-zero                              */
 
-typedef enum {       /* functionality categories: keep within uint16_t range */
-	XCP_LOGEV_QUERY        =  0,
-	XCP_LOGEV_FUNCTION     =  1,
-	XCP_LOGEV_ADMFUNCTION  =  2,
-	XCP_LOGEV_STARTUP      =  3,
-	XCP_LOGEV_SHUTDOWN     =  4,
-	XCP_LOGEV_SELFTEST     =  5,
-	XCP_LOGEV_DOM_IMPORT   =  6, /* import sec-relevant data to domain */
-	XCP_LOGEV_DOM_EXPORT   =  7, /* export sec-relevant data from domain */
-	XCP_LOGEV_FAILURE      =  8,
-	XCP_LOGEV_GENERATE     =  9,
-	XCP_LOGEV_REMOVE       = 10,
-	XCP_LOGEV_SPECIFIC     = 11, /* obtain meaning elsewhere */
-	XCP_LOGEV_STATE_IMPORT = 12, /* import to card/multiple domains */
-	XCP_LOGEV_STATE_EXPORT = 13, /* export from card/multiple domains */
-	                             /* [after successful export] */
-	XCP_LOGEV_IMPORT       = 14, /* key/state import (UnwrapKey) */
-	                             /* fields provide more context */
-	XCP_LOGEV_EXPORT       = 15, /* key/state import (WrapKey) */
-	                             /* fields provide more context */
+                     /* functionality categories: keep within uint16_t range */
+#define  XCP_LOGEV_QUERY                0
+#define  XCP_LOGEV_FUNCTION             1
+#define  XCP_LOGEV_ADMFUNCTION          2
+#define  XCP_LOGEV_STARTUP              3
+#define  XCP_LOGEV_SHUTDOWN             4
+#define  XCP_LOGEV_SELFTEST             5
+#define  XCP_LOGEV_DOM_IMPORT           6 /* import sec-relevant data to */
+                                          /* domain */
+#define  XCP_LOGEV_DOM_EXPORT           7 /* export sec-relevant data from */
+                                          /* domain */
+#define  XCP_LOGEV_FAILURE              8
+#define  XCP_LOGEV_GENERATE             9
+#define  XCP_LOGEV_REMOVE              10
+#define  XCP_LOGEV_SPECIFIC            11 /* obtain meaning elsewhere */
+#define  XCP_LOGEV_STATE_IMPORT        12 /* import to card/multiple domains */
+#define  XCP_LOGEV_STATE_EXPORT        13 /* export from card/multiple */
+                                          /* domains */
+                                          /* [after successful export] */
+#define  XCP_LOGEV_IMPORT              14 /* key/state import (UnwrapKey) */
+                                          /* fields provide more context */
+#define  XCP_LOGEV_EXPORT              15 /* key/state import (WrapKey) */
+                                          /* fields provide more context */
 
-	    /*---  specific events (any including XCP_LOGEV_SPEC)  ---------*/
+            /*---  specific events (any including XCP_LOGEV_SPEC)  ---------*/
 
-	XCP_LOGSPEV_TRANSACT_ZEROIZE  = XCP_LOGEV_SPEC +1,
-	                               /* zeroize card by transaction */
+#define  XCP_LOGSPEV_TRANSACT_ZEROIZE  (XCP_LOGEV_SPEC +1)
+                                       /* zeroize card by transaction */
 
-	XCP_LOGSPEV_KAT_FAILED        = XCP_LOGEV_SPEC +2,
-	                               /* algorithm selftest failed */
+#define  XCP_LOGSPEV_KAT_FAILED        (XCP_LOGEV_SPEC +2)
+                                       /* algorithm selftest failed */
 
-	XCP_LOGSPEV_KAT_COMPLETED     = XCP_LOGEV_SPEC +3,
-	                               /* algorithm selftests completed */
-	                               /* redundant; logged only to     */
-	                               /* provide specific event        */
+#define  XCP_LOGSPEV_KAT_COMPLETED     (XCP_LOGEV_SPEC +3)
+                                       /* algorithm selftests completed */
+                                       /* redundant; logged only to     */
+                                       /* provide specific event        */
 
-	XCP_LOGSPEV_EARLY_Q_START     = XCP_LOGEV_SPEC +4,
-	                               /* subsequent events were found  */
-	                               /* in the early-event queue.     */
-	                               /* their timestamps are only     */
-	                               /* approximate; order is correct */
+#define  XCP_LOGSPEV_EARLY_Q_START     (XCP_LOGEV_SPEC +4)
+                                       /* subsequent events were found  */
+                                       /* in the early-event queue.     */
+                                       /* their timestamps are only     */
+                                       /* approximate; order is correct */
 
-	XCP_LOGSPEV_EARLY_Q_END       = XCP_LOGEV_SPEC +5,
-				       /* early-even queue processing ends. */
-	                               /* subsequent events are through     */
-	                               /* regular auditing, with valid      */
-	                               /* timestamps and ordering.          */
+#define  XCP_LOGSPEV_EARLY_Q_END       (XCP_LOGEV_SPEC +5)
+                                       /* early-even queue processing ends. */
+                                       /* subsequent events are through     */
+                                       /* regular auditing, with valid      */
+                                       /* timestamps and ordering.          */
 
-	XCP_LOGSPEV_AUDIT_NEWCHAIN    = XCP_LOGEV_SPEC +6,
-				       /* audit state is corrupted; removed. */
-				       /* generating new instance and start  */
-				       /* new chain as a replacement         */
+#define  XCP_LOGSPEV_AUDIT_NEWCHAIN    (XCP_LOGEV_SPEC +6)
+                                       /* audit state is corrupted; removed. */
+                                       /* generating new instance and start  */
+                                       /* new chain as a replacement         */
 
-	XCP_LOGSPEV_TIMECHG_BEFORE    = XCP_LOGEV_SPEC +7,
-				       /* time change: original time */
+#define  XCP_LOGSPEV_TIMECHG_BEFORE    (XCP_LOGEV_SPEC +7)
+                                       /* time change: original time */
 
-	XCP_LOGSPEV_TIMECHG_AFTER     = XCP_LOGEV_SPEC +8,
-				       /* time change: updated time  */
+#define  XCP_LOGSPEV_TIMECHG_AFTER     (XCP_LOGEV_SPEC +8)
+                                       /* time change: updated time  */
 
-	XCP_LOGSPEV_MODSTIMPORT_START = XCP_LOGEV_SPEC +9,
-	                               /* accepted full-state import */
-	                               /* data structure             */
-	                               /* starting update procedure  */
+#define  XCP_LOGSPEV_MODSTIMPORT_START (XCP_LOGEV_SPEC +9)
+                                       /* accepted full-state import */
+                                       /* data structure             */
+                                       /* starting update procedure  */
 
-	XCP_LOGSPEV_MODSTIMPORT_FAIL  = XCP_LOGEV_SPEC +10,
-	                               /* rejected import structure    */
-	                               /* issued after initial verify; */
-	                               /* indicates some inconsistency */
-	                               /* of import data structures    */
+#define  XCP_LOGSPEV_MODSTIMPORT_FAIL  (XCP_LOGEV_SPEC +10)
+                                       /* rejected import structure    */
+                                       /* issued after initial verify; */
+                                       /* indicates some inconsistency */
+                                       /* of import data structures    */
 
-	XCP_LOGSPEV_MODSTIMPORT_END   = XCP_LOGEV_SPEC +11,
-	                               /* completed full-state import */
+#define  XCP_LOGSPEV_MODSTIMPORT_END   (XCP_LOGEV_SPEC +11)
+                                       /* completed full-state import */
 
-	XCP_LOGSPEV_MODSTEXPORT_START = XCP_LOGEV_SPEC +12,
-	                               /* started full-state export */
-	                               /* see also: XCP_LOGEV_STATE_EXPORT */
+#define  XCP_LOGSPEV_MODSTEXPORT_START (XCP_LOGEV_SPEC +12)
+                                       /* started full-state export */
+                                       /* see also: XCP_LOGEV_STATE_EXPORT */
 
-	XCP_LOGSPEV_MODSTEXPORT_FAIL  = XCP_LOGEV_SPEC +13
-	                               /* full-state export did not complete */
-} XCP_LogEvent_t;
+#define  XCP_LOGSPEV_MODSTEXPORT_FAIL  (XCP_LOGEV_SPEC +13)
 
 
 typedef enum {
@@ -863,21 +727,19 @@ typedef enum {
 } XCP_LogSystem_t;
 
 /* bitmask of audit-event flags (mainly optional fields) */
-typedef enum {
-	XCP_LOGFL_WK_PRESENT         = 0x80000000,
-	XCP_LOGFL_COMPLIANCE_PRESENT = 0x40000000,  /* ...of hosting domain */
-	XCP_LOGFL_FINALWK_PRESENT    = 0x20000000,
-	XCP_LOGFL_KEYREC0_PRESENT    = 0x10000000,
-	XCP_LOGFL_KEYREC0_COMPL      = 0x08000000,  /* key0 compliance */
-	XCP_LOGFL_KEYREC1_PRESENT    = 0x04000000,
-	XCP_LOGFL_KEYREC2_PRESENT    = 0x02000000,
-	XCP_LOGFL_FINTIME_PRESENT    = 0x01000000,
-	XCP_LOGFL_SALT0_PRESENT      = 0x00800000,
-	XCP_LOGFL_SALT1_PRESENT      = 0x00400000,
-	XCP_LOGFL_SALT2_PRESENT      = 0x00200000,
-	XCP_LOGFL_REASON_PRESENT     = 0x00100000,
-	XCP_LOGFL_SEQPRF_PRESENT     = 0x00080000
-} XCP_LogFlags_t;
+#define  XCP_LOGFL_WK_PRESENT          0x80000000
+#define  XCP_LOGFL_COMPLIANCE_PRESENT  0x40000000  /* ...of hosting domain */
+#define  XCP_LOGFL_FINALWK_PRESENT     0x20000000
+#define  XCP_LOGFL_KEYREC0_PRESENT     0x10000000
+#define  XCP_LOGFL_KEYREC0_COMPL       0x08000000  /* key0 compliance */
+#define  XCP_LOGFL_KEYREC1_PRESENT     0x04000000
+#define  XCP_LOGFL_KEYREC2_PRESENT     0x02000000
+#define  XCP_LOGFL_FINTIME_PRESENT     0x01000000
+#define  XCP_LOGFL_SALT0_PRESENT       0x00800000
+#define  XCP_LOGFL_SALT1_PRESENT       0x00400000
+#define  XCP_LOGFL_SALT2_PRESENT       0x00200000
+#define  XCP_LOGFL_REASON_PRESENT      0x00100000
+#define  XCP_LOGFL_SEQPRF_PRESENT      0x00080000
 
 
 
@@ -885,14 +747,24 @@ typedef enum {
 typedef enum {
 	XCP_IMPRKEY_RSA_2048    = 0,
 	XCP_IMPRKEY_RSA_4096    = 1,
-	XCP_IMPRKEY_EC_P256     = 2,    /* EC, NIST P-256        */
-	XCP_IMPRKEY_EC_P521     = 3,    /* EC, NIST P-521        */
-	XCP_IMPRKEY_EC_BP256r   = 4,    /* EC, Brainpool BP-256r */
-	XCP_IMPRKEY_EC_BP320r   = 5,    /* EC, Brainpool BP-320r */
-	XCP_IMPRKEY_EC_BP512r   = 6,    /* EC, Brainpool BP-512r */
+	XCP_IMPRKEY_EC_P256     = 2,    /* EC, NIST P-256                     */
+	XCP_IMPRKEY_EC_P521     = 3,    /* EC, NIST P-521                     */
+	XCP_IMPRKEY_EC_BP256r   = 4,    /* EC, Brainpool BP-256r              */
+	XCP_IMPRKEY_EC_BP320r   = 5,    /* EC, Brainpool BP-320r              */
+	XCP_IMPRKEY_EC_BP512r   = 6,    /* EC, Brainpool BP-512r              */
 	XCP_IMPRKEY_RSA_3072    = 7,
-	XCP_IMPRKEY_MAX         = XCP_IMPRKEY_RSA_3072
+	XCP_IMPRKEY_EC_P521_TKE = 8,    /* EC, NIST P-521 (TKE propr. sign.)  */
+	XCP_IMPRKEY_MAX         = XCP_IMPRKEY_EC_P521_TKE
 } XCP_IMPRKEY_t;
+
+
+//---  OA key types  ----------------------------------------------------
+typedef enum {
+	XCP_OAKEY_RSA_4096      = 1,    /* RSA 4096 bit          */
+	XCP_OAKEY_ECC_P521      = 2,    /* ECC NIST P-521        */
+	XCP_OAKEY_DIL_87R2      = 3,    /* DIL 8-7 R2            */
+	XCP_OAKEY_MAX           = XCP_OAKEY_DIL_87R2
+} XCP_OAKEY_t;
 
 
 
@@ -911,6 +783,7 @@ typedef struct CK_RETAINEDKEY_PARAMS {
 	CK_VOID_PTR rkData;
 	CK_ULONG    rkdLen;
 } CK_RETAINEDKEY_PARAMS;
+
 
 
 
@@ -951,7 +824,12 @@ typedef enum {
 	                               /* never be enabled due to      */
 	                               /* policy-minimum restrictions. */
 
-	CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_CP_BLACKLIST
+        CK_IBM_XCPQ_PQC_STRENGTHS
+                                = 14,  /* supported quantum safe levels*/
+                                       /* of strength                  */
+                                       /* see: XCP_PQCStrength_t       */
+
+	CK_IBM_XCPQ_MAX         = CK_IBM_XCPQ_PQC_STRENGTHS
 } CK_IBM_XCPQUERY_t;
 
 //---  module sub-query sub-types  --------------------------------------------
@@ -966,6 +844,9 @@ typedef enum {
 	                                 /* attributes bitmask           */
 	CK_IBM_XCPMSQ_ATTRS       =  6,  /* number of supported          */
 	                                 /* administrative attributes    */
+	CK_IBM_XCPMSQ_MOD_V2      =  7,  /* add version two fields to    */
+	                                 /* module query                 */
+	CK_IBM_XCPMSQ_MAX         =  CK_IBM_XCPMSQ_MOD_V2
 } CK_IBM_XCPMSUBQUERY_t;
 
 // byte sizes of queries which are not represented as structures
@@ -976,48 +857,34 @@ typedef enum {
 
 #define CK_IBM_XCP_HOSTQ_IDX  0xff000000  /* host-only queries index, min. */
 
-typedef enum {
-	CK_IBM_XCPHQ_COUNT    = 0xff000000, /* number of host-query indexes   */
-	                                    /* including this type itself     */
-	CK_IBM_XCPHQ_VERSION  = 0xff000001, /* host-specific package version  */
-	                                    /* such as packaging library ID   */
-	CK_IBM_XCPHQ_VERSION_HASH = 0xff000002,
-	                                    /* assumed-unique identifier of   */
-	                                    /* host code, such as version-    */
-	                                    /* identifying cryptographic hash */
-	                                    /* (library signature field...)   */
-	CK_IBM_XCPHQ_DIAGS    = 0xff000003, /* host code diagnostic level     */
-	                                    /* 0 if non-diagnostics host code */
-	CK_IBM_XCPHQ_HVERSION = 0xff000004, /* human-readable host version    */
-	                                    /* identification (recommended:   */
-	                                    /* UTF-8 string)                  */
-	CK_IBM_XCPHQ_TGT_MODE = 0xff000005, /* host targeting modes           */
-	                                    /* returns supported target modes */
-	                                    /* as bitmask                     */
-	                                    /* if not available only compat   */
-	                                    /* target mode is in use          */
-	                                    /* See CK_IBM_XCPHQ_TGT_MODES_t   */
-	CK_IBM_XCPHQ_ECDH_DERPRM = 0xff000006,
-	                                    /* ECDH DeriveKey parameter usage */
-	                                    /* is being enforced with hostlib */
-	                                    /* version                        */
-	                                    /**/
-	CK_IBM_XCPHQ_TOL_MODES = 0xff000007,/* check if toleration mode for   */
-	                                    /* key attribute checking is      */
-	                                    /* enabled                        */
-	                                    /* If it is, some attribute values*/
-	                                    /* are always set to correct      */
-	                                    /* values automatically -         */
-	CK__IBM_XCPHQ_MAX = CK_IBM_XCPHQ_TGT_MODE
-} CK_IBM_XCPHQUERY_t;
+#define CK_IBM_XCPHQ_COUNT        0xff000000 /* number of host-query indexes  */
+                                             /* including this type itself    */
+#define CK_IBM_XCPHQ_VERSION      0xff000001 /* host-specific package version */
+                                             /* such as packaging library ID  */
+#define CK_IBM_XCPHQ_VERSION_HASH 0xff000002
+                                             /* assumed-unique identifier of  */
+                                             /* host code, such as version-   */
+                                             /* identifying cryptographic hash*/
+                                             /* (library signature field...)  */
+#define CK_IBM_XCPHQ_DIAGS        0xff000003 /* host code diagnostic level    */
+                                             /* 0 if non-diagnostics host code*/
+#define CK_IBM_XCPHQ_HVERSION     0xff000004 /* human-readable host version   */
+                                             /* identification (recommended:  */
+                                             /* UTF-8 string)                 */
+#define CK_IBM_XCPHQ_TGT_MODE     0xff000005 /* host targeting modes          */
+                                             /* returns supported target modes*/
+                                             /* as bitmask                    */
+                                             /* if not available only compat  */
+                                             /* target mode is in use         */
+                                             /* See CK_IBM_XCPHQ_TGT_MODES_t  */
+#define CK_IBM_XCPHQ_ECDH_DERPRM  0xff000006
+                                             /* ECDH DeriveKey parameter usage*/
+                                             /* is being enforced with hostlib*/
+                                             /* version                       */
+                                             /**/
 
-#define CK_IBM_XCPHQ_ATTR_TOL_ENABLED  0x00000001
-                                         /* flag to indicate that toleration  */
-                                         /* mode for key attribute checking   */
-                                         /* is enabled i.e. all attributes    */
-                                         /* that may no longer be set CK_TRUE */
-                                         /* using a CEX8S HSM will be reset   */
-                                         /* to CK_FALSE automatically         */
+#define CK__IBM_XCPHQ_MAX CK_IBM_XCPHQ_TGT_MODE
+
 
 typedef enum {
 	CK_IBM_XCPHQ_TGT_MODES_TGTGRP = 1,  /* target groups are supported    */
@@ -1040,7 +907,6 @@ typedef enum {
 	CK_IBM_XCPXQ_IMPEXP_CAPS    =  7, /* capability for WK and state     */
 	                                  /* export / import. See 8.7.1.1.1  */
 	                                  /* for more info                   */
-	CK_IBM_XCPXQ_DOMIMPORT_VER  =  7, /* DEPRECATED                      */
 	CK_IBM_XCPXQ_CERT_MAXBYTES  =  8, /* bytecount of largest accepted   */
 	                                  /* administrative certificate, if  */
 	                                  /* there is an upper limit.  0 if  */
@@ -1058,20 +924,20 @@ typedef enum {
 
 	CK_IBM_XCPXQ_ECDSA_OTHER    = 15, /* bitmask of supported, other EC
 	                                     signing mechanisms */
+	CK_IBM_XCPXQ_OA_CAP         = 16, /* bitmask of supported outbound
+	                                     authority signing mechanisms */
 
-	CK_IBM_XCPXQ_MAXIDX         = CK_IBM_XCPXQ_ECDSA_OTHER,
+	CK_IBM_XCPXQ_MAXIDX         = CK_IBM_XCPXQ_OA_CAP,
 } CK_IBM_XCPEXTCAP_t;
 
 
-typedef enum {
-	CK_IBM_DOM_ADMIND         =    1,  /* administrators present     */
-	CK_IBM_DOM_CURR_WK        =    2,  /* domain has current WK      */
-	CK_IBM_DOM_NEXT_WK        =    4,  /* domain has pending/next WK */
-	CK_IBM_DOM_COMMITTED_NWK  =    8,  /* next WK is active(committed) */
-	CK_IBM_DOM_IMPRINTED      = 0x10,  /* has left imprint mode */
-	CK_IBM_DOM_IMPRINTS = 0x80000000,  /* enforces imprint mode */
-	CK_IBM_DOM_PROTKEY_ALLOW  = 0x20   /* policies allow protected key */
-} CK_IBM_DOMAINQ_t;
+#define CK_IBM_DOM_ADMIND              1   /* administrators present     */
+#define CK_IBM_DOM_CURR_WK             2   /* domain has current WK      */
+#define CK_IBM_DOM_NEXT_WK             4   /* domain has pending/next WK */
+#define CK_IBM_DOM_COMMITTED_NWK       8   /* next WK is active(committed) */
+#define CK_IBM_DOM_IMPRINTED        0x10   /* has left imprint mode */
+#define CK_IBM_DOM_IMPRINTS   0x80000000   /* enforces imprint mode */
+#define CK_IBM_DOM_PROTKEY_ALLOW    0x20   /* policies allow protected key */
 //
 // note: CK_IBM_DOM_IMPRINTS will go away
 
@@ -1142,34 +1008,54 @@ typedef CK_IBM_XCPAPI_INFO    CK_PTR   CK_IBM_XCPAPI_INFO_PTR;
 	CK_BYTE infra_count;                                                   \
 	CK_BYTE  comp_count;
 
+#define CK_IBM_XCP_ADMATTRLIST_MEMBER_V2                                       \
+	CK_BYTE perm_ext01_modes[ 8 ];
+
+#define CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2                                      \
+	CK_BYTE perm_ext01_count;
+
 // see chapter 5.1.1. in the wire spec
 typedef struct CK_IBM_XCP_INFO {
-	CK_IBM_XCP_INFO_MEMBERS_V0;
+	CK_IBM_XCP_INFO_MEMBERS_V0
 } CK_IBM_XCP_INFO;
 //
 // see chapter 5.1.1. in the wire spec
 typedef struct CK_IBM_XCP_INFO_V1 {
-	CK_IBM_XCP_INFO_MEMBERS_V0;
-	CK_IBM_XCP_DESCINFO_MEMBER;
+	CK_IBM_XCP_INFO_MEMBERS_V0
+	CK_IBM_XCP_DESCINFO_MEMBER
 	CK_BYTE      fnid_mask[ 16 ];
 	CK_BYTE fnid_count;
-	CK_IBM_XCP_ADMATTRLIST_MEMBER;
-	CK_IBM_XCP_ADMATTRCOUNT_MEMBER;
+	CK_IBM_XCP_ADMATTRLIST_MEMBER
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER
 } CK_IBM_XCP_INFO_V1;
+//
+// see chapter 5.1.1. in the wire spec
+typedef struct CK_IBM_XCP_INFO_V2 {
+	CK_IBM_XCP_INFO_MEMBERS_V0
+	CK_IBM_XCP_DESCINFO_MEMBER
+	CK_BYTE      fnid_mask[ 16 ];
+	CK_BYTE fnid_count;
+	CK_IBM_XCP_ADMATTRLIST_MEMBER
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER
+	CK_IBM_XCP_ADMATTRLIST_MEMBER_V2
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2
+} CK_IBM_XCP_INFO_V2;
 //
 // see chapter 5.1.1.1. in the wire spec
 typedef struct CK_IBM_XCP_DESCINFO {
-	CK_IBM_XCP_DESCINFO_MEMBER;
+	CK_IBM_XCP_DESCINFO_MEMBER
 } CK_IBM_XCP_DESCINFO;
 //
 // see chapter 5.1.1.3. in the wire spec
 typedef struct CK_IBM_XCP_ATTRLIST {
 	CK_IBM_XCP_ADMATTRLIST_MEMBER
+	CK_IBM_XCP_ADMATTRLIST_MEMBER_V2
 } CK_IBM_XCP_ATTRLIST;
 //
 // see chapter 5.1.1.3. in the wire spec
 typedef struct CK_IBM_XCP_ATTRCOUNT {
 	CK_IBM_XCP_ADMATTRCOUNT_MEMBER
+	CK_IBM_XCP_ADMATTRCOUNT_MEMBER_V2
 } CK_IBM_XCP_ATTRCOUNT;
 
 /**/
@@ -1177,14 +1063,18 @@ typedef struct CK_IBM_XCP_ATTRCOUNT {
         { 0,0, {0,0,},{0,0,},  {0,},{0,},{0,}, {0,},{0,}, \
           0,0, 0,0, 0,0,0,0,0,0,0, 0,0,0, }
 
-typedef CK_IBM_XCP_INFO      CK_PTR   CK_IBM_XCP_INFO_PTR;
-typedef CK_IBM_XCP_INFO_V1   CK_PTR   CK_IBM_XCP_INFO_V1_PTR;
-typedef CK_IBM_XCP_DESCINFO  CK_PTR   CK_IBM_XCP_DESCINFO_PTR;
-typedef CK_IBM_XCP_ATTRLIST  CK_PTR   CK_IBM_XCP_ATTRLIST_PTR;
-typedef CK_IBM_XCP_ATTRCOUNT CK_PTR   CK_IBM_XCP_ATTRCOUNT_PTR;
+#define CK_IBM_XCP_INFO_V2_INIT0  \
+        { 0,0, {0,0,},{0,0,},  {0,},{0,},{0,}, {0,},{0,}, \
+          0,0, 0,0, 0,0,0,0,0,0,0, 0,0,0,                 \
+          {0}, {0}, {0}, 0, {0}, {0}, {0}, 0, 0, 0,       \
+          {0}, 0}
 
-// DEPRECATED - use CK_IBM_XCP_INFO
-typedef CK_IBM_XCP_INFO CK_IBM_EP11_INFO;
+typedef CK_IBM_XCP_INFO         CK_PTR CK_IBM_XCP_INFO_PTR;
+typedef CK_IBM_XCP_INFO_V1      CK_PTR CK_IBM_XCP_INFO_V1_PTR;
+typedef CK_IBM_XCP_INFO_V2      CK_PTR CK_IBM_XCP_INFO_V2_PTR;
+typedef CK_IBM_XCP_DESCINFO     CK_PTR CK_IBM_XCP_DESCINFO_PTR;
+typedef CK_IBM_XCP_ATTRLIST     CK_PTR CK_IBM_XCP_ATTRLIST_PTR;
+typedef CK_IBM_XCP_ATTRCOUNT    CK_PTR CK_IBM_XCP_ATTRCOUNT_PTR;
 
 typedef struct CK_IBM_DOMAIN_INFO {
 	CK_ULONG    domain;
@@ -1227,9 +1117,31 @@ typedef enum {
 } CK_IBM_BTC_t;
 
 
+typedef enum {
+	XCP_KEM_ENCAPSULATE = 1,
+	XCP_KEM_DECAPSULATE = 2,
+} XCP_KEM_t;
+
+typedef CK_ULONG CK_IBM_KEM_MODE;
+
+#define  CK_IBM_KEM_ENCAPSULATE  XCP_KEM_ENCAPSULATE
+#define  CK_IBM_KEM_DECAPSULATE  XCP_KEM_DECAPSULATE
+
+typedef struct XCP_KYBER_KEM_PARAMS {
+	CK_ULONG         version;
+	CK_IBM_KEM_MODE  mode;
+	CK_ULONG         kdf;
+	CK_BBOOL         prepend;
+	CK_BYTE          *pCipher;
+	CK_ULONG         ulCipherLen;
+	CK_BYTE          *pSharedData;
+	CK_ULONG         ulSharedDataLen;
+	CK_BYTE          *pBlob;
+	CK_ULONG         ulBlobLen;
+} XCP_KYBER_KEM_PARAMS_t;
+
+
 //---  attribute constants  --------------------------------------------------
-// keep in sync with unprivileged object (XCP_BLOB_NO_RIGHTS)
-// table is parsed by automated tools; please do not change layout
 //
 typedef enum {
 	XCP_BLOB_EXTRACTABLE       =        1,
@@ -1309,8 +1221,8 @@ typedef enum {
                                        /*  CP sets get padded to multiple  */
 
 typedef enum {
-    XCP_CPB_ADD_CPBS        =  0, // allow addition (activation) of CP bits
-    XCP_CPB_DELETE_CPBS     =  1, // disable activating further control points
+    XCP_CPB_ADD_CPBS        =  0, // allow activation of CP bits
+    XCP_CPB_DELETE_CPBS     =  1, // allow deactivation of CP bits
                                   // (remove both ADD_CPBs and DELETE_CPBs
                                   // to make unit read-only)
 
@@ -1424,8 +1336,12 @@ typedef enum {
 
     XCP_CPB_COMPAT_LEGACY_SHA3 = 70, // allow fall-back to non-standard
                                      // SHA3 defaults
-
-    XCP_CPBITS_MAX             = XCP_CPB_COMPAT_LEGACY_SHA3 // marks last used CPB
+    XCP_CPB_DSA_PARAMETER_GEN  = 71, // allow DSA/PQG parameter generation
+    XCP_CPB_DERIVE_NON_AB_KEYS = 72,  // allow the derivation of a non-AB or raw
+                                     // from an AB key. Only relevant if
+                                     // XCP_CPB_NON_ATTRBOUND
+    XCP_CPBITS_MAX             = XCP_CPB_DERIVE_NON_AB_KEYS
+                                     // marks last used CPB
 } XCP_CPbit_t;
 
 
@@ -1623,7 +1539,7 @@ typedef enum {
 	                                  // blob/SPKI
 	XCP_ADM_DOMAINS_ZEROIZE    = 36,  // multi-domain zeroize
 //	XCP_ADM_EXPORT_NEXT_WK     = 38,  // placeholder, find real entry above
-	XCP_ADM_SESSIONS_DROP      = 39,  // drop all open sessions
+	XCP_ADM_SESSION_REMOVE     = 39,  // remove all or selected sessions
 
 	XCP_ADMQ_ADMIN             = 1  | XCP_ADM_QUERY, // admin SKI/cert
 	XCP_ADMQ_DOMADMIN          = 2  | XCP_ADM_QUERY, // domain adm. SKI/cert
@@ -1648,10 +1564,11 @@ typedef enum {
 	                                  // current migration importer
 	XCP_ADMQ_AUDIT_STATE       = 16  | XCP_ADM_QUERY,
 	                                  // audit state entry or event count
-	XCP_ADMQ_LASTCMD_DOM_MASK  = 17 | XCP_ADM_QUERY
+	XCP_ADMQ_LASTCMD_DOM_MASK  = 17 | XCP_ADM_QUERY,
 	                                  // domain-bitmask affected by last
 	                                  // state-related administrative
 	                                  // command (export, import)
+	XCP_ADMQ_SVCADMIN          = 18 | XCP_ADM_QUERY, // svc admin SKI/cert
 } XCP_Admcmd_t;
 
 typedef enum {
@@ -1660,7 +1577,8 @@ typedef enum {
 	XCP_ADMINT_PERMS           = 3,   // permissions
 	XCP_ADMINT_MODE            = 4,   // operating mode
 	XCP_ADMINT_STD             = 5,   // standards' compliance
-	XCP_ADMINT_IDX_MAX         = XCP_ADMINT_STD
+	XCP_ADMINT_PERMS_EXT01     = 6,   // permissions (extension #1)
+	XCP_ADMINT_IDX_MAX         = XCP_ADMINT_PERMS_EXT01
 } XCP_AdmAttr_t;
 
 #define XCP_ADMIN_ATTRIBUTE_COUNT  XCP_ADMINT_IDX_MAX
@@ -1719,6 +1637,29 @@ typedef enum {
 #define XCP_ADMP_CHG_DO_NOT_DISTURB    \
                               0x80000000  // allow changing the corresponding
                                           // Do Not Disturb bit
+
+//
+// permissions (extension 01)
+//
+#define XCP_ADMP_NQS_OA_SIGNATURES     1  // enable non-quantum-safe OA signat.
+#define XCP_ADMP_QS_OA_SIGNATURES      2  // enable quantum-safe OA signatures
+#define XCP_ADMP_NQS_ADM_SIGNATURES    4  // enable non-quantum-safe adm signat.
+#define XCP_ADMP_QS_ADM_SIGNATURES     8  // enable quantum-safe adm signatures
+
+#define XCP_ADMP_CHG_NQS_OA_SIGNATURES \
+                                 0x10000  // allow changing the corresponding
+                                          // non-quantum-safe OA signature bit
+#define XCP_ADMP_CHG_QS_OA_SIGNATURES  \
+                                 0x20000  // allow changing the corresponding
+                                          // quantum-safe OA signature bit
+#define XCP_ADMP_CHG_NQS_ADM_SIGNATURES \
+                                 0x40000  // allow changing the corresponding
+                                          // non-quantum-safe adm signature bit
+#define XCP_ADMP_CHG_QS_ADM_SIGNATURES  \
+                                 0x80000  // allow changing the corresponding
+                                          // quantum-safe adm signature bit
+
+
 //
 // if adding other change-control bits, also update:
 //      prevented_perm_changes()
@@ -1754,14 +1695,48 @@ typedef enum {
         XCP_ADMP_STATE_1PART       | \
         XCP_ADMP_DO_NOT_DISTURB)
 //
+// CHGBITS / PERMS (extension 01)
+#define XCP_ADMP__CHGBITS_EXT01           \
+       (XCP_ADMP_CHG_NQS_OA_SIGNATURES  | \
+        XCP_ADMP_CHG_QS_OA_SIGNATURES   | \
+        XCP_ADMP_CHG_NQS_ADM_SIGNATURES | \
+        XCP_ADMP_CHG_QS_ADM_SIGNATURES)
+//
+#define XCP_ADMP__PERMS_EXT01         \
+       (XCP_ADMP_NQS_OA_SIGNATURES  | \
+        XCP_ADMP_QS_OA_SIGNATURES   | \
+        XCP_ADMP_NQS_ADM_SIGNATURES | \
+        XCP_ADMP_QS_ADM_SIGNATURES)
+//
+#define XCP__ADMP_SUP_EXT01 (XCP_ADMP__PERMS_EXT01 | \
+                             XCP_ADMP__CHGBITS_EXT01)
+//
+//
 #define XCP_ADMP__DEFAULT         \
        (XCP_ADMP_WK_IMPORT      | \
         XCP_ADMP_1SIGN          | \
         XCP_ADMP__CHGBITS)
 //
+#define XCP_ADMP__DEFAULT_EXT01       \
+       (XCP_ADMP__CHGBITS_EXT01     | \
+        XCP_ADMP_NQS_OA_SIGNATURES  | \
+        XCP_ADMP_QS_OA_SIGNATURES   | \
+        XCP_ADMP_NQS_ADM_SIGNATURES | \
+        XCP_ADMP_QS_ADM_SIGNATURES)
+//
 #define XCPM_ADMP__MODULE_DEFAULTS_MASK   \
        (XCP_ADMP_DO_NOT_DISTURB         | \
         XCP_ADMP_CHG_DO_NOT_DISTURB)
+//
+#define XCPM_ADMP__MODULE_DEFAULTS_MASK_EXT01  \
+       (XCP_ADMP_NQS_OA_SIGNATURES           | \
+        XCP_ADMP_CHG_NQS_OA_SIGNATURES       | \
+        XCP_ADMP_QS_OA_SIGNATURES            | \
+        XCP_ADMP_CHG_QS_OA_SIGNATURES        | \
+        XCP_ADMP_NQS_ADM_SIGNATURES          | \
+        XCP_ADMP_CHG_NQS_ADM_SIGNATURES      | \
+        XCP_ADMP_QS_ADM_SIGNATURES           | \
+        XCP_ADMP_CHG_QS_ADM_SIGNATURES)
 //
 #define XCP_ADMP__CARD_MASK       \
       ~(XCP_ADMP_WK_IMPORT      | \
@@ -1775,6 +1750,9 @@ typedef enum {
         XCP_ADMP_CHG_WK_RANDOM  | \
         XCP_ADMP_CHG_CP_1SIGN)
 //
+#define XCP_ADMP__CARD_MASK_EXT01 \
+       ~(0U)
+//
 #define XCP_ADMP__DOM_MASK           \
       ~(XCP_ADMP_NO_DOMAIN_IMPRINT | \
         XCP_ADMP_STATE_IMPORT      | \
@@ -1784,6 +1762,12 @@ typedef enum {
         XCP_ADMP_CHG_ST_EXPORT     | \
         XCP_ADMP_CHG_ST_1PART)
 //
+#define XCP_ADMP__DOM_MASK_EXT01     \
+      ~(0U)
+//
+
+#define XCP__ADMP_SUP ((XCP_ADMP__PERMS | XCP_ADMP__CHGBITS) &\
+                       ~XCP_ADMP_NOT_SUP)
 
 // card modes
 #define XCP_ADMM_AUTHENTICATED         1U  // no longer in imprint mode
@@ -1838,6 +1822,8 @@ typedef enum {
         XCP_ADMM_STR_192BIT | \
         XCP_ADMM_STR_256BIT)
 
+#define XCP__ADMM_SUP XCP_ADMM__MASK
+
 // specific standards' compliance suites
 #define XCP_ADMS_FIPS2009              1  // NIST, 80+ bits,  -2011.01.01.
 #define XCP_ADMS_BSI2009               2  // BSI , 80+ bits,  -2011.01.01.
@@ -1850,18 +1836,74 @@ typedef enum {
 //
 #define XCP_ADMS_BSICC2017          0x40  // BSI, EP11 Common Criteria EAL4 2017
 //
+#define XCP_ADMS_FIPS2021           0x80  // NIST SP800-131A REV.2, 2021.01.01
+#define XCP_ADMS_FIPS2024          0x100  // NIST SP800-131A REV.2, 2024.01.01
+#define XCP_ADMS_ADM_FIPS2021      0x200  // NIST SP800-131A REV.2, 2021.01.01
 
 #define XCP_ADMS__ALL  \
        (XCP_ADMS_FIPS2009  | \
         XCP_ADMS_BSI2009   | \
         XCP_ADMS_FIPS2011  | \
         XCP_ADMS_BSI2011   | \
+        XCP_ADMS_BSICC2017 | \
+        XCP_ADMS_FIPS2021  | \
+        XCP_ADMS_FIPS2024  | \
+        XCP_ADMS_ADM_FIPS2021)
+
+#define XCP_ADMS__SUPP  (XCP_ADMS__ALL &           \
+                         ~(XCP_ADMS_FIPS2021     | \
+                           XCP_ADMS_ADM_FIPS2021 | \
+                           XCP_ADMS_FIPS2024))
+
+// The following 'legacy' defines are used as default 'supported bit masks'
+// for older devices that do not have native bit masks for that purpose.
+// Note: If supported bits are not present, the import of these bits are
+//       skipped and the default values will be kept.
+#define XCP__ADMP_SUP_LEGACY          \
+       (XCP_ADMP_WK_IMPORT          | \
+        XCP_ADMP_WK_EXPORT          | \
+        XCP_ADMP_WK_1PART           | \
+        XCP_ADMP_WK_RANDOM          | \
+        XCP_ADMP_1SIGN              | \
+        XCP_ADMP_CP_1SIGN           | \
+        XCP_ADMP_ZERO_1SIGN         | \
+        XCP_ADMP_NO_DOMAIN_IMPRINT  | \
+        XCP_ADMP_STATE_IMPORT       | \
+        XCP_ADMP_STATE_EXPORT       | \
+        XCP_ADMP_STATE_1PART        | \
+        XCP_ADMP_CHG_WK_IMPORT      | \
+        XCP_ADMP_CHG_WK_EXPORT      | \
+        XCP_ADMP_CHG_WK_1PART       | \
+        XCP_ADMP_CHG_WK_RANDOM      | \
+        XCP_ADMP_CHG_SIGN_THR       | \
+        XCP_ADMP_CHG_REVOKE_THR     | \
+        XCP_ADMP_CHG_1SIGN          | \
+        XCP_ADMP_CHG_CP_1SIGN       | \
+        XCP_ADMP_CHG_ZERO_1SIGN     | \
+        XCP_ADMP_CHG_ST_IMPORT      | \
+        XCP_ADMP_CHG_ST_EXPORT      | \
+        XCP_ADMP_CHG_ST_1PART)
+
+#define XCP__ADMM_SUP_LEGACY          \
+       (XCP_ADMM_AUTHENTICATED      | \
+        XCP_ADMM_EXTWNG             | \
+        XCP_ADMM_WKCLEAN_EXTWNG     | \
+        XCP_ADMM_BATT_LOW           | \
+        XCP_ADMM_API_ACTIVE)
+
+#define XCP_ADMS__ALL_LEGACY          \
+       (XCP_ADMS_FIPS2009           | \
+        XCP_ADMS_BSI2009            | \
+        XCP_ADMS_FIPS2011           | \
+        XCP_ADMS_BSI2011            | \
         XCP_ADMS_BSICC2017)
 
+#define XCP__ADMP_SUP_EXT01_LEGACY (0)
+
 // has compliance any BSI mode
-#define XCP_ADMS_IS_BSI(mode)  (!!(mode & (XCP_ADMS_BSI2009   | \
-                                           XCP_ADMS_BSI2011   | \
-                                           XCP_ADMS_BSICC2017    )) )
+#define XCP_ADMS_IS_BSI(mode)  (!!((mode) & (XCP_ADMS_BSI2009   | \
+                                             XCP_ADMS_BSI2011   | \
+                                             XCP_ADMS_BSICC2017    )) )
 // mask of supported import keys
 // 3k and 4k RSA are not supported
 #define  XCP_ADM_IMPEXP_KEYS__MASK       \
@@ -1870,7 +1912,8 @@ typedef enum {
           (1 << XCP_IMPRKEY_EC_P521)   | \
           (1 << XCP_IMPRKEY_EC_BP256r) | \
           (1 << XCP_IMPRKEY_EC_BP320r) | \
-          (1 << XCP_IMPRKEY_EC_BP512r))
+          (1 << XCP_IMPRKEY_EC_BP512r) | \
+          (1 << XCP_IMPRKEY_EC_P521_TKE))
 
 
 /*---  audit chains  -------------------------------------------------------*/
@@ -1922,50 +1965,55 @@ typedef enum {
 
 /*---  state serialization  ------------------------------------------------*/
 typedef enum {
-	XCP_STSTYPE_SECTIONCOUNT   =  1,  // section count +file hash
-	XCP_STSTYPE_DOMAINIDX_MAX  =  2,  // largest index +total nr of domains
-	XCP_STSTYPE_DOMAINS_MASK   =  3,  // bitmask of included domains
-	XCP_STSTYPE_SERIALNR       =  4,
-	XCP_STSTYPE_CREATE_TIME    =  5,  // file date/time (UTC)
-	XCP_STSTYPE_FCV            =  6,  // public parts of originating FCV
-	XCP_STSTYPE_CARD_QUERY     =  7,  // card state structure (xcp_info)
-	XCP_STSTYPE_CARD_ADM_SKIS  =  8,  // card admin SKIs, packed
-	XCP_STSTYPE_CARD_ADM_CERTS =  9,  // card admin certificates, packed
-	XCP_STSTYPE_DOM_ADM_SKIS   = 10,  // domain admin SKIs, packed
-	XCP_STSTYPE_DOM_ADM_CERTS  = 11,  // domain admin certificates, packed
-	XCP_STSTYPE_DOM_QUERY      = 12,  // domain state structure (xcp_info)
-	XCP_STSTYPE_KPH_SKIS       = 13,  // count and SKIs of targeted KPHs
-	XCP_STSTYPE_CARD_ATTRS     = 14,  // card attributes
-	XCP_STSTYPE_DOM_ATTRS      = 15,  // domain attributes
-	XCP_STSTYPE_CARD_TRANSCTR  = 16,  // card transaction counter
-	XCP_STSTYPE_DOM_TRANSCTR   = 17,  // domain transaction counter
-	XCP_STSTYPE_WK_ENCR_ALG    = 18,
-	XCP_STSTYPE_WK_ENCR_DATA   = 19,
-	XCP_STSTYPE_SIG_CERT_COUNT = 20,
-	XCP_STSTYPE_SIG_CERTS      = 21,
-	XCP_STSTYPE_FILE_SIG       = 22,
-	XCP_STSTYPE_DOM_CPS        = 23,  // full set of control points
-	XCP_STSTYPE_STATE_SALT     = 24,
-	XCP_STSTYPE_KEYPART        = 25,  // encrypted keypart (RecipientInfo)
-	XCP_STSTYPE_KEYPART_SIG    = 26,  // signature on encrypted keypart
-	XCP_STSTYPE_KEYPART_COUNT  = 27,  // total number of keyparts
-	XCP_STSTYPE_KEYPART_LIMIT  = 28,  // number of keyparts needed to
-	                                  // restore
-	XCP_STSTYPE_KEYPART_CERT   = 29,  // certificate of keypart holder
-	XCP_STSTYPE_CERT_AUTH      = 30,  // certificate authority issuing
-	                                  // some of the certificates.  This
-	                                  // field contains host-supplied data
-	                                  // and it is ignored by EP11 itself.
-	XCP_STSTYPE_STATE_SCOPE    = 31,  // restriction on contents of full
-	                                  // state structure
-	XCP_STSTYPE_MULTIIMPORT_MASK
-	                           = 32,  // import only: designate import
-	                                  // request to be replicated into
-	                                  // multiple recipient domains
-	XCP_STSTYPE_CPS_MASK       = 33,  // bitmask of all CPs supported
-	                                  // by the exporting module
+	XCP_STSTYPE_SECTIONCOUNT      =  1, // section count +file hash
+	XCP_STSTYPE_DOMAINIDX_MAX     =  2, // largest index +total nr of doms
+	XCP_STSTYPE_DOMAINS_MASK      =  3, // bitmask of included domains
+	XCP_STSTYPE_SERIALNR          =  4,
+	XCP_STSTYPE_CREATE_TIME       =  5, // file date/time (UTC)
+	XCP_STSTYPE_FCV               =  6, // public parts of originating FCV
+	XCP_STSTYPE_CARD_QUERY        =  7, // V0 card state struct (xcp_info)
+	XCP_STSTYPE_CARD_ADM_SKIS     =  8, // card admin SKIs, packed
+	XCP_STSTYPE_CARD_ADM_CERTS    =  9, // card admin certificates, packed
+	XCP_STSTYPE_DOM_ADM_SKIS      = 10, // domain admin SKIs, packed
+	XCP_STSTYPE_DOM_ADM_CERTS     = 11, // domain admin certs, packed
+	XCP_STSTYPE_DOM_QUERY         = 12, // domain state struct (xcp_info)
+	XCP_STSTYPE_KPH_SKIS          = 13, // count and SKIs of targeted KPHs
+	XCP_STSTYPE_CARD_ATTRS        = 14, // card attributes
+	XCP_STSTYPE_DOM_ATTRS         = 15, // domain attributes
+	XCP_STSTYPE_CARD_TRANSCTR     = 16, // card transaction counter
+	XCP_STSTYPE_DOM_TRANSCTR      = 17, // domain transaction counter
+	XCP_STSTYPE_WK_ENCR_ALG       = 18,
+	XCP_STSTYPE_WK_ENCR_DATA      = 19,
+	XCP_STSTYPE_SIG_CERT_COUNT    = 20,
+	XCP_STSTYPE_SIG_CERTS         = 21,
+	XCP_STSTYPE_FILE_SIG          = 22,
+	XCP_STSTYPE_DOM_CPS           = 23, // full set of control points
+	XCP_STSTYPE_STATE_SALT        = 24,
+	XCP_STSTYPE_KEYPART           = 25, // encrypted keypart (RecipientInfo)
+	XCP_STSTYPE_KEYPART_SIG       = 26, // signature on encrypted keypart
+	XCP_STSTYPE_KEYPART_COUNT     = 27, // total number of keyparts
+	XCP_STSTYPE_KEYPART_LIMIT     = 28, // number of keyparts needed to
+	                                    // restore
+	XCP_STSTYPE_KEYPART_CERT      = 29, // certificate of keypart holder
+	XCP_STSTYPE_CERT_AUTH         = 30, // certificate authority issuing
+	                                    // some of the certificates.  This
+	                                    // field contains host-supplied data
+	                                    // and it is ignored by EP11 itself.
+	XCP_STSTYPE_STATE_SCOPE       = 31, // restriction on contents of full
+	                                    // state structure
+	XCP_STSTYPE_MULTIIMPORT_MASK  = 32, // import only: designate import
+	                                    // request to be replicated into
+	                                    // multiple recipient domains
+	XCP_STSTYPE_CPS_MASK          = 33, // bitmask of all CPs supported
+	                                    // by the exporting module
+	XCP_STSTYPE_CARD_QUERY_V1     = 34, // V1 card state struct (xcp_info)
+	XCP_STSTYPE_CARD_QUERY_V2     = 35, // V2 card state struct (xcp_info)
+	XCP_STSTYPE_CARD_EXTADM_SKIS  = 36, // ext. card admin SKIs, packed
+	XCP_STSTYPE_CARD_EXTADM_CERTS = 37, // ext. card admin certs, packed
+	XCP_STSTYPE_DOM_EXTADM_SKIS   = 38, // ext. dom admin SKIs, packed
+	XCP_STSTYPE_DOM_EXTADM_CERTS  = 39, // ext. dom admin certs, packed
 
-	XCP_STSTYPE_MAX            = XCP_STSTYPE_CPS_MASK
+	XCP_STSTYPE_MAX               = XCP_STSTYPE_DOM_EXTADM_CERTS
 } XCP_StateSection_t;
 
 typedef enum {
@@ -1991,7 +2039,11 @@ typedef enum {
 	                                  // not return KPH certificates
 	XCP_STWK_KP_NO_OA_CHAIN    = 8,   // keypart section restricted to
 	                                  // not return OA certificate chain
-	XCP_STDATA_MAX             = ((XCP_STWK_KP_NO_OA_CHAIN *2) -1)
+	XCP_STDATA_NQS             = 0x20,// allow use of non-quantum-safe
+	                                  // algorithms in KP export/signature
+	XCP_STDATA_QS              = 0x40,// allow use of quantum-safe
+	                                  // algorithms in KP export/signature
+	XCP_STDATA_MAX             = ((XCP_STDATA_QS *2) -1)
 } XCP_StateType_t;
 
 // type || identifier prefixes
@@ -2124,10 +2176,6 @@ typedef enum {
 #define  XCP_EC_MAX_ID_BYTES    11   /* fits all EC names/OIDs */
 
 
-// Dilithium related OIDs
-#define XCP_PQC_DILITHIUM_65_NAME       "\x6\xB\x2B\x6\x1\x4\x1\x2\x82\xB\x1\x6\x5"
-#define XCP_PQC_DILITHIUM_65_NAME_BYTES 13
-
 /*------------------------------------*/
 typedef enum {
 	XCP_EC_C_NIST_P192 = 1,      /* NIST, FP curves */
@@ -2158,6 +2206,7 @@ typedef enum {
 	XCP_EC_C_ED25519   = 26,     /* ed25519, EDDSA */
 
 
+	XCP_EC_C_MAX       = 27      /* last possible value */
 
 } XCP_ECcurve_t;
 
@@ -2173,6 +2222,56 @@ typedef enum {
 	XCP_EC_CG_C448      = 6,      /* c448, ed448 ('Goldilocks') */
 	XCP_EC_CG_MAX       = XCP_EC_CG_C448
 } XCP_ECCurveGrp_t;
+
+
+/*---  PQC algorithms  ------------------------------------------------------*/
+
+// Dilithium related OIDs
+// Round 2 Dilithium-3 (5-4)
+#define XCP_PQC_DILITHIUM_R2_54  "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x1\x5\x4"
+#define XCP_PQC_DILITHIUM_R2_54_BYTES 13
+// Round 2 Dilithium-4 (6-5)
+#define XCP_PQC_DILITHIUM_R2_65  "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x1\x6\x5"
+#define XCP_PQC_DILITHIUM_R2_65_BYTES 13
+// Round 2 Dilithium-5 (8-7)
+#define XCP_PQC_DILITHIUM_R2_87  "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x1\x8\x7"
+#define XCP_PQC_DILITHIUM_R2_87_BYTES 13
+// Round 3 Dilithium-2 (4-4)
+#define XCP_PQC_DILITHIUM_R3_44      "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x7\x4\x4"
+#define XCP_PQC_DILITHIUM_R3_44_BYTES     13
+// Round 3 Dilithium-3 (6-5)
+#define XCP_PQC_DILITHIUM_R3_65      "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x7\x6\x5"
+#define XCP_PQC_DILITHIUM_R3_65_BYTES     13
+// Round 3 Dilithium-5 (8-7)
+#define XCP_PQC_DILITHIUM_R3_87      "\x6\xb\x2b\x6\x1\x4\x1\x2\x82\xb\x7\x8\x7"
+#define XCP_PQC_DILITHIUM_R3_87_BYTES     13
+
+// Round 2 Kyber 512
+#define XCP_PQC_KYBER_R2_512 "\x6\x9\x2B\x6\x1\x4\x1\x2\x82\xB\x5"
+#define XCP_PQC_KYBER_R2_512_BYTES 11
+
+// Round 2 Kyber 768
+#define XCP_PQC_KYBER_R2_768 "\x6\xB\x2B\x6\x1\x4\x1\x2\x82\xB\x5\x3\x3"
+#define XCP_PQC_KYBER_R2_768_BYTES 13
+
+// Round 2 Kyber 1024
+#define XCP_PQC_KYBER_R2_1024 "\x6\xB\x2B\x6\x1\x4\x1\x2\x82\xB\x5\x4\x4"
+#define XCP_PQC_KYBER_R2_1024_BYTES 13
+
+/*------------------------------------*/
+typedef enum {
+	XCP_PQC_S_DILITHIUM_R2_54      =  1,      /* Round-2 Dilithium */
+	XCP_PQC_S_DILITHIUM_R2_65      =  2,
+	XCP_PQC_S_DILITHIUM_R2_87      =  3,
+	XCP_PQC_S_DILITHIUM_R3_44      =  4,      /* Round-3 Dilithium */
+	XCP_PQC_S_DILITHIUM_R3_65      =  5,
+	XCP_PQC_S_DILITHIUM_R3_87      =  6,
+	XCP_PQC_S_KYBER_R2_512     =  7,      /* Round-2 Kyber */
+	XCP_PQC_S_KYBER_R2_768     =  8,
+	XCP_PQC_S_KYBER_R2_1024    =  9,
+
+	XCP_PQC_MAX               = XCP_PQC_S_KYBER_R2_1024,
+} XCP_PQCStrength_t;
 
 
 // binary encoding of function/version query
@@ -2343,12 +2442,15 @@ typedef enum {
 	XCP_DEV_FLIP_ERRORSTATE  = 68,  // explicitly flip the setting of the
 	                                // error state of the module
 	XCP_DEV_AESKW            = 69,
-	XCP_DEV_MAX_INDEX        = XCP_DEV_AESKW
+	XCP_DEV_UNIT_TEST        = 72,  // run unit tests on module
+
+
+	XCP_DEV_MAX_INDEX        = XCP_DEV_UNIT_TEST
 } XCP_DEVcmd_t;
 //
 // upper limit on additional data bytes, for SYS-TEST commands with aux. data
 // (arbitrary limit, commands may restict further)
-#define  XCP_DEV_MAX_DATABYTES   ((size_t) 4096)
+#define  XCP_DEV_MAX_DATABYTES   ((size_t) 64000)
 //
 // iteration-count limit applies to any iterative call
 // driver[timeout] may interfere; dev-only feature is not otherwise restricted
@@ -2412,7 +2514,190 @@ typedef enum {
 #define  CKG_IBM_MGF1_SHA3_384         (CKG_VENDOR_DEFINED +3)
 #define  CKG_IBM_MGF1_SHA3_512         (CKG_VENDOR_DEFINED +4)
 
+#if !defined(CKD_VENDOR_DEFINED)
+#define  CKD_VENDOR_DEFINED            0x80000000UL
+#endif
 
+#define  CKD_IBM_HYBRID_NULL           (CKD_VENDOR_DEFINED + 0x00000001UL)
+#define  CKD_IBM_HYBRID_SHA1_KDF       (CKD_VENDOR_DEFINED + 0x00000002UL)
+#define  CKD_IBM_HYBRID_SHA224_KDF     (CKD_VENDOR_DEFINED + 0x00000003UL)
+#define  CKD_IBM_HYBRID_SHA256_KDF     (CKD_VENDOR_DEFINED + 0x00000004UL)
+#define  CKD_IBM_HYBRID_SHA384_KDF     (CKD_VENDOR_DEFINED + 0x00000005UL)
+#define  CKD_IBM_HYBRID_SHA512_KDF     (CKD_VENDOR_DEFINED + 0x00000006UL)
+
+#define  XCP_MODEL_CEX4P               4
+#define  XCP_MODEL_CEX5P               5
+#define  XCP_MODEL_CEX6P               6
+#define  XCP_MODEL_CEX7P               7
+#define  XCP_MODEL_CEX8P               8
+
+/*--------------------------------------------------------------------------*/
+// max value for target groups
+#define XCP_MAX_GRPIDX 1024u
+
+//
+// macros for setting/checking and removing domains from (tgt.mgmt) domain mask
+#define XCPTGTMASK_SET_DOM(mask, domain)      \
+                           ((mask)[((domain)/8)] |=   (1 << (7-(domain)%8)))
+#define XCPTGTMASK_DOM_IS_SET(mask, domain)   \
+                           ((mask)[((domain)/8)] &   (1 << (7-(domain)%8)))
+#define XCPTGTMASK_CLR_DOM(mask, domain)      \
+                           ((mask)[((domain)/8)] &=  ~(1 << (7-(domain)%8)))
+
+
+/* flags that can be set for the target tokens
+ *
+ * This flags are domain specific and are therefore called domain flags
+ *
+ * start of flags is >16 Bit. Max value for domains is 0xFF. Should be enough
+ * room for extensions
+ */
+#define XCP_TGTFL_WCAP     0x10000000  /* Capture wire request in output buffer
+                                        * without sending it to the module
+                                        */
+#define XCP_TGTFL_WCAP_SQ  0x20000000  /* Size query: Return size of request in
+                                        * output buffer length field
+                                        */
+#define XCP_TGTFL_SET_SCMD 0x40000000  /* Protected key special command: Set the
+                                        * special command flag in the CPRB
+                                        * header
+                                        */
+#define XCP_TGTFL_API_CHKD 0x80000000  /* supported API version of modules in
+                                        * target (group) has been checked
+                                        */
+
+#define XCP_TGTFL_NO_LOCK  0x01000000  /* target token ignores sequential locks
+                                        * for target probing
+                                        */
+#define XCP_TGTFL_CHK_ATTR 0x02000000  /* reject unknown attribute in attribute
+                                        * templates with
+                                        * CKR_TEMPLATE_INCONSISTENT. Default is
+                                        * to ignore unknown attributes.
+                                        */
+#define XCP_TGTFL_SET_ACMD 0x04000000  /* add CPRB admin flag to CPRB header */
+
+#define XCP_TGTFL_NO_SPLIT 0x08000000  /* enforce single-shot requests */
+
+//--------------------------------------
+// socket use only
+#define  XCP_MAXCONNECTIONS 64       /* max value for active connections */
+#define  XCP_MAX_PORT     0xffff
+
+// hostname and port value fore one module
+typedef struct XCP_ModuleSocket {
+	char host[ MAX_FNAME_CHARS +1 ];
+	uint32_t port;
+} *XCP_ModuleSocket_t ;
+
+
+//--------------------------------------
+// diagnostics use only
+typedef struct XCP_DomainPerf {
+	/* perf value of last request per domain
+	 *
+	 * At the moment unused
+	 * */
+	unsigned int lastperf[ 256 ];
+} *XCP_DomainPerf_t;
+
+
+// current version of XCP_Module structure; host code SHOULD interact with
+// future/past versions, MUST be set by caller before using m_add_module()
+// valid versions are all >0
+#define  XCP_MOD_VERSION  2
+//--------------------------------------
+// subsequent communications with a module MAY skip infrastructure-specific
+// fields, such as a query not reporting device handles etc., even if they
+// have been supplied originally when the module has been registered.
+//
+typedef struct XCP_Module {
+	uint32_t version;     /* >0 for supported API versions */
+
+	uint64_t flags;       /* see XCP_Module_Flags */
+
+	uint32_t domains;     /* max# addressable under this module;
+	                       * cached from OS
+	                       *
+	                       * when callers set domains  to 0, the library
+	                       * returns the module-claimed domain count.
+	                       */
+
+	unsigned char domainmask[ 256 /8 ];
+	                      /* higher domain# through future flags (none
+	                       * currently defined) which would add things
+	                       * like 'FLAG_256_1023' etc. at the same time,
+	                       * we would add domainmask2[] etc.
+	                       * corresponding new fields.
+	                       *
+	                       * new fields would then store mask for
+	                       * domains 256+ etc.
+	                       *
+	                       * domain #0 is bit x80 of 1st byte,
+	                       * #255 is bit 0x01 of last byte.
+	                       */
+
+		// when a domainmask is supplied, with bits set beyond
+		// what the module supports, the bitmask is trimmed to
+		// the supported range, but this is NOT reported as an
+		// error, unless XCP_MFL_STRICT is also supplied.
+		//
+		// without XCP_MFL_STRICT, callers are expected to check
+		// at least the returned domain count.
+
+			/* used only when flags includes XCP_MFL_SOCKET */
+	struct XCP_ModuleSocket socket;
+
+			/* used when system exposes modules through an
+			 * array of transparent pipes, or similar abstraction
+			 * (such as mainframe AP Queues, or other Linux
+			 * 'device-minor' numbers etc.). Interpretation
+			 * is platform-dependent.
+			 *
+			 * used only when flags includes XCP_MFL_MODULE
+			 */
+	uint32_t module_nr;
+
+			/* used by systems which associate devices with
+			 * device handles/structs/etc. persistent state.
+			 * opaque pointer, usually a const pointer to
+			 * such aux structs, MAY be stored here.
+			 *
+			 * interpretation is platform-dependent.
+			 * used only when flags includes XCP_MFL_MHANDLE
+			 */
+	void *mhandle;
+			/* diagnostics use only, when XCP_MFL_PERF is set */
+	struct XCP_DomainPerf perf;
+	//-----  end of v1 fields  -------------------------------------------
+
+	uint32_t api; /* module api version*/
+	//-----  end of v2 fields  -------------------------------------------
+} *XCP_Module_t ;
+
+typedef enum {
+	XCP_MFL_SOCKET       =    1,  /* backend is socket-attached */
+	XCP_MFL_MODULE       =    2,  /* backends identified in
+	                                 array-of-modules */
+	XCP_MFL_MHANDLE      =    4,  /* backends uses 'module handle' field */
+	XCP_MFL_PERF         =    8,  /* performance statistics collected
+	                               * for this module, see .perf
+	                               */
+	XCP_MFL_VIRTUAL      = 0x10,  /* queried 'target' is a load-balancer,
+	                               * other other group.
+	                               */
+	XCP_MFL_STRICT       = 0x20,  /* enable aggressive error checking,
+	                               * see field descriptions for effect
+	                               */
+	XCP_MFL_PROBE        = 0x40,  /* send api query to module, to check if
+	                               * target(s) can be used
+	                               */
+	XCP_MFL_ALW_TGT_ADD  = 0x80,  /* Allows it to use a target in any
+	                               * functional and admin call without
+	                               * adding it beforehand with
+	                               * m_add_module()
+	                               */
+	XCP_MFL_MAX          = 0xff
+} XCP_Module_Flags;
 
 typedef uint64_t target_t;
 
@@ -2420,14 +2705,15 @@ typedef uint64_t target_t;
 
 #define XCP_TGT_FMT "x%016" PRIx64
 
-// initializes the library
-int m_init(void);
-// shutting down the library
-int m_shutdown(void);
-
 int m_add_module(XCP_Module_t module, target_t *target) ;
 
 int m_rm_module(XCP_Module_t module, target_t target) ;
+
+CK_RV m_admin (unsigned char *response1, size_t *r1len,
+               unsigned char *response2, size_t *r2len,
+         const unsigned char *cmd,       size_t clen,
+         const unsigned char *sigs,      size_t slen,
+                         target_t target) ;
 
 /*----------------------------------------------------------------------
  *  CK_... type arguments correspond to the original PKCS#11 call's
@@ -2442,11 +2728,31 @@ int m_rm_module(XCP_Module_t module, target_t target) ;
  *  For certain operations, such as _GenerateKey, there are no real
  *  PKCS#11 type parameters at this level.
  */
+
+
+CK_RV m_Login ( CK_UTF8CHAR_PTR pin,      CK_ULONG pinlen,
+            const unsigned char *nonce,     size_t nlen,
+                  unsigned char *pinblob,   size_t *pinbloblen,
+                       target_t target) ;
+CK_RV m_Logout ( const unsigned char *pin, size_t len,     target_t target) ;
+
+CK_RV m_LoginExtended( CK_UTF8CHAR_PTR pin,    CK_ULONG pinlen,
+                   const unsigned char *nonce,   size_t nlen,
+                   const unsigned char *xstruct, size_t xslen,
+                         unsigned char *pinblob, size_t *pinbloblen,
+                              target_t target) ;
+
+CK_RV m_LogoutExtended( CK_UTF8CHAR_PTR pin,    CK_ULONG pinlen,
+                    const unsigned char *nonce,   size_t nlen,
+                    const unsigned char *xstruct, size_t xslen,
+                               target_t target) ;
+
 CK_RV m_GenerateRandom   (CK_BYTE_PTR rnd, CK_ULONG len,     target_t target) ;
 /**/
 /* note: external seeding not supported */
 CK_RV m_SeedRandom (CK_BYTE_PTR pSeed,   CK_ULONG ulSeedLen,
                        target_t target) ;
+
 CK_RV m_DigestInit     (unsigned char *state,     size_t *len,
                const CK_MECHANISM_PTR pmech,
                              target_t target) ;
@@ -2468,6 +2774,73 @@ CK_RV m_DigestSingle (CK_MECHANISM_PTR pmech,
                            CK_BYTE_PTR data,       CK_ULONG len,
                            CK_BYTE_PTR digest, CK_ULONG_PTR dlen,
                               target_t target) ;
+
+CK_RV m_GenerateKey (CK_MECHANISM_PTR pmech,
+                     CK_ATTRIBUTE_PTR ptempl, CK_ULONG templcount,
+                  const unsigned char *pin,     size_t pinlen,
+                        unsigned char *key,     size_t *klen,
+                        unsigned char *csum,    size_t *clen,
+                             target_t target) ;
+/**/
+CK_RV m_GenerateKeyPair (CK_MECHANISM_PTR pmech,
+                         CK_ATTRIBUTE_PTR ppublic,  CK_ULONG pubattrs,
+                         CK_ATTRIBUTE_PTR pprivate, CK_ULONG prvattrs,
+                      const unsigned char *pin,       size_t pinlen,
+                            unsigned char *key,       size_t *klen,
+                            unsigned char *pubkey,    size_t *pklen,
+                                 target_t target) ;
+
+/* mackey is NULL for PKCS#11 formats, not for authenticated ones */
+CK_RV m_WrapKey (const unsigned char *key,          size_t keylen,
+                 const unsigned char *kek,          size_t keklen,
+                 const unsigned char *mackey,       size_t mklen,
+              const CK_MECHANISM_PTR pmech,
+                         CK_BYTE_PTR wrapped, CK_ULONG_PTR wlen,
+                            target_t target) ;
+/**/
+/* mackey is NULL for PKCS#11 formats, not for authenticated ones */
+CK_RV m_UnwrapKey (const   CK_BYTE_PTR wrapped,  CK_ULONG wlen,
+                   const unsigned char *kek,       size_t keklen,
+                   const unsigned char *mackey,    size_t mklen,
+                   const unsigned char *pin,       size_t pinlen,
+                const CK_MECHANISM_PTR uwmech,
+                const CK_ATTRIBUTE_PTR ptempl,   CK_ULONG pcount,
+                         unsigned char *unwrapped, size_t *uwlen,
+                           CK_BYTE_PTR csum,     CK_ULONG *cslen,
+                              target_t target) ;
+
+CK_RV m_DeriveKey ( CK_MECHANISM_PTR pderivemech,
+                    CK_ATTRIBUTE_PTR ptempl, CK_ULONG templcount,
+                 const unsigned char *basekey, size_t bklen,
+                 const unsigned char *data,    size_t dlen,
+                 const unsigned char *pin,     size_t pinlen,
+                       unsigned char *newkey,  size_t *nklen,
+                       unsigned char *csum,    size_t *cslen,
+                       target_t target) ;
+
+CK_RV m_GetAttributeValue (const unsigned char *obj,        size_t olen,
+                              CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                                      target_t target) ;
+CK_RV m_SetAttributeValue       (unsigned char *obj,        size_t olen,
+                              CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
+                                      target_t target) ;
+
+/**/
+CK_RV m_GetMechanismList (CK_SLOT_ID slot,
+               CK_MECHANISM_TYPE_PTR mechs,
+                        CK_ULONG_PTR count,
+                            target_t target) ;
+CK_RV m_GetMechanismInfo (CK_SLOT_ID slot,
+                   CK_MECHANISM_TYPE mech,
+               CK_MECHANISM_INFO_PTR pmechinfo,
+                            target_t target) ;
+
+CK_RV m_get_xcp_info (CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
+                     unsigned int query,
+                     unsigned int subquery,
+                         target_t target) ;
+
+// see also: CK_IBM_XCPQUERY_t
 
 CK_RV m_EncryptInit        (unsigned char *state, size_t *slen,
                          CK_MECHANISM_PTR pmech,
@@ -2516,21 +2889,6 @@ CK_RV m_DecryptSingle (const unsigned char *key,         size_t klen,
                                CK_BYTE_PTR plain,  CK_ULONG_PTR plen,
                                   target_t target) ;
 
-CK_RV m_GenerateKey (CK_MECHANISM_PTR pmech,
-                     CK_ATTRIBUTE_PTR ptempl, CK_ULONG templcount,
-                  const unsigned char *pin,     size_t pinlen,
-                        unsigned char *key,     size_t *klen,
-                        unsigned char *csum,    size_t *clen,
-                             target_t target) ;
-/**/
-CK_RV m_GenerateKeyPair (CK_MECHANISM_PTR pmech,
-                         CK_ATTRIBUTE_PTR ppublic,  CK_ULONG pubattrs,
-                         CK_ATTRIBUTE_PTR pprivate, CK_ULONG prvattrs,
-                      const unsigned char *pin,       size_t pinlen,
-                            unsigned char *key,       size_t *klen,
-                            unsigned char *pubkey,    size_t *pklen,
-                                 target_t target) ;
-
 CK_RV m_SignInit     (unsigned char *state,     size_t *slen,
                    CK_MECHANISM_PTR alg,
                 const unsigned char *key,       size_t klen,
@@ -2574,72 +2932,6 @@ CK_RV m_VerifySingle (const unsigned char *key,      size_t klen,
                               CK_BYTE_PTR sig,     CK_ULONG slen,
                                  target_t target) ;
 
-/* mackey is NULL for PKCS#11 formats, not for authenticated ones */
-CK_RV m_WrapKey (const unsigned char *key,          size_t keylen,
-                 const unsigned char *kek,          size_t keklen,
-                 const unsigned char *mackey,       size_t mklen,
-              const CK_MECHANISM_PTR pmech,
-                         CK_BYTE_PTR wrapped, CK_ULONG_PTR wlen,
-                            target_t target) ;
-/**/
-/* mackey is NULL for PKCS#11 formats, not for authenticated ones */
-CK_RV m_UnwrapKey (const   CK_BYTE_PTR wrapped,  CK_ULONG wlen,
-                   const unsigned char *kek,       size_t keklen,
-                   const unsigned char *mackey,    size_t mklen,
-                   const unsigned char *pin,       size_t pinlen,
-                const CK_MECHANISM_PTR uwmech,
-                const CK_ATTRIBUTE_PTR ptempl,   CK_ULONG pcount,
-                         unsigned char *unwrapped, size_t *uwlen,
-                           CK_BYTE_PTR csum,     CK_ULONG *cslen,
-                              target_t target) ;
-
-CK_RV m_DeriveKey ( CK_MECHANISM_PTR pderivemech,
-                    CK_ATTRIBUTE_PTR ptempl, CK_ULONG templcount,
-                 const unsigned char *basekey, size_t bklen,
-                 const unsigned char *data,    size_t dlen,
-                 const unsigned char *pin,     size_t pinlen,
-                       unsigned char *newkey,  size_t *nklen,
-                       unsigned char *csum,    size_t *cslen,
-                       target_t target) ;
-
-/**/
-CK_RV m_GetMechanismList (CK_SLOT_ID slot,
-               CK_MECHANISM_TYPE_PTR mechs,
-                        CK_ULONG_PTR count,
-                            target_t target) ;
-CK_RV m_GetMechanismInfo (CK_SLOT_ID slot,
-                   CK_MECHANISM_TYPE mech,
-               CK_MECHANISM_INFO_PTR pmechinfo,
-                            target_t target) ;
-
-CK_RV m_GetAttributeValue (const unsigned char *obj,        size_t olen,
-                              CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
-                                      target_t target) ;
-CK_RV m_SetAttributeValue       (unsigned char *obj,        size_t olen,
-                              CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount,
-                                      target_t target) ;
-
-
-CK_RV m_Login ( CK_UTF8CHAR_PTR pin,      CK_ULONG pinlen,
-            const unsigned char *nonce,     size_t nlen,
-                  unsigned char *pinblob,   size_t *pinbloblen,
-                       target_t target) ;
-CK_RV m_Logout ( const unsigned char *pin, size_t len,     target_t target) ;
-
-CK_RV m_admin (unsigned char *response1, size_t *r1len,
-               unsigned char *response2, size_t *r2len,
-         const unsigned char *cmd,       size_t clen,
-         const unsigned char *sigs,      size_t slen,
-                         target_t target) ;
-
-CK_RV m_get_xcp_info (CK_VOID_PTR pinfo, CK_ULONG_PTR infbytes,
-                     unsigned int query,
-                     unsigned int subquery,
-                         target_t target) ;
-
-// see also: CK_IBM_XCPQUERY_t
-
-
 // m_wire() by default removes transport headers of responses (CPRB header etc.)
 // setting to prevent stripping:
 //
@@ -2661,17 +2953,20 @@ CK_RV m_wire (unsigned char *rsp, size_t *rsplen, CK_RV *irv,
 #define  XCP_W_NO_SEND_CPRB  1      /* data already includes request header */
 #define  XCP_W_NO_RECV_CPRB  2      /* leave transport header in response   */
 
+// initializes the library
+int m_init(void);
+// shutting down the library
+int m_shutdown(void);
+
+
 
 /*--  build identification  ------------------------------------------------*/
 
-#define  XCP_BUILD_ID    0x9c14a5e6
-#define  XCP_BUILD_DATE  0x20220610       /* UTC */
-#define  XCP_BUILD_TIME  0x123354       /* UTC */
+#define  XCP_BUILD_ID    0xf1d34cc2
+#define  XCP_BUILD_DATE  0x20221214       /* UTC */
+#define  XCP_BUILD_TIME  0x094523         /* UTC */
 
 /*--------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------*/
-
-
 #define __XCP_REASONCODES_H__ 1
 
 
@@ -2823,14 +3118,10 @@ typedef enum {
 } XCP_ReasonCode_t ;
 
 
-
-
-#if ! defined(__transport_fns_h__)
-#define __transport_fns_h__
-
 /* function identifiers must be consecutive, between: */
 #define  __MIN_MOD_FNID  1
-#define  __MAX_MOD_FNID  43
+#define  __MAX_MOD_FNID  42
+/* selectively disabled functions within that range reported separately */
 
 #define  __FNID_Login              1
 #define  __FNID_Logout             2
@@ -2937,8 +3228,6 @@ typedef enum {
 /* maximum nr of non-system parameters:        */
 #define  __HOST2MOD_DATAPRM  9
 #define  __MOD2HOST_DATAPRM  2
-
-#endif  /* n defined(__transport_fns_h__) */
 
 
 #endif /* n defined(XCP_H__) */
