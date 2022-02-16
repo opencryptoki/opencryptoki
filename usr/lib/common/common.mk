@@ -7,4 +7,5 @@ noinst_HEADERS +=							\
 	usr/lib/common/p11util.h usr/lib/common/event_client.h		\
 	usr/lib/common/list.h usr/lib/common/tok_specific.h		\
 	usr/lib/common/uri_enc.h usr/lib/common/uri.h 			\
-	usr/lib/common/buffer.h usr/lib/common/pin_prompt.h
+	usr/lib/common/buffer.h usr/lib/common/pin_prompt.h		\
+	usr/lib/common/pqc_defs.h

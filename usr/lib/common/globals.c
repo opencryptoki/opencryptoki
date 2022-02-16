@@ -27,6 +27,7 @@
 #include "defs.h"
 #include "host_defs.h"
 #include "h_extern.h"
+#include "pqc_oids.h"
 
 struct ST_FCN_LIST function_list;
 
