@@ -441,6 +441,11 @@ typedef CK_ULONG CK_KEY_TYPE;
 #endif
 #define CKK_IBM_DILITHIUM        CKK_IBM_PQC_DILITHIUM
 
+#ifndef OCK_NO_EP11_DEFINES
+#define CKK_IBM_PQC_KYBER        CKK_VENDOR_DEFINED + 0x10024
+#endif
+#define CKK_IBM_KYBER            CKK_IBM_PQC_KYBER
+
 /* CK_CERTIFICATE_TYPE is a value that identifies a certificate
  * type */
 /* CK_CERTIFICATE_TYPE was changed from CK_USHORT to CK_ULONG
@@ -615,6 +620,49 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
 #define CKA_IBM_DILITHIUM_S2      (CKA_VENDOR_DEFINED + 0xd0006)
 #define CKA_IBM_DILITHIUM_T0      (CKA_VENDOR_DEFINED + 0xd0007)
 #define CKA_IBM_DILITHIUM_T1      (CKA_VENDOR_DEFINED + 0xd0008)
+
+#define CKA_IBM_KYBER_MODE        (CKA_VENDOR_DEFINED + 0x0000E)
+
+#define CKA_IBM_KYBER_KEYFORM     (CKA_VENDOR_DEFINED + 0xd0009)
+#define CKA_IBM_KYBER_PK          (CKA_VENDOR_DEFINED + 0xd000A)
+#define CKA_IBM_KYBER_SK          (CKA_VENDOR_DEFINED + 0xd000B)
+
+#define CK_IBM_KYBER_KEYFORM_ROUND2_768    1
+#define CK_IBM_KYBER_KEYFORM_ROUND2_1024   2
+
+#define CK_IBM_KYBER_KEM_VERSION           0
+
+typedef CK_ULONG CK_IBM_KYBER_KEM_MODE;
+
+#define CK_IBM_KYBER_KEM_ENCAPSULATE       1
+#define CK_IBM_KYBER_KEM_DECAPSULATE       2
+
+typedef CK_ULONG CK_IBM_KYBER_KDF_TYPE;
+
+#if !defined(CKD_VENDOR_DEFINED)
+#define CKD_VENDOR_DEFINED                 0x80000000UL
+#endif
+
+#ifndef OCK_NO_EP11_DEFINES
+#define CKD_IBM_HYBRID_NULL                CKD_VENDOR_DEFINED + 0x00000001UL
+#define CKD_IBM_HYBRID_SHA1_KDF            CKD_VENDOR_DEFINED + 0x00000002UL
+#define CKD_IBM_HYBRID_SHA224_KDF          CKD_VENDOR_DEFINED + 0x00000003UL
+#define CKD_IBM_HYBRID_SHA256_KDF          CKD_VENDOR_DEFINED + 0x00000004UL
+#define CKD_IBM_HYBRID_SHA384_KDF          CKD_VENDOR_DEFINED + 0x00000005UL
+#define CKD_IBM_HYBRID_SHA512_KDF          CKD_VENDOR_DEFINED + 0x00000006UL
+#endif
+
+typedef struct CK_IBM_KYBER_PARAMS {
+    CK_ULONG                ulVersion;
+    CK_IBM_KYBER_KEM_MODE   mode;
+    CK_IBM_KYBER_KDF_TYPE   kdf;
+    CK_BBOOL                bPrepend;
+    CK_BYTE                 *pCipher;
+    CK_ULONG                ulCipherLen;
+    CK_BYTE                 *pSharedData;
+    CK_ULONG                ulSharedDataLen;
+    CK_OBJECT_HANDLE        hSecret;
+} CK_IBM_KYBER_PARAMS;
 
 /* For NSS 3.30: */
 #define NSSCK_VENDOR_NSS          0x4E534350
@@ -946,6 +994,7 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_IBM_SHA3_512               CKM_VENDOR_DEFINED + 0x00010004
 #define CKM_IBM_CMAC                   CKM_VENDOR_DEFINED + 0x00010007
 #define CKM_IBM_DILITHIUM              CKM_VENDOR_DEFINED + 0x00010023
+#define CKM_IBM_KYBER                  CKM_VENDOR_DEFINED + 0x00010024
 #define CKM_IBM_SHA3_224_HMAC          CKM_VENDOR_DEFINED + 0x00010025
 #define CKM_IBM_SHA3_256_HMAC          CKM_VENDOR_DEFINED + 0x00010026
 #define CKM_IBM_SHA3_384_HMAC          CKM_VENDOR_DEFINED + 0x00010027
