@@ -2551,9 +2551,10 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *
 CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
                                        CK_BYTE **data, CK_ULONG *data_len);
 CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
-                                CK_ULONG total_length);
+                                CK_ULONG total_length, CK_BBOOL add_value);
 CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
-                                         CK_BYTE *data, CK_ULONG total_length);
+                                         CK_BYTE *data, CK_ULONG total_length,
+                                         CK_BBOOL add_value);
 
 // diffie-hellman routines
 //
@@ -2800,7 +2801,8 @@ CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
 CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
                                         CK_ULONG data_len,
                                         CK_ATTRIBUTE **rho_attr,
-                                        CK_ATTRIBUTE **t1_attr);
+                                        CK_ATTRIBUTE **t1_attr,
+                                        CK_ATTRIBUTE **value_attr);
 
 CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
                                          CK_BYTE **data,
@@ -2822,7 +2824,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                          CK_ATTRIBUTE **s1,
                                          CK_ATTRIBUTE **s2,
                                          CK_ATTRIBUTE **t0,
-                                         CK_ATTRIBUTE **t1);
+                                         CK_ATTRIBUTE **t1,
+                                         CK_ATTRIBUTE **value);
 
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,

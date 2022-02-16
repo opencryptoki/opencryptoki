@@ -3601,6 +3601,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_BBOOL data_alloced = TRUE;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -3622,57 +3624,55 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto done;
 
     if (class != CKO_PRIVATE_KEY) {
-
         /* Make an SPKI for the public IBM Dilithium key */
-        CK_ULONG keyform;
-        CK_ATTRIBUTE *rho;
-        CK_ATTRIBUTE *t1;
 
-        /* A public IBM Dilithium key must have a keyform value */
-        rc = template_attribute_get_ulong(dilithium_key_obj->template,
-                                          CKA_IBM_DILITHIUM_KEYFORM,
-                                          &keyform);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the "
-                        "key.\n");
-             goto done;
-        }
+        /* A public IBM Dilithium key must either have a CKA_VALUE containing
+         * the SPKI, or must have a keyform value and the individual attributes
+         */
+        if (template_attribute_find(dilithium_key_obj->template,
+                                    CKA_VALUE, &value_attr) &&
+            value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
+            /* CKA_VALUE with SPKI */
+            data = value_attr ->pValue;
+            data_len = value_attr->ulValueLen;
+            data_alloced = FALSE;
 
-        /* Check if it's an expected keyform */
-        if (keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
-            TRACE_ERROR("Keyform is not supported\n");
-            rc = CKR_TEMPLATE_INCONSISTENT;
-            goto done;
-        }
+            /* Decode SPKI and add public key attributes */
+            rc = ibm_dilithium_priv_unwrap_get_data(dilithium_key_obj->template,
+                                                    data, data_len, FALSE);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to decode SPKI from CKA_VALUE.\n");
+                goto done;
+            }
+         } else {
+            /* Individual attributes */
+             rc = ibm_dilithium_publ_get_spki(dilithium_key_obj->template,
+                                              FALSE, &data, &data_len);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
+                            "data_len=0x%lx\n", __func__, class, rc, data_len);
+                goto done;
+            } else {
+                TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
+                           "data_len=0x%lx\n", __func__, class, rc, data_len);
+            }
 
-        /* A public IBM Dilithium key must have a rho value */
-        rc = template_attribute_get_non_empty(dilithium_key_obj->template,
-                                              CKA_IBM_DILITHIUM_RHO, &rho);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_RHO for the key.\n");
-             goto done;
-        }
+            /* Add SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
+            rc = build_attribute(CKA_VALUE, data, data_len, &value_attr);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("build_attribute failed\n");
+                goto done;
+            }
 
-        /* A public IBM Dilithium key must have a t1 value */
-        rc = template_attribute_get_non_empty(dilithium_key_obj->template,
-                                              CKA_IBM_DILITHIUM_T1, &t1);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_T1 for the key.\n");
-             goto done;
-        }
-
-        /* Encode the public key */
-        rc = ber_encode_IBM_DilithiumPublicKey(FALSE, &data, &data_len,
-                                               dilithium_r2_65,
-                                               dilithium_r2_65_len,
-                                               rho, t1);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
-                        "data_len=0x%lx\n", __func__, class, rc, data_len);
-            goto done;
-        } else {
-            TRACE_INFO("%s public key import class=0x%lx rc=0x%lx "
-                       "data_len=0x%lx\n", __func__, class, rc, data_len);
+            rc = template_update_attribute(dilithium_key_obj->template,
+                                           value_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                            __func__, rc);
+                free(value_attr);
+                goto done;
+            }
+            value_attr = NULL;
         }
 
         /* save the SPKI as blob although it is not a blob.
@@ -3692,14 +3692,35 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* imported private IBM Dilithium key goes here */
 
-        /* extract the secret data to be wrapped
-         * since this is AES_CBC_PAD, padding is done in mechanism.
+        /* A public IBM Dilithium key must either have a CKA_VALUE containing
+         * the PKCS#8 encoded private key, or must have a keyform value and the
+         * individual attributes
          */
-        rc = ibm_dilithium_priv_wrap_get_data(dilithium_key_obj->template, FALSE,
-                                      &data, &data_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("%s Dilithium wrap get data failed\n", __func__);
-            goto done;
+        if (template_attribute_find(dilithium_key_obj->template,
+                                    CKA_VALUE, &value_attr) &&
+            value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
+            /* CKA_VALUE with SPKI */
+            data = value_attr ->pValue;
+            data_len = value_attr->ulValueLen;
+            data_alloced = FALSE;
+
+            /* Decode PKCS#8 private key and add key attributes */
+            rc = ibm_dilithium_priv_unwrap(dilithium_key_obj->template,
+                                           data, data_len, FALSE);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Failed to decode private key from CKA_VALUE.\n");
+                goto done;
+            }
+        } else {
+            /* extract the secret data to be wrapped
+             * since this is AES_CBC_PAD, padding is done in mechanism.
+             */
+            rc = ibm_dilithium_priv_wrap_get_data(dilithium_key_obj->template,
+                                                  FALSE, &data, &data_len);
+            if (rc != CKR_OK) {
+                TRACE_DEVEL("%s Dilithium wrap get data failed\n", __func__);
+                goto done;
+            }
         }
 
         /* encrypt */
@@ -3759,10 +3780,15 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         cleanse_attribute(dilithium_key_obj->template, CKA_VALUE);
+        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_SEED);
+        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_TR);
+        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_S1);
+        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_S2);
+        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_T0);
     }
 
 done:
-    if (data) {
+    if (data_alloced && data) {
         OPENSSL_cleanse(data, data_len);
         free(data);
     }
@@ -6440,16 +6466,10 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
-    CK_ULONG bit_str_len;
-    CK_BYTE *key;
-    CK_BYTE *data, *oid, *parm;
-    CK_ULONG data_len, oid_len, parm_len;
-    CK_ULONG field_len;
     CK_ULONG ktype = CKK_IBM_PQC_DILITHIUM;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
-    CK_BYTE *rho, *t1;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
@@ -6585,105 +6605,17 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    /* Decode SPKI */
-    rc = ber_decode_SPKI(spki, &oid, &oid_len, &parm, &parm_len, &key,
-            &bit_str_len);
+    rc = ibm_dilithium_priv_unwrap_get_data(publ_tmpl, spki, spki_len, TRUE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s read key from SPKI failed with rc=0x%lx\n", __func__,
-                rc);
+        TRACE_ERROR("%s ibm_dilithium_priv_unwrap_get_data with rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
 
-    /* Public key must be a sequence holding two bit-strings: (rho, t1) */
-    rc = ber_decode_SEQUENCE(key, &data, &data_len, &field_len);
+    rc = ibm_dilithium_priv_unwrap_get_data(priv_tmpl, spki, spki_len, FALSE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s read sequence failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-
-    /* Decode rho */
-    rho = key + field_len - data_len;
-    rc = ber_decode_BIT_STRING(rho, &data, &data_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s read rho failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    /* Remove leading unused-bits byte, returned by ber_decode_BIT_STRING */
-    data++;
-    data_len--;
-#ifdef DEBUG
-    TRACE_DEBUG("%s dilithium_generate_keypair (rho):\n", __func__);
-    TRACE_DEBUG_DUMP("    ", data, data_len);
-#endif
-
-    /* build and add CKA_IBM_DILITHIUM_RHO for public key */
-    rc = build_attribute(CKA_IBM_DILITHIUM_RHO, data, data_len, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    rc = template_update_attribute(publ_tmpl, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                __func__, rc);
-        free(attr);
-        goto error;
-    }
-
-    /* build and add CKA_IBM_DILITHIUM_RHO for private key */
-    rc = build_attribute(CKA_IBM_DILITHIUM_RHO, data, data_len, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    rc = template_update_attribute(priv_tmpl, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                __func__, rc);
-        free(attr);
-        goto error;
-    }
-
-    /* Decode t1 */
-    t1 = rho + field_len;
-    rc = ber_decode_BIT_STRING(t1, &data, &data_len, &field_len);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s read t failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    /* Remove leading unused-bits byte, returned by ber_decode_BIT_STRING */
-    data++;
-    data_len--;
-#ifdef DEBUG
-    TRACE_DEBUG("%s dilithium_generate_keypair (t1):\n", __func__);
-    TRACE_DEBUG_DUMP("    ", data, data_len);
-#endif
-
-    /* build and add CKA_IBM_DILITHIUM_T1 for public key */
-    rc = build_attribute(CKA_IBM_DILITHIUM_T1, data, data_len, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    rc = template_update_attribute(publ_tmpl, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                __func__, rc);
-        free(attr);
-        goto error;
-    }
-
-    /* build and add CKA_IBM_DILITHIUM_T1 for private key */
-    rc = build_attribute(CKA_IBM_DILITHIUM_T1, data, data_len, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto error;
-    }
-    rc = template_update_attribute(priv_tmpl, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                __func__, rc);
-        free(attr);
+        TRACE_ERROR("%s ibm_dilithium_priv_unwrap_get_data with rc=0x%lx\n",
+                    __func__, rc);
         goto error;
     }
 
@@ -9061,7 +8993,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
             rc = dh_priv_unwrap_get_data(key_obj->template, csum, cslen);
             break;
         case CKK_IBM_PQC_DILITHIUM:
-            rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template, csum, cslen);
+            rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template,
+                                                    csum, cslen, FALSE);
             break;
         }
 
