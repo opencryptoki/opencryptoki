@@ -56,16 +56,14 @@ extern const CK_BYTE ber_rsaEncryption[];
 extern const CK_ULONG ber_rsaEncryptionLen;
 extern const CK_BYTE der_AlgIdECBase[];
 extern const CK_ULONG der_AlgIdECBaseLen;
-extern const CK_BYTE ber_AlgIdDilithium[];
-extern const CK_ULONG ber_AlgIdDilithiumLen;
 extern const CK_BYTE ber_idDSA[];
 extern const CK_ULONG ber_idDSALen;
 extern const CK_BYTE ber_idDH[];
 extern const CK_ULONG ber_idDHLen;
 extern const CK_BYTE ber_idEC[];
 extern const CK_ULONG ber_idECLen;
-extern const CK_BYTE ber_idDilithium[];
-extern const CK_ULONG ber_idDilithiumLen;
+extern const CK_BYTE ber_NULL[];
+extern const CK_ULONG ber_NULLLen;
 
 #if !(NOMD2)
 extern const CK_BYTE ber_md2WithRSAEncryption[];
@@ -2794,35 +2792,37 @@ CK_RV ber_decode_ECDHPrivateKey(CK_BYTE *data,
                                 CK_ATTRIBUTE **pub_key,
                                 CK_ATTRIBUTE **priv_key);
 
-CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only, CK_BYTE **data,
-                              CK_ULONG *data_len, CK_ATTRIBUTE *rho,
-                              CK_ATTRIBUTE *t1);
+CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
+                                        CK_BYTE **data, CK_ULONG *data_len,
+                                        const CK_BYTE *oid, CK_ULONG oid_len,
+                                        CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1);
 
 CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **rho_attr,
-                              CK_ATTRIBUTE **t1_attr);
+                                        CK_ULONG data_len,
+                                        CK_ATTRIBUTE **rho_attr,
+                                        CK_ATTRIBUTE **t1_attr);
 
 CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
-                               CK_BYTE **data,
-                               CK_ULONG *data_len,
-                               CK_ATTRIBUTE *rho,
-                               CK_ATTRIBUTE *seed,
-                               CK_ATTRIBUTE *tr,
-                               CK_ATTRIBUTE *s1,
-                               CK_ATTRIBUTE *s2,
-                               CK_ATTRIBUTE *t0,
-                               CK_ATTRIBUTE *t1);
+                                         CK_BYTE **data,
+                                         CK_ULONG *data_len,
+                                         const CK_BYTE *oid, CK_ULONG oid_len,
+                                         CK_ATTRIBUTE *rho,
+                                         CK_ATTRIBUTE *seed,
+                                         CK_ATTRIBUTE *tr,
+                                         CK_ATTRIBUTE *s1,
+                                         CK_ATTRIBUTE *s2,
+                                         CK_ATTRIBUTE *t0,
+                                         CK_ATTRIBUTE *t1);
 
 CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
-                               CK_ULONG data_len,
-                               CK_ATTRIBUTE **rho,
-                               CK_ATTRIBUTE **seed,
-                               CK_ATTRIBUTE **tr,
-                               CK_ATTRIBUTE **s1,
-                               CK_ATTRIBUTE **s2,
-                               CK_ATTRIBUTE **t0,
-                               CK_ATTRIBUTE **t1);
+                                         CK_ULONG data_len,
+                                         CK_ATTRIBUTE **rho,
+                                         CK_ATTRIBUTE **seed,
+                                         CK_ATTRIBUTE **tr,
+                                         CK_ATTRIBUTE **s1,
+                                         CK_ATTRIBUTE **s2,
+                                         CK_ATTRIBUTE **t0,
+                                         CK_ATTRIBUTE **t1);
 
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,

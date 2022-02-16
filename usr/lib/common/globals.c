@@ -105,11 +105,7 @@ const CK_BYTE ber_AlgIdRSAEncryption[] = {
 const CK_BYTE der_AlgIdECBase[] =
     { 0x30, 0x09, 0x06, 0x07, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x02, 0x01 };
 
-const CK_BYTE ber_AlgIdDilithium[] =
-    { 0x30, 0x0F, 0x06, 0x0B, 0x2B, 0x06, 0x01,
-      0x04, 0x01, 0x02, 0x82, 0x0B, 0x01, 0x06,
-      0x05, 0x05, 0x00
-};
+const CK_BYTE ber_NULL[] = { 0x05, 0x00 };
 
 // ID Lengths
 //
@@ -135,7 +131,7 @@ const CK_ULONG ber_AlgSha384Len = sizeof(ber_AlgSha384);
 const CK_ULONG ber_AlgSha512Len = sizeof(ber_AlgSha512);
 const CK_ULONG ber_AlgIdRSAEncryptionLen = sizeof(ber_AlgIdRSAEncryption);
 const CK_ULONG der_AlgIdECBaseLen = sizeof(der_AlgIdECBase);
-const CK_ULONG ber_AlgIdDilithiumLen = sizeof(ber_AlgIdDilithium);
+const CK_ULONG ber_NULLLen = sizeof(ber_NULL);
 
 const CK_ULONG des_weak_count = 4;
 const CK_ULONG des_semi_weak_count = 12;

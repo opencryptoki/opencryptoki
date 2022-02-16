@@ -38,7 +38,7 @@ opencryptoki_stdll_libpkcs11_ica_la_SOURCES =				\
 	usr/lib/ica_s390_stdll/ica_specific.c usr/lib/common/dlist.c	\
 	usr/lib/common/mech_openssl.c					\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
-	usr/lib/api/policyhelper.c
+	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ica_la_SOURCES +=				\

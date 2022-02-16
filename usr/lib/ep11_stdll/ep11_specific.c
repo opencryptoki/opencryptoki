@@ -37,6 +37,7 @@
 #include "trace.h"
 #include "ock_syslog.h"
 #include "ec_defs.h"
+#include "pqc_defs.h"
 #include "p11util.h"
 #include "events.h"
 #include "cfgparser.h"
@@ -3661,7 +3662,10 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* Encode the public key */
-        rc = ber_encode_IBM_DilithiumPublicKey(0, &data, &data_len, rho, t1);
+        rc = ber_encode_IBM_DilithiumPublicKey(FALSE, &data, &data_len,
+                                               dilithium_r2_65,
+                                               dilithium_r2_65_len,
+                                               rho, t1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                         "data_len=0x%lx\n", __func__, class, rc, data_len);
