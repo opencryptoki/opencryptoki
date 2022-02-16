@@ -35,6 +35,7 @@
 #include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "pqc_defs.h"
 
 #include "../api/policy.h"
 #include "../api/statistics.h"
@@ -1384,7 +1385,7 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
 {
     CK_BYTE *alg = NULL;
     CK_BYTE *priv_key = NULL;
-    CK_ULONG alg_len;
+    CK_ULONG alg_len, i;
     CK_RV rc;
 
     rc = ber_decode_PrivateKeyInfo(keydata, keylen, &alg, &alg_len, &priv_key);
@@ -1424,10 +1425,14 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
             return CKR_OK;
         }
     }
-    // Check only the OBJECT IDENTIFIER for DILITHIUM
+    // Check only the OBJECT IDENTIFIERs for DILITHIUM
     //
-    if (alg_len >= ber_idDilithiumLen) {
-        if (memcmp(alg, ber_idDilithium, ber_idDilithiumLen) == 0) {
+    for (i = 0; dilithium_oids[i].oid != NULL; i++) {
+        if (alg_len == dilithium_oids[i].oid_len + ber_NULLLen &&
+            memcmp(alg, dilithium_oids[i].oid,
+                   dilithium_oids[i].oid_len) == 0 &&
+            memcmp(alg + dilithium_oids[i].oid_len,
+                   ber_NULL, ber_NULLLen) == 0) {
             *keytype = CKK_IBM_PQC_DILITHIUM;
             return CKR_OK;
         }

@@ -81,6 +81,7 @@
 #include "h_extern.h"
 #include "attributes.h"
 #include "trace.h"
+#include "pqc_defs.h"
 
 #include "tok_spec_struct.h"
 
@@ -2690,7 +2691,10 @@ CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
         return rc;
     }
 
-    rc = ber_encode_IBM_DilithiumPublicKey(length_only, data,data_len, rho, t1);
+    rc = ber_encode_IBM_DilithiumPublicKey(length_only, data, data_len,
+                                           dilithium_r2_65,
+                                           dilithium_r2_65_len,
+                                           rho, t1);
     if (rc != CKR_OK) {
         TRACE_ERROR("ber_encode_IBM_DilithiumPublicKey failed.\n");
         return rc;
@@ -2768,7 +2772,9 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
     }
 
     rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
-                                  rho, seed, tr, s1, s2, t0, t1);
+                                            dilithium_r2_65,
+                                            dilithium_r2_65_len,
+                                            rho, seed, tr, s1, s2, t0, t1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_IBM_DilithiumPrivateKey failed\n");
     }

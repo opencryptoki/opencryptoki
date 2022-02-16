@@ -24,6 +24,7 @@
 #include "host_defs.h"
 #include "h_extern.h"
 #include "trace.h"
+#include "pqc_defs.h"
 
 
 //
@@ -3630,7 +3631,7 @@ cleanup:
  *
  *  SEQUENCE (2 elem)
  *    SEQUENCE (2 elem)
- *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
+ *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.xxx
  *      NULL
  *    BIT STRING (1 elem)
  *      SEQUENCE (2 elem)
@@ -3638,19 +3639,25 @@ cleanup:
  *        BIT STRING (13824 bit) = 1728 bytes
  */
 CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
-                          CK_BYTE **data, CK_ULONG *data_len,
-                          CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
+                                        CK_BYTE **data, CK_ULONG *data_len,
+                                        const CK_BYTE *oid, CK_ULONG oid_len,
+                                        CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
-    CK_ULONG len = 0, len4, offset, total, total_len;
+    CK_BYTE *buf5 = NULL, *algid = NULL;
+    CK_ULONG len = 0, len4, offset, total, total_len, algid_len;
     CK_RV rc;
 
     UNUSED(length_only);
 
     offset = 0;
     rc = 0;
-    total_len = ber_AlgIdDilithiumLen;
+    total_len = 0;
     total = 0;
+
+    /* Calculate storage for AlgID sequence */
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL,
+                              oid_len + ber_NULLLen);
 
     /* Calculate storage for inner sequence */
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, rho->ulValueLen);
@@ -3725,12 +3732,30 @@ CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
 
     /*
      * SEQUENCE (2 elem)
-     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.1.6.5
+     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.xxx
      *      NULL  <- no parms for this oid
      */
-    total_len = 0;
-    memcpy(buf3 + total_len, ber_AlgIdDilithium, ber_AlgIdDilithiumLen);
-    total_len += ber_AlgIdDilithiumLen;
+    buf5 = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
+    if (!buf5) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+    memcpy(buf5, oid, oid_len);
+    memcpy(buf5 + oid_len, ber_NULL, ber_NULLLen);
+
+    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, buf5,
+                             oid_len + ber_NULLLen);
+    free(buf5);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    total_len = algid_len;
+    memcpy(buf3, algid, algid_len);
+    free(algid);
+    algid = NULL;
 
     /*
      * BIT STRING (1 elem)
@@ -3776,16 +3801,15 @@ error:
 
 
 CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
-                              CK_ULONG data_len,
-                              CK_ATTRIBUTE **rho_attr,
-                              CK_ATTRIBUTE **t1_attr)
+                                        CK_ULONG data_len,
+                                        CK_ATTRIBUTE **rho_attr,
+                                        CK_ATTRIBUTE **t1_attr)
 {
     CK_ATTRIBUTE *rho_attr_temp = NULL;
     CK_ATTRIBUTE *t1_attr_temp = NULL;
 
-    CK_BYTE *algid_DilithiumBase = NULL;
-    CK_BYTE *algid = NULL;
-    CK_ULONG algid_len;
+    CK_BYTE *algoid = NULL;
+    CK_ULONG algoid_len;
     CK_BYTE *param = NULL;
     CK_ULONG param_len;
     CK_BYTE *val = NULL;
@@ -3796,26 +3820,20 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
     CK_ULONG rho_len;
     CK_BYTE *t1;
     CK_ULONG t1_len;
-    CK_ULONG field_len, offset, len;
+    CK_ULONG field_len, offset;
     CK_RV rc;
 
     UNUSED(data_len); // XXX can this parameter be removed ?
 
-    rc = ber_decode_SPKI(data, &algid, &algid_len, &param, &param_len,
+    rc = ber_decode_SPKI(data, &algoid, &algoid_len, &param, &param_len,
                          &val, &val_len);
     if (rc != CKR_OK) {
        TRACE_DEVEL("ber_decode_SPKI failed\n");
        return rc;
     }
 
-    /* Make sure we're dealing with a Dilithium key */
-    rc = ber_decode_SEQUENCE((CK_BYTE *)ber_AlgIdDilithium, &algid_DilithiumBase, &len,
-                             &field_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
-        return rc;
-    }
-    if (memcmp(algid, algid_DilithiumBase, len) != 0) {
+    if (algoid_len != dilithium_r2_65_len ||
+        memcmp(algoid, dilithium_r2_65, dilithium_r2_65_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -3895,24 +3913,29 @@ cleanup:
  *     }
  */
 CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
-                               CK_BYTE **data,
-                               CK_ULONG *data_len,
-                               CK_ATTRIBUTE *rho,
-                               CK_ATTRIBUTE *seed,
-                               CK_ATTRIBUTE *tr,
-                               CK_ATTRIBUTE *s1,
-                               CK_ATTRIBUTE *s2,
-                               CK_ATTRIBUTE *t0,
-                               CK_ATTRIBUTE *t1)
+                                         CK_BYTE **data,
+                                         CK_ULONG *data_len,
+                                         const CK_BYTE *oid, CK_ULONG oid_len,
+                                         CK_ATTRIBUTE *rho,
+                                         CK_ATTRIBUTE *seed,
+                                         CK_ATTRIBUTE *tr,
+                                         CK_ATTRIBUTE *s1,
+                                         CK_ATTRIBUTE *s2,
+                                         CK_ATTRIBUTE *t0,
+                                         CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
-    CK_ULONG len, len2 = 0, offset;
+    CK_BYTE *algid = NULL, *algid_buf = NULL;
+    CK_ULONG len, len2 = 0, offset, algid_len = 0;
     CK_BYTE version[] = { 0 };
     CK_RV rc;
 
     /* Calculate storage for sequence */
     offset = 0;
     rc = 0;
+
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &algid_len, NULL,
+                              oid_len + ber_NULLLen);
 
     rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
     offset += len;
@@ -3947,7 +3970,7 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
         }
         rc = ber_encode_PrivateKeyInfo(TRUE,
                                        NULL, data_len,
-                                       NULL, ber_AlgIdDilithiumLen,
+                                       NULL, algid_len,
                                        NULL, len);
         if (rc != CKR_OK) {
             TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
@@ -4067,10 +4090,28 @@ CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
         TRACE_ERROR("ber_encode_SEQUENCE failed\n");
         goto error;
     }
+
+    algid_buf = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
+    if (!algid_buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+    memcpy(algid_buf, oid, oid_len);
+    memcpy(algid_buf + oid_len, ber_NULL, ber_NULLLen);
+
+    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, algid_buf,
+                             oid_len + ber_NULLLen);
+    free(algid_buf);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
     rc = ber_encode_PrivateKeyInfo(FALSE,
                                    data, data_len,
-                                   ber_AlgIdDilithium,
-                                   ber_AlgIdDilithiumLen, buf2, len);
+                                   algid, algid_len,
+                                   buf2, len);
     if (rc != CKR_OK) {
         TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
     }
@@ -4082,6 +4123,8 @@ error:
         free(buf2);
     if (buf)
         free(buf);
+    if (algid)
+        free(algid);
 
     return rc;
 }
@@ -4103,19 +4146,19 @@ error:
  *       }
  */
 CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
-                               CK_ULONG data_len,
-                               CK_ATTRIBUTE **rho,
-                               CK_ATTRIBUTE **seed,
-                               CK_ATTRIBUTE **tr,
-                               CK_ATTRIBUTE **s1,
-                               CK_ATTRIBUTE **s2,
-                               CK_ATTRIBUTE **t0,
-                               CK_ATTRIBUTE **t1)
+                                         CK_ULONG data_len,
+                                         CK_ATTRIBUTE **rho,
+                                         CK_ATTRIBUTE **seed,
+                                         CK_ATTRIBUTE **tr,
+                                         CK_ATTRIBUTE **s1,
+                                         CK_ATTRIBUTE **s2,
+                                         CK_ATTRIBUTE **t0,
+                                         CK_ATTRIBUTE **t1)
 {
     CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
     CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
     CK_ATTRIBUTE *t0_attr = NULL, *t1_attr = NULL;
-    CK_BYTE *alg = NULL;
+    CK_BYTE *algoid = NULL;
     CK_BYTE *dilithium_priv_key = NULL;
     CK_BYTE *buf = NULL;
     CK_BYTE *tmp = NULL;
@@ -4123,15 +4166,15 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
     CK_RV rc;
 
     /* Check if this is a Dilithium private key */
-    rc = ber_decode_PrivateKeyInfo(data, data_len, &alg, &len,
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &algoid, &len,
                                    &dilithium_priv_key);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
         return rc;
     }
 
-    if (memcmp(alg, ber_AlgIdDilithium, ber_AlgIdDilithiumLen) != 0) {
-        // probably ought to use a different error
+    if (len != dilithium_r2_65_len + ber_NULLLen ||
+        memcmp(algoid, dilithium_r2_65, dilithium_r2_65_len) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
