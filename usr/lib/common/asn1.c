@@ -3803,10 +3803,12 @@ error:
 CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
                                         CK_ULONG data_len,
                                         CK_ATTRIBUTE **rho_attr,
-                                        CK_ATTRIBUTE **t1_attr)
+                                        CK_ATTRIBUTE **t1_attr,
+                                        CK_ATTRIBUTE **value_attr)
 {
     CK_ATTRIBUTE *rho_attr_temp = NULL;
     CK_ATTRIBUTE *t1_attr_temp = NULL;
+    CK_ATTRIBUTE *value_attr_temp = NULL;
 
     CK_BYTE *algoid = NULL;
     CK_ULONG algoid_len;
@@ -3820,7 +3822,7 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
     CK_ULONG rho_len;
     CK_BYTE *t1;
     CK_ULONG t1_len;
-    CK_ULONG field_len, offset;
+    CK_ULONG field_len, offset, raw_spki_len;
     CK_RV rc;
 
     UNUSED(data_len); // XXX can this parameter be removed ?
@@ -3882,8 +3884,21 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
         goto cleanup;
     }
 
+    /* Add raw SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &val, &val_len, &raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, raw_spki_len, &value_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
     *rho_attr = rho_attr_temp;
     *t1_attr = t1_attr_temp;
+    *value_attr = value_attr_temp;
 
     return CKR_OK;
 
@@ -3892,6 +3907,8 @@ cleanup:
         free(rho_attr_temp);
     if (t1_attr_temp)
         free(t1_attr_temp);
+    if (value_attr_temp)
+        free(value_attr_temp);
 
     return rc;
 }
@@ -4153,11 +4170,12 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                          CK_ATTRIBUTE **s1,
                                          CK_ATTRIBUTE **s2,
                                          CK_ATTRIBUTE **t0,
-                                         CK_ATTRIBUTE **t1)
+                                         CK_ATTRIBUTE **t1,
+                                         CK_ATTRIBUTE **value)
 {
     CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
     CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
-    CK_ATTRIBUTE *t0_attr = NULL, *t1_attr = NULL;
+    CK_ATTRIBUTE *t0_attr = NULL, *t1_attr = NULL, *value_attr = NULL;
     CK_BYTE *algoid = NULL;
     CK_BYTE *dilithium_priv_key = NULL;
     CK_BYTE *buf = NULL;
@@ -4330,6 +4348,18 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         goto cleanup;
     }
 
+    /* Add private key as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for (t1) failed\n");
+        goto cleanup;
+    }
+
     *rho = rho_attr;
     *seed = seed_attr;
     *tr = tr_attr;
@@ -4337,6 +4367,7 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
     *s2 = s2_attr;
     *t0 = t0_attr;
     *t1 = t1_attr;
+    *value = value_attr;
 
     return CKR_OK;
 
@@ -4356,6 +4387,8 @@ cleanup:
         free(s2_attr);
     if (t0_attr)
         free(t0_attr);
+    if (value_attr)
+        free(value_attr);
 
     return rc;
 }
