@@ -123,6 +123,10 @@ const char *p11_get_ckr(CK_RV rc)
     }
 }
 
+#ifndef CKA_IBM_PQC_PARAMS
+#define CKA_IBM_PQC_PARAMS (CKA_VENDOR_DEFINED +0x1000e)
+#endif
+
 //
 // p11_get_cka - return textual interpretation of an attribute type
 // only simple types - no arrays. For unknown a ptr to a static
@@ -221,6 +225,7 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE);
         _sym2str(CKA_IBM_OPAQUE_PKEY);
         _sym2str(CKA_IBM_DILITHIUM_KEYFORM);
+        _sym2str(CKA_IBM_DILITHIUM_MODE);
         _sym2str(CKA_IBM_DILITHIUM_RHO);
         _sym2str(CKA_IBM_DILITHIUM_SEED);
         _sym2str(CKA_IBM_DILITHIUM_TR);
@@ -228,6 +233,7 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_IBM_DILITHIUM_S2);
         _sym2str(CKA_IBM_DILITHIUM_T0);
         _sym2str(CKA_IBM_DILITHIUM_T1);
+        _sym2str(CKA_IBM_PQC_PARAMS);
     default:
         sprintf(buf, "unknown attribute type 0x%08lx", atype);
         return buf;
