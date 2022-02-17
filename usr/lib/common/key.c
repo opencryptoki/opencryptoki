@@ -2656,6 +2656,117 @@ error:
     return rc;
 }
 
+static CK_RV ibm_pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
+                                                CK_ATTRIBUTE_TYPE *keyform_attr,
+                                                CK_ATTRIBUTE_TYPE *mode_attr,
+                                                const struct pqc_oid **oids)
+{
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+        *keyform_attr = CKA_IBM_DILITHIUM_KEYFORM;
+        *mode_attr = CKA_IBM_DILITHIUM_MODE;
+        *oids = dilithium_oids;
+        break;
+    case CKM_IBM_KYBER:
+        *keyform_attr = CKA_IBM_KYBER_KEYFORM;
+        *mode_attr = CKA_IBM_KYBER_MODE;
+        *oids = kyber_oids;
+        break;
+    default:
+        TRACE_ERROR("Unsupported mechanims: 0x%lx\n", mech);
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
+const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
+                                               CK_MECHANISM_TYPE mech)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    const struct pqc_oid *oids, *oid;
+    CK_ATTRIBUTE_TYPE keyform_attr;
+    CK_ATTRIBUTE_TYPE mode_attr;
+
+    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                           &mode_attr, &oids) != CKR_OK)
+        return NULL;
+
+    if (template_attribute_find(tmpl, keyform_attr, &attr) &&
+        attr->ulValueLen == sizeof(CK_ULONG) && attr->pValue != NULL) {
+        oid = find_pqc_by_keyform(oids, *(CK_ULONG *)(attr->pValue));
+        if (oid == NULL) {
+            TRACE_ERROR("KEYFORM attribute specifies an invalid value: %lu\n",
+                        *(CK_ULONG *)(attr->pValue));
+            return NULL;
+        }
+        return oid;
+    }
+
+    if (template_attribute_find(tmpl, mode_attr, &attr) &&
+        attr->ulValueLen != 0 && attr->pValue != NULL) {
+        oid = find_pqc_by_oid(oids, attr->pValue, attr->ulValueLen);
+        if (oid == NULL) {
+            TRACE_ERROR("MODE attribute specifies an invalid value\n");
+            return NULL;
+        }
+        return oid;
+    }
+
+    TRACE_ERROR("Neither KEYFORM nor MODE found\n");
+    return NULL;
+}
+
+CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
+                               CK_MECHANISM_TYPE mech)
+{
+    CK_ATTRIBUTE *mode = NULL;
+    CK_ATTRIBUTE *keyform = NULL;
+    CK_RV rc;
+    CK_ATTRIBUTE_TYPE keyform_attr;
+    CK_ATTRIBUTE_TYPE mode_attr;
+    const struct pqc_oid *oids;
+
+    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                           &mode_attr, &oids) != CKR_OK)
+        return CKR_MECHANISM_INVALID;
+
+    rc = build_attribute(mode_attr, (CK_BYTE *)oid->oid, oid->oid_len, &mode);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    rc = template_update_attribute(tmpl, mode);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    mode = NULL;
+
+    rc = build_attribute(keyform_attr, (CK_BYTE *)&oid->keyform,
+                         sizeof(CK_ULONG), &keyform);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
+    }
+    rc = template_update_attribute(tmpl, keyform);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    keyform = NULL;
+
+    return CKR_OK;
+
+error:
+    if (mode)
+        free(mode);
+    if (keyform)
+        free(keyform);
+
+    return rc;
+}
+
 /*
  * Extract the SubjectPublicKeyInfo from the Dilithium public key
  */
@@ -2664,21 +2775,12 @@ CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
 {
     CK_ATTRIBUTE *rho = NULL;
     CK_ATTRIBUTE *t1 = NULL;
-    CK_ULONG keyform;
+    const struct pqc_oid *oid;
     CK_RV rc;
 
-    rc = template_attribute_get_ulong(tmpl, CKA_IBM_DILITHIUM_KEYFORM,
-                                      &keyform);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the key.\n");
-        return rc;
-    }
-
-    if ( keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
-        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: "
-                    "%ld \n", keyform);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
+    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
 
     rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
     if (rc != CKR_OK) {
@@ -2692,8 +2794,7 @@ CK_RV ibm_dilithium_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
     }
 
     rc = ber_encode_IBM_DilithiumPublicKey(length_only, data, data_len,
-                                           dilithium_r2_65,
-                                           dilithium_r2_65_len,
+                                           oid->oid, oid->oid_len,
                                            rho, t1);
     if (rc != CKR_OK) {
         TRACE_ERROR("ber_encode_IBM_DilithiumPublicKey failed.\n");
@@ -2711,23 +2812,12 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
     CK_ATTRIBUTE *rho = NULL, *seed = NULL;
     CK_ATTRIBUTE *tr = NULL, *s1 = NULL, *s2 = NULL;
     CK_ATTRIBUTE *t0 = NULL, *t1 = NULL;
-    CK_ULONG keyform;
+    const struct pqc_oid *oid;
     CK_RV rc;
 
-    /* A private Dilithium key must have a keyform value */
-    rc = template_attribute_get_ulong(tmpl, CKA_IBM_DILITHIUM_KEYFORM,
-                                      &keyform);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_IBM_DILITHIUM_KEYFORM for the key.\n");
-        return rc;
-    }
-
-    /* Check if it's an expected keyform */
-    if (keyform != IBM_DILITHIUM_KEYFORM_ROUND2) {
-        TRACE_ERROR("This key has an unexpected CKA_IBM_DILITHIUM_KEYFORM: %ld\n",
-                    keyform);
-        return CKR_ATTRIBUTE_VALUE_INVALID;
-    }
+    oid = ibm_pqc_get_keyform_mode(tmpl, CKM_IBM_DILITHIUM);
+    if (oid == NULL)
+       return CKR_TEMPLATE_INCOMPLETE;
 
     rc = template_attribute_get_non_empty(tmpl, CKA_IBM_DILITHIUM_RHO, &rho);
     if (rc != CKR_OK) {
@@ -2772,8 +2862,7 @@ CK_RV ibm_dilithium_priv_wrap_get_data(TEMPLATE *tmpl,
     }
 
     rc = ber_encode_IBM_DilithiumPrivateKey(length_only, data, data_len,
-                                            dilithium_r2_65,
-                                            dilithium_r2_65_len,
+                                            oid->oid, oid->oid_len,
                                             rho, seed, tr, s1, s2, t0, t1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("ber_encode_IBM_DilithiumPrivateKey failed\n");
@@ -2789,12 +2878,19 @@ CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
     CK_ATTRIBUTE *rho = NULL;
     CK_ATTRIBUTE *t1 = NULL;
     CK_ATTRIBUTE *value = NULL;
+    const struct pqc_oid *oid;
     CK_RV rc;
 
     rc = ber_decode_IBM_DilithiumPublicKey(data, total_length, &rho, &t1,
-                                           &value);
+                                           &value, &oid);
     if (rc != CKR_OK) {
         TRACE_ERROR("ber_decode_DilithiumPublicKey failed\n");
+        return rc;
+    }
+
+    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
         return rc;
     }
 
@@ -2841,13 +2937,20 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
 {
     CK_ATTRIBUTE *rho = NULL, *seed = NULL, *tr = NULL, *value = NULL;
     CK_ATTRIBUTE *s1 = NULL, *s2 = NULL, *t0 = NULL, *t1 = NULL;
+    const struct pqc_oid *oid;
     CK_RV rc;
 
     rc = ber_decode_IBM_DilithiumPrivateKey(data, total_length,
                                             &rho, &seed, &tr, &s1, &s2, &t0,
-                                            &t1, &value);
+                                            &t1, &value, &oid);
     if (rc != CKR_OK) {
         TRACE_ERROR("der_decode_IBM_DilithiumPrivateKey failed\n");
+        return rc;
+    }
+
+    rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
         return rc;
     }
 
@@ -4657,19 +4760,17 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *type_attr = NULL;
     CK_ATTRIBUTE *rho_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
-    CK_ATTRIBUTE *keyform_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_RV rc;
 
     publ_key_set_default_attributes(tmpl, mode);
 
     type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
-    keyform_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
     rho_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     t1_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
-    if (!type_attr || !rho_attr || !t1_attr || !keyform_attr || !value_attr) {
+    if (!type_attr || !rho_attr || !t1_attr || !value_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -4679,11 +4780,6 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
-
-    keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
-    keyform_attr->ulValueLen = sizeof(CK_ULONG);
-    keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) keyform_attr->pValue = IBM_DILITHIUM_KEYFORM_ROUND2;
 
     rho_attr->type = CKA_IBM_DILITHIUM_RHO;
     rho_attr->ulValueLen = 0;
@@ -4715,12 +4811,6 @@ CK_RV ibm_dilithium_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     t1_attr = NULL;
-    rc = template_update_attribute(tmpl, keyform_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    keyform_attr = NULL;
     rc = template_update_attribute(tmpl, value_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
@@ -4737,8 +4827,6 @@ error:
         free(rho_attr);
     if (t1_attr)
         free(t1_attr);
-    if (keyform_attr)
-        free(keyform_attr);
     if (value_attr)
         free(value_attr);
 
@@ -4757,14 +4845,12 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *s2_attr = NULL;
     CK_ATTRIBUTE *t0_attr = NULL;
     CK_ATTRIBUTE *t1_attr = NULL;
-    CK_ATTRIBUTE *keyform_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_RV rc;
 
     priv_key_set_default_attributes(tmpl, mode);
 
     type_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
-    keyform_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_ULONG));
     rho_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     seed_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     tr_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
@@ -4775,7 +4861,7 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!type_attr || !rho_attr || !seed_attr || !tr_attr || !s1_attr
-        || !s2_attr || !t0_attr || !t1_attr || !keyform_attr || !value_attr) {
+        || !s2_attr || !t0_attr || !t1_attr || !value_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -4785,11 +4871,6 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
     *(CK_KEY_TYPE *) type_attr->pValue = CKK_IBM_PQC_DILITHIUM;
-
-    keyform_attr->type = CKA_IBM_DILITHIUM_KEYFORM;
-    keyform_attr->ulValueLen = sizeof(CK_ULONG);
-    keyform_attr->pValue = (CK_BYTE *) keyform_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_ULONG *) keyform_attr->pValue = IBM_DILITHIUM_KEYFORM_ROUND2;
 
     rho_attr->type = CKA_IBM_DILITHIUM_RHO;
     rho_attr->ulValueLen = 0;
@@ -4829,12 +4910,6 @@ CK_RV ibm_dilithium_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     type_attr = NULL;
-    rc = template_update_attribute(tmpl, keyform_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    keyform_attr = NULL;
     rc = template_update_attribute(tmpl, rho_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed\n");
@@ -4903,38 +4978,59 @@ error:
         free(t0_attr);
     if (t1_attr)
         free(t1_attr);
-    if (keyform_attr)
-        free(keyform_attr);
     if (value_attr)
         free(value_attr);
 
     return rc;
 }
 
-// ibm_dilithium_publ_check_required_attributes()
-//
-CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+static CK_RV ibm_pqc_check_attributes(TEMPLATE *tmpl, CK_ULONG mode,
+                                      CK_MECHANISM_TYPE mech,
+                                      CK_ULONG *req_attrs,
+                                      CK_ULONG num_req_attrs)
 {
+    CK_ATTRIBUTE_TYPE keyform_attr;
+    CK_ATTRIBUTE_TYPE mode_attr;
     CK_ATTRIBUTE *attr = NULL;
-    static CK_ULONG req_attrs[] = {
-        CKA_IBM_DILITHIUM_KEYFORM,
-        CKA_IBM_DILITHIUM_RHO,
-        CKA_IBM_DILITHIUM_T1,
-    };
+    CK_BBOOL keyform_present = FALSE;
+    CK_BBOOL mode_present = FALSE;
+    const struct pqc_oid *oids, *oid;
     CK_ULONG i;
     CK_RV rc;
 
+    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                           &mode_attr, &oids) != CKR_OK)
+        return CKR_MECHANISM_INVALID;
+
+    if (template_attribute_find(tmpl, keyform_attr, &attr) &&
+        attr->ulValueLen == sizeof(CK_ULONG) && attr->pValue != NULL) {
+        oid = find_pqc_by_keyform(oids, *(CK_ULONG *)(attr->pValue));
+        if (oid == NULL) {
+            TRACE_ERROR("%s, attribute KEYFORM has an unsupported value.\n",
+                        ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        keyform_present = TRUE;
+    }
+
+    if (template_attribute_find(tmpl, mode_attr, &attr) &&
+        attr->ulValueLen > 0 && attr->pValue != NULL) {
+        oid = find_pqc_by_oid(oids, attr->pValue, attr->ulValueLen);
+        if (oid == NULL) {
+            TRACE_ERROR("%s, attribute MODE has an unsupported value.\n",
+                        ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        mode_present = TRUE;
+    }
+
     switch (mode) {
-    case MODE_KEYGEN:
-    case MODE_UNWRAP:
-        /* Attrs will be added during keygen/unwrap */
-        break;
     case MODE_CREATE:
         /* Either CKA_VALUE or all other attrs must be present */
         if (template_attribute_find(tmpl, CKA_VALUE, &attr) &&
             attr->ulValueLen > 0 && attr->pValue != NULL)
             break;
-        for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
+        for (i = 0; i < num_req_attrs; i++) {
             rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
             if (rc != CKR_OK) {
                 if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
@@ -4943,26 +5039,57 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
                 return rc;
             }
         }
+        /* fallthrough */
+    case MODE_KEYGEN:
+        /* Either keyform or mode or none of it must be present */
+        if (keyform_present && mode_present) {
+            TRACE_ERROR("%s, only one of KEYFORM or MODE can be specified .\n",
+                        ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case MODE_UNWRAP:
+        /* neither keyform or mode must be present */
+        if (keyform_present || mode_present) {
+            TRACE_ERROR("%s, none of KEYFORM or MODE can be specified .\n",
+                        ock_err(ERR_TEMPLATE_INCONSISTENT));
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
         break;
     case MODE_COPY:
-        /* CKA_VALUE and all other attrs must be present */
-        if (!template_attribute_find(tmpl, CKA_VALUE, &attr) &&
-            attr->ulValueLen > 0 && attr->pValue != NULL) {
-            TRACE_ERROR("%s, attribute CKA_VALUE missing.\n",
+        /* All attributes must be present */
+        if (!keyform_present || !mode_present) {
+            TRACE_ERROR("%s, KEYFORM or MODE must be specified .\n",
                         ock_err(ERR_TEMPLATE_INCOMPLETE));
             return CKR_TEMPLATE_INCOMPLETE;
         }
-        for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
-            rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
-            if (rc != CKR_OK) {
-                if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
-                    TRACE_ERROR("%s, attribute %08lX missing.\n",
-                               ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
-                return rc;
+        for (i = 0; i < num_req_attrs; i++) {
+            if (!template_attribute_find(tmpl, req_attrs[i], &attr)) {
+                TRACE_ERROR("%s, attribute %08lX missing.\n",
+                            ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
+                return CKR_TEMPLATE_INCOMPLETE;
             }
         }
         break;
     }
+
+    return CKR_OK;
+}
+
+// ibm_dilithium_publ_check_required_attributes()
+//
+CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
+{
+    static CK_ULONG req_attrs[] = {
+        CKA_IBM_DILITHIUM_RHO,
+        CKA_IBM_DILITHIUM_T1,
+    };
+    CK_RV rc;
+
+    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_DILITHIUM, req_attrs,
+                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    if (rc != CKR_OK)
+        return rc;
 
     /* All required attrs found, check them */
     return publ_key_check_required_attributes(tmpl, mode);
@@ -4972,9 +5099,7 @@ CK_RV ibm_dilithium_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
 //
 CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 {
-    CK_ATTRIBUTE *attr = NULL;
     static CK_ULONG req_attrs[] = {
-        CKA_IBM_DILITHIUM_KEYFORM,
         CKA_IBM_DILITHIUM_RHO,
         CKA_IBM_DILITHIUM_SEED,
         CKA_IBM_DILITHIUM_TR,
@@ -4983,52 +5108,62 @@ CK_RV ibm_dilithium_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode
         CKA_IBM_DILITHIUM_T0,
         CKA_IBM_DILITHIUM_T1,
     };
-    CK_ULONG i;
     CK_RV rc;
 
-    switch (mode) {
-    case MODE_KEYGEN:
-    case MODE_UNWRAP:
-        /* Attrs will be added during keygen/unwrap */
-        break;
-    case MODE_CREATE:
-        /* Either CKA_VALUE or all other attrs must be present */
-        if (template_attribute_find(tmpl, CKA_VALUE, &attr) &&
-            attr->ulValueLen > 0 && attr->pValue != NULL)
-            break;
-        for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
-            rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
-            if (rc != CKR_OK) {
-                if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
-                    TRACE_ERROR("%s, attribute %08lX missing.\n",
-                               ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
-                return rc;
-            }
-        }
-        break;
-    case MODE_COPY:
-        /* CKA_VALUE and all other attrs must be present */
-        if (!template_attribute_find(tmpl, CKA_VALUE, &attr) &&
-            attr->ulValueLen > 0 && attr->pValue != NULL) {
-            TRACE_ERROR("%s, attribute CKA_VALUE missing.\n",
-                        ock_err(ERR_TEMPLATE_INCOMPLETE));
-            return CKR_TEMPLATE_INCOMPLETE;
-
-        }
-        for (i = 0; i < sizeof(req_attrs) / sizeof(req_attrs[0]); i++) {
-            rc = template_attribute_get_non_empty(tmpl, req_attrs[i], &attr);
-            if (rc != CKR_OK) {
-                if (rc != CKR_ATTRIBUTE_VALUE_INVALID)
-                    TRACE_ERROR("%s, attribute %08lX missing.\n",
-                               ock_err(ERR_TEMPLATE_INCOMPLETE), req_attrs[i]);
-                return rc;
-            }
-        }
-        break;
-    }
+    rc = ibm_pqc_check_attributes(tmpl, mode, CKM_IBM_DILITHIUM, req_attrs,
+                                  sizeof(req_attrs) / sizeof(req_attrs[0]));
+    if (rc != CKR_OK)
+        return rc;
 
     /* All required attrs found, check them */
     return priv_key_check_required_attributes(tmpl, mode);
+}
+
+static CK_RV ibm_pqc_validate_keyform_mode(CK_ATTRIBUTE *attr, CK_ULONG mode,
+                                           CK_MECHANISM_TYPE mech)
+{
+    CK_ATTRIBUTE_TYPE keyform_attr;
+    CK_ATTRIBUTE_TYPE mode_attr;
+    const struct pqc_oid *oids, *oid;
+
+    if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
+                                           &mode_attr, &oids) != CKR_OK)
+        return CKR_MECHANISM_INVALID;
+
+    if (attr->type == keyform_attr) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            oid = find_pqc_by_keyform(oids, *((CK_ULONG *)attr->pValue));
+            if (oid == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            return CKR_OK;
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    }
+    if (attr->type == mode_attr) {
+        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
+            if (attr->ulValueLen == 0 || attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            oid = find_pqc_by_oid(oids, attr->pValue, attr->ulValueLen);
+            if (oid == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            return CKR_OK;
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    }
+
+    return CKR_OK;
 }
 
 // ibm_dilithium_publ_validate_attribute()
@@ -5037,28 +5172,20 @@ CK_RV ibm_dilithium_publ_validate_attribute(STDLL_TokData_t *tokdata,
                                             TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                             CK_ULONG mode)
 {
+    CK_RV rc;
+
     switch (attr->type) {
+    case CKA_IBM_DILITHIUM_KEYFORM:
+    case CKA_IBM_DILITHIUM_MODE:
+        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_DILITHIUM);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
     case CKA_IBM_DILITHIUM_RHO:
     case CKA_IBM_DILITHIUM_T1:
     case CKA_VALUE:
         if (mode == MODE_CREATE)
             return CKR_OK;
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-        return CKR_ATTRIBUTE_READ_ONLY;
-    case CKA_IBM_DILITHIUM_KEYFORM:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
-                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-            switch (*((CK_ULONG *)attr->pValue)) {
-            case IBM_DILITHIUM_KEYFORM_ROUND2:
-                return CKR_OK;
-            default:
-                TRACE_ERROR("%s\n", ock_err(CKR_ATTRIBUTE_VALUE_INVALID));
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-        }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     default:
@@ -5072,7 +5199,15 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
                                             TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
                                             CK_ULONG mode)
 {
+    CK_RV rc;
+
     switch (attr->type) {
+    case CKA_IBM_DILITHIUM_KEYFORM:
+    case CKA_IBM_DILITHIUM_MODE:
+        rc = ibm_pqc_validate_keyform_mode(attr, mode, CKM_IBM_DILITHIUM);
+        if (rc != CKR_OK)
+            return rc;
+        return CKR_OK;
     case CKA_IBM_DILITHIUM_RHO:
     case CKA_IBM_DILITHIUM_SEED:
     case CKA_IBM_DILITHIUM_TR:
@@ -5083,22 +5218,6 @@ CK_RV ibm_dilithium_priv_validate_attribute(STDLL_TokData_t *tokdata,
     case CKA_VALUE:
         if (mode == MODE_CREATE)
             return CKR_OK;
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-        return CKR_ATTRIBUTE_READ_ONLY;
-    case CKA_IBM_DILITHIUM_KEYFORM:
-        if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-            if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
-                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-            switch (*((CK_ULONG *)attr->pValue)) {
-            case IBM_DILITHIUM_KEYFORM_ROUND2:
-                return CKR_OK;
-            default:
-                TRACE_ERROR("%s\n", ock_err(CKR_ATTRIBUTE_VALUE_INVALID));
-                return CKR_ATTRIBUTE_VALUE_INVALID;
-            }
-        }
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
         return CKR_ATTRIBUTE_READ_ONLY;
     default:

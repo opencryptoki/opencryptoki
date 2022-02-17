@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include "dlist.h"
 #include "host_defs.h"
+#include "pqc_defs.h"
 
 #include <openssl/evp.h>
 
@@ -2555,6 +2556,10 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
 CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
                                          CK_BYTE *data, CK_ULONG total_length,
                                          CK_BBOOL add_value);
+const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
+                                               CK_MECHANISM_TYPE mech);
+CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
+                               CK_MECHANISM_TYPE mech);
 
 // diffie-hellman routines
 //
@@ -2802,7 +2807,8 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
                                         CK_ULONG data_len,
                                         CK_ATTRIBUTE **rho_attr,
                                         CK_ATTRIBUTE **t1_attr,
-                                        CK_ATTRIBUTE **value_attr);
+                                        CK_ATTRIBUTE **value_attr,
+                                        const struct pqc_oid **oid);
 
 CK_RV ber_encode_IBM_DilithiumPrivateKey(CK_BBOOL length_only,
                                          CK_BYTE **data,
@@ -2825,7 +2831,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                          CK_ATTRIBUTE **s2,
                                          CK_ATTRIBUTE **t0,
                                          CK_ATTRIBUTE **t1,
-                                         CK_ATTRIBUTE **value);
+                                         CK_ATTRIBUTE **value,
+                                         const struct pqc_oid **oid);
 
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,

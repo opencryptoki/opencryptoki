@@ -624,7 +624,7 @@ CK_RV create_DilithiumPrivateKey(CK_SESSION_HANDLE session,
     CK_UTF8CHAR label[] = "A Dilithium private key object";
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
-    CK_ULONG keyform = IBM_DILITHIUM_KEYFORM_ROUND2;
+    CK_ULONG keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65;
     CK_RV rc;
 
     CK_BBOOL true = TRUE;
@@ -673,7 +673,7 @@ CK_RV create_DilithiumPublicKey(CK_SESSION_HANDLE session,
     CK_KEY_TYPE keyType = CKK_IBM_PQC_DILITHIUM;
     CK_UTF8CHAR label[] = "A Dilithium public key object";
     CK_BBOOL true = TRUE;
-    CK_ULONG keyform = IBM_DILITHIUM_KEYFORM_ROUND2;
+    CK_ULONG keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &class, sizeof(class)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
