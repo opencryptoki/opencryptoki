@@ -3804,7 +3804,8 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
                                         CK_ULONG data_len,
                                         CK_ATTRIBUTE **rho_attr,
                                         CK_ATTRIBUTE **t1_attr,
-                                        CK_ATTRIBUTE **value_attr)
+                                        CK_ATTRIBUTE **value_attr,
+                                        const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *rho_attr_temp = NULL;
     CK_ATTRIBUTE *t1_attr_temp = NULL;
@@ -3834,8 +3835,8 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
        return rc;
     }
 
-    if (algoid_len != dilithium_r2_65_len ||
-        memcmp(algoid, dilithium_r2_65, dilithium_r2_65_len) != 0) {
+    *oid = find_pqc_by_oid(dilithium_oids, algoid, algoid_len);
+    if (*oid == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
@@ -4171,7 +4172,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                          CK_ATTRIBUTE **s2,
                                          CK_ATTRIBUTE **t0,
                                          CK_ATTRIBUTE **t1,
-                                         CK_ATTRIBUTE **value)
+                                         CK_ATTRIBUTE **value,
+                                         const struct pqc_oid **oid)
 {
     CK_ATTRIBUTE *rho_attr = NULL, *seed_attr = NULL;
     CK_ATTRIBUTE *tr_attr = NULL, *s1_attr = NULL, *s2_attr = NULL;
@@ -4191,8 +4193,14 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         return rc;
     }
 
-    if (len != dilithium_r2_65_len + ber_NULLLen ||
-        memcmp(algoid, dilithium_r2_65, dilithium_r2_65_len) != 0) {
+    if (len <= ber_NULLLen ||
+        memcmp(algoid + len - ber_NULLLen, ber_NULL, ber_NULLLen) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    len -= ber_NULLLen;
+    *oid = find_pqc_by_oid(dilithium_oids, algoid, len);
+    if (*oid == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         return CKR_FUNCTION_FAILED;
     }
