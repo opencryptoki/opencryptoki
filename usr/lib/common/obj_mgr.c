@@ -473,6 +473,9 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
+    TRACE_DEBUG("Attributes at create final:\n");
+    TRACE_DEBUG_DUMPTEMPL(obj->template);
+
     rc = tokdata->policy->store_object_strength(tokdata->policy, &obj->strength,
                                                 policy_get_attr_from_template,
                                                 obj->template, NULL, sess);
@@ -1683,6 +1686,9 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
             goto done;
         }
     }
+
+    TRACE_DEBUG("Attributes after set:\n");
+    TRACE_DEBUG_DUMPTEMPL(obj->template);
 
 done:
     object_put(tokdata, obj, TRUE);
