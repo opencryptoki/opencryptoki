@@ -539,6 +539,11 @@ static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
 #define PKEY_MODE_DEFAULT           1
 #define PKEY_MODE_ENABLE4NONEXTR    2
 
+#define PQC_BYTE_NO(idx)      (((idx) - 1) / 8)
+#define PQC_BIT_IN_BYTE(idx)  (((idx - 1)) % 8)
+#define PQC_BIT_MASK(idx)     (0x80 >> PQC_BIT_IN_BYTE(idx))
+#define PQC_BYTES             ((((XCP_PQC_MAX / 32) * 32) + 32) / 8)
+
 typedef struct {
     volatile unsigned long ref_count;
     target_t target;
@@ -548,6 +553,7 @@ typedef struct {
     size_t control_points_len;
     size_t max_control_point_index;
     CK_CHAR serialNumber[16];
+    CK_BYTE pqc_strength[PQC_BYTES];
 } ep11_target_info_t;
 
 typedef struct {
@@ -657,6 +663,87 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
     }
 
     return CKR_OK;
+}
+
+static CK_BBOOL ep11_pqc_strength_supported(ep11_target_info_t *target_info,
+                                            CK_MECHANISM_TYPE mech,
+                                            const struct pqc_oid *oid)
+{
+    CK_ULONG strength;
+
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+        switch (oid->keyform) {
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_65:
+            strength = XCP_PQC_S_DILITHIUM_R2_65;
+            break;
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND2_87:
+            strength = XCP_PQC_S_DILITHIUM_R2_87;
+            break;
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_44:
+            strength = XCP_PQC_S_DILITHIUM_R3_44;
+            break;
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_65:
+            strength = XCP_PQC_S_DILITHIUM_R3_65;
+            break;
+        case CK_IBM_DILITHIUM_KEYFORM_ROUND3_87:
+            strength = XCP_PQC_S_DILITHIUM_R3_87;
+            break;
+        default:
+            TRACE_DEVEL("Dilithium keyform %lu not supported by EP11\n",
+                        oid->keyform);
+            return FALSE;
+        }
+        break;
+    case CKM_IBM_KYBER:
+        switch (oid->keyform) {
+        case CK_IBM_KYBER_KEYFORM_ROUND2_768:
+            strength = XCP_PQC_S_KYBER_R2_768;
+            break;
+        case CK_IBM_KYBER_KEYFORM_ROUND2_1024:
+            strength = XCP_PQC_S_KYBER_R2_1024;
+            break;
+        default:
+            TRACE_DEVEL("Kyber keyform %lu not supported by EP11\n",
+                        oid->keyform);
+            return FALSE;
+        }
+        break;
+    default:
+        return FALSE;
+    }
+
+    if ((target_info->pqc_strength[PQC_BYTE_NO(strength)] &
+                                        PQC_BIT_MASK(strength)) == 0) {
+        TRACE_DEVEL("Keyform %lu not supported by configured APQNs\n",
+                    oid->keyform);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
+                                                CK_MECHANISM_TYPE mech,
+                                                OBJECT *key_obj)
+{
+    const struct pqc_oid *oid;
+
+    switch (mech) {
+    case CKM_IBM_DILITHIUM:
+    case CKM_IBM_KYBER:
+        break;
+    default:
+        return TRUE;
+    }
+
+    oid = ibm_pqc_get_keyform_mode(key_obj->template, mech);
+    if (oid == NULL) {
+        TRACE_DEVEL("No keyform/mode found in key object\n");
+        return FALSE;
+    }
+
+    return ep11_pqc_strength_supported(target_info, mech, oid);
 }
 
 /*******************************************************************************
@@ -3763,10 +3850,15 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_START(rc, tokdata)
-            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
-                                     &mech_w, data, data_len,
-                                     cipher, &cipher_l, target_info->target);
+            if (ep11_pqc_obj_strength_supported(target_info, CKM_IBM_DILITHIUM,
+                                                dilithium_key_obj))
+                rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                         ep11_data->raw2key_wrap_blob_l,
+                                         &mech_w, data, data_len,
+                                         cipher, &cipher_l,
+                                         target_info->target);
+            else
+                rc = CKR_KEY_SIZE_RANGE;
         RETRY_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -6601,12 +6693,16 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
-        rc = dll_m_GenerateKeyPair(pMechanism,
-                                   new_publ_attrs2, new_publ_attrs2_len,
-                                   new_priv_attrs2, new_priv_attrs2_len,
-                                   ep11_pin_blob, ep11_pin_blob_len,
-                                   privkey_blob, &privkey_blob_len, spki,
-                                   &spki_len, target_info->target);
+        if (ep11_pqc_strength_supported(target_info, pMechanism->mechanism,
+                                        dilithium_oid))
+            rc = dll_m_GenerateKeyPair(pMechanism,
+                                       new_publ_attrs2, new_publ_attrs2_len,
+                                       new_priv_attrs2, new_priv_attrs2_len,
+                                       ep11_pin_blob, ep11_pin_blob_len,
+                                       privkey_blob, &privkey_blob_len, spki,
+                                       &spki_len, target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -7357,8 +7453,13 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_START(rc, tokdata)
-        rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-                            mech, keyblob, keyblobsize, target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+                                mech, keyblob, keyblobsize,
+                                target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7591,8 +7692,12 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_START(rc, tokdata)
-    rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
-                          signature, sig_len, target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
+                                  signature, sig_len, target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -7713,8 +7818,12 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_START(rc, tokdata)
-        rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-                              spki, spki_len, target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+                                  spki, spki_len, target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -7953,8 +8062,12 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_START(rc, tokdata)
-    rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
-                            signature, sig_len, target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
+                                    signature, sig_len, target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -11769,6 +11882,7 @@ typedef struct query_version
     CK_CHAR serialNumber[16];
     CK_BBOOL first;
     CK_BBOOL error;
+    CK_BYTE pqc_strength[PQC_BYTES];
 } query_version_t;
 
 static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
@@ -11777,9 +11891,11 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     query_version_t *qv = (query_version_t *)handler_data;
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
+    CK_BYTE pqc_strength[PQC_BYTES] = { 0 };
+    CK_ULONG pqc_strength_len = sizeof(pqc_strength);
     CK_RV rc;
     target_t target;
-    CK_ULONG card_type;
+    CK_ULONG card_type, i;
     ep11_card_version_t *card_version;
 
     rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
@@ -11895,6 +12011,30 @@ static CK_RV version_query_handler(uint_32 adapter, uint_32 domain,
     if (qv->first)
         memcpy(qv->serialNumber, xcp_info.serialNumber,
                sizeof(qv->serialNumber));
+
+    /* Query for PQC strength support. If the PQC strength query is not
+       available only Dilithium 6-5 round 2 is available. */
+    rc = dll_m_get_xcp_info(&pqc_strength, &pqc_strength_len,
+                            CK_IBM_XCPQ_PQC_STRENGTHS, 0, target);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("%s Failed to query PQC-strength from adapter %02X.%04X\n",
+                    __func__, adapter, domain);
+        /* Only R2_65 is available */
+        pqc_strength[PQC_BYTE_NO(XCP_PQC_S_DILITHIUM_R2_65)] |=
+                                    PQC_BIT_MASK(XCP_PQC_S_DILITHIUM_R2_65);
+        rc = CKR_OK;
+    }
+
+    TRACE_DEBUG("PQC-strength of %02X.%04X:\n", adapter, domain);
+    TRACE_DEBUG_DUMP("", pqc_strength, sizeof(qv->pqc_strength));
+
+    if (qv->first) {
+        memcpy(qv->pqc_strength, pqc_strength, sizeof(qv->pqc_strength));
+    } else {
+        for (i = 0; i < sizeof(qv->pqc_strength); i++)
+            qv->pqc_strength[i] &= pqc_strength[i];
+    }
+
     qv->first = FALSE;
 
 out:
@@ -11952,6 +12092,7 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     ep11_card_version_t *card_version;
     query_version_t qv;
+    CK_ULONG i;
     CK_RV rc;
 
     memset(&qv, 0, sizeof(qv));
@@ -12008,6 +12149,14 @@ static CK_RV ep11tok_get_ep11_version(STDLL_TokData_t *tokdata,
 
     TRACE_INFO("%s Used Firmware API: %lu\n", __func__,
                target_info->used_firmware_API_version);
+
+    memcpy(target_info->pqc_strength, qv.pqc_strength, sizeof(qv.pqc_strength));
+
+    TRACE_INFO("Combined PQC-strength:\n");
+    for (i = 1; i <= XCP_PQC_MAX; i++) {
+        TRACE_INFO("  Strength %lu: %d\n", i,
+                   (qv.pqc_strength[PQC_BYTE_NO(i)] & PQC_BIT_MASK(i)) != 0);
+    }
 
     return CKR_OK;
 }
