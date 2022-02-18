@@ -2800,6 +2800,8 @@ CK_RV der_decode_ECPrivateKey(CK_BYTE *data,
                 TRACE_DEVEL("ber_decode_BIT_STRING failed\n");
                 goto cleanup;
             }
+            pub_buf++; /* Remove unused-bits byte */
+            pub_len--;
             pubkey_available = 1;
             break;
         default:
