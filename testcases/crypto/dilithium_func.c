@@ -21,10 +21,11 @@
 #include "defs.h"
 #include "dilithium.h"
 #include "mechtable.h"
+#include "pqc_oids.h"
 
 /**
  * Experimental Support for Dilithium keys and signatures
- * with oid = 1.3.6.1.4.1.2.267.1.6.5
+ * with oid = 1.3.6.1.4.1.2.267.xxx
  *
  * Only SignInit and Sign(Single) is supported with Dilithium.
  * SignUpdate/SignFinal are not supported. Same with Verify.
@@ -34,13 +35,47 @@ typedef struct signVerifyParam {
     CK_ULONG inputlen;
 } _signVerifyParam;
 
-_signVerifyParam signVerifyInput[] = {
+const _signVerifyParam signVerifyInput[] = {
     {CKM_IBM_DILITHIUM, 0},
     {CKM_IBM_DILITHIUM, 1},
     {CKM_IBM_DILITHIUM, 32},
     {CKM_IBM_DILITHIUM, 59},
-    {CKM_IBM_DILITHIUM, 5900},
+    {CKM_IBM_DILITHIUM, 3000}, /* Not all variants support larger sizes */
 };
+
+const CK_BYTE dilithium_r2_65[] = OCK_DILITHIUM_R2_65;
+const CK_ULONG dilithium_r2_65_len = sizeof(dilithium_r2_65);
+const CK_BYTE dilithium_r2_87[] = OCK_DILITHIUM_R2_87;
+const CK_ULONG dilithium_r2_87_len = sizeof(dilithium_r2_87);
+const CK_BYTE dilithium_r3_44[] = OCK_DILITHIUM_R3_44;
+const CK_ULONG dilithium_r3_44_len = sizeof(dilithium_r3_44);
+const CK_BYTE dilithium_r3_65[] = OCK_DILITHIUM_R3_65;
+const CK_ULONG dilithium_r3_65_len = sizeof(dilithium_r3_65);
+const CK_BYTE dilithium_r3_87[] = OCK_DILITHIUM_R3_87;
+const CK_ULONG dilithium_r3_87_len = sizeof(dilithium_r3_87);
+
+typedef struct variant_info {
+    const char *name;
+    CK_ULONG keyform;
+    const CK_BYTE *oid;
+    CK_ULONG oid_len;
+} _variant_info;
+
+const _variant_info variants[] = {
+    { "DEFAULT (DILITHIUM_R2_65)", 0, NULL, 0 },
+    { "DILITHIUM_R2_65", CK_IBM_DILITHIUM_KEYFORM_ROUND2_65,
+      dilithium_r2_65, dilithium_r2_65_len },
+    { "DILITHIUM_R2_87", CK_IBM_DILITHIUM_KEYFORM_ROUND2_87,
+      dilithium_r2_87, dilithium_r2_87_len },
+    { "DILITHIUM_R3_44", CK_IBM_DILITHIUM_KEYFORM_ROUND3_44,
+      dilithium_r3_44, dilithium_r3_44_len },
+    { "DILITHIUM_R3_65", CK_IBM_DILITHIUM_KEYFORM_ROUND3_65,
+      dilithium_r3_65, dilithium_r3_65_len },
+    { "DILITHIUM_R3_87", CK_IBM_DILITHIUM_KEYFORM_ROUND3_87,
+      dilithium_r3_87, dilithium_r3_87_len },
+};
+
+const CK_ULONG num_variants = sizeof(variants) / sizeof(_variant_info);
 
 CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
                               CK_MECHANISM_TYPE mechType,
@@ -98,7 +133,6 @@ CK_RV run_SignVerifyDilithium(CK_SESSION_HANDLE session,
         testcase_error("C_Sign rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
-
     signature = calloc(sizeof(CK_BYTE), signaturelen);
     if (signature == NULL) {
         testcase_error("Can't allocate memory for %lu bytes",
@@ -242,7 +276,7 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
-    CK_ULONG user_pin_len, j;
+    CK_ULONG user_pin_len, j, i;
     CK_FLAGS flags;
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
@@ -260,7 +294,7 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
     rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
     if (rc != CKR_OK) {
         if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for EC key gen? skip */
+            /* no support for Dilithium key gen? skip */
             testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM ",
                           (unsigned int) SLOT_ID);
             rc = CKR_OK;
@@ -271,42 +305,85 @@ CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
         }
     }
 
-    /* Setup attributes for public/private Dilithium key */
-    CK_BBOOL attr_sign = TRUE;
-    CK_BBOOL attr_verify = TRUE;
-    CK_ATTRIBUTE dilithium_attr_private[] = {
-        {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
-    };
-    CK_ATTRIBUTE dilithium_attr_public[] = {
-        {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
-    };
+    for (i = 0; i < 2 * num_variants; i++) {
+        /* Setup attributes for public/private Dilithium key */
+        CK_BBOOL attr_sign = TRUE;
+        CK_BBOOL attr_verify = TRUE;
+        CK_ATTRIBUTE dilithium_attr_private_keyform[] = {
+            {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_KEYFORM,
+             (CK_BYTE *)&variants[i % num_variants].keyform, sizeof(CK_ULONG)},
+        };
+        CK_ATTRIBUTE dilithium_attr_public_keyform[] = {
+            {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_KEYFORM,
+             (CK_BYTE *)&variants[i % num_variants].keyform, sizeof(CK_ULONG)},
+        };
+        CK_ATTRIBUTE dilithium_attr_private_mode[] = {
+            {CKA_SIGN, &attr_sign, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_MODE,
+            (CK_BYTE *)variants[i % num_variants].oid, variants[i % num_variants].oid_len},
+        };
+        CK_ATTRIBUTE dilithium_attr_public_mode[] = {
+            {CKA_VERIFY, &attr_verify, sizeof(CK_BBOOL)},
+            {CKA_IBM_DILITHIUM_MODE,
+            (CK_BYTE *)variants[i % num_variants].oid, variants[i % num_variants].oid_len},
+        };
+        CK_ATTRIBUTE *dilithium_attr_private = i < num_variants ?
+                                            dilithium_attr_private_keyform :
+                                            dilithium_attr_private_mode;
+        CK_ATTRIBUTE *dilithium_attr_public = i < num_variants ?
+                                            dilithium_attr_public_keyform :
+                                            dilithium_attr_public_mode;
+        CK_ULONG num_dilithium_attrs =
+                            (variants[i % num_variants].oid == NULL) ? 1 : 2;
 
-    /* Generate Dilithium key pair */
-    rc = funcs->C_GenerateKeyPair(session, &mech,
-                   dilithium_attr_public, 1,
-                   dilithium_attr_private, 1,
-                   &publ_key, &priv_key);
-    testcase_new_assertion();
-    if (rc != CKR_OK) {
-        testcase_fail
-            ("C_GenerateKeyPair with valid input failed, rc=%s",
-             p11_get_ckr(rc));
-        goto testcase_cleanup;
-    }
-    testcase_pass("*Generate Dilithium key pair passed.");
-
-    /* Sign/verify with this key pair */
-    for (j = 0; j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
+        /* Generate Dilithium key pair */
+        rc = funcs->C_GenerateKeyPair(session, &mech,
+                       dilithium_attr_public, num_dilithium_attrs,
+                       dilithium_attr_private, num_dilithium_attrs,
+                       &publ_key, &priv_key);
         testcase_new_assertion();
-        rc = run_SignVerifyDilithium(session,
-                               signVerifyInput[j].mechtype,
-                               signVerifyInput[j].inputlen,
-                               priv_key, publ_key);
-        if (rc != 0) {
-            testcase_fail("run_SignVerifyDilithium failed index=%lu.", j);
-            goto testcase_cleanup;
+        if (rc != CKR_OK) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("C_GenerateKeyPair with %s (%s) not supported",
+                     variants[i % num_variants].name,
+                     i < num_variants ? "KEYFORM" : "MODE");
+                goto next;
+            } else {
+                testcase_fail("C_GenerateKeyPair with %s (%s) and valid input failed, rc=%s",
+                     variants[i % num_variants].name,
+                     i < num_variants ? "KEYFORM" : "MODE", p11_get_ckr(rc));
+                goto testcase_cleanup;
+            }
         }
-        testcase_pass("*Sign & verify j=%lu passed.", j);
+        testcase_pass("*Generate Dilithium key pair with %s (%s) passed.",
+                      variants[i % num_variants].name,
+                      i < num_variants ? "KEYFORM" : "MODE");
+
+        /* Sign/verify with this key pair */
+        for (j = 0; j < (sizeof(signVerifyInput) / sizeof(_signVerifyParam)); j++) {
+            testcase_new_assertion();
+            rc = run_SignVerifyDilithium(session,
+                                   signVerifyInput[j].mechtype,
+                                   signVerifyInput[j].inputlen,
+                                   priv_key, publ_key);
+            if (rc != 0) {
+                testcase_fail("run_SignVerifyDilithium with %s failed index=%lu.",
+                              variants[i % num_variants].name, j);
+                goto next;
+            }
+            testcase_pass("*Sign & verify with %s j=%lu passed.",
+                          variants[i % num_variants].name, j);
+        }
+
+next:
+        if (publ_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, publ_key);
+        publ_key = CK_INVALID_HANDLE;
+        if (priv_key != CK_INVALID_HANDLE)
+            funcs->C_DestroyObject(session, priv_key);
+        priv_key = CK_INVALID_HANDLE;
     }
 
     rc = CKR_OK;
@@ -345,7 +422,7 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
     rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
     if (rc != CKR_OK) {
         if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for EC key gen? skip */
+            /* no support for Dilithium key gen? skip */
             testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
                           (unsigned int) SLOT_ID);
             goto testcase_cleanup;
@@ -357,10 +434,13 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
 
     for (i = 0; i < DILITHIUM_TV_NUM; i++) {
 
-        testcase_begin("Starting Dilithium import key pair, Sign/Verify, KAT index=%lu", i);
+        testcase_begin("Starting Dilithium import key pair, Sign/Verify, %s index=%lu",
+                       dilithium_tv[i].name, i);
 
         /* Create Dilithium private key */
         rc = create_DilithiumPrivateKey(session,
+                            dilithium_tv[i].pkcs8, dilithium_tv[i].pkcs8_len,
+                            dilithium_tv[i].keyform,
                             dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                             dilithium_tv[i].seed, dilithium_tv[i].seed_len,
                             dilithium_tv[i].tr, dilithium_tv[i].tr_len,
@@ -371,7 +451,11 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
                             &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            if (rc == CKR_POLICY_VIOLATION) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("C_CreateObject with %s not supported",
+                              dilithium_tv[i].name);
+                continue;
+            } else if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("Dilithium key import is not allowed by policy");
                 continue;
             }
@@ -384,12 +468,18 @@ CK_RV run_ImportDilithiumKeyPairSignVerify(void)
 
         /* Create Dilithium public key */
         rc = create_DilithiumPublicKey(session,
+                                dilithium_tv[i].spki, dilithium_tv[i].spki_len,
+                                dilithium_tv[i].keyform,
                                 dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                                 dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                                 &publ_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            if (rc == CKR_POLICY_VIOLATION) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("C_CreateObject with %s not supported",
+                              dilithium_tv[i].name);
+                goto testcase_cleanup;
+            } else if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("Dilithium key import is not allowed by policy");
                 goto testcase_cleanup;
             }
@@ -553,7 +643,7 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
     rc = funcs->C_GetMechanismInfo(SLOT_ID, mech.mechanism, &mech_info);
     if (rc != CKR_OK) {
         if (rc == CKR_MECHANISM_INVALID) {
-            /* no support for EC key gen? skip */
+            /* no support for Dilithium key gen? skip */
             testcase_skip("Slot %u doesn't support CKM_IBM_DILITHIUM",
                           (unsigned int) SLOT_ID);
             goto testcase_cleanup;
@@ -565,10 +655,13 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
 
     for (i = 0; i < DILITHIUM_TV_NUM; i++) {
 
-        testcase_begin("Starting Dilithium transfer key pair, Sign/Verify KAT index=%lu.",i);
+        testcase_begin("Starting Dilithium transfer key pair, Sign/Verify %s index=%lu.",
+                       dilithium_tv[i].name, i);
 
         /* Create Dilithium private key */
         rc = create_DilithiumPrivateKey(session,
+                            dilithium_tv[i].pkcs8, dilithium_tv[i].pkcs8_len,
+                            dilithium_tv[i].keyform,
                             dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                             dilithium_tv[i].seed, dilithium_tv[i].seed_len,
                             dilithium_tv[i].tr, dilithium_tv[i].tr_len,
@@ -579,7 +672,11 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
                             &priv_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            if (rc == CKR_POLICY_VIOLATION) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("C_CreateObject with %s not supported",
+                              dilithium_tv[i].name);
+                continue;
+            } else if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("Dilithium key import is not allowed by policy");
                 continue;
             }
@@ -593,12 +690,18 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
 
         /* Create Dilithium public key */
         rc = create_DilithiumPublicKey(session,
+                                dilithium_tv[i].spki, dilithium_tv[i].spki_len,
+                                dilithium_tv[i].keyform,
                                 dilithium_tv[i].rho, dilithium_tv[i].rho_len,
                                 dilithium_tv[i].t1, dilithium_tv[i].t1_len,
                                 &publ_key);
         testcase_new_assertion();
         if (rc != CKR_OK) {
-            if (rc == CKR_POLICY_VIOLATION) {
+            if (rc == CKR_KEY_SIZE_RANGE) {
+                testcase_skip("C_CreateObject with %s not supported",
+                              dilithium_tv[i].name);
+                goto testcase_cleanup;
+            } else if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("Dilithium key import is not allowed by policy");
                 goto testcase_cleanup;
             }
