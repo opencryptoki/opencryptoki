@@ -35,6 +35,8 @@ struct pqc_oid {
     const CK_BYTE *oid;
     CK_ULONG oid_len;
     CK_ULONG keyform;
+    CK_ULONG policy_size;
+    CK_ULONG policy_siglen;
 };
 
 extern const struct pqc_oid dilithium_oids[];

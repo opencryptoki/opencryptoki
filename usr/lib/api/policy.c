@@ -25,6 +25,7 @@
 #include <grp.h>
 #include <errno.h>
 #include <host_defs.h>
+#include <pqc_defs.h>
 
 /* in h_extern.h, but not included since it creates too many unneeded
    dependencies for unit tests. */
@@ -179,6 +180,65 @@ static CK_RV policy_get_curve_args(get_attr_val_f getattr, void *d,
     return rv;
 }
 
+static CK_RV policy_get_pqc_args(CK_KEY_TYPE key_type,
+                                 get_attr_val_f getattr, void *d,
+                                 free_attr_f free_attr, CK_ULONG *size,
+                                 CK_ULONG *siglen, const CK_BYTE **oid,
+                                 CK_ULONG *oidlen)
+{
+    CK_ATTRIBUTE_TYPE keyform_attr;
+    CK_ATTRIBUTE_TYPE mode_attr;
+    CK_ATTRIBUTE *keyform = NULL, *mode = NULL;
+    const struct pqc_oid *oids, *pqc_oid = NULL;
+    CK_RV rv;
+
+    switch (key_type) {
+    case CKK_IBM_PQC_DILITHIUM:
+        keyform_attr = CKA_IBM_DILITHIUM_KEYFORM;
+        mode_attr = CKA_IBM_DILITHIUM_MODE;
+        oids = dilithium_oids;
+        break;
+    case CKK_IBM_PQC_KYBER:
+        keyform_attr = CKA_IBM_KYBER_KEYFORM;
+        mode_attr = CKA_IBM_KYBER_MODE;
+        oids = kyber_oids;
+        break;
+    default:
+        TRACE_ERROR("Unsupported key type 0x%lx\n", key_type);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    rv = getattr(d, keyform_attr, &keyform);
+    if (rv == CKR_OK && keyform->ulValueLen == sizeof(CK_ULONG)) {
+        pqc_oid = find_pqc_by_keyform(oids, *(CK_ULONG *)keyform->pValue);
+    } else {
+        rv = getattr(d, mode_attr, &mode);
+        if (rv == CKR_OK && mode->ulValueLen > 0)
+            pqc_oid = find_pqc_by_oid(oids, mode->pValue, mode->ulValueLen);
+    }
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("Did not find KEYFORM or MODE for key type 0x%lx\n",
+                     key_type);
+        rv = CKR_TEMPLATE_INCOMPLETE;
+        goto out;
+    }
+
+    *size = pqc_oid->policy_size;
+    *siglen = pqc_oid->policy_siglen;
+    *oid = pqc_oid->oid;
+    *oidlen = pqc_oid->oid_len;
+
+out:
+    if (free_attr) {
+        if (keyform)
+            free_attr(keyform);
+        if (mode)
+            free_attr(mode);
+    }
+
+    return rv;
+}
+
 static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
                                      free_attr_f free_attr,
                                      CK_ULONG *comptarget, CK_ULONG *size,
@@ -278,7 +338,8 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         *comptarget = COMPARE_SYMMETRIC;
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        *size = 256;
+        rv = policy_get_pqc_args(*(CK_ULONG *)keytype->pValue, getattr, d,
+                                 free_attr, size, siglen, oid, oidlen);
         *comptarget = COMPARE_PQC;
         break;
         /* POLICY: New CKK */
@@ -351,6 +412,8 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
         case CKM_RSA_X9_31:
             /* Fallthrough */
         case CKM_IBM_ED448_SHA3:
+            /* Fallthrough */
+        case CKM_IBM_DILITHIUM:
             *ssize = s->siglen;
             break;
         case CKM_DSA_SHA1:
