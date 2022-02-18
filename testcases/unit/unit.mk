@@ -22,7 +22,8 @@ testcases_unit_policytest_SOURCES=testcases/unit/policytest.c	\
 	usr/lib/common/kdf_translation.c			\
 	usr/lib/common/mgf_translation.c			\
 	usr/lib/api/supportedstrengths.c			\
-	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l	\
+	usr/lib/common/pqc_supported.c
 
 nodist_testcases_unit_policytest_SOURCES=usr/lib/api/mechtable.c
 
