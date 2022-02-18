@@ -3820,6 +3820,8 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_INTEGER failed\n");
         return rc;
     }
+    rho++; /* Remove unused-bits byte */
+    rho_len--;
 
     /* Decode t1 */
     offset = field_len;
@@ -3828,6 +3830,8 @@ CK_RV ber_decode_IBM_DilithiumPublicKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_INTEGER failed\n");
         return rc;
     }
+    t1++; /* Remove unused-bits byte */
+    t1_len--;
 
     /* Build rho attribute */
     rc = build_attribute(CKA_IBM_DILITHIUM_RHO, rho, rho_len, &rho_attr_temp);
@@ -4137,6 +4141,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (rho) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_RHO, tmp, len, &rho_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (rho) failed\n");
@@ -4151,6 +4157,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (seed) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_SEED, tmp, len, &seed_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (seed) failed\n");
@@ -4165,6 +4173,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (tr) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_TR, tmp, len, &tr_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (tr) failed\n");
@@ -4179,6 +4189,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (s1) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_S1, tmp, len, &s1_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (s1) failed\n");
@@ -4193,6 +4205,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (s2) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_S2, tmp, len, &s2_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (s2) failed\n");
@@ -4207,6 +4221,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
         TRACE_DEVEL("ber_decode_BIT_STRING of (t0) failed\n");
         goto cleanup;
     } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
         rc = build_attribute(CKA_IBM_DILITHIUM_T0, tmp, len, &t0_attr);
         if (rc != CKR_OK) {
             TRACE_DEVEL("build_attribute for (t0) failed\n");
@@ -4236,6 +4252,8 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
             TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
             goto cleanup;
         }
+        tmp++; /* Remove unused-bits byte */
+        len--;
 
         rc = build_attribute(CKA_IBM_DILITHIUM_T1, tmp, len, &t1_attr);
         if (rc != CKR_OK) {
