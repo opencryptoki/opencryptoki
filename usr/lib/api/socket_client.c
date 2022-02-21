@@ -284,6 +284,8 @@ static void *event_thread(void *arg)
 
     UNUSED(arg);
 
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
+
     TRACE_DEVEL("Event thread %lu running\n", pthread_self());
 
     if (anchor->socketfd < 0) {
@@ -303,13 +305,13 @@ static void *event_thread(void *arg)
 #endif
 
     /* Enable cancellation */
-    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
-    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldtype);
     cleanup.anchor = anchor;
 #if OPENSSL_VERSION_PREREQ(3, 0)
     cleanup.prev_libctx = prev_libctx;
 #endif
     pthread_cleanup_push(event_thread_cleanup, &cleanup);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldtype);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, &oldstate);
 
     pollfd.fd = anchor->socketfd;
     pollfd.events = POLLIN | POLLHUP | POLLERR;
@@ -320,6 +322,7 @@ static void *event_thread(void *arg)
         if (rc < 0) {
             if (errno == EINTR)
                 continue;
+            pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
             TRACE_ERROR("poll failed: %d\n", errno);
             break;
         }
@@ -328,6 +331,7 @@ static void *event_thread(void *arg)
             continue;
 
         if (pollfd.revents & (POLLHUP | POLLERR)) {
+            pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
             TRACE_ERROR("Error on socket, possibly closed by slot daemon\n");
             break;
         }
