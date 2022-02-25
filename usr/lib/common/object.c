@@ -703,7 +703,8 @@ error:
 //If data_size=-1, won't do bounds checking
 CK_RV object_restore_withSize(struct policy *policy,
                               CK_BYTE * data, OBJECT ** new_obj,
-                              CK_BBOOL replace, int data_size)
+                              CK_BBOOL replace, int data_size,
+                              const char *fname)
 {
     TEMPLATE *tmpl = NULL;
     OBJECT *obj = NULL;
@@ -711,6 +712,7 @@ CK_RV object_restore_withSize(struct policy *policy,
     CK_ULONG_32 count = 0;
     CK_RV rc;
     CK_OBJECT_CLASS_32 class32;
+    const char *obj_name;
 
     if (!data || !new_obj) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -723,7 +725,6 @@ CK_RV object_restore_withSize(struct policy *policy,
         goto error;
     }
 
-
     memset(obj, 0x0, sizeof(OBJECT));
 
     memcpy(&class32, data + offset, sizeof(CK_OBJECT_CLASS_32));
@@ -733,9 +734,32 @@ CK_RV object_restore_withSize(struct policy *policy,
     memcpy(&count, data + offset, sizeof(CK_ULONG_32));
     offset += sizeof(CK_ULONG_32);
 
-
     memcpy(&obj->name, data + offset, 8);
     offset += 8;
+
+    if (fname != NULL) {
+        /* The last path element of the file name must match the object name */
+        obj_name = strrchr(fname, '/');
+        if (obj_name == NULL) {
+            TRACE_ERROR("File name has invalid format: '%s'\n", fname);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+        }
+
+        obj_name++;
+        if (strlen(obj_name) != 8) {
+            TRACE_ERROR("File name has invalid format: '%s'\n", fname);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+        }
+
+        if (memcmp(obj->name, obj_name, 8) != 0) {
+            TRACE_ERROR("Object name '%.8s' does not match the file name it was loaded from: '%s'\n",
+                        obj->name, fname);
+            rc = CKR_FUNCTION_FAILED;
+            goto error;
+        }
+    }
 
     rc = template_unflatten_withSize(&tmpl, data + offset, count, data_size);
     if (rc != CKR_OK) {

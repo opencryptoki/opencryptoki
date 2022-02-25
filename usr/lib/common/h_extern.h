@@ -432,7 +432,8 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
                                    CK_BYTE *header,
                                    CK_BYTE *data, CK_ULONG len,
                                    CK_BYTE *footer,
-                                   OBJECT *pObj);
+                                   OBJECT *pObj,
+                                   const char *fname);
 
 CK_RV delete_token_object(STDLL_TokData_t *tokdata, OBJECT *ptr);
 CK_RV delete_token_data(STDLL_TokData_t *tokdata);
@@ -2164,11 +2165,12 @@ CK_BBOOL object_mgr_purge_token_objects(STDLL_TokData_t *tokdata);
 CK_BBOOL object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata);
 
 CK_RV object_mgr_restore_obj(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                             OBJECT *oldObj);
+                             OBJECT *oldObj, const char *fname);
 
 CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata,
                                       CK_BYTE *data, OBJECT *oldObj,
-                                      int data_size);
+                                      int data_size,
+                                      const char *fname);
 
 CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 
@@ -2245,7 +2247,8 @@ CK_RV object_get_attribute_values(OBJECT *obj,
 CK_ULONG object_get_size(OBJECT *obj);
 
 CK_RV object_restore_withSize(struct policy *policy, CK_BYTE *data,
-                              OBJECT **obj, CK_BBOOL replace, int data_size);
+                              OBJECT **obj, CK_BBOOL replace, int data_size,
+                              const char *fname);
 
 CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata,
                                   OBJECT *obj,
