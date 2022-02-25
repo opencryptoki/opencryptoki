@@ -1439,16 +1439,17 @@ CK_BBOOL object_mgr_purge_private_token_objects(STDLL_TokData_t *tokdata)
 //
 //
 CK_RV object_mgr_restore_obj(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                             OBJECT *oldObj)
+                             OBJECT *oldObj, const char *fname)
 {
-    return object_mgr_restore_obj_withSize(tokdata, data, oldObj, -1);
+    return object_mgr_restore_obj_withSize(tokdata, data, oldObj, -1, fname);
 }
 
 //
 //Modified verrsion of object_mgr_restore_obj to bounds check
 //If data_size==-1, won't check bounds
 CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                                      OBJECT *oldObj, int data_size)
+                                      OBJECT *oldObj, int data_size,
+                                      const char *fname)
 {
     OBJECT *obj = NULL;
     CK_BBOOL priv;
@@ -1464,10 +1465,10 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
     if (oldObj != NULL) {
         obj = oldObj;
         rc = object_restore_withSize(tokdata->policy,
-                                     data, &obj, TRUE, data_size);
+                                     data, &obj, TRUE, data_size, fname);
     } else {
         rc = object_restore_withSize(tokdata->policy,
-                                     data, &obj, FALSE, data_size);
+                                     data, &obj, FALSE, data_size, fname);
         if (rc == CKR_OK) {
             rc = XProcLock(tokdata);
             if (rc != CKR_OK) {

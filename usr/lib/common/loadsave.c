@@ -46,7 +46,8 @@
 extern void set_perm(int);
 
 CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                                       CK_ULONG len, OBJECT *pObj);
+                                       CK_ULONG len, OBJECT *pObj,
+                                       const char *fname);
 CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata);
@@ -828,7 +829,7 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
             continue;
         }
 
-        rc = restore_private_token_object_old(tokdata, buf, size, NULL);
+        rc = restore_private_token_object_old(tokdata, buf, size, NULL, fname);
         if (rc != CKR_OK)
             goto error;
 
@@ -1338,7 +1339,8 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
 }
 
 CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
-                                       CK_ULONG len, OBJECT *pObj)
+                                       CK_ULONG len, OBJECT *pObj,
+                                       const char *fname)
 {
     CK_BYTE *clear = NULL;
     CK_BYTE *obj_data = NULL;
@@ -1429,7 +1431,7 @@ CK_RV restore_private_token_object_old(STDLL_TokData_t *tokdata, CK_BYTE *data,
     // the token object...
     //
 
-    rc = object_mgr_restore_obj(tokdata, obj_data, pObj);
+    rc = object_mgr_restore_obj(tokdata, obj_data, pObj, fname);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -1506,9 +1508,10 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
     size_64 = size;
 
     if (priv)
-        rc = restore_private_token_object_old(tokdata, buf, size_64, obj);
+        rc = restore_private_token_object_old(tokdata, buf, size_64, obj,
+                                              fname);
     else
-        rc = object_mgr_restore_obj(tokdata, buf, obj);
+        rc = object_mgr_restore_obj(tokdata, buf, obj, fname);
 
 done:
     if (fp)
@@ -1631,7 +1634,7 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
         }
         // ... grab object mutex here.
         if (object_mgr_restore_obj_withSize(tokdata,
-                                            buf, NULL, size) != CKR_OK) {
+                                            buf, NULL, size, fname) != CKR_OK) {
             OCK_SYSLOG(LOG_ERR,
                        "Cannot restore token object %s "
                        "(ignoring it)", fname);
@@ -2486,7 +2489,7 @@ CK_RV load_private_token_objects(STDLL_TokData_t *tokdata)
 
         rc = restore_private_token_object(tokdata, header,
                                           buf, size,
-                                          footer, NULL);
+                                          footer, NULL, fname);
         if (rc != CKR_OK)
             goto error;
 
@@ -2512,14 +2515,16 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
                                    CK_BYTE *header,
                                    CK_BYTE *data, CK_ULONG len,
                                    CK_BYTE *footer,
-                                   OBJECT *pObj)
+                                   OBJECT *pObj,
+                                   const char *fname)
 {
     unsigned char obj_iv[12], obj_key[32], obj_key_wrapped[40];
     CK_BYTE *buff = NULL;
     CK_RV rc;
 
     if (tokdata->version < TOK_NEW_DATA_STORE)
-        return restore_private_token_object_old(tokdata, data, len, pObj);
+        return restore_private_token_object_old(tokdata, data, len, pObj,
+                                                fname);
 
     /* wrapped key */
     memcpy(obj_key_wrapped, header + 8, 40);
@@ -2550,7 +2555,7 @@ CK_RV restore_private_token_object(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = object_mgr_restore_obj(tokdata, buff, pObj);
+    rc = object_mgr_restore_obj(tokdata, buff, pObj, fname);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -2636,9 +2641,9 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     if (priv) {
         rc = restore_private_token_object(tokdata, header, buf, size_64,
-                                          footer, obj);
+                                          footer, obj, fname);
     } else {
-        rc = object_mgr_restore_obj(tokdata, buf, obj);
+        rc = object_mgr_restore_obj(tokdata, buf, obj, fname);
     }
 done:
     if (fp)
@@ -2793,7 +2798,7 @@ CK_RV load_public_token_objects(STDLL_TokData_t *tokdata)
         }
         // ... grab object mutex here.
         if (object_mgr_restore_obj_withSize(tokdata,
-                                            buf, NULL, size) != CKR_OK) {
+                                            buf, NULL, size, fname) != CKR_OK) {
             OCK_SYSLOG(LOG_ERR,
                        "Cannot restore token object %s "
                        "(ignoring it)", fname);

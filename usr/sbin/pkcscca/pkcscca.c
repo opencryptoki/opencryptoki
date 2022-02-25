@@ -184,7 +184,8 @@ cleanup:
  */
 int adjust_key_object_attributes(unsigned char *data, unsigned long data_len,
                                  unsigned char **new_data,
-                                 unsigned long *new_data_len)
+                                 unsigned long *new_data_len,
+                                 const char *fname)
 {
     int rc;
     OBJECT *obj = NULL;
@@ -194,7 +195,7 @@ int adjust_key_object_attributes(unsigned char *data, unsigned long data_len,
     *new_data_len = 0;
 
     /* Now unflatten the OBJ */
-    rc = object_restore_withSize(NULL, data, &obj, CK_FALSE, data_len);
+    rc = object_restore_withSize(NULL, data, &obj, CK_FALSE, data_len, fname);
     if (rc)
         goto cleanup;
 
@@ -235,7 +236,8 @@ cleanup:
 int reencrypt_private_token_object(unsigned char *data, unsigned long len,
                                    unsigned char *new_cipher,
                                    unsigned long *new_cipher_len,
-                                   unsigned char *masterkey)
+                                   unsigned char *masterkey,
+                                   const char *fname)
 {
     unsigned char *clear = NULL;
     unsigned char des3_key[64];
@@ -291,7 +293,8 @@ int reencrypt_private_token_object(unsigned char *data, unsigned long len,
     /* Adjust the key object attributes */
     ret = adjust_key_object_attributes(clear + sizeof(CK_ULONG_32),
                                        obj_data_len_32,
-                                       &new_obj_data, &new_obj_data_len);
+                                       &new_obj_data, &new_obj_data_len,
+                                       fname);
     if (ret)
         goto done;
 
@@ -412,13 +415,13 @@ int load_token_objects(unsigned char *data_store,
             memset(new_cipher, 0, new_cipher_len);
             rc = reencrypt_private_token_object(buf, size,
                                                 new_cipher, &new_cipher_len,
-                                                masterkey);
+                                                masterkey, fname);
             if (rc)
                 goto cleanup;
         } else {
             /* public token object */
             rc = adjust_key_object_attributes(buf, size, &new_cipher,
-                                              &new_cipher_len);
+                                              &new_cipher_len, fname);
             if (rc)
                 goto cleanup;
 
