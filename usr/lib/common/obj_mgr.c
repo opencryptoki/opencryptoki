@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include "pkcs11types.h"
 #include "defs.h"
@@ -463,6 +465,8 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
     CK_BBOOL locked = FALSE;
     CK_RV rc;
     unsigned long obj_handle;
+    char fname[PATH_MAX] = "";
+    int fd;
 
     if (!sess || !obj || !handle) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -489,9 +493,6 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
             return CKR_HOST_MEMORY;
         }
     } else {
-        CK_BYTE current[8];
-        CK_BYTE next[8];
-
         // we'll be modifying nv_token_data so we should protect this part
         // with 'XProcLock'
         //
@@ -517,21 +518,33 @@ CK_RV object_mgr_create_final(STDLL_TokData_t *tokdata,
                 goto done;
             }
         }
-        memcpy(current, &tokdata->nv_token_data->next_token_object_name, 8);
+
+        /* create unique file name in token directory */
+        if (ock_snprintf(fname, sizeof(fname), "%s/" PK_LITE_OBJ_DIR "/%s",
+                         tokdata->data_store, "OBXXXXXX") != 0) {
+            TRACE_ERROR("buffer overflow for object path");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        fd = mkstemp(fname);
+        if (fd < 0) {
+            TRACE_ERROR("mkstemp failed with: %s\n", strerror(errno));
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+        close(fd); /* written and permissions set by save_token_object */
 
         obj->session = NULL;
-        memcpy(&obj->name, current, 8);
+        memcpy(&obj->name, &fname[strlen(fname) - 8], 8);
 
-        compute_next_token_obj_name(current, next);
-        memcpy(&tokdata->nv_token_data->next_token_object_name, next, 8);
-
-        save_token_object(tokdata, obj);
+        rc = save_token_object(tokdata, obj);
+        if (rc != CKR_OK)
+            goto done;
 
         // add the object identifier to the shared memory segment
         //
         object_mgr_add_to_shm(obj, tokdata->global_shm);
-
-        save_token_data(tokdata, sess->session_info.slotID);
 
         // now, store the object in the token object btree
         //
@@ -595,6 +608,8 @@ done:
 
     if (rc == CKR_OK)
         TRACE_DEVEL("Object created: handle: %lu\n", *handle);
+    else if (fname[0] != '\0')
+        remove(fname);
 
     return rc;
 }
@@ -1699,13 +1714,10 @@ void object_mgr_add_to_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
     entry->count_hi = 0;
     memcpy(entry->name, obj->name, 8);
 
-    if (priv) {
+    if (priv)
         global_shm->num_priv_tok_obj++;
-        object_mgr_sort_priv_shm();
-    } else {
+    else
         global_shm->num_publ_tok_obj++;
-        object_mgr_sort_publ_shm();
-    }
 
     return;
 }
@@ -1806,10 +1818,6 @@ CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
                    sizeof(TOK_OBJ_ENTRY));
         }
     }
-
-    //
-    // object list is still sorted...so no need to re-sort
-    //
 
     return CKR_OK;
 }
@@ -1996,31 +2004,6 @@ CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *obj_list,
 
     return CKR_OBJECT_HANDLE_INVALID;
 }
-
-
-//
-//
-CK_RV object_mgr_sort_priv_shm(void)
-{
-    // for now, we assume the list is sorted by design. this is not unreasonable
-    // since new object handles are assigned in increasing order. problems
-    // will arise after 36^8 token objects have been created...
-    //
-    return CKR_OK;
-}
-
-
-//
-//
-CK_RV object_mgr_sort_publ_shm(void)
-{
-    // for now, we assume the list is sorted by design. this is not unreasonable
-    // since new object handles are assigned in increasing order. problems
-    // will arise after 36^8 token objects have been created...
-    //
-    return CKR_OK;
-}
-
 
 // this routine scans the local token object lists and updates any objects that
 // have changed. it also adds any new token objects that have been added by

@@ -280,7 +280,7 @@ typedef struct _TOKEN_DATA {
 
     CK_BYTE user_pin_sha[3 * DES_BLOCK_SIZE];
     CK_BYTE so_pin_sha[3 * DES_BLOCK_SIZE];
-    CK_BYTE next_token_object_name[8];
+    CK_BYTE unused[8];
     TWEAK_VEC tweak_vector;
 
     /* new for tokversion >= 3.12 */

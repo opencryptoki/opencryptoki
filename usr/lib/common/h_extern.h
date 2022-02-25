@@ -417,8 +417,6 @@ CK_RV communicate(CK_ULONG cmd_id,
                   CK_BYTE_PTR pOut, CK_ULONG out_len,
                   CK_BYTE_PTR pIn, CK_ULONG in_len);
 
-CK_RV compute_next_token_obj_name(CK_BYTE *current, CK_BYTE *next);
-
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
@@ -2098,8 +2096,6 @@ CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *list,
                                     CK_ULONG lo,
                                     CK_ULONG hi,
                                     OBJECT *obj, CK_ULONG *index);
-CK_RV object_mgr_sort_priv_shm(void);
-CK_RV object_mgr_sort_publ_shm(void);
 CK_RV object_mgr_update_from_shm(STDLL_TokData_t *tokdata);
 CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata);
 CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata);
