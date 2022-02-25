@@ -411,8 +411,6 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
         }
     }
 
-    memcpy(tokdata->nv_token_data->next_token_object_name, "00000000", 8);
-
     // generate the master key used for signing the Operation State information
     //                          `
     memset(tokdata->nv_token_data->token_info.label, ' ',
@@ -451,66 +449,6 @@ CK_RV init_token_data(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
     rc = save_token_data(tokdata, slot_id);
 
     return rc;
-}
-
-// Function:  compute_next_token_obj_name()
-//
-// Given a token object name (8 bytes in the range [0-9A-Z]) increment by one
-// adjusting as necessary
-//
-// This gives us a namespace of 36^8 = 2,821,109,907,456 objects before wrapping
-// around
-//
-// Note: If the current name contains an invalid character (i.e. not within
-//       [0-9A-Z]), then this character is set to '0' in the next name and
-//       the following characters are incremented by 1 adjusting as necessary.
-//
-CK_RV compute_next_token_obj_name(CK_BYTE *current, CK_BYTE *next)
-{
-    int val[8];
-    int i;
-
-    if (!current || !next) {
-        TRACE_ERROR("Invalid function arguments.\n");
-        return CKR_FUNCTION_FAILED;
-    }
-    // Convert to integral base 36
-    //
-    for (i = 0; i < 8; i++) {
-        if (current[i] >= '0' && current[i] <= '9')
-            val[i] = current[i] - '0';
-        else if (current[i] >= 'A' && current[i] <= 'Z')
-            val[i] = current[i] - 'A' + 10;
-        else
-            val[i] = 36;
-    }
-
-    val[0]++;
-
-    i = 0;
-
-    while (val[i] > 35) {
-        val[i] = 0;
-
-        if (i + 1 < 8) {
-            val[i + 1]++;
-            i++;
-        } else {
-            val[0]++;
-            i = 0;              // start pass 2
-        }
-    }
-
-    // now, convert back to [0-9A-Z]
-    //
-    for (i = 0; i < 8; i++) {
-        if (val[i] < 10)
-            next[i] = '0' + val[i];
-        else
-            next[i] = 'A' + val[i] - 10;
-    }
-
-    return CKR_OK;
 }
 
 //

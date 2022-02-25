@@ -2277,6 +2277,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
     FILE *fp = NULL;
     CK_BYTE *obj_data = NULL;
     char fname[PATH_MAX];
+    struct stat sb;
     CK_ULONG obj_data_len;
     CK_RV rc;
     CK_ULONG_32 obj_data_len_32;
@@ -2312,6 +2313,18 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         /* create new token object */
         new = 1;
     } else {
+        if (fstat(fileno(fp), &sb) != 0) {
+            TRACE_ERROR("fstat(%s): %s\n", fname, strerror(errno));
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /* New token objects files created by mkstemp have a size of zero */
+        if (sb.st_size == 0) {
+            new = 1;
+            goto do_work;
+        }
+
         /* update existing token object */
         if (fread(data, HEADER_LEN, 1, fp) != 1) {
             TRACE_ERROR("fread(%s): %s\n", fname, strerror(errno));
@@ -2340,6 +2353,7 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
                 goto done;
         }
     }
+do_work:
     if (new) {
         /* get key */
         rng_generate(tokdata, obj_key, 32);
