@@ -3680,14 +3680,14 @@ import_DH_key_end:
 }
 
 /*
- * makes blobs for private imported IBM Dilithium keys and
- * SPKIs for public imported IBM Dilithium keys.
+ * makes blobs for private imported IBM PQC keys and
+ * SPKIs for public imported IBM PQC keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
-                                      OBJECT *dilithium_key_obj,
-                                      CK_BYTE *blob, size_t *blob_size,
-                                      CK_BYTE *spki, size_t *spki_size)
+static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                                OBJECT *pqc_key_obj, CK_KEY_TYPE keytype,
+                                CK_BYTE *blob, size_t *blob_size,
+                                CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -3708,11 +3708,27 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ATTRIBUTE *value_attr = NULL;
     CK_BBOOL data_alloced = TRUE;
     const struct pqc_oid *oid;
+    const char *key_type_str;
+    CK_MECHANISM_TYPE pqc_mech;
+
+    switch (keytype) {
+    case CKK_IBM_PQC_DILITHIUM:
+        key_type_str = "Dilithium";
+        pqc_mech = CKM_IBM_DILITHIUM;
+        break;
+    case CKK_IBM_PQC_KYBER:
+        key_type_str = "Kyber";
+        pqc_mech = CKM_IBM_KYBER;
+        break;
+    default:
+        TRACE_ERROR("Invalid key type provided for %s\n ", __func__);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
     /* need class for secret/public key info */
-    rc = template_attribute_get_ulong(dilithium_key_obj->template, CKA_CLASS,
+    rc = template_attribute_get_ulong(pqc_key_obj->template, CKA_CLASS,
                                       &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("Could not find CKA_CLASS for the key.\n");
@@ -3722,20 +3738,20 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
     /* m_Unwrap builds key blob in the card,
      * tell ep11 the attributes the user specified for that key.
      */
-    rc = build_ep11_attrs(tokdata, dilithium_key_obj->template,
+    rc = build_ep11_attrs(tokdata, pqc_key_obj->template,
                           &p_attrs, &attrs_len,
-                          CKK_IBM_PQC_DILITHIUM, class, -1, &mech_w);
+                          keytype, class, -1, &mech_w);
     if (rc != CKR_OK)
         goto done;
 
     if (class != CKO_PRIVATE_KEY) {
-        /* Make an SPKI for the public IBM Dilithium key */
+        /* Make an SPKI for the public IBM PQC key */
 
-        /* A public IBM Dilithium key must either have a CKA_VALUE containing
+        /* A public IBM PQC key must either have a CKA_VALUE containing
          * the SPKI, or must have a keyform/mode value and the individual
          * attributes
          */
-        if (template_attribute_find(dilithium_key_obj->template,
+        if (template_attribute_find(pqc_key_obj->template,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
             /* CKA_VALUE with SPKI */
@@ -3747,16 +3763,16 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
              * Decode SPKI and add public key attributes. This also adds the
              * keyform and mode attributes to the template.
              */
-            rc = ibm_dilithium_priv_unwrap_get_data(dilithium_key_obj->template,
-                                                    data, data_len, FALSE);
+            rc = ibm_pqc_priv_unwrap_get_data(pqc_key_obj->template, keytype,
+                                              data, data_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode SPKI from CKA_VALUE.\n");
                 goto done;
             }
          } else {
             /* Individual attributes */
-             rc = ibm_dilithium_publ_get_spki(dilithium_key_obj->template,
-                                              FALSE, &data, &data_len);
+             rc = ibm_pqc_publ_get_spki(pqc_key_obj->template, keytype,
+                                        FALSE, &data, &data_len);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s public key import class=0x%lx rc=0x%lx "
                             "data_len=0x%lx\n", __func__, class, rc, data_len);
@@ -3767,15 +3783,13 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
             }
 
             /* Ensure both, keyform and mode attributes are added */
-            oid = ibm_pqc_get_keyform_mode(dilithium_key_obj->template,
-                                           CKM_IBM_DILITHIUM);
+            oid = ibm_pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
             if (oid == NULL) {
                 rc = CKR_TEMPLATE_INCOMPLETE;
                 goto done;
             }
 
-            rc = ibm_pqc_add_keyform_mode(dilithium_key_obj->template,
-                                          oid, CKM_IBM_DILITHIUM);
+            rc = ibm_pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
             if (rc != CKR_OK) {
                 TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
                 goto done;
@@ -3788,7 +3802,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
                 goto done;
             }
 
-            rc = template_update_attribute(dilithium_key_obj->template,
+            rc = template_update_attribute(pqc_key_obj->template,
                                            value_attr);
             if (rc != CKR_OK) {
                 TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
@@ -3802,7 +3816,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* save the SPKI as blob although it is not a blob.
          * The card expects MACed-SPKIs as public keys.
          */
-        rc = make_maced_spki(tokdata, sess, dilithium_key_obj, data, data_len,
+        rc = make_maced_spki(tokdata, sess, pqc_key_obj, data, data_len,
                              blob, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
@@ -3814,13 +3828,13 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
     } else {
 
-        /* imported private IBM Dilithium key goes here */
+        /* imported private IBM PQC key goes here */
 
-        /* A public IBM Dilithium key must either have a CKA_VALUE containing
+        /* A public IBM PQC key must either have a CKA_VALUE containing
          * the PKCS#8 encoded private key, or must have a keyform/mode value
          * and the individual attributes
          */
-        if (template_attribute_find(dilithium_key_obj->template,
+        if (template_attribute_find(pqc_key_obj->template,
                                     CKA_VALUE, &value_attr) &&
             value_attr->ulValueLen > 0 && value_attr ->pValue != NULL) {
             /* CKA_VALUE with SPKI */
@@ -3829,8 +3843,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
             data_alloced = FALSE;
 
             /* Decode PKCS#8 private key and add key attributes */
-            rc = ibm_dilithium_priv_unwrap(dilithium_key_obj->template,
-                                           data, data_len, FALSE);
+            rc = ibm_pqc_priv_unwrap(pqc_key_obj->template, keytype,
+                                     data, data_len, FALSE);
             if (rc != CKR_OK) {
                 TRACE_ERROR("Failed to decode private key from CKA_VALUE.\n");
                 goto done;
@@ -3840,23 +3854,22 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
              * padding is done in mechanism. This also adds the keyform and mode
              * attributes to the template.
              */
-            rc = ibm_dilithium_priv_wrap_get_data(dilithium_key_obj->template,
-                                                  FALSE, &data, &data_len);
+            rc = ibm_pqc_priv_wrap_get_data(pqc_key_obj->template, keytype,
+                                            FALSE, &data, &data_len);
             if (rc != CKR_OK) {
-                TRACE_DEVEL("%s Dilithium wrap get data failed\n", __func__);
+                TRACE_DEVEL("%s %s wrap get data failed\n", __func__,
+                            key_type_str);
                 goto done;
             }
 
             /* Ensure both, keyform and mode attributes are added */
-            oid = ibm_pqc_get_keyform_mode(dilithium_key_obj->template,
-                                           CKM_IBM_DILITHIUM);
+            oid = ibm_pqc_get_keyform_mode(pqc_key_obj->template, pqc_mech);
             if (oid == NULL) {
                 rc = CKR_TEMPLATE_INCOMPLETE;
                 goto done;
             }
 
-            rc = ibm_pqc_add_keyform_mode(dilithium_key_obj->template,
-                                          oid, CKM_IBM_DILITHIUM);
+            rc = ibm_pqc_add_keyform_mode(pqc_key_obj->template, oid, pqc_mech);
             if (rc != CKR_OK) {
                 TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
                 goto done;
@@ -3865,8 +3878,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_START(rc, tokdata)
-            if (ep11_pqc_obj_strength_supported(target_info, CKM_IBM_DILITHIUM,
-                                                dilithium_key_obj))
+            if (ep11_pqc_obj_strength_supported(target_info, pqc_mech,
+                                                pqc_key_obj))
                 rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                          ep11_data->raw2key_wrap_blob_l,
                                          &mech_w, data, data_len,
@@ -3886,8 +3899,7 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
             goto done;
         }
 
-        rc = check_key_attributes(tokdata, CKK_IBM_PQC_DILITHIUM,
-                            CKO_PRIVATE_KEY,
+        rc = check_key_attributes(tokdata, keytype, CKO_PRIVATE_KEY,
                             p_attrs, attrs_len,
                             &new_p_attrs, &new_attrs_len, -1);
         if (rc != CKR_OK) {
@@ -3896,12 +3908,12 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
             goto done;
         }
 
-        trace_attributes(__func__, "Dilithium import:", new_p_attrs, new_attrs_len);
+        trace_attributes(__func__, "PQC import:", new_p_attrs, new_attrs_len);
 
-        ep11_get_pin_blob(ep11_session, object_is_session_object(dilithium_key_obj),
+        ep11_get_pin_blob(ep11_session, object_is_session_object(pqc_key_obj),
                           &ep11_pin_blob, &ep11_pin_blob_len);
 
-        /* calls the card, it decrypts the private Dilithium key,
+        /* calls the card, it decrypts the private PQC key,
          * reads its BER format and builds a blob.
          */
         RETRY_START(rc, tokdata)
@@ -3924,12 +3936,20 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
                        __func__, rc, *blob_size);
         }
 
-        cleanse_attribute(dilithium_key_obj->template, CKA_VALUE);
-        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_SEED);
-        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_TR);
-        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_S1);
-        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_S2);
-        cleanse_attribute(dilithium_key_obj->template, CKA_IBM_DILITHIUM_T0);
+        cleanse_attribute(pqc_key_obj->template, CKA_VALUE);
+
+        switch (keytype) {
+        case CKK_IBM_PQC_DILITHIUM:
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_SEED);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_TR);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_S1);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_S2);
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_DILITHIUM_T0);
+            break;
+        case CKK_IBM_PQC_KYBER:
+            cleanse_attribute(pqc_key_obj->template, CKA_IBM_KYBER_SK);
+            break;
+        }
     }
 
 done:
@@ -4036,15 +4056,16 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = import_IBM_Dilithium_key(tokdata, sess, obj, blob, &blobsize,
-                                      spki, &spkisize);
+    case CKK_IBM_PQC_KYBER:
+        rc = import_IBM_pqc_key(tokdata, sess, obj, keytype, blob, &blobsize,
+                                spki, &spkisize);
         if (rc != CKR_OK) {
-            TRACE_ERROR("%s import IBM Dilithium key rc=0x%lx blobsize=0x%zx\n",
-                        __func__, rc, blobsize);
+            TRACE_ERROR("%s import IBM PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
+                        __func__, keytype, rc, blobsize);
             return rc;
         }
-        TRACE_INFO("%s import IBM Dilithium key rc=0x%lx blobsize=0x%zx\n",
-                   __func__, rc, blobsize);
+        TRACE_INFO("%s import IBM PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
+                   __func__, keytype, rc, blobsize);
         break;
     case CKK_DES2:
     case CKK_DES3:
@@ -6600,10 +6621,10 @@ error:
     return rc;
 }
 
-static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
-                                     SESSION *sess,
-                                     CK_MECHANISM_PTR pMechanism,
-                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
+static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
+                                      SESSION *sess,
+                                      CK_MECHANISM_PTR pMechanism,
+                                      TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
@@ -6611,7 +6632,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
-    CK_ULONG ktype = CKK_IBM_PQC_DILITHIUM;
+    CK_ULONG ktype;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
@@ -6619,9 +6640,19 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
-    const struct pqc_oid *dilithium_oid;
+    const struct pqc_oid *pqc_oid;
+    const char *key_type_str;
 
-    if (pMechanism->mechanism != CKM_IBM_DILITHIUM) {
+    switch (pMechanism->mechanism) {
+    case CKM_IBM_DILITHIUM:
+        key_type_str = "Dilithium";
+        ktype = CKK_IBM_PQC_DILITHIUM;
+        break;
+    case CKM_IBM_KYBER:
+        key_type_str = "Kyber";
+        ktype = CKK_IBM_PQC_KYBER;
+        break;
+    default:
         TRACE_ERROR("Invalid mechanism provided for %s\n ", __func__);
         return CKR_MECHANISM_INVALID;
     }
@@ -6642,25 +6673,37 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    dilithium_oid = ibm_pqc_get_keyform_mode(publ_tmpl, CKM_IBM_DILITHIUM);
-    if (dilithium_oid == NULL)
-        dilithium_oid = ibm_pqc_get_keyform_mode(priv_tmpl, CKM_IBM_DILITHIUM);
-    if (dilithium_oid == NULL)
-        dilithium_oid = find_pqc_by_keyform(dilithium_oids,
-                                            CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
-    if (dilithium_oid == NULL) {
-        TRACE_ERROR("%s Failed to determine Dilithium OID\n", __func__);
+    pqc_oid = ibm_pqc_get_keyform_mode(publ_tmpl, pMechanism->mechanism);
+    if (pqc_oid == NULL)
+        pqc_oid = ibm_pqc_get_keyform_mode(priv_tmpl, pMechanism->mechanism);
+    if (pqc_oid == NULL) {
+        switch (pMechanism->mechanism) {
+        case CKM_IBM_DILITHIUM:
+            pqc_oid = find_pqc_by_keyform(dilithium_oids,
+                                          CK_IBM_DILITHIUM_KEYFORM_ROUND2_65);
+            break;
+        case CKM_IBM_KYBER:
+            pqc_oid = find_pqc_by_keyform(kyber_oids,
+                                          CK_IBM_KYBER_KEYFORM_ROUND2_1024);
+            break;
+        default:
+            /* pqc_oid stays NULL */
+            break;
+        }
+    }
+    if (pqc_oid == NULL) {
+        TRACE_ERROR("%s Failed to determine %s OID\n", __func__, key_type_str);
         rc = CKR_FUNCTION_FAILED;
         goto error;
     }
 
-    TRACE_INFO("%s Generate Dilithium key with keyform %lu\n", __func__,
-               dilithium_oid->keyform);
+    TRACE_INFO("%s Generate %s key with keyform %lu\n", __func__, key_type_str,
+               pqc_oid->keyform);
 
     rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
                                 CKA_IBM_PQC_PARAMS,
-                                (CK_BYTE *)dilithium_oid->oid,
-                                dilithium_oid->oid_len);
+                                (CK_BYTE *)pqc_oid->oid,
+                                pqc_oid->oid_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
                     __func__, rc);
@@ -6669,8 +6712,8 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
 
     rc = add_to_attribute_array(&new_priv_attrs, &new_priv_attrs_len,
                                 CKA_IBM_PQC_PARAMS,
-                                (CK_BYTE *)dilithium_oid->oid,
-                                dilithium_oid->oid_len);
+                                (CK_BYTE *)pqc_oid->oid,
+                                pqc_oid->oid_len);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
                     __func__, rc);
@@ -6681,8 +6724,8 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
                               new_publ_attrs, new_publ_attrs_len,
                               &new_publ_attrs2, &new_publ_attrs2_len, -1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s Dilithium check public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s %s check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, key_type_str, rc);
         goto error;
     }
 
@@ -6690,14 +6733,14 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
                               new_priv_attrs, new_priv_attrs_len,
                               &new_priv_attrs2, &new_priv_attrs2_len, -1);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s Dilithium check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s %s check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, key_type_str, rc);
         goto error;
     }
 
-    trace_attributes(__func__, "Dilithium public key attributes:",
+    trace_attributes(__func__, "PQC public key attributes:",
                      new_publ_attrs2, new_publ_attrs2_len);
-    trace_attributes(__func__, "Dilithium private key attributes:",
+    trace_attributes(__func__, "PQC private key attributes:",
                      new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
@@ -6709,7 +6752,7 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
 
     RETRY_START(rc, tokdata)
         if (ep11_pqc_strength_supported(target_info, pMechanism->mechanism,
-                                        dilithium_oid))
+                                        pqc_oid))
             rc = dll_m_GenerateKeyPair(pMechanism,
                                        new_publ_attrs2, new_publ_attrs2_len,
                                        new_priv_attrs2, new_priv_attrs2_len,
@@ -6770,16 +6813,18 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
-    rc = ibm_dilithium_priv_unwrap_get_data(publ_tmpl, spki, spki_len, TRUE);
+    rc = ibm_pqc_priv_unwrap_get_data(publ_tmpl, ktype,
+                                      spki, spki_len, TRUE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ibm_dilithium_priv_unwrap_get_data with rc=0x%lx\n",
+        TRACE_ERROR("%s ibm_pqc_priv_unwrap_get_data with rc=0x%lx\n",
                     __func__, rc);
         goto error;
     }
 
-    rc = ibm_dilithium_priv_unwrap_get_data(priv_tmpl, spki, spki_len, FALSE);
+    rc = ibm_pqc_priv_unwrap_get_data(priv_tmpl, ktype,
+                                      spki, spki_len, FALSE);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s ibm_dilithium_priv_unwrap_get_data with rc=0x%lx\n",
+        TRACE_ERROR("%s ibm_pqc_priv_unwrap_get_data with rc=0x%lx\n",
                     __func__, rc);
         goto error;
     }
@@ -6872,9 +6917,10 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                   private_key_obj->template);
         break;
     case CKM_IBM_DILITHIUM:
-        rc = ibm_dilithium_generate_keypair(tokdata, sess, pMechanism,
-                                            public_key_obj->template,
-                                            private_key_obj->template);
+    case CKM_IBM_KYBER:
+        rc = ibm_pqc_generate_keypair(tokdata, sess, pMechanism,
+                                      public_key_obj->template,
+                                      private_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s invalid mech %s\n", __func__,
