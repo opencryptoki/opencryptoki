@@ -2556,6 +2556,40 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
 CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl,
                                          CK_BYTE *data, CK_ULONG total_length,
                                          CK_BBOOL add_value);
+
+// Kyber routines
+//
+CK_RV ibm_kyber_publ_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_kyber_publ_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_kyber_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                        CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ibm_kyber_publ_get_spki(TEMPLATE *tmpl, CK_BBOOL length_only,
+                              CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ibm_kyber_priv_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_kyber_priv_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
+CK_RV ibm_kyber_priv_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                        CK_ATTRIBUTE *attr, CK_ULONG mode);
+CK_RV ibm_kyber_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
+                                   CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ibm_kyber_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
+                            CK_ULONG total_length, CK_BBOOL add_value);
+CK_RV ibm_kyber_priv_unwrap_get_data(TEMPLATE *tmpl,
+                                     CK_BYTE *data, CK_ULONG total_length,
+                                     CK_BBOOL add_value);
+
+// PQC helper routines
+//
+CK_RV ibm_pqc_publ_get_spki(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                            CK_BBOOL length_only,
+                            CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ibm_pqc_priv_wrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                                 CK_BBOOL length_only,
+                                 CK_BYTE **data, CK_ULONG *data_len);
+CK_RV ibm_pqc_priv_unwrap(TEMPLATE *tmpl, CK_KEY_TYPE keytype, CK_BYTE *data,
+                          CK_ULONG total_length, CK_BBOOL add_value);
+CK_RV ibm_pqc_priv_unwrap_get_data(TEMPLATE *tmpl, CK_KEY_TYPE keytype,
+                                   CK_BYTE *data, CK_ULONG total_length,
+                                   CK_BBOOL add_value);
 const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
                                                CK_MECHANISM_TYPE mech);
 CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
@@ -2833,6 +2867,31 @@ CK_RV ber_decode_IBM_DilithiumPrivateKey(CK_BYTE *data,
                                          CK_ATTRIBUTE **t1,
                                          CK_ATTRIBUTE **value,
                                          const struct pqc_oid **oid);
+
+CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    const CK_BYTE *oid, CK_ULONG oid_len,
+                                    CK_ATTRIBUTE *pk);
+
+CK_RV ber_decode_IBM_KyberPublicKey(CK_BYTE *data,
+                                    CK_ULONG data_len,
+                                    CK_ATTRIBUTE **pk_attr,
+                                    CK_ATTRIBUTE **value_attr,
+                                    const struct pqc_oid **oid);
+
+CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
+                                     CK_BYTE **data,
+                                     CK_ULONG *data_len,
+                                     const CK_BYTE *oid, CK_ULONG oid_len,
+                                     CK_ATTRIBUTE *sk,
+                                     CK_ATTRIBUTE *pk);
+
+CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
+                                     CK_ULONG data_len,
+                                     CK_ATTRIBUTE **sk,
+                                     CK_ATTRIBUTE **pk,
+                                     CK_ATTRIBUTE **value,
+                                     const struct pqc_oid **oid);
 
 typedef CK_RV (*t_rsa_encrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,

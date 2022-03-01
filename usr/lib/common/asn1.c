@@ -4400,3 +4400,566 @@ cleanup:
 
     return rc;
 }
+
+/**
+ * An IBM Kyber public key is given by:
+ *
+ *  SEQUENCE (2 elem)
+ *    SEQUENCE (2 elem)
+ *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.5.xxx
+ *      NULL
+ *    BIT STRING (1 elem)
+ *      SEQUENCE (1 elem)
+ *        pk BIT STRING -- public key
+ */
+CK_RV ber_encode_IBM_KyberPublicKey(CK_BBOOL length_only,
+                                    CK_BYTE **data, CK_ULONG *data_len,
+                                    const CK_BYTE *oid, CK_ULONG oid_len,
+                                    CK_ATTRIBUTE *pk)
+{
+    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
+    CK_BYTE *buf5 = NULL, *algid = NULL;
+    CK_ULONG len, len4, offset, total, total_len, algid_len;
+    CK_RV rc;
+
+    UNUSED(length_only);
+
+    offset = 0;
+    rc = 0;
+    total_len = 0;
+    total = 0;
+
+    /* Calculate storage for AlgID sequence */
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &total_len, NULL,
+                              oid_len + ber_NULLLen);
+
+    /* Calculate storage for inner sequence */
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, pk->ulValueLen);
+    offset += len;
+
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    /* Allocate storage for inner sequence */
+    buf = (CK_BYTE *) malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    /**
+     *    SEQUENCE (1 elem)
+     *       BIT STRING -> pk
+     */
+    offset = 0;
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                               pk->pValue, pk->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Int failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    free(buf);
+    buf = NULL;
+
+    /* Calculate length of outer sequence */
+    rc = ber_encode_BIT_STRING(TRUE, NULL, &total, buf2, len, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_Oct_Str failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    } else {
+        total_len += total;
+    }
+
+    /* Allocate storage for outer sequence and bit string */
+    buf3 = (CK_BYTE *) malloc(total_len);
+    if (!buf3) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    /*
+     * SEQUENCE (2 elem)
+     *      OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.5.xxx
+     *      NULL  <- no parms for this oid
+     */
+    buf5 = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
+    if (!buf5) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+    memcpy(buf5, oid, oid_len);
+    memcpy(buf5 + oid_len, ber_NULL, ber_NULLLen);
+
+    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, buf5,
+                             oid_len + ber_NULLLen);
+    free(buf5);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    total_len = algid_len;
+    memcpy(buf3, algid, algid_len);
+    free(algid);
+    algid = NULL;
+
+    /*
+     * BIT STRING (1 elem)
+     *       SEQUENCE (1 elem)
+     *          BIT STRING  -> pk
+     */
+    rc = ber_encode_BIT_STRING(FALSE, &buf4, &len4, buf2, len, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_BIT_STRING failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+    memcpy(buf3 + total_len, buf4, len4);
+    total_len += len4;
+    free(buf4);
+    buf4 = NULL;
+
+    /**
+     * SEQUENCE (2 elem)
+     *    SEQUENCE (2 elem)
+     *       OBJECT IDENTIFIER 1.3.6.1.4.1.2.267.5.xxx
+     *       NULL -> no parms for this oid
+     *    BIT STRING (1 elem)
+     *       SEQUENCE (2 elem)
+     *          BIT STRING  -> pk
+     */
+    rc = ber_encode_SEQUENCE(FALSE, data, data_len, buf3, total_len);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s ber_encode_Seq failed with rc=0x%lx\n", __func__, rc);
+
+error:
+
+    if (buf)
+        free(buf);
+    if (buf2)
+        free(buf2);
+    if (buf3)
+        free(buf3);
+
+    return rc;
+}
+
+CK_RV ber_decode_IBM_KyberPublicKey(CK_BYTE *data,
+                                    CK_ULONG data_len,
+                                    CK_ATTRIBUTE **pk_attr,
+                                    CK_ATTRIBUTE **value_attr,
+                                    const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *pk_attr_temp = NULL;
+    CK_ATTRIBUTE *value_attr_temp = NULL;
+
+    CK_BYTE *algoid = NULL;
+    CK_ULONG algoid_len;
+    CK_BYTE *param = NULL;
+    CK_ULONG param_len;
+    CK_BYTE *val = NULL;
+    CK_ULONG val_len;
+    CK_BYTE *seq;
+    CK_ULONG seq_len;
+    CK_BYTE *pk;
+    CK_ULONG pk_len;
+    CK_ULONG field_len, raw_spki_len;
+    CK_RV rc;
+
+    UNUSED(data_len); // XXX can this parameter be removed ?
+
+    rc = ber_decode_SPKI(data, &algoid, &algoid_len, &param, &param_len,
+                         &val, &val_len);
+    if (rc != CKR_OK) {
+       TRACE_DEVEL("ber_decode_SPKI failed\n");
+       return rc;
+    }
+
+    *oid = find_pqc_by_oid(kyber_oids, algoid, algoid_len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Decode sequence:
+     *     SEQUENCE (1 elem)
+     *       BIT STRING = pk
+     */
+    rc = ber_decode_SEQUENCE(val, &seq, &seq_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_SEQUENCE failed\n");
+        return rc;
+    }
+
+    /* Decode pk */
+    rc = ber_decode_BIT_STRING(seq, &pk, &pk_len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        return rc;
+    }
+    pk++; /* Remove unused-bits byte */
+    pk_len--;
+
+    /* Build pk attribute */
+    rc = build_attribute(CKA_IBM_KYBER_PK, pk, pk_len, &pk_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    /* Add raw SPKI as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &val, &val_len, &raw_spki_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, raw_spki_len, &value_attr_temp);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto cleanup;
+    }
+
+    *pk_attr = pk_attr_temp;
+    *value_attr = value_attr_temp;
+
+    return CKR_OK;
+
+cleanup:
+    if (pk_attr_temp)
+        free(pk_attr_temp);
+    if (value_attr_temp)
+        free(value_attr_temp);
+
+    return rc;
+}
+
+/**
+ * An IBM Kyber private key is given by:
+ *
+ *     KyberPrivateKey ::= SEQUENCE {
+ *       version INTEGER,     -- v0, reserved 0
+ *       sk BIT STRING,       -- private key
+ *       pk [0] IMPLICIT OPTIONAL {
+ *         pk||rs BIT STRING  -- public key (pk) concatenated with 2x32 bytes rs
+ *       }
+ *     }
+ */
+CK_RV ber_encode_IBM_KyberPrivateKey(CK_BBOOL length_only,
+                                     CK_BYTE **data,
+                                     CK_ULONG *data_len,
+                                     const CK_BYTE *oid, CK_ULONG oid_len,
+                                     CK_ATTRIBUTE *sk,
+                                     CK_ATTRIBUTE *pk)
+{
+    CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL;
+    CK_BYTE *algid = NULL, *algid_buf = NULL, *pk_rs = NULL;
+    CK_ULONG len, len2 = 0, offset, algid_len = 0;
+    CK_BYTE version[] = { 0 };
+    CK_RV rc;
+
+    /* Calculate storage for sequence */
+    offset = 0;
+    rc = 0;
+
+    rc |= ber_encode_SEQUENCE(TRUE, NULL, &algid_len, NULL,
+                              oid_len + ber_NULLLen);
+
+    rc |= ber_encode_INTEGER(TRUE, NULL, &len, NULL, sizeof(version));
+    offset += len;
+    rc |= ber_encode_BIT_STRING(TRUE, NULL, &len, NULL, sk->ulValueLen, 0);
+    offset += len;
+    if (pk) {
+        rc |= ber_encode_BIT_STRING(TRUE, NULL, &len2, NULL,
+                                    pk->ulValueLen + 64, 0);
+        rc |= ber_encode_CHOICE(TRUE, 0, NULL, &len, NULL, len2);
+        offset += len;
+    }
+
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("Calculate storage for sequence failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (length_only == TRUE) {
+        rc = ber_encode_SEQUENCE(TRUE, NULL, &len, NULL, offset);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_SEQUENCE failed\n");
+            return rc;
+        }
+        rc = ber_encode_PrivateKeyInfo(TRUE,
+                                       NULL, data_len,
+                                       NULL, algid_len,
+                                       NULL, len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_PrivateKeyInfo failed\n");
+            return rc;
+        }
+        return rc;
+    }
+
+    /* Allocate storage for sequence */
+    buf = (CK_BYTE *) malloc(offset);
+    if (!buf) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+    offset = 0;
+
+    /* Version */
+    rc = ber_encode_INTEGER(FALSE, &buf2, &len, version, sizeof(version));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_INTEGER of version failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* sk */
+    rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
+                            sk->pValue, sk->ulValueLen, 0);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_BIT_STRING of sk failed\n");
+        goto error;
+    }
+    memcpy(buf + offset, buf2, len);
+    offset += len;
+    free(buf2);
+    buf2 = NULL;
+
+    /* (pk) Optional bit-string of public key */
+    if (pk && pk->pValue) {
+        /* append rs to public key */
+        pk_rs = (CK_BYTE *)malloc(pk->ulValueLen + 64);
+        if (!pk_rs) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        memcpy(pk_rs, pk->pValue, pk->ulValueLen);
+        memset(pk_rs + pk->ulValueLen, 0x30, 64);
+
+        rc = ber_encode_BIT_STRING(FALSE, &buf3, &len2,
+                                   pk_rs, pk->ulValueLen + 64, 0);
+        rc |= ber_encode_CHOICE(FALSE, 0, &buf2, &len, buf3, len2);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("encoding of pk value failed\n");
+            goto error;
+        }
+        memcpy(buf + offset, buf2, len);
+        offset += len;
+        free(buf2);
+        buf2 = NULL;
+    }
+
+    /* Encode sequence */
+    rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_SEQUENCE failed\n");
+        goto error;
+    }
+
+    algid_buf = (CK_BYTE *) malloc(oid_len + ber_NULLLen);
+    if (!algid_buf) {
+        TRACE_ERROR("%s Memory allocation failed\n", __func__);
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+    memcpy(algid_buf, oid, oid_len);
+    memcpy(algid_buf + oid_len, ber_NULL, ber_NULLLen);
+
+    rc = ber_encode_SEQUENCE(FALSE, &algid, &algid_len, algid_buf,
+                             oid_len + ber_NULLLen);
+    free(algid_buf);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_encode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = ber_encode_PrivateKeyInfo(FALSE,
+                                   data, data_len,
+                                   algid, algid_len,
+                                   buf2, len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ber_encode_PrivateKeyInfo failed\n");
+    }
+
+error:
+    if (buf3)
+        free(buf3);
+    if (buf2)
+        free(buf2);
+    if (buf)
+        free(buf);
+    if (algid)
+        free(algid);
+    if (pk_rs)
+        free(pk_rs);
+
+    return rc;
+}
+
+/**
+ * decode an IBM Kyber private key:
+ *
+ *     KyberPrivateKey ::= SEQUENCE {
+ *       version INTEGER,     -- v0, reserved 0
+ *       sk BIT STRING,       -- private key
+ *       pk [0] IMPLICIT OPTIONAL {
+ *         pk||rs BIT STRING  -- public key (pk) concatenated with 2x32 bytes rs
+ *       }
+ *     }
+ */
+CK_RV ber_decode_IBM_KyberPrivateKey(CK_BYTE *data,
+                                     CK_ULONG data_len,
+                                     CK_ATTRIBUTE **sk,
+                                     CK_ATTRIBUTE **pk,
+                                     CK_ATTRIBUTE **value,
+                                     const struct pqc_oid **oid)
+{
+    CK_ATTRIBUTE *sk_attr = NULL, *pk_attr = NULL, *value_attr = NULL;
+    CK_BYTE *algoid = NULL;
+    CK_BYTE *kyber_priv_key = NULL;
+    CK_BYTE *buf = NULL;
+    CK_BYTE *tmp = NULL;
+    CK_ULONG offset, buf_len, field_len, len, option;
+    CK_RV rc;
+
+    /* Check if this is a Kyber private key */
+    rc = ber_decode_PrivateKeyInfo(data, data_len, &algoid, &len,
+                                   &kyber_priv_key);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_PrivateKeyInfo failed\n");
+        return rc;
+    }
+
+    if (len <= ber_NULLLen ||
+        memcmp(algoid + len - ber_NULLLen, ber_NULL, ber_NULLLen) != 0) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+    len -= ber_NULLLen;
+    *oid = find_pqc_by_oid(kyber_oids, algoid, len);
+    if (*oid == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Decode private Kyber key */
+    rc = ber_decode_SEQUENCE(kyber_priv_key, &buf, &buf_len, &field_len);
+    if (rc != CKR_OK)
+        return rc;
+
+    /* Now build the attributes */
+    offset = 0;
+
+    /* Skip the version */
+    rc = ber_decode_INTEGER(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_INTEGER failed\n");
+        goto cleanup;
+    }
+    offset += field_len;
+
+    /* sk */
+    rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ber_decode_BIT_STRING of (sk) failed\n");
+        goto cleanup;
+    } else {
+        tmp++; /* Remove unused-bits byte */
+        len--;
+        rc = build_attribute(CKA_IBM_KYBER_SK, tmp, len, &sk_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (sk) failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    /* pk (optional, within choice) */
+    if (offset < buf_len) {
+        rc = ber_decode_CHOICE(buf + offset, &tmp, &len, &field_len, &option);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (t1) failed\n");
+            goto cleanup;
+        }
+
+        if (option != 0x00) {
+            TRACE_DEVEL("ber_decode_CHOICE returned invalid option %ld\n",
+                        option);
+            goto cleanup;
+        }
+
+        offset += field_len - len;
+
+        rc = ber_decode_BIT_STRING(buf + offset, &tmp, &len, &field_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_decode_BIT_STRING of (pk) failed\n");
+            goto cleanup;
+        }
+        tmp++; /* Remove unused-bits byte */
+        len--;
+
+        if (len > 64)
+            len -= 64; /* Remove 'rs' */
+
+        rc = build_attribute(CKA_IBM_KYBER_PK, tmp, len, &pk_attr);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("build_attribute for (pk) failed\n");
+            goto cleanup;
+        }
+        offset += field_len;
+    }
+
+    /* Check if buffer big enough */
+    if (offset > buf_len) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto cleanup;
+    }
+
+    /* Add private key as CKA_VALUE to public key (z/OS ICSF compatibility) */
+    rc = ber_decode_SEQUENCE(data, &tmp, &len, &field_len);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s ber_decode_SEQUENCE failed with rc=0x%lx\n", __func__, rc);
+        goto cleanup;
+    }
+    rc = build_attribute(CKA_VALUE, data, field_len, &value_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute for (t1) failed\n");
+        goto cleanup;
+    }
+
+    *sk = sk_attr;
+    *pk = pk_attr;
+    *value = value_attr;
+
+    return CKR_OK;
+
+cleanup:
+
+    if (sk_attr)
+        free(sk_attr);
+    if (pk_attr)
+        free(pk_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
+
