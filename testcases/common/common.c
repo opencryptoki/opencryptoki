@@ -735,6 +735,125 @@ CK_RV create_DilithiumPublicKey(CK_SESSION_HANDLE session,
     return rc;
 }
 
+/** Create an IBM Kyber private key using private values **/
+CK_RV create_KyberPrivateKey(CK_SESSION_HANDLE session,
+                             CK_BYTE pkcs8[], CK_ULONG pkcs8_len,
+                             CK_ULONG keyform,
+                             CK_BYTE sk[], CK_ULONG sk_len,
+                             CK_BYTE pk[], CK_ULONG pk_len,
+                             CK_OBJECT_HANDLE * priv_key)
+{
+    CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_PQC_KYBER;
+    CK_UTF8CHAR label[] = "A Kyber private key object";
+    CK_BYTE subject[] = {0};
+    CK_BYTE id[] = { 123 };
+    CK_RV rc;
+
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_KYBER_SK, sk, sk_len},
+        {CKA_IBM_KYBER_PK, pk, pk_len},
+        {CKA_IBM_KYBER_KEYFORM, &keyform, sizeof(keyform)},
+    };
+    CK_ATTRIBUTE template_pkcs8[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_PRIVATE, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_SUBJECT, subject, 0},
+        {CKA_ID, id, sizeof(id)},
+        {CKA_SENSITIVE, &true, sizeof(true)},
+        {CKA_SIGN, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_VALUE, pkcs8, pkcs8_len},
+    };
+
+    // create key
+    if (pkcs8_len > 0)
+        rc = funcs->C_CreateObject(session, template_pkcs8,
+                                   sizeof(template_pkcs8) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                                   sizeof(template) / sizeof(CK_ATTRIBUTE),
+                                   priv_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
+/** Create an IBM Kyber public key using public values **/
+CK_RV create_KyberPublicKey(CK_SESSION_HANDLE session,
+                            CK_BYTE spki[], CK_ULONG spki_len,
+                            CK_ULONG keyform,
+                            CK_BYTE pk[], CK_ULONG pk_len,
+                            CK_OBJECT_HANDLE * publ_key)
+{
+    CK_RV rc;
+    CK_OBJECT_CLASS class = CKO_PUBLIC_KEY;
+    CK_KEY_TYPE keyType = CKK_IBM_PQC_KYBER;
+    CK_UTF8CHAR label[] = "A Kyber public key object";
+    CK_BBOOL true = TRUE;
+    CK_ATTRIBUTE template[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_IBM_KYBER_PK, pk, pk_len},
+        {CKA_IBM_KYBER_KEYFORM, &keyform, sizeof(keyform)},
+    };
+    CK_ATTRIBUTE template_spki[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &true, sizeof(true)},
+        {CKA_LABEL, label, sizeof(label)},
+        {CKA_VERIFY, &true, sizeof(true)},
+        {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_VALUE, spki, spki_len},
+    };
+
+    // create key
+    if (spki_len > 0)
+        rc = funcs->C_CreateObject(session, template_spki,
+                               sizeof(template_spki) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    else
+        rc = funcs->C_CreateObject(session, template,
+                               sizeof(template) / sizeof(CK_ATTRIBUTE),
+                               publ_key);
+    if (rc != CKR_OK) {
+        if (rc == CKR_KEY_SIZE_RANGE)
+            testcase_notice("C_CreateObject rc=%s", p11_get_ckr(rc));
+        else if (is_rejected_by_policy(rc, session))
+            rc = CKR_POLICY_VIOLATION;
+        else
+            testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
+    }
+
+    return rc;
+}
+
 /** Create an DSA public key using the prime 'p', subprime 'q', base 'g' and private value 'y' **/
 CK_RV create_DSAPrivateKey(CK_SESSION_HANDLE session,
                            CK_BYTE prime[],

@@ -20,6 +20,7 @@ testcases/crypto/ec_tests
 testcases/crypto/rsa_tests
 testcases/crypto/rsaupdate_tests
 testcases/crypto/ssl3_tests
+testcases/crypto/kyber_tests
 testcases/init_token.sh
 testcases/login/digest_init
 testcases/login/init_pin
