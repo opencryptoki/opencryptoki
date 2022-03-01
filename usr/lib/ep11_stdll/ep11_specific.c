@@ -5214,6 +5214,126 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+struct EP11_KYBER_MECH {
+    CK_MECHANISM mech;
+    struct XCP_KYBER_KEM_PARAMS params;
+};
+
+static CK_RV ep11tok_kyber_mech_pre_process(STDLL_TokData_t *tokdata,
+                                            CK_MECHANISM *mech,
+                                            struct EP11_KYBER_MECH *mech_ep11,
+                                            OBJECT **secret_key_obj)
+{
+    CK_IBM_KYBER_PARAMS *kyber_params;
+    CK_RV rc;
+
+    kyber_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (kyber_params->ulVersion != CK_IBM_KYBER_KEM_VERSION) {
+        TRACE_ERROR("Unsupported version in Kyber mechanism param\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    mech_ep11->mech.mechanism = mech->mechanism;
+    mech_ep11->mech.pParameter = &mech_ep11->params;
+    mech_ep11->mech.ulParameterLen = sizeof(mech_ep11->params);
+
+    memset(&mech_ep11->params, 0, sizeof(mech_ep11->params));
+    mech_ep11->params.version = XCP_KYBER_KEM_VERSION;
+    mech_ep11->params.mode = kyber_params->mode;
+    mech_ep11->params.kdf = kyber_params->kdf;
+    mech_ep11->params.prepend = kyber_params->bPrepend;
+    mech_ep11->params.pSharedData = kyber_params->pSharedData;
+    mech_ep11->params.ulSharedDataLen = kyber_params->ulSharedDataLen;
+
+    switch (kyber_params->mode) {
+    case CK_IBM_KYBER_KEM_ENCAPSULATE:
+        if (kyber_params->ulCipherLen > 0 && kyber_params->pCipher == NULL) {
+            TRACE_ERROR("Unsupported cipher buffer in Kyber mechnism param "
+                        "cannot be NULL\n");
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        mech_ep11->params.pCipher = NULL;
+        mech_ep11->params.ulCipherLen = 0;
+        /* Cipher is returned in 2nd output param of m_DeriveKey */
+        break;
+
+    case CK_IBM_KEM_DECAPSULATE:
+        mech_ep11->params.pCipher = kyber_params->pCipher;
+        mech_ep11->params.ulCipherLen = kyber_params->ulCipherLen;
+        break;
+
+    default:
+        TRACE_ERROR("Unsupported mode in Kyber mechanism param\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (kyber_params->bPrepend) {
+        rc = h_opaque_2_blob(tokdata, kyber_params->hSecret,
+                             &mech_ep11->params.pBlob,
+                             &mech_ep11->params.ulBlobLen,
+                             secret_key_obj, READ_LOCK);
+         if (rc != CKR_OK) {
+             TRACE_ERROR("%s failed hSecret=0x%lx\n", __func__,
+                        kyber_params->hSecret);
+             return rc;
+         }
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_kyber_mech_post_process(STDLL_TokData_t *tokdata,
+                                             CK_MECHANISM *mech,
+                                             CK_BYTE *csum, CK_ULONG cslen)
+{
+    CK_IBM_KYBER_PARAMS *kyber_params;
+    CK_ULONG cipher_len;
+
+    UNUSED(tokdata);
+
+    kyber_params = mech->pParameter;
+    if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS)) {
+        TRACE_ERROR("Mechanism parameter length not as expected\n");
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    if (kyber_params->mode != CK_IBM_KYBER_KEM_ENCAPSULATE)
+        return CKR_OK;
+
+    /*
+     * For encapsulate:
+     * Generated cipher is returned in csum prepended with the checksum of
+     * the generated symmetric key and its bit count (in total 7 bytes).
+     */
+    if (cslen < EP11_CSUMSIZE + 4) {
+        TRACE_ERROR("%s returned cipher size is invalid: %lu\n",
+                    __func__, cslen);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    cipher_len = cslen - (EP11_CSUMSIZE + 4);
+
+    if (kyber_params->ulCipherLen < cipher_len) {
+        TRACE_ERROR("%s Cipher buffer in kyber mechanism param too small, required: %lu\n",
+                    __func__, cipher_len);
+        kyber_params->ulCipherLen = cipher_len;
+        OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    memcpy(kyber_params->pCipher, &csum[EP11_CSUMSIZE + 4], cipher_len);
+    kyber_params->ulCipherLen = cipher_len;
+
+    OPENSSL_cleanse(&csum[EP11_CSUMSIZE + 4], cipher_len);
+    return CKR_OK;
+}
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -5254,6 +5374,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *spki = NULL;
     CK_ULONG spki_length = 0;
     CK_ATTRIBUTE *spki_attr = NULL;
+    struct EP11_KYBER_MECH mech_ep11;
+    OBJECT *kyber_secret_obj = NULL;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5535,16 +5657,29 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    if (mech->mechanism == CKM_IBM_KYBER) {
+        rc = ep11tok_kyber_mech_pre_process(tokdata, mech, &mech_ep11,
+                                            &kyber_secret_obj);
+        if (rc != CKR_OK)
+            goto error;
+        mech = &mech_ep11.mech;
+    }
+
     trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
-        rc =
-        dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len, keyblob, keyblobsize,
-                        NULL, 0, ep11_pin_blob, ep11_pin_blob_len, newblob,
-                        &newblobsize, csum, &cslen, target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            base_key_obj))
+            rc = dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len,
+                                 keyblob, keyblobsize, NULL, 0,
+                                 ep11_pin_blob, ep11_pin_blob_len, newblob,
+                                 &newblobsize, csum, &cslen,
+                                 target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -5628,6 +5763,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
+    if (mech->mechanism == CKM_IBM_KYBER) {
+        rc = ep11tok_kyber_mech_post_process(tokdata, mech_orig, csum, cslen);
+        if (rc != CKR_OK)
+            goto error;
+    }
+
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
         rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &chk_attr);
@@ -5684,6 +5825,8 @@ error:
 
     object_put(tokdata, base_key_obj, TRUE);
     base_key_obj = NULL;
+    object_put(tokdata, kyber_secret_obj, TRUE);
+    kyber_secret_obj = NULL;
 
     return rc;
 }
@@ -7417,6 +7560,7 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
 {
     switch (mech->mechanism) {
     case CKM_IBM_ECDSA_OTHER:
+    case CKM_IBM_KYBER:
         return CK_TRUE;
     default:
         return CK_FALSE;
@@ -8325,9 +8469,14 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_START(rc, tokdata)
-    rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
-                             input_data_len, output_data, p_output_data_len,
-                             target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
+                                     input_data_len, output_data,
+                                     p_output_data_len,
+                                     target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8535,9 +8684,14 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_START(rc, tokdata)
-    rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
-                             input_data_len, output_data, p_output_data_len,
-                             target_info->target);
+        if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
+                                            key_obj))
+            rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
+                                     input_data_len, output_data,
+                                     p_output_data_len,
+                                     target_info->target);
+        else
+            rc = CKR_KEY_SIZE_RANGE;
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
