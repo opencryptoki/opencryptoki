@@ -915,6 +915,9 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     case CKM_IBM_DILITHIUM:
         *type = CKK_IBM_PQC_DILITHIUM;
         break;
+    case CKM_IBM_KYBER:
+        *type = CKK_IBM_PQC_KYBER;
+        break;
     default:
         return CKR_MECHANISM_INVALID;
     }

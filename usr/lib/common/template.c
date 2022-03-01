@@ -164,6 +164,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return dh_publ_set_default_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_set_default_attributes(tmpl, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_publ_set_default_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -181,6 +183,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return dh_priv_set_default_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_set_default_attributes(tmpl, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_priv_set_default_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -411,6 +415,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return dh_publ_check_required_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_check_required_attributes(tmpl, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_publ_check_required_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -428,6 +434,8 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return dh_priv_check_required_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_check_required_attributes(tmpl, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_priv_check_required_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -1645,6 +1653,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return dh_publ_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_validate_attribute(tokdata, tmpl, attr, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_publ_validate_attribute(tokdata, tmpl, attr, mode);
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type
@@ -1661,6 +1671,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return dh_priv_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_validate_attribute(tokdata, tmpl, attr, mode);
+        case CKK_IBM_PQC_KYBER:
+            return ibm_kyber_priv_validate_attribute(tokdata, tmpl, attr, mode);
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type

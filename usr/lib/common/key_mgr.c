@@ -1437,6 +1437,16 @@ CK_RV key_mgr_get_private_key_type(CK_BYTE *keydata,
             return CKR_OK;
         }
     }
+    // Check only the OBJECT IDENTIFIERs for KYBER
+    //
+    for (i = 0; kyber_oids[i].oid != NULL; i++) {
+        if (alg_len == kyber_oids[i].oid_len + ber_NULLLen &&
+            memcmp(alg, kyber_oids[i].oid, kyber_oids[i].oid_len) == 0 &&
+            memcmp(alg + kyber_oids[i].oid_len, ber_NULL, ber_NULLLen) == 0) {
+            *keytype = CKK_IBM_PQC_KYBER;
+            return CKR_OK;
+        }
+    }
 
     TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCOMPLETE));
     return CKR_TEMPLATE_INCOMPLETE;

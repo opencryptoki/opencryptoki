@@ -361,6 +361,13 @@ static const version_req_t ibm_dilithium_req_versions[] = {
 };
 #define NUM_DILITHIUM_REQ (sizeof(ibm_dilithium_req_versions) / sizeof(version_req_t))
 
+static const CK_VERSION ibm_cex8p_kyber_support = { .major = 8, .minor = 9 };
+
+static const version_req_t ibm_kyber_req_versions[] = {
+        { .card_type = 8, .min_firmware_version = &ibm_cex8p_kyber_support }
+};
+#define NUM_KYBER_REQ (sizeof(ibm_kyber_req_versions) / sizeof(version_req_t))
+
 static const CK_VERSION ibm_cex6p_reencrypt_single_support =
                                                     { .major = 6, .minor = 15 };
 static const CK_VERSION ibm_cex7p_reencrypt_single_support =
@@ -1824,7 +1831,8 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             check_types = &check_types_pub[0];
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
         }
-        /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN and CKK_IBM_PQC_DILITHIUM */
+        /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN, CKK_IBM_PQC_DILITHIUM,
+           and CKK_IBM_PQC_KYBER */
         break;
     case CKO_PRIVATE_KEY:
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
@@ -1839,7 +1847,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             check_types = &check_types_derive[0];
             attr_cnt = sizeof(check_types_derive) / sizeof(CK_ULONG);
         }
-        /* Do nothing for CKK_IBM_PQC_DILITHIUM */
+        /* Do nothing for CKK_IBM_PQC_DILITHIUM and CKK_IBM_PQC_KYBER */
         break;
     default:
         return CKR_OK;
@@ -2042,6 +2050,13 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
             attr->type == CKA_DERIVE || 
             attr->type == CKA_IBM_DILITHIUM_KEYFORM ||
             attr->type == CKA_IBM_DILITHIUM_MODE)
+            return CK_FALSE;
+        break;
+    case CKK_IBM_PQC_KYBER:
+        if (attr->type == CKA_SIGN || attr->type == CKA_VERIFY ||
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_IBM_KYBER_KEYFORM ||
+            attr->type == CKA_IBM_KYBER_MODE)
             return CK_FALSE;
         break;
     default:
@@ -9163,6 +9178,10 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
             rc = ibm_dilithium_priv_unwrap_get_data(key_obj->template,
                                                     csum, cslen, FALSE);
             break;
+        case CKK_IBM_PQC_KYBER:
+            rc = ibm_kyber_priv_unwrap_get_data(key_obj->template,
+                                                csum, cslen, FALSE);
+            break;
         }
 
         if (rc != 0) {
@@ -9258,6 +9277,7 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_IBM_EC_X448,
     CKM_IBM_ED25519_SHA512,
     CKM_IBM_ED448_SHA3,
+    CKM_IBM_KYBER,
     CKM_IBM_SHA3_224,
     CKM_IBM_SHA3_224_HMAC,
     CKM_IBM_SHA3_256,
@@ -9496,6 +9516,7 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
     CK_VERSION ver1_3 = { .major = 1, .minor = 3 };
     CK_VERSION ver3 = { .major = 3, .minor = 0 };
     CK_VERSION ver3_1 = { .major = 3, .minor = 0x10 };
+    CK_VERSION ver4 = { .major = 4, .minor = 0 };
     CK_BBOOL found = FALSE;
     CK_ULONG i;
     int status;
@@ -9640,6 +9661,23 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
         }
         status = check_required_versions(tokdata, ibm_dilithium_req_versions,
                                          NUM_DILITHIUM_REQ);
+        if (status != 1) {
+            TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
+
+    case CKM_IBM_KYBER:
+        if (compare_ck_version(&ep11_data->ep11_lib_version, &ver4) < 0) {
+            TRACE_INFO("%s Mech '%s' banned due to host library version\n",
+                       __func__, ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        status = check_required_versions(tokdata, ibm_kyber_req_versions,
+                                         NUM_KYBER_REQ);
         if (status != 1) {
             TRACE_INFO("%s Mech '%s' banned due to mixed firmware versions\n",
                        __func__, ep11_get_ckm(tokdata, type));

@@ -338,6 +338,7 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         *comptarget = COMPARE_SYMMETRIC;
         break;
     case CKK_IBM_PQC_DILITHIUM:
+    case CKK_IBM_PQC_KYBER:
         rv = policy_get_pqc_args(*(CK_ULONG *)keytype->pValue, getattr, d,
                                  free_attr, size, siglen, oid, oidlen);
         *comptarget = COMPARE_PQC;
@@ -1069,6 +1070,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
             }
             break;
         case CKM_IBM_DILITHIUM:
+        case CKM_IBM_KYBER:
             break;
         case CKM_IBM_SHA3_224:
         case CKM_IBM_SHA3_256:
