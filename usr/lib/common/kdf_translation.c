@@ -55,6 +55,36 @@ CK_RV translate_string_to_kdf(const char *str, size_t len, CK_ULONG* kdf)
             return CKR_OK;
         }
         return CKR_FUNCTION_FAILED;
+    case 19:
+        if (strcmp("CKD_IBM_HYBRID_NULL", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_NULL;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
+    case 23:
+        if (strcmp("CKD_IBM_HYBRID_SHA1_KDF", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_SHA1_KDF;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
+    case 25:
+        if (strcmp("CKD_IBM_HYBRID_SHA224_KDF", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_SHA224_KDF;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_IBM_HYBRID_SHA256_KDF", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_SHA256_KDF;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_IBM_HYBRID_SHA384_KDF", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_SHA384_KDF;
+            return CKR_OK;
+        }
+        if (strcmp("CKD_IBM_HYBRID_SHA512_KDF", str) == 0) {
+            *kdf = CKD_IBM_HYBRID_SHA512_KDF;
+            return CKR_OK;
+        }
+        return CKR_FUNCTION_FAILED;
     default:
         return CKR_FUNCTION_FAILED;
     }

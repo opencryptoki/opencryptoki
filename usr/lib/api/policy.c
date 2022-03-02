@@ -70,6 +70,7 @@ struct policy_private {
     CK_ULONG           allowedmgfs;
     CK_ULONG           allowedvendormgfs;
     CK_ULONG           allowedkdfs;
+    CK_ULONG           allowedvendorkdfs;
     CK_ULONG           allowedprfs;
     CK_ULONG           maxcurvesize;
     /* Strength struct ordered from highest to lowest. */
@@ -105,6 +106,7 @@ void policy_private_deactivate(struct policy_private *pp)
     pp->allowedmgfs = ~0lu;
     pp->allowedvendormgfs = ~0lu;
     pp->allowedkdfs = ~0lu;
+    pp->allowedvendorkdfs = ~0lu;
     pp->allowedprfs = ~0lu;
     pp->maxcurvesize = 521u;
 }
@@ -501,8 +503,14 @@ static inline CK_RV policy_is_mgf_allowed(struct policy_private *pp,
 static inline CK_RV policy_is_kdf_allowed(struct policy_private *pp,
                                           CK_ULONG kdf)
 {
-    if (pp->allowedkdfs & (1u << kdf))
-        return CKR_OK;
+    if (kdf > CKD_VENDOR_DEFINED) {
+        if ((kdf - CKD_VENDOR_DEFINED - 1) <= 31 &&
+            (pp->allowedvendorkdfs & (1u << (kdf - CKD_VENDOR_DEFINED - 1))))
+            return CKR_OK;
+    } else {
+        if (kdf <= 31 && (pp->allowedkdfs & (1u << kdf)))
+            return CKR_OK;
+    }
     TRACE_WARNING("POLICY VIOLATION: kdf not allowed: 0x%lx\n", kdf);
     return CKR_FUNCTION_FAILED;
 }
@@ -921,6 +929,16 @@ static CK_RV policy_is_mech_allowed(policy_t p, CK_MECHANISM_PTR mech,
                 }
                 break;
             default:
+                rv = CKR_FUNCTION_FAILED;
+                break;
+            }
+            break;
+        case CKM_IBM_KYBER:
+            /* Only KEM uses a parameter, KeyGen, Encrypt/Decrypt don't */
+            if (mech->ulParameterLen != sizeof(CK_IBM_KYBER_PARAMS))
+                break;
+            if (policy_is_kdf_allowed(pp,
+                                      ((CK_IBM_KYBER_PARAMS *)mech->pParameter)->kdf) != CKR_OK) {
                 rv = CKR_FUNCTION_FAILED;
                 break;
             }
@@ -1540,7 +1558,7 @@ static CK_RV policy_parse_kdfs(struct policy_private *pp,
                                struct ConfigBaseNode *list)
 {
     struct ConfigBaseNode *i;
-    CK_ULONG kdfs = 0, kdf;
+    CK_ULONG kdfs = 0, vkdfs = 0, kdf;
     CK_RV rc = CKR_OK;
     int f;
 
@@ -1552,10 +1570,28 @@ static CK_RV policy_parse_kdfs(struct policy_private *pp,
                             i->key, i->line);
                 break;
             }
-            kdfs |= (1u << kdf);
+
+            if (kdf >= CKD_VENDOR_DEFINED) {
+                if ((kdf - CKD_VENDOR_DEFINED - 1) > 31) {
+                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %hd)\n",
+                                i->key, i->line);
+                    rc = CKR_FUNCTION_FAILED;
+                    break;
+                }
+                vkdfs |= (1u << (kdf - CKD_VENDOR_DEFINED - 1));
+            } else {
+                if (kdf > 31) {
+                    TRACE_ERROR("POLICY: KDF invalid: \"%s\" (line %hd)\n",
+                                i->key, i->line);
+                    rc = CKR_FUNCTION_FAILED;
+                    break;
+                }
+                kdfs |= (1u << kdf);
+            }
         }
     }
     pp->allowedkdfs = kdfs;
+    pp->allowedvendorkdfs = vkdfs;
     return rc;
 }
 
@@ -1749,6 +1785,7 @@ CK_RV policy_load_policy_cfg(struct policy_private *pp,
     if (!allowedkdfs) {
         TRACE_DEVEL("POLICY: No KDF restrictions\n");
         pp->allowedkdfs = ~0u;
+        pp->allowedvendorkdfs = ~0u;
     } else if (!confignode_hastype(allowedkdfs, CT_BARELIST)) {
         TRACE_ERROR("POLICY: allowedkdfs has wrong type!\n");
         OCK_SYSLOG(LOG_ERR, "POLICY: allowedkdfs has wrong type!\n");

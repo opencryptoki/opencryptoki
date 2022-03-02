@@ -133,7 +133,7 @@ empty list allows no MGF.
 .BR allowedkdfs
 
 This key specifies the allowed Key Derivation Functions (KDFs) for use
-in ECDH key derivation.  The value is a list of
+in ECDH key derivation and Kyber KEM.  The value is a list of
 .BR CKD_
 constants supported by openCryptoki.  This list has the same format as
 the
