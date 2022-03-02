@@ -99,7 +99,13 @@ int main(void)
     puts("      CKD_SHA224_KDF,");
     puts("      CKD_SHA256_KDF,");
     puts("      CKD_SHA384_KDF,");
-    puts("      CKD_SHA512_KDF");
+    puts("      CKD_SHA512_KDF,");
+    puts("      CKD_IBM_HYBRID_NULL,");
+    puts("      CKD_IBM_HYBRID_SHA1_KDF,");
+    puts("      CKD_IBM_HYBRID_SHA224_KDF,");
+    puts("      CKD_IBM_HYBRID_SHA256_KDF,");
+    puts("      CKD_IBM_HYBRID_SHA384_KDF,");
+    puts("      CKD_IBM_HYBRID_SHA512_KDF");
     puts("      # No comma after last element!");
     puts(")");
     puts("");
