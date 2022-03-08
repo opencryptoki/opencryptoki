@@ -2397,7 +2397,8 @@ static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *cur
             (memcmp(attr->pValue, der_ec_supported[i].data,
                     attr->ulValueLen) == 0) &&
             (der_ec_supported[i].curve_type == PRIME_CURVE ||
-             der_ec_supported[i].curve_type == BRAINPOOL_CURVE)) {
+             der_ec_supported[i].curve_type == BRAINPOOL_CURVE) &&
+             der_ec_supported[i].twisted == CK_FALSE) {
             *curve_type = der_ec_supported[i].curve_type;
             *curve_bitlen = der_ec_supported[i].len_bits;
             return CKR_OK;
