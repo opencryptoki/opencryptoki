@@ -2368,9 +2368,10 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         goto error;
     }
 
-    TRACE_INFO("%s Host library version: %d.%d\n", __func__,
+    TRACE_INFO("%s Host library version: %d.%d.%d\n", __func__,
                ep11_data->ep11_lib_version.major,
-               ep11_data->ep11_lib_version.minor);
+               (ep11_data->ep11_lib_version.minor & 0xF0) >> 4,
+               (ep11_data->ep11_lib_version.minor & 0x0F));
 
     rc = refresh_target_info(tokdata);
     if (rc != CKR_OK) {
@@ -11328,8 +11329,19 @@ static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version)
                     rc);
         return rc;
     }
+    TRACE_DEVEL("%s host_version=0x08%x\n", __func__, host_version);
     lib_version->major = (host_version & 0x00FF0000) >> 16;
-    lib_version->minor = host_version & 0x000000FF;
+    /* Minor is 4 bits release number and 4 bits modification level */
+    lib_version->minor = (host_version & 0x00000F00) >> 4 |
+                                            (host_version & 0x0000000F);
+    if ((host_version & 0x0000F000) != 0) {
+        lib_version->minor |= 0xF0;
+        TRACE_DEVEL("%s relelase > 15, treating as 15\n", __func__);
+    }
+    if ((host_version & 0x000000F0) != 0) {
+        lib_version->minor |= 0x0F;
+        TRACE_DEVEL("%s modification level > 15, treating as 15\n", __func__);
+    }
     /*
      * EP11 host library < v2.0 returns an invalid version (i.e. 0x100). This
      * can safely be treated as version 1.0
@@ -11438,6 +11450,7 @@ CK_RV ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
     if (target_info->card_versions != NULL)
         pInfo->hardwareVersion = target_info->card_versions->firmware_version;
     pInfo->firmwareVersion = ep11_data->ep11_lib_version;
+    pInfo->firmwareVersion.minor >>= 4; /* report release, skip mod-level */
     memcpy(pInfo->serialNumber, target_info->serialNumber,
            sizeof(pInfo->serialNumber));
 
