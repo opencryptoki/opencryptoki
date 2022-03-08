@@ -70,6 +70,7 @@ struct _ec {
     uint16_t len_bits;          /* uint16_t - signature len in bits */
     uint16_t prime_bits;        /* len of the prime in bits */
     int nid;
+    CK_BBOOL twisted;
     CK_ULONG data_size;
     void const *data;
 } __attribute__ ((__packed__));
