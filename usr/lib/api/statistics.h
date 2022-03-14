@@ -64,7 +64,8 @@ struct statistics {
     } while (0)
 
 CK_RV statistics_init(struct statistics *statistics,
-                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags);
+                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags,
+                      uid_t uid);
 void statistics_term(struct statistics *statistics);
 
 #endif

@@ -346,7 +346,7 @@ int API_Register()
             // ever gets ported over to another platform we want to deal
             // with this accordingly since it may re-use pids differently
             // (Linux appears to re-use pids more rapidly).
-            if (procp->proc_id == getpid()) {
+            if (procp->proc_id == Anchor->ClientCred.real_pid) {
                 if (reuse == -1) {
                     reuse = indx;
                 }
@@ -383,13 +383,13 @@ int API_Register()
     memset((char *) procp, 0, sizeof(Slot_Mgr_Proc_t));
 #endif
     procp->inuse = TRUE;
-    procp->proc_id = getpid();
+    procp->proc_id = Anchor->ClientCred.real_pid;
     procp->reg_time = time(NULL);
 
     Anchor->MgrProcIndex = indx;
 
-    TRACE_DEVEL("API_Register MgrProcIndc %d  pid %ld \n", procp->proc_id,
-                (long int) Anchor->MgrProcIndex);
+    TRACE_DEVEL("API_Register MgrProcIndc %ld (real) pid %d \n",
+                (long int) Anchor->MgrProcIndex, procp->proc_id);
 
     //??? What to do about the Mutex and cond variable
     //Does initializing them in the slotd allow for them to not be
@@ -592,6 +592,9 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
         return FALSE;
     }
     sltp->TokData->slot_id = slotID;
+    sltp->TokData->real_pid = Anchor->ClientCred.real_pid;
+    sltp->TokData->real_uid = Anchor->ClientCred.real_uid;
+    sltp->TokData->real_gid = Anchor->ClientCred.real_gid;
     sltp->TokData->ro_session_count = 0;
     sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
 #ifdef ENABLE_LOCKS

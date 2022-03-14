@@ -51,12 +51,12 @@ struct API_Slot {
 // a global type for the API and will be used through out.
 //
 typedef struct {
-    pid_t Pid;
     key_t shm_tok;
 
     struct btree sess_btree;
     void *SharedMemP;
     Slot_Mgr_Socket_t SocketDataP;
+    Slot_Mgr_Client_Cred_t ClientCred;
     uint16 MgrProcIndex;  // Index into shared memory for This process ctl block
     API_Slot_t SltList[NUMBER_SLOTS_MANAGED];
     DLL_Load_t DLLs[NUMBER_SLOTS_MANAGED];  // worst case we have a separate DLL

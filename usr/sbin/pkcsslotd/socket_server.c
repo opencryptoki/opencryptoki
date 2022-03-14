@@ -10,6 +10,7 @@
 
 /* (C) COPYRIGHT Google Inc. 2013 */
 
+#define _GNU_SOURCE
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -90,11 +91,12 @@ struct client_info {
 
 enum proc_state {
     PROC_INITIAL_SEND = 0,
-    PROC_WAIT_FOR_EVENT = 1,
-    PROC_SEND_EVENT = 2,
-    PROC_SEND_PAYLOAD = 3,
-    PROC_RECEIVE_REPLY = 4,
-    PROC_HANGUP = 5,
+    PROC_INITIAL_SEND2 = 1,
+    PROC_WAIT_FOR_EVENT = 2,
+    PROC_SEND_EVENT = 3,
+    PROC_SEND_PAYLOAD = 4,
+    PROC_RECEIVE_REPLY = 5,
+    PROC_HANGUP = 6,
 };
 
 struct proc_conn_info {
@@ -103,6 +105,7 @@ struct proc_conn_info {
     DL_NODE *events;
     struct event_info *event;
     event_reply_t reply;
+    Slot_Mgr_Client_Cred_t client_cred;
 };
 
 enum admin_state {
@@ -638,6 +641,8 @@ static int proc_new_conn(int socket, struct listener_info *listener)
     struct proc_conn_info *conn;
     struct event_info *event;
     DL_NODE *list, *node;
+    struct ucred ucred;
+    socklen_t  len;
     int rc = 0;
 
     UNUSED(listener);
@@ -654,6 +659,22 @@ static int proc_new_conn(int socket, struct listener_info *listener)
     }
 
     DbgLog(DL3, "%s: process conn: %p", __func__, conn);
+
+    len = sizeof(ucred);
+    rc = getsockopt(socket, SOL_SOCKET, SO_PEERCRED, &ucred, &len);
+    if (rc != 0 || len != sizeof(ucred)) {
+        rc = -errno;
+        ErrLog("%s: failed get credentials of peer process: %s",
+               strerror(-rc), __func__);
+        goto out;
+    }
+
+    DbgLog(DL3, "%s: process pid: %u uid: %u gid: %u", __func__,
+           ucred.pid, ucred.uid, ucred.gid);
+
+    conn->client_cred.real_pid = ucred.pid;
+    conn->client_cred.real_uid = ucred.uid;
+    conn->client_cred.real_gid = ucred.gid;
 
     /* Add currently pending events to this connection */
     node = dlist_get_first(pending_events);
@@ -691,8 +712,8 @@ static int proc_new_conn(int socket, struct listener_info *listener)
     proc_connections = list;
 
     proc_get(conn);
-    rc = client_socket_send(&conn->client_info, &socketData,
-                            sizeof(socketData));
+    rc = client_socket_send(&conn->client_info, &conn->client_cred,
+                            sizeof(conn->client_cred));
     proc_put(conn);
     conn = NULL; /* conn may have been freed by now */
 
@@ -720,6 +741,12 @@ static int proc_xfer_complete(void *client)
 
     switch (conn->state) {
     case PROC_INITIAL_SEND:
+        conn->state = PROC_INITIAL_SEND2;
+        rc = client_socket_send(&conn->client_info, &socketData,
+                                sizeof(socketData));
+        return rc;
+
+    case PROC_INITIAL_SEND2:
         conn->state = PROC_WAIT_FOR_EVENT;
         rc = proc_start_deliver_event(conn);
         conn = NULL; /* conn may have been freed by now */
