@@ -112,7 +112,7 @@ char *get_pk_dir(STDLL_TokData_t *tokdata, char *fname, size_t len)
     int snres;
     struct passwd *pw = NULL;
 
-    if (token_specific.data_store.per_user && (pw = getpwuid(getuid())) != NULL)
+    if (token_specific.data_store.per_user && (pw = getpwuid(geteuid())) != NULL)
         snres = ock_snprintf(fname, len, "%s/%s", tokdata->pk_dir, pw->pw_name);
     else
         snres = ock_snprintf(fname, len, "%s", tokdata->pk_dir);
@@ -134,8 +134,8 @@ void set_perm(int file)
 
         grp = getgrnam("pkcs11");       // Obtain the group id
         if (grp) {
-            // set ownership to root, and pkcs11 group
-            if (fchown(file, getuid(), grp->gr_gid) != 0) {
+            // set ownership to pkcs11 group
+            if (fchown(file, -1, grp->gr_gid) != 0) {
                 goto error;
             }
         } else {

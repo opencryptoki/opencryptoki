@@ -468,8 +468,8 @@ void set_perm(int file)
 
     grp = getgrnam("pkcs11"); // Obtain the group id
     if (grp) {
-        // set ownership to root, and pkcs11 group
-        if (fchown(file, getuid(), grp->gr_gid) != 0) {
+        // set ownership to pkcs11 group
+        if (fchown(file, -1, grp->gr_gid) != 0) {
             goto error;
         }
     } else {
