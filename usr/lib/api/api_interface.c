@@ -2996,7 +2996,6 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
     bt_init(&Anchor->sess_btree, free);
-    Anchor->Pid = getpid();
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     /*
@@ -3072,6 +3071,11 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         goto error_shm;
     }
 
+    TRACE_DEVEL("pid: %u real-pid: %u euid: %u real-uid: %u real-gid: %u gid: %u\n",
+                getpid(), Anchor->ClientCred.real_pid,
+                geteuid(), Anchor->ClientCred.real_pid,
+                getgid(), Anchor->ClientCred.real_pid);
+
     if (pVoid != NULL) {
         pArg = (CK_C_INITIALIZE_ARGS *) pVoid;
 
@@ -3099,7 +3103,8 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
         if (Anchor->SocketDataP.flags & FLAG_STATISTICS_INTERNAL)
             stat_flags |= STATISTICS_FLAG_COUNT_INTERNAL;
 
-        rc = statistics_init(&statistics, &Anchor->SocketDataP, stat_flags);
+        rc = statistics_init(&statistics, &Anchor->SocketDataP, stat_flags,
+                             Anchor->ClientCred.real_uid);
         if (rc != CKR_OK) {
             TRACE_ERROR("Statistics initialization failed!  rc=0x%lx\n", rc);
             goto error;

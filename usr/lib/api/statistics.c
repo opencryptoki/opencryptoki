@@ -196,7 +196,7 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
      * If the shared memory segment does not belong to the current user or does
      * not have correct permissions, do not use it.
      */
-    if (stat_buf.st_uid != (user == -1 ? geteuid() : (uid_t)user) ||
+    if (stat_buf.st_uid != geteuid() ||
         (stat_buf.st_mode & ~S_IFMT) != (S_IRUSR | S_IWUSR)) {
         TRACE_ERROR("SHM '%s' has wrong mode/owner\n", statistics->shm_name);
         OCK_SYSLOG(LOG_ERR, "SHM '%s' has wrong mode/owner\n",
@@ -273,7 +273,8 @@ static CK_RV statistics_close_shm(struct statistics *statistics,
 }
 
 CK_RV statistics_init(struct statistics *statistics,
-                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags)
+                      Slot_Mgr_Socket_t *slots_infos, CK_ULONG flags,
+                      uid_t uid)
 {
     CK_ULONG i;
     CK_RV rc;
@@ -298,7 +299,7 @@ CK_RV statistics_init(struct statistics *statistics,
     TRACE_INFO("%lu slots defined\n", statistics->num_slots);
     TRACE_INFO("Statistics SHM size: %lu\n", statistics->shm_size);
 
-    rc = statistics_open_shm(statistics, -1, CK_TRUE);
+    rc = statistics_open_shm(statistics, uid, CK_TRUE);
     if (rc != CKR_OK)
         goto error;
 

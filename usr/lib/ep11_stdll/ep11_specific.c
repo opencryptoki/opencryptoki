@@ -10473,7 +10473,7 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     session_id_data.handle = session->handle;
     gettimeofday(&session_id_data.timeofday, NULL);
     session_id_data.clock = clock();
-    session_id_data.pid = getpid();
+    session_id_data.pid = tokdata->real_pid;
 
     mech.mechanism = CKM_SHA256;
     mech.pParameter = NULL;
@@ -10545,7 +10545,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
         {CKA_START_DATE, &date, sizeof(date)}
     };
 
-    pid = getpid();
+    pid = tokdata->real_pid;
     time(&t);
     tm = localtime(&t);
     sprintf(tmp, "%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);

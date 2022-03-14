@@ -137,12 +137,29 @@ static ssize_t send_all(int socketfd, char *buffer, size_t size)
 }
 
 //
-// Will fill out the Slot_Mgr_Socket_t structure in the Anchor global data
-// structure with the values passed by the pkcsslotd via a socket RPC.
+// Will fill out the Slot_Mgr_Socket_t and Slot_Mgr_Client_Cred_t structures
+// in the Anchor global data structure with the values passed by the pkcsslotd
+// via a socket RPC.
 int init_socket_data(int socketfd)
 {
     ssize_t n;
-    int ret = TRUE;
+
+    n = read_all(socketfd, (char *)&Anchor->ClientCred,
+                 sizeof(Anchor->ClientCred));
+    if (n < 0) {
+        // read error
+        OCK_SYSLOG(LOG_ERR, "init_socket_data: read error \
+                   on daemon socket, errno=%zd", -n);
+        return FALSE;
+    }
+    if (n != sizeof(Anchor->ClientCred)) {
+        // eof but we still expect some bytes
+        OCK_SYSLOG(LOG_ERR, "init_socket_data: read returned \
+                   with eof but we still \
+                   expect %lu bytes from daemon",
+                   sizeof(Anchor->ClientCred) - n);
+        return FALSE;
+    }
 
     n = read_all(socketfd, (char *)&Anchor->SocketDataP,
                  sizeof(Anchor->SocketDataP));
@@ -150,7 +167,7 @@ int init_socket_data(int socketfd)
         // read error
         OCK_SYSLOG(LOG_ERR, "init_socket_data: read error \
                    on daemon socket, errno=%zd", -n);
-        ret = FALSE;
+        return FALSE;
     }
     if (n != sizeof(Anchor->SocketDataP)) {
         // eof but we still expect some bytes
@@ -158,10 +175,10 @@ int init_socket_data(int socketfd)
                    with eof but we still \
                    expect %lu bytes from daemon",
                    sizeof(Anchor->SocketDataP) - n);
-        ret = FALSE;
+        return FALSE;
     }
 
-    return ret;
+    return TRUE;
 }
 
 static bool match_token_label_filter(event_msg_t *event, API_Slot_t *sltp)
@@ -210,7 +227,8 @@ static int handle_event(API_Proc_Struct_t *anchor, event_msg_t *event,
     CK_RV rc;
 
     /* If its not for our process, ignore it, don't increment reply counters */
-    if (event->process_id != 0 && event->process_id != anchor->Pid)
+    if (event->process_id != 0 &&
+        event->process_id != anchor->ClientCred.real_pid)
         return 0;
 
     for (slotID = 0; slotID < NUMBER_SLOTS_MANAGED; slotID++) {

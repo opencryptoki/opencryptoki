@@ -21,6 +21,7 @@
 #include <sys/mman.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "local_types.h"
 
@@ -149,7 +150,8 @@ typedef struct Slot_Mgr_Proc_t_64 {
     // pthread_cond_t   proc_slot_cond;
 
     CK_BOOL inuse;              // flag indicating if the entry is in use
-    pid_t proc_id;              /* This could also be used to indicate inuse.
+    pid_t proc_id;              /* pid of the process (in pkcsslotd-namespace).
+                                 * This could also be used to indicate inuse.
                                  * however we will actualy use it to provide
                                  * a check for a bad process which did not
                                  * C_finalize and remove itself properly.
@@ -203,7 +205,13 @@ typedef struct {
 } Slot_Mgr_Shr_t;
 
 typedef struct {
-    uint8 num_slots;
+    pid_t real_pid; /* pid of client process in pkcsslotd namespace */
+    uid_t real_uid; /* uid of client process in pkcsslotd namespace */
+    gid_t real_gid; /* gid of client process in pkcsslotd namespace */
+} Slot_Mgr_Client_Cred_t;
+
+typedef struct {
+    uint32 num_slots;
     uint8 flags;
     CK_INFO_64 ck_info;
     Slot_Info_t_64 slot_info[NUMBER_SLOTS_MANAGED];
@@ -218,7 +226,13 @@ typedef struct {
 } Slot_Mgr_Shr_t;
 
 typedef struct {
-    uint8 num_slots;
+    pid_t real_pid; /* pid of client process in pkcsslotd namespace */
+    uid_t real_uid; /* uid of client process in pkcsslotd namespace */
+    gid_t real_gid; /* gid of client process in pkcsslotd namespace */
+} Slot_Mgr_Client_Cred_t;
+
+typedef struct {
+    uint32 num_slots;
     uint8 flags;
     CK_INFO ck_info;
     Slot_Info_t slot_info[NUMBER_SLOTS_MANAGED];
