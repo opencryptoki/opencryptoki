@@ -352,19 +352,18 @@ void parent_fork_after()
 static CK_RV check_user_and_group()
 {
     int i;
-    uid_t uid, euid;
-    struct passwd *pw, *epw;
+    uid_t euid;
+    struct passwd *epw;
     struct group *grp;
 
     /*
-     * Check for root user or Group PKCS#11 Membershp.
+     * Check for root user or Group PKCS#11 Membership.
      * Only these are allowed.
      */
-    uid = getuid();
     euid = geteuid();
 
-    /* Root or effective Root is ok */
-    if (uid == 0 || euid == 0)
+    /* effective Root is ok */
+    if (euid == 0)
         return CKR_OK;
 
     /*
@@ -379,15 +378,12 @@ static CK_RV check_user_and_group()
         goto error;
     }
 
-    if (getgid() == grp->gr_gid || getegid() == grp->gr_gid)
+    if (getegid() == grp->gr_gid)
         return CKR_OK;
-    /* Check if user or effective user is member of pkcs11 group */
-    pw = getpwuid(uid);
+    /* Check if effective user is member of pkcs11 group */
     epw = getpwuid(euid);
     for (i = 0; grp->gr_mem[i]; i++) {
-        if ((pw && (strncmp(pw->pw_name, grp->gr_mem[i],
-                            strlen(pw->pw_name)) == 0)) ||
-            (epw && (strncmp(epw->pw_name, grp->gr_mem[i],
+        if ((epw && (strncmp(epw->pw_name, grp->gr_mem[i],
                              strlen(epw->pw_name)) == 0)))
             return CKR_OK;
     }

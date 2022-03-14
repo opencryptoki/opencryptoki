@@ -2902,7 +2902,7 @@ static CK_RV parse_file() {
             return CKR_ARGUMENTS_BAD;
         }
     } else {
-        pw = getpwuid(getuid());
+        pw = getpwuid(geteuid());
         if (pw != NULL) {
             snprintf(pathname, sizeof(pathname), "%s/.p11sak_defined_attrs.conf", pw->pw_dir);
             fp = fopen(pathname, "r");
