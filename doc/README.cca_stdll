@@ -22,12 +22,15 @@ csulcca rpm.
 It also requires proper configuration and installation of the MK keys into
 the hardware which is outside the scope of this document.
 
+For more details about the CCA token, please also see
+https://www.ibm.com/docs/en/linux-on-systems?topic=specifications-cca-token
+
 Configuration
 -------------
 
 To use the CCA token a slot entry must be defined in the
 opencryptoki.conf configuration file that sets the stdll attribute to
-libcsulcca.so.
+libpkcs11_cca.so.
 
 The CCA token also requires that the appropriate master keys have
 been installed into the hardware. The corresponding driver must also be
@@ -40,8 +43,9 @@ openCryptoki stores token objects on disk. Public token objects are not
 encrypted. Private token objects are encrypted.
 Versions of openCryptoki prior to version 3, used a CCA generated secure key
 (des3 key) and the crypto adapter to encrypt the private token object's data.
-In version 3, a clear key (des3 key) and software crypto (openssl) are used
-to encrypt this data.
+In version 3, a clear key (DES3 or AES key, dependent on the tokversion setting
+in opencryptoki.conf) and software crypto (openssl) are used to encrypt this
+data.
 
 Migration Information
 ---------------------
@@ -165,6 +169,10 @@ as well as any other token objects for the token.
 
 6. After a successful migration, the CCA private token objects should be
 encrypted and ready to be accessed by openCryptoki version 3.
+
+7. You may now want to migrate the data stores of the CCA token to a FIPS
+compliant format using the pkcstok_migrate tool. For details, please see
+https://www.ibm.com/docs/en/linux-on-systems?topic=tools-pkcstok-migrate
 
 TroubleShooting:
 1. If version 3 cannot find the newly migrated CCA private token objects,

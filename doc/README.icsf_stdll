@@ -20,17 +20,18 @@ centralized storage and key management.
 
 The remote server's configuration is outside the scope of this README.
 
-Please see XXXXX for more information on the z/OS LDAP server requirements and
-remote crypto configuration.
-For more information on ICSF PKCS#11, see "Writing PKCS#11 Applications" manual
-at
-http://www-01.ibm.com/support/docview.wss?uid=isg24664157d6cdc890485257a7c0054dc3d&aid=1.
+Please see the related z/OS documentation for more information on the z/OS
+LDAP server requirements and remote crypto configuration, as well as on
+ICSF PKCS#11.
 
 Pre-requisites:
 1. ICSF token communicates to the remote via LDAP.
    On Linux install openldap, openldap-clients, and openldap-devel.
 
 2. You will also need lex and yacc packages installed.
+
+For more details about the ICSF token, please also see
+https://www.ibm.com/docs/en/linux-on-systems?topic=specifications-icsf-token
 
 -----------------------------------------------------------------------
 
@@ -191,7 +192,7 @@ tokens from the remote.
 
 4. Using sasl authentication and giving openCryptoki the credentials to use to
 get a list of available tokens from the remote.
-        
+
         (TO DO)
 
 

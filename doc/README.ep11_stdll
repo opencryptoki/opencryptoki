@@ -13,9 +13,12 @@ into the kernel and the availability of EP11 library libep11.
 The token directory of the EP11 token is opencryptoki/ep11tok typically located
 in /var/lib.
 
-There is a new possibility to configure multiple EP11 tokens.
+There is a possibility to configure multiple EP11 tokens.
 Thus dedicated adapter/domains can be assigned to different tokens respectively
 applications. That ensures data isolation between multiple applications.
+
+For more details about the EP11 token, please also see
+https://www.ibm.com/docs/en/linux-on-systems?topic=specifications-ep11-token
 
 Configuration
 -------------
@@ -56,18 +59,16 @@ it's own token individual objects that are separated from other ep11 tokens.
 
 EP11 token configuration files defines a list of adapter/domain pairs to which
 the EP11 token sends its cryptographic requests. This list can be specified as a
-white list starting with a line containing the key word APQN_WHITELIST followed
+allow list starting with a line containing the key word APQN_ALLOWLIST followed
 by one or more lines containing each two integers (in the range of 0 - 255)
-separated by a white space. The white list is ended with a line containing the
-key word END. In each of lines of the white list the first integer denotes the
+separated by a white space. The allow list is ended with a line containing the
+key word END. In each of lines of the allow list the first integer denotes the
 adapter number and the second integer denotes the domain id. Alternatively the
 keyword APQN_ANY can be used to define that all adapter/domain pairs with EP11
 firmware load that are available to the system shall be used as target adapters.
 An adapter number corresponds to the numerical part xx of an adapter id of the
 form cardxx as displayed by the lszcrypt tool or in the sys file system (e.g. in
-/sys/bus/ap/devices).  Currently Linux on z only supports a single domain. That
-domain number can be displayed with lszcrypt -b (see the value of ap_domain) or
-alternatively as contents of /sys/bus/ap/ap_domain.
+/sys/bus/ap/devices).
 
 Crypto Express Adapter EP11 Master Key Management
 -------------------------------------------------
@@ -93,12 +94,12 @@ Token specifics
 ---------------
 
 The EP11 token only supports secure keys (i.e. key wrapped by a master key of
-the Crypto Express adapter). Therefore all keys must have the attribute
+the Crypto Express adapter). Therefore all keys should have the attribute
 CKA_SENSITIVE set to CK_TRUE. Since the PKCS#11 standard does not define a
 (token specific) default for secret keys the attribute must be explicitly
 provided whenever a secret key is generated, unwrapped or build with
-C_CreateObject. In addition all keys used with the EP11 token are extractable.
-i.e. they must have the attribute CKA_EXTRACTABLE set to CK_TRUE.
+C_CreateObject. You can change the default for CKA_SENSITIVE to TRUE by
+specifying keyword FORCE_SENSITIVE in the EP11 token config file.
 
 When creating keys the default values of the attributes CKA_ENCRYPT,
 CKA_DECRYPT, CKA_VERYFY, CKA_SIGN, CKA_WRAP and CKA_UNWRAP are CK_TRUE. Note, no

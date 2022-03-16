@@ -6,6 +6,12 @@ in its own file and given a unique name that is never reused. Each object is
 stored in a binary format that gives openCryptoki the ability to check for
 corruption when reading in the object into memory.
 
+Starting with openCryptoki vesion 3.12, a new, FIPS compliant format can be used
+to store the token objects. You may now want to migrate the data stores of an
+EP11 token, a CCA token, an ICA token, or a Soft token to a FIPS compliant
+format using the pkcstok_migrate tool. For details, please see
+https://www.ibm.com/docs/en/linux-on-systems?topic=tools-pkcstok-migrate
+
 DATA CORRUPTION
 
  If corrupted token data is detected by openCryptoki, the name and location on
@@ -14,8 +20,7 @@ something like one of the following:
 
 Aug 30 16:46:00 host openCryptoki[14491]: Cannot restore token object /var/lib/opencryptoki/swtok/TOK_OBJ/WJ000000 (ignoring it)
 Aug 30 16:46:00 host openCryptoki[14491]: Cannot malloc 4294967290 bytes to read in token object /var/lib/opencryptoki/swtok/TOK_OBJ/WJ000000 (ignoring it)
-Aug 30 16:46:00 host openCryptoki[14491]: Token object /var/lib/opencryptoki/swtok/TOK_OBJ/WJ000000
-appears corrupted (ignoring it)
+Aug 30 16:46:00 host openCryptoki[14491]: Token object /var/lib/opencryptoki/swtok/TOK_OBJ/WJ000000 appears corrupted (ignoring it)
 
  This means that something about the object has changed in such a way that makes
 openCryptoki unable or unwilling to process it.
