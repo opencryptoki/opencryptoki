@@ -53,7 +53,7 @@ Current architecture:
 
 
 Prior to release 2.4.1, the tpm stdll has the password for the SRK hardcoded to
-NULL and the policy secret mode set to TSS_SECRET_MODE_PLAIN. 
+NULL and the policy secret mode set to TSS_SECRET_MODE_PLAIN.
 
 Starting in release 2.4.1, the environment variables,
 OCK_SRK_SECRET and OCK_SRK_MODE can be set to indicate the Storage Root Key's
@@ -86,9 +86,9 @@ The storage root key may be:
 
       Note: If using the well known secret, then express as a 40 byte hex string
             of zeroes.
-	
+
       i.e. export OCK_SRK_SECRET="0000000000000000000000000000000000000000"
            export OCK_SRK_MODE=TSS_SECRET_MODE_SHA1
-			
+
 If neither OCK_SRK_MODE nor OCK_SRK_SECRET are set, then the passwd will be set
 to NULL, and the mode to TSS_SECRET_MODE_PLAIN.

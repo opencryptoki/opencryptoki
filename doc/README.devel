@@ -25,7 +25,7 @@ to signatures and the corresponding verification have to be added.
 
 To make EC curves, MGFs, or KDFs available to the policy
 code, see the corresponding translation.c file in usr/lib/common (i.e.,
-ec_curve_translation.c, mgf_translation.c, or kdf_translation.c).  
+ec_curve_translation.c, mgf_translation.c, or kdf_translation.c).
 
 PRFs are special currently since we only support one PRF so far and
 gperf then generates a file that compiles with warnings.  So we did

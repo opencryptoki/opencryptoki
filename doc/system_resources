@@ -1,27 +1,45 @@
-The following are the system resources used by openCryptoki as of
-openCryptoki-3.8 release.
+The following are the system resources used by openCryptoki
 
-1.Shared memory = 1 per token + 1 segment between pkcsslotd & api = 7 max currently
+Please also see https://www.ibm.com/docs/en/linux-on-systems?topic=features-architecture-components-opencryptoki
+
+1.Shared memory = 1 per token + 1 segment between pkcsslotd & api + 1 statistic
+  segment per user (if statistics are enabled)
     a. Between pkcsslotd and api
        The pkcsslotd daemon has its own shared memory segment that it creates
-       and shares with API. Part of the data is now passed through sockets but
+       and shares with API. Part of the data is passed through sockets but
        there is still some data shared via shared memory.
 
     b. Each token has its own shared memory segment. Opencryptoki processes
        attach to the token segment and shared memory acts as a global state
        tracking mechanism.
-       # ls /dev/shm 
+       # ls /dev/shm
        var.lib.opencryptoki.ccatok   var.lib.opencryptoki.swtok
        var.lib.opencryptoki.ep11tok  var.lib.opencryptoki.tpm.root
        var.lib.opencryptoki.lite
 
+    c. If collection of statistics is enabled, there is one shared memory
+       segment per user. It is created at the first usage of openCryptoki of
+       a user, and is named var.lib.opencryptoki_stats_<uid> where <uid> is
+       the numeric user id of the user.
+       Use the pkcsstats tool to display the statistics, and remove statistics
+       segments for users no longer needed.
+
 2. Sockets - 1
-Unix socket between pkcsslotd and api to transfer slot information.
+   a.Unix socket between pkcsslotd and api to transfer slot information.
+
+   b.Unix socket between pkcsslotd and an event source to deliver events to
+     tokens of running openCryptoki applications.
+
+   c.Netlink socket owned by pkcsslotd to listen for udev events (s390 platform
+     only). This is used to produce events on APQNs becoming online or offline.
+
+   d.epoll socket owned by pkcsslotd to wait for events on all the other
+     sockets.
 
 3. Files
-    a. Lock files - 1 global API LCK file + 1 per token (except tpm)  = 6 max
-       currently + 1 lock file per user on tpm token
-       # ls -lh /var/lock/opencryptoki/     
+    a. Lock files - 1 global API LCK file + 1 per token (except tpm) +
+       1 lock file per user on tpm token
+       # ls -lh /var/lock/opencryptoki/
        LCK..APIlock
        ccatok/LCK..ccatok
        ep11tok/LCK..ep11tok
@@ -34,14 +52,18 @@ Unix socket between pkcsslotd and api to transfer slot information.
        OPENCRYPTOKI_TRACE_LEVEL per process in /var/log/opencryptoki. No max
        limit.
 
-    c. Config files - 2
+    c. Config files (some are optional)
        # ls -lh /etc/opencryptoki/
-       total 8.0K
-       -rw-r--r--. 1 root root 390 Mar 31 10:55 ep11tok.conf
-       -rw-r--r--. 1 root root 674 Mar 31 10:55 opencryptoki.conf
+       total 32K
+       -rw-r--r--. 1 root root   4.6K Mar 15 13:47 ep11cpfilter.conf
+       -rw-r--r--. 1 root root   4.0K Mar 15 13:24 ep11tok.conf
+       -rw-r--r--. 1 root root    808 Mar 15 13:49 opencryptoki.conf
+       -rw-r-----. 1 root pkcs11  584 Feb  1 16:38 p11sak_defined_attrs.conf
+       -rw-r-----. 1 root pkcs11 5.6K Mar  2 16:45 policy.conf
+       -rw-r-----. 1 root pkcs11  865 Feb  1 16:38 strength.conf
 
     d. Token data files - 3 files per token + 1 additional RACF file for icsf
-    token + 1 MK_PRIVATE file for tpm token = 20
+    token + 1 MK_PRIVATE file for tpm token
        NVTOK.DAT - Token data like user pin, so pin etc
        MK_SO - Master key used for internal encryption hashed with SOPIN. This
                file does not exist on tpm token.
@@ -52,25 +74,6 @@ Unix socket between pkcsslotd and api to transfer slot information.
               /var/lib/opencryptoki/tpm/${USER}/PUBLIC_ROOT_KEY.pem
 
     e. Token object files - 1 OBJ_IDX file per token and the private object
-       files. = 6 + as many number of private token objects for tokens
+       files + as many number of private token objects for tokens
        OBJ_IDX - A list of current token objects.
 
-4. Semaphores
-The following depend on the number of processes accessing openCryptoki on the system.
-    a. The structure API_Proc_Struct_t is allocated per process. It has a thread
-       level mutex and a session level mutex to lock btree accesses. So two
-       mutexes per process.
-
-    b. Per process Global Mutex used in API. - 1
-
-    c. There are 5 mutexes used in common directory per process - 5
-       pthread_mutex_t native_mutex ; 
-       MUTEX pkcs_mutex, obj_list_mutex, sess_list_mutex, login_mutex;
-
-The following are mutexes local to tokens.
-    d. Soft token has two mutexes - 1
-    e. ica token  - 1
-
-5. There are 5 global btrees (in memory) for holding the session mapping
-information, session objects, public token and private token objects
-information.
