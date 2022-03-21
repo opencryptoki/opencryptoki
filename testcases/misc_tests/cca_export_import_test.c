@@ -1481,7 +1481,7 @@ int main(int argc, char **argv)
 
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rv = cca_export_import_tests();
     testcase_print_result();
 

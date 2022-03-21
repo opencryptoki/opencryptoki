@@ -302,7 +302,7 @@ int main(int argc, char **argv)
         if (rv != CKR_FUNCTION_NOT_PARALLEL)
             return rv;
     }
-    testcase_setup(0);
+    testcase_setup();
     rc = sess_opstate_funcs(loops);
     testcase_print_result();
 

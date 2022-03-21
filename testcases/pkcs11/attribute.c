@@ -512,7 +512,7 @@ int main(int argc, char **argv)
             return rv;
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rc = do_TestAttributes();
     testcase_print_result();
 

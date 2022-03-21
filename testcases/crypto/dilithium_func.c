@@ -745,7 +745,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
-    testcase_setup(total_assertions);
+    testcase_setup();
 
     rv = run_GenerateDilithiumKeyPairSignVerify();
 

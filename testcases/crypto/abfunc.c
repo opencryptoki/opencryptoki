@@ -1180,7 +1180,7 @@ int main(int argc, char **argv)
     }
 
     if (is_ep11_token(SLOT_ID)) {
-        testcase_setup(0);
+        testcase_setup();
         rc = do_CheckMechanismInfo();
         if (rc != CKR_OK) {
             // Skip, but don't crash the test executor

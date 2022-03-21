@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     cinit_args.flags = CKF_OS_LOCKING_OK;
     funcs->C_Initialize(&cinit_args);
 
-    testcase_setup(0);
+    testcase_setup();
     testcase_begin("Starting event tests");
 
     // Test fork before C_Initialize

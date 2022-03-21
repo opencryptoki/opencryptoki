@@ -305,7 +305,7 @@ int main(int argc, char **argv)
         goto out;
     }
 
-    testcase_setup(0);
+    testcase_setup();
     testcase_begin("Starting...");
 
     // Initialize

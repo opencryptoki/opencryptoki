@@ -1411,7 +1411,7 @@ int main(int argc, char **argv)
         }
     }
 
-    testcase_setup(0);          //TODO
+    testcase_setup();
     rc = des3_funcs();
     testcase_print_result();
 

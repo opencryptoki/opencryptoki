@@ -2569,7 +2569,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
-    testcase_setup(0);          //TODO
+    testcase_setup();
 
     pkey = CK_FALSE;
     rv = aes_funcs();

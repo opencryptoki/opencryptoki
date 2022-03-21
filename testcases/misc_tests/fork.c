@@ -98,7 +98,7 @@ CK_RV do_fork(CK_SESSION_HANDLE parent_session, CK_OBJECT_HANDLE parent_object)
     }
 
     // child process flows here
-    testcase_setup(0);
+    testcase_setup();
     t_ran = 0;
     t_passed = 0;
     t_skipped = 0;
@@ -240,7 +240,7 @@ int main(int argc, char **argv)
         goto out;
     }
 
-    testcase_setup(0);
+    testcase_setup();
     testcase_begin("Starting...  Parent process: %u", getpid());
 
     // Test fork before C_Initialize

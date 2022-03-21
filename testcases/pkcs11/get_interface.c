@@ -447,7 +447,7 @@ int main(void)
 {
     int rc = -1;
 
-    testcase_setup(0);
+    testcase_setup();
 
     if (do_GetFunctionList() != TRUE) {
         testcase_error("%s", "do_GetFunctionList() failed.\n");
