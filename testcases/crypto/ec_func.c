@@ -671,7 +671,6 @@ CK_RV run_DeriveECDHKey()
 
                 for (m=0; m < (kdfs[j] == CKD_NULL ? 1 : NUM_SHARED_DATA); m++) {
 
-                    testcase_new_assertion();
                     testcase_begin("Starting with curve=%s, kdf=%s, keylen=%lu, "
                                   "shared_data=%u, mech=%s, pkey=%X",
                                   der_ec_supported[i].name,
@@ -777,6 +776,7 @@ CK_RV run_DeriveECDHKey()
                         goto testcase_cleanup;
                     }
 
+                    testcase_new_assertion();
                     rc = run_HMACSign(session, secret_keyB,
                                       secret_key_len[k] > 0 ?
                                           secret_key_len[k] : curve_len(i));
@@ -924,7 +924,6 @@ CK_RV run_DeriveECDHKeyKAT()
 
     for (i=0; i<ECDH_TV_NUM; i++) {
 
-        testcase_new_assertion();
         testcase_begin("Starting with shared secret i=%lu, pkey=%X", i, pkey);
 
         switch (ecdh_tv[i].kdf) {
@@ -1064,8 +1063,6 @@ CK_RV run_DeriveECDHKeyKAT()
         };
         CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
-        testcase_new_assertion();
-
         // Now, derive a generic secret key using party A's private key
         // and B's public key
         ecdh_parmA.kdf = ecdh_tv[i].kdf;
@@ -1159,6 +1156,8 @@ CK_RV run_DeriveECDHKeyKAT()
             testcase_fail("C_DeriveKey #2: rc = %s", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+
+        testcase_new_assertion();
 
         // Extract the derived secret A
         rc = funcs->C_GetAttributeValue(session, secret_keyA,
@@ -1566,7 +1565,6 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                                       ec_publ_attr, ec_publ_attr_len,
                                       ec_priv_attr, ec_priv_attr_len,
                                       &publ_key, &priv_key);
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (is_rejected_by_policy(rc, session)) {
                 testcase_skip("EC key generation is not allowed by policy");
@@ -1584,6 +1582,7 @@ CK_RV run_GenerateECCKeyPairSignVerify()
                  "rc=%s", i, der_ec_supported[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Generate supported key pair index=%lu passed.", i);
 
         for (j = 0;
@@ -1691,8 +1690,6 @@ CK_RV run_ImportECCKeyPairSignVerify()
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
                                  ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                  &priv_key, !pkey);
-
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1718,14 +1715,13 @@ CK_RV run_ImportECCKeyPairSignVerify()
                           "(%s), rc=%s", i, ec_tv[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import EC private key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
         rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                 &publ_key);
-
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1754,6 +1750,7 @@ CK_RV run_ImportECCKeyPairSignVerify()
                           "(%s), rc=%s", i, ec_tv[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import EC public key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
@@ -1903,7 +1900,6 @@ CK_RV run_TransferECCKeyPairSignVerify()
                                  ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                  &priv_key, CK_TRUE); // key to be wrapped must be extractable
 
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1930,14 +1926,13 @@ CK_RV run_TransferECCKeyPairSignVerify()
                  p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import EC private key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
         rc = create_ECPublicKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                 &publ_key);
-
-        testcase_new_assertion();
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("EC key import is not allowed by policy");
@@ -1967,6 +1962,7 @@ CK_RV run_TransferECCKeyPairSignVerify()
                  p11_get_ckr(rc));
             goto testcase_cleanup;
         }
+        testcase_new_assertion();
         testcase_pass("*Import EC public key (%s) index=%lu passed.",
                       ec_tv[i].name, i);
 
@@ -2217,8 +2213,6 @@ CK_RV run_ImportSignVerify_Pkey()
                 testcase_begin("Starting Import EC private key (%s) index=%u sign via ep11 card / verify via CPACF",
                                ec_tv[i].name, i);
 
-            testcase_new_assertion();
-
             /* j toggles between sign via protected key / verify via ep11 card
              * and vice versa. */
             if (j == 0) {
@@ -2278,6 +2272,8 @@ CK_RV run_ImportSignVerify_Pkey()
                 testcase_error("C_SignInit rc=%s", p11_get_ckr(rc));
                 goto testcase_cleanup;
             }
+
+            testcase_new_assertion();
 
             rc = funcs->C_Sign(session, data, sizeof(data), NULL, &sig_len);
             if (rc != CKR_OK) {
@@ -2392,13 +2388,15 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKey();
     rv += run_DeriveECDHKeyKAT();
 
-    pkey = CK_TRUE;
-    rv = run_GenerateECCKeyPairSignVerify();
-    rv += run_ImportECCKeyPairSignVerify();
-    rv += run_TransferECCKeyPairSignVerify();
-    rv += run_DeriveECDHKey();
-    rv += run_DeriveECDHKeyKAT();
-    rv += run_ImportSignVerify_Pkey();
+    if (is_ep11_token(SLOT_ID)) {
+        pkey = CK_TRUE;
+        rv = run_GenerateECCKeyPairSignVerify();
+        rv += run_ImportECCKeyPairSignVerify();
+        rv += run_TransferECCKeyPairSignVerify();
+        rv += run_DeriveECDHKey();
+        rv += run_DeriveECDHKeyKAT();
+        rv += run_ImportSignVerify_Pkey();
+    }
 
     testcase_print_result();
 

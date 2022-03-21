@@ -1436,7 +1436,6 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             key_type = CKK_GENERIC_SECRET;
         }
 
-        testcase_new_assertion();       /* assertion #1 */
         // wrap key (length only)
         rc = funcs->C_WrapKey(session, &wrap_mech, publ_key, secret_key,
                               NULL, &wrapped_keylen);
@@ -1454,6 +1453,9 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
             testcase_error("C_WrapKey(), rc=%s.", p11_get_ckr(rc));
             goto error;
         }
+
+        testcase_new_assertion();       /* assertion #1 */
+
         // allocate memory for wrapped_key
         wrapped_key = calloc(sizeof(CK_BYTE), wrapped_keylen);
         if (wrapped_key == NULL) {
