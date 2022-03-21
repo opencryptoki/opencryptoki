@@ -749,7 +749,7 @@ int main(int argc, char **argv)
             return rv;
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rv = api_driver();
     testcase_print_result();
 

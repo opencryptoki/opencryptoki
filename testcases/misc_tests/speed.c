@@ -1092,7 +1092,7 @@ int main(int argc, char **argv)
 
     funcs->C_Initialize(&cinit_args);
 
-    testcase_setup(0);
+    testcase_setup();
 
     if (do_rsa_keygen) {
         testsuite_begin("RSA Keygen.");

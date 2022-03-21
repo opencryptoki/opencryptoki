@@ -1718,7 +1718,7 @@ int main(int argc, char **argv)
             return rc;
 
     }
-    testcase_setup(0);          //TODO
+    testcase_setup();
     rv = digest_funcs();
     testcase_print_result();
 

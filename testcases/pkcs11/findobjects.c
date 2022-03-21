@@ -300,7 +300,7 @@ int main(int argc, char **argv)
             return rv;
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rc = do_FindObjects();
     testcase_print_result();
 

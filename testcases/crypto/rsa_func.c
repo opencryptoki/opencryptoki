@@ -2049,7 +2049,7 @@ int main(int argc, char **argv)
         }
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rv = rsa_funcs();
     testcase_print_result();
 

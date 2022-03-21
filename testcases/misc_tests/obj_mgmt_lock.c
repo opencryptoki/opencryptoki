@@ -1343,7 +1343,7 @@ int main(int argc, char **argv)
 
     }
 
-    testcase_setup(0);
+    testcase_setup();
     rv = obj_mgmt_functions();
     testcase_print_result();
 

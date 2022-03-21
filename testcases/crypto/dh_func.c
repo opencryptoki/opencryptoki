@@ -587,7 +587,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
-    testcase_setup(0);
+    testcase_setup();
 
     rv = dh_functions();
 

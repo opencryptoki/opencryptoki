@@ -101,8 +101,6 @@
  *      06032B6571
  */
 
-CK_ULONG total_assertions = 65;
-
 typedef struct ec_struct {
     void const *curve;
     CK_ULONG size;
@@ -2385,7 +2383,7 @@ int main(int argc, char **argv)
             return rc;
     }
 
-    testcase_setup(total_assertions);
+    testcase_setup();
 
     pkey = CK_FALSE;
     rv = run_GenerateECCKeyPairSignVerify();

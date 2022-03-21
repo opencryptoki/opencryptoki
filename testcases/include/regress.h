@@ -119,7 +119,7 @@ int get_user_pin(CK_BYTE_PTR);
             __FILE__, __LINE__, _str, _rc, _rc,                \
             p11_get_ckr(_rc))
 
-#define testcase_setup(total)                                   \
+#define testcase_setup()                                        \
     do {                                                        \
         t_total = 0;                                            \
         t_errors = 0;                                           \

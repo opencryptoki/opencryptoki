@@ -1155,7 +1155,7 @@ int main(int argc, char **argv)
         }
     }
     rc = 0;
-    testcase_setup(0);          //TODO
+    testcase_setup();
     rc = des_funcs();
     testcase_print_result();
 
