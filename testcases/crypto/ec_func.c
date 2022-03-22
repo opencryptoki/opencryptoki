@@ -400,10 +400,15 @@ CK_RV run_DeriveECDHKey()
     }
 
     for (i=0; i<NUMEC; i++) {
+        CK_ATTRIBUTE cka_derive_tmpl[] = {
+            {CKA_PRIVATE, &true, sizeof(true)},
+            {CKA_EXTRACTABLE, &true, sizeof(true)},
+        };
         CK_ATTRIBUTE prv_attr[] = {
             {CKA_SIGN, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &true, sizeof(true)},
             {CKA_DERIVE, &true, sizeof(true)},
+            {CKA_DERIVE_TEMPLATE, &cka_derive_tmpl, sizeof(cka_derive_tmpl)},
         };
         CK_ULONG prv_attr_len = sizeof(prv_attr)/sizeof(CK_ATTRIBUTE);
         CK_ATTRIBUTE prv_attr_edwards[] = {
@@ -415,6 +420,7 @@ CK_RV run_DeriveECDHKey()
         CK_ATTRIBUTE prv_attr_montgomery[] = {
             {CKA_DERIVE, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &true, sizeof(true)},
+            {CKA_DERIVE_TEMPLATE, &cka_derive_tmpl, sizeof(cka_derive_tmpl)},
         };
         CK_ULONG prv_attr_montgomery_len =
                     sizeof(prv_attr_montgomery)/sizeof(CK_ATTRIBUTE);
