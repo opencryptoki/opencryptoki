@@ -4837,8 +4837,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_MECHANISM ecdh1_mech, ecdh1_mech2;
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, field_len, key_len = 0;
-    CK_ATTRIBUTE *new_attrs2 = NULL;
-    CK_ULONG new_attrs2_len = 0;
+    CK_ATTRIBUTE *new_attrs1 = NULL, *new_attrs2 = NULL;
+    CK_ULONG new_attrs1_len = 0, new_attrs2_len = 0;
     CK_ULONG privlen;
     int curve_type;
     CK_BBOOL allocated = FALSE;
@@ -5053,8 +5053,17 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    rc = key_object_apply_template_attr(base_key_obj->template,
+                                        CKA_DERIVE_TEMPLATE,
+                                        new_attrs, new_attrs_len,
+                                        &new_attrs1, &new_attrs1_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto error;
+    }
+
     /* Start creating the key object */
-    rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
+    rc = object_mgr_create_skel(tokdata, session, new_attrs1, new_attrs1_len,
                                 MODE_DERIVE, class, ktype, &key_obj);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
@@ -5156,6 +5165,8 @@ error:
         free(chk_attr);
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
+    if (new_attrs1)
+        free_attribute_array(new_attrs1, new_attrs1_len);
     if (new_attrs2)
         free_attribute_array(new_attrs2, new_attrs2_len);
     if (allocated && ecpoint != NULL)
@@ -8455,12 +8466,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     tmp_attrs_len = new_attrs_len;
     new_attrs = NULL;
     new_attrs_len = 0;
-    rc = key_object_apply_unwrap_template(kobj->template,
-                                          tmp_attrs, tmp_attrs_len,
-                                          &new_attrs, &new_attrs_len);
+    rc = key_object_apply_template_attr(kobj->template, CKA_UNWRAP_TEMPLATE,
+                                        tmp_attrs, tmp_attrs_len,
+                                        &new_attrs, &new_attrs_len);
     free_attribute_array(tmp_attrs, tmp_attrs_len);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("key_object_apply_unwrap_template failed.\n");
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
         goto done;
     }
 

@@ -317,6 +317,7 @@ CK_BBOOL is_attribute_defined(CK_ATTRIBUTE_TYPE type)
     case CKA_COPYABLE:
     case CKA_DESTROYABLE:
     case CKA_ALLOWED_MECHANISMS:
+    case CKA_DERIVE_TEMPLATE:
         return TRUE;
     }
 
@@ -334,6 +335,7 @@ CK_BBOOL is_attribute_attr_array(CK_ATTRIBUTE_TYPE type)
     switch (type) {
     case CKA_WRAP_TEMPLATE:
     case CKA_UNWRAP_TEMPLATE:
+    case CKA_DERIVE_TEMPLATE:
          return TRUE;
     }
 

@@ -1200,11 +1200,12 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = key_object_apply_unwrap_template(unwrapping_key_obj->template,
-                                          attributes, attrib_count,
-                                          &new_attrs, &new_attr_count);
+    rc = key_object_apply_template_attr(unwrapping_key_obj->template,
+                                        CKA_UNWRAP_TEMPLATE,
+                                        attributes, attrib_count,
+                                        &new_attrs, &new_attr_count);
     if (rc != CKR_OK) {
-        TRACE_DEVEL("key_object_apply_unwrap_template failed.\n");
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
         goto done;
     }
 
@@ -1475,6 +1476,12 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
                          CK_OBJECT_HANDLE *derived_key,
                          CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
+    OBJECT *base_key_obj = NULL;
+    CK_ATTRIBUTE *new_attrs = NULL;
+    CK_ULONG new_attr_count = 0;
+    CK_BBOOL flag;
+    CK_RV rc;
+
     if (!sess || !mech) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
@@ -1483,41 +1490,101 @@ CK_RV key_mgr_derive_key(STDLL_TokData_t *tokdata,
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
+
+    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to acquire key from specified handle.\n");
+        if (rc == CKR_OBJECT_HANDLE_INVALID)
+            rc = CKR_KEY_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &base_key_obj->strength,
+                                          POLICY_CHECK_DERIVE, sess);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY VIOLATION: derive key\n");
+        goto done;
+    }
+
+    if (!key_object_is_mechanism_allowed(base_key_obj->template,
+                                         mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
+    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    if (flag == FALSE) {
+        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto done;
+    }
+
+    rc = key_object_apply_template_attr(base_key_obj->template,
+                                        CKA_DERIVE_TEMPLATE,
+                                        pTemplate, ulCount,
+                                        &new_attrs, &new_attr_count);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("key_object_apply_template_attr failed.\n");
+        goto done;
+    }
+
     switch (mech->mechanism) {
     case CKM_SSL3_MASTER_KEY_DERIVE:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            break;
         }
-        return ssl3_master_key_derive(tokdata, sess, mech, base_key,
-                                      pTemplate, ulCount, derived_key);
+        rc = ssl3_master_key_derive(tokdata, sess, mech, base_key_obj,
+                                    new_attrs, new_attr_count, derived_key);
         break;
     case CKM_SSL3_KEY_AND_MAC_DERIVE:
-        return ssl3_key_and_mac_derive(tokdata, sess, mech, base_key,
-                                       pTemplate, ulCount);
+        rc = ssl3_key_and_mac_derive(tokdata, sess, mech, base_key_obj,
+                                     new_attrs, new_attr_count);
         break;
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH
     case CKM_DH_PKCS_DERIVE:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            break;
         }
-        return dh_pkcs_derive(tokdata, sess, mech, base_key,
-                              pTemplate, ulCount, derived_key);
+        rc = dh_pkcs_derive(tokdata, sess, mech, base_key_obj,
+                            new_attrs, new_attr_count, derived_key);
         break;
 #endif
 /* End code contributed by Corrent corp. */
     case CKM_ECDH1_DERIVE:
         if (!derived_key) {
             TRACE_ERROR("%s received bad argument(s)\n", __func__);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            break;
         }
-        return ecdh_pkcs_derive(tokdata, sess, mech, base_key, pTemplate,
-                                ulCount, derived_key);
+        rc = ecdh_pkcs_derive(tokdata, sess, mech, base_key_obj, new_attrs,
+                              new_attr_count, derived_key);
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
-        return CKR_MECHANISM_INVALID;
+        rc = CKR_MECHANISM_INVALID;
+        break;
     }
+
+done:
+    if (new_attrs != NULL)
+        cleanse_and_free_attribute_array(new_attrs, new_attr_count);
+    if (base_key_obj != NULL) {
+        object_put(tokdata, base_key_obj, TRUE);
+        base_key_obj = NULL;
+    }
+
+    return rc;
 }

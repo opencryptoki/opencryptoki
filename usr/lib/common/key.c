@@ -440,15 +440,16 @@ CK_BBOOL key_object_wrap_template_matches(TEMPLATE *wrap_tmpl, TEMPLATE *tmpl)
                             attr->ulValueLen / sizeof(CK_ATTRIBUTE), tmpl);
 }
 
-CK_RV key_object_apply_unwrap_template(TEMPLATE *unwrap_tmpl,
-                                       CK_ATTRIBUTE_PTR attrs,
-                                       CK_ULONG attrs_count,
-                                       CK_ATTRIBUTE_PTR *new_attrs,
-                                       CK_ULONG *new_attrs_count)
+CK_RV key_object_apply_template_attr(TEMPLATE *unwrap_tmpl,
+                                     CK_ATTRIBUTE_TYPE attr_type,
+                                     CK_ATTRIBUTE_PTR attrs,
+                                     CK_ULONG attrs_count,
+                                     CK_ATTRIBUTE_PTR *new_attrs,
+                                     CK_ULONG *new_attrs_count)
 {
     CK_ATTRIBUTE *attr = NULL;
-    CK_ATTRIBUTE_PTR unwrap_attrs;
-    CK_ULONG num_unwrap_attrs, i;
+    CK_ATTRIBUTE_PTR apply_attrs;
+    CK_ULONG num_apply_attrs, i;
     CK_RV rc;
 
     rc = dup_attribute_array(attrs, attrs_count, new_attrs, new_attrs_count);
@@ -457,33 +458,33 @@ CK_RV key_object_apply_unwrap_template(TEMPLATE *unwrap_tmpl,
         return rc;
     }
 
-    if (!template_attribute_find(unwrap_tmpl, CKA_UNWRAP_TEMPLATE, &attr))
+    if (!template_attribute_find(unwrap_tmpl, attr_type, &attr))
        return CKR_OK;
 
     if (attr->ulValueLen == 0 || attr->pValue == NULL)
         return CKR_OK;
 
-    unwrap_attrs = (CK_ATTRIBUTE_PTR)attr->pValue;
-    num_unwrap_attrs = attr->ulValueLen / sizeof (CK_ATTRIBUTE);
+    apply_attrs = (CK_ATTRIBUTE_PTR)attr->pValue;
+    num_apply_attrs = attr->ulValueLen / sizeof (CK_ATTRIBUTE);
 
-    for (i = 0; i < num_unwrap_attrs; i++) {
+    for (i = 0; i < num_apply_attrs; i++) {
         /*
          * If the attribute to apply is already in the user supplied template,
          * make sure that it does not conflict.
          */
-        attr = get_attribute_by_type(attrs, attrs_count, unwrap_attrs[i].type);
+        attr = get_attribute_by_type(attrs, attrs_count, apply_attrs[i].type);
         if (attr != NULL) {
-            if (compare_attribute(attr, &unwrap_attrs[i]) == FALSE) {
+            if (compare_attribute(attr, &apply_attrs[i]) == FALSE) {
                 TRACE_DEVEL("%s: %lu conflicts\n",
                             ock_err(ERR_TEMPLATE_INCONSISTENT),
-                            unwrap_attrs[i].type);
+                            apply_attrs[i].type);
                 return CKR_TEMPLATE_INCONSISTENT;
             }
         } else {
             rc = add_to_attribute_array(new_attrs, new_attrs_count,
-                                        unwrap_attrs[i].type,
-                                        unwrap_attrs[i].pValue,
-                                        unwrap_attrs[i].ulValueLen);
+                                        apply_attrs[i].type,
+                                        apply_attrs[i].pValue,
+                                        apply_attrs[i].ulValueLen);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("add_to_attribute_array failed\n");
                 return rc;
@@ -809,6 +810,7 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *wrap_trusted_attr = NULL;
     CK_ATTRIBUTE *pki_attr = NULL;
     CK_ATTRIBUTE *unwraptmpl_attr = NULL;
+    CK_ATTRIBUTE *derivetmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -844,11 +846,13 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     pki_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     unwraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    derivetmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !subject_attr || !sensitive_attr || !decrypt_attr ||
         !sign_attr || !sign_recover_attr || !unwrap_attr || !extractable_attr ||
         !never_extr_attr || !always_sens_attr || !always_auth_attr ||
-        !wrap_trusted_attr || !pki_attr || !unwraptmpl_attr) {
+        !wrap_trusted_attr || !pki_attr || !unwraptmpl_attr ||
+        !derivetmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -930,6 +934,10 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     unwraptmpl_attr->type = CKA_UNWRAP_TEMPLATE;
     unwraptmpl_attr->ulValueLen = 0;
     unwraptmpl_attr->pValue = NULL;
+
+    derivetmpl_attr->type = CKA_DERIVE_TEMPLATE;
+    derivetmpl_attr->ulValueLen = 0;
+    derivetmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -1015,6 +1023,12 @@ CK_RV priv_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     unwraptmpl_attr = NULL;
+    rc = template_update_attribute(tmpl, derivetmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    derivetmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -1047,6 +1061,8 @@ error:
         free(pki_attr);
     if (unwraptmpl_attr)
         free(unwraptmpl_attr);
+    if (derivetmpl_attr)
+        free(derivetmpl_attr);
 
     return rc;
 }
@@ -1316,6 +1332,7 @@ CK_RV priv_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
         return CKR_ATTRIBUTE_TYPE_INVALID;
     case CKA_UNWRAP_TEMPLATE:
+    case CKA_DERIVE_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
@@ -1376,6 +1393,7 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     CK_ATTRIBUTE *chkval_attr = NULL;
     CK_ATTRIBUTE *wraptmpl_attr = NULL;
     CK_ATTRIBUTE *unwraptmpl_attr = NULL;
+    CK_ATTRIBUTE *derivetmpl_attr = NULL;
     CK_RV rc;
 
 
@@ -1414,12 +1432,14 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     chkval_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     wraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
     unwraptmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    derivetmpl_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
 
     if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr ||
         !sign_attr || !verify_attr || !wrap_attr ||
         !unwrap_attr || !extractable_attr || !never_extr_attr
         || !always_sens_attr  || !trusted_attr || !wrap_trusted_attr ||
-        !chkval_attr || !wraptmpl_attr || !unwraptmpl_attr) {
+        !chkval_attr || !wraptmpl_attr || !unwraptmpl_attr ||
+        !derivetmpl_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
         goto error;
@@ -1509,6 +1529,10 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     unwraptmpl_attr->type = CKA_UNWRAP_TEMPLATE;
     unwraptmpl_attr->ulValueLen = 0;
     unwraptmpl_attr->pValue = NULL;
+
+    derivetmpl_attr->type = CKA_DERIVE_TEMPLATE;
+    derivetmpl_attr->ulValueLen = 0;
+    derivetmpl_attr->pValue = NULL;
 
     rc = template_update_attribute(tmpl, class_attr);
     if (rc != CKR_OK) {
@@ -1606,6 +1630,12 @@ CK_RV secret_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
         goto error;
     }
     unwraptmpl_attr = NULL;
+    rc = template_update_attribute(tmpl, derivetmpl_attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("template_update_attribute failed.\n");
+        goto error;
+    }
+    derivetmpl_attr = NULL;
 
     return CKR_OK;
 
@@ -1642,6 +1672,8 @@ error:
         free(wraptmpl_attr);
     if (unwraptmpl_attr)
         free(unwraptmpl_attr);
+    if (derivetmpl_attr)
+        free(derivetmpl_attr);
 
     return rc;
 }
@@ -1886,6 +1918,7 @@ CK_RV secret_key_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_OK;
     case CKA_WRAP_TEMPLATE:
     case CKA_UNWRAP_TEMPLATE:
+    case CKA_DERIVE_TEMPLATE:
         if ((attr->ulValueLen > 0 && attr->pValue == NULL) ||
             attr->ulValueLen % sizeof(CK_ATTRIBUTE)) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));

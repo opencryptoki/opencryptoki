@@ -552,14 +552,14 @@ CK_RV ssl3_mac_verify_final(STDLL_TokData_t *tokdata,
 CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
                              SESSION *sess,
                              CK_MECHANISM *mech,
-                             CK_OBJECT_HANDLE base_key,
+                             OBJECT *base_key_obj,
                              CK_ATTRIBUTE *attributes,
                              CK_ULONG count, CK_OBJECT_HANDLE *handle);
 
 CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
                               SESSION *sess,
                               CK_MECHANISM *mech,
-                              CK_OBJECT_HANDLE base_key,
+                              OBJECT *base_key_obj,
                               CK_ATTRIBUTE *attributes, CK_ULONG count);
 
 CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
@@ -831,7 +831,7 @@ CK_RV ckm_dsa_verify(STDLL_TokData_t *tokdata,
 CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                      SESSION *sess,
                      CK_MECHANISM *mech,
-                     CK_OBJECT_HANDLE base_key,
+                     OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle);
 
@@ -841,7 +841,7 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          SESSION *sess,
                          CK_VOID_PTR other_pubkey,
                          CK_ULONG other_pubkey_len,
-                         CK_OBJECT_HANDLE base_key,
+                         OBJECT *base_key_obj,
                          CK_BYTE *secret, CK_ULONG *secret_len,
                          CK_MECHANISM_PTR mech);
 
@@ -864,7 +864,7 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
                                 CK_ULONG *key_len);
 
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
-                 CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
+                 CK_MECHANISM *mech, OBJECT *base_key_obj,
                  CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                  CK_OBJECT_HANDLE *derived_key_obj);
 
@@ -2390,11 +2390,12 @@ CK_RV key_object_validate_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
 CK_BBOOL key_object_is_mechanism_allowed(TEMPLATE *tmpl,
                                          CK_MECHANISM_TYPE mech);
 CK_BBOOL key_object_wrap_template_matches(TEMPLATE *wrap_tmpl, TEMPLATE *tmpl);
-CK_RV key_object_apply_unwrap_template(TEMPLATE *unwrap_tmpl,
-                                       CK_ATTRIBUTE_PTR attrs,
-                                       CK_ULONG attrs_count,
-                                       CK_ATTRIBUTE_PTR *new_attrs,
-                                       CK_ULONG *new_attrs_count);
+CK_RV key_object_apply_template_attr(TEMPLATE *unwrap_tmpl,
+                                     CK_ATTRIBUTE_TYPE attr_type,
+                                     CK_ATTRIBUTE_PTR attrs,
+                                     CK_ULONG attrs_count,
+                                     CK_ATTRIBUTE_PTR *new_attrs,
+                                     CK_ULONG *new_attrs_count);
 
 CK_RV publ_key_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV publ_key_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
