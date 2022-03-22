@@ -1014,12 +1014,11 @@ static CK_RV ssl3_md5_only(STDLL_TokData_t *tokdata,
 CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
                              SESSION *sess,
                              CK_MECHANISM *mech,
-                             CK_OBJECT_HANDLE base_key,
+                             OBJECT* base_key_obj,
                              CK_ATTRIBUTE *pTemplate,
                              CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     OBJECT *derived_key_obj = NULL;
-    OBJECT *base_key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *value_len_attr = NULL;
@@ -1043,43 +1042,6 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     params = (CK_SSL3_MASTER_KEY_DERIVE_PARAMS *) mech->pParameter;
-
-    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                          &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE,
-                                          sess);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: derive key\n");
-        goto error;
-    }
-
-    if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                         CKM_SSL3_MASTER_KEY_DERIVE)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto error;
-    }
-
-    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto error;
-    }
-
-    if (flag == FALSE) {
-        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto error;
-    }
 
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
                                           &attr);
@@ -1305,9 +1267,6 @@ CK_RV ssl3_master_key_derive(STDLL_TokData_t *tokdata,
 
     INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
-
     return CKR_OK;
 
 error:
@@ -1322,9 +1281,6 @@ error:
     if (derived_key_obj)
         object_free(derived_key_obj);
 
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
-
     return rc;
 }
 
@@ -1334,10 +1290,9 @@ error:
 CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
                               SESSION *sess,
                               CK_MECHANISM *mech,
-                              CK_OBJECT_HANDLE base_key,
+                              OBJECT *base_key_obj,
                               CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount)
 {
-    OBJECT *base_key_obj = NULL;
     CK_ATTRIBUTE *attr = NULL;
 
     CK_BYTE *client_MAC_key_value = NULL;
@@ -1351,7 +1306,7 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     CK_BYTE key_block[(16 * 26) + (4 * 16)];
     CK_ULONG i, key_material_loop_count;
     CK_ULONG iv_len = 0, MAC_len, write_len;
-    CK_BBOOL tmp, flag;
+    CK_BBOOL tmp;
     CK_OBJECT_CLASS cl;
     CK_RV rc;
 
@@ -1382,43 +1337,6 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     params = (CK_SSL3_KEY_MAT_PARAMS *) mech->pParameter;
-
-    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
-
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                          &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE,
-                                          sess);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: derive wrap\n");
-        goto error;
-    }
-    if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                         CKM_SSL3_KEY_AND_MAC_DERIVE)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto error;
-    }
-
-    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto error;
-    }
-
-    if (flag == FALSE) {
-        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto error;
-    }
 
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
                                           &attr);
@@ -1689,9 +1607,6 @@ CK_RV ssl3_key_and_mac_derive(STDLL_TokData_t *tokdata,
     INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
 
 error:
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
-
     return rc;
 }
 

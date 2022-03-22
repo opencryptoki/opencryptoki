@@ -792,59 +792,19 @@ CK_RV ckm_kdf_X9_63(STDLL_TokData_t *tokdata, SESSION *sess, CK_ULONG kdf,
 
 CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
                            CK_VOID_PTR other_pubkey, CK_ULONG other_pubkey_len,
-                           CK_OBJECT_HANDLE base_key,
+                           OBJECT* base_key_obj,
                            CK_BYTE *secret_value, CK_ULONG *secret_value_len,
                            CK_MECHANISM_PTR mech)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr;
-    OBJECT *base_key_obj = NULL;
     CK_BYTE *oid_p;
     CK_ULONG oid_len;
     CK_ULONG class = 0, keytype = 0;
-    CK_BBOOL flag;
 
     if (token_specific.t_ecdh_pkcs_derive == NULL) {
         TRACE_ERROR("ecdh pkcs derive is not supported by this token.\n");
         return CKR_FUNCTION_NOT_SUPPORTED;
-    }
-
-    /* Find base_key struct */
-    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                          &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE,
-                                          base_key_obj->session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: derive key\n");
-        goto done;
-    }
-
-    if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                         CKM_ECDH1_DERIVE)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto done;
-    }
-
-    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto done;
-    }
-
-    if (flag == FALSE) {
-        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto done;
     }
 
     /* Get curve oid from CKA_ECDSA_PARAMS */
@@ -893,9 +853,6 @@ CK_RV ckm_ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 done:
     if (rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
-
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
 
     return rc;
 }
@@ -1075,7 +1032,7 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
 }
 
 CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
-                       CK_MECHANISM *mech, CK_OBJECT_HANDLE base_key,
+                       CK_MECHANISM *mech, OBJECT *base_key_obj,
                        CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount,
                        CK_OBJECT_HANDLE *derived_key_obj)
 {
@@ -1126,7 +1083,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
 
     /* Derive the shared secret */
     rc = ckm_ecdh_pkcs_derive(tokdata, sess, pParms->pPublicData,
-                              pParms->ulPublicDataLen, base_key, z_value,
+                              pParms->ulPublicDataLen, base_key_obj, z_value,
                               &z_len, mech);
     if (rc != CKR_OK) {
         TRACE_ERROR("Error deriving the shared secret.\n");

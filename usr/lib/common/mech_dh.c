@@ -46,7 +46,7 @@
 CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
                      SESSION *sess,
                      CK_MECHANISM *mech,
-                     CK_OBJECT_HANDLE base_key,
+                     OBJECT *base_key_obj,
                      CK_ATTRIBUTE *pTemplate,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
@@ -96,7 +96,7 @@ CK_RV dh_pkcs_derive(STDLL_TokData_t *tokdata,
 
     rc = ckm_dh_pkcs_derive(tokdata, sess,
                             mech->pParameter, mech->ulParameterLen,
-                            base_key, secret_key_value, &secret_key_value_len,
+                            base_key_obj, secret_key_value, &secret_key_value_len,
                             mech);
     if (rc != CKR_OK)
         return rc;
@@ -151,7 +151,7 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
                          SESSION *sess,
                          CK_VOID_PTR other_pubkey,
                          CK_ULONG other_pubkey_len,
-                         CK_OBJECT_HANDLE base_key,
+                         OBJECT *base_key_obj,
                          CK_BYTE *secret_value, CK_ULONG *secret_value_len,
                          CK_MECHANISM_PTR mech)
 {
@@ -161,46 +161,7 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
     CK_BYTE x[256];
     CK_ULONG x_len;
     CK_ATTRIBUTE *temp_attr;
-    OBJECT *base_key_obj = NULL;
     CK_BYTE *p_other_pubkey;
-    CK_BBOOL flag;
-
-    rc = object_mgr_find_in_map1(tokdata, base_key, &base_key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
-    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
-                                          &base_key_obj->strength,
-                                          POLICY_CHECK_DERIVE,
-                                          base_key_obj->session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("POLICY VIOLATION: derive key\n");
-        goto done;
-    }
-
-    if (!key_object_is_mechanism_allowed(base_key_obj->template,
-                                         CKM_DH_PKCS_DERIVE)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
-        rc = CKR_MECHANISM_INVALID;
-        goto done;
-    }
-
-    rc = template_attribute_get_bool(base_key_obj->template, CKA_DERIVE, &flag);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_DERIVE for the base key.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto done;
-    }
-
-    if (flag == FALSE) {
-        TRACE_ERROR("CKA_DERIVE is set to FALSE.\n");
-        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
-        goto done;
-    }
 
     // Extract secret (x) from base_key
     rc = template_attribute_get_non_empty(base_key_obj->template, CKA_VALUE,
@@ -250,9 +211,6 @@ CK_RV ckm_dh_pkcs_derive(STDLL_TokData_t *tokdata,
 done:
     if (rc == CKR_OK)
         INC_COUNTER(tokdata, sess, mech, base_key_obj, POLICY_STRENGTH_IDX_0);
-
-    object_put(tokdata, base_key_obj, TRUE);
-    base_key_obj = NULL;
 
     return rc;
 }
