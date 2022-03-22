@@ -4980,7 +4980,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (!key_object_is_mechanism_allowed(base_key_obj->template,
                                          mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto error;
     }
@@ -6878,7 +6878,7 @@ CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -6981,7 +6981,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         free(ep11_sign_state);
         goto done;
@@ -7230,7 +7230,7 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -7290,7 +7290,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         free(ep11_sign_state);
         goto done;
@@ -7548,7 +7548,7 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -7748,7 +7748,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -7947,7 +7947,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -8017,7 +8017,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto error;
     }
@@ -8224,7 +8224,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (!key_object_is_mechanism_allowed(wrap_key_obj->template,
                                          mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         if (size_query)
             free(wrapped_key);
@@ -8387,7 +8387,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (!key_object_is_mechanism_allowed(kobj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto error;
     }

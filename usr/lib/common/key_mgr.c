@@ -713,7 +713,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     }
     if (!key_object_is_mechanism_allowed(wrapping_key_obj->template,
                                          mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
@@ -1114,7 +1114,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     }
     if (!key_object_is_mechanism_allowed(unwrapping_key_obj->template,
                                          mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
