@@ -117,7 +117,7 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
     }
 
     if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
-        TRACE_ERROR("Mechanism not allwed per CKA_ALLOWED_MECHANISMS.\n");
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
         goto done;
     }
