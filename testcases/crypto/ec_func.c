@@ -626,15 +626,15 @@ CK_RV run_DeriveECDHKey()
                     continue;
                 }
                 if (is_ep11_token(SLOT_ID) &&
-                    secret_key_len[k] > 0 && secret_key_len[k] <= 8) {
+                    secret_key_len[k] > 0 && secret_key_len[k] < 10) {
                     /*
-                     * The CEX5P seems to have a firmware bug that hinders it
-                     * from deriving a valid EP11 key blob for a derived key
-                     * size <= 8. Skip this key sizes until the firmware bug
-                     * has been fixed.
-                     */
-                    testcase_skip("EP11 cannot provide %lu key bytes on a CEX5\n",
-                                   secret_key_len[k]);
+                     * EP11 can not derive keys less than 80 bits (10 bytes).
+                     * This was formerly dependent on control point
+                     * XCP_CPB_KEYSZ_BELOW80BIT, but this control point
+                     * is now always OFF.
+                     * */
+                    testcase_skip("EP11 cannot provide %lu key bytes (%lu bits < 80 bits)\n",
+                                  secret_key_len[k], secret_key_len[k] * 8);
                     continue;
                 }
                 if (secret_key_len[k] == 0 &&
