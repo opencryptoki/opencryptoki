@@ -202,7 +202,11 @@ if ENABLE_SYSTEMD
 		rm -f $(DESTDIR)/usr/lib/tmpfiles.d/opencryptoki.conf; fi
 endif
 endif
+if ENABLE_P11SAK
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || true
+endif
 	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || true
+	rm -f $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || true
 
 
 if ENABLE_TESTCASES
