@@ -418,6 +418,8 @@ done:
         free(newpin2);
     }
 
+    cleanup();
+
     return rv == CKR_OK ? 0 : -1;
 }
 
