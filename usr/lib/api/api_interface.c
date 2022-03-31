@@ -3008,6 +3008,21 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
      * usage breaks this loop.
      */
     ERR_set_mark();
+
+    /* Perform Opencryptoki cleanup when OpenSSL cleanup is run.
+     * Otherwise it might happen that the library destructor is called
+     * after OpenSSL cleanup has already been performed, and this will
+     * cause crashes when trying to free our own OpenSSL library context,
+     * since the contexts have already been freed by OpenSSL cleanup at that
+     * time.
+     */
+    if (OPENSSL_atexit(Call_Finalize) != 1) {
+        TRACE_ERROR("OPENSSL_atexit failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        ERR_pop_to_mark();
+        goto error;
+    }
+
     Anchor->openssl_libctx = OSSL_LIB_CTX_new();
     if (Anchor->openssl_libctx == NULL) {
         TRACE_ERROR("OSSL_LIB_CTX_new failed.\n");
