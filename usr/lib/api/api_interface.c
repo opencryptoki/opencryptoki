@@ -272,6 +272,7 @@ int slot_loaded[NUMBER_SLOTS_MANAGED];  // Array of flags to indicate
                                        // if the STDLL loaded
 
 CK_BBOOL in_child_fork_initializer = FALSE;
+CK_BBOOL in_destructor = FALSE;
 
 /*
  * Ordered array of interfaces: If more than one interface matches
@@ -1705,14 +1706,27 @@ CK_RV C_Finalize(CK_VOID_PTR pReserved)
     bt_destroy(&Anchor->sess_btree);
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
-    ERR_set_mark();
-    if (Anchor->openssl_default_provider != NULL)
-        OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
-    if (Anchor->openssl_legacy_provider != NULL)
-        OSSL_PROVIDER_unload(Anchor->openssl_legacy_provider);
-    if (Anchor->openssl_libctx != NULL)
-        OSSL_LIB_CTX_free(Anchor->openssl_libctx);
-    ERR_pop_to_mark();
+    /*
+     * Only cleanup OpenSSL library context and providers if we are not in the
+     * library destructor. The library destructor calls C_Finalize if not
+     * already finalized, but this may happen during at-exit handlers when the
+     * program is terminating. At that point in time, the OpenSSL at-exit
+     * handler may already have performed cleanup which will then cause
+     * crashes when trying to cleanup the already freed library context here.
+     * We are leaking the library context and providers if one just unloads
+     * the library without calling C_Finalize. However, OpenSSL cleanup will
+     * clean up the context at program termination anyway.
+     */
+    if (in_destructor == FALSE) {
+        ERR_set_mark();
+        if (Anchor->openssl_default_provider != NULL)
+            OSSL_PROVIDER_unload(Anchor->openssl_default_provider);
+        if (Anchor->openssl_legacy_provider != NULL)
+            OSSL_PROVIDER_unload(Anchor->openssl_legacy_provider);
+        if (Anchor->openssl_libctx != NULL)
+            OSSL_LIB_CTX_free(Anchor->openssl_libctx);
+        ERR_pop_to_mark();
+    }
 #endif
 
     detach_shared_memory(Anchor->SharedMemP);
@@ -5469,6 +5483,7 @@ void api_fini(void) __attribute__ ((destructor));
 void api_fini()
 {
     if (API_Initialized() == TRUE) {
+        in_destructor = TRUE;
         Call_Finalize();
     }
 }
