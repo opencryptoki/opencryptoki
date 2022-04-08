@@ -560,7 +560,8 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
 
     if ((error = dlerror()) != NULL) {
         OCK_SYSLOG(LOG_ERR, "%s\n", error);
-        exit(EXIT_FAILURE);
+        TRACE_ERROR("%s %s\n", __func__, error);
+        return CKR_FUNCTION_FAILED;
     }
 
     return CKR_OK;
@@ -598,7 +599,9 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     rc = cca_resolve_lib_sym(lib_csulcca);
     if (rc)
-        exit(rc);
+        return rc;
+
+    tokdata->private_data = lib_csulcca;
 
     memcpy(rule_array, "STATCCAE", 8);
 
@@ -636,6 +639,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     TRACE_INFO("cca %s running\n", __func__);
 
     free(tokdata->mech_list);
+
+    if (tokdata->private_data != NULL)
+        dlclose(tokdata->private_data);
+    tokdata->private_data = NULL;
 
     return CKR_OK;
 }

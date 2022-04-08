@@ -525,6 +525,7 @@ typedef struct {
     int digest_libica;
     char digest_libica_path[PATH_MAX];
     libica_t libica;
+    void *lib_ep11;
     CK_VERSION ep11_lib_version;
     volatile ep11_target_info_t *target_info;
     pthread_rwlock_t target_rwlock;
@@ -2292,7 +2293,6 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name)
 {
     CK_RV rc;
-    void *lib_ep11;
     CK_ULONG len = 16;
     CK_BBOOL cktrue = 1;
     CK_ATTRIBUTE wrap_tmpl[] = { {CKA_VALUE_LEN, &len, sizeof(CK_ULONG)}
@@ -2339,13 +2339,13 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     /* dynamically load in the ep11 shared library */
-    lib_ep11 = ep11_load_host_lib();
-    if (lib_ep11 == NULL) {
+    ep11_data->lib_ep11 = ep11_load_host_lib();
+    if (ep11_data->lib_ep11 == NULL) {
         rc = CKR_FUNCTION_FAILED;
         goto error;
     }
 
-    rc = ep11_resolve_lib_sym(lib_ep11);
+    rc = ep11_resolve_lib_sym(ep11_data->lib_ep11);
     if (rc != CKR_OK)
         goto error;
 
@@ -2464,6 +2464,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
             ep11_data->libica.ica_cleanup();
         if (ep11_data->libica.library != NULL)
             dlclose(ep11_data->libica.library);
+        if (ep11_data->lib_ep11 != NULL)
+            dlclose(ep11_data->lib_ep11);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
