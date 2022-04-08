@@ -49,6 +49,7 @@
 #define ICA_MAX_MECH_LIST_ENTRIES       120
 
 typedef struct {
+    void *libica_dso;
     ica_adapter_handle_t adapter_handle;
     int ica_ec_support_available;
     int ica_ec_keygen_available;
@@ -122,7 +123,17 @@ typedef int (*ica_ec_key_get_private_key_t) (ICA_EC_KEY *key,
                                              unsigned char *d,
                                              unsigned int *d_len);
 typedef void (*ica_ec_key_free_t) (ICA_EC_KEY *key);
+typedef void (*ica_cleanup_t) (void);
 
+/*
+ * These symbols loaded from libica via dlsym() can be static, even if
+ * multiple instances of the ICA token are used. The libica library loaded
+ * via dlopen will return the same symbols when loaded multiple times, but
+ * reference counts the library.
+ * When unloading the library, dlclose unloads the library only when the
+ * reference count of the library is zero. Thus, these symbols are valid until
+ * the library got finally unloaded.
+ */
 static ica_ec_key_new_t                p_ica_ec_key_new;
 static ica_ec_key_init_t               p_ica_ec_key_init;
 static ica_ec_key_generate_t           p_ica_ec_key_generate;
@@ -132,6 +143,7 @@ static ica_ecdsa_verify_t              p_ica_ecdsa_verify;
 static ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
 static ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
 static ica_ec_key_free_t               p_ica_ec_key_free;
+static ica_cleanup_t                   p_ica_cleanup;
 
 static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
@@ -217,16 +229,14 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
 static ica_sha3_512_t                  p_ica_sha3_512;
 #endif
 
-static CK_RV load_libica(void)
+static CK_RV load_libica(ica_private_data_t *ica_data)
 {
-    void *ibmca_dso = NULL;
-
     /* Load libica */
-    ibmca_dso = dlopen(LIBICA_SHARED_LIB_V4, RTLD_NOW);
-    if (ibmca_dso == NULL)
-        ibmca_dso = dlopen(LIBICA_SHARED_LIB_V3, RTLD_NOW);
+    ica_data->libica_dso = dlopen(LIBICA_SHARED_LIB_V4, RTLD_NOW);
+    if (ica_data->libica_dso == NULL)
+        ica_data->libica_dso = dlopen(LIBICA_SHARED_LIB_V3, RTLD_NOW);
 
-    if (ibmca_dso == NULL) {
+    if (ica_data->libica_dso == NULL) {
         TRACE_ERROR("%s: dlopen(%s or %s) failed: %s\n", __func__,
                     LIBICA_SHARED_LIB_V4, LIBICA_SHARED_LIB_V3, dlerror());
         return CKR_FUNCTION_FAILED;
@@ -234,35 +244,37 @@ static CK_RV load_libica(void)
 
 #ifndef NO_EC
     /* Try to resolve all needed functions for ecc support */
-    BIND(ibmca_dso, ica_ec_key_new);
-    BIND(ibmca_dso, ica_ec_key_init);
-    BIND(ibmca_dso, ica_ec_key_generate);
-    BIND(ibmca_dso, ica_ecdh_derive_secret);
-    BIND(ibmca_dso, ica_ecdsa_sign);
-    BIND(ibmca_dso, ica_ecdsa_verify);
-    BIND(ibmca_dso, ica_ec_key_get_public_key);
-    BIND(ibmca_dso, ica_ec_key_get_private_key);
-    BIND(ibmca_dso, ica_ec_key_free);
+    BIND(ica_data->libica_dso, ica_ec_key_new);
+    BIND(ica_data->libica_dso, ica_ec_key_init);
+    BIND(ica_data->libica_dso, ica_ec_key_generate);
+    BIND(ica_data->libica_dso, ica_ecdh_derive_secret);
+    BIND(ica_data->libica_dso, ica_ecdsa_sign);
+    BIND(ica_data->libica_dso, ica_ecdsa_verify);
+    BIND(ica_data->libica_dso, ica_ec_key_get_public_key);
+    BIND(ica_data->libica_dso, ica_ec_key_get_private_key);
+    BIND(ica_data->libica_dso, ica_ec_key_free);
 #endif
 
 #ifdef SHA512_224
-    BIND(ibmca_dso, ica_sha512_224);
+    BIND(ica_data->libica_dso, ica_sha512_224);
 #endif
 #ifdef SHA512_256
-    BIND(ibmca_dso, ica_sha512_256);
+    BIND(ica_data->libica_dso, ica_sha512_256);
 #endif
 #ifdef SHA3_224
-    BIND(ibmca_dso, ica_sha3_224);
+    BIND(ica_data->libica_dso, ica_sha3_224);
 #endif
 #ifdef SHA3_256
-    BIND(ibmca_dso, ica_sha3_256);
+    BIND(ica_data->libica_dso, ica_sha3_256);
 #endif
 #ifdef SHA3_384
-    BIND(ibmca_dso, ica_sha3_384);
+    BIND(ica_data->libica_dso, ica_sha3_384);
 #endif
 #ifdef SHA3_512
-    BIND(ibmca_dso, ica_sha3_512);
+    BIND(ica_data->libica_dso, ica_sha3_512);
 #endif
+
+    BIND(ica_data->libica_dso, ica_cleanup);
 
     return CKR_OK;
 }
@@ -303,7 +315,7 @@ CK_RV token_specific_init(STDLL_TokData_t *tokdata, CK_SLOT_ID SlotNumber,
     ica_data = (ica_private_data_t *)calloc(1, sizeof(ica_private_data_t));
     tokdata->private_data = ica_data;
 
-    rc = load_libica();
+    rc = load_libica(ica_data);
     if (rc != CKR_OK)
         goto out;
 
@@ -352,6 +364,11 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 
     TRACE_INFO("ica %s running\n", __func__);
     ica_close_adapter(ica_data->adapter_handle);
+
+    if (p_ica_cleanup != NULL)
+        p_ica_cleanup();
+    if (ica_data->libica_dso != NULL)
+        dlclose(ica_data->libica_dso);
 
     free(tokdata->mech_list);
     free(ica_data);

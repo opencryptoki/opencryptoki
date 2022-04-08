@@ -439,6 +439,7 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
                                        sha3_512_context_t *sha3_512_context,
                                        unsigned char *output_data);
 #endif
+typedef void (*ica_cleanup_t) (void);
 
 typedef struct {
     CK_BYTE buffer[MAX_SHA_BLOCK_SIZE];
@@ -473,6 +474,7 @@ typedef struct {
     ica_sha3_384_t ica_sha3_384;
     ica_sha3_512_t ica_sha3_512;
 #endif
+    ica_cleanup_t ica_cleanup;
 } libica_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -2278,6 +2280,7 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
     *(void **)(&libica->ica_sha3_384) = dlsym(libica->library, "ica_sha3_384");
     *(void **)(&libica->ica_sha3_512) = dlsym(libica->library, "ica_sha3_512");
 #endif
+    *(void **)(&libica->ica_cleanup) = dlsym(libica->library, "ica_cleanup");
     /* No error checking, each of the libica functions is allowed to be NULL */
 
     TRACE_DEVEL("%s: Loaded libica from '%s'\n", __func__,
@@ -2457,6 +2460,10 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
         }
         pthread_rwlock_destroy(&ep11_data->target_rwlock);
         free_cp_config(ep11_data->cp_config);
+        if (ep11_data->libica.ica_cleanup != NULL)
+            ep11_data->libica.ica_cleanup();
+        if (ep11_data->libica.library != NULL)
+            dlclose(ep11_data->libica.library);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
