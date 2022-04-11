@@ -612,6 +612,21 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
         memcpy(ptr, mech->pParameter, mech->ulParameterLen);
+
+        /* Deep copy mechanism parameter, if required */
+        switch (mech->mechanism)
+        {
+        case CKM_AES_GCM:
+            rc = aes_gcm_dup_param((CK_GCM_PARAMS *)mech->pParameter,
+                                   (CK_GCM_PARAMS *)ptr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("aes_gcm_dup_param failed\n");
+                goto done;
+            }
+            break;
+        default:
+            break;
+        }
     }
 
     ctx->key = key_handle;
@@ -645,8 +660,6 @@ CK_RV encr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
         return CKR_FUNCTION_FAILED;
     }
     ctx->key = 0;
-    ctx->mech.ulParameterLen = 0;
-    ctx->mech.mechanism = 0;
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = FALSE;
@@ -657,9 +670,21 @@ CK_RV encr_mgr_cleanup(STDLL_TokData_t *tokdata, SESSION *sess,
     ctx->count_statistics = FALSE;
 
     if (ctx->mech.pParameter) {
+        /* Deep free mechanism parameter, if required */
+        switch (ctx->mech.mechanism)
+        {
+        case CKM_AES_GCM:
+            aes_gcm_free_param((CK_GCM_PARAMS *)ctx->mech.pParameter);
+            break;
+        default:
+            break;
+        }
+
         free(ctx->mech.pParameter);
         ctx->mech.pParameter = NULL;
     }
+    ctx->mech.ulParameterLen = 0;
+    ctx->mech.mechanism = 0;
 
     if (ctx->context) {
         if (ctx->context_free_func != NULL)
