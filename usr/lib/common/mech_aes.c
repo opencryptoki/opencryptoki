@@ -3420,6 +3420,58 @@ CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *sess,
     return rc;
 }
 
+CK_RV aes_gcm_dup_param(CK_GCM_PARAMS *from, CK_GCM_PARAMS *to)
+{
+    if (from == NULL || to == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    to->pIv = NULL;
+    to->ulIvLen = 0;
+    if (from->ulIvLen != 0 && from->pIv != NULL) {
+        to->pIv = malloc(from->ulIvLen);
+        if (to->pIv == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            aes_gcm_free_param(to);
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(to->pIv, from->pIv, from->ulIvLen);
+        to->ulIvLen = from->ulIvLen;
+    }
+
+    to->pAAD = NULL;
+    to->ulAADLen = 0;
+    if (from->ulAADLen != 0 && from->pAAD) {
+        to->pAAD = malloc(from->ulAADLen);
+        if (to->pAAD == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            aes_gcm_free_param(to);
+            return CKR_HOST_MEMORY;
+        }
+
+        memcpy(to->pAAD, from->pAAD, from->ulAADLen);
+        to->ulAADLen = from->ulAADLen;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV aes_gcm_free_param(CK_GCM_PARAMS *params)
+{
+    if (params == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    if (params->pIv != NULL)
+        free(params->pIv);
+
+    if (params->pAAD != NULL)
+        free(params->pAAD);
+
+    memset(params, 0, sizeof(*params));
+
+    return CKR_OK;
+}
+
 //
 // mechanisms
 //

@@ -1489,6 +1489,10 @@ CK_RV aes_gcm_decrypt_update(STDLL_TokData_t *tokdata, SESSION *, CK_BBOOL,
 CK_RV aes_gcm_decrypt_final(STDLL_TokData_t *tokdata, SESSION *, CK_BBOOL,
                             ENCR_DECR_CONTEXT *, CK_BYTE *, CK_ULONG *);
 
+CK_RV aes_gcm_dup_param(CK_GCM_PARAMS *from, CK_GCM_PARAMS *to);
+
+CK_RV aes_gcm_free_param(CK_GCM_PARAMS *params);
+
 CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
                       CK_BBOOL length_only,
                       ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,
