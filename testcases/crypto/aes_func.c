@@ -406,6 +406,48 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV alloc_gcm_param(CK_GCM_PARAMS *gcm_param, CK_BYTE *pIV, CK_ULONG ulIVLen,
+                      CK_BYTE *pAAD, CK_ULONG ulAADLen)
+{
+    gcm_param->pIv = malloc(ulIVLen);
+    if (gcm_param->pIv == NULL)
+        return CKR_HOST_MEMORY;
+    gcm_param->ulIvLen = ulIVLen;
+    memcpy(gcm_param->pIv, pIV, ulIVLen);
+
+    gcm_param->pAAD = malloc(ulAADLen);
+    if (gcm_param->pAAD == NULL) {
+        free(gcm_param->pIv);
+        gcm_param->pIv = NULL;
+        return CKR_HOST_MEMORY;
+    }
+    gcm_param->ulAADLen = ulAADLen;
+    memcpy(gcm_param->pAAD, pAAD, ulAADLen);
+
+    return CKR_OK;
+}
+
+void free_gcm_param(CK_GCM_PARAMS *gcm_param)
+{
+    if (gcm_param == NULL)
+        return;
+
+    if (gcm_param->pIv != NULL) {
+        memset(gcm_param->pIv, 0, gcm_param->ulIvLen);
+        free(gcm_param->pIv);
+    }
+    gcm_param->pIv = NULL;
+    gcm_param->ulIvLen = 0;
+
+    if (gcm_param->pAAD != NULL) {
+        memset(gcm_param->pAAD, 0, gcm_param->ulAADLen);
+        free(gcm_param->pAAD);
+    }
+
+    gcm_param->pAAD = NULL;
+    gcm_param->ulAADLen = 0;
+}
+
 CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
 {
     unsigned int i;
@@ -416,7 +458,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     CK_ULONG user_pin_len;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
-    CK_MECHANISM mech;
+    CK_MECHANISM mech = { .mechanism = 0, .pParameter = NULL, .ulParameterLen =  0 };
     CK_OBJECT_HANDLE h_key;
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -470,11 +512,16 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
-            gcm_param->pIv = (CK_BYTE *) tsuite->tv[i].iv;
-            gcm_param->ulIvLen = tsuite->tv[i].ivlen;
-            gcm_param->pAAD = tsuite->tv[i].aad;
-            gcm_param->ulAADLen = tsuite->tv[i].aadlen;
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
+            rc = alloc_gcm_param(gcm_param,
+                                 (CK_BYTE *)tsuite->tv[i].iv,
+                                 tsuite->tv[i].ivlen,
+                                 (CK_BYTE *) tsuite->tv[i].aad,
+                                 tsuite->tv[i].aadlen);
+            if (rc != CKR_OK) {
+                testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
 
         /** clear buffers **/
@@ -495,6 +542,16 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
             goto error;
+        }
+
+        if (mech.mechanism == CKM_AES_GCM) {
+            /*
+             * Zeroise and free the GCM parameters now to test that
+             * Update/Final does not require access to the GCM parameters
+             * anymore
+             */
+            gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+            free_gcm_param(gcm_param);
         }
 
         rc = funcs->C_Encrypt(session, input, input_len, NULL, &output_len);
@@ -535,6 +592,11 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     goto testcase_cleanup;
 
 error:
+    if (mech.mechanism == CKM_AES_GCM) {
+        gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+        free_gcm_param(gcm_param);
+    }
+
     rc = funcs->C_DestroyObject(session, h_key);
     if (rc != CKR_OK)
         testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
@@ -559,7 +621,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     CK_ULONG user_pin_len;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
-    CK_MECHANISM mech;
+    CK_MECHANISM mech = { .mechanism = 0, .pParameter = NULL, .ulParameterLen =  0 };
     CK_OBJECT_HANDLE h_key;
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -612,11 +674,16 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
-            gcm_param->pIv = (CK_BYTE *) tsuite->tv[i].iv;
-            gcm_param->ulIvLen = tsuite->tv[i].ivlen;
-            gcm_param->pAAD = tsuite->tv[i].aad;
-            gcm_param->ulAADLen = tsuite->tv[i].aadlen;
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
+            rc = alloc_gcm_param(gcm_param,
+                                 (CK_BYTE *)tsuite->tv[i].iv,
+                                 tsuite->tv[i].ivlen,
+                                 (CK_BYTE *) tsuite->tv[i].aad,
+                                 tsuite->tv[i].aadlen);
+            if (rc != CKR_OK) {
+                testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
 
         /** clear buffers **/
@@ -637,6 +704,16 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
             goto error;
+        }
+
+        if (mech.mechanism == CKM_AES_GCM) {
+            /*
+             * Zeroise and free the GCM parameters now to test that
+             * Update/Final does not require access to the GCM parameters
+             * anymore
+             */
+            gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+            free_gcm_param(gcm_param);
         }
 
         /* for chunks, -1 is NULL, and 0 is empty string,
@@ -718,6 +795,11 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     goto testcase_cleanup;
 
 error:
+    if (mech.mechanism == CKM_AES_GCM) {
+        gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+        free_gcm_param(gcm_param);
+    }
+
     rc = funcs->C_DestroyObject(session, h_key);
     if (rc != CKR_OK)
         testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
@@ -742,7 +824,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
     CK_ULONG user_pin_len;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
-    CK_MECHANISM mech;
+    CK_MECHANISM mech = { .mechanism = 0, .pParameter = NULL, .ulParameterLen =  0 };
     CK_OBJECT_HANDLE h_key;
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -795,11 +877,16 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
-            gcm_param->pIv = (CK_BYTE *) tsuite->tv[i].iv;
-            gcm_param->ulIvLen = tsuite->tv[i].ivlen;
-            gcm_param->pAAD = tsuite->tv[i].aad;
-            gcm_param->ulAADLen = tsuite->tv[i].aadlen;
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
+            rc = alloc_gcm_param(gcm_param,
+                                 (CK_BYTE *)tsuite->tv[i].iv,
+                                 tsuite->tv[i].ivlen,
+                                 (CK_BYTE *) tsuite->tv[i].aad,
+                                 tsuite->tv[i].aadlen);
+            if (rc != CKR_OK) {
+                testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
 
         /** clear buffers **/
@@ -820,6 +907,16 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
             goto error;
+        }
+
+        if (mech.mechanism == CKM_AES_GCM) {
+            /*
+             * Zeroise and free the GCM parameters now to test that
+             * Update/Final does not require access to the GCM parameters
+             * anymore
+             */
+            gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+            free_gcm_param(gcm_param);
         }
 
         rc = funcs->C_Decrypt(session, input, input_len, NULL, &output_len);
@@ -860,6 +957,11 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
     goto testcase_cleanup;
 
 error:
+    if (mech.mechanism == CKM_AES_GCM) {
+        gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+        free_gcm_param(gcm_param);
+    }
+
     rc = funcs->C_DestroyObject(session, h_key);
     if (rc != CKR_OK)
         testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
@@ -883,7 +985,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     CK_ULONG user_pin_len;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_SESSION_HANDLE session;
-    CK_MECHANISM mech;
+    CK_MECHANISM mech = { .mechanism = 0, .pParameter = NULL, .ulParameterLen =  0 };
     CK_OBJECT_HANDLE h_key;
     CK_RV rc = CKR_OK;
     CK_FLAGS flags;
@@ -934,11 +1036,16 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
-            gcm_param->pIv = (CK_BYTE *) tsuite->tv[i].iv;
-            gcm_param->ulIvLen = tsuite->tv[i].ivlen;
-            gcm_param->pAAD = tsuite->tv[i].aad;
-            gcm_param->ulAADLen = tsuite->tv[i].aadlen;
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
+            rc = alloc_gcm_param(gcm_param,
+                                 (CK_BYTE *)tsuite->tv[i].iv,
+                                 tsuite->tv[i].ivlen,
+                                 (CK_BYTE *) tsuite->tv[i].aad,
+                                 tsuite->tv[i].aadlen);
+            if (rc != CKR_OK) {
+                testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
+                goto error;
+            }
         }
 
         /** clear buffers **/
@@ -959,6 +1066,16 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         if (rc != CKR_OK) {
             testcase_error("C_DecryptInit rc=%s", p11_get_ckr(rc));
             goto error;
+        }
+
+        if (mech.mechanism == CKM_AES_GCM) {
+            /*
+             * Zeroise and free the GCM parameters now to test that
+             * Update/Final does not require access to the GCM parameters
+             * anymore
+             */
+            gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+            free_gcm_param(gcm_param);
         }
 
         /* for chunks, -1 is NULL, and 0 is empty string,
@@ -1036,7 +1153,13 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         }
     }
     goto testcase_cleanup;
+
 error:
+    if (mech.mechanism == CKM_AES_GCM) {
+        gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
+        free_gcm_param(gcm_param);
+    }
+
     rc = funcs->C_DestroyObject(session, h_key);
     if (rc != CKR_OK)
         testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
