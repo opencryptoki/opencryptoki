@@ -81,10 +81,24 @@
 #define CCA_RSA_INTTOK_PUBKEY_E_OFFSET  12
 /* Offset into the rule_array returned by the STATCCAE command for the
  * Current Symmetric Master Key register status */
-#define CCA_STATCCAE_SYM_CMK_OFFSET  8
-/* Offset into the rule_array returned by the STATCCAE command for the
- * Current Asymmetric Master Key register status */
-#define CCA_STATCCAE_ASYM_CMK_OFFSET  56
+#define CCA_STATCCAE_CMK_OFFSET  8
+/* Offset into the rule_array returned by the STATAES command for the
+ * Current AES Master Key register status */
+#define CCA_STATAES_CMK_OFFSET   8
+/* Offset into the rule_array returned by the STATAPKA command for the
+ * Current APKA Master Key register status */
+#define CCA_STATAPKA_CMK_OFFSET  8
+/* Offsets into the verb_data returned by the STATICSB command for the
+ * Master Key register verification pattern */
+#define CCA_STATICSB_SYM_CMK_ID            0x0f07
+#define CCA_STATICSB_SYM_CMK_ID_OFFSET     134 /* ID = 0x0f01 */
+#define CCA_STATICSB_SYM_CMK_MKVP_OFFSET   136 /* 8 bytes MKVP */
+#define CCA_STATICSB_AES_CMK_ID            0x0f0b
+#define CCA_STATICSB_AES_CMK_ID_OFFSET     182 /* ID = 0x0f0b */
+#define CCA_STATICSB_AES_CMK_MKVP_OFFSET   184 /* 8 bytes MKVP */
+#define CCA_STATICSB_APKA_CMK_ID           0x0f0e
+#define CCA_STATICSB_APKA_CMK_ID_OFFSET    218 /* ID = 0x0f0e */
+#define CCA_STATICSB_APKA_CMK_MKVP_OFFSET  220 /* 8 bytes MKVP */
 /* Offset to start of public RSA key section for an external public RSA key token */
 #define CCA_RSA_EXTTOK_PUBKEY_OFFSET  8
 /* Offset to length of n within an public RSA key section in an ext public RSA key token */
@@ -102,6 +116,11 @@ enum cca_key_type {
     CCA_AES_KEY,
     CCA_DES_KEY
 };
+
+#define CCA_DEFAUT_ADAPTER_ENVAR    "CSU_DEFAULT_ADAPTER"
+#define CCA_DEFAUT_DOMAIN_ENVAR     "CSU_DEFAULT_DOMAIN"
+#define CCA_DEVICE_ANY              "DEV-ANY"
+#define CCA_DOMAIN_ANY              "DOM-ANY"
 
 #define CCA_MKVP_LENGTH             8
 
