@@ -290,12 +290,13 @@ const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 /*
  * Helper function: Analyse given CCA token.
- * returns TRUE and keytype and keybitsize if token is known and seems
- * to be valid (only basic checks are done), otherwise FALSE.
+ * returns TRUE and keytype, keybitsize, and MKVP address if token is known
+ * and seems to be valid (only basic checks are done), otherwise FALSE.
  */
 static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
                                       enum cca_token_type *keytype,
-                                      unsigned int *keybitsize)
+                                      unsigned int *keybitsize,
+                                      const CK_BYTE **mkvp)
 {
     if (t[0] == 0x01 && (t[4] == 0x00 || t[4] == 0x01)) {
         /* internal secure cca des data key with exact 64 bytes */
@@ -314,6 +315,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             TRACE_DEVEL("CCA DES data key token has invalid/unknown keysize 0x%02x\n", (int)t[59]);
             return FALSE;
         }
+        *mkvp = &t[8];
         return TRUE;
     }
 
@@ -329,6 +331,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             TRACE_DEVEL("CCA AES data key token has invalid/unknown keybitsize %u\n", *keybitsize);
             return FALSE;
         }
+        *mkvp = &t[8];
         return TRUE;
     }
 
@@ -341,6 +344,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         }
         *keytype = sec_aes_cipher_key;
         *keybitsize = 0; /* no chance to find out the key bit size */
+        *mkvp = &t[10];
         return TRUE;
     }
 
@@ -374,6 +378,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
             TRACE_DEVEL("CCA HMAC key token has invalid/unknown payload bit size %u\n", *keybitsize);
             return FALSE;
         }
+        *mkvp = &t[10];
         return TRUE;
     }
 
@@ -394,6 +399,10 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         n = *((uint16_t *)(t + CCA_RSA_INTTOK_PRIVKEY_OFFSET + privsec_len + 8));
         *keytype = sec_rsa_priv_key;
         *keybitsize = n;
+        if (t[CCA_RSA_INTTOK_PRIVKEY_OFFSET] == 0x30)
+            *mkvp = &t[CCA_RSA_INTTOK_PRIVKEY_OFFSET + 104];
+        else
+            *mkvp = &t[CCA_RSA_INTTOK_PRIVKEY_OFFSET + 116];
         return TRUE;
     }
 
@@ -403,6 +412,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         n = *((uint16_t *)(t + CCA_RSA_INTTOK_HDR_LENGTH + 8));
         *keytype = sec_rsa_publ_key;
         *keybitsize = n;
+        *mkvp = NULL;
         return TRUE;
     }
 
@@ -420,6 +430,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         ec_curve_bits = *((uint16_t *)(t + 8 + 12));
         *keytype = sec_ecc_priv_key;
         *keybitsize = ec_curve_bits;
+        *mkvp = &t[8+16];
         return TRUE;
     }
 
@@ -429,6 +440,7 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
         ec_curve_bits = *((uint16_t *)(t + 8 + 10));
         *keytype = sec_ecc_publ_key;
         *keybitsize = ec_curve_bits;
+        *mkvp = NULL;
         return TRUE;
     }
 
@@ -4404,10 +4416,11 @@ static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
         CK_BYTE *t, n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
         CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
         uint16_t privkey_len, pubkey_offset;
+        const CK_BYTE *mkvp;
         CK_BBOOL true = TRUE;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_keybitsize) != TRUE) {
+                                  &token_type, &token_keybitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -4702,9 +4715,10 @@ static CK_RV import_rsa_pubkey(TEMPLATE * publ_tmpl)
         unsigned int token_keybitsize;
         CK_BYTE *t, n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
         CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
+        const CK_BYTE *mkvp;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_keybitsize) != TRUE) {
+                                  &token_type, &token_keybitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -4877,9 +4891,10 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
         unsigned int token_keybitsize;
         CK_BYTE zorro[32] = { 0 };
         CK_BBOOL true = TRUE;
+        const CK_BYTE *mkvp;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_keybitsize) != TRUE) {
+                                  &token_type, &token_keybitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -5027,10 +5042,11 @@ static CK_RV import_generic_secret_key(OBJECT * object)
 
         enum cca_token_type token_type;
         unsigned int token_payloadbitsize, plbitsize;
+        const CK_BYTE *mkvp;
         CK_BBOOL true = TRUE;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_payloadbitsize) != TRUE) {
+                                  &token_type, &token_payloadbitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
         return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -5360,10 +5376,11 @@ static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
         enum cca_token_type token_type;
         unsigned int token_keybitsize;
         CK_BBOOL true = TRUE;
+        const CK_BYTE *mkvp;
         CK_BYTE *t;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_keybitsize) != TRUE) {
+                                  &token_type, &token_keybitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
@@ -5525,13 +5542,14 @@ static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
          */
         enum cca_token_type token_type;
         unsigned int token_keybitsize;
+        const CK_BYTE *mkvp;
         CK_BYTE *t, *q;
         uint16_t q_len;
         CK_BYTE *ecpoint = NULL;
         CK_ULONG ecpoint_len;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
-                                  &token_type, &token_keybitsize) != TRUE) {
+                                  &token_type, &token_keybitsize, &mkvp) != TRUE) {
             TRACE_ERROR("Invalid/unknown cca token in CKA_IBM_OPAQUE attribute\n");
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
