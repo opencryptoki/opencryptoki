@@ -272,6 +272,13 @@ struct cca_private_data {
     CK_BBOOL expected_sym_mkvp_set;
     CK_BBOOL expected_aes_mkvp_set;
     CK_BBOOL expected_apka_mkvp_set;
+    CK_BBOOL dev_any;
+    CK_BBOOL dom_any;
+    unsigned int num_adapters;
+    unsigned int num_domains;
+    unsigned int num_usagedoms;
+    unsigned short usage_domains[256];
+    char serialno[9];
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -648,6 +655,426 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     return CKR_OK;
 }
 
+static CK_RV cca_cmp_mkvp(unsigned char mkvp[CCA_MKVP_LENGTH],
+                          unsigned char exp_mkvp[CCA_MKVP_LENGTH],
+                          const char *mktype, const char *adapter,
+                          const char *domain, CK_BBOOL expected_mkvps_set)
+{
+    if (expected_mkvps_set == FALSE &&
+        memcmp(exp_mkvp, cca_zero_mkvp, CCA_MKVP_LENGTH) == 0) {
+        /* zero expected MKVP, copy current one */
+        memcpy(exp_mkvp, mkvp, CCA_MKVP_LENGTH);
+    } else {
+        if (memcmp(mkvp, exp_mkvp, CCA_MKVP_LENGTH) != 0) {
+            TRACE_ERROR("CCA %s master key on adapter %s domain %s does not "
+                        "match the %s master key\n", mktype, adapter,
+                        domain, expected_mkvps_set ? "expected" : "other APQN's");
+            OCK_SYSLOG(LOG_ERR, "CCA %s master key on adapter %s domain %s does "
+                       "not match the %s master key\n", mktype, adapter,
+                       domain, expected_mkvps_set ? "expected" : "other APQN's");
+            return CKR_DEVICE_ERROR;
+        }
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
+                                     const char *adapter, const char *domain)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char rule_array[256] = { 0, };
+    unsigned char verb_data[256] = { 0, };
+    long return_code, reason_code, rule_array_count, verb_data_length;
+    unsigned short *id;
+    CK_RV rc;
+
+    /* Get current adapter serial number */
+    memcpy(rule_array, "STATCRD2", 8);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATCRD2) failed for %s/%s. return:%ld, reason:%ld\n",
+                    adapter, domain, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEVEL("%s serialno: %.8s\n", adapter, &rule_array[14 * 8]);
+
+    /* Get status of AES master key (DES, 3DES keys) */
+    memcpy(rule_array, "STATCCAE", 8);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATCCAE) failed for %s/%s. return:%ld, reason:%ld\n",
+                    adapter, domain, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* This value should be 2 if the master key is set in the card */
+    if (memcmp(&rule_array[CCA_STATCCAE_CMK_OFFSET], "2       ", 8)) {
+        TRACE_ERROR("CCA SYM master key is not yet loaded on adapter %s domain %s\n",
+                    adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "CCA SYM master key is not yet loaded on adapter %s domain %s\n",
+                   adapter, domain);
+        return CKR_DEVICE_ERROR;
+    }
+
+    /* Get status of AES master key (AES, HMAC keys) */
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "STATAES ", 8);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATAES) failed for %s/%s. return:%ld, reason:%ld\n",
+                    adapter, domain, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* This value should be 2 if the master key is set in the card */
+    if (memcmp(&rule_array[CCA_STATAES_CMK_OFFSET], "2       ", 8)) {
+        TRACE_ERROR("CCA AES master key is not yet loaded on adapter %s domain %s\n",
+                    adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "CCA AES master key is not yet loaded on adapter %s domain %s\n",
+                   adapter, domain);
+        return CKR_DEVICE_ERROR;
+    }
+
+    /* Get status of APKA master key (RSA and ECC keys) */
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "STATAPKA", 8);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATAPKA) failed for %s/%s. return:%ld, reason:%ld\n",
+                    adapter, domain, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (memcmp(&rule_array[CCA_STATAPKA_CMK_OFFSET], "2       ", 8)) {
+        TRACE_ERROR("CCA APKA master key is not yet loaded on adapter %s domain %s\n",
+                    adapter, domain);
+        OCK_SYSLOG(LOG_ERR,
+                   "CCA APKA master key is not yet loaded on adapter %s domain %s\n",
+                   adapter, domain);
+        return CKR_DEVICE_ERROR;
+   }
+
+    /* Get master key verification patterns */
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "STATICSB", 8);
+    rule_array_count = 1;
+    verb_data_length = sizeof(verb_data);
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, verb_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATICSB) failed for %s/%s. return:%ld, reason:%ld\n",
+                    adapter, domain, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_CMK_ID_OFFSET);
+    if (*id != CCA_STATICSB_SYM_CMK_ID) {
+        TRACE_ERROR("CSUACFQ (STATICSB) SYM MKVP not available for %s/%s\n",
+                    adapter, domain);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    id = (unsigned short *)(verb_data + CCA_STATICSB_AES_CMK_ID_OFFSET);
+    if (*id != CCA_STATICSB_AES_CMK_ID) {
+        TRACE_ERROR("CSUACFQ (STATICSB) AES MKVP not available for %s/%s\n",
+                    adapter, domain);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_CMK_ID_OFFSET);
+    if (*id != CCA_STATICSB_APKA_CMK_ID) {
+        TRACE_ERROR("CSUACFQ (STATICSB) APKA MKVP not available for %s/%s\n",
+                    adapter, domain);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEBUG("Master key verification patterns for %s/%s\n",
+                adapter, domain);
+    TRACE_DEBUG_DUMP("SYM MKVP:  ",
+                     verb_data + CCA_STATICSB_SYM_CMK_MKVP_OFFSET,
+                     CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("AES MKVP:  ",
+                     verb_data + CCA_STATICSB_AES_CMK_MKVP_OFFSET,
+                     CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("APKA MKVP: ",
+                     verb_data + CCA_STATICSB_APKA_CMK_MKVP_OFFSET,
+                     CCA_MKVP_LENGTH);
+
+    rc = cca_cmp_mkvp(verb_data + CCA_STATICSB_SYM_CMK_MKVP_OFFSET,
+                      cca_private->expected_sym_mkvp,
+                      "SYM", adapter, domain,
+                      cca_private->expected_sym_mkvp_set);
+    rc |= cca_cmp_mkvp(verb_data + CCA_STATICSB_AES_CMK_MKVP_OFFSET,
+                       cca_private->expected_aes_mkvp,
+                       "AES", adapter, domain,
+                       cca_private->expected_aes_mkvp_set);
+    rc |= cca_cmp_mkvp(verb_data + CCA_STATICSB_APKA_CMK_MKVP_OFFSET,
+                       cca_private->expected_apka_mkvp,
+                       "APKA", adapter, domain,
+                       cca_private->expected_apka_mkvp_set);
+    if (rc != CKR_OK)
+       return CKR_DEVICE_ERROR;
+
+    return CKR_OK;
+}
+
+static CK_RV cca_check_mkvps_domains(STDLL_TokData_t *tokdata,
+                                     const char *device)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char rule_array[256] = { 0, };
+    long return_code, reason_code, rule_array_count, device_name_len;
+    unsigned char *device_name;
+    char tmp_str[20];
+    unsigned int i, num_found = 0;
+    CK_RV rc2, rc = CKR_OK;
+
+    for (i = 0; i < cca_private->num_usagedoms; i++) {
+        /* Allocate the adapter based on device or serialno and domain */
+        if (cca_private->dev_any) {
+            memcpy(rule_array, "DEVICE  ", 8);
+            rule_array_count = 1;
+            device_name_len = strlen(device);
+            device_name = (unsigned char *)device;
+        } else {
+            memcpy(rule_array, "SERIAL  ", 8);
+            rule_array_count = 1;
+            device_name_len = strlen(cca_private->serialno);
+            device_name = (unsigned char *)cca_private->serialno;
+        }
+
+        if (cca_private->dom_any) {
+            sprintf((char *)(rule_array + 8), "DOMN%04u",
+                    cca_private->usage_domains[i]);
+            rule_array_count = 2;
+
+            snprintf(tmp_str, sizeof(tmp_str), "%u",
+                     cca_private->usage_domains[i]);
+            tmp_str[sizeof(tmp_str) - 1] = '\0';
+        } else {
+            strcpy(tmp_str, "DEFAULT");
+        }
+
+        dll_CSUACRA(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &device_name_len, device_name);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSUACRA failed for %s/%s. return:%ld, reason:%ld\n",
+                        device_name, tmp_str, return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc2 = cca_get_and_check_mkvps(tokdata, device, tmp_str);
+        if (rc2 == CKR_OK)
+            num_found++;
+        if (rc2 == CKR_FUNCTION_FAILED) /* device not available, ignore */
+            rc2 = CKR_OK;
+        rc |= rc2;
+
+        /* Deallocate the adapter */
+        if (cca_private->dom_any) {
+            memcpy(rule_array + 8, "DOMN-DEF", 8);
+            rule_array_count = 2;
+        }
+
+        dll_CSUACRD(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &device_name_len, device_name);
+
+        if (return_code != CCA_SUCCESS) {
+            TRACE_ERROR("CSUACRA failed for %s/%s. return:%ld, reason:%ld\n",
+                        device_name, tmp_str, return_code, reason_code);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (cca_private->dom_any == FALSE)
+            break;
+    }
+
+    if (rc != CKR_OK)
+        return CKR_DEVICE_ERROR;
+    if (num_found == 0) /* none available */
+        return CKR_FUNCTION_FAILED;
+    return CKR_OK;
+}
+
+static CK_RV cca_check_mks(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char rule_array[256] = { 0, };
+    long return_code, reason_code, rule_array_count, verb_data_length;
+    unsigned int i, adapter, num_found = 0;
+    char device_name[9];
+    const char *val;
+    CK_RV rc;
+
+    /* Perform basic queries only once */
+    if (cca_private->num_adapters != 0)
+        goto iterate;
+
+    /* Check if adapter and/or domain auto-selection is used */
+    val = getenv(CCA_DEFAUT_ADAPTER_ENVAR);
+    if (val != NULL && strcmp(val, CCA_DEVICE_ANY) == 0)
+        cca_private->dev_any = TRUE;
+    TRACE_DEVEL("dev_any: %d\n", cca_private->dev_any);
+
+    val = getenv(CCA_DEFAUT_DOMAIN_ENVAR);
+    if (val != NULL && strcmp(val, CCA_DOMAIN_ANY) == 0)
+        cca_private->dom_any = TRUE;
+    TRACE_DEVEL("dom_any: %d\n", cca_private->dom_any);
+
+    /* Get number of adapters, current adapter serial number */
+    memcpy(rule_array, "STATCRD2", 8);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATCRD2) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rule_array[8] = '\0';
+    if (sscanf((char *)rule_array, "%u", &cca_private->num_adapters) != 1) {
+        TRACE_ERROR("Failed to parse STATCRD2 output: number of adapters: %s\n",
+                    rule_array);
+        return CKR_FUNCTION_FAILED;
+    }
+    TRACE_DEVEL("num_adapters: %u\n", cca_private->num_adapters);
+
+    memcpy(cca_private->serialno, &rule_array[14 * 8], 8);
+    cca_private->serialno[8] = '\0';
+    TRACE_DEVEL("serialno: %s\n", cca_private->serialno);
+
+    /* Get number of domains */
+    memcpy(rule_array, "DOM-NUMS", 8);
+    rule_array_count = 1;
+    verb_data_length = sizeof(cca_private->num_domains);
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, (unsigned char *)&cca_private->num_domains);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (DOM-NUMS) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+    TRACE_DEVEL("num_domains: %u\n", cca_private->num_domains);
+
+    /* Get usage domain mask */
+    memcpy(rule_array, "DOM-USAG", 8);
+    rule_array_count = 1;
+    verb_data_length = sizeof(cca_private->usage_domains);
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, (unsigned char *)cca_private->usage_domains);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (DOM-USAG) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    for (i = 0; i < cca_private->num_domains &&
+                (i + 1) * (unsigned int)sizeof(unsigned short) <=
+                                                verb_data_length; i++) {
+        TRACE_DEVEL("usage_domains[%u] = %u\n", i, cca_private->usage_domains[i]);
+    }
+    cca_private->num_usagedoms = i;
+    TRACE_DEVEL("num_usagedoms: %u\n", cca_private->num_usagedoms);
+
+iterate:
+    if (cca_private->dev_any == FALSE && cca_private->dom_any == FALSE) {
+        /* CCA default adapter and domain selection */
+        rc = cca_get_and_check_mkvps(tokdata, "DEFAULT", "DEFAULT");
+        if (rc != CKR_OK)
+            return rc;
+    } else if (cca_private->dev_any == FALSE) {
+        /* CCA default adapter selection, but domain ANY */
+        rc = cca_check_mkvps_domains(tokdata, "DEFAULT");
+        if (rc != CKR_OK)
+            return rc;
+    } else {
+        /* Device ANY and domain ANY or default */
+        for (adapter = 1, rc = CKR_OK; adapter <= cca_private->num_adapters;
+                                                                 adapter++) {
+            sprintf(device_name, "CRP%02d", adapter);
+
+            rc |= cca_check_mkvps_domains(tokdata, device_name);
+            if (rc == CKR_FUNCTION_FAILED) /* adapter not available, ignore */
+                rc = CKR_OK;
+            if (rc == CKR_OK)
+                num_found++;
+        }
+        if (rc != CKR_OK)
+            return CKR_DEVICE_ERROR;
+        if (num_found == 0)
+            return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEBUG("Expected master key verification patters (queried):\n");
+    if (cca_private->expected_sym_mkvp_set == FALSE) {
+        TRACE_DEBUG_DUMP("SYM MKVP:  ", cca_private->expected_sym_mkvp,
+                         CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("SYM MKVP:  specified in config\n");
+    }
+    if (cca_private->expected_aes_mkvp_set == FALSE) {
+        TRACE_DEBUG_DUMP("AES MKVP:  ", cca_private->expected_aes_mkvp,
+                         CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("AES MKVP:  specified in config\n");
+    }
+    if (cca_private->expected_apka_mkvp_set == FALSE) {
+        TRACE_DEBUG_DUMP("APKA MKVP: ", cca_private->expected_apka_mkvp,
+                         CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("APKA MKVP: specified in config\n");
+    }
+
+    return CKR_OK;
+}
+
 CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
 {
     unsigned int i, val;
@@ -852,9 +1279,8 @@ done:
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
-    unsigned char rule_array[256] = { 0, };
-    long return_code, reason_code, rule_array_count, verb_data_length;
     struct cca_private_data *cca_private;
+
     CK_RV rc;
 
     UNUSED(conf_name);
@@ -900,31 +1326,9 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
-    memcpy(rule_array, "STATCCAE", 8);
-
-    rule_array_count = 1;
-    verb_data_length = 0;
-    dll_CSUACFQ(&return_code,
-                &reason_code,
-                NULL,
-                NULL, &rule_array_count, rule_array, &verb_data_length, NULL);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSUACFQ failed. return:%ld, reason:%ld\n",
-                    return_code, reason_code);
-        rc = CKR_FUNCTION_FAILED;
+    rc = cca_check_mks(tokdata);
+    if (rc != CKR_OK)
         goto error;
-    }
-
-    /* This value should be 2 if the master key is set in the card */
-    if (memcmp(&rule_array[CCA_STATCCAE_SYM_CMK_OFFSET], "2       ", 8)) {
-        OCK_SYSLOG(LOG_WARNING,
-                   "Warning: CCA symmetric master key is not yet loaded");
-    }
-    if (memcmp(&rule_array[CCA_STATCCAE_ASYM_CMK_OFFSET], "2       ", 8)) {
-        OCK_SYSLOG(LOG_WARNING,
-                   "Warning: CCA asymmetric master key is not yet loaded");
-    }
 
     return CKR_OK;
 
