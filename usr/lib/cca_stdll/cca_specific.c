@@ -447,6 +447,57 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
     return FALSE;
 }
 
+static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
+                                 enum cca_token_type keytype,
+                                 const CK_BYTE *mkvp)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    const char *mktype;
+    const CK_BYTE *expected_mkvp;
+
+    switch (keytype) {
+    case sec_des_data_key:
+        expected_mkvp = cca_private->expected_sym_mkvp;
+        mktype = "SYM";
+        break;
+
+    case sec_aes_data_key:
+    case sec_aes_cipher_key:
+    case sec_hmac_key:
+        expected_mkvp = cca_private->expected_aes_mkvp;
+        mktype = "AES";
+        break;
+
+    case sec_rsa_priv_key:
+    case sec_ecc_priv_key:
+        expected_mkvp = cca_private->expected_apka_mkvp;
+        mktype = "APKA";
+        break;
+
+    case sec_rsa_publ_key:
+    case sec_ecc_publ_key:
+        /* no MKVP checks for public keys */
+        return CKR_OK;
+
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (memcmp(mkvp, expected_mkvp, CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("The key's master key verification pattern does not "
+                    "match the expected CCA %s master key\n", mktype);
+        TRACE_DEBUG_DUMP("MKVP of key:   ", (CK_BYTE *)mkvp, CCA_MKVP_LENGTH);
+        TRACE_DEBUG_DUMP("Expected MKVP: ", (CK_BYTE *)expected_mkvp,
+                         CCA_MKVP_LENGTH);
+        OCK_SYSLOG(LOG_ERR, "The key's master key verification pattern does not "
+                   "match the expected CCA %s master key\n", mktype);
+        return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
 /* Helper function: build attribute and update template */
 static CK_RV build_update_attribute(TEMPLATE * tmpl,
                                     CK_ATTRIBUTE_TYPE type,
@@ -1371,9 +1422,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
-                  unsigned char *key_form, unsigned char *key_type_1,
-                  CK_ULONG key_size)
+static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
+                         enum cca_key_type type, CK_BYTE * key,
+                         unsigned char *key_form, unsigned char *key_type_1,
+                         CK_ULONG key_size)
 {
 
     long return_code, reason_code;
@@ -1382,6 +1434,9 @@ static CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
     unsigned char kek_key_identifier_1[CCA_KEY_ID_SIZE] = { 0, };
     unsigned char kek_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
     unsigned char generated_key_identifier_2[CCA_KEY_ID_SIZE] = { 0, };
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
 
     if (type == CCA_DES_KEY) {
         switch (key_size) {
@@ -1432,6 +1487,18 @@ static CK_RV cca_key_gen(enum cca_key_type type, CK_BYTE * key,
         return CKR_FUNCTION_FAILED;
     }
 
+    if (analyse_cca_key_token(key, CCA_KEY_ID_SIZE,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been generated\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return CKR_OK;
 }
 
@@ -1453,7 +1520,8 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
     memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
     memcpy(key_type_1, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
 
-    return cca_key_gen(CCA_DES_KEY, *des_key, key_form, key_type_1, keysize);
+    return cca_key_gen(tokdata, CCA_DES_KEY, *des_key, key_form,
+                       key_type_1, keysize);
 }
 
 
@@ -1851,6 +1919,9 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     CK_RV rv;
     CK_BYTE_PTR ptr;
     CK_ULONG tmpsize, tmpexp, tmpbits;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
 
     UNUSED(tokdata);
 
@@ -1949,6 +2020,18 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(priv_key_token, priv_key_token_length,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been generated\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
     }
 
     TRACE_DEVEL("RSA secure key token generated. size: %ld\n",
@@ -2829,7 +2912,8 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
     memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
     memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
-    return cca_key_gen(CCA_AES_KEY, *aes_key, key_form, key_type, key_size);
+    return cca_key_gen(tokdata, CCA_AES_KEY, *aes_key, key_form,
+                       key_type, key_size);
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
@@ -3280,6 +3364,9 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *param2 = NULL;
     uint8_t curve_type;
     uint16_t curve_bitlen;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
 
     UNUSED(tokdata);
 
@@ -3359,6 +3446,18 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         if (is_curve_error(return_code, reason_code))
             return CKR_CURVE_NOT_SUPPORTED;
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(priv_key_token, priv_key_token_length,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been generated\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
     }
 
     TRACE_DEVEL("ECC secure private key token generated. size: %ld\n",
@@ -4399,10 +4498,13 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t * tokdata,
                              &sig_len, FALSE);
 }
 
-static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
+static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
+    enum cca_token_type token_type;
+    unsigned int token_keybitsize;
+    const CK_BYTE *mkvp;
 
     rc = template_attribute_find(priv_tmpl, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -4410,13 +4512,10 @@ static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
          * This is an import of an existing secure rsa private key which
          * is stored in the CKA_IBM_OPAQUE attribute.
          */
-
-        enum cca_token_type token_type;
-        unsigned int token_keybitsize;
         CK_BYTE *t, n[CCATOK_MAX_N_LEN], e[CCATOK_MAX_E_LEN];
         CK_ULONG n_len = CCATOK_MAX_N_LEN, e_len = CCATOK_MAX_E_LEN;
         uint16_t privkey_len, pubkey_offset;
-        const CK_BYTE *mkvp;
+
         CK_BBOOL true = TRUE;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
@@ -4427,6 +4526,11 @@ static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
         if (token_type != sec_rsa_priv_key) {
             TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_RSA\n");
             return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         t = opaque_attr->pValue;
@@ -4667,6 +4771,18 @@ static CK_RV import_rsa_privkey(TEMPLATE * priv_tmpl)
             goto err;
         }
 
+        if (analyse_cca_key_token(target_key_token, target_key_token_length,
+                                  &token_type, &token_keybitsize, &mkvp) == FALSE ||
+            mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
         /* Add the key object to the template */
         if ((rc = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
                                          target_key_token,
@@ -4872,10 +4988,14 @@ static CK_RV import_rsa_pubkey(TEMPLATE * publ_tmpl)
     return CKR_OK;
 }
 
-static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
+static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
+                                  OBJECT * object, CK_ULONG keytype)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
+    enum cca_token_type token_type;
+    unsigned int token_keybitsize;
+    const CK_BYTE *mkvp;
 
     rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -4886,12 +5006,8 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
          * check if the template attributes match to the cca key in the
          * CKA_IBM_OPAQUE attribute.
          */
-
-        enum cca_token_type token_type;
-        unsigned int token_keybitsize;
         CK_BYTE zorro[32] = { 0 };
         CK_BBOOL true = TRUE;
-        const CK_BYTE *mkvp;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
                                   &token_type, &token_keybitsize, &mkvp) != TRUE) {
@@ -4934,6 +5050,11 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
         } else {
             TRACE_DEBUG("Unknown/unsupported keytype in function %s line %d\n", __func__, __LINE__);
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         /* create a dummy CKA_VALUE attribute with the key bit size but all zero */
@@ -4992,6 +5113,18 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
             return CKR_FUNCTION_FAILED;
         }
 
+        if (analyse_cca_key_token(target_key_id, CCA_KEY_ID_SIZE,
+                                  &token_type, &token_keybitsize, &mkvp) == FALSE ||
+            mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+
         /* Add the key object to the template */
         if ((rc = build_update_attribute(object->template, CKA_IBM_OPAQUE,
                                          target_key_id, CCA_KEY_ID_SIZE))) {
@@ -5009,12 +5142,16 @@ static CK_RV import_symmetric_key(OBJECT * object, CK_ULONG keytype)
     return CKR_OK;
 }
 
-static CK_RV import_generic_secret_key(OBJECT * object)
+static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
+                                       OBJECT * object)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ULONG keylen, keybitlen;
+    enum cca_token_type token_type;
+    unsigned int token_payloadbitsize;
+    const CK_BYTE *mkvp;
 
     rc = template_attribute_find(object->template, CKA_VALUE, &value_attr);
     if (rc == FALSE) {
@@ -5039,10 +5176,7 @@ static CK_RV import_generic_secret_key(OBJECT * object)
          * check if the template attributes match to the cca key in the
          * CKA_IBM_OPAQUE attribute.
          */
-
-        enum cca_token_type token_type;
-        unsigned int token_payloadbitsize, plbitsize;
-        const CK_BYTE *mkvp;
+        unsigned int plbitsize;
         CK_BBOOL true = TRUE;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
@@ -5055,6 +5189,11 @@ static CK_RV import_generic_secret_key(OBJECT * object)
             TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to"
                         " keytype CKK_GENERIC_SECRET\n");
             return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         /* calculate expected payload size from the given keybitlen */
@@ -5125,6 +5264,19 @@ static CK_RV import_generic_secret_key(OBJECT * object)
             TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
             return CKR_FUNCTION_FAILED;
+        }
+
+        if (analyse_cca_key_token(key_token, key_token_len,
+                                  &token_type, &token_payloadbitsize,
+                                  &mkvp) == FALSE ||
+            mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         /* Add the key object to the template */
@@ -5362,10 +5514,13 @@ static CK_RV check_cca_ec_type_and_add_params(uint8_t cca_ec_type,
     return CKR_OK;
 }
 
-static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
+static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
+    enum cca_token_type token_type;
+    unsigned int token_keybitsize;
+    const CK_BYTE *mkvp;
 
     rc = template_attribute_find(priv_templ, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -5373,10 +5528,7 @@ static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
          * This is an import of an existing secure ecc private key which
          * is stored in the CKA_IBM_OPAQUE attribute.
          */
-        enum cca_token_type token_type;
-        unsigned int token_keybitsize;
         CK_BBOOL true = TRUE;
-        const CK_BYTE *mkvp;
         CK_BYTE *t;
 
         if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
@@ -5387,6 +5539,11 @@ static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
         if (token_type != sec_ecc_priv_key) {
             TRACE_ERROR("CCA token type in CKA_IBM_OPAQUE does not match to keytype CKK_EC\n");
             return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         /* check curve and add CKA_EC_PARAMS attribute */
@@ -5510,6 +5667,19 @@ static CK_RV import_ec_privkey(TEMPLATE *priv_templ)
             if (is_curve_error(return_code, reason_code))
                 return CKR_CURVE_NOT_SUPPORTED;
             return CKR_FUNCTION_FAILED;
+        }
+
+        if (analyse_cca_key_token(target_key_token, target_key_token_length,
+                                  &token_type, &token_keybitsize,
+                                  &mkvp) == FALSE ||
+            mkvp == NULL) {
+            TRACE_ERROR("Invalid/unknown cca token has been imported\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
         }
 
         /* Add key token to template as CKA_IBM_OPAQUE */
@@ -5721,7 +5891,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             break;
         case CKO_PRIVATE_KEY:
             // do import keypair and create opaque object
-            rc = import_rsa_privkey(object->template);
+            rc = import_rsa_privkey(tokdata, object->template);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("RSA private key import failed, rc=0x%lx\n", rc);
                 return rc;
@@ -5736,7 +5906,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
     case CKK_AES:
     case CKK_DES:
     case CKK_DES3:
-        rc = import_symmetric_key(object, keytype);
+        rc = import_symmetric_key(tokdata, object, keytype);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Symmetric key import failed, rc=0x%lx\n", rc);
             return rc;
@@ -5746,7 +5916,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
                    attr != NULL ? attr->ulValueLen : 0);
         break;
     case CKK_GENERIC_SECRET:
-        rc = import_generic_secret_key(object);
+        rc = import_generic_secret_key(tokdata, object);
         if (rc != CKR_OK) {
             TRACE_DEVEL("Generic Secret (HMAC) key import failed "
                         " with rc=0x%lx\n", rc);
@@ -5769,7 +5939,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
             break;
         case CKO_PRIVATE_KEY:
             // do import keypair and create opaque object
-            rc = import_ec_privkey(object->template);
+            rc = import_ec_privkey(tokdata, object->template);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("EC private key import failed, rc=0x%lx\n", rc);
                 return rc;
@@ -5804,6 +5974,9 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     unsigned char key_token[CCA_KEY_TOKEN_SIZE] = { 0 };
     long key_token_length = sizeof(key_token);
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0 };
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
 
     UNUSED(tokdata);
 
@@ -5867,6 +6040,18 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
         TRACE_ERROR("CSNBKGN2 (HMAC KEY GENERATE) failed."
                     " return:%ld, reason:%ld\n", return_code, reason_code);
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(key_token, key_token_length,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been generated\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
     }
 
     /* Add the key object to the template */
@@ -6049,7 +6234,8 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
     return CKR_OK;
 }
 
-static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
+static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
+                                        CK_MECHANISM *mech,
                                         OBJECT *wrapping_key, OBJECT *key,
                                         CK_BYTE *wrapped_key,
                                         CK_ULONG wrapped_key_len)
@@ -6065,6 +6251,9 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     CK_KEY_TYPE key_type, cca_key_type;
     CK_ULONG key_size = 0;
     CK_RSA_PKCS_OAEP_PARAMS *oaep;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
     uint16_t val;
     CK_RV rc;
 
@@ -6193,6 +6382,18 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(CK_MECHANISM *mech,
     if (buffer[0] != 0x01) { /* Internal key token */
         TRACE_DEVEL("key token invalid\n");
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (analyse_cca_key_token(buffer, buffer_len,
+                              &keytype, &keybitsize, &mkvp) == FALSE ||
+        mkvp == NULL) {
+        TRACE_ERROR("Invalid/unknown cca token has been unwrapped\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
     }
 
     switch (buffer[4]) {
@@ -6372,7 +6573,8 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
         if (unwrap_key_class != CKO_PRIVATE_KEY && unwrap_keytype != CKK_RSA)
             return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
 
-        rc = ccatok_unwrap_key_rsa_pkcs(mech, unwrapping_key, unwrapped_key,
+        rc = ccatok_unwrap_key_rsa_pkcs(tokdata,
+                                        mech, unwrapping_key, unwrapped_key,
                                         wrapped_key, wrapped_key_len);
         if (rc != CKR_OK)
             goto error;
