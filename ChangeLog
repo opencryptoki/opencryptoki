@@ -1,3 +1,10 @@
++ openCryptoki 3.18
+- Default to FIPS compliant token data format (tokversion = 3.12)
+- Add support for restricting usage of mechanisms and keys via a global policy
+- Add support for statistics counting of mechanism usage
+- ICA/EP11: Support libica version 4
+- p11sak tool: Allow to set different attributes for public and private keys
+
 + openCryptoki 3.17
 - tools: added function to list keys to p11sak
 - common: added support for OpenSSL 3.0

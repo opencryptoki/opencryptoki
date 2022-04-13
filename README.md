@@ -3,13 +3,13 @@
 
 # openCryptoki
 
-Package version 3.17
+Package version 3.18
 
 Please see [ChangeLog](ChangeLog) for release specific information.
 
 ## OVERVIEW
 
-openCryptoki version 3.17 implements the PKCS#11 specification version 3.0.
+openCryptoki version 3.18 implements the PKCS#11 specification version 3.0.
 
 This package includes several cryptographic tokens:
 CCA, ICA, TPM , SWToken, ICSF and EP11.
