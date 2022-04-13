@@ -365,9 +365,9 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     TRACE_INFO("ica %s running\n", __func__);
     ica_close_adapter(ica_data->adapter_handle);
 
-    if (p_ica_cleanup != NULL)
+    if (p_ica_cleanup != NULL && !in_fork_initializer)
         p_ica_cleanup();
-    if (ica_data->libica_dso != NULL)
+    if (ica_data->libica_dso != NULL && !in_fork_initializer)
         dlclose(ica_data->libica_dso);
 
     free(tokdata->mech_list);

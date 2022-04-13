@@ -33,7 +33,7 @@ CK_RV ep11tok_is_mechanism_supported_ex(STDLL_TokData_t *tokdata,
 CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                    char *conf_name);
 
-CK_RV ep11tok_final(STDLL_TokData_t * tokdata);
+CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer);
 
 CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
