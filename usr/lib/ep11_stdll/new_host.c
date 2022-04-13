@@ -241,7 +241,7 @@ CK_RV SC_Finalize(STDLL_TokData_t *tokdata, CK_SLOT_ID sid, SLOT_INFO *sinfp,
     detach_shm(tokdata, in_fork_initializer);
     /* close spin lock file */
     CloseXProcLock(tokdata);
-    rc = ep11tok_final(tokdata);
+    rc = ep11tok_final(tokdata, in_fork_initializer);
     if (rc != CKR_OK) {
         TRACE_ERROR("Token specific final call failed.\n");
         return rc;

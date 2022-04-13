@@ -2440,12 +2440,12 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     return CKR_OK;
 
 error:
-    ep11tok_final(tokdata);
+    ep11tok_final(tokdata, FALSE);
     TRACE_INFO("%s init failed with rc: 0x%lx\n", __func__, rc);
     return rc;
 }
 
-CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
+CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
 
@@ -2460,11 +2460,11 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata)
         }
         pthread_rwlock_destroy(&ep11_data->target_rwlock);
         free_cp_config(ep11_data->cp_config);
-        if (ep11_data->libica.ica_cleanup != NULL)
+        if (ep11_data->libica.ica_cleanup != NULL && !in_fork_initializer)
             ep11_data->libica.ica_cleanup();
-        if (ep11_data->libica.library != NULL)
+        if (ep11_data->libica.library != NULL && !in_fork_initializer)
             dlclose(ep11_data->libica.library);
-        if (ep11_data->lib_ep11 != NULL)
+        if (ep11_data->lib_ep11 != NULL && !in_fork_initializer)
             dlclose(ep11_data->lib_ep11);
         free(ep11_data);
         tokdata->private_data = NULL;

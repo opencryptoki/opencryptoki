@@ -640,7 +640,7 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 
     free(tokdata->mech_list);
 
-    if (tokdata->private_data != NULL)
+    if (tokdata->private_data != NULL && !in_fork_initializer)
         dlclose(tokdata->private_data);
     tokdata->private_data = NULL;
 
