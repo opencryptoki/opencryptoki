@@ -96,7 +96,7 @@ Add the pkcs11 group before installing it, by typing as root the command:
    be in pkcs11 group):
 
 ```
-    # usermod -G pkcs11 <user>
+    # usermod -a -G pkcs11 <user>
 ```
 
 5. Type `make install` (as root) to install the programs and any data files and
