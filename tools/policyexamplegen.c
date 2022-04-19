@@ -20,10 +20,10 @@ int main(void)
     char *line = "";
 
     puts("# OpenCryptoki policy example");
-    puts("# Move/copy to /etc/opencryptoki/policy.cfg to use it with opencryptoki.");
+    puts("# Move/copy to /etc/opencryptoki/policy.conf to use it with opencryptoki.");
     puts("# Then chown it to root:pkcs11 and chmod it to 0640.");
-    puts("# Also create a /etc/opencryptoki/strength.cfg since this is a prerequisite");
-    puts("# for policies.  You could just copy the strength-example.cfg from this");
+    puts("# Also create a /etc/opencryptoki/strength.conf since this is a prerequisite");
+    puts("# for policies.  You could just copy the strength-example.conf from this");
     puts("# folder, chown it to root:pkcs11 and chmod it to 0640.");
     puts("");
     puts("version policy-0");
