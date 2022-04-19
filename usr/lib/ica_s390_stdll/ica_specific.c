@@ -10,11 +10,14 @@
 
 /* Modified for S390 by Robert Burroughs                             */
 
+#define _GNU_SOURCE
+
 #include <pthread.h>
 #include <string.h>             // for memcmp() et al
 #include <strings.h>
 #include <stdlib.h>
 #include <dlfcn.h>              // for dlopen()
+#include <link.h>
 #include <errno.h>
 
 #ifndef NOAES
@@ -84,8 +87,6 @@ const char label[] = "icatok";
 
 static pthread_mutex_t rngmtx = PTHREAD_MUTEX_INITIALIZER;
 
-#define LIBICA_SHARED_LIB_V3 "libica.so.3"
-#define LIBICA_SHARED_LIB_V4 "libica.so.4"
 #define BIND(dso, sym)  do {                                             \
                             if (p_##sym == NULL)                         \
                                 *(void **)(&p_##sym) = dlsym(dso, #sym); \
@@ -233,18 +234,47 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
 static ica_sha3_512_t                  p_ica_sha3_512;
 #endif
 
+struct phdr_cb_data {
+    void *handle;
+};
+
+static int phdr_callback(struct dl_phdr_info *info, size_t size, void *data)
+{
+    int j;
+    unsigned long start, end;
+    struct phdr_cb_data *d = data;
+    unsigned long myaddr = (unsigned long)&ica_open_adapter;
+
+    UNUSED(size);
+
+    for (j = 0; j < info->dlpi_phnum; j++) {
+        /* Only consider loadable program segments */
+        if (info->dlpi_phdr[j].p_type == PT_LOAD) {
+            start = info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
+            end = start + info->dlpi_phdr[j].p_memsz;
+
+            if (start <= myaddr && myaddr < end) {
+                /* Get library handle of already loaded libica */
+                d->handle = dlopen(info->dlpi_name, RTLD_NOW | RTLD_NOLOAD);
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
 static CK_RV load_libica(ica_private_data_t *ica_data)
 {
-    /* Load libica */
-    ica_data->libica_dso = dlopen(LIBICA_SHARED_LIB_V4, RTLD_NOW);
-    if (ica_data->libica_dso == NULL)
-        ica_data->libica_dso = dlopen(LIBICA_SHARED_LIB_V3, RTLD_NOW);
+    struct phdr_cb_data data = { .handle = NULL };
 
-    if (ica_data->libica_dso == NULL) {
-        TRACE_ERROR("%s: dlopen(%s or %s) failed: %s\n", __func__,
-                    LIBICA_SHARED_LIB_V4, LIBICA_SHARED_LIB_V3, dlerror());
+    /* Find already loaded libica that it was linked with */
+    dl_iterate_phdr(phdr_callback, &data);
+    if (data.handle == NULL) {
+        TRACE_ERROR("%s: Failed to find libica: %s\n", __func__, dlerror());
         return CKR_FUNCTION_FAILED;
     }
+
+    ica_data->libica_dso = data.handle;
 
 #ifndef NO_EC
     /* Try to resolve all needed functions for ecc support */
