@@ -440,6 +440,7 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
                                        unsigned char *output_data);
 #endif
 typedef void (*ica_cleanup_t) (void);
+typedef int (*ica_fips_status_t) (void);
 
 typedef struct {
     CK_BYTE buffer[MAX_SHA_BLOCK_SIZE];
@@ -475,6 +476,7 @@ typedef struct {
     ica_sha3_512_t ica_sha3_512;
 #endif
     ica_cleanup_t ica_cleanup;
+    ica_fips_status_t ica_fips_status;
 } libica_t;
 
 /* target list of adapters/domains, specified in a config file by user,
@@ -2277,21 +2279,28 @@ static CK_RV ep11tok_load_libica(STDLL_TokData_t *tokdata)
         return default_libica ? CKR_OK : CKR_FUNCTION_FAILED;
     }
 
-    *(void **)(&libica->ica_sha1) = dlsym(libica->library, "ica_sha1");
-    *(void **)(&libica->ica_sha224) = dlsym(libica->library, "ica_sha224");
-    *(void **)(&libica->ica_sha256) = dlsym(libica->library, "ica_sha256");
-    *(void **)(&libica->ica_sha384) = dlsym(libica->library, "ica_sha384");
-    *(void **)(&libica->ica_sha512) = dlsym(libica->library, "ica_sha512");
-    *(void **)(&libica->ica_sha512_224) =
-        dlsym(libica->library, "ica_sha512_224");
-    *(void **)(&libica->ica_sha512_256) =
-        dlsym(libica->library, "ica_sha512_256");
+    *(void **)(&libica->ica_fips_status) = dlsym(libica->library, "ica_fips_status");
+    if (libica->ica_fips_status != NULL &&
+        libica->ica_fips_status() > ICA_FIPS_MODE) {
+        TRACE_WARNING("%s: libica FIPS selftests failed, disable use of libica\n",
+                       __func__);
+    } else {
+        *(void **)(&libica->ica_sha1) = dlsym(libica->library, "ica_sha1");
+        *(void **)(&libica->ica_sha224) = dlsym(libica->library, "ica_sha224");
+        *(void **)(&libica->ica_sha256) = dlsym(libica->library, "ica_sha256");
+        *(void **)(&libica->ica_sha384) = dlsym(libica->library, "ica_sha384");
+        *(void **)(&libica->ica_sha512) = dlsym(libica->library, "ica_sha512");
+        *(void **)(&libica->ica_sha512_224) =
+            dlsym(libica->library, "ica_sha512_224");
+        *(void **)(&libica->ica_sha512_256) =
+            dlsym(libica->library, "ica_sha512_256");
 #ifdef SHA3_224
-    *(void **)(&libica->ica_sha3_224) = dlsym(libica->library, "ica_sha3_224");
-    *(void **)(&libica->ica_sha3_256) = dlsym(libica->library, "ica_sha3_256");
-    *(void **)(&libica->ica_sha3_384) = dlsym(libica->library, "ica_sha3_384");
-    *(void **)(&libica->ica_sha3_512) = dlsym(libica->library, "ica_sha3_512");
+        *(void **)(&libica->ica_sha3_224) = dlsym(libica->library, "ica_sha3_224");
+        *(void **)(&libica->ica_sha3_256) = dlsym(libica->library, "ica_sha3_256");
+        *(void **)(&libica->ica_sha3_384) = dlsym(libica->library, "ica_sha3_384");
+        *(void **)(&libica->ica_sha3_512) = dlsym(libica->library, "ica_sha3_512");
 #endif
+    }
     *(void **)(&libica->ica_cleanup) = dlsym(libica->library, "ica_cleanup");
     /* No error checking, each of the libica functions is allowed to be NULL */
 
