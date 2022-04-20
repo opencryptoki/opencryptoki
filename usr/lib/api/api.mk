@@ -50,3 +50,5 @@ usr/lib/api/mechtable.c usr/lib/api/mechtable-gen.h: tools/tableidxgen
 BUILT_SOURCES += usr/lib/api/mechtable-gen.h
 EXTRA_DIST += usr/lib/api/mechtable.inc
 
+CLEANFILES += usr/lib/api/shrd_mem.c usr/lib/api/mechtable.c $(BUILT_SOURCES) \
+	usr/lib/api/mechtable.log
