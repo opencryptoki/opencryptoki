@@ -1,4 +1,4 @@
 man8_MANS += man/man8/pkcsslotd.8
 
 EXTRA_DIST += $(man8_MANS)
-CLEANFILES += $(man8_MANS)
+CLEANFILES += man/man8/*.8
