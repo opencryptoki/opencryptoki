@@ -1,6 +1,12 @@
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = opencryptoki.map opencryptoki_tok.map
 CLEANFILES =
+DISTCLEANFILES = *~
+MAINTAINERCLEANFILES = test-driver \
+	Makefile.in aclocal.m4 compile configure config.guess \
+	config.sub depcomp install-sh ltmain.sh m4/* missing \
+	depcomp ylwrap
+
 AM_YFLAGS = -d -v
 BUILT_SOURCES =
 
