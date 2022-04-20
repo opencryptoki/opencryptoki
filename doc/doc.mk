@@ -5,3 +5,4 @@ doc/policy-example.conf: tools/policyexamplegen
 	$(AM_V_GEN) $(MKDIR_P) doc && tools/policyexamplegen > doc/policy-example.conf
 
 EXTRA_DIST += $(doc_DATA)
+CLEANFILES += doc/policy-example.conf
