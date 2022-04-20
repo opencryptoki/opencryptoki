@@ -123,6 +123,7 @@ typedef int (*ica_ec_key_get_private_key_t) (ICA_EC_KEY *key,
                                              unsigned char *d,
                                              unsigned int *d_len);
 typedef void (*ica_ec_key_free_t) (ICA_EC_KEY *key);
+#endif
 typedef void (*ica_cleanup_t) (void);
 
 /*
@@ -134,6 +135,7 @@ typedef void (*ica_cleanup_t) (void);
  * reference count of the library is zero. Thus, these symbols are valid until
  * the library got finally unloaded.
  */
+#ifndef NO_EC
 static ica_ec_key_new_t                p_ica_ec_key_new;
 static ica_ec_key_init_t               p_ica_ec_key_init;
 static ica_ec_key_generate_t           p_ica_ec_key_generate;
@@ -143,10 +145,12 @@ static ica_ecdsa_verify_t              p_ica_ecdsa_verify;
 static ica_ec_key_get_public_key_t     p_ica_ec_key_get_public_key;
 static ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
 static ica_ec_key_free_t               p_ica_ec_key_free;
+#endif
 static ica_cleanup_t                   p_ica_cleanup;
 
 static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
+#ifndef NO_EC
 #define ICATOK_EC_MAX_D_LEN     66      /* secp521 */
 #define ICATOK_EC_MAX_Q_LEN     (2*ICATOK_EC_MAX_D_LEN)
 #define ICATOK_EC_MAX_SIG_LEN   ICATOK_EC_MAX_Q_LEN
@@ -3847,6 +3851,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
         if (libica_func_list[i].mech_mode_id == P_RNG)
             ica_data->ica_p_rng_available = TRUE;
 
+#ifndef NO_EC
         /* Remember if libica supports EC mechanisms (HW or SW) */
         if (ica_data->ica_ec_support_available) {
             if (libica_func_list[i].mech_mode_id == EC_KGEN)
@@ -3856,6 +3861,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             if (libica_func_list[i].mech_mode_id == EC_DH)
                 ica_data->ica_ec_derive_available = TRUE;
         }
+#endif
 
         /* Remember if libica supports SHA mechanisms (HW or SW) */
         if (libica_func_list[i].mech_mode_id == SHA1)
@@ -5038,6 +5044,9 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_RV rc;
 
     UNUSED(sess);
+#ifdef NO_EC
+    UNUSED(ica_data);
+#endif
 
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
     if (rc != CKR_OK)
