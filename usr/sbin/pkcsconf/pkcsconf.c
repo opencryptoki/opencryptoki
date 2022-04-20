@@ -1174,12 +1174,13 @@ CK_RV init(void)
 
 CK_RV cleanup(void)
 {
-    CK_RV rc;                   // Return Code
+    CK_RV rc = CKR_OK;                   // Return Code
 
     /* To clean up we will free the slot list we create, call the Finalize
      * routine for PKCS11 and close the dynamically linked library */
     free(SlotList);
-    rc = FunctionPtr->C_Finalize(NULL);
+    if (FunctionPtr)
+        rc = FunctionPtr->C_Finalize(NULL);
     if (dllPtr)
         dlclose(dllPtr);
 
