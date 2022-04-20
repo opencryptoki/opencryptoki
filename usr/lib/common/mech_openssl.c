@@ -802,7 +802,7 @@ static EVP_PKEY *rsa_convert_private_key(OBJECT *key_obj)
         goto out;
 
     if (!EVP_PKEY_fromdata_init(pctx) ||
-        !EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_PUBLIC_KEY, params))
+        !EVP_PKEY_fromdata(pctx, &pkey, EVP_PKEY_KEYPAIR, params))
         goto out;
 
     EVP_PKEY_CTX_free(pctx);
