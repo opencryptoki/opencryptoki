@@ -1704,6 +1704,17 @@ static const char *ep11_get_ckm(STDLL_TokData_t *tokdata, CK_ULONG mechanism)
 {
     const struct mechrow *row;
 
+    switch (mechanism) {
+    case CKM_IBM_CPACF_WRAP:
+        /*
+         * CKM_IBM_CPACF_WRAP is only supported/known inside the EP11 token
+         * code, but not externally, thus it is not in the mechtable.
+         */
+        return "CKM_IBM_CPACF_WRAP";
+    default:
+        break;
+    }
+
     row = tokdata->mechtable_funcs->p_row_from_num(mechanism);
     if (row)
         return row->string;
