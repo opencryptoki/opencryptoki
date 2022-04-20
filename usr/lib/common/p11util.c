@@ -417,3 +417,17 @@ void p11_attribute_trim(CK_ATTRIBUTE *attr)
         }
     }
 }
+
+/* p11_strlen() - calculate the length of CK_CHAR field, which
+ *          are not '\0' terminated but padded with spaces.
+ * @s       is a pointer to a CK_CHAR string.
+ * @max_len is its maximum length.
+ */
+size_t p11_strlen(const CK_CHAR *s, size_t max_len)
+{
+    size_t len = max_len;
+
+    while (len > 0 && s[len - 1] == ' ')
+        --len;
+    return len;
+}
