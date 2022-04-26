@@ -394,8 +394,6 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
 
-    UNUSED(in_fork_initializer);
-
     TRACE_INFO("ica %s running\n", __func__);
     ica_close_adapter(ica_data->adapter_handle);
 
