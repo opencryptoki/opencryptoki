@@ -75,6 +75,9 @@ const char label[] = "ccatok";
 
 #define CCASHAREDLIB "libcsulcca.so"
 
+#define CCA_MIN_VERSION     7
+#define CCA_MIN_RELEASE     1
+
 static CSNBCKI_t dll_CSNBCKI;
 static CSNBCKM_t dll_CSNBCKM;
 static CSNBDKX_t dll_CSNBDKX;
@@ -170,6 +173,7 @@ static CSNBKET_t dll_CSNBKET;
 static CSNBHMG_t dll_CSNBHMG;
 static CSNBHMV_t dll_CSNBHMV;
 static CSNBCTT2_t dll_CSNBCTT2;
+static CSUACFV_t dll_CSUACFV;
 
 /* mechanisms provided by this token */
 static const MECH_LIST_ELEMENT cca_mech_list[] = {
@@ -257,6 +261,11 @@ enum cca_token_type {
 /* CCA token private data */
 struct cca_private_data {
     void *lib_csulcca;
+    struct {
+        unsigned int ver;
+        unsigned int rel;
+        unsigned int mod;
+    } version;
     unsigned char expected_sym_mkvp[CCA_MKVP_LENGTH];
     unsigned char expected_aes_mkvp[CCA_MKVP_LENGTH];
     unsigned char expected_apka_mkvp[CCA_MKVP_LENGTH];
@@ -579,11 +588,61 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     *(void **)(&dll_CSNBHMG) = dlsym(hdl, "CSNBHMG");
     *(void **)(&dll_CSNBHMV) = dlsym(hdl, "CSNBHMV");
     *(void **)(&dll_CSNBCTT2) = dlsym(hdl, "CSNBCTT2");
+    *(void **)(&dll_CSUACFV) = dlsym(hdl, "CSUACFV");
 
     if ((error = dlerror()) != NULL) {
         OCK_SYSLOG(LOG_ERR, "%s\n", error);
         TRACE_ERROR("%s %s\n", __func__, error);
         return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char exit_data[4] = { 0, };
+    unsigned char version_data[20] = { 0 };
+    long return_code, reason_code;
+    long version_data_length;
+    long exit_data_len = 0;
+    char date[20];
+
+    /* Get CCA host library version */
+    version_data_length = sizeof(version_data);
+    dll_CSUACFV(&return_code, &reason_code,
+                &exit_data_len, exit_data,
+                &version_data_length, version_data);
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFV failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    version_data[sizeof(version_data) - 1] = '\0';
+    TRACE_DEVEL("CCA Version string: %s\n", version_data);
+
+    if (sscanf((char *)version_data, "%u.%u.%uz%s",
+               &cca_private->version.ver,
+               &cca_private->version.rel,
+               &cca_private->version.mod, date) != 4) {
+        TRACE_ERROR("CCA library version is invalid: %s\n", version_data);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (cca_private->version.ver < CCA_MIN_VERSION ||
+        (cca_private->version.ver == CCA_MIN_VERSION &&
+         cca_private->version.rel < CCA_MIN_RELEASE)) {
+        TRACE_ERROR("The CCA host library version is too old: %u.%u.%u, "
+                    "required: %u.%u or later\n",
+                    cca_private->version.ver, cca_private->version.rel,
+                    cca_private->version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
+        OCK_SYSLOG(LOG_ERR,"The CCA host library version is too old: %u.%u.%u, "
+                   "required: %u.%u or later\n",
+                   cca_private->version.ver, cca_private->version.rel,
+                   cca_private->version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
+        return CKR_DEVICE_ERROR;
     }
 
     return CKR_OK;
@@ -834,7 +893,11 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     rc = cca_resolve_lib_sym(cca_private->lib_csulcca);
-    if (rc)
+    if (rc != CKR_OK)
+        goto error;
+
+    rc = cca_get_version(tokdata);
+    if (rc != CKR_OK)
         goto error;
 
     memcpy(rule_array, "STATCCAE", 8);

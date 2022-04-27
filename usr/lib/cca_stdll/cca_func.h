@@ -1302,3 +1302,11 @@ typedef void (*CSNBCTT2_t)(long *return_code,
                            unsigned long *reserved1,
                            long *reserved2_length,
                            unsigned char *reserved2);
+
+/* Cryptographic Facility Version */
+typedef void (*CSUACFV_t)(long *return_code,
+                          long *reason_code,
+                          long *exit_data_length,
+                          unsigned char *exit_data,
+                          long *version_data_length,
+                          unsigned char *version_data);
