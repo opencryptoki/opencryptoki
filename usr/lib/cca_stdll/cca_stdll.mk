@@ -10,7 +10,8 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-I${srcdir}/usr/lib/cca_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include -DSTDLL_NAME=\"ccatok\"			\
-	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api		\
+	-I${top_builddir}/usr/lib/config -I${srcdir}/usr/lib/config
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared			\
 	-Wl,-z,defs,-Bsymbolic -lcrypto -lpthread -nostartfiles		\
@@ -38,7 +39,8 @@ opencryptoki_stdll_libpkcs11_cca_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/profile_obj.c usr/lib/cca_stdll/cca_specific.c	\
 	usr/lib/common/attributes.c usr/lib/common/dlist.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
-	usr/lib/api/policyhelper.c
+	usr/lib/api/policyhelper.c usr/lib/config/configuration.c	\
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES +=				\

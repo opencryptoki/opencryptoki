@@ -60,6 +60,8 @@ if ENABLE_CCATOK
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/ccatok
 	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/ccatok
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/ccatok
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ccatok.conf || $(INSTALL) -m 644 $(srcdir)/usr/lib/cca_stdll/ccatok.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ccatok.conf || true
 endif
 if ENABLE_EP11TOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \

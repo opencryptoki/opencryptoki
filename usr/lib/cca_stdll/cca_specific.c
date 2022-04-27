@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -27,6 +28,7 @@
 #include <syslog.h>
 #include <dlfcn.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -40,6 +42,8 @@
 #include "trace.h"
 #include "ock_syslog.h"
 #include "cca_func.h"
+#include "cfgparser.h"
+#include "configuration.h"
 #include <openssl/crypto.h>
 
 /**
@@ -249,6 +253,24 @@ enum cca_token_type {
     sec_ecc_priv_key,
     sec_ecc_publ_key
 };
+
+/* CCA token private data */
+struct cca_private_data {
+    void *lib_csulcca;
+    unsigned char expected_sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char expected_aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char expected_apka_mkvp[CCA_MKVP_LENGTH];
+    CK_BBOOL expected_sym_mkvp_set;
+    CK_BBOOL expected_aes_mkvp_set;
+    CK_BBOOL expected_apka_mkvp_set;
+};
+
+#define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
+#define CCA_CFG_SYM_MKVP        "SYM"
+#define CCA_CFG_AES_MKVP        "AES"
+#define CCA_CFG_APKA_MKVP       "APKA"
+
+const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 /*
  * Helper function: Analyse given CCA token.
@@ -567,17 +589,230 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     return CKR_OK;
 }
 
+CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
+{
+    unsigned int i, val;
+
+    if (strncasecmp(str, "0x", 2) == 0)
+        str += 2;
+    if (strlen(str) != size * 2)
+        return CKR_FUNCTION_FAILED;
+
+    for (i = 0; i < size; i++) {
+        if (sscanf(str + (i * 2), "%02x", &val) != 1)
+            return CKR_FUNCTION_FAILED;
+        bin[i] = val;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
+                                 struct ConfigStructNode *exp_mkvp_node)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    struct ConfigBaseNode *c;
+    char *str;
+    CK_RV rc = CKR_OK;
+    int i;
+
+    confignode_foreach(c, exp_mkvp_node->value, i) {
+        TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        if (strcasecmp(c->key, CCA_CFG_SYM_MKVP) == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+
+            rc = cca_parse_hex(str, cca_private->expected_sym_mkvp,
+                               CCA_MKVP_LENGTH);
+            if (rc != CKR_OK) {
+                OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
+                           "hex value '%s' at line %d\n", fname,
+                           confignode_getstr(c), c->line);
+                TRACE_ERROR("Error parsing config file '%s': invalid hex value "
+                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            c->line);
+                break;
+            }
+
+            cca_private->expected_sym_mkvp_set = TRUE;
+            continue;
+        }
+
+        if (strcasecmp(c->key, CCA_CFG_AES_MKVP) == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+
+            rc = cca_parse_hex(str, cca_private->expected_aes_mkvp,
+                               CCA_MKVP_LENGTH);
+            if (rc != CKR_OK) {
+                OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
+                           "hex value '%s' at line %d\n", fname,
+                           confignode_getstr(c), c->line);
+                TRACE_ERROR("Error parsing config file '%s': invalid hex value "
+                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            c->line);
+                break;
+            }
+
+            cca_private->expected_aes_mkvp_set = TRUE;
+            continue;
+        }
+
+        if (strcasecmp(c->key, CCA_CFG_APKA_MKVP) == 0 &&
+            (str = confignode_getstr(c)) != NULL) {
+
+            rc = cca_parse_hex(str, cca_private->expected_apka_mkvp,
+                               CCA_MKVP_LENGTH);
+            if (rc != CKR_OK) {
+                OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
+                           "hex value '%s' at line %d\n", fname,
+                           confignode_getstr(c), c->line);
+                TRACE_ERROR("Error parsing config file '%s': invalid hex value "
+                            "'%s' at line %d\n", fname, confignode_getstr(c),
+                            c->line);
+                break;
+            }
+
+            cca_private->expected_apka_mkvp_set = TRUE;
+            continue;
+        }
+
+        OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
+                   "'%s' at line %d\n", fname, c->key, c->line);
+        TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                    "at line %d\n", fname, c->key, c->line);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    TRACE_DEBUG("Expected master key verification patterns\n");
+    if (cca_private->expected_sym_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("SYM MKVP:  ", cca_private->expected_sym_mkvp, CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("SYM MKVP:  not specified\n");
+    }
+    if (cca_private->expected_aes_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("AES MKVP:  ", cca_private->expected_aes_mkvp, CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("AES MKVP:  not specified\n");
+    }
+    if (cca_private->expected_apka_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("APKA MKVP: ", cca_private->expected_apka_mkvp, CCA_MKVP_LENGTH);
+    } else {
+        TRACE_DEBUG("APKA MKVP: not specified\n");
+    }
+
+    return rc;
+}
+
+static void cca_config_parse_error(int line, int col, const char *msg)
+{
+    OCK_SYSLOG(LOG_ERR, "Error parsing config file: line %d column %d: %s\n",
+               line, col, msg);
+    TRACE_ERROR("Error parsing config file: line %d column %d: %s\n", line, col,
+                msg);
+}
+
+CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
+{
+    char fname[PATH_MAX];
+    FILE *file;
+    struct ConfigBaseNode *c, *config = NULL;
+    struct ConfigStructNode *struct_node;
+    CK_RV rc = CKR_OK;
+    int ret, i;
+
+    if (conf_name == NULL || strlen(conf_name) == 0)
+        return CKR_OK;
+
+    if (conf_name[0] == '/') {
+        /* Absolute path name */
+        strncpy(fname, conf_name, sizeof(fname));
+        fname[sizeof(fname) - 1] = '\0';
+    } else {
+        /* relative path name */
+        snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
+        fname[sizeof(fname) - 1] = '\0';
+    }
+
+    file = fopen(fname, "r");
+    if (file == NULL) {
+        TRACE_ERROR("%s fopen('%s') failed with errno: %s\n", __func__, fname,
+                    strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ret = parse_configlib_file(file, &config, cca_config_parse_error, 0);
+    if (ret != 0) {
+        TRACE_ERROR("Error parsing config file '%s'\n", fname);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    confignode_foreach(c, config, i) {
+        TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        if (confignode_hastype(c, CT_FILEVERSION)) {
+            TRACE_DEBUG("Config file version: '%s'\n",
+                        confignode_to_fileversion(c)->base.key);
+            continue;
+        }
+
+        if (confignode_hastype(c, CT_STRUCT)) {
+            struct_node = confignode_to_struct(c);
+            if (strcasecmp(struct_node->base.key, CCA_CFG_EXPECTED_MKVPS) == 0) {
+                rc = cca_config_parse_exp_mkvps(tokdata, fname, struct_node);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected "
+                       "token '%s' at line %d\n", fname, c->key, c->line);
+            TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                        "at line %d\n", fname, c->key, c->line);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+
+        OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
+                   "'%s' at line %d\n", fname, c->key, c->line);
+        TRACE_ERROR("Error parsing config file '%s': unexpected token '%s' "
+                    "at line %d\n", fname, c->key, c->line);
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
+
+done:
+    confignode_deepfree(config);
+    fclose(file);
+
+    return rc;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
     unsigned char rule_array[256] = { 0, };
     long return_code, reason_code, rule_array_count, verb_data_length;
-    void *lib_csulcca;
+    struct cca_private_data *cca_private;
     CK_RV rc;
 
     UNUSED(conf_name);
 
     TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
+
+    cca_private = calloc(1, sizeof(*cca_private));
+    if (cca_private == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
+    tokdata->private_data = cca_private;
+
+    rc = cca_load_config_file(tokdata, conf_name);
+    if (rc != CKR_OK)
+        goto error;
 
     rc = ock_generic_filter_mechanism_list(tokdata,
                                            cca_mech_list, cca_mech_list_len,
@@ -585,23 +820,22 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                                            &(tokdata->mech_list_len));
     if (rc != CKR_OK) {
         TRACE_ERROR("Mechanism filtering failed!  rc = 0x%lx\n", rc);
-        return rc;
+        goto error;
     }
 
-    lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
-    if (lib_csulcca == NULL) {
+    cca_private->lib_csulcca = dlopen(CCASHAREDLIB, RTLD_GLOBAL | RTLD_NOW);
+    if (cca_private->lib_csulcca == NULL) {
         OCK_SYSLOG(LOG_ERR, "%s: Error loading library: '%s' [%s]\n",
                    __func__, CCASHAREDLIB, dlerror());
         TRACE_ERROR("%s: Error loading shared library '%s' [%s]\n",
                     __func__, CCASHAREDLIB, dlerror());
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
 
-    rc = cca_resolve_lib_sym(lib_csulcca);
+    rc = cca_resolve_lib_sym(cca_private->lib_csulcca);
     if (rc)
-        return rc;
-
-    tokdata->private_data = lib_csulcca;
+        goto error;
 
     memcpy(rule_array, "STATCCAE", 8);
 
@@ -615,7 +849,8 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSUACFQ failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
     }
 
     /* This value should be 2 if the master key is set in the card */
@@ -629,17 +864,29 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     return CKR_OK;
+
+error:
+    token_specific_final(tokdata, FALSE);
+    return rc;
 }
 
 CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                            CK_BBOOL in_fork_initializer)
 {
+    struct cca_private_data *cca_private = tokdata->private_data;
+
     TRACE_INFO("cca %s running\n", __func__);
 
-    free(tokdata->mech_list);
+    if (tokdata->mech_list != NULL)
+        free(tokdata->mech_list);
 
-    if (tokdata->private_data != NULL && !in_fork_initializer)
-        dlclose(tokdata->private_data);
+    if (cca_private != NULL) {
+        if (cca_private->lib_csulcca != NULL && !in_fork_initializer)
+            dlclose(cca_private->lib_csulcca);
+        cca_private->lib_csulcca = NULL;
+
+        free(cca_private);
+    }
     tokdata->private_data = NULL;
 
     return CKR_OK;

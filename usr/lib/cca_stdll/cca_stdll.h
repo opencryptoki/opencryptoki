@@ -103,6 +103,8 @@ enum cca_key_type {
     CCA_DES_KEY
 };
 
+#define CCA_MKVP_LENGTH             8
+
 /* CCA STDLL debug logging definitions */
 
 #ifdef DEBUG
