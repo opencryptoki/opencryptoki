@@ -44,6 +44,7 @@
 #include "cca_func.h"
 #include "cfgparser.h"
 #include "configuration.h"
+#include "events.h"
 #include <openssl/crypto.h>
 
 /**
@@ -278,6 +279,7 @@ struct cca_private_data {
     unsigned int num_domains;
     unsigned int num_usagedoms;
     unsigned short usage_domains[256];
+    CK_BBOOL inconsistent;
     char serialno[9];
 };
 
@@ -285,6 +287,9 @@ struct cca_private_data {
 #define CCA_CFG_SYM_MKVP        "SYM"
 #define CCA_CFG_AES_MKVP        "AES"
 #define CCA_CFG_APKA_MKVP       "APKA"
+
+#define SYSFS_DEVICES_AP        "/sys/devices/ap/"
+#define MASK_COPRO              0x10000000
 
 const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
@@ -1509,7 +1514,10 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
     unsigned char key_form[CCA_KEYWORD_SIZE];
     unsigned char key_type_1[CCA_KEYWORD_SIZE];
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     *des_key = calloc(CCA_KEY_ID_SIZE, 1);
     if (*des_key == NULL)
@@ -1561,7 +1569,10 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr = NULL;
     CK_RV rc;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
     if (rc != CKR_OK) {
@@ -1923,7 +1934,10 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rv = template_attribute_get_ulong(publ_tmpl, CKA_MODULUS_BITS, &tmpbits);
     if (rv != CKR_OK) {
@@ -2103,7 +2117,10 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -2161,7 +2178,10 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -2225,9 +2245,13 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(hash);
     UNUSED(hlen);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -2338,9 +2362,13 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
     OBJECT *key_obj = NULL;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(hash);
     UNUSED(hlen);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -2449,8 +2477,12 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -2505,8 +2537,12 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -2577,8 +2613,12 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
     CK_BYTE *message = NULL;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -2711,8 +2751,12 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
     CK_BYTE *message = NULL;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -2861,7 +2905,10 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
     unsigned char point_to_array_of_zeros = 0;
     unsigned char mkvp[16] = { 0, };
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     *aes_key = calloc(CCA_KEY_ID_SIZE, 1);
     if (*aes_key == NULL)
@@ -2934,7 +2981,10 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     long int key_len;
     CK_RV rc;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
     if (rc != CKR_OK) {
@@ -3034,7 +3084,10 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     long int key_len;
     CK_RV rc;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     // get the key value
     rc = template_attribute_get_non_empty(key->template, CKA_IBM_OPAQUE, &attr);
@@ -3368,7 +3421,10 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rv = curve_supported(publ_tmpl, &curve_type, &curve_bitlen);
     if (rv != CKR_OK) {
@@ -3510,8 +3566,12 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -3564,8 +3624,12 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     /* Find the secure key token */
     rc = template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
@@ -3614,7 +3678,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     CK_ULONG hash_size;
     struct cca_sha_ctx *cca_ctx;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     switch (mech->mechanism) {
     case CKM_SHA_1:
@@ -3659,7 +3726,10 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     long return_code, reason_code, rule_array_count = 2;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -3726,7 +3796,10 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     unsigned char *buffer = NULL;
     int blocksz, blocksz_mask, use_buffer = 0;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     if (!in_data)
         return CKR_ARGUMENTS_BAD;
@@ -3874,7 +3947,10 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
     long return_code, reason_code, rule_array_count = 2;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     if (!ctx || !ctx->context)
         return CKR_OPERATION_NOT_INITIALIZED;
@@ -4018,7 +4094,10 @@ static CK_RV ccatok_hmac_init(SIGN_VERIFY_CONTEXT * ctx, CK_MECHANISM * mech,
 CK_RV token_specific_hmac_sign_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                     CK_MECHANISM * mech, CK_OBJECT_HANDLE key)
 {
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     return ccatok_hmac_init(&sess->sign_ctx, mech, key);
 }
@@ -4026,7 +4105,10 @@ CK_RV token_specific_hmac_sign_init(STDLL_TokData_t * tokdata, SESSION * sess,
 CK_RV token_specific_hmac_verify_init(STDLL_TokData_t * tokdata, SESSION * sess,
                                       CK_MECHANISM * mech, CK_OBJECT_HANDLE key)
 {
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     return ccatok_hmac_init(&sess->verify_ctx, mech, key);
 }
@@ -4150,6 +4232,11 @@ CK_RV token_specific_hmac_sign(STDLL_TokData_t * tokdata, SESSION * sess,
                                CK_BYTE * in_data, CK_ULONG in_data_len,
                                CK_BYTE * signature, CK_ULONG * sig_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac(tokdata, &sess->sign_ctx, in_data, in_data_len,
                        signature, sig_len, TRUE);
 }
@@ -4158,6 +4245,11 @@ CK_RV token_specific_hmac_verify(STDLL_TokData_t * tokdata, SESSION * sess,
                                  CK_BYTE * in_data, CK_ULONG in_data_len,
                                  CK_BYTE * signature, CK_ULONG sig_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac(tokdata, &sess->verify_ctx, in_data, in_data_len,
                        signature, &sig_len, FALSE);
 }
@@ -4353,6 +4445,11 @@ done:
 CK_RV token_specific_hmac_sign_update(STDLL_TokData_t * tokdata, SESSION * sess,
                                       CK_BYTE * in_data, CK_ULONG in_data_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac_update(tokdata, &sess->sign_ctx, in_data,
                               in_data_len, TRUE);
 }
@@ -4361,6 +4458,11 @@ CK_RV token_specific_hmac_verify_update(STDLL_TokData_t * tokdata,
                                         SESSION * sess, CK_BYTE * in_data,
                                         CK_ULONG in_data_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac_update(tokdata, &sess->verify_ctx, in_data,
                               in_data_len, FALSE);
 }
@@ -4486,6 +4588,11 @@ done:
 CK_RV token_specific_hmac_sign_final(STDLL_TokData_t * tokdata, SESSION * sess,
                                      CK_BYTE * signature, CK_ULONG * sig_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac_final(tokdata, &sess->sign_ctx, signature, sig_len,
                              TRUE);
 }
@@ -4494,6 +4601,11 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t * tokdata,
                                        SESSION * sess, CK_BYTE * signature,
                                        CK_ULONG sig_len)
 {
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
+
     return ccatok_hmac_final(tokdata, &sess->verify_ctx, signature,
                              &sig_len, FALSE);
 }
@@ -5854,8 +5966,12 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
     CK_KEY_TYPE keytype;
     CK_OBJECT_CLASS keyclass;
 
-    UNUSED(tokdata);
     UNUSED(sess);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     if (!object) {
         TRACE_ERROR("Invalid argument\n");
@@ -5978,7 +6094,10 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
 
-    UNUSED(tokdata);
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = template_attribute_get_ulong(template, CKA_VALUE_LEN, &keylength);
     if (rc != CKR_OK) {
@@ -6501,8 +6620,12 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
     CK_KEY_TYPE wrap_key_type;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(session);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     *not_opaque = FALSE;
 
@@ -6547,8 +6670,12 @@ CK_RV token_specific_key_unwrap(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BBOOL false = FALSE;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(session);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     *not_opaque = FALSE;
 
@@ -6686,10 +6813,14 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     CK_ULONG max_clear_len, req_out_len;
     CK_RV rc;
 
-    UNUSED(tokdata);
     UNUSED(session);
     UNUSED(decr_ctx);
     UNUSED(encr_ctx);
+
+    if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        return CKR_DEVICE_ERROR;
+    }
 
     rc = template_attribute_get_non_empty(decr_key_obj->template,
                                           CKA_IBM_OPAQUE, &decr_key_opaque);
@@ -6835,6 +6966,110 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
         if (return_code == 8 && reason_code == 72)
             return CKR_DATA_LEN_RANGE;
         return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
+{
+    FILE *fp;
+    char *end;
+    CK_RV rc = CKR_OK;
+
+    buf[0] = '\0';
+
+    fp = fopen(fname, "r");
+    if (fp == NULL) {
+        TRACE_ERROR("Failed to open file '%s'\n", fname);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (fgets(buf, buflen, fp) == NULL) {
+        TRACE_ERROR("Failed to read from file '%s'\n", fname);
+        rc = CKR_FUNCTION_FAILED;
+        goto out_fclose;
+    }
+
+    end = memchr(buf, '\n', buflen);
+    if (end)
+        *end = 0;
+    else
+        buf[buflen - 1] = 0;
+
+    if (strlen(buf) == 0)
+        rc = CKR_FUNCTION_FAILED;
+
+out_fclose:
+    fclose(fp);
+    return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
+                                   unsigned int event_type,
+                                   event_udev_apqn_data_t *apqn_data)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    char fname[290];
+    char buf[250];
+    CK_RV rc;
+    unsigned long val;
+
+    UNUSED(event_type);
+
+    sprintf(fname, "%scard%02x/ap_functions", SYSFS_DEVICES_AP, apqn_data->card);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return CKR_OK;
+    if (sscanf(buf, "%lx", &val) != 1)
+        val = 0x00000000;
+    if ((val & MASK_COPRO) == 0)
+        return CKR_OK;
+
+    TRACE_DEVEL("%s Cross checking MKVPs due to event for APQN %02x.%04x\n",
+                __func__, apqn_data->card, apqn_data->domain);
+
+    rc = cca_check_mks(tokdata);
+    if (rc != CKR_OK) {
+        __sync_or_and_fetch(&cca_private->inconsistent, TRUE);
+        TRACE_ERROR("CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
+        OCK_SYSLOG(LOG_ERR, "CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
+    } else {
+        __sync_and_and_fetch(&cca_private->inconsistent, FALSE);
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Called by the event thread, on receipt of an event.
+ *
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
+                                  unsigned int event_type,
+                                  unsigned int event_flags,
+                                  const char *payload,
+                                  unsigned int payload_len)
+{
+    UNUSED(event_flags);
+
+    switch (event_type) {
+    case EVENT_TYPE_APQN_ADD:
+    case EVENT_TYPE_APQN_REMOVE:
+        if (payload_len != sizeof(event_udev_apqn_data_t))
+            return CKR_FUNCTION_FAILED;
+        return cca_handle_apqn_event(tokdata, event_type,
+                                     (event_udev_apqn_data_t *)payload);
+
+    default:
+        return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
     return CKR_OK;
