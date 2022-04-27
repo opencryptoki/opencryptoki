@@ -50,8 +50,11 @@
 #define UDEV_SUBSYSTEM_AP           "ap"
 #define UDEV_ACTION_BIND            "bind"
 #define UDEV_ACTION_UNBIND          "unbind"
+#define UDEV_ACTION_CHANGE          "change"
 #define UDEV_ACTION_DEVTYPE_APQN    "ap_queue"
-#define UDEV_PROERTY_DEVTYPE        "DEV_TYPE"
+#define UDEV_PROPERTY_DEVTYPE       "DEV_TYPE"
+#define UDEV_PROPERTY_CONFIG        "CONFIG"
+#define UDEV_PROPERTY_ONLINE        "ONLINE"
 #endif
 
 struct epoll_info {
@@ -1509,7 +1512,8 @@ static int udev_mon_handle_device(struct udev_mon *udev_mon,
                                   struct udev_device *dev)
 {
     const char *action, *devname, *devpath, *devtype, *dev_type_prop;
-    unsigned int card, domain, dev_type;
+    const char *config_prop = NULL, *online_prop = NULL;
+    unsigned int card, domain, dev_type = 0;
     struct event_info *event;
     event_udev_apqn_data_t *apqn_data;
     int rc;
@@ -1520,19 +1524,24 @@ static int udev_mon_handle_device(struct udev_mon *udev_mon,
     devname = udev_device_get_sysname(dev);
     devpath = udev_device_get_devpath(dev);
     devtype = udev_device_get_devtype(dev);
-    dev_type_prop = udev_device_get_property_value(dev, UDEV_PROERTY_DEVTYPE);
+    dev_type_prop = udev_device_get_property_value(dev, UDEV_PROPERTY_DEVTYPE);
+    config_prop = udev_device_get_property_value(dev, UDEV_PROPERTY_CONFIG);
+    online_prop = udev_device_get_property_value(dev, UDEV_PROPERTY_ONLINE);
 
-    if (action == NULL || devname == NULL || devpath == NULL ||
-        devtype == NULL || dev_type_prop == NULL)
+    if (action == NULL || devname == NULL || devpath == NULL || devtype == NULL)
         return 0;
 
     DbgLog(DL3, "%s: Uevent: ACTION=%s DEVNAME=%s DEVPATH=%s DEVTYPE=%s "
-           "DEV_TYPE=%s", __func__, action, devname, devpath, devtype,
-           dev_type_prop);
+           "DEV_TYPE=%s CONFIG:%s ONLINE=%s",
+           __func__, action, devname, devpath, devtype,
+           dev_type_prop != NULL ? dev_type_prop : "",
+           config_prop != NULL ? config_prop : "",
+           online_prop != NULL ? online_prop : "");
 
-    /* We are only interested in bind and unbind events ... */
+    /* We are only interested in bind, unbind, and change events ... */
     if (strcmp(action, UDEV_ACTION_BIND) != 0 &&
-        strcmp(action, UDEV_ACTION_UNBIND) != 0)
+        strcmp(action, UDEV_ACTION_UNBIND) != 0 &&
+        strcmp(action, UDEV_ACTION_CHANGE) != 0)
         return 0;
 
     /* ... for an APQN device */
@@ -1543,9 +1552,11 @@ static int udev_mon_handle_device(struct udev_mon *udev_mon,
         TraceLog("%s: failed to parse APQN from DEVNAME: %s", __func__, devname);
         return -EIO;
     }
-    if (sscanf(dev_type_prop, "%x", &dev_type) != 1) {
-        TraceLog("%s: failed to parse DEV_TYPE: %s", __func__, dev_type_prop);
-        return -EIO;
+    if (dev_type_prop != NULL) {
+        if (sscanf(dev_type_prop, "%x", &dev_type) != 1) {
+            TraceLog("%s: failed to parse DEV_TYPE: %s", __func__, dev_type_prop);
+            return -EIO;
+        }
     }
 
     event = event_new(sizeof(event_udev_apqn_data_t), NULL);
@@ -1554,10 +1565,22 @@ static int udev_mon_handle_device(struct udev_mon *udev_mon,
         return -ENOMEM;
     }
 
-    if (strcmp(udev_device_get_action(dev), UDEV_ACTION_BIND) == 0)
+    if (strcmp(udev_device_get_action(dev), UDEV_ACTION_CHANGE) == 0) {
+        if (config_prop != NULL) {
+            event->event.type = strcmp(config_prop, "1") == 0 ?
+                    EVENT_TYPE_APQN_ADD : EVENT_TYPE_APQN_REMOVE;
+        } else if (online_prop != NULL) {
+            event->event.type = strcmp(online_prop, "1") == 0 ?
+                    EVENT_TYPE_APQN_ADD : EVENT_TYPE_APQN_REMOVE;
+        } else {
+            event_free(event);
+            return 0;
+        }
+    } else if (strcmp(udev_device_get_action(dev), UDEV_ACTION_BIND) == 0) {
         event->event.type = EVENT_TYPE_APQN_ADD;
-    else
+    } else {
         event->event.type = EVENT_TYPE_APQN_REMOVE;
+    }
     event->event.flags = EVENT_FLAGS_NONE;
     event->event.token_type = EVENT_TOK_TYPE_ALL;
     memset(event->event.token_label, ' ',
