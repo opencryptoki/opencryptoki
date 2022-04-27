@@ -134,7 +134,7 @@ token_spec_t token_specific = {
     &token_specific_reencrypt_single,
     NULL,                       // set_attribute_values
     NULL,                       // set_attrs_for_new_object
-    NULL,                       // handle_event
+    &token_specific_handle_event,
 };
 
 #endif
