@@ -64,6 +64,11 @@
  * represents its own configuration element.
  */
 #define CT_BARECONST    (1u << 10u)
+/*
+ * A bare number constant, i.e., a bare number outside of a list that
+ * represents its own configuration element.
+ */
+#define CT_BARENUMCONST (1u << 11u)
 
 /*
  * Mask for all types that have a key.  This excludes FILEVERSION,
@@ -140,6 +145,12 @@ struct ConfigEOCNode {
 
 struct ConfigBareConstNode {
     struct ConfigBaseNode base;
+};
+
+struct ConfigBareNumConstNode {
+    /* base.key is not used. */
+    struct ConfigBaseNode base;
+    unsigned long value;
 };
 
 /* Casting from base type functions */
@@ -324,6 +335,14 @@ static inline void confignode_freeeoc(struct ConfigEOCNode *n)
 }
 
 static inline void confignode_freebareconst(struct ConfigBareConstNode *n)
+{
+    if (n) {
+        free(n->base.key);
+        free(n);
+    }
+}
+
+static inline void confignode_freebarenumconst(struct ConfigBareNumConstNode *n)
 {
     if (n) {
         free(n->base.key);
@@ -518,6 +537,24 @@ static inline struct ConfigBareConstNode *confignode_allocbareconst(char *key,
     return res;
 }
 
+static inline struct ConfigBareNumConstNode *confignode_allocbarenumconst(
+                                                              unsigned long num,
+                                                              int line)
+{
+    struct ConfigBareNumConstNode *res =
+                            malloc(sizeof(struct ConfigBareNumConstNode));
+
+    if (res) {
+        res->base.next = res->base.prev = &(res->base);
+        res->base.key = NULL;
+        res->base.type = CT_BARENUMCONST;
+        res->base.line = line;
+        res->base.flags = 0;
+        res->value = num;
+    }
+    return res;
+}
+
 /* Convenience functions for AST manipulation.  These functions
    automatically append an EOC-node to the correct node which
    optionally includes a comment.  If no comment is desired, simply
@@ -564,6 +601,9 @@ confignode_allocbaredumpable(char *bareval, int line, char *comment);
 
 struct ConfigBareConstNode *
 confignode_allocbareconstdumpable(char *key, int line, char *comment);
+
+struct ConfigBareNumConstNode *
+confignode_allocbarenumconstdumpable(unsigned long num, int line, char *comment);
 
 /* Append the list n2 to the end of the list n1.
    NULL is considered as empty list. */
