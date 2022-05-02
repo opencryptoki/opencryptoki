@@ -39,6 +39,8 @@
 #include "ec_defs.h"
 #include "p11util.h"
 #include "events.h"
+#include "cfgparser.h"
+#include "configuration.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1743,28 +1745,11 @@ static CK_ULONG ep11_get_mechanisms_by_name(STDLL_TokData_t *tokdata,
 
 #define EP11_DEFAULT_CPFILTER_FILE "ep11cpfilter.conf"
 
-/* error rc for reading the adapter config file */
-static const int APQN_FILE_INV = 3;
-static const int APQN_FILE_INV_FILE_SIZE = 5;
-static const int APQN_FILE_SYNTAX_ERROR_0 = 7;
-static const int APQN_FILE_SYNTAX_ERROR_1 = 8;
-static const int APQN_FILE_SYNTAX_ERROR_2 = 9;
-static const int APQN_FILE_SYNTAX_ERROR_3 = 10;
-static const int APQN_FILE_SYNTAX_ERROR_4 = 11;
-static const int APQN_FILE_SYNTAX_ERROR_5 = 12;
-static const int APQN_FILE_NO_APQN_GIVEN = 13;
-static const int APQN_FILE_NO_APQN_MODE = 14;
-static const int APQN_FILE_UNEXPECTED_END_OF_FILE = 15;
-static const int APQN_FILE_SYNTAX_ERROR_6 = 16;
-static const int APQN_FILE_SYNTAX_ERROR_7 = 17;
-static const int APQN_FILE_SYNTAX_ERROR_8 = 18;
-static const int APQN_OUT_OF_MEMORY = 19;
-
-static int read_adapter_config_file(STDLL_TokData_t * tokdata,
-                                    const char *conf_name);
-static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
-                                      const char *conf_name,
-                                      cp_config_t ** cp_config);
+static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
+                                      const char *conf_name);
+static CK_RV read_cp_filter_config_file(STDLL_TokData_t *tokdata,
+                                        const char *conf_name,
+                                        cp_config_t ** cp_config);
 
 static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
 {
@@ -2358,7 +2343,6 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     rc = read_adapter_config_file(tokdata, conf_name);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s ep11 config file error rc=0x%lx\n", __func__, rc);
-        rc = CKR_GENERAL_ERROR;
         goto error;
     }
 
@@ -9318,59 +9302,199 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     return tokdata->policy->update_mech_info(tokdata->policy, type, pInfo);
 }
 
-
-/* used for reading in the adapter config file,
- * converts a 'token' to a number, returns 0 with success
- */
-static inline short check_n(ep11_target_t * target, char *nptr, int *apqn_i)
+static CK_RV ep11_config_add_apqn(ep11_private_data_t *ep11_data,
+                                  struct ConfigNumPairNode *pair,
+                                  const char *fname)
 {
-    int num;
-
-    if (sscanf(nptr, "%i", &num) != 1) {
-        TRACE_ERROR("%s invalid number '%s'\n", __func__, nptr);
-        return -1;
+    if (pair->value1 > 255) {
+        OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid adapter"
+                   " number, found '%lu' in config file '%s' at line %d\n",
+                   __func__, pair->value1, fname, pair->base.line);
+        TRACE_ERROR(" Error: Expected valid adapter number, found '%lu' in "
+                    "config file '%s' at line %d\n", pair->value1, fname,
+                    pair->base.line);
+        return CKR_ARGUMENTS_BAD;
     }
 
-    if (num < 0 || num > 255) {
-        TRACE_ERROR("%s invalid number '%s' %d\n", __func__, nptr, num);
-        return -1;
-    } else if (*apqn_i < 0 || *apqn_i >= MAX_APQN * 2) {
-        TRACE_ERROR("%s invalid amount of numbers %d\n", __func__, num);
-        return -1;
+    if (pair->value2 > 255) {
+        OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid domain"
+                   " number, found '%lu' in config file '%s' at line %d\n",
+                   __func__, pair->value2, fname, pair->base.line);
+        TRACE_ERROR(" Error: Expected valid domain number, found '%lu' in "
+                    "config file '%s' at line %d\n", pair->value2, fname,
+                    pair->base.line);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    if (ep11_data->target_list.length >= MAX_APQN) {
+        OCK_SYSLOG(LOG_ERR,"%s: Error: Too many APQNs in config "
+                   "file '%s' (max %d)\n", __func__, fname);
+        TRACE_ERROR("Too many APQNs in config file '%s' (max %d)\n",
+                    fname, (int) MAX_APQN);
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    ep11_data->target_list.apqns[ep11_data->target_list.length * 2] =
+                                                                pair->value1;
+    ep11_data->target_list.apqns[ep11_data->target_list.length * 2 + 1] =
+                                                                pair->value2;
+    ep11_data->target_list.length++;
+
+    return CKR_OK;
+}
+
+static void ep11_config_parse_error(int line, int col, const char *msg)
+{
+    OCK_SYSLOG(LOG_ERR, "Error parsing EP11 config file: line %d column %d: %s\n",
+               line, col, msg);
+    TRACE_ERROR("Error parsing EP11 config file: line %d column %d: %s\n",
+                line, col, msg);
+}
+
+static void ep11_config_error_token(const char *fname, const char *key,
+                                    int line, const char *expected)
+{
+    if (expected != NULL) {
+        OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': unexpected token "
+                   "'%s' at line %d, expected %s\n", fname,
+                   key != NULL ? key : "(none)", line, expected);
+        TRACE_ERROR("Error parsing config file '%s': unexpected token "
+                "   '%s' at line %d, expected %s\n", fname,
+                    key != NULL ? key : "(none)", line, expected);
+
     } else {
-        /* insert number into target variable */
-        target->apqns[*apqn_i] = (short) num;
-        /* how many APQNs numbers so far */
-        *apqn_i = *apqn_i + 1;
-        return 0;
+        OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': "
+                   "unexpected token '%s' at line %d\n", fname,
+                   key != NULL ? key : "(none)", line);
+        TRACE_ERROR("Error parsing config file '%s': unexpected token "
+                    "'%s' at line %d\n", fname, key != NULL ? key : "(none)", line);
     }
 }
 
+static void ep11_config_error_eof(const char *fname, const char *expected)
+{
+    if (expected != NULL) {
+        OCK_SYSLOG(LOG_ERR, "Error: Unexpected end of file found in config "
+                   "file '%s', expected %s\n", fname, expected);
+        TRACE_ERROR("Error: Unexpected end of file found in config file '%s', "
+                    "expected %s\\n", fname, expected);
 
-static int read_adapter_config_file(STDLL_TokData_t * tokdata,
-                                    const char *conf_name)
+    } else {
+        OCK_SYSLOG(LOG_ERR, "Error: Unexpected end of file found in config "
+                   "file '%s'\n", fname);
+        TRACE_ERROR("Error: Unexpected end of file found in config file '%s'\n",
+                    fname);
+    }
+}
+
+static CK_RV ep11_config_next(struct ConfigBaseNode **c, unsigned typemask,
+                              const char *fname, const char *expected)
+{
+    *c = (*c)->next;
+
+    if (*c == NULL) {
+        ep11_config_error_eof(fname, expected);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!confignode_hastype(*c, typemask)) {
+        ep11_config_error_token(fname, (*c)->key, (*c)->line, expected);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11_config_set_cpfilter(ep11_private_data_t *ep11_data,
+                                      const char *fname, const char *strval)
+{
+    if (strlen(strval) >
+        sizeof(ep11_data->cp_filter_config_filename) - 1) {
+        TRACE_ERROR("%s CP-Filter config file name is too long: '%s'\n",
+                    __func__, strval);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: CP-Filter config file name '%s' is "
+                   "too long in config file '%s'\n", __func__, strval, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    strncpy(ep11_data->cp_filter_config_filename, strval,
+            sizeof(ep11_data->cp_filter_config_filename) - 1);
+    ep11_data->cp_filter_config_filename[
+        sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
+
+    return CKR_OK;
+}
+
+static CK_RV ep11_config_set_pkey_mode(ep11_private_data_t *ep11_data,
+                                       const char *fname, const char *strval)
+{
+    if (strcmp(strval, "DISABLED") == 0)
+        ep11_data->pkey_mode = PKEY_MODE_DISABLED;
+    else if (strcmp(strval, "DEFAULT") == 0)
+        ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
+    else if (strcmp(strval, "ENABLE4NONEXTR") == 0)
+        ep11_data->pkey_mode = PKEY_MODE_ENABLE4NONEXTR;
+    else {
+        TRACE_ERROR("%s unsupported PKEY mode : '%s'\n", __func__, strval);
+        OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported PKEY mode '%s' "
+                   "in config file '%s'\n", __func__, strval, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11_config_set_libica(ep11_private_data_t *ep11_data,
+                                    const char *fname, const char *strval)
+{
+    if (strcmp(strval, "OFF") == 0) {
+        ep11_data->digest_libica = 0;
+    } else if (strcmp(strval, "DEFAULT") == 0) {
+        ep11_data->digest_libica = 1;
+        strcpy(ep11_data->digest_libica_path, "");
+    } else {
+        if (strlen(strval) >
+                        sizeof(ep11_data->digest_libica_path)-1) {
+            TRACE_ERROR("%s libica path is too long: '%s'\n", __func__, strval);
+            OCK_SYSLOG(LOG_ERR,"%s: Error: libica path '%s' is too long"
+                       " in config file '%s'\n", __func__, strval, fname);
+            return CKR_FUNCTION_FAILED;
+        }
+        ep11_data->digest_libica = 1;
+        strncpy(ep11_data->digest_libica_path, strval,
+                sizeof(ep11_data->digest_libica_path)-1);
+        ep11_data->digest_libica_path[
+                  sizeof(ep11_data->digest_libica_path)-1] = '\0';
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
+                                      const char *conf_name)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     FILE *ap_fp = NULL;         /* file pointer adapter config file */
-    int i, ap_file_size = 0;    /* size adapter config file */
-    char *token, *str;
-    char filebuf[EP11_CFG_FILE_SIZE];
-    char line[1024];
+    int i, k;
     int whitemode = 0;
     int anymode = 0;
-    int apqn_i = 0;             /* how many APQN numbers */
     /* Since the ep11 token config contains the path to libica that
      * will later be dlopen()ed, we cannot use a token config
      * directory from an untrusted environment.
      */
     char *conf_dir = secure_getenv("OCK_EP11_TOKEN_DIR");
     char fname[PATH_MAX];
-    int rc = 0;
+    CK_RV rc = CKR_OK;
     char *cfg_dir;
     char cfgname[2*PATH_MAX + 1];
+    struct ConfigBaseNode *c, *e, *config = NULL;
+    struct ConfigBareConstNode *bare;
+    struct ConfigNumPairListNode *list;
+    const char *strval;
 
     if (tokdata->initialized)
-        return 0;
+        return CKR_OK;
 
     memset(fname, 0, PATH_MAX);
 
@@ -9431,39 +9555,17 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s no valid EP 11 config file found\n", __func__);
         OCK_SYSLOG(LOG_ERR, "%s: Error: EP 11 config file '%s' not found\n",
                    __func__, fname);
-        return APQN_FILE_INV;
+        return CKR_FUNCTION_FAILED;
     }
 
     TRACE_INFO("%s EP 11 token config file is '%s'\n", __func__, fname);
 
-    /* read config file line by line,
-     * ignore empty and # and copy rest into file buf
-     */
-    memset(filebuf, 0, EP11_CFG_FILE_SIZE);
-    while (fgets((char *) line, sizeof(line), ap_fp)) {
-        char *p;
-        int len;
-        /* skip over leading spaces */
-        for (p = line; *p == ' ' || *p == '\t'; p++);
-        /* if line is empty or starts with # skip line */
-        len = strlen(p);
-        if (*p != '#' && *p != '\n' && len > 0) {
-            /* store line in buffer */
-            if (ap_file_size + len < EP11_CFG_FILE_SIZE) {
-                memcpy(filebuf + ap_file_size, p, len);
-                ap_file_size += len;
-            } else {
-                TRACE_ERROR("%s EP 11 config file '%s' is too large\n",
-                            __func__, fname);
-                fclose(ap_fp);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: EP 11 config file '%s' is too large\n",
-                           __func__, fname);
-                return APQN_FILE_INV_FILE_SIZE;
-            }
-        }
-    }
+    rc = parse_configlib_file(ap_fp, &config, ep11_config_parse_error, 0);
     fclose(ap_fp);
+    if (rc != 0) {
+        TRACE_ERROR("Error parsing config file '%s'\n", fname);
+        return CKR_FUNCTION_FAILED;
+    }
 
     ep11_data->target_list.length = 0;
     ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
@@ -9472,283 +9574,203 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
     ep11_data->digest_libica = 1;
     strcpy(ep11_data->digest_libica_path, "");
 
-    /* parse the file buf
+    /* Analyse the parsed config elements
      * please note, we still accept the LOGLEVEL entry
      * for compatibility reasons but just ignore it.
      */
-    for (i = 0, str = filebuf; rc == 0; str = NULL) {
-        /* strtok tokenizes the string,
-         * delimiters are newline and whitespace.
-         */
-        token = strtok(str, "\n\t ");
+    confignode_foreach(c, config, i) {
+        TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
 
-        if (i == 0) {
-            /* expecting APQN_ALLOWLIST or APQN_WHITELIST or APQN_ANY
-               or LOGLEVEL or eof */
-            if (token == NULL)
-                break;
-            if (strncmp(token, "APQN_WHITELIST", 14) == 0 ||
-                strncmp(token, "APQN_ALLOWLIST", 14) == 0) {
-                whitemode = 1;
-                i = 1;
-            } else if (strncmp(token, "APQN_ANY", 8) == 0) {
-                anymode = 1;
-                i = 0;
-            } else if (strncmp(token, "LOGLEVEL", 8) == 0) {
-                i = 3;
-            } else if (strncmp(token, "FORCE_SENSITIVE", 15) == 0) {
-                i = 0;
-                ep11_data->cka_sensitive_default_true = 1;
-            } else if (strncmp(token, "CPFILTER", 8) == 0) {
-                i = 4;
-            } else if (strncmp(token, "STRICT_MODE", 11) == 0) {
-                i = 0;
-                ep11_data->strict_mode = 1;
-            } else if (strncmp(token, "VHSM_MODE", 11) == 0) {
-                i = 0;
-                ep11_data->vhsm_mode = 1;
-            } else if (strncmp(token, "OPTIMIZE_SINGLE_PART_OPERATIONS", 
-                               31) == 0) {
-               i = 0;
-               ep11_data->optimize_single_ops = 1;
-            } else if (strncmp(token, "PKEY_MODE", 9) == 0) {
-               i = 6;
-            } else if (strncmp(token, "DIGEST_LIBICA", 13) == 0) {
-                i = 5;
-            } else if (strncmp(token, "USE_PRANDOM", 11) == 0) {
-               i = 0;
-               token_specific.t_rng = NULL;
-            } else {
-                /* syntax error */
-                TRACE_ERROR("%s Expected APQN_ALLOWLIST,"
-                            " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                            " STRICT_MODE, VHSM_MODE, "
-                            " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
-                            "or USE_PRANDOM keyword, found '%s' in config file "
-                            "'%s'\n", __func__,
-                            token, fname);
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected APQN_ALLOWLIST,"
-                           " APQN_ANY, LOGLEVEL, FORCE_SENSITIVE, CPFILTER,"
-                           " STRICT_MODE, VHSM_MODE,"
-                           " OPTIMIZE_SINGLE_PART_OPERATIONS, PKEY_MODE, DIGEST_LIBICA, "
-                           "or USE_PRANDOM keyword, found '%s' in config file "
-                           "'%s'\n",
-                           __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_0;
-                break;
-            }
-        } else if (i == 1) {
-            /* expecting END or first number of a number
-             * pair (number range 0...255)
-             */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected 'END' or adapter"
-                           " number\n",
-                           __func__, fname);
-                break;
-            }
-            if (strncmp(token, "END", 3) == 0) {
-                i = 0;
-            } else {
-                if (check_n(&ep11_data->target_list, token, &apqn_i) < 0) {
-                    rc = APQN_FILE_SYNTAX_ERROR_1;
-                    OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid adapter"
-                               " number, found '%s' in config file '%s'\n",
-                               __func__, token, fname);
-                    break;
-                }
-                i = 2;
-            }
-        } else if (i == 2) {
-            /* expecting second number of a number pair
-             * (number range 0...255)
-             */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected domain number"
-                           " (2nd number)\n", __func__, fname);
-                break;
-            }
-            if (strncmp(token, "END", 3) == 0) {
-                TRACE_ERROR("%s Expected 2nd number, found '%s' in config "
-                            "file\n", __func__, token);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: Expected valid domain"
-                           " number (2nd number), found '%s' in config file"
-                           " '%s'\n", __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_2;
-                break;
-            }
-            if (check_n(&ep11_data->target_list, token, &apqn_i) < 0) {
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Expected valid domain"
-                           " number (2nd number), found '%s' in config file"
-                           " '%s'\n", __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_3;
-                break;
-            }
-            ep11_data->target_list.length++;
-            if (ep11_data->target_list.length > MAX_APQN) {
-                TRACE_ERROR("%s Too many APQNs in config file (max %d)\n",
-                            __func__, (int) MAX_APQN);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: Too many APQNs in config file '%s'\n",
-                           __func__, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_4;
-                break;
-            }
-            i = 1;
-        } else if (i == 3) {
-            /* expecting log level value
-             * (a number in the range 0...9)
-             */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected LOGLEVEL value\n",
-                           __func__, fname);
-                break;
-            }
-            char *endptr;
-            int loglevel = strtol(token, &endptr, 10);
-            if (*endptr != '\0' || loglevel < 0 || loglevel > 9) {
-                TRACE_ERROR("%s Invalid loglevel value '%s' in config file\n",
-                            __func__, token);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: Invalid LOGLEVEL value '%s' in config "
-                           "file '%s'\n",
-                           __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_5;
-                break;
-            }
-            TRACE_WARNING("%s LOGLEVEL setting is not supported any more !\n",
-                          __func__);
-            TRACE_WARNING
-                ("%s Use opencryptoki logging/tracing facilities instead.\n",
-                 __func__);
-            OCK_SYSLOG(LOG_WARNING,
-                       "%s: Warning: LOGLEVEL setting is not supported any "
-                       "more. Use opencryptoki logging/tracing facilities "
-                       "instead.\n", __func__);
-            i = 0;
-        } else if (i == 4) {
-            /* expecting CP-filter config file name */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR, "%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected CP-Filter file "
-                           "name\n", __func__, fname);
-                break;
-            }
-            if (strlen(token) >
-                sizeof(ep11_data->cp_filter_config_filename) - 1) {
-                TRACE_ERROR("%s CP-Filter config file name is too long: '%s'\n",
-                            __func__, token);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: CP-Filter config file name '%s' is too "
-                           "long in config file '%s'\n",
-                           __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_6;
-                break;
-            }
-            strncpy(ep11_data->cp_filter_config_filename, token,
-                    sizeof(ep11_data->cp_filter_config_filename) - 1);
-            ep11_data->cp_filter_config_filename[
-                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
-            i = 0;
-        } else if (i == 5) {
-            /* expecting libica path, 'DEFAULT', or 'OFF' */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected libica path, "
-                           "'DEFAULT', or 'OFF'\n",
-                           __func__, fname);
-                break;
-            }
-            if (strcmp(token, "OFF") == 0) {
-                ep11_data->digest_libica = 0;
-            } else if (strcmp(token, "DEFAULT") == 0) {
-                ep11_data->digest_libica = 1;
-                strcpy(ep11_data->digest_libica_path, "");
-            } else {
-                if (strlen(token) > sizeof(ep11_data->digest_libica_path)-1) {
-                    TRACE_ERROR("%s libica path is too long: '%s'\n",
-                                            __func__, token);
-                    OCK_SYSLOG(LOG_ERR,"%s: Error: libica path '%s' is too long"
-                               " in config file '%s'\n",
-                               __func__, token, fname);
-                    rc = APQN_FILE_SYNTAX_ERROR_6;
-                    break;
-                }
-                ep11_data->digest_libica = 1;
-                strncpy(ep11_data->digest_libica_path, token,
-                        sizeof(ep11_data->digest_libica_path)-1);
-                ep11_data->digest_libica_path[sizeof(ep11_data->digest_libica_path)-1] = '\0';
-            }
-            i = 0;
-        } else if (i == 6) {
-            /* expecting pkey_mode */
-            if (token == NULL) {
-                rc = APQN_FILE_UNEXPECTED_END_OF_FILE;
-                OCK_SYSLOG(LOG_ERR,"%s: Error: Unexpected end of file found"
-                           " in config file '%s', expected pkey_mode 0 .. 3\n",
-                           __func__, fname);
-                break;
-            }
-            if (strncmp(token, "DISABLED", 8) == 0)
-                ep11_data->pkey_mode = PKEY_MODE_DISABLED;
-            else if (strncmp(token, "DEFAULT", 7) == 0)
-                ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
-            else if (strncmp(token, "ENABLE4NONEXTR", 14) == 0)
-                ep11_data->pkey_mode = PKEY_MODE_ENABLE4NONEXTR;
-            else {
-                TRACE_ERROR("%s unsupported pkey mode : '%s'\n",
-                                        __func__, token);
-                OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported pkey mode '%s' in config file '%s'\n",
-                           __func__, token, fname);
-                rc = APQN_FILE_SYNTAX_ERROR_6;
-                break;
-            }
-            i = 0;
+        if (confignode_hastype(c, CT_FILEVERSION)) {
+            TRACE_DEBUG("Config file version: '%s'\n",
+                        confignode_to_fileversion(c)->base.key);
+            continue;
         }
+
+        if (confignode_hastype(c, CT_STRINGVAL) ||
+            confignode_hastype(c, CT_BAREVAL)) {
+            /* New style (key = value) tokens */
+            strval = confignode_getstr(c);
+
+            if (strcmp(c->key, "CPFILTER") == 0) {
+                rc = ep11_config_set_cpfilter(ep11_data, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            if (strcmp(c->key, "PKEY_MODE") == 0) {
+                rc = ep11_config_set_pkey_mode(ep11_data, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            if (strcmp(c->key, "DIGEST_LIBICA") == 0) {
+                rc = ep11_config_set_libica(ep11_data, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+        }
+
+        if (confignode_hastype(c, CT_NUMPAIRLIST)) {
+            list = confignode_to_numpairlist(c);
+
+            if ((strcmp(list->base.key, "APQN_WHITELIST") != 0 &&
+                 strcmp(list->base.key, "APQN_ALLOWLIST") != 0) ||
+                strcmp(list->end, "END") != 0) {
+                ep11_config_error_token(fname, list->base.key, list->base.line,
+                                        "APQN_ALLOWLIST ... END");
+                rc = CKR_FUNCTION_FAILED;
+                break;
+            }
+
+            whitemode = 1;
+            confignode_foreach(e, list->value, k) {
+                if (!confignode_hastype(e, CT_NUMPAIR)) {
+                    ep11_config_error_token(fname, e->key, e->line,
+                                            "pair of NUMBERs");
+                    rc = CKR_FUNCTION_FAILED;
+                    break;
+                }
+
+                rc = ep11_config_add_apqn(ep11_data, confignode_to_numpair(e),
+                                          fname);
+                if (rc != CKR_OK)
+                    break;
+            }
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
+
+        if (!confignode_hastype(c, CT_BARECONST)) {
+            ep11_config_error_token(fname, c->key, c->line, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+
+        bare = confignode_to_bareconst(c);
+
+        if (strcmp(bare->base.key, "APQN_ANY") == 0) {
+            anymode = 1;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "FORCE_SENSITIVE") == 0) {
+            ep11_data->cka_sensitive_default_true = 1;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "CPFILTER") == 0) {
+            rc = ep11_config_next(&c, CT_BARECONST | CT_BARESTRINGCONST, fname,
+                                 "CP-Filter config file name");
+            if (rc != CKR_OK)
+                break;
+
+            if (confignode_hastype(c, CT_BARECONST))
+                strval = confignode_to_bareconst(c)->base.key;
+            else
+                strval = confignode_to_barestringconst(c)->base.key;
+
+            rc = ep11_config_set_cpfilter(ep11_data, fname,strval);
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "STRICT_MODE") == 0) {
+            ep11_data->strict_mode = 1;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "VHSM_MODE") == 0) {
+            ep11_data->vhsm_mode = 1;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "OPTIMIZE_SINGLE_PART_OPERATIONS") == 0) {
+            ep11_data->optimize_single_ops = 1;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "PKEY_MODE") == 0) {
+            rc = ep11_config_next(&c, CT_BARECONST, fname, "PKEY mode");
+            if (rc != CKR_OK)
+                break;
+
+            rc = ep11_config_set_pkey_mode(ep11_data, fname,
+                                       confignode_to_bareconst(c)->base.key);
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "DIGEST_LIBICA") == 0) {
+            rc = ep11_config_next(&c, CT_BARECONST | CT_BARESTRINGCONST, fname,
+                                  "libica path, 'DEFAULT', or 'OFF'");
+            if (rc != CKR_OK)
+                break;
+
+            if (confignode_hastype(c, CT_BARECONST))
+                strval = confignode_to_bareconst(c)->base.key;
+            else
+                strval = confignode_to_barestringconst(c)->base.key;
+
+            rc = ep11_config_set_libica(ep11_data, fname,strval);
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
+
+        if (strcmp(bare->base.key, "USE_PRANDOM") == 0) {
+            token_specific.t_rng = NULL;
+            continue;
+        }
+
+        ep11_config_error_token(fname, c->key, c->line, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        break;
     }
 
+    confignode_deepfree(config);
+
+    if (rc != CKR_OK)
+        return rc;
+
     /* do some checks: */
-    if (rc == 0) {
-        if (!(whitemode || anymode)) {
-            TRACE_ERROR("%s At least one APQN mode needs to be present in "
-                        "config file: APQN_ALLOWLIST or APQN_ANY\n", __func__);
+    if (!(whitemode || anymode)) {
+        TRACE_ERROR("%s At least one APQN mode needs to be present in "
+                    "config file: APQN_ALLOWLIST or APQN_ANY\n", __func__);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: At least one APQN mode needs to be present "
+                   " in config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
+                   __func__, fname);
+        rc = CKR_FUNCTION_FAILED;
+    } else if (whitemode && anymode) {
+        TRACE_ERROR("%s Only one APQN mode can be present in config file:"
+                    " APQN_ALLOWLIST or APQN_ANY\n", __func__);
+        OCK_SYSLOG(LOG_ERR,
+                   "%s: Error: Only one APQN mode can be present in"
+                   " config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
+                   __func__, fname);
+        rc = CKR_FUNCTION_FAILED;
+    } else if (whitemode) {
+        /* at least one APQN needs to be defined */
+        if (ep11_data->target_list.length < 1) {
+            TRACE_ERROR("%s At least one APQN needs to be defined in the "
+                        "config file\n", __func__);
             OCK_SYSLOG(LOG_ERR,
-                       "%s: Error: At least one APQN mode needs to be present "
-                       " in config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
-                       __func__, fname);
-            rc = APQN_FILE_NO_APQN_MODE;
-        } else if (whitemode && anymode) {
-            TRACE_ERROR("%s Only one APQN mode can be present in config file:"
-                        " APQN_ALLOWLIST or APQN_ANY\n", __func__);
-            OCK_SYSLOG(LOG_ERR,
-                       "%s: Error: Only one APQN mode can be present in"
-                       " config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
-                       __func__, fname);
-            rc = APQN_FILE_NO_APQN_MODE;
-        } else if (whitemode) {
-            /* at least one APQN needs to be defined */
-            if (ep11_data->target_list.length < 1) {
-                TRACE_ERROR("%s At least one APQN needs to be defined in the "
-                            "config file\n", __func__);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: At least one APQN needs to be defined in"
-                           " config file '%s'\n", __func__, fname);
-                rc = APQN_FILE_NO_APQN_GIVEN;
-            }
+                       "%s: Error: At least one APQN needs to be defined in"
+                       " config file '%s'\n", __func__, fname);
+            rc = CKR_FUNCTION_FAILED;
         }
     }
 
     /* log the whitelist of APQNs */
-    if (rc == 0 && whitemode) {
+    if (whitemode) {
         TRACE_INFO("%s whitelist with %d APQNs defined:\n",
                    __func__, ep11_data->target_list.length);
         for (i = 0; i < ep11_data->target_list.length; i++) {
@@ -9759,38 +9781,34 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
     }
 
     /* read CP-filter config file */
-    if (rc == 0) {
-        cfg_dir = dirname(fname);
-        if (strlen(ep11_data->cp_filter_config_filename) == 0) {
-            snprintf(ep11_data->cp_filter_config_filename,
-                     sizeof(ep11_data->cp_filter_config_filename) - 1,
-                     "%s/%s", cfg_dir, EP11_DEFAULT_CPFILTER_FILE);
-            ep11_data->cp_filter_config_filename[
-                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
-        }
-
-        if (strchr(ep11_data->cp_filter_config_filename, '/') == NULL) {
-            cfgname[0] = '\0';
-
-            if (strlen(cfg_dir) + 1
-                + strlen(ep11_data->cp_filter_config_filename)
-                <= sizeof(cfgname) - 1) {
-                strcpy(cfgname, cfg_dir);
-                cfgname[strlen(cfg_dir)] = '/';
-                strcpy(cfgname + strlen(cfg_dir) + 1,
-                       ep11_data->cp_filter_config_filename);
-            }
-            if (strlen(cfgname) < sizeof(ep11_data->cp_filter_config_filename))
-                strcpy(ep11_data->cp_filter_config_filename, cfgname);
-            ep11_data->cp_filter_config_filename[
-                sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
-        }
-
-        rc = read_cp_filter_config_file(tokdata,
-                                        ep11_data->cp_filter_config_filename,
-                                        &ep11_data->cp_config);
+    cfg_dir = dirname(fname);
+    if (strlen(ep11_data->cp_filter_config_filename) == 0) {
+        snprintf(ep11_data->cp_filter_config_filename,
+                 sizeof(ep11_data->cp_filter_config_filename) - 1,
+                 "%s/%s", cfg_dir, EP11_DEFAULT_CPFILTER_FILE);
+        ep11_data->cp_filter_config_filename[
+            sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
     }
 
+    if (strchr(ep11_data->cp_filter_config_filename, '/') == NULL) {
+        cfgname[0] = '\0';
+
+        if (strlen(cfg_dir) + 1 + strlen(ep11_data->cp_filter_config_filename)
+                                                    <= sizeof(cfgname) - 1) {
+            strcpy(cfgname, cfg_dir);
+            cfgname[strlen(cfg_dir)] = '/';
+            strcpy(cfgname + strlen(cfg_dir) + 1,
+                   ep11_data->cp_filter_config_filename);
+        }
+        if (strlen(cfgname) < sizeof(ep11_data->cp_filter_config_filename))
+            strcpy(ep11_data->cp_filter_config_filename, cfgname);
+        ep11_data->cp_filter_config_filename[
+            sizeof(ep11_data->cp_filter_config_filename) - 1] = '\0';
+    }
+
+    rc = read_cp_filter_config_file(tokdata,
+                                    ep11_data->cp_filter_config_filename,
+                                    &ep11_data->cp_config);
     return rc;
 }
 
@@ -9800,11 +9818,11 @@ static int read_adapter_config_file(STDLL_TokData_t * tokdata,
 #define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
 #define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
 
-static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
-                                      const char *conf_name,
-                                      cp_config_t ** cp_config)
+static CK_RV read_cp_filter_config_file(STDLL_TokData_t *tokdata,
+                                        const char *conf_name,
+                                        cp_config_t ** cp_config)
 {
-    int rc = 0;
+    CK_RV rc = CKR_OK;
     FILE *fp = NULL;
     char line[1024];
     char *tok;
@@ -9827,7 +9845,7 @@ static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                    conf_name);
         /* this is not an error condition. When no CP-filter file is available,
          * then the mechanisms are not filtered. */
-        return 0;
+        return CKR_OK;
     }
 
     while (fgets((char *) line, sizeof(line), fp)) {
@@ -9848,7 +9866,7 @@ static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                            "%s: Error: Expected valid control point name or "
                            "number, found '%s' in CP-filter config file '%s'\n",
                            __func__, tok, conf_name);
-                rc = APQN_FILE_SYNTAX_ERROR_7;
+                rc = CKR_FUNCTION_FAILED;
                 goto out_fclose;
             }
         }
@@ -9856,7 +9874,7 @@ static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
         cp = (cp_config_t *) malloc(sizeof(cp_config_t));
         if (cp == NULL) {
             TRACE_ERROR("%s Out of memory.\n", __func__);
-            rc = APQN_OUT_OF_MEMORY;
+            rc = CKR_HOST_MEMORY;
             goto out_fclose;
         }
         cp->cp = val;
@@ -9878,7 +9896,7 @@ static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                                "%s: Error: Expected valid mechanism name or "
                                "number, found '%s' in CP-filter config file "
                                "'%s'\n", __func__, tok, conf_name);
-                    rc = APQN_FILE_SYNTAX_ERROR_8;
+                    rc = CKR_FUNCTION_FAILED;
                     free_cp_config(cp);
                     goto out_fclose;
                 }
@@ -9890,7 +9908,7 @@ static int read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                 OCK_SYSLOG(LOG_ERR, "%s: Error: Out of memory while parsing the"
                            " CP-filter config file '%s'\n",
                            __func__, conf_name);
-                rc = APQN_OUT_OF_MEMORY;
+                rc = CKR_HOST_MEMORY;
                 free_cp_config(cp);
                 goto out_fclose;
             }
