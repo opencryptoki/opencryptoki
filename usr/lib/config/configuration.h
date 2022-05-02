@@ -231,6 +231,13 @@ confignode_to_bareconst(struct ConfigBaseNode *n)
         (((char *)n) - offsetof(struct ConfigBareConstNode, base));
 }
 
+static inline struct ConfigBareNumConstNode *
+confignode_to_barenumconst(struct ConfigBaseNode *n)
+{
+    return (struct ConfigBareNumConstNode *)
+        (((char *)n) - offsetof(struct ConfigBareNumConstNode, base));
+}
+
 /* Freeing functions */
 
 /**
