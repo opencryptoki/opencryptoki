@@ -9526,19 +9526,12 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
         }
     } else {
         if (conf_name && strlen(conf_name) > 0) {
-            strncpy(fname, conf_name, sizeof(fname) - 1);
+            snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
             fname[sizeof(fname) - 1] = '\0';
             ap_fp = fopen(fname, "r");
-            if (!ap_fp) {
+            if (!ap_fp)
                 TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
                             __func__, fname, errno);
-                snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR, conf_name);
-                fname[sizeof(fname) - 1] = '\0';
-                ap_fp = fopen(fname, "r");
-                if (!ap_fp)
-                    TRACE_DEVEL("%s fopen('%s') failed with errno %d\n",
-                                __func__, fname, errno);
-            }
         } else {
             snprintf(fname, sizeof(fname), "%s/%s", OCK_CONFDIR,
                      EP11_DEFAULT_CFG_FILE);
