@@ -528,6 +528,8 @@ typedef struct {
     int msa_level;
     int digest_libica;
     char digest_libica_path[PATH_MAX];
+    unsigned char expected_wkvp[XCP_WKID_BYTES];
+    int expected_wkvp_set;
     libica_t libica;
     void *lib_ep11;
     CK_VERSION ep11_lib_version;
@@ -9471,6 +9473,54 @@ static CK_RV ep11_config_set_libica(ep11_private_data_t *ep11_data,
     return CKR_OK;
 }
 
+static CK_RV ep11_config_set_wkvp(ep11_private_data_t *ep11_data,
+                                  const char *fname, const char *strval)
+{
+    unsigned int i, val;
+
+    if (strncasecmp(strval, "0x", 2) == 0)
+        strval += 2;
+
+    if (strlen(strval) < sizeof(ep11_data->expected_wkvp) * 2) {
+        TRACE_ERROR("%s expected WKVP is too short: '%s', expected %lu hex "
+                    "characters in config file '%s'\n", __func__, strval,
+                    sizeof(ep11_data->expected_wkvp) * 2, fname);
+        OCK_SYSLOG(LOG_ERR,"%s: Error: expected WKVP is too short: '%s', "
+                   "expected %lu hex characters in config file '%s'\n",
+                   __func__, strval, sizeof(ep11_data->expected_wkvp) * 2,
+                   fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (strlen(strval) > sizeof(ep11_data->expected_wkvp) * 2) {
+        TRACE_INFO("%s only the first %lu characters of the expected WKVP in "
+                   "config file '%s' are used: %s\n", __func__,
+                    sizeof(ep11_data->expected_wkvp) * 2, fname, strval);
+        OCK_SYSLOG(LOG_INFO,"%s: Info: only the first %lu characters of the "
+                   "expected WKVP in config file '%s' are used: %s\n", __func__,
+                    sizeof(ep11_data->expected_wkvp) * 2, fname, strval);
+    }
+
+    for (i = 0; i < sizeof(ep11_data->expected_wkvp); i++) {
+        if (sscanf(strval + (i * 2), "%02x", &val) != 1) {
+            TRACE_ERROR("%s failed to parse expected WKVP: '%s' at character "
+                        "%u in config file '%s'\n", __func__, strval, (i * 2),
+                        fname);
+            OCK_SYSLOG(LOG_ERR,"%s: Error: failed to parse expected WKVP: '%s' "
+                       "at character %u in config file '%s'\n", __func__,
+                       strval, (i * 2), fname);
+            return CKR_FUNCTION_FAILED;
+        }
+        ep11_data->expected_wkvp[i] = val;
+    }
+    ep11_data->expected_wkvp_set = 1;
+
+    TRACE_DEBUG_DUMP("Expected WKVP:  ", ep11_data->expected_wkvp,
+                     sizeof(ep11_data->expected_wkvp));
+
+    return CKR_OK;
+}
+
 static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
                                       const char *conf_name)
 {
@@ -9491,6 +9541,7 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
     struct ConfigBaseNode *c, *e, *config = NULL;
     struct ConfigBareConstNode *bare;
     struct ConfigNumPairListNode *list;
+    struct ConfigBareStringConstNode *barestr;
     const char *strval;
 
     if (tokdata->initialized)
@@ -9602,6 +9653,13 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
 
             if (strcmp(c->key, "DIGEST_LIBICA") == 0) {
                 rc = ep11_config_set_libica(ep11_data, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+
+            if (strcmp(c->key, "EXPECTED_WKVP") == 0) {
+                rc = ep11_config_set_wkvp(ep11_data, fname, strval);
                 if (rc != CKR_OK)
                     break;
                 continue;
@@ -9722,6 +9780,20 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
             token_specific.t_rng = NULL;
             continue;
         }
+
+        if (strcmp(bare->base.key, "EXPECTED_WKVP") == 0) {
+            rc = ep11_config_next(&c, CT_BARESTRINGCONST, fname,
+                                  "WKID as quoted hex string");
+            if (rc != CKR_OK)
+                break;
+            barestr = confignode_to_barestringconst(c);
+
+            rc = ep11_config_set_wkvp(ep11_data, fname, barestr->base.key);
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
+
 
         ep11_config_error_token(fname, c->key, c->line, NULL);
         rc = CKR_FUNCTION_FAILED;
