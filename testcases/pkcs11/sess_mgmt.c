@@ -577,6 +577,13 @@ CK_RV do_OperationState1(void)
     // save session #1's operation state
     rc = funcs->C_GetOperationState(session1, NULL, &op_state_len);
     if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            printf("Session state not savable for mechanism %s. (skipped)\n",
+                   mech_to_str(mech.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            return 0;
+        }
         show_error("   C_GetOperationState #1", rc);
         return rc;
     }
@@ -670,9 +677,9 @@ CK_RV do_OperationState2(void)
     CK_RV rc;
 
     CK_BYTE original[1024];
-    CK_BYTE digest1[16];
-    CK_BYTE digest2[16];
-    CK_BYTE digest3[16];
+    CK_BYTE digest1[32];
+    CK_BYTE digest2[32];
+    CK_BYTE digest3[32];
 
     CK_ULONG orig_len;
     CK_ULONG digest1_len, digest2_len, digest3_len;
@@ -739,7 +746,7 @@ CK_RV do_OperationState2(void)
     for (i = 0; i < orig_len; i++)
         original[i] = i % 255;
 
-    mech.mechanism = CKM_MD5;
+    mech.mechanism = CKM_SHA256;
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
@@ -793,6 +800,14 @@ CK_RV do_OperationState2(void)
     // save the operation states of sessions 1 and 2
     rc = funcs->C_GetOperationState(session1, NULL, &op_state1_len);
     if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            printf("Session state not savable for mechanism %s. (skipped)\n",
+                   mech_to_str(mech.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            funcs->C_CloseSession(session3);
+            return 0;
+        }
         show_error("   C_GetOperationState #1", rc);
         return rc;
     }
@@ -811,6 +826,14 @@ CK_RV do_OperationState2(void)
 
     rc = funcs->C_GetOperationState(session2, NULL, &op_state2_len);
     if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            printf("Session state not savable for mechanism %s. (skipped)\n",
+                   mech_to_str(mech.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            funcs->C_CloseSession(session3);
+            return 0;
+        }
         show_error("   C_GetOperationState #3", rc);
         return rc;
     }
@@ -917,9 +940,9 @@ CK_RV do_OperationState3(void)
     CK_RV rc;
 
     CK_BYTE original[1024];
-    CK_BYTE digest1[16];
-    CK_BYTE digest2[16];
-    CK_BYTE digest3[16];
+    CK_BYTE digest1[32];
+    CK_BYTE digest2[32];
+    CK_BYTE digest3[32];
     CK_BYTE junk[1024];
 
     CK_ULONG orig_len, junk_len;
@@ -1028,7 +1051,7 @@ CK_RV do_OperationState3(void)
         return rc;
     }
 
-    mech2.mechanism = CKM_MD5;
+    mech2.mechanism = CKM_SHA256;
     mech2.pParameter = NULL;
     mech2.ulParameterLen = 0;
 
@@ -1069,6 +1092,14 @@ CK_RV do_OperationState3(void)
 
     rc = funcs->C_GetOperationState(session2, NULL, &op_state2_len);
     if (rc != CKR_OK) {
+        if (rc == CKR_STATE_UNSAVEABLE) {
+            printf("Session state not savable for mechanism %s. (skipped)\n",
+                   mech_to_str(mech2.mechanism));
+            funcs->C_CloseSession(session1);
+            funcs->C_CloseSession(session2);
+            funcs->C_CloseSession(session3);
+            return 0;
+        }
         show_error("   C_GetOperationState #1", rc);
         return rc;
     }
