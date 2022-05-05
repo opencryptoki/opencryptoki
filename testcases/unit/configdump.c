@@ -17,6 +17,11 @@ static const char test6[] = "foo (\n      bar,\n      buzz\n    )\n";
 static const char test7[] = "foo\n(\n  bar,\n  buzz\n)\n";
 static const char nested1[] = "nested {\n  foo (\n        bar,\n        buzz\n      )\n}\n";
 static const char nested2[] = "nested {\n  foo\n  (\n    bar,\n    buzz\n  )\n}\n";
+static const char bare1[] = "foo\nbar\n";
+static const char bare2[] = "foo bar\n";
+static const char bare3[] = "foo\n1234\n";
+static const char bare4[] = "foo\n\"bar\"\n";
+static const char bare5[] = "foo \"bar\"\n";
 static char outbuf[1024];
 
 static const char *curtest;
@@ -74,5 +79,10 @@ int main(void)
     runparsedumptest(test7);
     runparsedumptest(nested1);
     runparsedumptest(nested2);
+    runparsedumptest(bare1);
+    runparsedumptest(bare2);
+    runparsedumptest(bare3);
+    runparsedumptest(bare4);
+    runparsedumptest(bare5);
     return TEST_PASS;
 }
