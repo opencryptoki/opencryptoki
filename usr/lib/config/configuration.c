@@ -56,6 +56,9 @@ void confignode_free(struct ConfigBaseNode *n)
         case CT_BARENUMCONST:
             confignode_freebarenumconst(confignode_to_barenumconst(n));
             break;
+        case CT_BARESTRINGCONST:
+            confignode_freebarestringconst(confignode_to_barestringconst(n));
+            break;
         default:
             break;
         }
@@ -234,6 +237,9 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
             break;
         case CT_BARENUMCONST:
             fprintf(fp, "%lu", confignode_to_barenumconst(i)->value);
+            break;
+        case CT_BARESTRINGCONST:
+            fprintf(fp, "\"%s\"", i->key);
             break;
         default:
             break;
@@ -541,6 +547,25 @@ confignode_allocbarenumconstdumpable(unsigned long num, int line, char *comment)
             confignode_append(&(res->base), &(eoc->base));
         } else {
             confignode_freebarenumconst(res);
+            res = NULL;
+        }
+    }
+    return res;
+}
+
+struct ConfigBareStringConstNode *
+confignode_allocbarestringconstdumpable(char *key, int line, char *comment)
+{
+    struct ConfigBareStringConstNode *res;
+    struct ConfigEOCNode *eoc;
+
+    res = confignode_allocbarestringconst(key, line);
+    if (res) {
+        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        if (eoc) {
+            confignode_append(&(res->base), &(eoc->base));
+        } else {
+            confignode_freebarestringconst(res);
             res = NULL;
         }
     }
