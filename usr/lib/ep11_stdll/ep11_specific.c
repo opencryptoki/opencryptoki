@@ -11560,6 +11560,113 @@ static void free_card_versions(ep11_card_version_t *card_version)
     }
 }
 
+typedef struct query_wkvp
+{
+    ep11_private_data_t *ep11_data;
+    ep11_target_info_t *target_info;
+    CK_BBOOL error;
+} query_wkvp_t;
+
+const unsigned char ep11_zero_mkvp[XCP_WKID_BYTES] = { 0 };
+
+static CK_RV wkvp_query_handler(uint_32 adapter, uint_32 domain,
+                                void *handler_data)
+{
+    query_wkvp_t *qw = (query_wkvp_t *)handler_data;
+    CK_IBM_DOMAIN_INFO domain_info;
+    CK_ULONG domain_info_len = sizeof(domain_info);
+    CK_RV rc;
+    target_t target;
+
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = dll_m_get_xcp_info(&domain_info, &domain_info_len, CK_IBM_XCPQ_DOMAIN,
+                            0, target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query domain info from APQN %02X.%04X\n",
+                           __func__, adapter, domain);
+       /* card may no longer be online, so ignore this error situation */
+        rc = CKR_OK;
+        goto out;
+    }
+
+    if ((domain_info.flags & CK_IBM_DOM_CURR_WK) == 0) {
+        TRACE_ERROR("%s No EP11 wrapping key is set on APQN %02X.%04X\n",
+                    __func__, adapter, domain);
+        OCK_SYSLOG(LOG_ERR, "%s No EP11 wrapping key is set on APQN %02X.%04X\n",
+                   __func__, adapter, domain);
+        qw->error = TRUE;
+        rc = CKR_OK;
+        goto out;
+    }
+
+    TRACE_DEBUG("%s WKVP of APQN %02X.%04X:\n", __func__, adapter, domain);
+    TRACE_DEBUG_DUMP("full WKVP: ", domain_info.wk, sizeof( domain_info.wk));
+
+    if (qw->ep11_data->expected_wkvp_set == FALSE &&
+        memcmp(qw->ep11_data->expected_wkvp, ep11_zero_mkvp,
+               XCP_WKID_BYTES) == 0) {
+        /* zero expected MKVP, copy current one */
+        memcpy(qw->ep11_data->expected_wkvp, domain_info.wk, XCP_WKID_BYTES);
+    } else {
+        if (memcmp(domain_info.wk, qw->ep11_data->expected_wkvp,
+                   XCP_WKID_BYTES) != 0) {
+            TRACE_ERROR("EP11 wrapping key on APQN %02X.%04X does not "
+                        "match the %s wrapping key\n", adapter, domain,
+                        qw->ep11_data->expected_wkvp_set ?
+                                                "expected" : "other APQN's");
+            OCK_SYSLOG(LOG_ERR, "EP11 wrapping key on APQN %02X.%04X does not "
+                       "match the %s wrapping key\n", adapter, domain,
+                        qw->ep11_data->expected_wkvp_set ?
+                                                "expected" : "other APQN's");
+            qw->error = TRUE;
+            rc = CKR_OK;
+            goto out;
+        }
+    }
+
+out:
+    free_ep11_target_for_apqn(target);
+    return rc;
+}
+
+static CK_RV ep11tok_check_wkvps(STDLL_TokData_t *tokdata,
+                                 ep11_target_info_t *target_info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    query_wkvp_t qw;
+    CK_RV rc;
+
+    memset(&qw, 0, sizeof(qw));
+    qw.ep11_data = ep11_data;
+    qw.target_info = target_info;
+
+    rc = handle_all_ep11_cards(&ep11_data->target_list, wkvp_query_handler,
+                               &qw);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    if (qw.error) {
+        TRACE_ERROR("%s Errors occurred during WKVP query\n", __func__);
+        return CKR_DEVICE_ERROR;
+    }
+
+    if (ep11_data->expected_wkvp_set == FALSE) {
+        TRACE_DEBUG_DUMP("WKVP (queried): ", ep11_data->expected_wkvp,
+                         XCP_WKID_BYTES);
+    } else {
+        TRACE_DEBUG_DUMP("WKVP (config): ", ep11_data->expected_wkvp,
+                         XCP_WKID_BYTES);
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ep11tok_copy_firmware_info(STDLL_TokData_t *tokdata,
                                  CK_TOKEN_INFO_PTR pInfo)
 {
@@ -12093,9 +12200,14 @@ static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
 
     target_info->ref_count = 1;
 
+    /* Get and check the WKVPs freshly with the current set of APQNs */
+    rc = ep11tok_check_wkvps(tokdata, target_info);
+    if (rc != CKR_OK)
+        goto error;
+
     /* Get the version info freshly with the current set of APQNs */
     rc = ep11tok_get_ep11_version(tokdata, target_info);
-    if (rc != 0)
+    if (rc != CKR_OK)
         goto error;
 
     /* Get the control points freshly with the current set of APQNs */
@@ -12103,7 +12215,7 @@ static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
     rc = get_control_points(tokdata, target_info->control_points,
                             &target_info->control_points_len,
                             &target_info->max_control_point_index);
-    if (rc != 0)
+    if (rc != CKR_OK)
         goto error;
 
     /* Setup the group target freshly with the current set of APQNs */
