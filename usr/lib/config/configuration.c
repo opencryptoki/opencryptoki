@@ -53,6 +53,9 @@ void confignode_free(struct ConfigBaseNode *n)
         case CT_BARECONST:
             confignode_freebareconst(confignode_to_bareconst(n));
             break;
+        case CT_BARENUMCONST:
+            confignode_freebarenumconst(confignode_to_barenumconst(n));
+            break;
         default:
             break;
         }
