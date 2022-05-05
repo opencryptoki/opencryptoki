@@ -229,6 +229,9 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
         case CT_BARECONST:
             fputs(i->key, fp);
             break;
+        case CT_BARENUMCONST:
+            fprintf(fp, "%lu", confignode_to_barenumconst(i)->value);
+            break;
         default:
             break;
         }
