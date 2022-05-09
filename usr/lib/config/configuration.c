@@ -521,22 +521,3 @@ confignode_allocbareconstdumpable(char *key, int line, char *comment)
     }
     return res;
 }
-
-struct ConfigBareNumConstNode *
-confignode_allocbarenumconstdumpable(unsigned long num, int line, char *comment)
-{
-    struct ConfigBareNumConstNode *res;
-    struct ConfigEOCNode *eoc;
-
-    res = confignode_allocbarenumconst(num, line);
-    if (res) {
-        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
-        if (eoc) {
-            confignode_append(&(res->base), &(eoc->base));
-        } else {
-            confignode_freebarenumconst(res);
-            res = NULL;
-        }
-    }
-    return res;
-}
