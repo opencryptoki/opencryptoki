@@ -64,6 +64,14 @@
  * represents its own configuration element.
  */
 #define CT_BARECONST    (1u << 10u)
+/*
+ * A pair of numbers
+ */
+#define CT_NUMPAIR      (1u << 11u)
+/*
+ * A list of number pairs
+ */
+#define CT_NUMPAIRLIST  (1u << 12u)
 
 /*
  * Mask for all types that have a key.  This excludes FILEVERSION,
@@ -71,7 +79,7 @@
  */
 #define CT_HAS_KEY_MASK (CT_INTVAL | CT_STRINGVAL | CT_VERSIONVAL |  \
 			 CT_BAREVAL | CT_STRINGVAL | CT_IDX_STRUCT | \
-			 CT_BARELIST | CT_BARECONST)
+			 CT_BARELIST | CT_BARECONST | CT_NUMPAIRLIST)
 
 /***** Node Types *****/
 struct ConfigBaseNode;
@@ -140,6 +148,20 @@ struct ConfigEOCNode {
 
 struct ConfigBareConstNode {
     struct ConfigBaseNode base;
+};
+
+struct ConfigNumPairNode {
+    struct ConfigBaseNode base;
+    unsigned long value1;
+    unsigned long value2;
+};
+
+struct ConfigNumPairListNode {
+    struct ConfigBaseNode base;
+    struct ConfigBaseNode *beforeFirst;
+    /* either a ConfigNumPairNode or a ConfigEOCNode */
+    struct ConfigBaseNode *value;
+    char *end;
 };
 
 /* Casting from base type functions */
@@ -218,6 +240,20 @@ confignode_to_bareconst(struct ConfigBaseNode *n)
 {
     return (struct ConfigBareConstNode *)
         (((char *)n) - offsetof(struct ConfigBareConstNode, base));
+}
+
+static inline struct ConfigNumPairNode *
+confignode_to_numpair(struct ConfigBaseNode *n)
+{
+    return (struct ConfigNumPairNode *)
+        (((char *)n) - offsetof(struct ConfigNumPairNode, base));
+}
+
+static inline struct ConfigNumPairListNode *
+confignode_to_numpairlist(struct ConfigBaseNode *n)
+{
+    return (struct ConfigNumPairListNode *)
+        (((char *)n) - offsetof(struct ConfigNumPairListNode, base));
 }
 
 /* Freeing functions */
@@ -327,6 +363,24 @@ static inline void confignode_freebareconst(struct ConfigBareConstNode *n)
 {
     if (n) {
         free(n->base.key);
+        free(n);
+    }
+}
+
+static inline void confignode_freenumpair(struct ConfigNumPairNode *n)
+{
+    if (n) {
+        free(n->base.key);
+        free(n);
+    }
+}
+
+static inline void confignode_freenumpairlist(struct ConfigNumPairListNode *n)
+{
+    if (n) {
+        free(n->base.key);
+        confignode_deepfree(n->beforeFirst);
+        confignode_deepfree(n->value);
         free(n);
     }
 }
@@ -518,6 +572,46 @@ static inline struct ConfigBareConstNode *confignode_allocbareconst(char *key,
     return res;
 }
 
+static inline struct ConfigNumPairNode *confignode_allocnumpair(
+                                                          unsigned long value1,
+                                                          unsigned long value2,
+                                                          int line)
+{
+    struct ConfigNumPairNode *res = malloc(sizeof(struct ConfigNumPairNode));
+
+    if (res) {
+        res->base.next = res->base.prev = &(res->base);
+        res->base.key = NULL;
+        res->base.type = CT_NUMPAIR;
+        res->base.line = line;
+        res->base.flags = 0;
+        res->value1 = value1;
+        res->value2 = value2;
+    }
+    return res;
+}
+
+static inline struct ConfigNumPairListNode *
+confignode_allocnumpairlist(char *key, char *end,
+                            struct ConfigBaseNode *beforeFirst,
+                            struct ConfigBaseNode *value,
+                            int line)
+{
+    struct ConfigNumPairListNode *res = malloc(sizeof(struct ConfigNumPairListNode));
+
+    if (res) {
+        res->base.next = res->base.prev = &(res->base);
+        res->base.key = key;
+        res->base.type = CT_NUMPAIRLIST;
+        res->base.line = line;
+        res->base.flags = 0;
+        res->beforeFirst = beforeFirst;
+        res->value = value;
+        res->end = end;
+    }
+    return res;
+}
+
 /* Convenience functions for AST manipulation.  These functions
    automatically append an EOC-node to the correct node which
    optionally includes a comment.  If no comment is desired, simply
@@ -564,6 +658,16 @@ confignode_allocbaredumpable(char *bareval, int line, char *comment);
 
 struct ConfigBareConstNode *
 confignode_allocbareconstdumpable(char *key, int line, char *comment);
+
+struct ConfigNumPairNode *
+confignode_allocnumpairdumpable(unsigned long value1, unsigned long value2,
+                                int line, char *comment);
+
+struct ConfigNumPairListNode *
+confignode_allocnumpairlistdumpable(char *key, char* end,
+                                    struct ConfigBaseNode *beforeFirst,
+                                    struct ConfigBaseNode *value,
+                                    int line, char *comment);
 
 /* Append the list n2 to the end of the list n1.
    NULL is considered as empty list. */

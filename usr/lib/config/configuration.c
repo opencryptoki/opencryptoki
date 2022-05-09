@@ -53,6 +53,12 @@ void confignode_free(struct ConfigBaseNode *n)
         case CT_BARECONST:
             confignode_freebareconst(confignode_to_bareconst(n));
             break;
+        case CT_NUMPAIR:
+            confignode_freenumpair(confignode_to_numpair(n));
+            break;
+        case CT_NUMPAIRLIST:
+            confignode_freenumpairlist(confignode_to_numpairlist(n));
+            break;
         default:
             break;
         }
@@ -151,6 +157,63 @@ static void confignode_dumpintval(FILE *fp, struct ConfigIntValNode *n,
         fprintf(fp, "%s = %lu", n->base.key, n->value);
 }
 
+static void confignode_dumpnumpair(FILE *fp, struct ConfigNumPairNode *n,
+                                  unsigned flags)
+{
+    if (flags & CONFIG_FLAG_INT_PRINT_MODE_HEX)
+        fprintf(fp, "0x%lx 0x%lx", n->value1, n->value2);
+    else
+        fprintf(fp, "%lu %lu", n->value1, n->value2);
+}
+
+static void confignode_dumpnumpairlist(FILE *fp,
+                                       struct ConfigNumPairListNode *n,
+                                       struct ConfigDumpCb *cb,
+                                       unsigned flags, unsigned indent,
+                                       unsigned curindent)
+{
+    struct ConfigBaseNode *i;
+    int f, atbol = 1;
+
+    fputs(n->base.key, fp);
+    if (n->beforeFirst)
+        atbol = confignode_dump_i(fp, n->beforeFirst, cb, flags, indent,
+                                  curindent, 0, 0);
+    if (!atbol)
+        fputc('\n', fp);
+
+    if (n->value) {
+        confignode_foreach(i, n->value, f) {
+            switch (i->type) {
+            case CT_NUMPAIR:
+                if (atbol)
+                    confignode_dump_indent(fp, curindent + indent);
+                atbol = 0;
+                confignode_dumpnumpair(fp, confignode_to_numpair(i), flags);
+                break;
+
+            case CT_EOC:
+                if (i->key) {
+                    if (atbol)
+                        fprintf(fp, "#%s", i->key);
+                    else
+                        fprintf(fp, " #%s", i->key);
+                }
+                fputc('\n', fp);
+                atbol = 1;
+                break;
+
+            default:
+                break;
+            }
+        }
+    }
+    if (!atbol)
+        fputc('\n', fp);
+    confignode_dump_indent(fp, curindent);
+    fputs(n->end, fp);
+}
+
 static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
                              struct ConfigDumpCb *cb, unsigned flags,
                              unsigned indent, unsigned curindent,
@@ -165,14 +228,17 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
         if (cb) {
             flags = cb->flags(i, flags);
         }
-        if (atbol)
+        if (atbol) {
             confignode_dump_indent(fp, curindent);
-        else if (i->type != CT_EOC)
+            atbol = 0;
+        } else if (i->type != CT_EOC) {
             /* In this case, we did not indent, but if a user writes
                multiple configurations in one line, we will
                concatenate value of previous item with key of new item
                producing an invalid configuration.  So add a space. */
             fputc(' ', fp);
+        }
+
         switch (i->type) {
         case CT_FILEVERSION:
             fprintf(fp, "version %s", i->key);
@@ -228,6 +294,16 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
             break;
         case CT_BARECONST:
             fputs(i->key, fp);
+            break;
+        case CT_NUMPAIR:
+            if (atbol)
+                confignode_dump_indent(fp, curindent);
+            confignode_dumpnumpair(fp, confignode_to_numpair(i), flags);
+            break;
+        case CT_NUMPAIRLIST:
+            confignode_dumpnumpairlist(fp, confignode_to_numpairlist(i), cb,
+                                       flags, indent, curindent);
+            newatbol = 1;
             break;
         default:
             break;
@@ -518,6 +594,63 @@ confignode_allocbareconstdumpable(char *key, int line, char *comment)
         }
     } else {
         free(dkey);
+    }
+    return res;
+}
+
+struct ConfigNumPairNode *
+confignode_allocnumpairdumpable(unsigned long value1, unsigned long value2,
+                                int line, char *comment)
+{
+    struct ConfigNumPairNode *res;
+    struct ConfigEOCNode *eoc;
+
+    res = confignode_allocnumpair(value1, value2, line);
+    if (res) {
+        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        if (eoc) {
+            confignode_append(&(res->base), &(eoc->base));
+        } else {
+            confignode_freenumpair(res);
+            res = NULL;
+        }
+    }
+    return res;
+}
+
+struct ConfigNumPairListNode *
+confignode_allocnumpairlistdumpable(char *key, char* end,
+                                    struct ConfigBaseNode *beforeFirst,
+                                    struct ConfigBaseNode *value,
+                                    int line, char *comment)
+{
+    struct ConfigNumPairListNode *res = NULL;
+    struct ConfigEOCNode *eoc;
+    char *dkey, *dend;
+
+    dkey = strdup(key);
+    if (!dkey)
+        return NULL;
+    dend = strdup(end);
+    if (!dend) {
+        free(dkey);
+        return NULL;
+    }
+    /* First allocate eoc node such that if allocating res fails, we do not
+       take ownership of beforeOpen or value. */
+    eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+    if (eoc) {
+        res = confignode_allocnumpairlist(dkey, dend, beforeFirst, value, line);
+        if (res) {
+            confignode_append(&(res->base), &(eoc->base));
+        } else {
+            confignode_freeeoc(eoc);
+            free(dkey);
+            free(dend);
+        }
+    } else {
+        free(dkey);
+        free(dend);
     }
     return res;
 }
