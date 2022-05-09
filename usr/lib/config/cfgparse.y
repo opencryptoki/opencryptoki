@@ -69,7 +69,7 @@ typedef void (*error_hook_f)(int line, int col, const char *msg);
   <str> STRING_TOK
 
 %type <node>       configelemstar configelem barelist barelist_ne
-                   eoc eocstar eocplus commentedconfigelemstar
+                   eoc eocstar eocplus commentedconfigelemstar numpairlist
 
 %defines
 %destructor { free($$); } <str>
@@ -216,6 +216,36 @@ configelem:
         $$ = confignode_append(&(n->base), $2);
         $1 = NULL;
         $2 = NULL;
+    }    
+    |
+    /* A \n 1 2 B */
+    BARE eocplus numpairlist BARE eocstar {
+         struct ConfigNumPairListNode *n = confignode_allocnumpairlist($1, $4, $2, $3, @1.first_line);
+         if (!n) { YYERROR; }
+         $$ = confignode_append(&(n->base), $5);
+         $1 = NULL;
+         $2 = NULL;
+         $3 = NULL;
+         $4 = NULL;
+         $5 = NULL;
+    }
+
+/*
+A list of number pairs.
+*/
+numpairlist:
+    NUMBER NUMBER eocstar {
+        struct ConfigNumPairNode *n = confignode_allocnumpair($1, $2, @1.first_line);
+        if (!n) { YYERROR; }
+        $$ = confignode_append(&(n->base), $3);
+        $3 = NULL;
+    }
+    |
+    NUMBER NUMBER eocstar numpairlist {
+        struct ConfigNumPairNode *n = confignode_allocnumpair($1, $2, @1.first_line);
+        if (!n) { YYERROR; }
+        $$ = confignode_append(&(n->base), confignode_append($3, $4));
+        $3 = $4 = NULL;
     }
 
 /*
