@@ -217,15 +217,6 @@ configelem:
         $1 = NULL;
         $2 = NULL;
     }
-    |
-    NUMBER eocstar {
-        
-        struct ConfigBareNumConstNode *n = confignode_allocbarenumconst($1, @1.first_line);
-        if (!n) { YYERROR; }
-        $$ = confignode_append(&(n->base), $2);
-        $2 = NULL;
-    }
-    
 
 /*
 A possibly empty list of barewords or comments.  Two bare words have to be
