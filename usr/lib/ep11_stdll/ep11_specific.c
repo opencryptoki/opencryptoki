@@ -159,6 +159,7 @@ const char label[] = "ep11tok";
 #define MAX_CRYPT_STATE_BYTES 8192
 #define MAX_SIGN_STATE_BYTES 8192
 #define MAX_APQN 256
+#define EP11_BLOB_WKID_OFFSET 32
 
 /* wrap_key is used for importing keys */
 static const char wrap_key_name[] = "EP11_wrapkey";
@@ -594,6 +595,32 @@ static CK_RV cleanse_attribute(TEMPLATE *template,
     return CKR_OK;
 }
 
+static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
+                                 size_t blobsize)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
+        TRACE_ERROR("EP11 key blob is too small\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->expected_wkvp,
+               XCP_WKID_BYTES) != 0) {
+        TRACE_ERROR("The key's wrapping key verification pattern does not "
+                    "match the expected EP11 wrapping key\n");
+        TRACE_DEBUG_DUMP("WKVP of key:   ", blob + EP11_BLOB_WKID_OFFSET,
+                          XCP_WKID_BYTES);
+        TRACE_DEBUG_DUMP("Expected WKVP: ", (CK_BYTE *)ep11_data->expected_wkvp,
+                         XCP_WKID_BYTES);
+        OCK_SYSLOG(LOG_ERR, "The key's wrapping key verification pattern does "
+                   "not match the expected EP11 wrapping key\n");
+        return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
 /*******************************************************************************
  *
  *                    Begin EP11 protected key option
@@ -788,6 +815,12 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
                             blob, &blobsize, csum, &csum_l, target_info->target);
     if (ret != CKR_OK) {
         TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
+        goto done;
+    }
+
+    if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        ret = CKR_DEVICE_ERROR;
         goto done;
     }
 
@@ -2077,6 +2110,12 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     } else {
         TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
                    __func__, ep11_data->raw2key_wrap_blob_l, rc);
+    }
+
+    if (check_expected_mkvp(tokdata, ep11_data->raw2key_wrap_blob,
+                            ep11_data->raw2key_wrap_blob_l) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
     }
 
     put_target_info(tokdata, target_info);
@@ -3761,6 +3800,18 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
     }
 
+    switch (class) {
+    case CKO_PRIVATE_KEY:
+    case CKO_SECRET_KEY:
+        if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            return CKR_DEVICE_ERROR;
+        }
+        break;
+    default:
+        break;
+    }
+
     /* store the blob in the key obj */
     rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
     if (rc != CKR_OK) {
@@ -3859,6 +3910,12 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
+
+    if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
+    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
     if (rc != CKR_OK) {
@@ -5119,6 +5176,11 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s hBaseKey=0x%lx rc=0x%lx handle=0x%lx blobsize=0x%zx\n",
                __func__, hBaseKey, rc, *handle, newblobsize);
 
+    if (check_expected_mkvp(tokdata, newblob, newblobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
+    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, newblob, newblobsize, &opaque_attr);
     if (rc != CKR_OK) {
@@ -5417,6 +5479,12 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
 
     TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
                __func__, rc, p_len, publblobsize, privblobsize);
+
+    if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto dh_generate_keypair_end;
+    }
 
     /* store the blobs */
     rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
@@ -5759,6 +5827,12 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
                __func__, rc, p_len, publblobsize, privblobsize,
                new_public_attr + 1);
 
+    if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto dsa_generate_keypair_end;
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, publblob, publblobsize, &opaque_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -5977,6 +6051,12 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
               ep11_get_ckm(tokdata, pMechanism->mechanism));
+
+    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
+    }
 
     if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
         TRACE_ERROR("%s blobsize error\n", __func__);
@@ -6342,6 +6422,12 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
                "privkey_blob_len=0x%zx mech='%s'\n",
                __func__, rc, spki_len, privkey_blob_len,
               ep11_get_ckm(tokdata, pMechanism->mechanism));
+
+    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
+    }
 
     if (spki_len > MAX_BLOBSIZE || privkey_blob_len > MAX_BLOBSIZE) {
         TRACE_ERROR("%s blobsize error\n", __func__);
@@ -8541,6 +8627,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                __func__, rc, keyblobsize, mech->mechanism);
+
+    if (check_expected_mkvp(tokdata, keyblob, keyblobsize) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        rc = CKR_DEVICE_ERROR;
+        goto error;
+    }
 
     rc = build_attribute(CKA_IBM_OPAQUE, keyblob, keyblobsize, &attr);
     if (rc != CKR_OK) {
