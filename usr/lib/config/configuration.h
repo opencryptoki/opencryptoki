@@ -72,6 +72,11 @@
  * A list of number pairs
  */
 #define CT_NUMPAIRLIST  (1u << 12u)
+/*
+ * A bare quoted string constant, i.e., a bare string outside of a list that
+ * represents its own configuration element.
+ */
+#define CT_BARESTRINGCONST (1u << 13u)
 
 /*
  * Mask for all types that have a key.  This excludes FILEVERSION,
@@ -79,7 +84,7 @@
  */
 #define CT_HAS_KEY_MASK (CT_INTVAL | CT_STRINGVAL | CT_VERSIONVAL |  \
 			 CT_BAREVAL | CT_STRINGVAL | CT_IDX_STRUCT | \
-			 CT_BARELIST | CT_BARECONST | CT_NUMPAIRLIST)
+			 CT_BARELIST | CT_BARECONST | CT_NUMPAIRLIST | CT_BARESTRINGCONST)
 
 /***** Node Types *****/
 struct ConfigBaseNode;
@@ -162,6 +167,10 @@ struct ConfigNumPairListNode {
     /* either a ConfigNumPairNode or a ConfigEOCNode */
     struct ConfigBaseNode *value;
     char *end;
+};
+
+struct ConfigBareStringConstNode {
+    struct ConfigBaseNode base;
 };
 
 /* Casting from base type functions */
@@ -254,6 +263,13 @@ confignode_to_numpairlist(struct ConfigBaseNode *n)
 {
     return (struct ConfigNumPairListNode *)
         (((char *)n) - offsetof(struct ConfigNumPairListNode, base));
+}
+
+static inline struct ConfigBareStringConstNode *
+confignode_to_barestringconst(struct ConfigBaseNode *n)
+{
+    return (struct ConfigBareStringConstNode *)
+        (((char *)n) - offsetof(struct ConfigBareStringConstNode, base));
 }
 
 /* Freeing functions */
@@ -381,6 +397,15 @@ static inline void confignode_freenumpairlist(struct ConfigNumPairListNode *n)
         free(n->base.key);
         confignode_deepfree(n->beforeFirst);
         confignode_deepfree(n->value);
+        free(n);
+    }
+}
+
+static inline void confignode_freebarestringconst(
+                                        struct ConfigBareStringConstNode *n)
+{
+    if (n) {
+        free(n->base.key);
         free(n);
     }
 }
@@ -608,6 +633,23 @@ confignode_allocnumpairlist(char *key, char *end,
         res->beforeFirst = beforeFirst;
         res->value = value;
         res->end = end;
+    }
+    return res;
+}
+
+static inline struct ConfigBareStringConstNode *confignode_allocbarestringconst(
+                                                                     char *key,
+                                                                     int line)
+{
+    struct ConfigBareStringConstNode *res =
+                            malloc(sizeof(struct ConfigBareStringConstNode));
+
+    if (res) {
+        res->base.next = res->base.prev = &(res->base);
+        res->base.key = key;
+        res->base.type = CT_BARESTRINGCONST;
+        res->base.line = line;
+        res->base.flags = 0;
     }
     return res;
 }
