@@ -206,10 +206,20 @@ typedef struct {
                                 do {                                     \
                                     int retry_count;                     \
                                     CK_RV rc2;                           \
+                                    if (((ep11_private_data_t *)         \
+                                            tokdata->private_data)->     \
+                                                         inconsistent) { \
+                                        (rc) = CKR_DEVICE_ERROR;         \
+                                        TRACE_ERROR("%s\n",              \
+                                             ock_err(ERR_DEVICE_ERROR)); \
+                                        break;                           \
+                                    }                                    \
                                     ep11_target_info_t* target_info =    \
                                              get_target_info((tokdata)); \
-                                    if (target_info == NULL)             \
+                                    if (target_info == NULL) {           \
                                         (rc) = CKR_FUNCTION_FAILED;      \
+                                        break;                           \
+                                    }                                    \
                                     for(retry_count = 0;                 \
                                         target_info != NULL &&           \
                                         retry_count < MAX_RETRY_COUNT;   \
@@ -531,6 +541,7 @@ typedef struct {
     char digest_libica_path[PATH_MAX];
     unsigned char expected_wkvp[XCP_WKID_BYTES];
     int expected_wkvp_set;
+    int inconsistent;
     libica_t libica;
     void *lib_ep11;
     CK_VERSION ep11_lib_version;
@@ -12231,12 +12242,19 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
 
     rc = refresh_target_info(tokdata);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s Failed to get the target infos (refresh_target_info "
+        TRACE_DEVEL("%s Failed to get the target infos (refresh_target_info "
                     "rc=0x%lx)\n", __func__, rc);
-        OCK_SYSLOG(LOG_ERR, "%s: Failed to get the target info rc=0x%lx\n",
-                   __func__, rc);
+
+        TRACE_ERROR("EP11 APQN setup is inconsistent, all crypto operations "
+                    "will fail from now on\n");
+        OCK_SYSLOG(LOG_ERR, "EP11 APQN setup is inconsistent, all crypto "
+                   "operations will fail from now on\n");
+
+        __sync_or_and_fetch(&ep11_data->inconsistent, 1);
         return rc;
     }
+
+    __sync_and_and_fetch(&ep11_data->inconsistent, 0);
 
     return CKR_OK;
 }
