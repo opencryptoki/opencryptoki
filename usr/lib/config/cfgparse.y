@@ -229,6 +229,13 @@ configelem:
          $4 = NULL;
          $5 = NULL;
     }
+    |
+    STRING_TOK eocstar {
+        struct ConfigBareStringConstNode *n = confignode_allocbarestringconst($1, @1.first_line);
+        if (!n) { YYERROR; }
+        $$ = confignode_append(&(n->base), $2);
+        $2 = NULL;
+    }
 
 /*
 A list of number pairs.

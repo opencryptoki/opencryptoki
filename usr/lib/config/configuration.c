@@ -59,6 +59,9 @@ void confignode_free(struct ConfigBaseNode *n)
         case CT_NUMPAIRLIST:
             confignode_freenumpairlist(confignode_to_numpairlist(n));
             break;
+        case CT_BARESTRINGCONST:
+            confignode_freebarestringconst(confignode_to_barestringconst(n));
+            break;
         default:
             break;
         }
@@ -304,6 +307,9 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
             confignode_dumpnumpairlist(fp, confignode_to_numpairlist(i), cb,
                                        flags, indent, curindent);
             newatbol = 1;
+            break;
+        case CT_BARESTRINGCONST:
+            fprintf(fp, "\"%s\"", i->key);
             break;
         default:
             break;
@@ -651,6 +657,25 @@ confignode_allocnumpairlistdumpable(char *key, char* end,
     } else {
         free(dkey);
         free(dend);
+    }
+    return res;
+}
+
+struct ConfigBareStringConstNode *
+confignode_allocbarestringconstdumpable(char *key, int line, char *comment)
+{
+    struct ConfigBareStringConstNode *res;
+    struct ConfigEOCNode *eoc;
+
+    res = confignode_allocbarestringconst(key, line);
+    if (res) {
+        eoc = confignode_alloceoc(comment ? strdup(comment) : NULL, line);
+        if (eoc) {
+            confignode_append(&(res->base), &(eoc->base));
+        } else {
+            confignode_freebarestringconst(res);
+            res = NULL;
+        }
     }
     return res;
 }
