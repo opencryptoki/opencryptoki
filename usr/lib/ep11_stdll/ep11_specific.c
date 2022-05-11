@@ -1825,6 +1825,8 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
     case CKK_RSA:
         if (class == CKO_PRIVATE_KEY && attr->type == CKA_PUBLIC_EXPONENT)
             return CK_FALSE;
+        if (attr->type == CKA_DERIVE)
+            return CK_FALSE;
         break;
     case CKK_EC:
         if (class == CKO_PRIVATE_KEY && attr->type == CKA_EC_PARAMS)
@@ -1843,7 +1845,8 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         break;
     case CKK_DSA:
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_DERIVE)
             return CK_FALSE;
         if (attr->type == CKA_PRIME || attr->type == CKA_SUBPRIME ||
             attr->type == CKA_BASE)
@@ -1859,7 +1862,8 @@ static CK_BBOOL attr_applicable_for_ep11(STDLL_TokData_t * tokdata,
         break;
     case CKK_IBM_PQC_DILITHIUM:
         if (attr->type == CKA_ENCRYPT || attr->type == CKA_DECRYPT ||
-            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP)
+            attr->type == CKA_WRAP || attr->type == CKA_UNWRAP ||
+            attr->type == CKA_DERIVE)
             return CK_FALSE;
         break;
     default:
