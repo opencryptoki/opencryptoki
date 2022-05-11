@@ -45,6 +45,8 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
     CK_RV rc;
     int check;
     CK_ULONG strength = POLICY_STRENGTH_IDX_0;
+    CK_GCM_PARAMS gcm_params;
+    CK_MECHANISM temp_mech;
 
     if (!sess || !ctx || !mech) {
         TRACE_ERROR("Invalid function arguments.\n");
@@ -523,11 +525,21 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
     case CKM_AES_GCM:
-        if (mech->ulParameterLen != sizeof(CK_GCM_PARAMS) ||
+        if ((mech->ulParameterLen != sizeof(CK_GCM_PARAMS) &&
+             mech->ulParameterLen != sizeof(CK_GCM_PARAMS_COMPAT)) ||
             mech->pParameter == NULL) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
             rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
+        }
+
+        if (mech->ulParameterLen == sizeof(CK_GCM_PARAMS_COMPAT)) {
+            aes_gcm_param_from_compat((CK_GCM_PARAMS_COMPAT *)mech->pParameter,
+                                      &gcm_params);
+            temp_mech.mechanism = mech->mechanism;
+            temp_mech.pParameter = &gcm_params;
+            temp_mech.ulParameterLen = sizeof(gcm_params);
+            mech = &temp_mech;
         }
 
         rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,

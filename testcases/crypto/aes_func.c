@@ -414,6 +414,7 @@ CK_RV alloc_gcm_param(CK_GCM_PARAMS *gcm_param, CK_BYTE *pIV, CK_ULONG ulIVLen,
         return CKR_HOST_MEMORY;
     gcm_param->ulIvLen = ulIVLen;
     memcpy(gcm_param->pIv, pIV, ulIVLen);
+    gcm_param->ulIvBits = ulIVLen * 8;
 
     gcm_param->pAAD = malloc(ulAADLen);
     if (gcm_param->pAAD == NULL) {

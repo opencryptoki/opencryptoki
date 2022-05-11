@@ -3427,6 +3427,7 @@ CK_RV aes_gcm_dup_param(CK_GCM_PARAMS *from, CK_GCM_PARAMS *to)
 
     to->pIv = NULL;
     to->ulIvLen = 0;
+    to->ulIvBits = 0;
     if (from->ulIvLen != 0 && from->pIv != NULL) {
         to->pIv = malloc(from->ulIvLen);
         if (to->pIv == NULL) {
@@ -3437,6 +3438,7 @@ CK_RV aes_gcm_dup_param(CK_GCM_PARAMS *from, CK_GCM_PARAMS *to)
 
         memcpy(to->pIv, from->pIv, from->ulIvLen);
         to->ulIvLen = from->ulIvLen;
+        to->ulIvBits = from->ulIvBits;
     }
 
     to->pAAD = NULL;
@@ -3470,6 +3472,17 @@ CK_RV aes_gcm_free_param(CK_GCM_PARAMS *params)
     memset(params, 0, sizeof(*params));
 
     return CKR_OK;
+}
+
+void aes_gcm_param_from_compat(const CK_GCM_PARAMS_COMPAT *from,
+                               CK_GCM_PARAMS *to)
+{
+    to->pIv       = from->pIv;
+    to->ulIvLen   = from->ulIvLen;
+    to->ulIvBits  = from->ulIvLen * 8;
+    to->pAAD      = from->pAAD;
+    to->ulAADLen  = from->ulAADLen;
+    to->ulTagBits = from->ulTagBits;
 }
 
 //
