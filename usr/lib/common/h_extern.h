@@ -1493,6 +1493,9 @@ CK_RV aes_gcm_dup_param(CK_GCM_PARAMS *from, CK_GCM_PARAMS *to);
 
 CK_RV aes_gcm_free_param(CK_GCM_PARAMS *params);
 
+void aes_gcm_param_from_compat(const CK_GCM_PARAMS_COMPAT *from,
+                               CK_GCM_PARAMS *to);
+
 CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata, SESSION *sess,
                       CK_BBOOL length_only,
                       ENCR_DECR_CONTEXT *ctx, CK_BYTE *in_data,

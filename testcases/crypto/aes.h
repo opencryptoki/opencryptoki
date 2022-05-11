@@ -85,6 +85,7 @@ struct CK_AES_CTR_PARAMS aesctr = {
 
 struct CK_GCM_PARAMS aesgcm = {
     .ulIvLen = AES_BLOCK_SIZE,
+    .ulIvBits = AES_BLOCK_SIZE * 8,
     .ulAADLen = 0,
     .ulTagBits = 16,
 };

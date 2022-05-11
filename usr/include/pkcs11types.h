@@ -1287,12 +1287,31 @@ typedef CK_AES_CTR_PARAMS CK_PTR CK_AES_CTR_PARAMS_PTR;
 typedef struct CK_GCM_PARAMS {
     CK_BYTE_PTR pIv;
     CK_ULONG ulIvLen;
+    CK_ULONG ulIvBits;
     CK_BYTE_PTR pAAD;
     CK_ULONG ulAADLen;
     CK_ULONG ulTagBits;
 } CK_GCM_PARAMS;
 
 typedef CK_GCM_PARAMS CK_PTR CK_GCM_PARAMS_PTR;
+
+/*
+ * There is a discrepancy between what the PKCS#11 v2.40 standard states in the
+ * documentation and the official header file about structure CK_GCM_PARAMS:
+ * https://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/errata01/os/include/pkcs11-v2.40/pkcs11t.h
+ * The header file defines field ulIvBits for structure CK_GCM_PARAMS, but the
+ * documentation does not mention that field at all.
+ * Opencryptoki accepts both versions of the CK_GCM_PARAMS structure, with or
+ * without the field. Structure CK_GCM_PARAMS_COMPAT represents the one without
+ * field ulIvBits.
+ */
+typedef struct CK_GCM_PARAMS_COMPAT {
+    CK_BYTE_PTR pIv;
+    CK_ULONG ulIvLen;
+    CK_BYTE_PTR pAAD;
+    CK_ULONG ulAADLen;
+    CK_ULONG ulTagBits;
+} CK_GCM_PARAMS_COMPAT;
 
 /* CK_RC5_CBC_PARAMS provides the parameters to the CKM_RC5_CBC
  * mechanism */
