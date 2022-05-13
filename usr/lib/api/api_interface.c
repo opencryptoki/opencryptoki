@@ -41,6 +41,15 @@
 
 void api_init();
 
+static int openssl_err_cb(const char *str, size_t len, void *u)
+{
+    UNUSED(len);
+    UNUSED(u);
+
+    TRACE_DEVEL("OpenSSL error: %s", str);
+    return 1;
+}
+
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #define BEGIN_OPENSSL_LIBCTX(ossl_ctx, rc)                                  \
         do {                                                                \
@@ -59,6 +68,7 @@ void api_init();
                     (rc) = CKR_FUNCTION_FAILED;                             \
                 TRACE_ERROR("OSSL_LIB_CTX_set0_default failed\n");          \
             }                                                               \
+            ERR_print_errors_cb(openssl_err_cb, NULL);                      \
             ERR_pop_to_mark();                                              \
         } while (0);
 #else
@@ -67,6 +77,7 @@ void api_init();
             ERR_set_mark();
 
 #define END_OPENSSL_LIBCTX(rc)                                              \
+            ERR_print_errors_cb(openssl_err_cb, NULL);                      \
             ERR_pop_to_mark();                                              \
         } while (0);
 #endif
