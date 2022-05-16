@@ -2767,6 +2767,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
+    } else if (return_code == 12 && reason_code == 769) {
+        return CKR_SIGNATURE_INVALID;
     } else if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSV (EC VERIFY) failed. return:%ld,"
                     " reason:%ld\n", return_code, reason_code);
