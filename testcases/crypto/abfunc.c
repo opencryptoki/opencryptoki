@@ -1191,6 +1191,7 @@ int main(int argc, char **argv)
         }
     } else {
         rc = 0;
+        testcase_skip("%s only supported on the EP11 token.\n", argv[0]);
     }
 
     funcs->C_Finalize(NULL);
