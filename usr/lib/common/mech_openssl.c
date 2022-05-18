@@ -50,6 +50,7 @@ CK_RV openssl_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
     const BIGNUM *bignum = NULL;
 #else
     BIGNUM *bignum = NULL;
+    int try;
 #endif
     CK_BYTE *ssl_ptr = NULL;
     BIGNUM *e = NULL;
@@ -117,11 +118,29 @@ CK_RV openssl_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     e = NULL; // will be freed as part of the context
 #endif
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    /*
+     * In OpenSSL 3.0 the RSA key gen algorithm has been changed and can now
+     * fail to generate a key. Retry up to 10 times in such a case.
+     */
+    for (try = 1; try <= 10; try++) {
+        if (EVP_PKEY_keygen(ctx, &pkey) == 1) {
+            rc = CKR_OK;
+            break;
+        }
+
+        TRACE_ERROR("%s (try %d)\n", ock_err(ERR_FUNCTION_FAILED), try);
+        rc = CKR_FUNCTION_FAILED;
+    }
+    if (rc != CKR_OK)
+        goto done;
+#else
     if (EVP_PKEY_keygen(ctx, &pkey) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
+#endif
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     if ((rsa = EVP_PKEY_get0_RSA(pkey)) == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
