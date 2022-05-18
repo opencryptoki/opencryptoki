@@ -1852,6 +1852,7 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
     CK_RV rc;
     ica_rsa_key_mod_expo_t *publKey = NULL;
     ica_rsa_key_crt_t *privKey = NULL;
+    unsigned int try = 0;
 
     rc = template_attribute_get_ulong(publ_tmpl, CKA_MODULUS_BITS, &mod_bits);
     if (rc != CKR_OK) {
@@ -1977,6 +1978,8 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         goto privkey_cleanup;
     }
 
+retry:
+    try++;
     rc = ica_rsa_key_generate_crt(ica_data->adapter_handle,
                                   (unsigned int) mod_bits, publKey, privKey);
     switch (rc) {
@@ -1999,8 +2002,10 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
         goto privkey_cleanup;
         break;
     default:
-        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        TRACE_ERROR("%s (try %u)\n", ock_err(ERR_FUNCTION_FAILED), try);
         rc = CKR_FUNCTION_FAILED;
+        if (try <= 10)
+            goto retry;
         goto privkey_cleanup;
         break;
     }
