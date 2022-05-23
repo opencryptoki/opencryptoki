@@ -59,7 +59,7 @@ before_script:
     - ./bootstrap.sh
 
 script:
-    - ./configure $CONFIG_OPTS && make
+    - ./configure --silent $CONFIG_OPTS && make V=0
     - sudo make install
     - sudo ldconfig
     - sudo pkcsslotd
