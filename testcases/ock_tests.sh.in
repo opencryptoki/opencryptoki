@@ -94,19 +94,6 @@ check_tpmtok()
 }
 
 ###
-## check_ccatok() - Check if stuff needed by the CCA token
-##                  are present
-###
-check_ccatok()
-{
-    # Check if catcher.exe is running
-    if ! pgrep catcher.exe; then
-        echo "Error: catcher.exe daemon not running"
-        return 1
-    fi
-}
-
-###
 ## init_slot() - Initialize a specific slot
 ## $1 - The slot number to initialize
 ##
@@ -154,7 +141,6 @@ check_slot()
             ;;
         *CCA*)
             echo "CCA Token type detected"
-            check_ccatok || return
             TOKTYPE="CCA"
             ;;
         *ICA*)
