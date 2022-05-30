@@ -218,7 +218,7 @@ PKCS11_VHSM_PIN ?= 1234567890
 
 ci-prepare:
 	killall -HUP pkcsslotd || true
-	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
+	${srcdir}/testcases/ciconfig.sh "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki" "$(sysconfdir)/opencryptoki"
 	@sbindir@/pkcsslotd
 	@sbindir@/pkcsstats --reset-all
 	for slot in `awk '/slot (.*)/ { print $$2; }' $(sysconfdir)/opencryptoki/opencryptoki.conf`; do @sbindir@/pkcsconf -c $$slot -t | grep "Flags:" | grep -q TOKEN_INITIALIZED || PKCS11_USER_PIN=$(PKCS11_USER_PIN) PKCS11_SO_PIN=$(PKCS11_SO_PIN) PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so ${srcdir}/testcases/init_token.sh $$slot; done
