@@ -2,8 +2,14 @@
 
 OCKCONFDIR="$1"
 EPCONFDIR="$2"
+CCACONFDIR="$3"
 
 LATESTCEXP="CEX7P"
+
+CCA_SYM_MKVP="5776993D2741EB4A"
+CCA_AES_MKVP="E9A49A58CD039BED"
+CCA_APKA_MKVP="5F2F27AAA2D59B4A"
+EP11_WKVP="8b991263e3a8f4e4be0d5ec8f0a4df9e"
 
 USENEWFORMAT=/bin/false
 
@@ -16,7 +22,7 @@ stdll = $2
 tokname = $3
 EOF
     if $USENEWFORMAT; then
-	echo "tokversion = 3.12" >> "${OCKCONFDIR}/opencryptoki.conf"
+        echo "tokversion = 3.12" >> "${OCKCONFDIR}/opencryptoki.conf"
     fi
     if [ "x$4" != "x" ]; then
        echo "confname = $4" >> "${OCKCONFDIR}/opencryptoki.conf"
@@ -39,13 +45,25 @@ function genlatestep11cfg() {
     
     lszcrypt | grep "$LATESTCEXP" | perl -ne '/(\d+)\.(\d+)\s.*/ && print "0x$1 0x$2\n"' > tmp.apqns
     if test -s tmp.apqns; then
-	echo "APQN_WHITELIST" > "${EPCONFDIR}/ep11tok${1}.conf"
-	cat tmp.apqns >> "${EPCONFDIR}/ep11tok${1}.conf"
-	echo "END" >> "${EPCONFDIR}/ep11tok${1}.conf"
-	res=0
+        echo "APQN_WHITELIST" > "${EPCONFDIR}/ep11tok${1}.conf"
+        cat tmp.apqns >> "${EPCONFDIR}/ep11tok${1}.conf"
+        echo "END" >> "${EPCONFDIR}/ep11tok${1}.conf"
+        res=0
     fi
     rm -f tmp.apqns
     return $res
+}
+
+# Usage: genccamkvpcfg num
+function genccamkvpcfg() {
+    cat <<EOF > "${CCACONFDIR}/ccatok${1}.conf"
+version cca-0
+EXPECTED_MKVPS {
+  SYM = "$CCA_SYM_MKVP"
+  AES = "$CCA_AES_MKVP"
+  APKA = "$CCA_APKA_MKVP"
+}
+EOF
 }
 
 if test $(($(date +%j)%2)) == 1; then
@@ -56,7 +74,7 @@ else
 fi
 
 # initialize opencryptoki.conf
-echo "version opencryptoki-3.16" > "${OCKCONFDIR}/opencryptoki.conf"
+echo "version opencryptoki-3.18" > "${OCKCONFDIR}/opencryptoki.conf"
 
 # enable full statistics
 echo "statistics (on,implicit,internal)" >> "${OCKCONFDIR}/opencryptoki.conf"
@@ -66,7 +84,8 @@ addslot 10 libpkcs11_ica.so ica0
 addslot 11 libpkcs11_ica.so ica1
 
 # CCA token
-addslot 20 libpkcs11_cca.so cca0
+genccamkvpcfg 20
+addslot 20 libpkcs11_cca.so cca0 ccatok20.conf
 addslot 21 libpkcs11_cca.so cca1
 
 # SW token
@@ -76,7 +95,8 @@ addslot 31 libpkcs11_sw.so sw1
 # EP11 token
 # 0:
 # APQN_ANY
-genep11cfg 40 ""
+# EXPECTED_WKVP "wkvp"
+genep11cfg 40 "EXPECTED_WKVP \"$EP11_WKVP\""
 addslot 40 libpkcs11_ep11.so ep0 ep11tok40.conf
 
 # 1:
