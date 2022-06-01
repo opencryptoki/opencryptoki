@@ -1,0 +1,35 @@
+.\" pkcshsm_mk_change.1
+.\"
+.\" Copyright IBM Corp. 2022
+.\" See LICENSE for details.
+.\"
+.TH PKCSHSM_MK_CHJANGE 1 "June 2022" "@PACKAGE_VERSION@" "openCryptoki"
+.SH NAME
+pkcshsm_mk_change \- utility to manage and control the re-enciphering of secure keys
+for a concurrent HSM master key change for openCryptoki.
+
+.SH SYNOPSIS
+.B pkcshsm_mk_change
+.RB [ COMMAND ]
+.RB [ OPTIONS ]
+.
+.PP
+.B pkcshsm_mk_change
+.BR \-\-help | \-h
+.br
+
+.SH DESCRIPTION
+tbd
+
+.SH "OPTIONS"
+tbd
+.TP
+.BR \-h ", " \-\-help
+Displays help text and exits.
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBopencryptoki\fP(7),
+
+.PD
