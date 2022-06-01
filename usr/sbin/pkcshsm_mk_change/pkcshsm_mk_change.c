@@ -28,6 +28,7 @@
 #include "p11util.h"
 #include "event_client.h"
 #include "pkcs_utils.h"
+#include "hsm_mk_change.h"
 
 #define CMD_REENCIPHER  1
 #define CMD_FINALIZE    2
@@ -38,11 +39,6 @@
 #define EP11_WKVP_LENGTH            16
 
 #define UNUSED(var)            ((void)(var))
-
-struct apqn {
-    unsigned short card;
-    unsigned short domain;
-};
 
 pkcs_trace_level_t trace_level = TRACE_LEVEL_NONE;
 
