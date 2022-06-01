@@ -1,5 +1,9 @@
 man1_MANS += man/man1/pkcsconf.1 man/man1/pkcsicsf.1
 
+if ENABLE_PKCSHSM_MK_CHANGE
+man1_MANS += man/man1/pkcshsm_mk_change.1
+endif
+
 if ENABLE_PKCSSTATS
 man1_MANS += man/man1/pkcsstats.1
 endif

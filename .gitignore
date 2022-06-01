@@ -74,6 +74,7 @@ usr/sbin/pkcsstats/pkcsstats
 usr/sbin/pkcstok_migrate/pkcstok_migrate
 usr/sbin/pkcsep11_migrate/pkcsep11_migrate
 usr/sbin/pkcsep11_session/pkcsep11_session
+usr/sbin/pkcshsm_mk_change/pkcshsm_mk_change
 tools/policyexamplegen
 tools/tableidxgen
 
@@ -95,6 +96,7 @@ man/man1/pkcsep11_migrate.1
 man/man1/pkcscca.1
 man/man1/pkcsconf.1
 man/man1/pkcsstats.1
+man/man1/pkcshsm_mk_change.1
 man/man5/policy.conf.5
 man/man5/p11sak_defined_attrs.conf.5
 man/man5/opencryptoki.conf.5

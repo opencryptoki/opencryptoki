@@ -19,6 +19,9 @@ endif
 if ENABLE_PKCSSTATS
 include usr/sbin/pkcsstats/pkcsstats.mk
 endif
+if ENABLE_PKCSHSM_MK_CHANGE
+include usr/sbin/pkcshsm_mk_change/pkcshsm_mk_change.mk
+endif
 
 include usr/sbin/pkcsslotd/pkcsslotd.mk
 include usr/sbin/pkcsconf/pkcsconf.mk

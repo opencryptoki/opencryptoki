@@ -199,6 +199,12 @@ AC_ARG_ENABLE([pkcsstats],
 dnl --- support for MD2
 AC_ARG_ENABLE([md2],
 	AS_HELP_STRING([--enable-md2],[build opencryptoki with support for MD2]))
+	
+dnl --- pkcshsm_mk_change
+AC_ARG_ENABLE([pkcshsm_mk_change],
+	AS_HELP_STRING([--enable-pkcshsm_mk_change],[build pkcshsm_mk_change tool @<:@default=enabled@:>@]),
+	[],
+	[enable_pkcshsm_mk_change=yes])
 
 dnl ---
 dnl --- Check for external software
@@ -571,6 +577,9 @@ AM_CONDITIONAL([ENABLE_PKCSTOK_MIGRATE], [test "x$enable_pkcstok_migrate" = "xye
 dnl --- enable_pkcsstats
 AM_CONDITIONAL([ENABLE_PKCSSTATS], [test "x$enable_pkcsstats" = "xyes"])
 
+dnl --- enable_pkcshsm_mk_change
+AM_CONDITIONAL([ENABLE_PKCSHSM_MK_CHANGE], [test "x$enable_pkcshsm_mk_change" = "xyes"])
+
 dnl --- enable_locks
 if test "x$enable_locks" != "xno"; then
 	enable_locks=yes
@@ -628,6 +637,7 @@ AC_CONFIG_FILES([Makefile				\
 		 man/man1/pkcsep11_session.1		\
 		 man/man1/pkcstok_migrate.1		\
 		 man/man1/pkcsstats.1			\
+		 man/man1/pkcshsm_mk_change.1		\
 		 man/man5/opencryptoki.conf.5		\
 		 man/man5/p11sak_defined_attrs.conf.5	\
 		 man/man5/strength.conf.5		\
@@ -648,6 +658,7 @@ echo "	Build with libudev:	$with_libudev"
 echo "	Build p11sak tool:	$enable_p11sak"
 echo "	token migrate tool:	$enable_pkcstok_migrate"
 echo "	statistics tool:	$enable_pkcsstats"
+echo "	HSM MK change tool:	$enable_pkcshsm_mk_change"
 echo
 echo "Enabled token types:"
 echo "	ICA token:		$enable_icatok"
