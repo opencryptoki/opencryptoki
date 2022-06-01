@@ -22,3 +22,4 @@ endif
 
 include usr/lib/common/common.mk
 include usr/lib/config/config.mk
+include usr/lib/hsm_mk_change/hsm_mk_change.mk

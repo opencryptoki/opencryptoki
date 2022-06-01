@@ -56,6 +56,11 @@ if ENABLE_LIBRARY
 	cd $(DESTDIR)$(libdir)/pkcs11 && \
 		ln -nfs ../opencryptoki/stdll/ stdll
 endif
+if ENABLE_PKCSHSM_MK_CHANGE
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
+endif
 if ENABLE_CCATOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_cca.so PKCS11_CCA.so

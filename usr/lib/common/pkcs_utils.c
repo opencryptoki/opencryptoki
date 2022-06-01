@@ -30,7 +30,9 @@
 #include "defs.h"
 #include "host_defs.h"
 
+#ifndef OCK_TOOL
 #define OCK_TOOL
+#endif
 #include "pkcs_utils.h"
 
 extern pkcs_trace_level_t trace_level;
