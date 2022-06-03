@@ -23,12 +23,14 @@
 #include <stdbool.h>
 #include <dlfcn.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include <pkcs11types.h>
 #include "p11util.h"
 #include "event_client.h"
 #include "pkcs_utils.h"
 #include "hsm_mk_change.h"
+#include "pin_prompt.h"
 
 #define CMD_REENCIPHER  1
 #define CMD_FINALIZE    2
@@ -58,6 +60,22 @@ static unsigned char cca_aes_mkvp[CCA_MKVP_LENGTH] = { 0 };
 static bool cca_aes_mkvp_set = false;
 static unsigned char cca_apka_mkvp[CCA_MKVP_LENGTH] = { 0 };
 static bool cca_apka_mkvp_set = false;
+
+struct token_info {
+    CK_SLOT_ID id;
+    bool present;
+    CK_TOKEN_INFO info;
+    bool affected;
+    CK_SESSION_HANDLE session;
+};
+
+CK_ULONG num_affected_slots = 0;
+CK_SLOT_ID_PTR affected_slots = NULL;
+static unsigned int num_tokens = 0;
+static struct token_info *tokens = NULL;
+
+struct hsm_mk_change_op op;
+struct hsm_mkvp mkvps[HSM_MK_TYPE_MAX];
 
 static void usage(char *progname)
 {
@@ -189,38 +207,692 @@ static int parse_mkvp(char *mkvp_str, size_t min_size, unsigned char *mkvp,
     return 0;
 }
 
+static const char *get_mk_type_string(enum hsm_mk_type mk_type)
+{
+    switch (mk_type) {
+    case HSM_MK_TYPE_EP11:
+        return "EP11 WK";
+    case HSM_MK_TYPE_CCA_SYM:
+        return"CCA SYM";
+    case HSM_MK_TYPE_CCA_ASYM:
+        return"CCA ASYM";
+    case HSM_MK_TYPE_CCA_AES:
+        return "CCA_AES";
+    case HSM_MK_TYPE_CCA_APKA:
+        return "CCA APKA";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static CK_RV check_intersecting_ops_cb(struct hsm_mk_change_op *other_op,
+                                       void *private)
+{
+    unsigned int i, k;
+    bool *error = private;
+
+    for (i = 0; i < op.info.num_apqns; i++) {
+        if (hsm_mk_change_apqns_find(other_op->info.apqns,
+                                     other_op->info.num_apqns,
+                                     op.info.apqns[i].card,
+                                     op.info.apqns[i].domain)) {
+            /* Same APQN found */
+            for (k = 0; k < op.info.num_mkvps; k++) {
+                if (hsm_mk_change_mkvps_find(other_op->info.mkvps,
+                                             other_op->info.num_mkvps,
+                                             op.info.mkvps[k].type, 0)) {
+                    /* Same MKVP type */
+                    warnx("Operation '%s' also affects APQN %02X.%04X and MK type '%s'",
+                          other_op->id, apqns[i].card, apqns[i].domain,
+                          get_mk_type_string(op.info.mkvps[k].type));
+                    *error = true;
+                }
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
+static int check_intersecting_ops(void)
+{
+    CK_RV rv;
+    bool error = false;
+
+    rv = hsm_mk_change_op_iterate(check_intersecting_ops_cb, &error);
+    if (rv != CKR_OK) {
+        warnx("Failed to iterate over active operations");
+        return EIO;
+    }
+
+    if (error != false) {
+        warnx("Intersecting master key operations are active, aborting");
+        return EALREADY;
+    }
+
+    return 0;
+}
+
+static int check_tokens_present(void)
+{
+    CK_ULONG i;
+    bool all_present = true;
+    ssize_t num_chars;
+    char *buff = NULL;
+    size_t buflen = 0;
+
+    for (i = 0; i < num_tokens; i++)
+        all_present &= tokens[i].present;
+
+    if (all_present)
+        return 0;
+
+    printf("WARNING: The following slots have no token present:\n");
+    for (i = 0; i < num_tokens; i++) {
+        if (tokens[i].present == false)
+            printf("  Slot %lu\n", tokens[i].id);
+    }
+    printf("ATTENTION: If you start a concurrent master key change operation while not\n"
+           "all expected tokens are present, the key objects of those tokens may be lost,\n"
+           "if the token would be affected by the master key change.\n");
+    printf("Continue [y/N]? ");
+    fflush(stdout);
+    num_chars = getline(&buff, &buflen, stdin);
+    if (num_chars < 0 || strncmp(buff, "y", 1) != 0) {
+        printf("Aborted by user.\n");
+        free(buff);
+        return ECANCELED;
+    }
+    free(buff);
+
+    return 0;
+}
+
+static int create_mk_change_op(void)
+{
+    CK_RV rv;
+
+    rv = hsm_mk_change_lock(true);
+    if (rv != CKR_OK) {
+        warnx("Failed to obtain lock");
+        return EIO;
+    }
+
+    rv = hsm_mk_change_op_create(&op);
+    if (rv != CKR_OK) {
+        warnx("Failed to create MK change operation file");
+        hsm_mk_change_unlock();
+        return EIO;
+    }
+
+    rv = hsm_mk_change_unlock();
+    if (rv != CKR_OK) {
+        warnx("Failed to release lock");
+        hsm_mk_change_op_remove(op.id);
+        return EIO;
+    }
+
+    return 0;
+}
+
+static int save_mk_change_op(void)
+{
+    CK_RV rv;
+
+    rv = hsm_mk_change_lock(true);
+    if (rv != CKR_OK) {
+        warnx("Failed to obtain lock");
+        return EIO;
+    }
+
+    rv = hsm_mk_change_op_save(&op);
+    if (rv != CKR_OK) {
+        warnx("Failed to save MK change operation file");
+        hsm_mk_change_unlock();
+        return EIO;
+    }
+
+    rv = hsm_mk_change_unlock();
+    if (rv != CKR_OK) {
+        warnx("Failed to release lock");
+        return EIO;
+    }
+
+    return 0;
+}
+
+static int remove_mk_change_op(void)
+{
+    CK_RV rv;
+
+    rv = hsm_mk_change_lock(true);
+    if (rv != CKR_OK) {
+        warnx("Failed to obtain lock");
+        return EIO;
+    }
+
+    rv = hsm_mk_change_op_remove(op.id);
+    if (rv != CKR_OK) {
+        warnx("Failed to remove MK change operation file(s)");
+        hsm_mk_change_unlock();
+        return EIO;
+    }
+
+    rv = hsm_mk_change_unlock();
+    if (rv != CKR_OK) {
+        warnx("Failed to release lock");
+        return EIO;
+    }
+
+    return 0;
+}
+
+static int build_event_payload(unsigned char **payload, size_t *payload_len)
+{
+    event_mk_change_data_t *hdr;
+    size_t info_len = 0;
+    CK_RV rv;
+
+    rv = hsm_mk_change_info_flatten(&op.info, NULL, &info_len);
+    if (rv != CKR_OK) {
+        warnx("Failed to query size of event payload buffer");
+        return EIO;
+    }
+
+    *payload_len = sizeof(*hdr) + info_len;
+    *payload = calloc(1, *payload_len);
+    if (*payload == NULL) {
+        warnx("Failed to allocate event payload buffer");
+        *payload_len = 0;
+        return ENOMEM;
+    }
+
+    hdr = (event_mk_change_data_t *)*payload;
+    strncpy(hdr->id, op.id, sizeof(hdr->id));
+    hdr->tool_pid = getpid();
+    hdr->flags = 0;
+
+    rv = hsm_mk_change_info_flatten(&op.info, *payload + sizeof(*hdr),
+                                    &info_len);
+    if (rv != CKR_OK) {
+        warnx("Failed to flatten operation info");
+        free(*payload);
+        *payload = NULL;
+        *payload_len = 0;
+        return EIO;
+    }
+
+    return 0;
+}
+
+static int send_query_event(unsigned int event, const char *msg_cmd,
+                            CK_ULONG *num_affected_slots)
+{
+    size_t payload_len;
+    unsigned char *payload = NULL;
+    struct event_destination dest;
+    struct event_reply reply;
+    CK_ULONG i, num_errors = 0;
+    int rc = 0;
+
+    TRACE_DEVEL("Event: 0x%08x\n", event);
+
+    *num_affected_slots = 0;
+
+    rc = build_event_payload(&payload, &payload_len);
+    if (rc != 0)
+        return rc;
+
+    for (i = 0; i < num_tokens; i++) {
+        if (tokens[i].present == false)
+            continue;
+
+        TRACE_DEVEL("Slot %lu\n", tokens[i].id);
+
+        dest.process_id = getpid(); /* Send to current process only */
+        dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+        memcpy(dest.token_label, tokens[i].info.label,
+               sizeof(dest.token_label)); /* selected token only */
+
+        memset(&reply, 0, sizeof(reply));
+
+        rc = send_event(event_fd, event, EVENT_FLAGS_REPLY_REQ,
+                        payload_len, (char *)payload, &dest, &reply);
+        if (rc != 0) {
+            warnx("Failed to send event: %d", rc);
+            rc = EIO;
+            goto out;
+        }
+
+        TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+        TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+        TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+        if (reply.positive_replies > 1 ||
+            reply.negative_replies > 1 ||
+            reply.nothandled_replies > 1) {
+            warnx("More than one token responded to the query event for slot %lu",
+                  tokens[i].id);
+            warnx("Possibly multiple tokens use the same label?");
+            rc = EIO;
+            goto out;
+        }
+
+        if (reply.negative_replies == 1) {
+            warnx("Token in slot %lu is unable to perform the %s.",
+                  tokens[i].id, msg_cmd);
+            num_errors++;
+        }
+
+        if (reply.positive_replies == 1) {
+            tokens[i].affected = true;
+            (*num_affected_slots)++;
+        }
+    }
+
+    TRACE_DEVEL("num_errors: %lu\n", num_errors);
+
+    if (num_errors > 0) {
+        warnx("At least one token is unable to perform the %s, aborting.",
+              msg_cmd);
+        rc = EINVAL;
+        goto out;
+    }
+
+    TRACE_DEVEL("num_affected_slots: %lu\n", *num_affected_slots);
+
+out:
+    free(payload);
+
+    return rc;
+}
+
+static int query_tokens_initiate_mk_change(void)
+{
+    CK_ULONG i, k;
+    int rc;
+
+    rc = send_query_event(EVENT_TYPE_MK_CHANGE_INITIATE_QUERY,
+                          "master key change", &num_affected_slots);
+    if (rc != 0)
+        return rc;
+
+    if (num_affected_slots == 0) {
+        warnx("No token is affected by this master key change, aborting");
+        return ECANCELED;
+    }
+
+    affected_slots = calloc(num_affected_slots, sizeof(CK_SLOT_ID));
+    if (affected_slots == NULL) {
+        warnx("Failed to allocate list of affected slots");
+        return ENOMEM;
+    }
+
+    for (i = 0, k = 0; i < num_tokens && k < num_affected_slots; i++) {
+        if (tokens[i].affected == true) {
+            affected_slots[k] = tokens[i].id;
+            k++;
+        }
+    }
+
+    printf("The following tokens are affected by this master key change:\n");
+    for (i = 0; i < num_tokens; i++) {
+        if (tokens[i].affected == true)
+            printf("  Slot %lu: Label: %.32s\n", tokens[i].id, tokens[i].info.label);
+    }
+
+    return 0;
+}
+
+static int login_tokens(void)
+{
+    char msg[200];
+    const char *userpin = NULL;
+    char *buf_user = NULL;
+    CK_ULONG i;
+    int rc = 0;
+    CK_RV rv;
+
+    for (i = 0; i < num_tokens; i++) {
+        if (tokens[i].affected == false)
+            continue;
+
+        TRACE_DEVEL("Slot %lu\n", tokens[i].id);
+
+        snprintf(msg, sizeof(msg), "Enter the USER PIN for slot %lu: ",
+                 tokens[i].id);
+get_pin:
+        userpin = pin_prompt(&buf_user, msg);
+        if (userpin == NULL) {
+            warnx("Aborted by user.");
+            rc = ECANCELED;
+            goto out;
+        }
+
+        if (strlen(userpin) == 0) {
+            warnx("Empty pin entered, try again.");
+            pin_free(&buf_user);
+            goto get_pin;
+        }
+
+        rv = func_list->C_OpenSession(tokens[i].id,
+                                      CKF_SERIAL_SESSION | CKF_RW_SESSION,
+                                      NULL, NULL, &tokens[i].session);
+        if (rv != CKR_OK) {
+            warnx("Error opening an R/W session with slot %lu: 0x%lX (%s)",
+                  tokens[i].id, rv, p11_get_ckr(rv));
+            rc = EIO;
+            goto out;
+        }
+
+        rv = func_list->C_Login(tokens[i].session, CKU_USER,
+                                (CK_CHAR_PTR)userpin, strlen(userpin));
+        if (rv != CKR_OK) {
+            warnx("Error logging in for slot %lu: 0x%lX (%s)",
+                  tokens[i].id, rv, p11_get_ckr(rv));
+            rc = EINVAL;
+            goto out;
+        }
+
+        pin_free(&buf_user);
+    }
+
+out:
+    pin_free(&buf_user);
+    return rc;
+}
+
+static void logout_tokens(void)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < num_tokens; i++) {
+        if (tokens[i].affected == false)
+            continue;
+        if (tokens[i].session == CK_INVALID_HANDLE)
+            continue;
+
+        func_list->C_Logout(tokens[i].session);
+        func_list->C_CloseAllSessions(tokens[i].id);
+    }
+}
+
+static int reencipher_tokens(void)
+{
+    size_t payload_len;
+    unsigned char *payload = NULL;
+    event_mk_change_data_t *hdr;
+    struct event_destination dest;
+    struct event_reply reply;
+    int rc = 0;
+
+    rc = build_event_payload(&payload, &payload_len);
+    if (rc != 0)
+        return rc;
+
+    /*
+     * Let all tokens re-encipher their session objects.
+     * This activates the MK change operation for the processes.
+     * New token objects will be re-enciphered by the processes, existing
+     * token objects are not yet re-enciphered. Since the new WK is not yet
+     * set/activated on the APQNs at that point in time, this does not matter.
+     */
+    hdr = (event_mk_change_data_t *)payload;
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_NONE;
+
+    dest.process_id = 0;
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    memset(&reply, 0, sizeof(reply));
+
+    rc = send_event(event_fd, EVENT_TYPE_MK_CHANGE_REENCIPHER,
+                    EVENT_FLAGS_REPLY_REQ, payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0 || reply.positive_replies == 0)
+        goto cancel;
+
+    /*
+     * Let the tool process re-encipher the token objects.
+     * After that, all objects are re-enciphered.
+     */
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_TOK_OBJS;
+
+    dest.process_id = getpid(); /* Send to current process only */
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    memset(&reply, 0, sizeof(reply));
+
+    rc = send_event(event_fd, EVENT_TYPE_MK_CHANGE_REENCIPHER,
+                    EVENT_FLAGS_REPLY_REQ, payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0 || reply.positive_replies == 0)
+        goto cancel;
+
+out:
+    free(payload);
+
+    return rc;
+
+cancel:
+    warnx("At least one token failed to perform the key re-encryption.");
+    warnx("Check the syslog for details about the errors reported by the tokens.");
+
+    /* Cancel the MK change operation */
+    op.state = HSM_MK_CH_STATE_CANCELING;
+
+    rc = save_mk_change_op();
+    if (rc != 0)
+        goto out;
+
+    /* Let all tokens cancel their session object re-enciphering */
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_NONE;
+
+    dest.process_id = 0;
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    rc = send_event(event_fd, EVENT_TYPE_MK_CHANGE_CANCEL,
+                    EVENT_FLAGS_REPLY_REQ, payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0)
+        warnx("At least one token failed to cancel the key re-encryption.");
+
+    /* Let the tool process  cancel the token object re-enciphering */
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL;
+
+    dest.process_id = getpid(); /* Send to current process only */
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    rc = send_event(event_fd, EVENT_TYPE_MK_CHANGE_CANCEL,
+                    EVENT_FLAGS_REPLY_REQ, payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0)
+        warnx("At least one token failed to cancel the key re-encryption.");
+
+    rc = remove_mk_change_op();
+    if (rc != 0)
+        goto out;
+
+    rc = EIO;
+
+    goto out;
+}
+
 static int perform_reencipher(void)
 {
     unsigned int i;
+    int rc;
 
+    /* Setup the MK change operation */
     TRACE_DEVEL("Num APQNs: %u\n", num_apqns);
     for (i = 0; i < num_apqns; i++) {
         TRACE_DEVEL("APQN: %02x.%04x\n", apqns[i].card, apqns[i].domain);
     }
+
+    op.state = HSM_MK_CH_STATE_INITIAL;
+    op.info.num_apqns = num_apqns;
+    op.info.apqns = apqns;
+
+    op.info.num_mkvps = 0;
+    op.info.mkvps = mkvps;
     TRACE_DEVEL("EP11 WKVP set: %d\n", ep11_wkvp_set);
     if (ep11_wkvp_set) {
         TRACE_DEBUG_DUMP("EP11 WKVP: ", (CK_BYTE *)ep11_wkvp, EP11_WKVP_LENGTH);
+
+        mkvps[op.info.num_mkvps].type = HSM_MK_TYPE_EP11;
+        mkvps[op.info.num_mkvps].mkvp = ep11_wkvp;
+        mkvps[op.info.num_mkvps].mkvp_len = EP11_WKVP_LENGTH;
+        op.info.num_mkvps++;
     }
     TRACE_DEVEL("CCA SYM MKVP set: %d\n", cca_sym_mkvp_set);
     if (cca_sym_mkvp_set) {
         TRACE_DEBUG_DUMP("CCA SYM MKVP: ", (CK_BYTE *)cca_sym_mkvp, CCA_MKVP_LENGTH);
+
+        mkvps[op.info.num_mkvps].type = HSM_MK_TYPE_CCA_SYM;
+        mkvps[op.info.num_mkvps].mkvp = cca_sym_mkvp;
+        mkvps[op.info.num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        op.info.num_mkvps++;
     }
     TRACE_DEVEL("CCA ASYM MKVP set: %d\n", cca_asym_mkvp_set);
      if (cca_asym_mkvp_set) {
          TRACE_DEBUG_DUMP("CCA ASYM MKVP: ", (CK_BYTE *)cca_asym_mkvp, CCA_MKVP_LENGTH);
+
+         mkvps[op.info.num_mkvps].type = HSM_MK_TYPE_CCA_ASYM;
+         mkvps[op.info.num_mkvps].mkvp = cca_asym_mkvp;
+         mkvps[op.info.num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+         op.info.num_mkvps++;
+
      }
     TRACE_DEVEL("CCA AES MKVP set: %d\n", cca_aes_mkvp_set);
     if (cca_aes_mkvp_set) {
         TRACE_DEBUG_DUMP("CCA SYM MKVP: ", (CK_BYTE *)cca_aes_mkvp, CCA_MKVP_LENGTH);
+
+        mkvps[op.info.num_mkvps].type = HSM_MK_TYPE_CCA_AES;
+        mkvps[op.info.num_mkvps].mkvp = cca_aes_mkvp;
+        mkvps[op.info.num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        op.info.num_mkvps++;
     }
     TRACE_DEVEL("CCA APKA MKVP set: %d\n", cca_apka_mkvp_set);
     if (cca_apka_mkvp_set) {
         TRACE_DEBUG_DUMP("CCA SYM MKVP: ", (CK_BYTE *)cca_apka_mkvp, CCA_MKVP_LENGTH);
+
+        mkvps[op.info.num_mkvps].type = HSM_MK_TYPE_CCA_APKA;
+        mkvps[op.info.num_mkvps].mkvp = cca_apka_mkvp;
+        mkvps[op.info.num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        op.info.num_mkvps++;
     }
 
-    // TODO
+    /* Check that no intersecting MK change operation is active */
+    rc = check_intersecting_ops();
+    if (rc != 0)
+        return rc;
+
+    /* Check that all tokens are present, warn & prompt user if not */
+    rc = check_tokens_present();
+    if (rc != 0)
+        return rc;
+
+    /* Create the MK change operation file */
+    rc = create_mk_change_op();
+    if (rc != 0)
+        goto error;
+
+    /* Query each token if it is affected by this MK change */
+    rc = query_tokens_initiate_mk_change();
+    if (rc != 0)
+        goto error;
+
+    /* Prompt for pin, login and open R/W session for each affected token */
+    rc = login_tokens();
+    if (rc != 0)
+        goto error;
+
+    /* Update MK operation with affected slots and state */
+    op.state = HSM_MK_CH_STATE_REENCIPHERING;
+    op.num_slots = num_affected_slots;
+    op.slots = affected_slots;
+
+    rc = save_mk_change_op();
+    if (rc != 0)
+        goto error;
+
+    printf("Re-enciphering, please wait...\n");
+
+    /* Let each affected token reencipher its keys */
+    rc =  reencipher_tokens();
+    if (rc != 0)
+        goto error;
+
+    printf("Completed.\n");
+
+    /* Update MK operation state */
+    op.state = HSM_MK_CH_STATE_REENCIPHERED;
+
+    rc = save_mk_change_op();
+    if (rc != 0)
+        goto error;
+
+    printf("\nMaster key change operation '%s' created.\n\n", op.id);
+    printf("Once the new master keys have been set/activated:\n");
+    printf(" - If you specified EXPECTED_MKVPS in your token configuration file(s),\n"
+           "   you must now replace the old MKVPs with the new MKVPs.");
+    printf(" - Run 'pkcshsm_mk_change finalize --id %s' when the new master\n"
+           "   keys have been set/activated.\n", op.id);
 
     return 0;
+
+error:
+    if (op.id[0] != '\0') {
+        /* Try to remove just created MK operation */
+        hsm_mk_change_lock(true);
+        hsm_mk_change_op_remove(op.id);
+        hsm_mk_change_unlock();
+    }
+
+    return rc;
 }
 
 static int perform_finalize(void)
@@ -294,6 +966,76 @@ static int init_ock(void)
     return 0;
 }
 
+static int get_token_infos(void)
+{
+    CK_RV rc;
+    CK_ULONG num_slots, i;
+    CK_SLOT_ID_PTR slots;
+
+    rc = func_list->C_GetSlotList(FALSE, NULL, &num_slots);
+    if (rc != CKR_OK) {
+        warnx("Error getting number of slots: 0x%lX (%s)", rc,
+               p11_get_ckr(rc));
+        return EIO;
+    }
+
+    TRACE_DEVEL("Num Slots: %lu\n", num_slots);
+
+    if (num_slots == 0) {
+        warnx("C_GetSlotList returned 0 slots. Check that your tokens"
+               " are installed correctly.");
+        return EIO;
+    }
+
+    slots = calloc(num_slots, sizeof(CK_SLOT_ID));
+    if (slots == NULL) {
+        warnx("Failed to allocate slot list");
+        return ENOMEM;
+    }
+
+    rc = func_list->C_GetSlotList(FALSE, slots, &num_slots);
+    if (rc != CKR_OK) {
+        warnx("Error getting slot list: 0x%lX (%s)", rc, p11_get_ckr(rc));
+        free(slots);
+        return EIO;
+    }
+
+    num_tokens = num_slots;
+    tokens = calloc(num_tokens, sizeof(struct token_info));
+    if (tokens == NULL) {
+        warnx("Failed to allocate token list");
+        free(slots);
+        return ENOMEM;
+    }
+
+    for (i = 0; i < num_slots; i++) {
+        TRACE_DEVEL("Slot %lu: %lu\n", i, slots[i]);
+
+        tokens[i].id = slots[i];
+
+        rc = func_list->C_GetTokenInfo(slots[i], &tokens[i].info);
+        if (rc == CKR_TOKEN_NOT_PRESENT) {
+            TRACE_DEVEL("  Token not present\n");
+            continue;
+        }
+        if (rc != CKR_OK) {
+            warnx("Error getting token infos for slot %lu: 0x%lX (%s)",
+                  slots[i], rc, p11_get_ckr(rc));
+            return 1;
+        }
+
+        TRACE_DEVEL("  Label: %.32s\n", tokens[i].info.label);
+        TRACE_DEVEL("  Manufacturer: %.32s\n", tokens[i].info.manufacturerID);
+        TRACE_DEVEL("  Model: %.16s\n", tokens[i].info.model);
+        TRACE_DEVEL("  Serial Number: %.16s\n", tokens[i].info.serialNumber);
+
+        tokens[i].present = true;
+    }
+
+    free(slots);
+    return 0;
+}
+
 void sig_handler(int signal)
 {
     UNUSED(signal);
@@ -319,10 +1061,19 @@ static void setup_signal_handler(void (*handler)(int signal))
 static int initialize(int cmd)
 {
     int rc;
+    CK_RV rv;
 
     setup_signal_handler(sig_handler);
 
+    rv = hsm_mk_change_lock_create();
+    if (rv != CKR_OK)
+        return EIO;
+
     rc = init_ock();
+    if (rc != 0)
+        return rc;
+
+    rc = get_token_infos();
     if (rc != 0)
         return rc;
 
@@ -344,6 +1095,15 @@ static int initialize(int cmd)
 
 static void terminate(void)
 {
+    if (tokens != NULL) {
+        if (func_list != NULL)
+            logout_tokens();
+        free(tokens);
+    }
+
+    if (affected_slots != NULL)
+        free(affected_slots);
+
     if (apqns != NULL)
         free(apqns);
 
@@ -354,6 +1114,8 @@ static void terminate(void)
         func_list->C_Finalize(NULL);
         dlclose(dll);
     }
+
+    hsm_mk_change_lock_destroy();
 
     setup_signal_handler(NULL);
 }
