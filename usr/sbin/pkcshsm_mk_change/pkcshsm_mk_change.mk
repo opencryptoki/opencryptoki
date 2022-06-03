@@ -16,4 +16,5 @@ usr_sbin_pkcshsm_mk_change_pkcshsm_mk_change_SOURCES =	\
 	usr/lib/common/p11util.c			\
 	usr/lib/common/pkcs_utils.c			\
 	usr/lib/common/event_client.c			\
+	usr/lib/common/pin_prompt.c			\
 	usr/lib/hsm_mk_change/hsm_mk_change.c
