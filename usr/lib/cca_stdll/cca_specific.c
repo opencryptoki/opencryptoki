@@ -29,6 +29,7 @@
 #include <dlfcn.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <err.h>
 #include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -45,6 +46,7 @@
 #include "cfgparser.h"
 #include "configuration.h"
 #include "events.h"
+#include "hsm_mk_change.h"
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
 
@@ -7139,6 +7141,64 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
 }
 
 /*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
+                                        unsigned int event_type,
+                                        unsigned int event_flags,
+                                        const char *payload,
+                                        unsigned int payload_len)
+{
+    CK_RV rc;
+    size_t bytes_read = 0;
+    struct hsm_mk_change_info info = { 0 };
+    event_mk_change_data_t *hdr = (event_mk_change_data_t *)payload;
+    unsigned int i;
+
+    UNUSED(tokdata);
+    UNUSED(event_type);
+    UNUSED(event_flags);
+
+    if (payload_len <= sizeof (*hdr))
+        return CKR_DATA_LEN_RANGE;
+
+    rc = hsm_mk_change_info_unflatten((unsigned char *)payload + sizeof(*hdr),
+                                      payload_len - sizeof(*hdr),
+                                      &bytes_read, &info);
+    if (rc != CKR_OK)
+        return rc;
+    if (bytes_read < payload_len - sizeof(*hdr)) {
+        rc = CKR_DATA_LEN_RANGE;
+        goto out;
+    }
+
+    for (i = 0; i < info.num_mkvps; i++) {
+        switch (info.mkvps[i].type) {
+        case HSM_MK_TYPE_CCA_SYM:
+        case HSM_MK_TYPE_CCA_AES:
+        case HSM_MK_TYPE_CCA_APKA:
+            /* Affected, but can't fulfill it */
+            rc = CKR_FUNCTION_FAILED;
+            TRACE_ERROR("The CCA token does not support concurrent HSM master key changes\n");
+            warnx("The CCA token does not support concurrent HSM master key changes");
+            goto out;
+
+        default:
+            break;
+        }
+    }
+
+    /* Not affected */
+    rc = CKR_FUNCTION_NOT_SUPPORTED;
+
+out:
+    hsm_mk_change_info_clean(&info);
+    return rc;
+}
+
+/*
  * Called by the event thread, on receipt of an event.
  *
  * ATTENTION: This function is called in a separate thread. All actions
@@ -7160,6 +7220,10 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         return cca_handle_apqn_event(tokdata, event_type,
                                      (event_udev_apqn_data_t *)payload);
+
+    case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
+        return cca_handle_mk_change_event(tokdata, event_type, event_flags,
+                                          payload, payload_len);
 
     default:
         return CKR_FUNCTION_NOT_SUPPORTED;
