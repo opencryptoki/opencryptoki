@@ -85,6 +85,8 @@ option will show the arguments and options available.
 .IR LABEL
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
+.B \-\-custom\-\attr | \-c
+.IR [[pub_attrs]:[prv_attrs]]
 .B \-\-help | \-h
 .PP
 Use the
@@ -107,6 +109,9 @@ attribute of the key and
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
 can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.B \-\-custom\-attr | \-c 
+.IR [[pub_attr]:[prv_attr]]
+can be used to set the CK_BBOOL and CK_ULONG attributes of the key (see below for detailed describtion and syntax).
 .
 .PP
 .SS "Generating AES keys"
@@ -123,6 +128,8 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .IR LABEL
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
+.B \-\-custom\-\attr | \-c
+.IR [[pub_attrs]:[prv_attrs]]
 .B \-\-help | \-h
 .PP
 Use the
@@ -145,6 +152,9 @@ attribute of the key and
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
 can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.B \-\-custom\-attr | \-c 
+.IR [[pub_attr]:[prv_attr]]
+can be used to set the CK_BBOOL and CK_ULONG attributes of the key (see below for detailed describtion and syntax).
 .
 .PP
 .SS "Generating RSA keys"
@@ -163,6 +173,8 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .IR EXP
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
+.B \-\-custom\-\attr | \-c
+.IR [[pub_attrs]:[prv_attrs]]
 .B \-\-help | \-h
 .PP
 Use the
@@ -188,6 +200,9 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .B \-\-exponent
 .IR EXP
 options allows the user to specify the exponent used for generating the RSA key. The default is set to 65537 according to the PKCS #11 standard.
+.B \-\-custom\-attr | \-c 
+.IR [[pub_attr]:[prv_attr]]
+can be used to set the CK_BBOOL and CK_ULONG attributes of the key (see below for detailed describtion and syntax).
 .
 .PP
 .SS "Generating EC keys"
@@ -204,6 +219,8 @@ options allows the user to specify the exponent used for generating the RSA key.
 .IR LABEL
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
+.B \-\-custom\-\attr | \-c
+.IR [[pub_attrs]:[prv_attrs]]
 .B \-\-help | \-h
 .PP
 Use the
@@ -236,6 +253,45 @@ attribute of the key and
 .B \-\-attr
 .IR [P M R L S E D G V W U A X N T]
 can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.B \-\-custom\-attr | \-c 
+.IR [[pub_attr]:[prv_attr]]
+can be used to set the CK_BBOOL and CK_ULONG attributes of the key (see below for detailed describtion ans syntax).
+.
+.PP
+.SS "Generating IBM Dilithium keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR ibm-dilithium
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the
+.B generate-key
+.B ibm-dilithium
+command and key argument to generate an IBM Dilithium key, respectively. The
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to
+.IR SLOTID
+and the token PIN. The
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
 .
 .PP
 .SS "Generating IBM Dilithium keys"
@@ -457,6 +513,28 @@ CKA_TOKEN and CKA_PRIVATE are set by default to
 .B TRUE.
 For multiple attributes, combine the letters in a string without white space, e. g. 'MlD'.
 An uppercase letter means true, while an lowercase letter equals false.
+From Example above: CKA_MODIFIABLE=true, CKA_LOCAL=false, CKA_DECRYPT=true
+.PP
+For asymmetric keys a user can set different custom attributes for the public and the private key.
+The separator is the symbol ":". The defined attributes in front of the separator are set for the
+public key and the attributes defined after the separator are set for the private key. When the 
+separator is not in the string, the defined attribute set is used for public and private key. To set 
+a configuration for only the public key, the string has to end with the separator and respectively, 
+to use a configuration for the private key only, the string has to start with the separator.
+.PP
+.
+.
+.
+.SS "\-\-custom\-attr | \-c [[pub_attrs]:[prv_attrs]]"
+sets the CK_BBOOL and CK_ULONG attributes of the key.
+.PP
+.B Note:
+not all attributes are applicable to all keys and will be omitted if not applicable. 
+.PP
+.B Syntax:
+For multiple attributes, separate them with a ",", the id can be given in decimal or hexadecimal, 
+the valid values are "true" or "false" for the binary and a decimal or hexadecimal number for the 
+CK_ULONG attributes: e. g. '368=true,0x00000163=false,0x00000105=false'.
 From Example above: CKA_MODIFIABLE=true, CKA_LOCAL=false, CKA_DECRYPT=true
 .PP
 For asymmetric keys a user can set different custom attributes for the public and the private key.
