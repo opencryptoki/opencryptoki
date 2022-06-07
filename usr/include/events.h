@@ -48,10 +48,18 @@ typedef struct {
 #define EVENT_CLASS_MASK        0xffff0000
 #define EVENT_CLASS_UDEV        0x00010000
 #define EVENT_CLASS_ADMIN       0x00020000
+#define EVENT_CLASS_MK_CHANGE   0x00040000
 
 /* Event types */
 #define EVENT_TYPE_APQN_ADD     EVENT_CLASS_UDEV + 0x00000001
 #define EVENT_TYPE_APQN_REMOVE  EVENT_CLASS_UDEV + 0x00000002
+
+#define EVENT_TYPE_MK_CHANGE_INITIATE_QUERY  EVENT_CLASS_MK_CHANGE + 0x00000001
+#define EVENT_TYPE_MK_CHANGE_REENCIPHER      EVENT_CLASS_MK_CHANGE + 0x00000002
+#define EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY  EVENT_CLASS_MK_CHANGE + 0x00000003
+#define EVENT_TYPE_MK_CHANGE_FINALIZE        EVENT_CLASS_MK_CHANGE + 0x00000004
+#define EVENT_TYPE_MK_CHANGE_CANCEL_QUERY    EVENT_CLASS_MK_CHANGE + 0x00000005
+#define EVENT_TYPE_MK_CHANGE_CANCEL          EVENT_CLASS_MK_CHANGE + 0x00000006
 
 /* Event flags */
 #define EVENT_FLAGS_NONE        0x00000000
@@ -79,5 +87,17 @@ typedef struct {
 #define AP_DEVICE_TYPE_CEX5         11
 #define AP_DEVICE_TYPE_CEX6         12
 #define AP_DEVICE_TYPE_CEX7         13
+
+/* Event payload for EVENT_TYPE_MK_CHANGE_xxx events */
+typedef struct {
+    char id[8];
+    pid_t tool_pid;
+    unsigned int flags;
+    /* Followed by flattened struct hsm_mk_change_info */
+} event_mk_change_data_t;
+
+#define EVENT_MK_CHANGE_FLAGS_NONE            0x00000000
+#define EVENT_MK_CHANGE_FLAGS_TOK_OBJS        0x00000001
+#define EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL  0x00000002
 
 #endif
