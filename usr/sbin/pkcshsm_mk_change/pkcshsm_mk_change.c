@@ -913,14 +913,171 @@ static int perform_cancel(void)
     return 0;
 }
 
+static CK_RV perform_list_cb(struct hsm_mk_change_op *op, void *private)
+{
+    unsigned int i, j, k;
+    int *first = private;
+    struct hsm_mkvp *mkvps = NULL;
+    unsigned int num_mkvps = 0;
+    CK_RV rc;
+
+    if (*first)
+        *first = FALSE;
+    else
+        printf("\n");
+
+    printf("Operation:       %s\n", op->id);
+
+    switch (op->state) {
+    case HSM_MK_CH_STATE_INITIAL:
+        printf("    State:       Initial\n");
+        break;
+    case HSM_MK_CH_STATE_REENCIPHERING:
+        printf("    State:       Re-enciphering of key objects ongoing\n");
+        break;
+    case HSM_MK_CH_STATE_REENCIPHERED:
+        printf("    State:       Key objects have been re-enciphered,\n");
+        printf("                 new master key(s) can now be set/activated\n");
+        break;
+    case HSM_MK_CH_STATE_FINALIZING:
+        printf("    State:       Finalizing\n");
+        break;
+    case HSM_MK_CH_STATE_CANCELING:
+        printf("    State:       Canceling\n");
+        break;
+    case HSM_MK_CH_STATE_ERROR:
+        printf("    State:       Finalizing or canceling has errored\n");
+        break;
+    default:
+        printf("    State:       Unknown\n");
+        break;
+    }
+
+    printf("    APQNs:\n");
+    for (i = 0; i < op->info.num_apqns; i++) {
+        printf("        %02X.%04X\n", op->info.apqns[i].card,
+               op->info.apqns[i].domain);
+    }
+
+    printf("    New master key verification patterns:\n");
+    for (i = 0; i < op->info.num_mkvps; i++) {
+        switch (op->info.mkvps[i].type) {
+        case HSM_MK_TYPE_EP11:
+            printf("        Type:    EP11\n");
+            break;
+        case HSM_MK_TYPE_CCA_SYM:
+            printf("        Type:    CCA SYM\n");
+            break;
+        case HSM_MK_TYPE_CCA_ASYM:
+            printf("        Type:    CCA ASYM\n");
+            break;
+        case HSM_MK_TYPE_CCA_AES:
+            printf("        Type:    CCA AES\n");
+            break;
+        case HSM_MK_TYPE_CCA_APKA:
+            printf("        Type:    CCA APKA\n");
+            break;
+        }
+        printf("        MKVP:    ");
+        for (k = 0; k < op->info.mkvps[i].mkvp_len; k++)
+            printf("%02X", op->info.mkvps[i].mkvp[k]);
+        printf("\n");
+    }
+
+    printf("    Affected slots:\n");
+    for (i = 0; i < op->num_slots; i++) {
+        printf("        Slot: %lu", op->slots[i]);
+        for (k = 0; k < num_tokens; k++) {
+            if (tokens[k].present && tokens[k].id == op->slots[i]) {
+                printf(" Label: %.32s", tokens[k].info.label);
+                break;
+            }
+        }
+        printf("\n");
+
+        rc = hsm_mk_change_token_mkvps_load(op->id, op->slots[i],
+                                            &mkvps, &num_mkvps);
+        if (rc == CKR_OK && num_mkvps > 0) {
+            printf("            Current master key verification patterns:\n");
+            for (j = 0; j < num_mkvps; j++) {
+                switch (mkvps[j].type) {
+                case HSM_MK_TYPE_EP11:
+                    printf("                Type:    EP11\n");
+                    break;
+                case HSM_MK_TYPE_CCA_SYM:
+                    printf("                Type:    CCA SYM\n");
+                    break;
+                case HSM_MK_TYPE_CCA_ASYM:
+                    printf("                Type:    CCA ASYM\n");
+                    break;
+                case HSM_MK_TYPE_CCA_AES:
+                    printf("                Type:    CCA AES\n");
+                    break;
+                case HSM_MK_TYPE_CCA_APKA:
+                    printf("                Type:    CCA APKA\n");
+                    break;
+                }
+                printf("                MKVP:    ");
+                for (k = 0; k < mkvps[j].mkvp_len; k++)
+                    printf("%02X", mkvps[j].mkvp[k]);
+                printf("\n");
+            }
+            hsm_mk_change_mkvps_clean(mkvps, num_mkvps);
+            free(mkvps);
+        }
+        mkvps = NULL;
+        num_mkvps = 0;
+    }
+
+    return CKR_OK;
+}
+
 static int perform_list(void)
 {
-    if (id != NULL)
+    CK_RV rv;
+    int rc = 0;
+    int first = TRUE;
+
+    rv = hsm_mk_change_lock(false);
+    if (rv != CKR_OK) {
+        warnx("Failed to obtain lock");
+        return EIO;
+    }
+
+    if (id != NULL) {
         TRACE_DEVEL("ID: '%s'\n", id);
 
-    // TODO
+        rv = hsm_mk_change_op_load(id, &op);
+        if (rv != CKR_OK) {
+            warnx("HSM master key change operation '%s' not found.", id);
+            rc = ENOENT;
+            goto out;
+        }
 
-    return 0;
+        rv = perform_list_cb(&op, &first);
+        hsm_mk_change_op_clean(&op);
+        if (rv != CKR_OK) {
+            warnx("Failed to list HSM master key change operation '%s'.", id);
+            rc = EIO;
+            goto out;
+        }
+    } else {
+        rv = hsm_mk_change_op_iterate(perform_list_cb, &first);
+        if (rv != CKR_OK) {
+            warnx("Failed to list HSM master key change operations.");
+            rc = EIO;
+            goto out;
+        }
+    }
+
+out:
+    rv = hsm_mk_change_unlock();
+    if (rv != CKR_OK) {
+        warnx("Failed to release lock");
+        return EIO;
+    }
+
+    return rc;
 }
 
 static int init_ock(void)
