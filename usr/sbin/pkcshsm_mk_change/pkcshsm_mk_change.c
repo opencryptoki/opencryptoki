@@ -361,6 +361,32 @@ static int save_mk_change_op(void)
     return 0;
 }
 
+static int load_mk_change_op(const char *id)
+{
+    CK_RV rv;
+
+    rv = hsm_mk_change_lock(false);
+    if (rv != CKR_OK) {
+        warnx("Failed to obtain lock");
+        return EIO;
+    }
+
+    rv = hsm_mk_change_op_load(id, &op);
+    if (rv != 0) {
+        warnx("Failed to load MK change operation file");
+        hsm_mk_change_unlock();
+        return EIO;
+    }
+
+    rv = hsm_mk_change_unlock();
+    if (rv != 0) {
+        warnx("Failed to release lock");
+        return EIO;
+    }
+
+    return 0;
+}
+
 static int remove_mk_change_op(void)
 {
     CK_RV rv;
@@ -895,20 +921,224 @@ error:
     return rc;
 }
 
-static int perform_finalize(void)
+static int finalize_cancel_tokens(unsigned int event,
+                                  enum hsm_mk_change_state state,
+                                  const char *msg_cmd)
 {
-    TRACE_DEVEL("ID: '%s'\n", id);
+    size_t payload_len;
+    unsigned char *payload = NULL;
+    event_mk_change_data_t *hdr;
+    struct event_destination dest;
+    struct event_reply reply;
+    int rc = 0;
 
-    // TODO
+    rc = build_event_payload(&payload, &payload_len);
+    if (rc != 0)
+        return rc;
 
-    return 0;
+    /*
+     * Let the tool process cancel/finalize the token object re-enciphering.
+     * Processes may still create new token objects at that time.
+     */
+    hdr = (event_mk_change_data_t *)payload;
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_TOK_OBJS;
+
+    dest.process_id = getpid(); /* Send to current process only */
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    memset(&reply, 0, sizeof(reply));
+
+    rc = send_event(event_fd, event, EVENT_FLAGS_REPLY_REQ,
+                    payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0 || reply.positive_replies == 0) {
+        warnx("At least one token failed to %s the master key change "
+              "operation.", msg_cmd);
+        warnx("Check the syslog for details about the errors reported by "
+              "the tokens.");
+        rc = EIO;
+        goto out;
+    }
+
+    /*
+     * Change state of MK change op. From now on, new processes will no longer
+     * detect an active MK change operation. Any token objects created by such
+     * new processes will use the new WK anyway, and will not have the
+     * re-enciphered blob stored. Existing processes still running with the
+     * MK change operation active using such token objects that have no
+     * re-enciphered will use the normal blob, even though the MK change
+     * operation might still be active and the new WK is set.
+     */
+    op.state = state;
+    rc = save_mk_change_op();
+    if (rc != 0)
+        goto out;
+
+    /*
+     * Let all tokens cancel/finalize their session object re-enciphering.
+     * This deactivates the MK change operation for the processes.
+     */
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_NONE;
+
+    dest.process_id = 0;
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    memset(&reply, 0, sizeof(reply));
+
+    rc = send_event(event_fd, event, EVENT_FLAGS_REPLY_REQ,
+                    payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0 || reply.positive_replies == 0) {
+        warnx("At least one token failed to %s the master key change "
+              "operation.", msg_cmd);
+        warnx("Check the syslog for details about the errors reported by "
+              "the tokens.");
+        rc = EIO;
+        goto out;
+    }
+
+    /*
+     * Let the tool process cancel/finalize the token object re-enciphering
+     * again to re-encipher token objects created by processes after the
+     * initial token-object re-enciphering, but before the tokens deactivated
+     * the MK change operation.
+     */
+    hdr->flags = EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL;
+
+    dest.process_id = getpid(); /* Send to current process only */
+    dest.token_type = EVENT_TOK_TYPE_CCA | EVENT_TOK_TYPE_EP11;
+    memset(dest.token_label, ' ', sizeof(dest.token_label));
+
+    memset(&reply, 0, sizeof(reply));
+
+    rc = send_event(event_fd, event, EVENT_FLAGS_REPLY_REQ,
+                    payload_len, (char *)payload,
+                    &dest, &reply);
+    if (rc != 0) {
+        warnx("Failed to send event: %d", rc);
+        rc = EIO;
+        goto out;
+    }
+
+    TRACE_DEVEL("Positive: %lu\n", reply.positive_replies);
+    TRACE_DEVEL("Negative: %lu\n", reply.negative_replies);
+    TRACE_DEVEL("Not handled: %lu\n", reply.nothandled_replies);
+
+    if (reply.negative_replies != 0 || reply.positive_replies == 0) {
+        warnx("At least one token failed to %s the master key change "
+              "operation.", msg_cmd);
+        warnx("Check the syslog for details about the errors reported by "
+              "the tokens.");
+        rc = EIO;
+        goto out;
+    }
+
+out:
+    free(payload);
+
+    return rc;
 }
 
-static int perform_cancel(void)
+
+static int perform_finalize_cancel(bool cancel)
 {
+    CK_RV rv;
+    int rc, rc2;
+    unsigned int i, k;
+    CK_ULONG num_affected = 0;
+
     TRACE_DEVEL("ID: '%s'\n", id);
 
-    // TODO
+    rv = load_mk_change_op(id);
+    if (rv != CKR_OK) {
+        warnx("HSM master key change operation '%s' not found.", id);
+        return ENOENT;
+    }
+
+    if (op.state != HSM_MK_CH_STATE_REENCIPHERED &&
+        op.state != HSM_MK_CH_STATE_ERROR ) {
+        warnx("The HSM master key change operation '%s' is in a state where\n"
+              "it can not be %s.", id, cancel ? "canceled": "finalized");
+        return EINVAL;
+    }
+
+    /* Check if all affected tokens are able to finalize/cancel */
+    rc = send_query_event(cancel ? EVENT_TYPE_MK_CHANGE_CANCEL_QUERY :
+                                   EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY,
+                         cancel ? "cancel action" : "finalize action",
+                         &num_affected);
+    if (rc != 0)
+        return rc;
+
+    /* Ensure the affected slots are still the same */
+    if (num_affected != op.num_slots) {
+        warnx("The list of slots affected by this master key change has changed\n"
+              "since initiating this master key change operation.");
+        return EINVAL;
+    }
+    for (i = 0, k = 0; i < num_tokens && k < num_affected; i++) {
+        if (tokens[i].affected == true) {
+            if (op.slots[k] != tokens[i].id) {
+                warnx("The list of slots affected by this master key change has changed\n"
+                      "since initiating this master key change operation.");
+                return EINVAL;
+            }
+            k++;
+        }
+    }
+
+    /* Prompt for pin, login and open R/W session for each affected token */
+    rc = login_tokens();
+    if (rc != 0)
+        return rc;
+
+    printf("%s, please wait...\n", cancel ? "Canceling" : "Finalizing");
+
+    /* Start finalizing/canceling */
+    rc = finalize_cancel_tokens(cancel ? EVENT_TYPE_MK_CHANGE_CANCEL :
+                                         EVENT_TYPE_MK_CHANGE_FINALIZE,
+                                cancel ? HSM_MK_CH_STATE_CANCELING :
+                                         HSM_MK_CH_STATE_FINALIZING,
+                                cancel ? "cancel" : "finalize");
+    if (rc != 0) {
+        /* Set error state */
+        op.state = HSM_MK_CH_STATE_ERROR;
+        rc2 = save_mk_change_op();
+        if (rc2 != 0)
+            return rc2;
+
+        return rc;
+    }
+
+    /* Operation complete, remove it */
+    rc = remove_mk_change_op();
+    if (rc != 0)
+        return rc;
+
+    printf("\nMaster key change operation '%s' successfully %s.\n",
+           op.id, cancel ? "canceled" : "finalized");
 
     return 0;
 }
@@ -1454,7 +1684,7 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        rc = perform_finalize();
+        rc = perform_finalize_cancel(false);
         break;
 
     case CMD_CANCEL:
@@ -1465,7 +1695,7 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
         }
 
-        rc = perform_cancel();
+        rc = perform_finalize_cancel(true);
         break;
 
     case CMD_LIST:
