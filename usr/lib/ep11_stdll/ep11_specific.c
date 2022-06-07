@@ -13643,6 +13643,15 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
         return ep11tok_handle_apqn_event(tokdata, event_type,
                                          (event_udev_apqn_data_t *)payload);
 
+    case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE:
+    case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
+    case EVENT_TYPE_MK_CHANGE_CANCEL:
+        // TODO handle event properly
+        return CKR_OK;
+
     default:
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
