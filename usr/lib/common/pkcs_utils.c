@@ -284,6 +284,7 @@ int get_pin(char **pin, size_t *pinlen)
      */
     nread = getline(&buff, &buflen, stdin);
     if (nread == -1) {
+        (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
         rc = -1;
         goto done;
     }
