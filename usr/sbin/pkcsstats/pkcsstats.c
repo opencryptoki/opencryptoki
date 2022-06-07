@@ -789,7 +789,7 @@ int main(int argc, char **argv)
     bool reset = false, reset_all = false;
     bool delete = false, delete_all = false;
     bool slot_id_specified = false;
-    bool json = false;
+    bool json = false, json_started = false;
     CK_SLOT_ID slot_id = 0;
     void *dll = NULL;
     CK_FUNCTION_LIST *func_list = NULL;
@@ -949,8 +949,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    if (json && print_json_start() != 0)
-        goto done;
+    if (json) {
+        if (print_json_start() != 0)
+            goto done;
+        json_started = true;
+    }
 
     dd.func_list = func_list;
     dd.num_slots = num_slots;
@@ -972,7 +975,7 @@ int main(int argc, char **argv)
     }
 
 done:
-    if (rc == 0 && json)
+    if (json && json_started)
         printf("\n\t]\n}\n");
 
     if (slots != NULL)
