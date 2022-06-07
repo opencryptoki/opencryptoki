@@ -1280,7 +1280,7 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
 
     if (conf_name[0] == '/') {
         /* Absolute path name */
-        strncpy(fname, conf_name, sizeof(fname));
+        strncpy(fname, conf_name, sizeof(fname) - 1);
         fname[sizeof(fname) - 1] = '\0';
     } else {
         /* relative path name */
