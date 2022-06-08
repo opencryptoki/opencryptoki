@@ -24,6 +24,7 @@
 #include <strings.h>
 #include <pwd.h>
 #include <grp.h>
+#include <err.h>
 #include <openssl/crypto.h>
 #include "slotmgr.h"
 #include "pkcsconf_msg.h"
@@ -92,22 +93,20 @@ int main(int argc, char *argv[])
         switch (c) {
         case 'c':              /* a specific card (slot) is specified */
             if (flags & CFG_SLOT) {
-                printf("Must specify a single slot.\n");
-                fflush(stdout);
+                warnx("Must specify a single slot.");
                 errflag++;
             } else {
                 flags |= CFG_SLOT;
                 in_slot = get_slot(optarg);
                 if (in_slot < 0) {
-                    printf("Must specify a decimal number as slot.\n");
+                    warnx("Must specify a decimal number as slot.");
                     errflag++;
                 }
             }
             break;
         case 'S':              /* the SO pin */
             if (flags & CFG_SO_PIN) {
-                printf("Must specify a single SO PIN.\n");
-                fflush(stdout);
+                warnx("Must specify a single SO PIN.");
                 errflag++;
             } else {
                 flags |= CFG_SO_PIN;
@@ -121,8 +120,7 @@ int main(int argc, char *argv[])
             break;
         case 'U':              /* the user pin */
             if (flags & CFG_USER_PIN) {
-                printf("Must specify a single user PIN.\n");
-                fflush(stdout);
+                warnx("Must specify a single user PIN.");
                 errflag++;
             } else {
                 flags |= CFG_USER_PIN;
@@ -137,8 +135,7 @@ int main(int argc, char *argv[])
             break;
         case 'n':              /* the new pin */
             if (flags & CFG_NEW_PIN) {
-                printf("Must specify a single new PIN.\n");
-                fflush(stdout);
+                warnx("Must specify a single new PIN.");
                 errflag++;
             } else {
                 flags |= CFG_NEW_PIN;
@@ -186,8 +183,7 @@ int main(int argc, char *argv[])
         }
     }
     if (optind < argc) {
-        printf("%s: unrecognized option --- '%s'\n", argv[0], argv[optind]);
-        fflush(stdout);
+        warnx("unrecognized option --- '%s'", argv[optind]);
         errflag++;
     }
     if (errflag != 0)           /* If there was an error print the usage statement */
@@ -204,7 +200,7 @@ int main(int argc, char *argv[])
     /* Load the PKCS11 library and start the slotmanager if it is not running */
     if (init() != CKR_OK) {
         rv = CKR_FUNCTION_FAILED;
-	goto done;
+        goto done;
     }
 
     /* Get the slot list and indicate if a slot number was passed in or not */
@@ -214,10 +210,9 @@ int main(int argc, char *argv[])
     /* If the user tries to set the user and SO pin at the same time print an
      * error massage and exit indicating the function failed */
     if ((flags & CFG_SET_USER) && (flags & CFG_SET_SO)) {
-        printf("Setting the SO and user PINs are mutually exclusive.\n");
-        fflush(stdout);
+        warnx("Setting the SO and user PINs are mutually exclusive.");
         rv = CKR_FUNCTION_FAILED;
-	goto done;
+        goto done;
     }
 
     /* If the user wants to display PKCS11 info call the function to do so */
@@ -259,8 +254,7 @@ int main(int argc, char *argv[])
             }
             rv = init_token(in_slot, sopin);
         } else {
-            printf("Must specify one slot");
-            fflush(stdout);
+            warnx("Must specify one slot");
             rv = CKR_FUNCTION_FAILED;
         }
     }
@@ -298,15 +292,13 @@ int main(int argc, char *argv[])
                 newpin2len = strlen((char *) newpin2);
                 if (newpinlen != newpin2len
                     || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    printf("New PINs do not match.\n");
-                    fflush(stdout);
+                    warnx("New PINs do not match.");
                     exit(CKR_PIN_INVALID);
                 }
             }
             rv = init_user_pin(in_slot, newpin, sopin);
         } else {
-            printf("Must specify one slot");
-            fflush(stdout);
+            warnx("Must specify one slot");
             rv = CKR_FUNCTION_FAILED;
         }
     }
@@ -341,15 +333,13 @@ int main(int argc, char *argv[])
                 newpin2len = strlen((char *) newpin2);
                 if (newpinlen != newpin2len
                     || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    printf("New PINs do not match.\n");
-                    fflush(stdout);
+                    warnx("New PINs do not match.");
                     exit(CKR_PIN_INVALID);
                 }
             }
             rv = set_user_pin(in_slot, CKU_SO, sopin, newpin);
         } else {
-            printf("Must specify one slot");
-            fflush(stdout);
+            warnx("Must specify one slot");;
             rv = CKR_FUNCTION_FAILED;
         }
     }
@@ -369,7 +359,7 @@ int main(int argc, char *argv[])
                 } while (rc == -EINVAL);
             }
             if (~flags & CFG_NEW_PIN) {
-		int rc;
+                int rc;
 
                 do {
                     printf("Enter the new user PIN: ");
@@ -385,15 +375,13 @@ int main(int argc, char *argv[])
                 newpin2len = strlen((char *) newpin2);
                 if (newpinlen != newpin2len
                     || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    printf("New PINs do not match.\n");
-                    fflush(stdout);
+                    warnx("New PINs do not match.");
                     exit(CKR_PIN_INVALID);
                 }
             }
             rv = set_user_pin(in_slot, CKU_USER, pin, newpin);
         } else {
-            printf("Must specify one slot");
-            fflush(stdout);
+            warnx("Must specify one slot");
             rv = CKR_FUNCTION_FAILED;
         }
     }
@@ -581,7 +569,7 @@ CK_RV display_pkcs11_info(void)
     /* Get the PKCS11 infomation structure and if fails print message */
     rc = FunctionPtr->C_GetInfo(&CryptokiInfo);
     if (rc != CKR_OK) {
-        printf("Error getting PKCS#11 info: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
+        warnx("Error getting PKCS#11 info: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -605,14 +593,14 @@ CK_RV get_slot_list(CK_BOOL tokenPresent)
     /* Find out how many tokens are present in slots */
     rc = FunctionPtr->C_GetSlotList(tokenPresent, NULL_PTR, &SlotCount);
     if (rc != CKR_OK) {
-        printf("Error getting number of slots: 0x%lX (%s)\n", rc,
-               p11_get_ckr(rc));
+        warnx("Error getting number of slots: 0x%lX (%s)", rc,
+              p11_get_ckr(rc));
         return rc;
     }
 
     if (SlotCount == 0) {
-        printf("C_GetSlotList returned 0 slots. Check that your tokens"
-               " are installed correctly.\n");
+        warnx("C_GetSlotList returned 0 slots. Check that your tokens"
+              " are installed correctly.");
         return -ENODEV;
     }
 
@@ -621,7 +609,7 @@ CK_RV get_slot_list(CK_BOOL tokenPresent)
 
     rc = FunctionPtr->C_GetSlotList(tokenPresent, SlotList, &SlotCount);
     if (rc != CKR_OK) {
-        printf("Error getting slot list: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
+        warnx("Error getting slot list: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -667,8 +655,8 @@ CK_RV print_mech_info(int slot_id)
     /* For each slot find out how many mechanisms are supported */
     rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR, &MechanismCount);
     if (rc != CKR_OK) {
-        printf("Error getting number of mechanisms: 0x%lX (%s)\n",
-               rc, p11_get_ckr(rc));
+        warnx("Error getting number of mechanisms: 0x%lX (%s)",
+              rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -680,8 +668,8 @@ CK_RV print_mech_info(int slot_id)
     rc = FunctionPtr->C_GetMechanismList(slot_id, MechanismList,
                                          &MechanismCount);
     if (rc != CKR_OK) {
-        printf("Error getting mechanisms list: 0x%lX (%s)\n", rc,
-               p11_get_ckr(rc));
+        warnx("Error getting mechanisms list: 0x%lX (%s)", rc,
+              p11_get_ckr(rc));
         return rc;
     }
 
@@ -692,8 +680,8 @@ CK_RV print_mech_info(int slot_id)
         rc = FunctionPtr->C_GetMechanismInfo(slot_id,
                                              MechanismList[i], &MechanismInfo);
         if (rc != CKR_OK) {
-            printf("Error getting mechanisms info: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting mechanisms info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
         printf("Mechanism #%d\n", i);
@@ -765,8 +753,8 @@ CK_RV display_slot_info(int slot_id)
     if (slot_id != -1) {
         rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%lX (%s) \n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting slot info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -778,8 +766,8 @@ CK_RV display_slot_info(int slot_id)
         /* Get the info for the slot we are examining and store in SlotInfo */
         rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%lX (%s) \n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting slot info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -798,8 +786,8 @@ CK_RV list_slot(int slot_id)
     if (slot_id != -1) {
         rc = FunctionPtr->C_GetSlotInfo(slot_id, &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting slot info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -815,8 +803,8 @@ CK_RV list_slot(int slot_id)
         /* Get the info for the slot we are examining and store in SlotInfo */
         rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
         if (rc != CKR_OK) {
-            printf("Error getting slot info: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting slot info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -928,8 +916,8 @@ CK_RV display_token_info(int slot_id)
     if (slot_id != -1) {
         rc = FunctionPtr->C_GetTokenInfo(slot_id, &TokenInfo);
         if (rc != CKR_OK) {
-            printf("Error getting token info: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting token info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -941,8 +929,8 @@ CK_RV display_token_info(int slot_id)
         /* Get the Token info for each slot in the system */
         rc = FunctionPtr->C_GetTokenInfo(SlotList[lcv], &TokenInfo);
         if (rc != CKR_OK) {
-            printf("Error getting token info: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
+            warnx("Error getting token info: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
             return rc;
         }
 
@@ -991,14 +979,11 @@ CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
 
     rc = FunctionPtr->C_InitToken(slot_id, pin, pinlen, label);
     if (rc != CKR_OK) {
-        if (rc == CKR_PIN_INCORRECT) {
-            printf("Incorrect PIN Entered.\n");
-            fflush(stdout);
-        } else {
-            printf("Error initializing token: 0x%lX (%s)\n", rc,
-                   p11_get_ckr(rc));
-            fflush(stdout);
-        }
+        if (rc == CKR_PIN_INCORRECT)
+            warnx("Incorrect PIN entered.");
+        else
+            warnx("Error initializing token: 0x%lX (%s)", rc,
+                  p11_get_ckr(rc));
         return rc;
     }
 
@@ -1025,8 +1010,7 @@ CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
                                     &session_handle);
     if (rc != CKR_OK) {
-        printf("Error opening session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
+        warnx("Error opening session: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -1034,35 +1018,27 @@ CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
      * the PIN */
     rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
     if (rc != CKR_OK) {
-        if (rc == CKR_PIN_INCORRECT) {
-            printf("Incorrect PIN Entered.\n");
-            fflush(stdout);
-        } else {
-            printf("Error logging in: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-            fflush(stdout);
-        }
+        if (rc == CKR_PIN_INCORRECT)
+            warnx("Incorrect PIN entered.");
+        else
+            warnx("Error logging in: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
     /* Call the function to Init the PIN */
     rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
-    if (rc != CKR_OK) {
-        printf("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
-    }
+    if (rc != CKR_OK)
+        warnx("Error setting PIN: 0x%lX (%s)", rc, p11_get_ckr(rc));
 
     /* Logout so that others can use the PIN */
     rc = FunctionPtr->C_Logout(session_handle);
-    if (rc != CKR_OK) {
-        printf("Error logging out: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
-    }
+    if (rc != CKR_OK)
+        warnx("Error logging out: 0x%lX (%s)", rc, p11_get_ckr(rc));
 
     /* Close the session */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK) {
-        printf("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
+        warnx("Error closing session: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
     return CKR_OK;
@@ -1091,37 +1067,30 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin,
     rc = FunctionPtr->C_OpenSession(slot_id, flags, NULL, NULL,
                                     &session_handle);
     if (rc != CKR_OK) {
-        printf("Error opening session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
+        warnx("Error opening session: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
     /* Login to the session we just created as the pkcs11 passed in USER type */
     rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
     if (rc != CKR_OK) {
-        if (rc == CKR_PIN_INCORRECT) {
-            printf("Incorrect PIN Entered.\n");
-            fflush(stdout);
-        } else {
-            printf("Error logging in: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-            fflush(stdout);
-        }
+        if (rc == CKR_PIN_INCORRECT)
+            warnx("Incorrect PIN entered.");
+        else
+            warnx("Error logging in: 0x%lX (%s)", rc, p11_get_ckr(rc));
         return rc;
     }
 
     /* set the new PIN */
     rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
                                newpin, newpinlen);
-    if (rc != CKR_OK) {
-        printf("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
-    }
+    if (rc != CKR_OK)
+        warnx("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
 
     /* and of course clean up after ourselves */
     rc = FunctionPtr->C_CloseSession(session_handle);
     if (rc != CKR_OK) {
-        printf("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
-        fflush(stdout);
+        warnx("Error closing session: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
         return rc;
     }
 
@@ -1139,18 +1108,16 @@ CK_RV init(void)
      * LD_LIBRARY_PATH */
     dllPtr = dlopen("libopencryptoki.so", RTLD_NOW);
     if (!dllPtr) {
-        printf("Error loading PKCS#11 library\n");
-        printf("dlopen error: %s\n", dlerror());
-        fflush(stdout);
+        warnx("Error loading PKCS#11 library");
+        warnx("dlopen error: %s", dlerror());
         return -1;
     }
 
     /* Get the list of the PKCS11 functions this token support */
     *(void **)(&symPtr) = dlsym(dllPtr, "C_GetFunctionList");
     if (!symPtr) {
-        printf("Error getting function list, symbol not found, error: %s\n",
-               strerror(errno));
-        fflush(stdout);
+        warnx("Error getting function list, symbol not found, error: %s",
+               dlerror());
         return rc;
     }
 
@@ -1160,17 +1127,16 @@ CK_RV init(void)
      * calls, so we will execute the PKCS11 Initilize command. */
     rc = FunctionPtr->C_Initialize(NULL);
     if (rc != CKR_OK) {
-        printf("Error initializing the PKCS11 library: 0x%lX (%s)\n", rc,
-               p11_get_ckr(rc));
+        warnx("Error initializing the PKCS11 library: 0x%lX (%s)", rc,
+              p11_get_ckr(rc));
 
         if (check_user_and_group() != CKR_OK) {
             printf("Note: all non-root users that require access to PKCS#11 "
                    "tokens using opencryptoki must be assigned to the pkcs11 "
                    "group to be able to communicate with the pkcsslotd "
-		   "daemon.\n");
+                   "daemon.\n");
         }
 
-        fflush(stdout);
         cleanup();
     }
 
