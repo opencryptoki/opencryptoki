@@ -185,6 +185,11 @@ int main(int argc, char *argv[])
             break;
         }
     }
+    if (optind < argc) {
+        printf("%s: unrecognized option --- '%s'\n", argv[0], argv[optind]);
+        fflush(stdout);
+        errflag++;
+    }
     if (errflag != 0)           /* If there was an error print the usage statement */
         usage(argv[0]);
 
