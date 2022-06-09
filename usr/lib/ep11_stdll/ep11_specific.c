@@ -143,6 +143,7 @@ static m_shutdown_t dll_m_shutdown;
 static m_add_module_t dll_m_add_module;
 static m_rm_module_t dll_m_rm_module;
 
+static xcpa_cmdblock_t dll_xcpa_cmdblock;
 static xcpa_queryblock_t dll_xcpa_queryblock;
 static xcpa_internal_rv_t dll_xcpa_internal_rv;
 
@@ -572,6 +573,7 @@ typedef struct {
 typedef struct {
     ep11_target_t target_list;
     CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
+    CK_BYTE raw2key_wrap_blob_reenc[MAX_BLOBSIZE];
     size_t raw2key_wrap_blob_l;
     int cka_sensitive_default_true;
     char cp_filter_config_filename[PATH_MAX];
@@ -2414,6 +2416,139 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
     return rc;
 }
 
+static CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
+                                         CK_BYTE *blob, CK_ULONG blob_len)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_ULONG data_len = 0, spki_len = 0, wkid_len = 0;
+    CK_BYTE *data;
+    CK_RV rc;
+
+    /*
+     * Check if MACed SPKI or key/state blob. From the EP11 structure document:
+     *    Session identifiers are guaranteed not to have 0x30 as their first
+     *    byte. This allows a single-byte check to differentiate between blobs
+     *    starting with session identifiers, and MACed SPKIs, which may be
+     *    used as blobs under other conditions.
+     * Key and state blobs start with the session identifier (32 bytes).
+     * SPKIs start with a DER encoded SPKI, which itself stars with a SEQUENCE
+     * denoted by 0x30 followed by the DER encoded length of the SPKI.
+     */
+    if (blob_len > 5 && blob[0] == 0x30 &&
+        ber_decode_SEQUENCE(blob, &data, &data_len, &spki_len) == CKR_OK) {
+        /* Its a SPKI, WKID follows as OCTET STRING right after SPKI data */
+        if (blob_len < spki_len + 2 + XCP_WKID_BYTES) {
+            TRACE_ERROR("MACed SPKI is too small\n");
+            return CK_FALSE;
+        }
+
+        rc = ber_decode_OCTET_STRING(blob + spki_len, &data, &data_len,
+                                     &wkid_len);
+        if (rc != CKR_OK || data_len != XCP_WKID_BYTES) {
+            TRACE_ERROR("Invalid MACed SPKI encoding\n");
+            return CK_FALSE;
+        }
+
+        if (memcmp(data, ep11_data->new_wkvp, XCP_WKID_BYTES) == 0)
+            return CK_TRUE;
+
+        return CK_FALSE;
+    }
+
+    /* Key or state blob */
+    if (blob_len < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
+        TRACE_ERROR("EP11 blob is too small\n");
+        return CK_FALSE;
+    }
+
+    if (memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->new_wkvp,
+               XCP_WKID_BYTES) == 0)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
+static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
+                                     ep11_target_info_t *target_info,
+                                     CK_BYTE *blob, CK_ULONG blob_len,
+                                     CK_BYTE *new_blob)
+{
+    CK_BYTE req[MAX_BLOBSIZE];
+    CK_BYTE resp[MAX_BLOBSIZE];
+    CK_LONG req_len = 0;
+    size_t resp_len;
+    struct XCPadmresp rb;
+    struct XCPadmresp lrb;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    TRACE_DEVEL("%s blob: %p blob_len: %lu\n", __func__,
+                (void *)blob, blob_len);
+
+    if (target_info->single_apqn == 0) {
+        TRACE_ERROR("%s must be used with single APQN target\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memset(&rb, 0, sizeof(rb));
+    memset(&lrb, 0, sizeof(lrb));
+
+    rb.domain = target_info->domain;
+    lrb.domain = target_info->domain;
+
+    resp_len = MAX_BLOBSIZE;
+
+    req_len = dll_xcpa_cmdblock(req, MAX_BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
+                                NULL, blob, blob_len);
+
+    if (req_len < 0) {
+        TRACE_ERROR("%s reencrypt cmd block construction failed\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = dll_m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
+                     target_info->target);
+    if (rc != CKR_OK || resp_len == 0) {
+        TRACE_ERROR("%s reencryption failed: 0x%lx %ld\n", __func__, rc, req_len);
+        return resp_len == 0 ? CKR_FUNCTION_FAILED : rc;
+    }
+
+    if (dll_xcpa_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
+        TRACE_ERROR("%s reencryption response malformed: 0x%lx\n", __func__, rc);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (rc != 0) {
+        TRACE_ERROR("%s reencryption failed: rc: 0x%lx reason: %u\n", __func__,
+                    rc, lrb.reason);
+        switch (lrb.reason) {
+        case XCP_RSC_WK_MISSING:
+        case XCP_RSC_NEXT_WK_MISSING:
+            rc = CKR_IBM_WK_NOT_INITIALIZED;
+        }
+        return rc;
+    }
+
+    if (blob_len != lrb.pllen) {
+        TRACE_ERROR("%s reencryption blob size changed: 0x%lx 0x%lx 0x%lx 0x%lx\n",
+                    __func__, blob_len, lrb.pllen, resp_len, req_len);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(new_blob, lrb.payload, blob_len);
+
+    if (!ep11tok_is_blob_new_wkid(tokdata, new_blob, blob_len)) {
+        TRACE_ERROR("%s Re-enciphered key blob is not enciphered by expected "
+                    "new WK\n", __func__);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Re-enciphered key blob is not enciphered"
+                   " by expected new WK\n", tokdata->slot_id);
+        return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
 /*
  * for importing keys we need to encrypt the keys and build the blob by
  * m_UnwrapKey, use one wrap key for this purpose, can be any key,
@@ -2427,6 +2562,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     ep11_target_info_t* target_info;
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
+    CK_BBOOL new_wk, first = TRUE;
     CK_RV rc;
 
     if (ep11_data->raw2key_wrap_blob_l != 0) {
@@ -2441,6 +2577,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
+retry:
     ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
     rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
                            ep11_data->raw2key_wrap_blob,
@@ -2451,17 +2588,40 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
                     __func__, ep11_data->raw2key_wrap_blob_l, rc);
+        goto out;
     } else {
         TRACE_INFO("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
                    __func__, ep11_data->raw2key_wrap_blob_l, rc);
     }
 
     if (check_expected_mkvp(tokdata, ep11_data->raw2key_wrap_blob,
-                            ep11_data->raw2key_wrap_blob_l, NULL) != CKR_OK) {
+                            ep11_data->raw2key_wrap_blob_l, &new_wk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
     }
 
+    if (ep11_data->mk_change_active && new_wk == FALSE) {
+        /*
+         * Try to re-encipher wrap blob with new WK.
+         * If new WK was just made active before re-encipher finished,
+         * regenerate the wrap blob.
+         */
+        rc = ep11tok_reencipher_blob(tokdata, target_info,
+                                     ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     ep11_data->raw2key_wrap_blob_reenc);
+        if (rc == CKR_IBM_WK_NOT_INITIALIZED && first) {
+            first = FALSE;
+            goto retry;
+        }
+
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s reencipher wrap blob failed rc=0x%lx\n",
+                        __func__, rc);
+        }
+    }
+
+out:
     put_target_info(tokdata, target_info);
     return rc;
 }
@@ -2603,6 +2763,7 @@ static CK_RV ep11_resolve_lib_sym(void *hdl)
     *(void **)(&dll_m_add_backend) = dlsym(hdl, "m_add_backend");
     *(void **)(&dll_m_shutdown) = dlsym(hdl, "m_shutdown");
 
+    *(void **)(&dll_xcpa_cmdblock) = dlsym(hdl, "xcpa_cmdblock");
     *(void **)(&dll_xcpa_queryblock) = dlsym(hdl, "xcpa_queryblock");
     *(void **)(&dll_xcpa_internal_rv) = dlsym(hdl, "xcpa_internal_rv");
 
