@@ -13,7 +13,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_CFLAGS =				\
 	-I${srcdir}/usr/lib/ep11_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include -I${top_builddir}/usr/lib/api		\
 	-I${srcdir}/usr/lib/api -I${top_builddir}/usr/lib/config	\
-	-I${srcdir}/usr/lib/config
+	-I${srcdir}/usr/lib/config -I${srcdir}/usr/lib/hsm_mk_change	\
+	-I${top_builddir}/usr/lib/hsm_mk_change
 
 opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lc -lpthread -lcrypto -lrt	\
@@ -44,7 +45,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/api/policyhelper.c usr/lib/config/configuration.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
-	usr/lib/common/pqc_supported.c
+	usr/lib/common/pqc_supported.c					\
+	usr/lib/hsm_mk_change/hsm_mk_change.c
 
 if ENABLE_LOCKS
 opencryptoki_stdll_libpkcs11_ep11_la_SOURCES +=				\
