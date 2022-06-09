@@ -42,6 +42,7 @@
 #include "events.h"
 #include "cfgparser.h"
 #include "configuration.h"
+#include "hsm_mk_change.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,6 +53,7 @@
 #include <grp.h>
 #include <sys/time.h>
 #include <time.h>
+#include <err.h>
 
 #ifdef DEBUG
 #include <ctype.h>
@@ -13627,6 +13629,369 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+static CK_RV ep11tok_mk_change_is_affected(STDLL_TokData_t *tokdata,
+                                           struct hsm_mk_change_info *info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    unsigned int i;
+    CK_BBOOL affected = FALSE;
+
+    if (hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                 HSM_MK_TYPE_EP11, 0) == NULL)
+        goto out;
+
+    /* APQN_ANY: token is affected independently of APQNs changed */
+    if (ep11_data->target_list.length == 0) {
+        affected = TRUE;
+        goto out;
+    }
+
+    /* APQN_ALLOWLIST */
+    for (i = 0; i < (unsigned int)ep11_data->target_list.length; i++) {
+        if (hsm_mk_change_apqns_find(info->apqns, info->num_apqns,
+                                     ep11_data->target_list.apqns[2 * i],
+                                     ep11_data->target_list.apqns[2 * i + 1]))
+            affected = TRUE;
+    }
+
+out:
+    TRACE_DEVEL("%s affected: %d\n", __func__, affected);
+
+    return affected ? CKR_OK : CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+struct apqn_check_data {
+    ep11_private_data_t *ep11_data;
+    CK_SLOT_ID slot;
+    event_mk_change_data_t *op;
+    struct hsm_mk_change_info *info;
+    CK_BBOOL error;
+};
+
+/*
+ * Note: This function is called EVENT_TYPE_MK_CHANGE_INITIATE_QUERY event
+ * handling within the pkcshsm_mk_change tool's process only. It is supposed
+ * to print error messages to stderr to inform the user about errors.
+ *
+ */
+static CK_RV mk_change_apqn_check_handler(uint_32 adapter, uint_32 domain,
+                                          void *handler_data)
+{
+    struct apqn_check_data *ac = (struct apqn_check_data *)handler_data;
+
+    CK_IBM_DOMAIN_INFO domain_info;
+    CK_ULONG domain_info_len = sizeof(domain_info);
+    const unsigned char *wkvp;
+    CK_RV rc;
+    target_t target;
+
+    /*
+     * Check that this APQN is part of the MK change operation, even if it is
+     * offline (this only applies to an APQN_ALLOWLIST configuration, for a
+     * APQN_ANY configuration, we will only be called for currently online
+     * APQNs anyway).
+     */
+    if (hsm_mk_change_apqns_find(ac->info->apqns, ac->info->num_apqns,
+                                 adapter, domain) == FALSE) {
+        TRACE_ERROR("%s APQN %02X.%04X is not part of MK change '%s'\n",
+                    __func__, adapter, domain, ac->op->id);
+        warnx("Slot %lu: APQN %02X.%04X must be included into this operation.",
+              ac->slot, adapter, domain);
+
+        ac->error = TRUE;
+        return CKR_OK;
+    }
+
+    /* Check that current and new WK is as expected */
+    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
+    if (rc != CKR_OK) {
+        warnx("Slot %lu: Failed to get target for APQN %02X.%04X",
+              ac->slot, adapter, domain);
+        ac->error = TRUE;
+        return rc;
+    }
+
+    rc = dll_m_get_xcp_info(&domain_info, &domain_info_len, CK_IBM_XCPQ_DOMAIN,
+                            0, target);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to query domain info from APQN %02X.%04X: "
+                    "0x%lx\n", __func__, adapter, domain, rc);
+        /* card may no longer be online, so ignore this error situation */
+        rc = CKR_OK;
+        goto out;
+    }
+
+    if ((domain_info.flags & CK_IBM_DOM_CURR_WK) == 0) {
+        TRACE_ERROR("%s No current EP11 wrapping key is set on APQN %02X.%04X\n",
+                    __func__, adapter, domain);
+        warnx("Slot %lu: No current EP11 wrapping key is set on APQN %02X.%04X",
+              ac->slot, adapter, domain);
+        ac->error = TRUE;
+        goto out;
+    }
+
+    TRACE_DEBUG("%s Current WKVP of APQN %02X.%04X:\n", __func__, adapter, domain);
+    TRACE_DEBUG_DUMP("full WKVP: ", domain_info.wk, sizeof(domain_info.wk));
+
+    /* Current WK must be the expected WK */
+    if (memcmp(domain_info.wk, ac->ep11_data->expected_wkvp,
+               XCP_WKID_BYTES) != 0) {
+        TRACE_ERROR("EP11 wrapping key on APQN %02X.%04X does not "
+                    "match the expected wrapping key\n", adapter, domain);
+        warnx("Slot %lu: The current EP11 WK on APQN %02X.%04X does not match "
+              "the expected one", ac->slot, adapter, domain);
+        ac->error = TRUE;
+        goto out;
+    }
+
+    if ((domain_info.flags & CK_IBM_DOM_COMMITTED_NWK) == 0) {
+        TRACE_ERROR("%s No new EP11 wrapping key is set/committed on APQN %02X.%04X\n",
+                    __func__, adapter, domain);
+        warnx("Slot %lu: No new EP11 wrapping key is set/committed on APQN %02X.%04X",
+              ac->slot, adapter, domain);
+        ac->error = TRUE;
+        goto out;
+    }
+
+    TRACE_DEBUG("%s New WKVP of APQN %02X.%04X:\n", __func__, adapter, domain);
+    TRACE_DEBUG_DUMP("full WKVP: ", domain_info.nextwk,
+                     sizeof(domain_info.nextwk));
+
+    wkvp = hsm_mk_change_mkvps_find(ac->info->mkvps, ac->info->num_mkvps,
+                                    HSM_MK_TYPE_EP11, XCP_WKID_BYTES);
+    if (wkvp != NULL &&
+        memcmp(domain_info.nextwk, wkvp, XCP_WKID_BYTES) != 0) {
+        TRACE_ERROR("New EP11 wrapping key on APQN %02X.%04X does not "
+                    "match the specified wrapping key\n", adapter, domain);
+        warnx("Slot %lu: The new EP11 WK on APQN %02X.%04X does not match "
+              "the specified WKVP", ac->slot, adapter, domain);
+        ac->error = TRUE;
+        goto out;
+    }
+
+out:
+    free_ep11_target_for_apqn(target);
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_init_query(STDLL_TokData_t *tokdata,
+                                          event_mk_change_data_t *op,
+                                          struct hsm_mk_change_info *info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct apqn_check_data acd;
+    struct hsm_mkvp mkvp;
+    CK_RV rc;
+
+    TRACE_DEVEL("%s initial query for MK change op: %s\n", __func__, op->id);
+
+    memset(&acd, 0, sizeof(acd));
+    acd.ep11_data = ep11_data;
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+    acd.error = FALSE;
+
+    rc = handle_all_ep11_cards(&ep11_data->target_list,
+                               mk_change_apqn_check_handler, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (acd.error)
+        return CKR_FUNCTION_FAILED;
+
+    /* Save current WKVP of this token */
+    mkvp.type = HSM_MK_TYPE_EP11;
+    mkvp.mkvp_len = XCP_WKID_BYTES;
+    mkvp.mkvp = ep11_data->expected_wkvp;
+
+    rc = hsm_mk_change_lock_create();
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = hsm_mk_change_lock(true);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = hsm_mk_change_token_mkvps_save(op->id, tokdata->slot_id, &mkvp, 1);
+
+    hsm_mk_change_unlock();
+
+out:
+    hsm_mk_change_lock_destroy();
+
+    return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
+                                          event_mk_change_data_t *op,
+                                          struct hsm_mk_change_info *info)
+{
+    UNUSED(tokdata);
+    UNUSED(op);
+    UNUSED(info);
+
+    // TODO
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_finalize_query(STDLL_TokData_t *tokdata,
+                                              event_mk_change_data_t *op,
+                                              struct hsm_mk_change_info *info)
+{
+    UNUSED(tokdata);
+    UNUSED(op);
+    UNUSED(info);
+
+    // TODO
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_finalize(STDLL_TokData_t *tokdata,
+                                        event_mk_change_data_t *op,
+                                        struct hsm_mk_change_info *info)
+{
+    UNUSED(tokdata);
+    UNUSED(op);
+    UNUSED(info);
+
+    // TODO
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_cancel_query(STDLL_TokData_t *tokdata,
+                                            event_mk_change_data_t *op,
+                                            struct hsm_mk_change_info *info)
+{
+    UNUSED(tokdata);
+    UNUSED(op);
+    UNUSED(info);
+
+    // TODO
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_mk_change_cancel(STDLL_TokData_t *tokdata,
+                                      event_mk_change_data_t *op,
+                                      struct hsm_mk_change_info *info)
+{
+    UNUSED(tokdata);
+    UNUSED(op);
+    UNUSED(info);
+
+    // TODO
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
+                                            unsigned int event_type,
+                                            unsigned int event_flags,
+                                            const char *payload,
+                                            unsigned int payload_len)
+{
+    CK_RV rc;
+    size_t bytes_read = 0;
+    struct hsm_mk_change_info info = { 0 };
+    event_mk_change_data_t *hdr = (event_mk_change_data_t *)payload;
+
+    UNUSED(event_flags);
+
+    TRACE_DEVEL("%s event: 0x%x\n", __func__, event_type);
+
+    if (payload_len <= sizeof (*hdr))
+        return CKR_DATA_LEN_RANGE;
+
+    TRACE_DEVEL("%s id: '%s' flags: 0x%x tool_pid: %d\n", __func__, hdr->id,
+                hdr->flags, hdr->tool_pid);
+
+    rc = hsm_mk_change_info_unflatten((unsigned char *)payload + sizeof(*hdr),
+                                      payload_len - sizeof(*hdr),
+                                      &bytes_read, &info);
+    if (rc != CKR_OK)
+        return rc;
+    if (bytes_read < payload_len - sizeof(*hdr)) {
+        rc = CKR_DATA_LEN_RANGE;
+        goto out;
+    }
+
+    rc = ep11tok_mk_change_is_affected(tokdata, &info);
+    if (rc != CKR_OK)
+        goto out;
+
+    switch (event_type) {
+    case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
+        rc = ep11tok_mk_change_init_query(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+        rc = ep11tok_mk_change_reencipher(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
+        rc = ep11tok_mk_change_finalize_query(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_FINALIZE:
+        rc = ep11tok_mk_change_finalize(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
+        rc = ep11tok_mk_change_cancel_query(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_CANCEL:
+        rc = ep11tok_mk_change_cancel(tokdata, hdr, &info);
+        break;
+    default:
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
+    }
+
+out:
+    hsm_mk_change_info_clean(&info);
+
+    TRACE_DEVEL("%s rc: 0x%lx\n", __func__, rc);
+    return rc;
+}
+
 /*
  * Called by the event thread, on receipt of an event.
  *
@@ -13656,8 +14021,8 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
     case EVENT_TYPE_MK_CHANGE_FINALIZE:
     case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
     case EVENT_TYPE_MK_CHANGE_CANCEL:
-        // TODO handle event properly
-        return CKR_OK;
+        return ep11tok_handle_mk_change_event(tokdata, event_type, event_flags,
+                                              payload, payload_len);
 
     default:
         return CKR_FUNCTION_NOT_SUPPORTED;
