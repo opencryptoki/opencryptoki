@@ -583,6 +583,11 @@ typedef struct {
     char digest_libica_path[PATH_MAX];
     unsigned char expected_wkvp[XCP_WKID_BYTES];
     int expected_wkvp_set;
+    volatile int mk_change_active;
+    char mk_change_op[8]; /* set if mk_change_active = 1 */
+    unsigned char new_wkvp[XCP_WKID_BYTES]; /* set if mk_change_active = 1 */
+    struct apqn *mk_change_apqns; /* set if mk_change_active = 1 */
+    unsigned int num_mk_change_apqns; /* set if mk_change_active = 1 */
     int inconsistent;
     libica_t libica;
     void *lib_ep11;
@@ -603,6 +608,7 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
                                          SESSION *session, TEMPLATE *tmpl,
                                          CK_BBOOL aes_xts);
 
+static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
@@ -2761,6 +2767,15 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                (ep11_data->ep11_lib_version.minor & 0xF0) >> 4,
                (ep11_data->ep11_lib_version.minor & 0x0F));
 
+    rc = ep11tok_mk_change_check_pending_ops(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to check for pending HSM MK change operations "
+                    "rc=0x%lx\n", __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to check for pending HSM MK "
+                   "change operations rc=0x%lx\n", tokdata->slot_id, rc);
+        goto error;
+    }
+
     rc = refresh_target_info(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get the target info (refresh_target_info "
@@ -2851,6 +2866,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
             dlclose(ep11_data->libica.library);
         if (ep11_data->lib_ep11 != NULL && !in_fork_initializer)
             dlclose(ep11_data->lib_ep11);
+        if (ep11_data->mk_change_apqns != NULL)
+            free(ep11_data->mk_change_apqns);
         free(ep11_data);
         tokdata->private_data = NULL;
     }
@@ -13658,6 +13675,141 @@ out:
     TRACE_DEVEL("%s affected: %d\n", __func__, affected);
 
     return affected ? CKR_OK : CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+static CK_RV ep11tok_activate_mk_change_op(STDLL_TokData_t *tokdata,
+                                           const char *id,
+                                           const struct hsm_mk_change_info *info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    ep11_data->mk_change_apqns = calloc(info->num_apqns, sizeof(struct apqn));
+    if (ep11_data->mk_change_apqns == NULL) {
+        TRACE_ERROR("%s Failed to allocate list of MK change APQNs\n",
+                    __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    ep11_data->num_mk_change_apqns = info->num_apqns;
+    memcpy(ep11_data->mk_change_apqns, info->apqns,
+           info->num_apqns * sizeof(struct apqn));
+
+    strncpy(ep11_data->mk_change_op, id, sizeof(ep11_data->mk_change_op) - 1);
+    ep11_data->mk_change_op[sizeof(ep11_data->mk_change_op) - 1] = '\0';
+
+    ep11_data->mk_change_active = 1;
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_mk_change_check_pending_ops_cb(struct hsm_mk_change_op *op,
+                                                    void *private)
+{
+    STDLL_TokData_t *tokdata = private;
+    ep11_private_data_t *ep11_data;
+    struct hsm_mkvp *mkvps = NULL;
+    unsigned int num_mkvps = 0;
+    const unsigned char *wkvp;
+    int new_wkvp_set = 0;
+    CK_RV rc;
+
+    ep11_data = tokdata->private_data;
+
+    rc = ep11tok_mk_change_is_affected(tokdata, &op->info);
+    if (rc != CKR_OK)
+        return CKR_OK;
+
+    switch (op->state) {
+    case HSM_MK_CH_STATE_REENCIPHERING:
+    case HSM_MK_CH_STATE_REENCIPHERED:
+        /*
+         * There can only be one active MK change op for the EP11 token.
+         * No need to have the hsm_mk_change_rwlock, we're in token init
+         * function, and the API layer starts the event thread only after all
+         * token init's have been performed.
+         */
+        if (ep11_data->mk_change_active) {
+            TRACE_ERROR("%s Another MK change is already active: %s\n",
+                        __func__, ep11_data->mk_change_op);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        /* Activate this MK change op for the token */
+        rc = ep11tok_activate_mk_change_op(tokdata, op->id, &op->info);
+        if (rc != CKR_OK)
+            return rc;
+
+        TRACE_DEVEL("%s active MK change op: %s\n", __func__,
+                    ep11_data->mk_change_op);
+
+        wkvp = hsm_mk_change_mkvps_find(op->info.mkvps, op->info.num_mkvps,
+                                        HSM_MK_TYPE_EP11,
+                                        sizeof(ep11_data->new_wkvp));
+        if (wkvp != NULL) {
+            memcpy(ep11_data->new_wkvp, wkvp, sizeof(ep11_data->new_wkvp));
+            new_wkvp_set = 1;
+        }
+
+        if (new_wkvp_set == 0) {
+            TRACE_ERROR("%s No EP11 WKVP found in MK change operation: %s\n",
+                        __func__, ep11_data->mk_change_op);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        TRACE_DEBUG_DUMP("New WKVP: ", ep11_data->new_wkvp,
+                         sizeof(ep11_data->new_wkvp));
+
+        /* Load expected current WKVP */
+        rc = hsm_mk_change_token_mkvps_load(op->id, tokdata->slot_id,
+                                            &mkvps, &num_mkvps);
+        /* Ignore if this failed, no expected current WKVP is set then */
+        if (rc == CKR_OK) {
+            wkvp = hsm_mk_change_mkvps_find(mkvps, num_mkvps, HSM_MK_TYPE_EP11,
+                                            sizeof(ep11_data->expected_wkvp));
+            if (wkvp != NULL) {
+                memcpy(ep11_data->expected_wkvp, wkvp,
+                       sizeof(ep11_data->expected_wkvp));
+                ep11_data->expected_wkvp_set = 1;
+
+                TRACE_DEBUG_DUMP("Current WKVP: ", ep11_data->expected_wkvp,
+                                 sizeof(ep11_data->expected_wkvp));
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    if (mkvps != NULL) {
+        hsm_mk_change_mkvps_clean(mkvps, num_mkvps);
+        free(mkvps);
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata)
+{
+    CK_RV rc;
+
+    rc = hsm_mk_change_lock_create();
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = hsm_mk_change_lock(false);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = hsm_mk_change_op_iterate(ep11tok_mk_change_check_pending_ops_cb,
+                                  tokdata);
+
+    hsm_mk_change_unlock();
+
+out:
+    hsm_mk_change_lock_destroy();
+
+    return rc;
 }
 
 struct apqn_check_data {
