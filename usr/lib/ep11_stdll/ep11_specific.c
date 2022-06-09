@@ -563,6 +563,10 @@ typedef struct {
     size_t max_control_point_index;
     CK_CHAR serialNumber[16];
     CK_BYTE pqc_strength[PQC_BYTES];
+    int single_apqn;
+    uint_32 adapter; /* set if single_apqn = 1 */
+    uint_32 domain; /* set if single_apqn = 1 */
+    volatile int single_apqn_has_new_wk;
 } ep11_target_info_t;
 
 typedef struct {
@@ -13541,6 +13545,116 @@ static void free_ep11_target_for_apqn(target_t target)
     }
 }
 
+struct single_target_data {
+    ep11_private_data_t *ep11_data;
+    int found;
+    int new_wk_found;
+    uint_32 adapter;
+    uint_32 domain;
+};
+
+static CK_RV setup_single_target_handler(uint_32 adapter, uint_32 domain,
+                                         void *handler_data)
+{
+    struct single_target_data *std = (struct single_target_data *)handler_data;
+    CK_IBM_DOMAIN_INFO domain_info;
+    CK_ULONG domain_info_len = sizeof(domain_info);
+    CK_RV rc;
+    target_t target;
+    int target_allocated = 0;
+
+    if (!std->new_wk_found) {
+        /* Check if this APQN has the new WK loaded */
+        rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
+        if (rc != CKR_OK)
+            return rc;
+
+        target_allocated = 1;
+
+        rc = dll_m_get_xcp_info(&domain_info, &domain_info_len,
+                                CK_IBM_XCPQ_DOMAIN, 0, target);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s Failed to query domain info from APQN %02X.%04X\n",
+                        __func__, adapter, domain);
+            /* card may no longer be online, so ignore this error situation */
+            goto out;
+        }
+
+        if ((domain_info.flags & CK_IBM_DOM_CURR_WK) == 0) {
+            TRACE_ERROR("%s No EP11 wrapping key is set on APQN %02X.%04X\n",
+                        __func__, adapter, domain);
+            goto out;
+        }
+
+        if (memcmp(domain_info.wk, std->ep11_data->new_wkvp,
+                   XCP_WKID_BYTES) == 0) {
+            std->adapter = adapter;
+            std->domain = domain;
+            std->new_wk_found = 1;
+            std->found = 1;
+
+            TRACE_DEVEL("%s Select APQN %02X.%04X with new WK set\n",
+                        __func__, adapter, domain);
+        }
+    }
+
+    if (!std->found && !std->new_wk_found) {
+        std->adapter = adapter;
+        std->domain = domain;
+        std->found = 1;
+
+        TRACE_DEVEL("%s Select APQN %02X.%04X\n", __func__, adapter, domain);
+    }
+
+out:
+    if (target_allocated)
+        free_ep11_target_for_apqn(target);
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_setup_single_target(STDLL_TokData_t *tokdata,
+                                         ep11_target_info_t *target_info)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct single_target_data std;
+    CK_RV rc;
+
+    memset(&std, 0, sizeof(std));
+    std.ep11_data = ep11_data;
+
+    /* Search for an online APQN that preferably has the new WK set already */
+    rc = handle_all_ep11_cards(&ep11_data->target_list,
+                               setup_single_target_handler, &std);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    if (!std.found) {
+        TRACE_ERROR("%s no online APQN found\n",__func__);
+        return CKR_DEVICE_ERROR;;
+    }
+
+    rc = get_ep11_target_for_apqn(std.adapter, std.domain,
+                                  &target_info->target, 0);
+    if (rc != CKR_OK)
+        return rc;
+
+    target_info->single_apqn = 1;
+    target_info->adapter = std.adapter;
+    target_info->domain = std.domain;
+    target_info->single_apqn_has_new_wk = std.new_wk_found;
+
+    OCK_SYSLOG(LOG_INFO, "Slot %lu: A concurrent HSM master key change "
+               "operation (%s) is active, EP11 token uses a single APQN: "
+               "%02X.%04X\n", tokdata->slot_id, ep11_data->mk_change_op,
+               std.adapter, std.domain);
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                                           SESSION *session,
                                           OBJECT *obj,
@@ -14333,10 +14447,17 @@ static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
     if (rc != CKR_OK)
         goto error;
 
-    /* Setup the group target freshly with the current set of APQNs */
-    rc = ep11tok_setup_target(tokdata, target_info);
-    if (rc != CKR_OK)
-        goto error;
+    if (ep11_data->mk_change_active) {
+        /* MK change active: Setup a single APQN target */
+        rc = ep11tok_setup_single_target(tokdata, target_info);
+        if (rc != CKR_OK)
+            goto error;
+    } else {
+        /* Setup the group target freshly with the current set of APQNs */
+        rc = ep11tok_setup_target(tokdata, target_info);
+        if (rc != CKR_OK)
+            goto error;
+    }
 
     /* Set the new one as the current one (locked against concurrent get's) */
     if (pthread_rwlock_wrlock(&ep11_data->target_rwlock) != 0) {
