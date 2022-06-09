@@ -13045,6 +13045,26 @@ static CK_RV wkvp_query_handler(uint_32 adapter, uint_32 domain,
     CK_RV rc;
     target_t target;
 
+    /*
+     * If an MK change operation is active, the current APQN must be part
+     * of the operation, even if it is offline (this only applies to an
+     * APQN_ALLOWLIST configuration, for a APQN_ANY configuration, we will only
+     * be called for currently online APQNs anyway).
+     */
+    if (qw->ep11_data->mk_change_active &&
+        !hsm_mk_change_apqns_find(qw->ep11_data->mk_change_apqns,
+                                  qw->ep11_data->num_mk_change_apqns,
+                                  adapter, domain)) {
+        TRACE_ERROR("APQN %02X.%04X is used by the EP11 token, but it is "
+                    "not part of the active MK change operation '%s'\n",
+                    adapter, domain, qw->ep11_data->mk_change_op);
+        OCK_SYSLOG(LOG_ERR, "APQN %02X.%04X is used by the EP11 token, but "
+                   "it is not part of the active MK change operation '%s'\n",
+                   adapter, domain, qw->ep11_data->mk_change_op);
+        qw->error = TRUE;
+        return CKR_OK;
+    }
+
     rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
     if (rc != CKR_OK)
         return rc;
@@ -13070,7 +13090,70 @@ static CK_RV wkvp_query_handler(uint_32 adapter, uint_32 domain,
     }
 
     TRACE_DEBUG("%s WKVP of APQN %02X.%04X:\n", __func__, adapter, domain);
-    TRACE_DEBUG_DUMP("full WKVP: ", domain_info.wk, sizeof( domain_info.wk));
+    TRACE_DEBUG_DUMP("full WKVP: ", domain_info.wk, sizeof(domain_info.wk));
+
+    if ((domain_info.flags & CK_IBM_DOM_COMMITTED_NWK) != 0) {
+        TRACE_DEBUG_DUMP("New WKVP: ", domain_info.nextwk,
+                         sizeof(domain_info.nextwk));
+
+        /* New WK must be the expected new WK if a MK change op is ongoing */
+        if (qw->ep11_data->mk_change_active &&
+            memcmp(domain_info.nextwk, qw->ep11_data->new_wkvp,
+                   XCP_WKID_BYTES) != 0) {
+            TRACE_ERROR("New EP11 wrapping key on APQN %02X.%04X does not "
+                        "match the expected wrapping key of the active MK "
+                        "change operation '%s'\n",
+                        adapter, domain, qw->ep11_data->mk_change_op);
+            OCK_SYSLOG(LOG_ERR, "New EP11 wrapping key on APQN %02X.%04X does "
+                       "not match the expected wrapping key of the active "
+                       "HSM MK change operation '%s'\n",
+                       adapter, domain, qw->ep11_data->mk_change_op);
+            qw->error = TRUE;
+            rc = CKR_OK;
+            goto out;
+        }
+    } else {
+        /*
+         * No new WK loaded: current WK must be the expected new WK if a MK
+         * change op is ongoing
+         */
+        if (qw->ep11_data->mk_change_active &&
+            memcmp(domain_info.wk, qw->ep11_data->new_wkvp,
+                   XCP_WKID_BYTES) != 0) {
+             TRACE_ERROR("Current EP11 wrapping key on APQN %02X.%04X does not "
+                         "match the expected new wrapping key of the active MK "
+                         "change operation '%s'\n",
+                         adapter, domain, qw->ep11_data->mk_change_op);
+             OCK_SYSLOG(LOG_ERR, "Current EP11 wrapping key on APQN %02X.%04X "
+                        "does not match the expected new wrapping key of the "
+                        "active HSM MK change operation '%s'\n",
+                        adapter, domain, qw->ep11_data->mk_change_op);
+             /*
+              * Report error only if not within the pkcshsm_mk_change tool
+              * process. Otherwise the MK change operation could not be canceled
+              * when the new WK register has already been cleared by HSM admin.
+              */
+             if (strcmp(program_invocation_short_name,
+                        "pkcshsm_mk_change") != 0) {
+                 qw->error = TRUE;
+                 rc = CKR_OK;
+                 goto out;
+             }
+         }
+    }
+
+    /*
+     * If an MK change operation is pending, the current WK may already
+     * be the new WK of the operation.
+     */
+    if (qw->ep11_data->mk_change_active &&
+        memcmp(domain_info.wk, qw->ep11_data->new_wkvp,
+               XCP_WKID_BYTES) == 0) {
+        TRACE_DEBUG("%s APQN %02X.%04X already has the new WK\n",
+                    __func__, adapter, domain);
+        rc = CKR_OK;
+        goto out;
+    }
 
     if (qw->ep11_data->expected_wkvp_set == FALSE &&
         memcmp(qw->ep11_data->expected_wkvp, ep11_zero_mkvp,
@@ -13124,6 +13207,18 @@ static CK_RV ep11tok_check_wkvps(STDLL_TokData_t *tokdata,
     }
 
     if (ep11_data->expected_wkvp_set == FALSE) {
+        /*
+         * If a MK change operation is active, and all APQNs have the new WK
+         * already, use the new WK as the queried one.
+         */
+        if (ep11_data->mk_change_active &&
+            memcmp(ep11_data->expected_wkvp, ep11_zero_mkvp,
+                   XCP_WKID_BYTES) == 0) {
+            TRACE_DEBUG("%s All APQNs already have the new WK\n",__func__);
+            memcpy(ep11_data->expected_wkvp, ep11_data->new_wkvp,
+                   XCP_WKID_BYTES);
+        }
+
         TRACE_DEBUG_DUMP("WKVP (queried): ", ep11_data->expected_wkvp,
                          XCP_WKID_BYTES);
     } else {
