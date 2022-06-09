@@ -656,9 +656,12 @@ static CK_RV cleanse_attribute(TEMPLATE *template,
 }
 
 static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
-                                 size_t blobsize)
+                                 size_t blobsize, CK_BBOOL *new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
+
+    if (new_wk != NULL)
+        *new_wk = FALSE;
 
     if (blobsize < EP11_BLOB_WKID_OFFSET + XCP_WKID_BYTES) {
         TRACE_ERROR("EP11 key blob is too small\n");
@@ -667,6 +670,17 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
 
     if (memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->expected_wkvp,
                XCP_WKID_BYTES) != 0) {
+        /* If an MK change operation is active, also allow the new WK */
+        if (ep11_data->mk_change_active &&
+            memcmp(blob + EP11_BLOB_WKID_OFFSET, ep11_data->new_wkvp,
+                               XCP_WKID_BYTES) == 0) {
+
+            TRACE_DEBUG("The key is wrapped by the new WK\n");
+            if (new_wk != NULL)
+                *new_wk = TRUE;
+           return CKR_OK;
+        }
+
         TRACE_ERROR("The key's wrapping key verification pattern does not "
                     "match the expected EP11 wrapping key\n");
         TRACE_DEBUG_DUMP("WKVP of key:   ", blob + EP11_BLOB_WKID_OFFSET,
@@ -1059,7 +1073,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
         goto done;
     }
 
-    if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, blob, blobsize, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         ret = CKR_DEVICE_ERROR;
         goto done;
@@ -2439,7 +2453,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     }
 
     if (check_expected_mkvp(tokdata, ep11_data->raw2key_wrap_blob,
-                            ep11_data->raw2key_wrap_blob_l) != CKR_OK) {
+                            ep11_data->raw2key_wrap_blob_l, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
     }
@@ -4440,13 +4454,13 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKO_PRIVATE_KEY:
     case CKO_SECRET_KEY:
         if (check_expected_mkvp(tokdata, blob, keytype == CKK_AES_XTS ?
-                                blobsize / 2 : blobsize) != CKR_OK) {
+                                blobsize / 2 : blobsize, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
         if (keytype == CKK_AES_XTS) {
             if (check_expected_mkvp(tokdata, blob + blobsize / 2,
-                                    blobsize / 2) != CKR_OK) {
+                                    blobsize / 2, NULL) != CKR_OK) {
                 TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
                 return CKR_DEVICE_ERROR;
             }
@@ -4596,7 +4610,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
 
-    if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, blob, blobsize, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
@@ -4620,7 +4634,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
 
-        if (check_expected_mkvp(tokdata, blob2, blobsize2) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, blob2, blobsize2, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             rc = CKR_DEVICE_ERROR;
             goto error;
@@ -6224,7 +6238,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                __func__, hBaseKey, rc, *handle, newblobsize);
 
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
-        if (check_expected_mkvp(tokdata, newblob, newblobsize) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, newblob, newblobsize, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             rc = CKR_DEVICE_ERROR;
             goto error;
@@ -6520,7 +6534,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
     TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
                __func__, rc, prime_attr->ulValueLen, publblobsize, privblobsize);
 
-    if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, privblob, privblobsize, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto dh_generate_keypair_end;
@@ -6859,7 +6873,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
     TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
                __func__, rc, prime_attr->ulValueLen, publblobsize, privblobsize);
 
-    if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, privblob, privblobsize, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto dsa_generate_keypair_end;
@@ -7059,7 +7073,8 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                __func__, rc, spki_len, privkey_blob_len,
               ep11_get_ckm(tokdata, pMechanism->mechanism));
 
-    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len,
+                            NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
@@ -7440,7 +7455,8 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                __func__, rc, spki_len, privkey_blob_len,
               ep11_get_ckm(tokdata, pMechanism->mechanism));
 
-    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, privkey_blob, privkey_blob_len,
+                            NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
@@ -9839,7 +9855,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_UnwrapKey rc=0x%lx blobsize=0x%zx mech=0x%lx\n",
                __func__, rc, keyblobsize, mech->mechanism);
 
-    if (check_expected_mkvp(tokdata, keyblob, keyblobsize) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keyblob, keyblobsize, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
