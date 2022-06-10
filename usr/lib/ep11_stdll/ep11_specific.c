@@ -571,6 +571,7 @@ typedef struct {
 } ep11_target_info_t;
 
 typedef struct {
+    char token_config_filename[PATH_MAX];
     ep11_target_t target_list;
     CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
     CK_BYTE raw2key_wrap_blob_reenc[MAX_BLOBSIZE];
@@ -11138,7 +11139,7 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
 
     memset(fname, 0, PATH_MAX);
 
-    /* via envrionment variable it is possible to overwrite the
+    /* via environment variable it is possible to overwrite the
      * directory where the ep11 token config file is searched.
      */
     if (conf_dir) {
@@ -11199,6 +11200,11 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
         TRACE_ERROR("Error parsing config file '%s'\n", fname);
         return CKR_FUNCTION_FAILED;
     }
+
+    strncpy(ep11_data->token_config_filename, fname,
+            sizeof(ep11_data->token_config_filename));
+    ep11_data->token_config_filename[
+                    sizeof(ep11_data->token_config_filename) - 1] = '\0';
 
     ep11_data->target_list.length = 0;
     ep11_data->pkey_mode = PKEY_MODE_DEFAULT;
@@ -14203,6 +14209,8 @@ struct apqn_check_data {
     CK_SLOT_ID slot;
     event_mk_change_data_t *op;
     struct hsm_mk_change_info *info;
+    CK_BBOOL finalize;
+    CK_BBOOL cancel;
     CK_BBOOL error;
 };
 
@@ -14271,6 +14279,21 @@ static CK_RV mk_change_apqn_check_handler(uint_32 adapter, uint_32 domain,
     TRACE_DEBUG("%s Current WKVP of APQN %02X.%04X:\n", __func__, adapter, domain);
     TRACE_DEBUG_DUMP("full WKVP: ", domain_info.wk, sizeof(domain_info.wk));
 
+    if (ac->finalize) {
+        /* Current WK must be the new WK.
+         * hsm_mk_change_rwlock is held by caller, if check_new_wk_set is TRUE.
+         */
+        if (memcmp(domain_info.wk, ac->ep11_data->new_wkvp,
+                   XCP_WKID_BYTES) != 0) {
+            TRACE_ERROR("EP11 wrapping key on APQN %02X.%04X does not "
+                        "match the new wrapping key\n", adapter, domain);
+            warnx("Slot %lu: The current EP11 WK on APQN %02X.%04X does not match "
+                  "the new WK", ac->slot, adapter, domain);
+            ac->error = TRUE;
+        }
+        goto out;
+    }
+
     /* Current WK must be the expected WK */
     if (memcmp(domain_info.wk, ac->ep11_data->expected_wkvp,
                XCP_WKID_BYTES) != 0) {
@@ -14281,6 +14304,9 @@ static CK_RV mk_change_apqn_check_handler(uint_32 adapter, uint_32 domain,
         ac->error = TRUE;
         goto out;
     }
+
+    if (ac->cancel) /* Skip new WK check in case of cancel */
+        goto out;
 
     if ((domain_info.flags & CK_IBM_DOM_COMMITTED_NWK) == 0) {
         TRACE_ERROR("%s No new EP11 wrapping key is set/committed on APQN %02X.%04X\n",
@@ -14387,6 +14413,126 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+static CK_RV parse_expected_wkvp(ep11_private_data_t *ep11_data,
+                                 const char *fname, const char *strval,
+                                 unsigned char expected_wkvp[XCP_WKID_BYTES])
+{
+    unsigned int i, val;
+
+    if (strncasecmp(strval, "0x", 2) == 0)
+        strval += 2;
+
+    if (strlen(strval) < XCP_WKID_BYTES * 2) {
+        TRACE_ERROR("%s expected WKVP is too short: '%s', expected %lu hex "
+                    "characters in config file '%s'\n", __func__, strval,
+                    sizeof(ep11_data->expected_wkvp) * 2, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (strlen(strval) > XCP_WKID_BYTES * 2) {
+        TRACE_INFO("%s only the first %lu characters of the expected WKVP in "
+                   "config file '%s' are used: %s\n", __func__,
+                    sizeof(ep11_data->expected_wkvp) * 2, fname, strval);
+    }
+
+    for (i = 0; i < XCP_WKID_BYTES; i++) {
+        if (sscanf(strval + (i * 2), "%02x", &val) != 1) {
+            TRACE_ERROR("%s failed to parse expected WKVP: '%s' at character "
+                        "%u in config file '%s'\n", __func__, strval, (i * 2),
+                        fname);
+            return CKR_FUNCTION_FAILED;
+        }
+        expected_wkvp[i] = val;
+    }
+
+    TRACE_DEBUG_DUMP("Expected WKVP:  ", expected_wkvp, XCP_WKID_BYTES);
+
+    return CKR_OK;
+}
+
+
+static CK_RV check_token_config_expected_wkvp(STDLL_TokData_t *tokdata,
+                                              CK_BBOOL new_wk)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct ConfigBaseNode *c, *config = NULL;
+    struct ConfigBareStringConstNode *barestr;
+    unsigned char wkvp[XCP_WKID_BYTES];
+    char *strval = NULL;
+    FILE *fp;
+    CK_RV rc = CKR_OK;
+    int rc2, i;
+
+    fp = fopen(ep11_data->token_config_filename, "r");
+    if (fp == NULL) {
+        TRACE_ERROR("Failed to open config file '%s'\n",
+                    ep11_data->token_config_filename);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc2 = parse_configlib_file(fp, &config, ep11_config_parse_error, 0);
+    fclose(fp);
+    if (rc2 != 0) {
+        TRACE_ERROR("Error parsing config file '%s'\n",
+                    ep11_data->token_config_filename);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    confignode_foreach(c, config, i) {
+        TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        if (strcmp(c->key, "EXPECTED_WKVP") == 0) {
+            if (confignode_hastype(c, CT_STRINGVAL) ||
+                confignode_hastype(c, CT_BAREVAL)) {
+                /* New style (key = value) tokens */
+                strval = confignode_getstr(c);
+                break;
+            } else if (confignode_hastype(c, CT_BARECONST)) {
+                rc = ep11_config_next(&c, CT_BARESTRINGCONST,
+                                      ep11_data->token_config_filename,
+                                      "WKID as quoted hex string");
+                if (rc != CKR_OK)
+                    break;
+
+                barestr = confignode_to_barestringconst(c);
+                strval = barestr->base.key;
+                break;
+            }
+
+            ep11_config_error_token(ep11_data->token_config_filename,
+                                    c->key, c->line, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
+    }
+
+    if (strval == NULL) {
+        TRACE_DEVEL("No 'EXPECTED_WKVP' in config file '%s'\n",
+                    ep11_data->token_config_filename);
+        goto out;
+    }
+
+    rc = parse_expected_wkvp(ep11_data, ep11_data->token_config_filename,
+                             strval, wkvp);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (memcmp(wkvp, new_wk ? ep11_data->new_wkvp : ep11_data->expected_wkvp,
+               XCP_WKID_BYTES) != 0) {
+        TRACE_ERROR("Expected WKVP in config file '%s' does not specify the %s WKVP\n",
+                    ep11_data->token_config_filename,
+                    new_wk ? "new" : "current");
+        warnx("Expected WKVP in config file '%s' does not specify the %s WKVP.",
+              ep11_data->token_config_filename, new_wk ? "new" : "current");
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+out:
+    confignode_deepfree(config);
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -14396,13 +14542,51 @@ static CK_RV ep11tok_mk_change_finalize_query(STDLL_TokData_t *tokdata,
                                               event_mk_change_data_t *op,
                                               struct hsm_mk_change_info *info)
 {
-    UNUSED(tokdata);
-    UNUSED(op);
-    UNUSED(info);
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct apqn_check_data acd;
+    CK_RV rc;
 
-    // TODO
+    TRACE_DEVEL("%s finalize query for MK change op: %s\n", __func__, op->id);
 
-    return CKR_OK;
+    if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Read-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    memset(&acd, 0, sizeof(acd));
+    acd.ep11_data = ep11_data;
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+    acd.finalize = TRUE; /* New WK must be set */
+    acd.error = FALSE;
+
+    rc = handle_all_ep11_cards(&ep11_data->target_list,
+                               mk_change_apqn_check_handler, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
+        goto out;
+    }
+
+    if (acd.error) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = check_token_config_expected_wkvp(tokdata, TRUE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check_token_config_expected_wkvp failed: 0x%lx\n",
+                    __func__, rc);
+        goto out;
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return rc;
 }
 
 /*
@@ -14432,13 +14616,51 @@ static CK_RV ep11tok_mk_change_cancel_query(STDLL_TokData_t *tokdata,
                                             event_mk_change_data_t *op,
                                             struct hsm_mk_change_info *info)
 {
-    UNUSED(tokdata);
-    UNUSED(op);
-    UNUSED(info);
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct apqn_check_data acd;
+    CK_RV rc;
 
-    // TODO
+    TRACE_DEVEL("%s cancel query for MK change op: %s\n", __func__, op->id);
 
-    return CKR_OK;
+    if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Read-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    memset(&acd, 0, sizeof(acd));
+    acd.ep11_data = ep11_data;
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+    acd.cancel = TRUE; /* No new WK must be set */
+    acd.error = FALSE;
+
+    rc = handle_all_ep11_cards(&ep11_data->target_list,
+                               mk_change_apqn_check_handler, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
+        goto out;
+    }
+
+    if (acd.error) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = check_token_config_expected_wkvp(tokdata, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s check_token_config_expected_wkvp failed: 0x%lx\n",
+                    __func__, rc);
+        goto out;
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return rc;
 }
 
 /*
@@ -14470,6 +14692,7 @@ static CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
                                             const char *payload,
                                             unsigned int payload_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     size_t bytes_read = 0;
     struct hsm_mk_change_info info = { 0 };
@@ -14498,6 +14721,27 @@ static CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
     rc = ep11tok_mk_change_is_affected(tokdata, &info);
     if (rc != CKR_OK)
         goto out;
+
+    if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Read-Lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    if (ep11_data->mk_change_active &&
+        strcmp(ep11_data->mk_change_op, hdr->id) != 0) {
+        TRACE_ERROR("%s Must be currently active operation: '%s' vs '%s'\n",
+                    __func__, ep11_data->mk_change_op, hdr->id);
+        rc = CKR_FUNCTION_FAILED;
+        pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock);
+        goto out;
+    }
+
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
 
     switch (event_type) {
     case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
