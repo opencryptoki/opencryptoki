@@ -10468,8 +10468,8 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
     unsigned char cmd[100];
     struct XCPadmresp rb;
     size_t rlen, clen;
-    long rc;
-    CK_RV rv = 0;
+    CK_RV rc = 0;
+    long len;
     target_t target;
     CK_IBM_XCP_INFO xcp_info;
     CK_ULONG xcp_info_len = sizeof(xcp_info);
@@ -10479,29 +10479,28 @@ static CK_RV get_control_points_for_adapter(uint_32 adapter, uint_32 domain,
         return rc;
 
     memset(cmd, 0, sizeof(cmd));
-    rc = dll_xcpa_queryblock(cmd, sizeof(cmd), XCP_ADMQ_DOM_CTRLPOINTS,
+    len = dll_xcpa_queryblock(cmd, sizeof(cmd), XCP_ADMQ_DOM_CTRLPOINTS,
                              (uint64_t) adapter << 32 | domain, NULL, 0);
-    if (rc < 0) {
-        TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n", __func__, rc);
+    if (len < 0) {
+        TRACE_ERROR("%s xcpa_queryblock failed: rc=%ld\n", __func__, len);
         rc = CKR_DEVICE_ERROR;
         goto out;
     }
-    clen = rc;
+    clen = len;
 
     memset(rsp, 0, sizeof(rsp));
     rlen = sizeof(rsp);
     rc = dll_m_admin(rsp, &rlen, NULL, NULL, cmd, clen, NULL, 0, target);
-    if (rc < 0) {
+    if (rc != CKR_OK) {
         TRACE_ERROR("%s m_admin rc=%ld\n", __func__, rc);
-        rc = CKR_DEVICE_ERROR;
         goto out;
     }
 
     memset(&rb, 0, sizeof(rb));
-    rc = dll_xcpa_internal_rv(rsp, rlen, &rb, &rv);
-    if (rc < 0 || rv != 0) {
-        TRACE_ERROR("%s xcpa_internal_rv failed: rc=%ld rv=%ld\n",
-                    __func__, rc, rv);
+    len = dll_xcpa_internal_rv(rsp, rlen, &rb, &rc);
+    if (len < 0 || rc != 0) {
+        TRACE_ERROR("%s xcpa_internal_rv failed: rc=%ld len=%ld\n",
+                    __func__, rc, len);
         rc = CKR_DEVICE_ERROR;
         goto out;
     }
