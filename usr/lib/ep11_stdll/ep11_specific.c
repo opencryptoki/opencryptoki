@@ -206,41 +206,115 @@ typedef struct {
 
 #define MAX_RETRY_COUNT 100
 
-#define RETRY_START(rc, tokdata)                                         \
-                                do {                                     \
-                                    int retry_count;                     \
-                                    CK_RV rc2;                           \
-                                    if (((ep11_private_data_t *)         \
-                                            tokdata->private_data)->     \
-                                                         inconsistent) { \
-                                        (rc) = CKR_DEVICE_ERROR;         \
-                                        TRACE_ERROR("%s\n",              \
-                                             ock_err(ERR_DEVICE_ERROR)); \
-                                        break;                           \
-                                    }                                    \
-                                    ep11_target_info_t* target_info =    \
-                                             get_target_info((tokdata)); \
-                                    if (target_info == NULL) {           \
-                                        (rc) = CKR_FUNCTION_FAILED;      \
-                                        break;                           \
-                                    }                                    \
-                                    for(retry_count = 0;                 \
-                                        target_info != NULL &&           \
-                                        retry_count < MAX_RETRY_COUNT;   \
-                                        retry_count ++) {
+/*
+ * Macros to enclose EP11 library calls involving session bound blobs.
+ * If the EP11 token is in an inconsistent state, fail with CKR_DEVICE_ERROR.
+ * Obtain a target_info to be used with the EP11 library call.
+ * If in single-APQN mode, and that APQN went offline, select another APQN and
+ * retry the library call.
+ * In case of EP11 library function failed with CKR_SESSION_CLOSED, relogin
+ * all APQNs and retry the library call.
+ */
+#define RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)                     \
+                do {                                                     \
+                    ep11_target_info_t* target_info;                     \
+                    int retry_count;                                     \
+                    CK_RV rc2;                                           \
+                    if (((ep11_private_data_t *)                         \
+                              (tokdata)->private_data)->inconsistent) {  \
+                        (rc) = CKR_DEVICE_ERROR;                         \
+                        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));  \
+                        break;                                           \
+                    }                                                    \
+                    target_info = get_target_info((tokdata));            \
+                    if (target_info == NULL) {                           \
+                        (rc) = CKR_FUNCTION_FAILED;                      \
+                        break;                                           \
+                    }                                                    \
+                    for (retry_count = 0;                                \
+                         target_info != NULL &&                          \
+                         retry_count < MAX_RETRY_COUNT;                  \
+                         retry_count ++) {
 
-#define RETRY_END(rc, tokdata, session)  if ((rc) != CKR_SESSION_CLOSED) \
-                                             break;                      \
-                                         rc2 = ep11tok_relogin_session(  \
-                                                  (tokdata), (session)); \
-                                         if (rc2 != CKR_OK) {            \
-                                             (rc) = rc2;                 \
-                                             break;                      \
-                                         }                               \
-                                    }                                    \
-                                    put_target_info((tokdata),           \
-                                                    target_info);        \
-                                } while (0);
+#define RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)              \
+                         if (target_info->single_apqn &&                 \
+                             ((rc) == CKR_IBM_TARGET_INVALID ||          \
+                              ((rc) == CKR_FUNCTION_FAILED &&            \
+                               !is_apqn_online(target_info->adapter,     \
+                                               target_info->domain)))) { \
+                             /* Single APQN went offline, select other */\
+                             TRACE_DEVEL("%s single APQN went offline\n",\
+                                         __func__);                      \
+                             put_target_info((tokdata), target_info);    \
+                             target_info = NULL;                         \
+                             (rc) = refresh_target_info((tokdata));      \
+                             if ((rc) != CKR_OK)                         \
+                                 break;                                  \
+                             target_info = get_target_info((tokdata));   \
+                             if (target_info == NULL) {                  \
+                                 (rc) = CKR_FUNCTION_FAILED;             \
+                                 break;                                  \
+                             }                                           \
+                             continue;                                   \
+                         }                                               \
+                         if ((rc) != CKR_SESSION_CLOSED)                 \
+                             break;                                      \
+                         rc2 = ep11tok_relogin_session((tokdata),        \
+                                                       (session));       \
+                         if (rc2 != CKR_OK) {                            \
+                             (rc) = rc2;                                 \
+                             break;                                      \
+                         }                                               \
+                    }                                                    \
+                    put_target_info((tokdata), target_info);             \
+                } while (0);
+
+/*
+ * Macros to enclose EP11 library calls not involving session bound blobs, and
+ * with given target_info.
+ * If the EP11 token is in an inconsistent state, fail with CKR_DEVICE_ERROR.
+ * If in single-APQN mode, and that APQN went offline, select another APQN and
+ * retry the library call.
+ */
+#define RETRY_SINGLE_APQN_START(tokdata, rc)                             \
+                do {                                                     \
+                    int retry_count;                                     \
+                    if (((ep11_private_data_t *)                         \
+                              (tokdata)->private_data)->inconsistent) {  \
+                        (rc) = CKR_DEVICE_ERROR;                         \
+                        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));  \
+                        break;                                           \
+                    }                                                    \
+                    for (retry_count = 0;                                \
+                         retry_count < MAX_RETRY_COUNT;                  \
+                         retry_count ++) {
+
+#define RETRY_SINGLE_APQN_END(rc, tokdata, target_info)                  \
+                         if ((target_info) == NULL)                      \
+                             break;                                      \
+                         if ((target_info)->single_apqn &&               \
+                             ((rc) == CKR_IBM_TARGET_INVALID ||          \
+                              ((rc) == CKR_FUNCTION_FAILED &&            \
+                               !is_apqn_online((target_info)->adapter,   \
+                                            (target_info)->domain)))) {  \
+                             /* Single APQN went offline, select other */\
+                             TRACE_DEVEL("%s single APQN went offline\n",\
+                                         __func__);                      \
+                             put_target_info((tokdata), (target_info));  \
+                             target_info = NULL;                         \
+                             (rc) = refresh_target_info((tokdata));      \
+                             if ((rc) != CKR_OK)                         \
+                                 break;                                  \
+                             (target_info) = get_target_info((tokdata)); \
+                             if ((target_info) == NULL) {                \
+                                 (rc) = CKR_FUNCTION_FAILED;             \
+                                 break;                                  \
+                             }                                           \
+                             continue;                                   \
+                         }                                               \
+                         break;                                          \
+                    }                                                    \
+                } while (0);
 
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
@@ -614,7 +688,7 @@ static void free_ep11_target_for_apqn(target_t target);
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
                                          SESSION *session, TEMPLATE *tmpl,
                                          CK_BBOOL aes_xts);
-
+static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
@@ -791,6 +865,7 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
 typedef struct {
     ep11_session_t *ep11_session;
     CK_BBOOL wrap_was_successful;
+    CK_RV wrap_error;
     CK_VOID_PTR secure_key;
     CK_ULONG secure_key_len;
     CK_BYTE *pkey_buf;
@@ -840,7 +915,7 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
     CK_MECHANISM mech = { CKM_IBM_CPACF_WRAP, &iv, sizeof(iv) };
     pkey_wrap_handler_data_t *data = (pkey_wrap_handler_data_t *) handler_data;
     target_t target = 0;
-    CK_RV ret;
+    CK_RV ret = CKR_OK;
     CK_BBOOL retry = FALSE;
 
     if (data->wrap_was_successful)
@@ -893,7 +968,9 @@ repeat2:
 done:
 
     /* Always return ok, calling function loops over this handler until
-     * data->wrap_was_successful = true, or no more APQN left */
+     * data->wrap_was_successful = true, or no more APQN left.
+     * Pass back error in handler data anyway. */
+    data->wrap_error = ret;
     return CKR_OK;
 }
 
@@ -915,7 +992,12 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
     wrapped_key_t *wk, *wk2;
     uint64_t token_size = 0;
     uint8_t wrapped_key[EP11_MAX_WRAPPED_KEY_SIZE * 2];
+    ep11_target_info_t *target_info = NULL;
     CK_RV ret;
+
+    target_info = get_target_info(tokdata);
+    if (target_info == NULL)
+        return CKR_FUNCTION_FAILED;
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
     memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
@@ -937,9 +1019,19 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
         pkey_wrap_handler_data.aes_xts = TRUE;
     }
 
-    ret = handle_all_ep11_cards(&ep11_data->target_list,
-                                ep11tok_pkey_wrap_handler, &pkey_wrap_handler_data);
-
+    if (target_info->single_apqn) {
+        /* If in single APQN mode, call handler for that single APQN only */
+        RETRY_SINGLE_APQN_START(tokdata, ret)
+            pkey_wrap_handler_data.wrap_error = CKR_OK;
+            ep11tok_pkey_wrap_handler(target_info->adapter, target_info->domain,
+                                      &pkey_wrap_handler_data);
+            ret = pkey_wrap_handler_data.wrap_error;
+        RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
+    } else {
+        ret = handle_all_ep11_cards(&ep11_data->target_list,
+                                    ep11tok_pkey_wrap_handler,
+                                    &pkey_wrap_handler_data);
+    }
     if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
         TRACE_ERROR("handle_all_ep11_cards failed or no APQN could do the wrap.\n");
         ret = CKR_FUNCTION_FAILED;
@@ -1030,6 +1122,8 @@ done:
 
     *pkey_attr = tmp_attr;
 
+    put_target_info(tokdata, target_info);
+
     return ret;
 }
 
@@ -1073,8 +1167,11 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     trace_attributes(__func__, "Generate prot. test key:", tmpl, tmpl_len);
 
     /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
-    ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
-                            blob, &blobsize, csum, &csum_l, target_info->target);
+    RETRY_SINGLE_APQN_START(tokdata, ret)
+        ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
+                                blob, &blobsize, csum, &csum_l,
+                                target_info->target);
+    RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
     if (ret != CKR_OK) {
         TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
         goto done;
@@ -1800,11 +1897,11 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
                                      sizeof(attrs) / sizeof(CK_ATTRIBUTE),
                                      target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         TRACE_ERROR("Retrieving attributes from AB unwrapped key failed, rc=0x%lx\n",
@@ -2320,11 +2417,11 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
      * calls the ep11 lib (which in turns sends the request to the card),
      * all m_ function are ep11 functions
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech, key,
                                  ksize, cipher, &clen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -2351,13 +2448,13 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     /* the encrypted key is decrypted and a blob is build,
      * card accepts only blobs as keys
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob, blen, csum,
                              &cslen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -2401,12 +2498,16 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
                          CK_ULONG bytes)
 {
     ep11_target_info_t* target_info;
+    CK_RV rc;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    CK_RV rc = dll_m_GenerateRandom(output, bytes, target_info->target);
+    RETRY_SINGLE_APQN_START(tokdata, rc)
+        rc = dll_m_GenerateRandom(output, bytes, target_info->target);
+    RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
+
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
         TRACE_ERROR("%s output=%p bytes=%lu rc=0x%lx\n",
@@ -2470,14 +2571,14 @@ static CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
 }
 
 static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
-                                     ep11_target_info_t *target_info,
+                                     ep11_target_info_t **target_info,
                                      CK_BYTE *blob, CK_ULONG blob_len,
                                      CK_BYTE *new_blob)
 {
     CK_BYTE req[MAX_BLOBSIZE];
     CK_BYTE resp[MAX_BLOBSIZE];
     CK_LONG req_len = 0;
-    size_t resp_len;
+    size_t resp_len = 0;
     struct XCPadmresp rb;
     struct XCPadmresp lrb;
     CK_RV rc;
@@ -2487,7 +2588,7 @@ static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
     TRACE_DEVEL("%s blob: %p blob_len: %lu\n", __func__,
                 (void *)blob, blob_len);
 
-    if (target_info->single_apqn == 0) {
+    if ((*target_info)->single_apqn == 0) {
         TRACE_ERROR("%s must be used with single APQN target\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
@@ -2495,21 +2596,25 @@ static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
     memset(&rb, 0, sizeof(rb));
     memset(&lrb, 0, sizeof(lrb));
 
-    rb.domain = target_info->domain;
-    lrb.domain = target_info->domain;
+    RETRY_SINGLE_APQN_START(tokdata, rc)
+        rb.domain = (*target_info)->domain;
+        lrb.domain = (*target_info)->domain;
 
-    resp_len = MAX_BLOBSIZE;
+        resp_len = MAX_BLOBSIZE;
 
-    req_len = dll_xcpa_cmdblock(req, MAX_BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
-                                NULL, blob, blob_len);
+        req_len = dll_xcpa_cmdblock(req, MAX_BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
+                                    NULL, blob, blob_len);
 
-    if (req_len < 0) {
-        TRACE_ERROR("%s reencrypt cmd block construction failed\n", __func__);
-        return CKR_FUNCTION_FAILED;
-    }
+        if (req_len < 0) {
+            TRACE_ERROR("%s reencrypt cmd block construction failed\n",
+                        __func__);
+            rc = CKR_FUNCTION_FAILED;
+            break;
+        }
 
-    rc = dll_m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
-                     target_info->target);
+        rc = dll_m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
+                         (*target_info)->target);
+    RETRY_SINGLE_APQN_END(rc, tokdata, *target_info)
     if (rc != CKR_OK || resp_len == 0) {
         TRACE_ERROR("%s reencryption failed: 0x%lx %ld\n", __func__, rc, req_len);
         return resp_len == 0 ? CKR_FUNCTION_FAILED : rc;
@@ -2580,11 +2685,12 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 
 retry:
     ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
-    rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
-                           ep11_data->raw2key_wrap_blob,
-                           &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
-                           target_info->target);
-
+    RETRY_SINGLE_APQN_START(tokdata, rc)
+        rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
+                               ep11_data->raw2key_wrap_blob,
+                               &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
+                               target_info->target);
+    RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s end raw2key_wrap_blob_l=0x%zx rc=0x%lx\n",
@@ -2607,7 +2713,7 @@ retry:
          * If new WK was just made active before re-encipher finished,
          * regenerate the wrap blob.
          */
-        rc = ep11tok_reencipher_blob(tokdata, target_info,
+        rc = ep11tok_reencipher_blob(tokdata, &target_info,
                                      ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      ep11_data->raw2key_wrap_blob_reenc);
@@ -3161,12 +3267,12 @@ make_maced_spki_next:
     ep11_get_pin_blob(ep11_session, object_is_session_object(pub_key_obj),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_UnwrapKey(spki, spki_len, NULL, 0, NULL, 0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              p_attrs, attrs_len, maced_spki, maced_spki_len,
                              csum, &cslen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3266,12 +3372,12 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * calls the ep11 lib (which in turns sends the request to the card),
      * all m_ function are ep11 functions
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech,
                                  attr->pValue, attr->ulValueLen / 2,
                                  cipher, &clen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3299,12 +3405,12 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     /* the encrypted key is decrypted and a blob is built,
      * card accepts only blobs as keys
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
                              ep11_pin_blob_len, &mech, new_p_attrs, new_attrs_len,
                              blob, blob_size, csum, &cslen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3320,13 +3426,13 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * calls the ep11 lib (which in turns sends the request to the card),
      * all m_ function are ep11 functions
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech,
                                  ((CK_BYTE *)attr->pValue) + attr->ulValueLen / 2,
                                  attr->ulValueLen / 2, cipher, &clen,
                                  target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3346,14 +3452,14 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     /* the encrypted key is decrypted and a blob is built,
      * card accepts only blobs as keys
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_UnwrapKey(cipher, clen,
                              ep11_data->raw2key_wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob + *blob_size,
                              &blob_size2, csum, &cslen, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3485,12 +3591,12 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l, &mech_w,
                                      data, data_len, cipher, &cipher_l,
                                      target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                    __func__, rc, cipher_l);
@@ -3518,13 +3624,13 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private RSA key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
                                  spki, spki_size, target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3714,12 +3820,12 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                    __func__, rc, cipher_l);
@@ -3748,7 +3854,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -3757,7 +3863,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -3908,12 +4014,12 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3942,7 +4048,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -3951,7 +4057,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -4104,12 +4210,12 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         num_bits = value->ulValueLen * 8;
 
         /* encrypt */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                    __func__, rc, cipher_l);
@@ -4137,7 +4243,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private EC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -4146,7 +4252,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -4385,7 +4491,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         }
 
         /* encrypt */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             if (ep11_pqc_obj_strength_supported(target_info, pqc_mech,
                                                 pqc_key_obj))
                 rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
@@ -4395,7 +4501,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                          target_info->target);
             else
                 rc = CKR_KEY_SIZE_RANGE;
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
                    __func__, rc, cipher_l);
@@ -4424,7 +4530,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
         /* calls the card, it decrypts the private PQC key,
          * reads its BER format and builds a blob.
          */
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  ep11_data->raw2key_wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -4433,7 +4539,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_END(rc, tokdata, sess)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -4760,11 +4866,11 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GenerateKey((xts ? &mech2 : mech), new_attrs2, new_attrs2_len,
                                ep11_pin_blob, ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -4783,12 +4889,12 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (xts) {
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_GenerateKey(&mech2, new_attrs2, new_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len, blob2,
                                    &blobsize2, csum, &csum_len,
                                    target_info->target);
-        RETRY_END(rc, tokdata, session)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, session);
             TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -5251,7 +5357,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         libica_ctx->first = CK_TRUE;
         rc = get_sha_block_size(mech->mechanism, &libica_ctx->block_size);
     } else {
-        rc = dll_m_DigestInit(state, &state_len, mech, target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_DigestInit(state, &state_len, mech,
+                                  target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
     put_target_info(tokdata, target_info);
@@ -5298,8 +5407,10 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                    out_data, out_data_len,
                                    SHA_MSG_PART_ONLY);
     } else {
-        rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
-                          out_data, out_data_len, target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
+                              out_data, out_data_len, target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
     if (rc != CKR_OK) {
@@ -5377,8 +5488,10 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
             }
         }
     } else {
-        rc = dll_m_DigestUpdate(c->context, c->context_len,
-                                in_data, in_data_len, target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_DigestUpdate(c->context, c->context_len,
+                                    in_data, in_data_len, target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
 out:
@@ -5415,8 +5528,10 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                         SHA_MSG_PART_ONLY :
                                         SHA_MSG_PART_FINAL);
     } else {
-        rc = dll_m_DigestFinal(c->context, c->context_len,
-                               out_data, out_data_len, target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_DigestFinal(c->context, c->context_len,
+                                   out_data, out_data_len, target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
     if (rc != CKR_OK) {
@@ -5450,10 +5565,10 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
                           out_data, out_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5484,10 +5599,10 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
                             signature, sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5520,10 +5635,10 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = ctx->mech.ulParameterLen;
     mech.pParameter = ctx->mech.pParameter;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
                           sig, sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5559,10 +5674,10 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = ctx->mech.ulParameterLen;
     mech.pParameter = ctx->mech.pParameter;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
                             signature, sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5609,10 +5724,10 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
                           out_data, out_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5658,10 +5773,10 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.pParameter = NULL;
     mech.ulParameterLen = 0;
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
                             out_data, out_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -5713,11 +5828,11 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     rc = dll_m_ReencryptSingle(decr_key, decr_key_len, encr_key, encr_key_len,
                                decr_mech, encr_mech, in_data, in_data_len,
                                out_data, out_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -6024,10 +6139,10 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
         break;
 
     case CKO_PRIVATE_KEY:
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_GetAttributeValue(blob, bloblen, get_attr, 1,
                                          target_info->target);
-        RETRY_END(rc, tokdata, session)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
         /* Only newer EP11 libs support this, ignore if error */
         if (rc != CKR_OK)
@@ -6382,7 +6497,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             base_key_obj))
             rc = dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len,
@@ -6392,7 +6507,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                                  target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -6682,14 +6797,14 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                                               new_priv_attrs_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privblob, &privblobsize,
                                    publblob, &publblobsize, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -7020,14 +7135,14 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                               new_priv_attrs_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -7218,14 +7333,14 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                               new_priv_attrs2_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, target_info->target);
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
@@ -7596,7 +7711,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                               new_priv_attrs2_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_strength_supported(target_info, pMechanism->mechanism,
                                         pqc_oid))
             rc = dll_m_GenerateKeyPair(pMechanism,
@@ -7607,7 +7722,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                        &spki_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, sess)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s m_GenerateKeyPair rc=0x%lx spki_len=0x%zx "
@@ -8361,7 +8476,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         mech = &mech_ep11.mech;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
@@ -8369,7 +8484,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                                 target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8452,10 +8567,10 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
                         signature, sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8497,10 +8612,10 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
                               in_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8540,10 +8655,10 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
                              target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8600,14 +8715,14 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
         mech = &mech_ep11.mech;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
                                   signature, sig_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -8726,14 +8841,14 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         mech = &mech_ep11.mech;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
                                   spki, spki_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8815,10 +8930,10 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         goto done; /* no ep11 fallback possible */
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
                           signature, sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8860,10 +8975,10 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
                                 in_data_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8902,10 +9017,10 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
                                sig_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8970,14 +9085,14 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
         mech = &mech_ep11.mech;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
                                     signature, sig_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -9019,11 +9134,11 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9066,11 +9181,11 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9119,11 +9234,11 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9172,7 +9287,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
@@ -9181,7 +9296,7 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                                      target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -9223,11 +9338,11 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9270,11 +9385,11 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9323,11 +9438,11 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9387,7 +9502,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
@@ -9396,7 +9511,7 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
                                      target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
         TRACE_ERROR("%s rc=0x%lx\n", __func__, rc);
@@ -9497,10 +9612,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
                                    blob_len, target_info->target);
-        RETRY_END(rc, tokdata, session)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_state;
@@ -9545,10 +9660,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
             goto error;
         }
 
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, blob,
                                    blob_len, target_info->target);
-        RETRY_END(rc, tokdata, session)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_state;
@@ -9772,12 +9887,12 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * (wrapping blob). The wrapped key can be processed by any PKCS11
      * implementation.
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc =
         dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
                       wrapping_blob_len, sign_blob, sign_blob_len, mech,
                       wrapped_key, p_wrapped_key_len, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         TRACE_ERROR("%s m_WrapKey failed with rc=0x%lx\n", __func__, rc);
@@ -10003,14 +10118,14 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     /* we need a blob for the new key created by unwrapping,
      * the wrapped key comes in BER
      */
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
                              wrapping_blob_len, verifyblob, verifyblobsize,
                              ep11_pin_blob,
                              ep11_pin_blob_len, mech, new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -10328,8 +10443,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
 
     /* size query */
     if (pMechanismList == NULL) {
-        rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
-                                    target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_GetMechanismList(0, pMechanismList, pulCount,
+                                        target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #1\n",
@@ -10360,7 +10477,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                 goto out;
             }
             mlist = tmp;
-            rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
+            RETRY_SINGLE_APQN_START(tokdata, rc)
+                rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                            target_info->target);
+            RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
                 TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #2\n",
@@ -10400,7 +10520,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
          * that comes as parameter, this is a 'reduced size',
          * ep11 would complain about insufficient list size
          */
-        rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                        target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #3\n",
@@ -10427,7 +10550,10 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
             }
             mlist = tmp;
             /* all the card has */
-            rc = dll_m_GetMechanismList(0, mlist, &counter, target_info->target);
+            RETRY_SINGLE_APQN_START(tokdata, rc)
+                rc = dll_m_GetMechanismList(0, mlist, &counter,
+                                            target_info->target);
+            RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
                 TRACE_ERROR("%s bad rc=0x%lx from m_GetMechanismList() #4\n",
@@ -10796,7 +10922,10 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
             pInfo->flags = (CK_FLAGS)(CKF_HW|CKF_GENERATE);
             break;
         default:
-            rc = dll_m_GetMechanismInfo(0, type, pInfo, target_info->target);
+            RETRY_SINGLE_APQN_START(tokdata, rc)
+                rc = dll_m_GetMechanismInfo(0, type, pInfo, 
+                                            target_info->target);
+            RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
             break;
         }
 
@@ -11805,6 +11934,27 @@ out_fclose:
     return rc;
 }
 
+static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain)
+{
+    char fname[290];
+    char buf[250];
+    CK_RV rc;
+
+#ifdef EP11_HSMSIM
+    return CK_TRUE;
+#endif
+
+    sprintf(fname, "%s/card%02x/%02x.%04x/online", SYSFS_DEVICES_AP,
+            card, card, domain);
+    rc = file_fgets(fname, buf, sizeof(buf));
+    if (rc != CKR_OK)
+        return CK_FALSE;
+    if (strcmp(buf, "1") != 0)
+        return CK_FALSE;
+
+    return CK_TRUE;
+}
+
 static CK_RV is_card_ep11_and_online(const char *name)
 {
     char fname[290];
@@ -12223,17 +12373,20 @@ static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
     mech.ulParameterLen = 0;
 
     len = sizeof(ep11_session->session_id);
-    if (ep11tok_libica_digest_available(tokdata, ep11_data, mech.mechanism))
+    if (ep11tok_libica_digest_available(tokdata, ep11_data, mech.mechanism)) {
         rc = ep11tok_libica_digest(tokdata, ep11_data, mech.mechanism, &ctx,
                                    (CK_BYTE_PTR)&session_id_data,
                                    sizeof(session_id_data),
                                    ep11_session->session_id, &len,
                                    SHA_MSG_PART_ONLY);
-    else
-        rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data,
-                                sizeof(session_id_data),
-                                ep11_session->session_id, &len,
-                                target_info->target);
+    } else {
+        RETRY_SINGLE_APQN_START(tokdata, rc)
+            rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data,
+                                    sizeof(session_id_data),
+                                    ep11_session->session_id, &len,
+                                    target_info->target);
+        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
+    }
 
     put_target_info(tokdata, target_info);
 
@@ -13929,14 +14082,14 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             goto out;
         }
 
-        RETRY_START(rc, tokdata)
+        RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
             rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
                                          (ktype != CKK_AES_XTS ?
                                          ibm_opaque_attr->ulValueLen :
                                          ibm_opaque_attr->ulValueLen / 2),
                                          attributes, num_attributes,
                                          target_info->target);
-        RETRY_END(rc, tokdata, session)
+        RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
@@ -13947,13 +14100,13 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         }
 
         if (ktype == CKK_AES_XTS) {
-            RETRY_START(rc, tokdata)
+            RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
                 rc = dll_m_SetAttributeValue((CK_BYTE *)ibm_opaque_attr->pValue +
                                              (ibm_opaque_attr->ulValueLen / 2),
                                              ibm_opaque_attr->ulValueLen / 2,
                                              attributes, num_attributes,
                                              target_info->target);
-            RETRY_END(rc, tokdata, session)
+            RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
@@ -15016,12 +15169,12 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    RETRY_START(rc, tokdata)
+    RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         rc = dll_m_GetAttributeValue(blob_attr->pValue,
                                      (aes_xts ? blob_attr->ulValueLen / 2 :
                                      blob_attr->ulValueLen),
                                      ibm_attrs, num_ibm_attrs, target_info->target);
-    RETRY_END(rc, tokdata, session)
+    RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
