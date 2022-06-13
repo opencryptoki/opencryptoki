@@ -866,3 +866,44 @@ void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
     /* pInfo->ulRwSessionCount is set at the API level */
 }
 
+CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata)
+{
+    pthread_rwlockattr_t attr;
+
+    /*
+     * Request the API layer to lock against HSM-MK-change state changes.
+     * Set lock kind PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP to avoid
+     * writer starvation. Otherwise in a multi-threaded OCK application
+     * with a heavy crypto workload, the event thread would never get the
+     * HSM-MK-change lock as writer.
+     */
+    if (pthread_rwlockattr_init(&attr) != 0) {
+        TRACE_ERROR("pthread_rwlockattr_init failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the HSM-MK-change lock\n",
+                   __func__);
+        return CKR_CANT_LOCK;
+    }
+
+    if (pthread_rwlockattr_setkind_np(&attr,
+                  PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) != 0) {
+        TRACE_ERROR("pthread_rwlockattr_setkind_np failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the HSM-MK-change lock\n",
+                   __func__);
+        pthread_rwlockattr_destroy(&attr);
+        return CKR_CANT_LOCK;
+    }
+
+    if (pthread_rwlock_init(&tokdata->hsm_mk_change_rwlock, &attr) != 0) {
+        TRACE_ERROR("pthread_rwlock_init failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the HSM-MK-change lock\n",
+                   __func__);
+        pthread_rwlockattr_destroy(&attr);
+        return CKR_CANT_LOCK;
+    }
+
+    pthread_rwlockattr_destroy(&attr);
+
+    tokdata->hsm_mk_change_supported = TRUE;
+
+    return CKR_OK;
+}

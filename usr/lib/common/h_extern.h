@@ -451,6 +451,8 @@ void final_data_store(STDLL_TokData_t * tokdata);
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data);
 
+CK_RV init_hsm_mk_change_lock(STDLL_TokData_t *tokdata);
+
 CK_RV compute_PKCS5_PBKDF2_HMAC(STDLL_TokData_t *tokdata,
                                 CK_CHAR *pPin, CK_ULONG ulPinLen,
                                 CK_BYTE *salt, CK_ULONG salt_len,

@@ -153,8 +153,10 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
          * validity, since if we're here, they must already have been valid */
         sltp = &(Anchor->SltList[closeme_arg->slot_id]);
         fcn = sltp->FcnList;
+        BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)
         rv = fcn->ST_CloseSession(sltp->TokData, s,
                                   closeme_arg->in_fork_initializer);
+        END_HSM_MK_CHANGE_LOCK(sltp, rv)
         if (rv == CKR_OK) {
             decr_sess_counts(closeme_arg->slot_id, s->rw_session);
             bt_node_free(&(Anchor->sess_btree), node_handle, TRUE);
@@ -466,6 +468,8 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID, CK_BBOOL inchildforkinit)
         pthread_rwlock_destroy(&sltp->TokData->sess_list_rwlock);
 #endif
         pthread_mutex_destroy(&sltp->TokData->login_mutex);
+        if (sltp->TokData->hsm_mk_change_supported)
+            pthread_rwlock_destroy(&sltp->TokData->hsm_mk_change_rwlock);
         free(sltp->TokData);
         sltp->TokData = NULL;
     }
