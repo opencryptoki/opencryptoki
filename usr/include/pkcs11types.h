@@ -585,6 +585,8 @@ typedef CK_ULONG CK_ATTRIBUTE_TYPE;
  * opaque attribute. Support has been added to use this attribute
  * in key objects only. */
 #define CKA_IBM_OPAQUE         CKA_VENDOR_DEFINED + 1
+#define CKA_IBM_OPAQUE_REENC   CKA_VENDOR_DEFINED + 3
+#define CKA_IBM_OPAQUE_OLD     CKA_VENDOR_DEFINED + 4
 
 #define CKA_IBM_RESTRICTABLE      (CKA_VENDOR_DEFINED +0x10001)
 #define CKA_IBM_NEVER_MODIFIABLE  (CKA_VENDOR_DEFINED +0x10002)

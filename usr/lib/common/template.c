@@ -1811,6 +1811,8 @@ CK_RV template_validate_base_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr,
     case CKA_LABEL:
         return CKR_OK;
     case CKA_IBM_OPAQUE:
+    case CKA_IBM_OPAQUE_REENC:
+    case CKA_IBM_OPAQUE_OLD:
         /* Allow this attribute to be modified in order to support
          * migratable keys on secure key tokens.
          */
