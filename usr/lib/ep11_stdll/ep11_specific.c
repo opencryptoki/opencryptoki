@@ -14557,6 +14557,63 @@ out:
     return rc;
 }
 
+struct reencipher_data {
+    STDLL_TokData_t *tokdata;
+    ep11_target_info_t *target_info;
+};
+
+static CK_RV ep11tok_reencipher_objects_reenc(CK_BYTE *sec_key,
+                                              CK_BYTE *reenc_sec_key,
+                                              CK_ULONG sec_key_len,
+                                              void *private)
+{
+    struct reencipher_data *rd = private;
+
+    return ep11tok_reencipher_blob(rd->tokdata, &rd->target_info,
+                                   sec_key, sec_key_len, reenc_sec_key);
+}
+
+static CK_RV ep11tok_reencipher_objects_cb(STDLL_TokData_t *tokdata,
+                                           OBJECT *obj, void *cb_data)
+{
+    struct reencipher_data *rd = cb_data;
+    CK_RV rc;
+
+    rc = obj_mgr_reencipher_secure_key(tokdata, obj,
+                                       ep11tok_reencipher_objects_reenc, rd);
+    if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
+        rc = CKR_OK;
+
+    return rc;
+}
+
+static CK_BBOOL ep11tok_reencipher_filter_cb(STDLL_TokData_t *tokdata,
+                                             OBJECT *obj, void *filter_data)
+{
+    CK_ATTRIBUTE *attr;
+
+    UNUSED(tokdata);
+    UNUSED(filter_data);
+
+    return template_attribute_find(obj->template, CKA_IBM_OPAQUE_REENC, &attr);
+}
+
+static CK_RV ep11tok_reencipher_cancel_objects_cb(STDLL_TokData_t *tokdata,
+                                                  OBJECT *obj, void *cb_data)
+{
+    CK_RV rc;
+
+    UNUSED(cb_data);
+
+    rc = obj_mgr_reencipher_secure_key_cancel(tokdata, obj);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
+        rc = CKR_OK;
+
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -14566,13 +14623,130 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
                                           event_mk_change_data_t *op,
                                           struct hsm_mk_change_info *info)
 {
-    UNUSED(tokdata);
-    UNUSED(op);
-    UNUSED(info);
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct reencipher_data rd = { 0 };
+    CK_RV rc = CKR_OK;
+    const unsigned char *wkvp;
+    int new_wkvp_set = 0;
+    CK_BBOOL token_objs = FALSE;
 
-    // TODO
+    if ((op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS) != 0) {
+        token_objs = TRUE;
+        /* The tool should have logged in a R/W USER session */
+        if (!session_mgr_user_session_exists(tokdata)) {
+            TRACE_ERROR("%s No user session exists\n", __func__);
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: No user session exists\n",
+                       tokdata->slot_id);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
 
-    return CKR_OK;
+    if (pthread_rwlock_wrlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Write-Lock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change Write-Lock failed\n",
+                   tokdata->slot_id);
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    if (token_objs == TRUE && ep11_data->mk_change_active == FALSE) {
+        TRACE_DEVEL("HSM-MK-change must already be active\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change must already be active\n",
+                   tokdata->slot_id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* Activate this MK change operation */
+    if (ep11_data->mk_change_active == FALSE) {
+        rc = ep11tok_activate_mk_change_op(tokdata, op->id, info);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    TRACE_DEVEL("%s active MK change op: %s\n", __func__,
+                ep11_data->mk_change_op);
+
+    wkvp = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                    HSM_MK_TYPE_EP11,
+                                    sizeof(ep11_data->new_wkvp));
+    if (wkvp != NULL) {
+        memcpy(ep11_data->new_wkvp, wkvp, sizeof(ep11_data->new_wkvp));
+        new_wkvp_set = 1;
+    }
+
+    if (new_wkvp_set == 0) {
+        TRACE_ERROR("%s No EP11 WKVP found in MK change operation: %s\n",
+                    __func__, ep11_data->mk_change_op);
+        OCK_SYSLOG(LOG_ERR,
+                   "Slot %lu: No EP11 WKVP found in MK change operation: %s\n",
+                   tokdata->slot_id, ep11_data->mk_change_op);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    TRACE_DEBUG_DUMP("New WKVP: ", ep11_data->new_wkvp,
+                     sizeof(ep11_data->new_wkvp));
+
+    /* Switch to single APQN mode (only for first event - token_objs = FALSE) */
+    if (token_objs == FALSE) {
+        rc = refresh_target_info(tokdata);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_ERR,
+                       "Slot %lu: Failed to select a single APQN: 0x%lx\n",
+                       tokdata->slot_id, rc);
+            goto out;
+        }
+    }
+
+    rd.tokdata = tokdata;
+    rd.target_info = get_target_info(tokdata);
+    if (rd.target_info == NULL) {
+        rc = CKR_FUNCTION_FAILED;
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to select a single APQN\n",
+                   tokdata->slot_id);
+        goto out;
+    }
+
+    if (rd.target_info->single_apqn == FALSE) {
+        TRACE_ERROR("%s Must operate in single-APQN mode\n", __func__);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to select a single APQN\n",
+                   tokdata->slot_id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* Re-encipher key objects */
+    rc = obj_mgr_iterate_key_objects(tokdata, !token_objs, token_objs,
+                                     NULL, NULL,
+                                     ep11tok_reencipher_objects_cb, &rd,
+                                     TRUE, "re-encipher");
+    if (rc != CKR_OK)
+        goto out;
+
+out:
+    if (rc != CKR_OK && rd.target_info != NULL) {
+        obj_mgr_iterate_key_objects(tokdata, !token_objs, token_objs,
+                                    ep11tok_reencipher_filter_cb, NULL,
+                                    ep11tok_reencipher_cancel_objects_cb, NULL,
+                                    TRUE, "cancel");
+        /*
+         * The pkcshsm_mk_change tool will send a CANCEL event, so leave the
+         * operation active for now.
+         */
+    }
+
+    put_target_info(tokdata, rd.target_info);
+
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change unlock failed\n",
+                   tokdata->slot_id);
+        if (rc == CKR_OK)
+            rc = CKR_CANT_LOCK;
+    }
+
+    return rc;
 }
 
 static CK_RV parse_expected_wkvp(ep11_private_data_t *ep11_data,
