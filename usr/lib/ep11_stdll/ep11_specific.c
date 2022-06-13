@@ -2691,6 +2691,13 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     TRACE_INFO("ep11 %s slot=%lu running\n", __func__, SlotNumber);
 
+    /* Request the API layer to lock against HSM-MK-change state changes. */
+    rc = init_hsm_mk_change_lock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("init_hsm_mk_change_lock failed.\n");
+        goto error;
+    }
+
     ep11_data = calloc(1, sizeof(ep11_private_data_t));
     if (ep11_data == NULL)
         return CKR_HOST_MEMORY;

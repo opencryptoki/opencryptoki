@@ -23,6 +23,29 @@
     #include <openssl/provider.h>
 #endif
 
+#define BEGIN_HSM_MK_CHANGE_LOCK(sltp, rv)                                  \
+        do {                                                                \
+            if ((sltp)->TokData->hsm_mk_change_supported) {                 \
+                if (pthread_rwlock_rdlock(                                  \
+                            &(sltp)->TokData->hsm_mk_change_rwlock) != 0) { \
+                    TRACE_DEVEL("HSM-MK-change Read-Lock failed.\n");       \
+                    (rv) = CKR_CANT_LOCK;                                   \
+                    break;                                                  \
+                }                                                           \
+            }
+
+#define END_HSM_MK_CHANGE_LOCK(sltp, rv)                                    \
+            if ((sltp)->TokData->hsm_mk_change_supported) {                 \
+                if (pthread_rwlock_unlock(                                  \
+                            &(sltp)->TokData->hsm_mk_change_rwlock) != 0) { \
+                    TRACE_DEVEL("HSM-MK-change Unlock failed.\n");          \
+                    if ((rv) == CKR_OK)                                     \
+                        (rv) = CKR_CANT_LOCK;                               \
+                    break;                                                  \
+                }                                                           \
+            }                                                               \
+        } while (0);
+
 // SAB Add a linked list of STDLL's loaded to
 // only load and get list once, but let multiple slots us it.
 

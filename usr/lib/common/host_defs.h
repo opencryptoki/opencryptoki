@@ -406,6 +406,8 @@ struct _STDLL_TokData_t {
     const struct mechtable_funcs *mechtable_funcs;
     struct statistics *statistics;
     struct tokstore_strength store_strength;
+    CK_BBOOL hsm_mk_change_supported;
+    pthread_rwlock_t hsm_mk_change_rwlock;
 };
 
 #endif
