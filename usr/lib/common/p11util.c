@@ -211,6 +211,8 @@ const char *p11_get_cka(CK_ATTRIBUTE_TYPE atype)
         _sym2str(CKA_ALLOWED_MECHANISMS);
         _sym2str(CKA_PROFILE_ID);
         _sym2str(CKA_IBM_OPAQUE);
+        _sym2str(CKA_IBM_OPAQUE_REENC);
+        _sym2str(CKA_IBM_OPAQUE_OLD);
         _sym2str(CKA_IBM_RESTRICTABLE);
         _sym2str(CKA_IBM_NEVER_MODIFIABLE);
         _sym2str(CKA_IBM_RETAINKEY);
