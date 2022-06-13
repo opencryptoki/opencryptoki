@@ -1567,32 +1567,29 @@ error:
     return rc;
 }
 
-
-/* template_update_attribute()
+/* template_remove_attribute()
  *
- * modifies an existing attribute or adds a new attribute to the template
+ * removes an attribute (if existing) from the template.
  *
  * Returns:  CKR_OK on success, other CKR error on failure
  */
-CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
+CK_RV template_remove_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
 {
-    DL_NODE *node = NULL, *list;
+    DL_NODE *node = NULL;
     CK_ATTRIBUTE *attr = NULL;
+    CK_BBOOL found = FALSE;
 
-    if (!tmpl || !new_attr) {
+    if (!tmpl) {
         TRACE_ERROR("Invalid function arguments.\n");
         return CKR_ARGUMENTS_BAD;
     }
     node = tmpl->attribute_list;
 
-    /* if the attribute already exists in the list, remove it.
-     * this algorithm will limit an attribute to appearing at most
-     * once in the list
-     */
     while (node != NULL) {
         attr = (CK_ATTRIBUTE *) node->data;
 
-        if (new_attr->type == attr->type) {
+        if (type == attr->type) {
+            found = TRUE;
             if (is_attribute_attr_array(attr->type)) {
                  cleanse_and_free_attribute_array2(
                                      (CK_ATTRIBUTE_PTR)attr->pValue,
@@ -1608,6 +1605,33 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
         node = node->next;
     }
 
+    return found ? CKR_OK : CKR_ATTRIBUTE_TYPE_INVALID;
+}
+
+/* template_update_attribute()
+ *
+ * modifies an existing attribute or adds a new attribute to the template
+ *
+ * Returns:  CKR_OK on success, other CKR error on failure
+ */
+CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
+{
+    DL_NODE *list;
+    CK_RV rc;
+
+    if (!tmpl || !new_attr) {
+        TRACE_ERROR("Invalid function arguments.\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    /* if the attribute already exists in the list, remove it.
+     * this algorithm will limit an attribute to appearing at most
+     * once in the list
+     */
+    rc = template_remove_attribute(tmpl, new_attr->type);
+    if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID)
+        return rc;
+
     /* add the new attribute */
     list = dlist_add_as_first(tmpl->attribute_list, new_attr);
     if (list == NULL) {
@@ -1618,7 +1642,6 @@ CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *new_attr)
     tmpl->attribute_list = list;
     return CKR_OK;
 }
-
 
 /* template_validate_attribute()
  *
