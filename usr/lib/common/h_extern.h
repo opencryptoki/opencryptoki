@@ -2380,6 +2380,8 @@ CK_RV template_set_default_common_attributes(TEMPLATE *tmpl);
 
 CK_RV template_merge(TEMPLATE *dest, TEMPLATE **src);
 
+CK_RV  template_remove_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type);
+
 CK_RV template_update_attribute(TEMPLATE *tmpl, CK_ATTRIBUTE *attr);
 
 CK_RV template_unflatten(TEMPLATE **tmpl, CK_BYTE *data, CK_ULONG count);
