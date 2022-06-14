@@ -5334,7 +5334,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
-    size_t state_len = MAX(MAX_DIGEST_STATE_BYTES, sizeof(libica_sha_context_t));
+    size_t state_len = MAX(MAX_DIGEST_STATE_BYTES * 2,
+                           sizeof(libica_sha_context_t));
     CK_BYTE *state;
     libica_sha_context_t *libica_ctx;
     ep11_target_info_t* target_info;
@@ -5357,6 +5358,13 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         libica_ctx->first = CK_TRUE;
         rc = get_sha_block_size(mech->mechanism, &libica_ctx->block_size);
     } else {
+        /*
+         * state is allocated large enough to hold 2 times the max state blob.
+         * Initially use the first half only. The second half is for the
+         * re-enciphered state blob (if mk change is active).
+         */
+        state_len /= 2;
+
         RETRY_SINGLE_APQN_START(tokdata, rc)
             rc = dll_m_DigestInit(state, &state_len, mech,
                                   target_info->target);
@@ -5378,7 +5386,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         c->mech.mechanism = mech->mechanism;
         c->mech.pParameter = NULL;
         c->context = state;
-        c->context_len = state_len;
+        c->context_len = state_len * 2; /* current and re-enciphered state */
 
         TRACE_INFO("%s rc=0x%lx\n", __func__, rc);
     }
@@ -5408,7 +5416,8 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                    SHA_MSG_PART_ONLY);
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_Digest(c->context, c->context_len, in_data, in_data_len,
+            rc = dll_m_Digest(c->context, c->context_len / 2,
+                              in_data, in_data_len,
                               out_data, out_data_len, target_info->target);
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
@@ -5489,7 +5498,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         }
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestUpdate(c->context, c->context_len,
+            rc = dll_m_DigestUpdate(c->context, c->context_len / 2,
                                     in_data, in_data_len, target_info->target);
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
@@ -5529,7 +5538,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                         SHA_MSG_PART_FINAL);
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestFinal(c->context, c->context_len,
+            rc = dll_m_DigestFinal(c->context, c->context_len / 2,
                                    out_data, out_data_len, target_info->target);
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
@@ -8404,8 +8413,8 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
     SIGN_VERIFY_CONTEXT *ctx = &session->sign_ctx;
-    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
-    CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
+    CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     UNUSED(recover_mode);
@@ -8485,6 +8494,13 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         mech = &mech_ep11.mech;
     }
 
+    /*
+     * state is allocated large enough to hold 2 times the max state blob.
+     * Initially use the first half only. The second half is for the
+     * re-enciphered state blob (if mk change is active).
+     */
+    ep11_sign_state_l /= 2;
+
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
@@ -8507,7 +8523,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
-        ctx->context_len = ep11_sign_state_l;
+        ctx->context_len = ep11_sign_state_l * 2; /* current and re-enciphered state */
         ctx->pkey_active = FALSE;
         if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
             ctx->mech.mechanism = mech->mechanism;
@@ -8577,7 +8593,8 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Sign(ctx->context, ctx->context_len, in_data, in_data_len,
+        rc = dll_m_Sign(ctx->context, ctx->context_len / 2,
+                        in_data, in_data_len,
                         signature, sig_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -8622,7 +8639,7 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_SignUpdate(ctx->context, ctx->context_len, in_data,
+        rc = dll_m_SignUpdate(ctx->context, ctx->context_len / 2, in_data,
                               in_data_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -8665,7 +8682,7 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_SignFinal(ctx->context, ctx->context_len, signature, sig_len,
+        rc = dll_m_SignFinal(ctx->context, ctx->context_len / 2, signature, sig_len,
                              target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -8759,8 +8776,8 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t spki_len = 0;
     OBJECT *key_obj = NULL;
     SIGN_VERIFY_CONTEXT *ctx = &session->verify_ctx;
-    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES;
-    CK_BYTE *ep11_sign_state = malloc(ep11_sign_state_l);
+    size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
+    CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
 
     if (!ep11_sign_state) {
@@ -8850,6 +8867,13 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         mech = &mech_ep11.mech;
     }
 
+    /*
+     * state is allocated large enough to hold 2 times the max state blob.
+     * Initially use the first half only. The second half is for the
+     * re-enciphered state blob (if mk change is active).
+     */
+    ep11_sign_state_l /= 2;
+
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
@@ -8869,7 +8893,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_sign_state;
-        ctx->context_len = ep11_sign_state_l;
+        ctx->context_len = ep11_sign_state_l * 2; /* current and re-enciphered state */
         ctx->pkey_active = FALSE;
         if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
             ctx->mech.mechanism = mech->mechanism;
@@ -8940,7 +8964,8 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Verify(ctx->context, ctx->context_len, in_data, in_data_len,
+        rc = dll_m_Verify(ctx->context, ctx->context_len / 2,
+                          in_data, in_data_len,
                           signature, sig_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -8985,7 +9010,7 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len, in_data,
+        rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len / 2, in_data,
                                 in_data_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -9027,7 +9052,7 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_VerifyFinal(ctx->context, ctx->context_len, signature,
+        rc = dll_m_VerifyFinal(ctx->context, ctx->context_len / 2, signature,
                                sig_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -9144,7 +9169,7 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_DecryptFinal(ctx->context, ctx->context_len,
+        rc = dll_m_DecryptFinal(ctx->context, ctx->context_len / 2,
                                 output_part, p_output_part_len,
                                 target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9191,7 +9216,7 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Decrypt(ctx->context, ctx->context_len, input_data,
+        rc = dll_m_Decrypt(ctx->context, ctx->context_len / 2, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9244,7 +9269,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len,
+        rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len / 2,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9348,7 +9373,7 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptFinal(ctx->context, ctx->context_len,
+        rc = dll_m_EncryptFinal(ctx->context, ctx->context_len / 2,
                                 output_part, p_output_part_len,
                                 target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9395,7 +9420,7 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Encrypt(ctx->context, ctx->context_len, input_data,
+        rc = dll_m_Encrypt(ctx->context, ctx->context_len / 2, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9448,7 +9473,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len,
+        rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len / 2,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -9546,10 +9571,10 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *blob;
     size_t blob_len = 0;
     OBJECT *key_obj = NULL;
-    size_t ep11_state_l = MAX_CRYPT_STATE_BYTES;
+    size_t ep11_state_l = MAX_CRYPT_STATE_BYTES * 2;
     CK_BYTE *ep11_state;
 
-    ep11_state = malloc(ep11_state_l); /* freed by encr/decr_mgr.c */
+    ep11_state = calloc(ep11_state_l, 1); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
         return CKR_HOST_MEMORY;
@@ -9619,6 +9644,13 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         goto done;
     }
 
+    /*
+     * ep11_state is allocated large enough to hold 2 times the max state blob.
+     * Initially use the first half only. The second half is for the
+     * re-enciphered state blob (if mk change is active).
+     */
+    ep11_state_l /= 2;
+
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
@@ -9628,7 +9660,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_state;
-        ctx->context_len = ep11_state_l;
+        ctx->context_len = ep11_state_l * 2; /* current and re-enciphered state */
         ctx->pkey_active = FALSE;
         if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
             ctx->mech.mechanism = mech->mechanism;
@@ -9676,7 +9708,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->key = key;
         ctx->active = TRUE;
         ctx->context = ep11_state;
-        ctx->context_len = ep11_state_l;
+        ctx->context_len = ep11_state_l * 2; /* current and re-enciphered state */
         ctx->pkey_active = FALSE;
         if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
             ctx->mech.mechanism = mech->mechanism;
@@ -14614,6 +14646,131 @@ static CK_RV ep11tok_reencipher_cancel_objects_cb(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+static CK_RV ep11tok_reencipher_session_op_ctx(STDLL_TokData_t *tokdata,
+                                               SESSION *session,
+                                               CK_BYTE *context,
+                                               CK_ULONG context_len,
+                                               ep11_target_info_t **target_info,
+                                               const char *ctx_type)
+{
+    CK_RV rc;
+
+    TRACE_INFO("%s re-encipher %s state blob of session 0x%lx\n", __func__,
+               ctx_type, session->handle);
+    OCK_SYSLOG(LOG_DEBUG,
+               "Slot %lu: Re-encipher %s state blob of session 0x%lx\n",
+               tokdata->slot_id, ctx_type, session->handle);
+
+    /* The context is allocated at least twice as large as needed */
+    rc = ep11tok_reencipher_blob(tokdata, target_info,
+                                 context, context_len / 2,
+                                 context + (context_len / 2));
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s failed to re-encipher %s state blob of session 0x%lx: "
+                    "0x%lx\n", __func__, ctx_type, session->handle, rc);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to re-encipher %s state blob of "
+                   "session 0x%lx: 0x%lx\n", tokdata->slot_id, ctx_type,
+                   session->handle, rc);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+struct reencipher_session_data {
+    ep11_target_info_t *target_info;
+    CK_RV (*func)(STDLL_TokData_t *tokdata, SESSION *session,
+                  CK_BYTE *context, CK_ULONG context_len,
+                  ep11_target_info_t **target_info, const char *ctx_type);
+};
+
+static CK_RV ep11tok_reencipher_sessions_cb(STDLL_TokData_t *tokdata,
+                                            SESSION *session,
+                                            CK_ULONG ctx_type,
+                                            CK_MECHANISM *mech,
+                                            CK_OBJECT_HANDLE key,
+                                            CK_BYTE *context,
+                                            CK_ULONG context_len,
+                                            CK_BBOOL init_pending,
+                                            CK_BBOOL pkey_active,
+                                            CK_BBOOL recover,
+                                            void *private)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct reencipher_session_data *rsd = private;
+    const char *ctx_type_str = NULL;
+
+    UNUSED(recover);
+
+    /* Check preconditions */
+    switch (ctx_type) {
+    case CONTEXT_TYPE_DIGEST:
+        if (ep11tok_libica_digest_available(tokdata, ep11_data,
+                                            mech->mechanism))
+            return CKR_OK;
+
+        ctx_type_str = "digest";
+        break;
+
+    case CONTEXT_TYPE_SIGN:
+        if (init_pending || pkey_active)
+            return CKR_OK;
+        if (ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
+            return CKR_OK;
+
+        ctx_type_str = "sign";
+        break;
+
+    case CONTEXT_TYPE_VERIFY:
+        if (init_pending || pkey_active)
+            return CKR_OK;
+        if (ep11tok_libica_mech_available(tokdata, mech->mechanism, key))
+            return CKR_OK;
+
+        ctx_type_str = "verify";
+        break;
+
+    case CONTEXT_TYPE_ENCRYPT:
+        if (init_pending || pkey_active)
+            return CKR_OK;
+
+        ctx_type_str = "encrypt";
+        break;
+
+    case CONTEXT_TYPE_DECRYPT:
+        if (init_pending || pkey_active)
+            return CKR_OK;
+
+        ctx_type_str = "decrypt";
+        break;
+
+    default:
+        return CKR_OK;
+    }
+
+    return rsd->func(tokdata, session, context, context_len, &rsd->target_info,
+                     ctx_type_str);
+}
+
+static CK_RV ep11tok_reencipher_sessions(STDLL_TokData_t *tokdata,
+                                         ep11_target_info_t **target_info)
+{
+    struct reencipher_session_data rsd = { 0 };
+    CK_RV rc;
+
+    if (target_info != NULL)
+        rsd.target_info = *target_info;
+    rsd.func = ep11tok_reencipher_session_op_ctx;
+
+    rc = session_mgr_iterate_session_ops(tokdata, NULL,
+                                         ep11tok_reencipher_sessions_cb, &rsd);
+
+    if (target_info != NULL)
+        *target_info = rsd.target_info;
+
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -14723,6 +14880,16 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
                                      TRUE, "re-encipher");
     if (rc != CKR_OK)
         goto out;
+
+    if (!token_objs) {
+        /* Re-encipher session state blobs */
+        rc = ep11tok_reencipher_sessions(tokdata, &rd.target_info);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to re-encipher session "
+                       "states: 0x%lx\n", tokdata->slot_id, rc);
+            goto out;
+        }
+    }
 
 out:
     if (rc != CKR_OK && rd.target_info != NULL) {
