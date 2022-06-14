@@ -2291,6 +2291,21 @@ static inline int inc32(unsigned char ctr[4])
 #define HEADER_LEN  64
 #define FOOTER_LEN  16
 
+/**
+ * public tok obj layout
+ *
+ * ----------------           <--+
+ * u32 tokversion                | 16-byte header
+ * u8  private_flag              |
+ * u8  reserved[7]               |
+ * u32 object_len                |
+ * ----------------           <--+
+ * u8  object[object_len]        | body
+ * ----------------           <--+
+ */
+#define PUB_HEADER_LEN     16
+#define HEADER_COMMON_LEN  5
+
 //
 // Note: The token lock (XProcLock) must be held when calling this function.
 //
@@ -2634,7 +2649,7 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     set_perm(fileno(fp));
 
-    if (fread(header, HEADER_LEN, 1, fp) != 1) {
+    if (fread(header, HEADER_COMMON_LEN, 1, fp) != 1) {
         OCK_SYSLOG(LOG_ERR, "Cannot read header\n");
         rc = CKR_FUNCTION_FAILED;
         goto done;
@@ -2642,7 +2657,25 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
 
     memcpy(&ver, header, 4);
     memcpy(&priv, header + 4, 1);
-    memcpy(&len, header + 60, 4);
+    if (priv) {
+        if (fread(header + HEADER_COMMON_LEN,
+                  HEADER_LEN - HEADER_COMMON_LEN, 1, fp) != 1) {
+            OCK_SYSLOG(LOG_ERR, "Cannot read header\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        memcpy(&len, header + 60, 4);
+    } else {
+        if (fread(header + HEADER_COMMON_LEN,
+                  PUB_HEADER_LEN - HEADER_COMMON_LEN, 1, fp) != 1) {
+            OCK_SYSLOG(LOG_ERR, "Cannot read header\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        memcpy(&len, header + 12, 4);
+    }
 
     /*
      * In OCK 3.12 - 3.14 the version and size was not stored in BE. So if
@@ -2668,11 +2701,13 @@ CK_RV reload_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         rc = CKR_FUNCTION_FAILED;
         goto done;
     }
-    if (fread(footer, FOOTER_LEN, 1, fp) != 1) {
-        OCK_SYSLOG(LOG_ERR,
-                   "Token object %s appears corrupted (ignoring it)", fname);
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
+    if (priv) {
+        if (fread(footer, FOOTER_LEN, 1, fp) != 1) {
+            OCK_SYSLOG(LOG_ERR,
+                       "Token object %s appears corrupted (ignoring it)", fname);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     size_64 = size;
@@ -2690,20 +2725,6 @@ done:
         free(buf);
     return rc;
 }
-
-/**
- * public tok obj layout
- *
- * ----------------           <--+
- * u32 tokversion                | 16-byte header
- * u8  private_flag              |
- * u8  reserved[7]               |
- * u32 object_len                |
- * ----------------           <--+
- * u8  object[object_len]        | body
- * ----------------           <--+
- */
-#define PUB_HEADER_LEN  16
 
 //
 // Note: The token lock (XProcLock) must be held when calling this function.
