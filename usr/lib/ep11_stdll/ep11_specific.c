@@ -14971,6 +14971,65 @@ out:
     return rc;
 }
 
+static CK_RV ep11tok_set_operation_state_cb(STDLL_TokData_t *tokdata,
+                                            SESSION *session,
+                                            CK_BYTE *context,
+                                            CK_ULONG context_len,
+                                            ep11_target_info_t **target_info,
+                                            const char *ctx_type,
+                                            CK_BBOOL finalize)
+{
+    TRACE_INFO("%s Re-encipher %s state blob of session 0x%lx\n", __func__,
+               ctx_type, session->handle);
+
+    if (ep11tok_is_blob_new_wkid(tokdata, context, context_len / 2)) {
+        TRACE_DEVEL("%s state blob is already enciphered with new WK\n",
+                    __func__);
+        return CKR_OK;
+    }
+
+    if (ep11tok_is_blob_new_wkid(tokdata, context + (context_len / 2),
+                                 context_len / 2)) {
+        TRACE_DEVEL("%s state blob is already reenciphered\n", __func__);
+        return CKR_OK;
+    }
+
+    if ((*target_info)->single_apqn_has_new_wk) {
+        TRACE_ERROR("%s New WK already activated, state blob can not be "
+                    "reenciphered\n", __func__);
+        return CKR_SAVED_STATE_INVALID;
+    }
+
+    return ep11tok_reencipher_session_op_ctx(tokdata, session,
+                                             context, context_len, target_info,
+                                             ctx_type, finalize);
+}
+
+CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    struct reencipher_session_data rsd = { 0 };
+    CK_RV rc;
+
+    if (ep11_data->mk_change_active == FALSE)
+        return CKR_OK;
+
+    /* Re-encipher the newly set session (if needed) */
+    rsd.target_info = get_target_info(tokdata);
+    if (rsd.target_info == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    rsd.finalize = FALSE;
+    rsd.func = ep11tok_set_operation_state_cb;
+
+    rc = session_mgr_iterate_session_ops(tokdata, session,
+                                         ep11tok_reencipher_sessions_cb, &rsd);
+
+    put_target_info(tokdata, rsd.target_info);
+
+    return rc;
+}
+
 static CK_RV parse_expected_wkvp(ep11_private_data_t *ep11_data,
                                  const char *fname, const char *strval,
                                  unsigned char expected_wkvp[XCP_WKID_BYTES])
