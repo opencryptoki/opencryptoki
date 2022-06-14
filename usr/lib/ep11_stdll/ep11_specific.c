@@ -14681,27 +14681,34 @@ static CK_RV ep11tok_reencipher_session_op_ctx(STDLL_TokData_t *tokdata,
                                                CK_BYTE *context,
                                                CK_ULONG context_len,
                                                ep11_target_info_t **target_info,
-                                               const char *ctx_type)
+                                               const char *ctx_type,
+                                               CK_BBOOL finalize)
 {
     CK_RV rc;
 
-    TRACE_INFO("%s re-encipher %s state blob of session 0x%lx\n", __func__,
+    TRACE_INFO("%s %s %s state blob of session 0x%lx\n", __func__,
+               finalize ? "Finalize" : "Re-encipher",
                ctx_type, session->handle);
-    OCK_SYSLOG(LOG_DEBUG,
-               "Slot %lu: Re-encipher %s state blob of session 0x%lx\n",
-               tokdata->slot_id, ctx_type, session->handle);
+    OCK_SYSLOG(LOG_DEBUG, "Slot %lu: %s %s state blob of session 0x%lx\n",
+               tokdata->slot_id, finalize ? "Finalize" : "Re-encipher",
+               ctx_type, session->handle);
 
     /* The context is allocated at least twice as large as needed */
-    rc = ep11tok_reencipher_blob(tokdata, target_info,
-                                 context, context_len / 2,
-                                 context + (context_len / 2));
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s failed to re-encipher %s state blob of session 0x%lx: "
-                    "0x%lx\n", __func__, ctx_type, session->handle, rc);
-        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to re-encipher %s state blob of "
-                   "session 0x%lx: 0x%lx\n", tokdata->slot_id, ctx_type,
-                   session->handle, rc);
-        return rc;
+    if (finalize == FALSE) {
+        rc = ep11tok_reencipher_blob(tokdata, target_info,
+                                     context, context_len / 2,
+                                     context + (context_len / 2));
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to re-encipher %s state blob of session "
+                        "0x%lx: 0x%lx\n", __func__, ctx_type, session->handle,
+                        rc);
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to re-encipher %s state blob"
+                       "of session 0x%lx: 0x%lx\n", tokdata->slot_id, ctx_type,
+                       session->handle, rc);
+            return rc;
+        }
+    } else {
+        memcpy(context, context + (context_len / 2), context_len / 2);
     }
 
     return CKR_OK;
@@ -14709,9 +14716,11 @@ static CK_RV ep11tok_reencipher_session_op_ctx(STDLL_TokData_t *tokdata,
 
 struct reencipher_session_data {
     ep11_target_info_t *target_info;
+    CK_BBOOL finalize;
     CK_RV (*func)(STDLL_TokData_t *tokdata, SESSION *session,
                   CK_BYTE *context, CK_ULONG context_len,
-                  ep11_target_info_t **target_info, const char *ctx_type);
+                  ep11_target_info_t **target_info, const char *ctx_type,
+                  CK_BBOOL finalize);
 };
 
 static CK_RV ep11tok_reencipher_sessions_cb(STDLL_TokData_t *tokdata,
@@ -14779,17 +14788,19 @@ static CK_RV ep11tok_reencipher_sessions_cb(STDLL_TokData_t *tokdata,
     }
 
     return rsd->func(tokdata, session, context, context_len, &rsd->target_info,
-                     ctx_type_str);
+                     ctx_type_str, rsd->finalize);
 }
 
 static CK_RV ep11tok_reencipher_sessions(STDLL_TokData_t *tokdata,
-                                         ep11_target_info_t **target_info)
+                                         ep11_target_info_t **target_info,
+                                         CK_BBOOL finalize)
 {
     struct reencipher_session_data rsd = { 0 };
     CK_RV rc;
 
     if (target_info != NULL)
         rsd.target_info = *target_info;
+    rsd.finalize = finalize;
     rsd.func = ep11tok_reencipher_session_op_ctx;
 
     rc = session_mgr_iterate_session_ops(tokdata, NULL,
@@ -14913,7 +14924,7 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
 
     if (!token_objs) {
         /* Re-encipher session state blobs */
-        rc = ep11tok_reencipher_sessions(tokdata, &rd.target_info);
+        rc = ep11tok_reencipher_sessions(tokdata, &rd.target_info, FALSE);
         if (rc != CKR_OK) {
             OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to re-encipher session "
                        "states: 0x%lx\n", tokdata->slot_id, rc);
@@ -15200,6 +15211,17 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
                                      cancel ? "cancel" : "finalize");
     if (rc != CKR_OK)
         goto out;
+
+    if (!token_objs && !cancel) {
+        /* finalize session state blobs */
+        rc = ep11tok_reencipher_sessions(tokdata, NULL, TRUE);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_ERR,
+                       "Slot %lu: Failed to finalize session states: 0x%lx\n",
+                       tokdata->slot_id, rc);
+            goto out;
+        }
+    }
 
     /*
      * Deactivate this MK change operation.
