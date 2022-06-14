@@ -14646,6 +14646,36 @@ static CK_RV ep11tok_reencipher_cancel_objects_cb(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+static CK_BBOOL ep11tok_reencipher_finalize_is_new_wk_cb(
+                                                 STDLL_TokData_t *tokdata,
+                                                 OBJECT *obj,
+                                                 CK_BYTE *sec_key,
+                                                 CK_ULONG sec_key_len,
+                                                 void *cb_private)
+{
+    UNUSED(cb_private);
+    UNUSED(obj);
+
+    return ep11tok_is_blob_new_wkid(tokdata, sec_key, sec_key_len);
+}
+
+static CK_RV ep11tok_reencipher_finalize_objects_cb(STDLL_TokData_t *tokdata,
+                                                    OBJECT *obj, void *cb_data)
+{
+    CK_RV rc;
+
+    UNUSED(cb_data);
+
+    rc = obj_mgr_reencipher_secure_key_finalize(tokdata, obj,
+                                ep11tok_reencipher_finalize_is_new_wk_cb, NULL);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
+        rc = CKR_OK;
+
+    return rc;
+}
+
 static CK_RV ep11tok_reencipher_session_op_ctx(STDLL_TokData_t *tokdata,
                                                SESSION *session,
                                                CK_BYTE *context,
@@ -15111,17 +15141,112 @@ out:
  * performed by this function must be thread save and use locks to lock
  * against concurrent access by other threads.
  */
-static CK_RV ep11tok_mk_change_finalize(STDLL_TokData_t *tokdata,
-                                        event_mk_change_data_t *op,
-                                        struct hsm_mk_change_info *info)
+static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
+                                               event_mk_change_data_t *op,
+                                               struct hsm_mk_change_info *info,
+                                               CK_BBOOL cancel)
 {
-    UNUSED(tokdata);
-    UNUSED(op);
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_RV rc = CKR_OK;
+    CK_BBOOL token_objs = FALSE;
+
     UNUSED(info);
 
-    // TODO
+    TRACE_DEVEL("%s %s MK change op: %s\n", __func__,
+                cancel ? "canceling" : "finalizing", op->id);
 
-    return CKR_OK;
+    if ((op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS) != 0 ||
+        (op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL) != 0) {
+        token_objs = TRUE;
+        /* The tool should have logged in a R/W USER session */
+        if (!session_mgr_user_session_exists(tokdata)) {
+            TRACE_ERROR("%s No user session exists\n", __func__);
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: No user session exists\n",
+                       tokdata->slot_id);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (pthread_rwlock_wrlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Write-Lock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change Write-Lock failed\n",
+                   tokdata->slot_id);
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    if (ep11_data->mk_change_active == FALSE)
+        goto out;
+
+    /*
+     * Finalize/cancel token objects.
+     * If flag EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL is on, only process such
+     * token objects that do have the CKA_IBM_OPAQUE_REENC attribute. Those
+     * Objects have been newly created by another process after the first token
+     * finalization/cancellation (flag EVENT_MK_CHANGE_FLAGS_TOK_OBJS) has
+     * been performed, and before all processes have deactivated the MK change
+     * operation. Thus, they were created with the re-enciphered secure key,
+     * and now need to be finalized/canceled.
+     */
+    rc = obj_mgr_iterate_key_objects(tokdata, !token_objs, token_objs,
+                                     token_objs && (op->flags &
+                                         EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL) ?
+                                         ep11tok_reencipher_filter_cb : NULL,
+                                     NULL,
+                                     cancel ?
+                                         ep11tok_reencipher_cancel_objects_cb :
+                                         ep11tok_reencipher_finalize_objects_cb,
+                                     NULL, TRUE,
+                                     cancel ? "cancel" : "finalize");
+    if (rc != CKR_OK)
+        goto out;
+
+    /*
+     * Deactivate this MK change operation.
+     * For the pkcshsm_mk_change tool: Deactivate only after 2nd token object
+     * processing.
+     */
+    if ((token_objs == FALSE && op->tool_pid != tokdata->real_pid) ||
+        (op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS_FINAL) != 0) {
+
+        if (!cancel) {
+            /* From now on the new WK is the expected one */
+            memcpy(ep11_data->expected_wkvp, ep11_data->new_wkvp,
+                   XCP_WKID_BYTES);
+        }
+
+        ep11_data->mk_change_active = 0;
+        memset(ep11_data->mk_change_op, 0, sizeof(ep11_data->mk_change_op));
+        free(ep11_data->mk_change_apqns);
+        ep11_data->mk_change_apqns = NULL;
+        ep11_data->num_mk_change_apqns = 0;
+
+        /* Switch to multiple APQN mode */
+        rc = refresh_target_info(tokdata);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_ERR,
+                       "Slot %lu: Failed to switch back to multi-APQN mode\n",
+                       tokdata->slot_id);
+            goto out;
+        }
+
+        TRACE_DEVEL("%s %s MK change op: %s\n", __func__,
+                    cancel ? "canceled" : "finalized", op->id);
+        OCK_SYSLOG(LOG_INFO, "Slot %lu: Concurrent HSM master key change "
+                   "operation %s is %s, EP11 token now use multi-APQN mode\n",
+                   tokdata->slot_id, op->id, cancel ? "canceled" : "finalized");
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change unlock failed\n",
+                   tokdata->slot_id);
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    return rc;
 }
 
 /*
@@ -15178,24 +15303,6 @@ out:
     }
 
     return rc;
-}
-
-/*
- * ATTENTION: This function is called in a separate thread. All actions
- * performed by this function must be thread save and use locks to lock
- * against concurrent access by other threads.
- */
-static CK_RV ep11tok_mk_change_cancel(STDLL_TokData_t *tokdata,
-                                      event_mk_change_data_t *op,
-                                      struct hsm_mk_change_info *info)
-{
-    UNUSED(tokdata);
-    UNUSED(op);
-    UNUSED(info);
-
-    // TODO
-
-    return CKR_OK;
 }
 
 /*
@@ -15271,13 +15378,13 @@ static CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
         rc = ep11tok_mk_change_finalize_query(tokdata, hdr, &info);
         break;
     case EVENT_TYPE_MK_CHANGE_FINALIZE:
-        rc = ep11tok_mk_change_finalize(tokdata, hdr, &info);
+        rc = ep11tok_mk_change_finalize_cancel(tokdata, hdr, &info, FALSE);
         break;
     case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
         rc = ep11tok_mk_change_cancel_query(tokdata, hdr, &info);
         break;
     case EVENT_TYPE_MK_CHANGE_CANCEL:
-        rc = ep11tok_mk_change_cancel(tokdata, hdr, &info);
+        rc = ep11tok_mk_change_finalize_cancel(tokdata, hdr, &info, TRUE);
         break;
     default:
         rc = CKR_FUNCTION_NOT_SUPPORTED;
