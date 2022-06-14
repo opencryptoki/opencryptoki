@@ -31,6 +31,7 @@
 #include "p11util.h"
 #include "defs.h"
 #include "mechtable.h"
+#include "uri.h"
 
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
@@ -560,6 +561,22 @@ CK_RV check_user_and_group(void)
     return CKR_FUNCTION_FAILED;
 }
 
+void print_info_uri(CK_INFO_PTR info)
+{
+    struct p11_uri *uri;
+
+    uri = p11_uri_new();
+    if (!uri)
+        return;
+
+    uri->info = info;
+
+    printf("\tURI: %s\n", p11_uri_format(uri));
+
+    p11_uri_free(uri);
+    uri = NULL;
+}
+
 CK_RV display_pkcs11_info(void)
 {
 
@@ -582,6 +599,7 @@ CK_RV display_pkcs11_info(void)
     printf("\tLibrary Description: %.32s \n", CryptokiInfo.libraryDescription);
     printf("\tLibrary Version: %d.%d \n", CryptokiInfo.libraryVersion.major,
            CryptokiInfo.libraryVersion.minor);
+    print_info_uri(&CryptokiInfo);
 
     return rc;
 }
@@ -744,6 +762,23 @@ void print_slot_info(int slot_id, CK_SLOT_INFO *SlotInfo)
            SlotInfo->firmwareVersion.minor);
 }
 
+void print_slot_info_uri(int slot_id, CK_SLOT_INFO_PTR SlotInfo)
+{
+    struct p11_uri *uri;
+
+    uri = p11_uri_new();
+    if (!uri)
+        return;
+
+    uri->slot_id = slot_id;
+    uri->slot_info = SlotInfo;
+
+    printf("\tURI: %s\n", p11_uri_format(uri));
+
+    p11_uri_free(uri);
+    uri = NULL;
+}
+
 CK_RV display_slot_info(int slot_id)
 {
     CK_RV rc;                   // Return Code
@@ -759,6 +794,7 @@ CK_RV display_slot_info(int slot_id)
         }
 
         print_slot_info(slot_id, &SlotInfo);
+        print_slot_info_uri(slot_id, &SlotInfo);
         return CKR_OK;
     }
 
@@ -772,6 +808,7 @@ CK_RV display_slot_info(int slot_id)
         }
 
         print_slot_info(SlotList[lcv], &SlotInfo);
+        print_slot_info_uri(SlotList[lcv], &SlotInfo);
 
     }
     return CKR_OK;
@@ -907,6 +944,21 @@ void print_token_info(int slot_id, CK_TOKEN_INFO *TokenInfo)
     printf("\tTime: %.16s\n", TokenInfo->utcTime);
 }
 
+void print_token_info_uri(const CK_TOKEN_INFO_PTR TokenInfo)
+{
+    struct p11_uri *uri;
+
+    uri = p11_uri_new();
+    if (!uri)
+        return;
+
+    uri->token_info = TokenInfo;
+    printf("\tURI: %s\n", p11_uri_format(uri));
+
+    p11_uri_free(uri);
+    uri = NULL;
+}
+
 CK_RV display_token_info(int slot_id)
 {
     CK_RV rc;                   // Return Code
@@ -922,6 +974,7 @@ CK_RV display_token_info(int slot_id)
         }
 
         print_token_info(slot_id, &TokenInfo);
+        print_token_info_uri(&TokenInfo);
         return CKR_OK;
     }
 
@@ -935,6 +988,7 @@ CK_RV display_token_info(int slot_id)
         }
 
         print_token_info(SlotList[lcv], &TokenInfo);
+        print_token_info_uri(&TokenInfo);
     }
     return CKR_OK;
 }
