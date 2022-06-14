@@ -10,6 +10,8 @@ usr_sbin_pkcsconf_pkcsconf_CFLAGS = -D_THREAD_SAFE -DDEBUG -DDEV	\
 
 usr_sbin_pkcsconf_pkcsconf_SOURCES =					\
 	usr/lib/common/p11util.c					\
+	usr/lib/common/buffer.c						\
+	usr/lib/common/uri.c						\
 	usr/sbin/pkcsconf/pkcsconf.c
 
 nodist_usr_sbin_pkcsconf_pkcsconf_SOURCES = usr/lib/api/mechtable.c
