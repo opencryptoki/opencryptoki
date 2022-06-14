@@ -1198,9 +1198,16 @@ CK_RV SC_SetOperationState(STDLL_TokData_t *tokdata,
     rc = session_mgr_set_op_state(tokdata, sess, hEncryptionKey,
                                   hAuthenticationKey, pOperationState,
                                   ulOperationStateLen);
-
-    if (rc != CKR_OK)
+    if (rc != CKR_OK) {
         TRACE_DEVEL("session_mgr_set_op_state() failed.\n");
+        goto done;
+    }
+
+    rc = ep11tok_set_operation_state(tokdata, sess);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("ep11tok_set_operation_state() failed.\n");
+        goto done;
+    }
 
 done:
     TRACE_INFO("C_SetOperationState: rc = 0x%08lx, sess = %lu\n",
