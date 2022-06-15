@@ -401,6 +401,7 @@ static void print_listkeys_help(void)
     printf("      all\n");
     printf("\n Options:\n");
     printf("      -l, --long           list output with long format\n");
+    printf("          --detailed-uri   enable detailed PKCS#11 URI\n");
     printf(
             "      --slot SLOTID        openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN            pkcs11 user PIN\n");
@@ -1969,7 +1970,7 @@ static char* get_string_arg(int pos, char *argv[], int argc)
  */
 static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
                                  CK_ULONG *keylength, CK_SLOT_ID *slot,
-                                 char **pin, int *long_print)
+                                 char **pin, int *long_print, int *full_uri)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2052,6 +2053,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if ((strcmp(argv[i], "-l") == 0)
                 || (strcmp(argv[i], "--long") == 0)) {
             *long_print = 1;
+        } else if (strcmp(argv[i], "--detailed-uri") == 0) {
+            *full_uri = 1;
         } else if ((strcmp(argv[i], "-h") == 0)
                 || (strcmp(argv[i], "--help") == 0)) {
             print_listkeys_help();
@@ -2324,7 +2327,7 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
                             p11sak_kt *kt, CK_ULONG *keylength, char **ECcurve,
                             CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
                             char **label, char **attr_string, int *long_print,
-                            CK_BBOOL *forceAll)
+                            int *full_uri, CK_BBOOL *forceAll)
 {
     CK_RV rc;
 
@@ -2335,7 +2338,7 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
         break;
     case list_key:
         rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
-                long_print);
+                long_print, full_uri);
         break;
     case remove_key:
         rc = parse_remove_key_args(argv, argc, kt, slot, pin, label, keylength,
@@ -2540,7 +2543,7 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
  * List the given key.
  */
 static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
-                       p11sak_kt kt, int long_print)
+                       p11sak_kt kt, int long_print, int full_uri)
 {
     CK_ULONG keylength, count;
     CK_OBJECT_CLASS keyclass;
@@ -2620,9 +2623,12 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         if (!uri)
             return CKR_HOST_MEMORY;
 
-        uri->info = &info;
-        uri->slot_id = slot;
-        uri->slot_info = &slot_info;
+        if (full_uri) {
+            /* include library and slot information only in detailed URIs */
+            uri->info = &info;
+            uri->slot_id = slot;
+            uri->slot_info = &slot_info;
+        }
         uri->token_info = &token_info;
 
         if (tok_attribute_alloc(session, hkey, &uri->obj_class[0]) == CKR_OK) {
@@ -2914,7 +2920,8 @@ done:
 static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                          p11sak_cmd cmd, p11sak_kt kt, CK_ULONG keylength,
                          CK_ULONG exponent, char *ECcurve, char *label,
-                         char *attr_string, int long_print, CK_BBOOL *forceAll)
+                         char *attr_string, int long_print, int full_uri,
+                         CK_BBOOL *forceAll)
 {
     CK_RV rc;
     switch (cmd) {
@@ -2923,7 +2930,7 @@ static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 label, attr_string);
         break;
     case list_key:
-        rc = list_ckey(session, slot, kt, long_print);
+        rc = list_ckey(session, slot, kt, long_print, full_uri);
         break;
     case remove_key:
         rc = delete_key(session, kt, label, forceAll);
@@ -3052,6 +3059,7 @@ static CK_RV parse_file() {
 int main(int argc, char *argv[])
 {
     int long_print = 0;
+    int full_uri = 0;
     p11sak_kt kt = no_key_type;
     p11sak_cmd cmd = no_cmd;
     CK_ULONG exponent = 0;
@@ -3084,7 +3092,7 @@ int main(int argc, char *argv[])
 
     /* Parse command args */
     rc = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve, &slot, &pin,
-            &exponent, &label, &attr_string, &long_print, &forceAll);
+            &exponent, &label, &attr_string, &long_print, &full_uri, &forceAll);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -3131,7 +3139,7 @@ int main(int argc, char *argv[])
 
     /* Execute command */
     rc = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
-            label, attr_string, long_print, &forceAll);
+            label, attr_string, long_print, full_uri, &forceAll);
     if (rc == CKR_CANCEL) {
         fprintf(stderr, "Cancel execution: p11sak %s command (error code 0x%lX: %s)\n", cmd2str(cmd), rc,
                 p11_get_ckr(rc));
