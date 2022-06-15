@@ -2243,6 +2243,26 @@ CK_BBOOL object_mgr_purge_map(STDLL_TokData_t *tokdata,
 
 CK_RV object_put(STDLL_TokData_t *tokdata, OBJECT *obj, CK_BBOOL unlock);
 
+CK_RV obj_mgr_reencipher_secure_key(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                    CK_RV (*reenc)(CK_BYTE *sec_key,
+                                                   CK_BYTE *reenc_sec_key,
+                                                   CK_ULONG sec_key_len,
+                                                   void *private),
+                                    void *private);
+
+CK_RV obj_mgr_reencipher_secure_key_finalize(STDLL_TokData_t *tokdata,
+                                             OBJECT *obj,
+                                             CK_BBOOL is_blob_new_mk_cb(
+                                                 STDLL_TokData_t *tokdata,
+                                                 OBJECT *obj,
+                                                 CK_BYTE *sec_key,
+                                                 CK_ULONG sec_key_len,
+                                                 void *cb_private),
+                                             void *cb_private);
+
+CK_RV obj_mgr_reencipher_secure_key_cancel(STDLL_TokData_t *tokdata,
+                                           OBJECT *obj);
+
 /* structures used to hold arguments to callback functions triggered by either
  * bt_for_each_node or bt_node_free */
 struct find_args {
