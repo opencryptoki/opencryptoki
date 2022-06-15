@@ -1472,6 +1472,7 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
     OBJECT *obj = NULL;
     CK_BBOOL priv;
     CK_RV rc, tmp;
+    TOK_OBJ_ENTRY *entry = NULL;
 
     if (!data) {
         TRACE_ERROR("Invalid function argument.\n");
@@ -1480,69 +1481,89 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
     // The calling stack MUST have the mutex
     // to many grab it now.
 
+    obj = oldObj;
+    rc = object_restore_withSize(tokdata->policy,
+                                 data, &obj, oldObj != NULL, data_size, fname);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_restore_withSize failed.\n");
+        return rc;
+    }
+
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+        object_free(obj);
+        return rc;
+    }
+
     if (oldObj != NULL) {
-        obj = oldObj;
-        rc = object_restore_withSize(tokdata->policy,
-                                     data, &obj, TRUE, data_size, fname);
-    } else {
-        rc = object_restore_withSize(tokdata->policy,
-                                     data, &obj, FALSE, data_size, fname);
+        /* Update of existing object */
+        rc = object_mgr_get_shm_entry_for_obj(tokdata, obj, &entry);
         if (rc == CKR_OK) {
-            rc = XProcLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to get Process Lock.\n");
+            obj->count_lo = entry->count_lo;
+            obj->count_hi = entry->count_hi;
+        }
+    } else {
+        /* New object */
+        priv = object_is_private(obj);
+
+        if (priv) {
+            if (!bt_node_add(&tokdata->priv_token_obj_btree, obj)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
                 object_free(obj);
-                return rc;
+                goto unlock;
             }
-
-            priv = object_is_private(obj);
-
-            if (priv) {
-                if (!bt_node_add(&tokdata->priv_token_obj_btree, obj)) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    rc = CKR_HOST_MEMORY;
-                    object_free(obj);
-                    goto unlock;
-                }
-            } else {
-                if (!bt_node_add(&tokdata->publ_token_obj_btree, obj)) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    rc = CKR_HOST_MEMORY;
-                    object_free(obj);
-                    goto unlock;
-                }
-            }
-
-            if (priv) {
-                if (tokdata->global_shm->priv_loaded == FALSE) {
-                    if (tokdata->global_shm->num_priv_tok_obj < MAX_TOK_OBJS) {
-                        object_mgr_add_to_shm(obj, tokdata->global_shm);
-                    } else {
-                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                        rc = CKR_HOST_MEMORY;
-                    }
-                }
-            } else {
-                if (tokdata->global_shm->publ_loaded == FALSE) {
-                    if (tokdata->global_shm->num_publ_tok_obj < MAX_TOK_OBJS) {
-                        object_mgr_add_to_shm(obj, tokdata->global_shm);
-                    } else {
-                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                        rc = CKR_HOST_MEMORY;
-                    }
-                }
-            }
-
-unlock:
-            tmp = XProcUnLock(tokdata);
-            if (tmp != CKR_OK)
-                TRACE_ERROR("Failed to release Process Lock.\n");
-            if (rc == CKR_OK)
-                rc = tmp;
         } else {
-            TRACE_DEVEL("object_restore_withSize failed.\n");
+            if (!bt_node_add(&tokdata->publ_token_obj_btree, obj)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                rc = CKR_HOST_MEMORY;
+                object_free(obj);
+                goto unlock;
+            }
+        }
+
+        if (priv) {
+            if (tokdata->global_shm->priv_loaded == FALSE) {
+                if (tokdata->global_shm->num_priv_tok_obj < MAX_TOK_OBJS) {
+                    object_mgr_add_to_shm(obj, tokdata->global_shm);
+                } else {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    goto unlock;
+                }
+            } else {
+                rc = object_mgr_get_shm_entry_for_obj(tokdata, obj, &entry);
+                if (rc == CKR_OK) {
+                    obj->count_lo = entry->count_lo;
+                    obj->count_hi = entry->count_hi;
+                }
+            }
+        } else {
+            if (tokdata->global_shm->publ_loaded == FALSE) {
+                if (tokdata->global_shm->num_publ_tok_obj < MAX_TOK_OBJS) {
+                    object_mgr_add_to_shm(obj, tokdata->global_shm);
+                } else {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    goto unlock;
+                }
+            } else {
+                rc = object_mgr_get_shm_entry_for_obj(tokdata, obj, &entry);
+                if (rc == CKR_OK) {
+                    obj->count_lo = entry->count_lo;
+                    obj->count_hi = entry->count_hi;
+                }
+            }
         }
     }
+
+unlock:
+    tmp = XProcUnLock(tokdata);
+    if (tmp != CKR_OK)
+        TRACE_ERROR("Failed to release Process Lock.\n");
+    if (rc == CKR_OK)
+        rc = tmp;
 
     return rc;
 }
@@ -1828,31 +1849,19 @@ CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *global_shm)
     return CKR_OK;
 }
 
-
-// The object must hold the READ lock when this function is called!
-//
-CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
+CK_RV object_mgr_get_shm_entry_for_obj(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                       TOK_OBJ_ENTRY **entry)
 {
-    TOK_OBJ_ENTRY *entry = NULL;
-    CK_BBOOL priv, rd_locked = TRUE, wr_locked = FALSE;
     CK_ULONG index;
     CK_RV rc;
 
-    priv = object_is_private(obj);
+    *entry = NULL;
 
-retry:
-    rc = XProcLock(tokdata);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to get Process Lock.\n");
-       goto done_no_xproc_unlock;
-    }
-
-    if (priv) {
+    if (object_is_private(obj)) {
         /* first check the object count. If it is 0, then just return. */
         if (tokdata->global_shm->num_priv_tok_obj == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-            rc = CKR_OBJECT_HANDLE_INVALID;
-            goto done;
+            return CKR_OBJECT_HANDLE_INVALID;
         }
         rc = object_mgr_search_shm_for_obj(tokdata->global_shm->priv_tok_objs,
                                            0,
@@ -1860,15 +1869,14 @@ retry:
                                            num_priv_tok_obj - 1, obj, &index);
         if (rc != CKR_OK) {
             TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
-            goto done;
+            return rc;
         }
-        entry = &tokdata->global_shm->priv_tok_objs[index];
+        *entry = &tokdata->global_shm->priv_tok_objs[index];
     } else {
         /* first check the object count. If it is 0, then just return. */
         if (tokdata->global_shm->num_publ_tok_obj == 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
-            rc = CKR_OBJECT_HANDLE_INVALID;
-            goto done;
+            return CKR_OBJECT_HANDLE_INVALID;
         }
         rc = object_mgr_search_shm_for_obj(tokdata->global_shm->publ_tok_objs,
                                            0,
@@ -1877,10 +1885,33 @@ retry:
                                            obj, &index);
         if (rc != CKR_OK) {
             TRACE_ERROR("object_mgr_search_shm_for_obj failed.\n");
-            goto done;
+            return rc;
         }
-        entry = &tokdata->global_shm->publ_tok_objs[index];
+        *entry = &tokdata->global_shm->publ_tok_objs[index];
     }
+
+    return CKR_OK;
+}
+
+
+// The object must hold the READ lock when this function is called!
+//
+CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
+{
+    TOK_OBJ_ENTRY *entry = NULL;
+    CK_BBOOL rd_locked = TRUE, wr_locked = FALSE;
+    CK_RV rc;
+
+retry:
+    rc = XProcLock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get Process Lock.\n");
+       goto done_no_xproc_unlock;
+    }
+
+    rc = object_mgr_get_shm_entry_for_obj(tokdata, obj, &entry);
+    if (rc != CKR_OK)
+        goto done;
 
     if ((obj->count_hi == entry->count_hi)
         && (obj->count_lo == entry->count_lo)) {
