@@ -26,6 +26,7 @@
 #include <pwd.h>
 
 #include <termios.h>
+#include "uri.h"
 #include "p11util.h"
 #include "p11sak.h"
 #include "mechtable.h"
@@ -1622,6 +1623,58 @@ static CK_RV pub_key_print_attributes(CK_SESSION_HANDLE session,
 
     return CKR_OK;
 }
+
+/**
+ * Alloc attribute
+ */
+static CK_RV tok_attribute_alloc(CK_SESSION_HANDLE session,
+                                 CK_OBJECT_HANDLE hkey,
+                                 CK_ATTRIBUTE_PTR attribute)
+{
+    CK_RV rv;
+    void *tmp;
+
+    if (!attribute)
+        return CKR_ARGUMENTS_BAD;
+
+    if (attribute->pValue)
+        return CKR_CANCEL;
+
+    if (attribute->ulValueLen)
+        goto alloc;
+
+    /* lookup size */
+    rv = funcs->C_GetAttributeValue(session, hkey, attribute, 1);
+    if ((rv == CKR_ATTRIBUTE_SENSITIVE) ||
+        (attribute->ulValueLen == 0) ||
+        (attribute->ulValueLen == CK_UNAVAILABLE_INFORMATION)) {
+        /**
+         * REVISIT if the attribute is not available, the first
+         * returns with ulValueLen == 0. According to the spec a
+         * return value CKR_ATTRIBUTE_SENSITIVE is expected. Check
+         * implementation and spec for clarification.
+         **/
+        attribute->pValue = NULL_PTR;
+        attribute->ulValueLen = 0;
+        return CKR_ATTRIBUTE_SENSITIVE;
+    }
+    if (rv != CKR_OK) {
+        fprintf(stderr,
+                "Object can not lookup attribute length "
+                "(error code 0x%lX: %s)\n", rv, p11_get_ckr(rv));
+        return rv;
+    }
+
+alloc:
+    tmp = malloc((size_t) attribute->ulValueLen);
+    if (!tmp)
+        return CKR_HOST_MEMORY;
+
+    attribute->pValue = tmp;
+
+    return CKR_OK;
+}
+
 /**
  * Get label attribute of key
  */
@@ -2486,7 +2539,8 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
 /**
  * List the given key.
  */
-static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
+static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
+                       p11sak_kt kt, int long_print)
 {
     CK_ULONG keylength, count;
     CK_OBJECT_CLASS keyclass;
@@ -2495,6 +2549,10 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
     char *label = NULL;
     CK_RV rc;
     int CELL_SIZE = 11;
+    CK_INFO info;
+    CK_SLOT_INFO slot_info;
+    CK_TOKEN_INFO token_info;
+    struct p11_uri *uri;
 
     rc = tok_key_list_init(session, kt, label);
     if (rc != CKR_OK) {
@@ -2511,12 +2569,33 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
                 " |---------------------------------------------+-------------+-------------\n");
     }
 
+    rc = funcs->C_GetInfo(&info);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_GetInfo failed (error code 0x%lX: %s)\n", rc,
+            p11_get_ckr(rc));
+        goto done;
+    }
+
+    rc = funcs->C_GetSlotInfo(slot, &slot_info);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_GetSlotInfo failed (error code 0x%lX: %s)\n", rc,
+            p11_get_ckr(rc));
+        goto done;
+    }
+
+    rc = funcs->C_GetTokenInfo(slot, &token_info);
+    if (rc != CKR_OK) {
+        fprintf(stderr, "C_GetTokenInfo failed (error code 0x%lX: %s)\n", rc,
+            p11_get_ckr(rc));
+        goto done;
+    }
+
     while (1) {
         rc = funcs->C_FindObjects(session, &hkey, 1, &count);
         if (rc != CKR_OK) {
             fprintf(stderr, "C_FindObjects failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
-            return rc;
+            goto done;
         }
         if (count == 0)
             break;
@@ -2537,7 +2616,47 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
             printf("Label: %s\t\t", label);
         }
 
+        uri = p11_uri_new();
+        if (!uri)
+            return CKR_HOST_MEMORY;
+
+        uri->info = &info;
+        uri->slot_id = slot;
+        uri->slot_info = &slot_info;
+        uri->token_info = &token_info;
+
+        if (tok_attribute_alloc(session, hkey, &uri->obj_class[0]) == CKR_OK) {
+            rc = funcs->C_GetAttributeValue(session, hkey, &uri->obj_class[0], 1);
+            if (rc != CKR_OK) {
+                fprintf(stderr, "Object does not have CKA_CLASS attribute (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
+                p11_uri_attributes_free(uri);
+                continue;
+            }
+        }
+
+        if (tok_attribute_alloc(session, hkey, &uri->obj_id[0]) == CKR_OK) {
+            rc = funcs->C_GetAttributeValue(session, hkey, &uri->obj_id[0], 1);
+            if (rc != CKR_OK) {
+                fprintf(stderr, "Object does not have CKA_ID attribute (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
+                p11_uri_attributes_free(uri);
+                continue;
+            }
+        }
+
+        if (tok_attribute_alloc(session, hkey, &uri->obj_label[0]) == CKR_OK) {
+            rc = funcs->C_GetAttributeValue(session, hkey, &uri->obj_label[0], 1);
+            if (rc != CKR_OK) {
+                fprintf(stderr, "Object does not have CKA_LABEL attribute (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
+                p11_uri_attributes_free(uri);
+                continue;
+            }
+        }
+
         if (long_print) {
+            printf("\n      URI: %s", p11_uri_format(uri));
             printf("\n      Key: ");
             if (keylength > 0)
                 printf("%s %ld\t\t", keytype, keylength);
@@ -2546,6 +2665,9 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, p11sak_kt kt, int long_print)
 
             printf("\n      Attributes:\n");
         }
+
+        p11_uri_attributes_free(uri);
+        p11_uri_free(uri);
 
         switch (keyclass) {
         case CKO_SECRET_KEY:
@@ -2801,7 +2923,7 @@ static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 label, attr_string);
         break;
     case list_key:
-        rc = list_ckey(session, kt, long_print);
+        rc = list_ckey(session, slot, kt, long_print);
         break;
     case remove_key:
         rc = delete_key(session, kt, label, forceAll);
