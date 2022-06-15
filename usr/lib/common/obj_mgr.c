@@ -2261,3 +2261,250 @@ void dump_shm(LW_SHM_TYPE *global_shm, const char *s)
     }
 }
 #endif
+
+/*
+ * Re-enciphers a key that has a secure key in attribute CKA_IBM_OPAQUE by
+ * calling the reenc callback function.
+ * Returns CKR_ATTRIBUTE_TYPE_INVALID if the key does not contain a secure key.
+ * The object must hold the WRITE lock when this function is called!
+ */
+CK_RV obj_mgr_reencipher_secure_key(STDLL_TokData_t *tokdata, OBJECT *obj,
+                                    CK_RV (*reenc)(CK_BYTE *sec_key,
+                                                   CK_BYTE *reenc_sec_key,
+                                                   CK_ULONG sec_key_len,
+                                                   void *private),
+                                    void *private)
+{
+    CK_ATTRIBUTE *opaque_attr = NULL, *reenc_attr = NULL;
+    CK_KEY_TYPE key_type;
+    CK_RV rc;
+
+    /* Update token object from SHM, if needed */
+    if (object_is_token_object(obj)) {
+        rc = object_mgr_check_shm(tokdata, obj, WRITE_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("object_mgr_check_shm failed.\n");
+            goto out;
+        }
+    }
+
+    if (template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &key_type)
+                                                                != CKR_OK) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        goto out;
+    }
+
+    if (!template_attribute_find(obj->template, CKA_IBM_OPAQUE, &opaque_attr)) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        goto out;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE_REENC, opaque_attr->pValue,
+                         opaque_attr->ulValueLen, &reenc_attr);
+    if (rc != CKR_OK)
+        goto out;
+
+    if (key_type == CKK_AES_XTS) {
+        /*
+         * AES-XTS has 2 secure keys concatenated to each other.
+         * Re-encipher both keys separately.
+         */
+        rc = reenc(opaque_attr->pValue, reenc_attr->pValue,
+                   reenc_attr->ulValueLen / 2, private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Reencipher callback has failed, rc=0x%lx.\n",rc);
+            goto out;
+        }
+
+        rc = reenc((CK_BYTE *)opaque_attr->pValue + reenc_attr->ulValueLen / 2,
+                   reenc_attr->pValue, reenc_attr->ulValueLen / 2,
+                   private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Reencipher callback has failed, rc=0x%lx.\n",rc);
+            goto out;
+        }
+    } else {
+        rc = reenc(opaque_attr->pValue, reenc_attr->pValue, reenc_attr->ulValueLen,
+                   private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Reencipher callback has failed, rc=0x%lx.\n",rc);
+            goto out;
+        }
+    }
+
+    rc = template_update_attribute(obj->template, reenc_attr);
+    if (rc != CKR_OK)
+        goto out;
+    reenc_attr = NULL;
+
+    if (!object_is_session_object(obj)) {
+        rc = object_mgr_save_token_object(tokdata, obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to save token object, rc=%lx.\n",rc);
+            goto out;
+        }
+    }
+
+out:
+    if (reenc_attr != NULL)
+        free(reenc_attr);
+
+    return rc;
+}
+
+/*
+ * Moves the re-enciphered secure key from attribute CKA_IBM_OPAQUE_REENC to
+ * CKA_IBM_OPAQUE, and the previous secure key from CKA_IBM_OPAQUE to
+ * CKA_IBM_OPAQUE_OLD.
+ * If the is_blob_new_mk_cb callback function is specified, then it is called to
+ * determine if the key blob in CKA_IBM_OPAQUE is already enciphered with the
+ * new master key. If it returns TRUE, then the key blob from CKA_IBM_OPAQUE
+ * is not moved to CKA_IBM_OPAQUE_OLD, and CKA_IBM_OPAQUE_REENC is removed.
+ * Returns CKR_ATTRIBUTE_TYPE_INVALID if the key does not contain a secure key.
+ * The object must hold the WRITE lock when this function is called!
+ */
+CK_RV obj_mgr_reencipher_secure_key_finalize(STDLL_TokData_t *tokdata,
+                                             OBJECT *obj,
+                                             CK_BBOOL is_blob_new_mk_cb(
+                                                 STDLL_TokData_t *tokdata,
+                                                 OBJECT *obj,
+                                                 CK_BYTE *sec_key,
+                                                 CK_ULONG sec_key_len,
+                                                 void *cb_private),
+                                             void *cb_private)
+{
+    CK_ATTRIBUTE *opaque_attr = NULL, *old_attr = NULL, *reenc_attr = NULL;
+    CK_ATTRIBUTE *new_opaque_attr = NULL;
+    CK_KEY_TYPE key_type;
+    CK_RV rc;
+
+    /* Update token object from SHM, if needed */
+    if (object_is_token_object(obj)) {
+        rc = object_mgr_check_shm(tokdata, obj, WRITE_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("object_mgr_check_shm failed.\n");
+            goto out;
+        }
+    }
+
+    if (template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &key_type)
+                                                                != CKR_OK) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        goto out;
+    }
+
+    if (!template_attribute_find(obj->template, CKA_IBM_OPAQUE_REENC,
+                                 &reenc_attr)) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        goto out;
+    }
+
+    if (!template_attribute_find(obj->template, CKA_IBM_OPAQUE, &opaque_attr)) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        goto out;
+    }
+
+    if (is_blob_new_mk_cb != NULL &&
+        is_blob_new_mk_cb(tokdata, obj, opaque_attr->pValue,
+                          key_type == CKK_AES_XTS ?
+                                              opaque_attr->ulValueLen / 2 :
+                                              opaque_attr->ulValueLen,
+                          cb_private) == TRUE) {
+        TRACE_DEVEL("is_blob_new_mk_cb returned TRUE, don't move blobs\n");
+
+        rc = template_remove_attribute(obj->template, CKA_IBM_OPAQUE_REENC);
+        if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+            rc = CKR_OK;
+        if (rc != CKR_OK)
+            goto out;
+
+        goto remove;
+    }
+
+    rc = build_attribute(CKA_IBM_OPAQUE_OLD, opaque_attr->pValue,
+                         opaque_attr->ulValueLen, &old_attr);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = template_update_attribute(obj->template, old_attr);
+    if (rc != CKR_OK)
+        goto out;
+    old_attr = NULL;
+
+    rc = build_attribute(CKA_IBM_OPAQUE, reenc_attr->pValue,
+                         reenc_attr->ulValueLen, &new_opaque_attr);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = template_update_attribute(obj->template, new_opaque_attr);
+    if (rc != CKR_OK)
+        goto out;
+    new_opaque_attr = NULL;
+
+remove:
+    rc = template_remove_attribute(obj->template, CKA_IBM_OPAQUE_REENC);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc != CKR_OK)
+        goto out;
+
+    if (!object_is_session_object(obj)) {
+        rc = object_mgr_save_token_object(tokdata, obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to save token object, rc=%lx.\n", rc);
+            goto out;
+        }
+    }
+
+out:
+    if (old_attr != NULL)
+        free(old_attr);
+    if (new_opaque_attr != NULL)
+        free(new_opaque_attr);
+
+    return rc;
+}
+
+/*
+ * Removes the re-enciphered secure key from attribute CKA_IBM_OPAQUE_REENC
+ * and also CKA_IBM_OPAQUE_OLD.
+ * Returns CKR_ATTRIBUTE_TYPE_INVALID if the key does not contain a secure key.
+ * The object must hold the WRITE lock when this function is called!
+ */
+CK_RV obj_mgr_reencipher_secure_key_cancel(STDLL_TokData_t *tokdata,
+                                           OBJECT *obj)
+{
+    CK_RV rc;
+
+    /* Update token object from SHM, if needed */
+    if (object_is_token_object(obj)) {
+        rc = object_mgr_check_shm(tokdata, obj, WRITE_LOCK);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("object_mgr_check_shm failed.\n");
+            goto out;
+        }
+    }
+
+    rc = template_remove_attribute(obj->template, CKA_IBM_OPAQUE_REENC);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = template_remove_attribute(obj->template, CKA_IBM_OPAQUE_OLD);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc != CKR_OK)
+        goto out;
+
+    if (!object_is_session_object(obj)) {
+        rc = object_mgr_save_token_object(tokdata, obj);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to save token object, rc=%lx.\n",rc);
+            goto out;
+        }
+    }
+
+out:
+    return rc;
+}
