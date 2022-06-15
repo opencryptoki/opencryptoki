@@ -2151,7 +2151,8 @@ void object_mgr_add_to_shm(OBJECT *obj, LW_SHM_TYPE *shm);
 CK_RV object_mgr_del_from_shm(OBJECT *obj, LW_SHM_TYPE *shm);
 CK_RV object_mgr_get_shm_entry_for_obj(STDLL_TokData_t *tokdata, OBJECT *obj,
                                        TOK_OBJ_ENTRY **entry);
-CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj);
+CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj,
+                           OBJ_LOCK_TYPE lock_type);
 CK_RV object_mgr_search_shm_for_obj(TOK_OBJ_ENTRY *list,
                                     CK_ULONG lo,
                                     CK_ULONG hi,

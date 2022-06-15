@@ -930,33 +930,24 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
      * Accounting is done in shm, so check shm to see if object still exists.
      */
     if (!session_obj) {
-        /* object_mgr_check_shm() needs the object to hold the READ lock */
-        rc = object_lock(obj, READ_LOCK);
+        /* object_mgr_check_shm() needs the object to hold the object lock */
+        rc = object_lock(obj, lock_type);
         if (rc != CKR_OK)
             goto done;
         locked = TRUE;
 
-        rc = object_mgr_check_shm(tokdata, obj);
+        rc = object_mgr_check_shm(tokdata, obj, lock_type);
         if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_check_shm failed.\n");
             goto done;
         }
+    }
 
-        if (lock_type == READ_LOCK) {
-            /* already have the desired object lock */
-            rc = CKR_OK;
-            goto done;
-        }
-
-        rc = object_unlock(obj);
-        locked = FALSE;
+    if (!locked) {
+        rc = object_lock(obj, lock_type);
         if (rc != CKR_OK)
             goto done;
     }
-
-    rc = object_lock(obj, lock_type);
-    if (rc != CKR_OK)
-        goto done;
 
 done:
     if (rc == CKR_OK) {
@@ -1038,7 +1029,7 @@ CK_RV object_mgr_find_in_map2(STDLL_TokData_t *tokdata,
     *handle = fa.map_handle;
 
     if (!object_is_session_object(obj)) {
-        rc = object_mgr_check_shm(tokdata, obj);
+        rc = object_mgr_check_shm(tokdata, obj, READ_LOCK);
         if (rc != CKR_OK) {
             TRACE_DEVEL("object_mgr_check_shm failed.\n");
             return rc;
@@ -1866,13 +1857,26 @@ CK_RV object_mgr_get_shm_entry_for_obj(STDLL_TokData_t *tokdata, OBJECT *obj,
 }
 
 
-// The object must hold the READ lock when this function is called!
+// The object must hold the READ or WRITE lock when this function is called!
 //
-CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj)
+CK_RV object_mgr_check_shm(STDLL_TokData_t *tokdata, OBJECT *obj,
+                           OBJ_LOCK_TYPE lock_type)
 {
     TOK_OBJ_ENTRY *entry = NULL;
-    CK_BBOOL rd_locked = TRUE, wr_locked = FALSE;
+    CK_BBOOL rd_locked = FALSE, wr_locked = FALSE;
     CK_RV rc;
+
+    switch (lock_type) {
+    case READ_LOCK:
+        rd_locked = TRUE;
+        break;
+    case WRITE_LOCK:
+        wr_locked = TRUE;
+        break;
+    case NO_LOCK:
+        TRACE_ERROR("Function must be called with READ or WRITE lock.\n");
+        return CKR_FUNCTION_FAILED;
+    }
 
 retry:
     rc = XProcLock(tokdata);
@@ -1940,12 +1944,13 @@ retry:
     if (rc != CKR_OK)
         goto done;
 
-    rc = object_unlock(obj);
-    if (rc != CKR_OK)
-        goto done;
-    wr_locked = FALSE;
-
-    /* Re-acquire the READ lock only after we have released the XProcLock ! */
+    if (lock_type == READ_LOCK) {
+        rc = object_unlock(obj);
+        if (rc != CKR_OK)
+            goto done;
+        wr_locked = FALSE;
+        /* Re-acquire the READ lock only after we have released the XProcLock! */
+    }
 
 done:
     if (rc == CKR_OK) {
@@ -1958,9 +1963,9 @@ done:
     }
 
 done_no_xproc_unlock:
-    if (wr_locked)
+    if (lock_type == READ_LOCK && wr_locked)
         object_unlock(obj);
-    if (!rd_locked) {
+    if (lock_type == READ_LOCK && !rd_locked) {
         if (rc == CKR_OK)
             rc = object_lock(obj, READ_LOCK);
         else
