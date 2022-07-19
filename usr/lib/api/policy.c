@@ -315,7 +315,7 @@ static CK_RV policy_get_sig_size(CK_MECHANISM_PTR mech, struct objstrength *s,
     const struct mechrow *col = mechrow_from_numeric(mech->mechanism);
     CK_ULONG size;
 
-    if (!col)
+    if (!col || !s)
         return CKR_FUNCTION_FAILED;
     if (col->flags & MCF_MAC_GENERAL) {
         if (mech->ulParameterLen != sizeof(CK_MAC_GENERAL_PARAMS)) {
