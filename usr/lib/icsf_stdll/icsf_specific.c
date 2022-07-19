@@ -2255,7 +2255,8 @@ CK_RV icsftok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     *handle = node_number;
 
 done:
-    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL)
+    if (rc == CKR_OK && tokdata->statistics->increment_func != NULL &&
+        mapping != NULL)
         tokdata->statistics->increment_func(tokdata->statistics,
                                             session->session_info.slotID,
                                             mech, mapping->strength.strength);
