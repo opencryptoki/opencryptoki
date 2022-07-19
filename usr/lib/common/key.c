@@ -4569,6 +4569,7 @@ CK_RV dh_priv_unwrap_get_data(TEMPLATE *tmpl,
     p11_attribute_trim(prime);
     p11_attribute_trim(base);
     p11_attribute_trim(value);
+    num_bits = value->ulValueLen * 8;
 
     rc = template_update_attribute(tmpl, prime);
     if (rc != CKR_OK) {
