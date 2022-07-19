@@ -811,8 +811,14 @@ CK_RV load_private_token_objects_old(STDLL_TokData_t *tokdata)
             fclose(fp2);
             continue;
         }
-        //size--;
-        size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+        if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+            fclose(fp2);
+            OCK_SYSLOG(LOG_ERR, "Improper size of object %s (ignoring it)\n",
+                       fname);
+            continue;
+        }
+
+        size -= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
         buf = (CK_BYTE *) malloc(size);
         if (!buf) {
             fclose(fp2);
@@ -1488,7 +1494,14 @@ CK_RV reload_token_object_old(STDLL_TokData_t *tokdata, OBJECT *obj)
         goto done;
     }
 
-    size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);       // SAB
+    if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+        rc = CKR_FUNCTION_FAILED;
+        OCK_SYSLOG(LOG_ERR, "Improper size of object %s (ignoring it)\n",
+                   fname);
+        goto done;
+    }
+
+    size -= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
 
     buf = (CK_BYTE *) malloc(size);
     if (!buf) {
@@ -1615,8 +1628,15 @@ CK_RV load_public_token_objects_old(STDLL_TokData_t *tokdata)
             fclose(fp2);
             continue;
         }
-        // size--;
-        size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+
+        if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+            fclose(fp2);
+            OCK_SYSLOG(LOG_ERR, "Improper size of object %s (ignoring it)\n",
+                       fname);
+            continue;
+        }
+
+        size -= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
         buf = (CK_BYTE *) malloc(size);
         if (!buf) {
             fclose(fp2);
