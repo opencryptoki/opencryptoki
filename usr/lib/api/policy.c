@@ -407,10 +407,11 @@ static inline CK_RV policy_is_mgf_allowed(struct policy_private *pp,
                                           CK_RSA_PKCS_MGF_TYPE mgf)
 {
     if (mgf > CKG_VENDOR_DEFINED) {
-        if (pp->allowedvendormgfs & (1u << (mgf - CKG_VENDOR_DEFINED - 1)))
+        if ((mgf - CKG_VENDOR_DEFINED - 1) <= 31 &&
+            (pp->allowedvendormgfs & (1u << (mgf - CKG_VENDOR_DEFINED - 1))))
             return CKR_OK;
     } else {
-        if (pp->allowedmgfs & (1u << mgf))
+        if (mgf <= 31 && (pp->allowedmgfs & (1u << mgf)))
             return CKR_OK;
     }
     TRACE_WARNING("POLICY VIOLATION: mgf not allowed: 0x%lx\n", mgf);
@@ -1385,15 +1386,28 @@ static CK_RV policy_parse_mgfs(struct policy_private *pp,
                             i->key, i->line);
                 break;
             }
-            if (mgf >= CKG_VENDOR_DEFINED)
+            if (mgf >= CKG_VENDOR_DEFINED) {
+                if ((mgf - CKG_VENDOR_DEFINED - 1) > 31) {
+                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %hd)\n",
+                                i->key, i->line);
+                    rc = CKR_FUNCTION_FAILED;
+                    break;
+                }
                 vmgfs |= (1u << (mgf - CKG_VENDOR_DEFINED - 1));
-            else
+            } else {
+                if (mgf > 31) {
+                    TRACE_ERROR("POLICY: MGF invalid: \"%s\" (line %hd)\n",
+                                i->key, i->line);
+                    rc = CKR_FUNCTION_FAILED;
+                    break;
+                }
                 smgfs |= (1u << mgf);
+            }
         }
     }
     pp->allowedmgfs = smgfs;
     pp->allowedvendormgfs = vmgfs;
-    return CKR_OK;
+    return rc;
 }
 
 static CK_RV policy_parse_kdfs(struct policy_private *pp,
