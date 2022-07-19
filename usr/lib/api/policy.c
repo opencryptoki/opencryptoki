@@ -1717,7 +1717,8 @@ CK_RV policy_load(struct policy *p)
                     strerror(err));
         OCK_SYSLOG(LOG_ERR, "POLICY: Failed to open " OCK_POLICY_CFG ": %s\n",
                    strerror(err));
-        return CKR_GENERAL_ERROR;
+        rc = CKR_GENERAL_ERROR;
+        goto out;
     }
     rc = policy_check_cfg_file(fp, OCK_POLICY_CFG);
     if (rc != CKR_OK)
