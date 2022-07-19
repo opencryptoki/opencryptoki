@@ -3485,7 +3485,6 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
         TRACE_DEVEL("%s ber_put_bitstring/ber_flatten failed\n", __func__);
         ber_free(ber, 1);
         ber_bvfree(val);
-        free(buf);
         free(buf2);
         return CKR_FUNCTION_FAILED;
     }
