@@ -508,7 +508,7 @@ CK_RV SC_InitPIN(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     CK_FLAGS_32 *flags = NULL;
     TOKEN_DATA_VERSION *dat;
     unsigned char login_key[32], wrap_key[32], login_salt[64], wrap_salt[64];
-    uint64_t login_it, wrap_it;
+    uint64_t login_it = 0, wrap_it = 0;
 
     if (tokdata->initialized == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
