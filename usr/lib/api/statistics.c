@@ -128,7 +128,7 @@ static CK_RV statistics_increment(struct statistics *statistics,
 static CK_RV statistics_open_shm(struct statistics *statistics, int user,
                                  CK_BBOOL create)
 {
-    int i, err, clear = 0;
+    int i, err, clear = 0, fd;
     struct stat stat_buf;
 
     snprintf(statistics->shm_name, sizeof(statistics->shm_name) - 1,
@@ -145,15 +145,13 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
 
     TRACE_INFO("Statistics SHM name: '%s'\n", statistics->shm_name);
 
-    statistics->shm_handle = shm_open(statistics->shm_name, O_RDWR,
-                                      S_IRUSR | S_IWUSR);
-    if (statistics->shm_handle == -1) {
+    fd = shm_open(statistics->shm_name, O_RDWR, S_IRUSR | S_IWUSR);
+    if (fd == -1) {
         if (create) {
             /* try to create it */
-            statistics->shm_handle = shm_open(statistics->shm_name,
-                                              O_CREAT | O_RDWR,
-                                              S_IRUSR | S_IWUSR);
-            if (statistics->shm_handle == -1) {
+            fd = shm_open(statistics->shm_name, O_CREAT | O_RDWR,
+                          S_IRUSR | S_IWUSR);
+            if (fd == -1) {
                 err = errno;
                 TRACE_ERROR("Failed to create SHM '%s': %s\n",
                             statistics->shm_name,  strerror(err));
@@ -162,13 +160,13 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
                 return CKR_FUNCTION_FAILED;
             }
 
-            if (fchmod(statistics->shm_handle, S_IRUSR | S_IWUSR) == -1) {
+            if (fchmod(fd, S_IRUSR | S_IWUSR) == -1) {
                 err = errno;
                 TRACE_ERROR("Failed to change mode of SHM '%s': %s\n",
                             statistics->shm_name,  strerror(err));
                 OCK_SYSLOG(LOG_ERR, "Failed to change mode of SHM '%s': %s\n",
                            statistics->shm_name, strerror(err));
-                close(statistics->shm_handle);
+                close(fd);
                 shm_unlink(statistics->shm_name);
                 return CKR_FUNCTION_FAILED;
             }
@@ -182,13 +180,13 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
         }
     }
 
-    if (fstat(statistics->shm_handle, &stat_buf)) {
+    if (fstat(fd, &stat_buf)) {
         err = errno;
         TRACE_ERROR("Failed to stat SHM '%s': %s\n",
                     statistics->shm_name,  strerror(err));
         OCK_SYSLOG(LOG_ERR, "Failed to stat SHM '%s': %s\n",
                    statistics->shm_name, strerror(err));
-        close(statistics->shm_handle);
+        close(fd);
         return CKR_FUNCTION_FAILED;
     }
 
@@ -201,19 +199,19 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
         TRACE_ERROR("SHM '%s' has wrong mode/owner\n", statistics->shm_name);
         OCK_SYSLOG(LOG_ERR, "SHM '%s' has wrong mode/owner\n",
                    statistics->shm_name);
-        close(statistics->shm_handle);
+        close(fd);
         return CKR_FUNCTION_FAILED;
     }
 
     if ((CK_ULONG)stat_buf.st_size != statistics->shm_size) {
         if (create) {
-            if (ftruncate(statistics->shm_handle, statistics->shm_size) < 0) {
+            if (ftruncate(fd, statistics->shm_size) < 0) {
                 err = errno;
                 TRACE_ERROR("Failed to set size of SHM '%s': %s\n",
                             statistics->shm_name,  strerror(err));
                 OCK_SYSLOG(LOG_ERR, "Failed to set size of SHM '%s': %s\n",
                            statistics->shm_name, strerror(err));
-                close(statistics->shm_handle);
+                close(fd);
                 return CKR_FUNCTION_FAILED;
             }
 
@@ -222,20 +220,21 @@ static CK_RV statistics_open_shm(struct statistics *statistics, int user,
             TRACE_ERROR("SHM '%s' has wrong size\n", statistics->shm_name);
             OCK_SYSLOG(LOG_ERR, "SHM '%s' has wrong size\n",
                        statistics->shm_name);
+            close(fd);
             return CKR_FUNCTION_FAILED;
         }
     }
 
     statistics->shm_data = (CK_BYTE *)mmap(NULL, statistics->shm_size,
                                            PROT_READ | PROT_WRITE, MAP_SHARED,
-                                           statistics->shm_handle, 0);
+                                           fd, 0);
+    close(fd);
     if (statistics->shm_data == MAP_FAILED) {
         err = errno;
         TRACE_ERROR("Failed to memory-map SHM '%s': %s\n",
                     statistics->shm_name, strerror(err));
         OCK_SYSLOG(LOG_ERR, "Failed to memory-map SHM '%s': %s\n",
                    statistics->shm_name, strerror(err));
-        close(statistics->shm_handle);
         statistics->shm_data = NULL;
         return CKR_FUNCTION_FAILED;
     }
@@ -251,11 +250,10 @@ static CK_RV statistics_close_shm(struct statistics *statistics,
 {
     CK_RV rc;
 
-    if (statistics->shm_data == NULL || statistics->shm_handle == -1)
+    if (statistics->shm_data == NULL)
         return CKR_ARGUMENTS_BAD;
 
     munmap(statistics->shm_data, statistics->shm_size);
-    close(statistics->shm_handle);
 
     if (destroy) {
         rc = shm_unlink(statistics->shm_name);
@@ -280,7 +278,6 @@ CK_RV statistics_init(struct statistics *statistics,
     CK_RV rc;
 
     statistics->flags = flags;
-    statistics->shm_handle = -1;
     statistics->shm_data = NULL;
 
     /* Count number of configured slots and calculate slot offsets. */
