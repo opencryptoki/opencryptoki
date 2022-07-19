@@ -633,6 +633,7 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
                                    (CK_GCM_PARAMS *)ptr);
             if (rc != CKR_OK) {
                 TRACE_ERROR("aes_gcm_dup_param failed\n");
+                free(ptr);
                 goto done;
             }
             break;
