@@ -142,6 +142,12 @@ CK_RV dup_attribute_array(CK_ATTRIBUTE_PTR orig, CK_ULONG orig_len,
     CK_ATTRIBUTE_PTR dest;
     CK_ULONG dest_len;
 
+    if (orig == NULL || orig_len == 0) {
+        *p_dest = NULL;
+        *p_dest_len = 0;
+        return CKR_OK;
+    }
+
     /* Allocate the new array */
     dest_len = orig_len;
     dest = malloc(dest_len * sizeof(*dest));
@@ -169,6 +175,9 @@ CK_ATTRIBUTE_PTR get_attribute_by_type(CK_ATTRIBUTE_PTR attrs,
                                        CK_ULONG attrs_len, CK_ULONG type)
 {
     CK_ATTRIBUTE_PTR it;
+
+    if (attrs == NULL || attrs_len == 0)
+        return NULL;
 
     for (it = attrs; it != attrs + attrs_len; it++)
         if (it->type == type)
