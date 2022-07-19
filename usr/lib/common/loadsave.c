@@ -2344,6 +2344,8 @@ CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         /* New token objects files created by mkstemp have a size of zero */
         if (sb.st_size == 0) {
             new = 1;
+            fclose(fp);
+            fp = NULL;
             goto do_work;
         }
 
