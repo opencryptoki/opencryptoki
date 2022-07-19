@@ -524,8 +524,14 @@ static CK_RV read_object_00(FILE *fp, const char *name, unsigned int size,
         goto done;
     }
 
+    if (size <= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL)) {
+        TRACE_ERROR("Improper size of object %s (ignoring it)\n", name);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
     /* Allocate buffer for obj */
-    size = size - sizeof(CK_ULONG_32) - sizeof(CK_BBOOL);
+    size -= sizeof(CK_ULONG_32) + sizeof(CK_BBOOL);
     buf = malloc(size);
     if (!buf) {
         TRACE_ERROR("Cannot malloc %d bytes for object %s.\n", size, name);
