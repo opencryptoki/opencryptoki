@@ -183,6 +183,7 @@ static CK_RV icsf_policy_get_attr(void *data,
     rc = icsf_get_attribute(d->ld, &reason, d->icsf_object, a, 1);
     if (rc != CKR_OK) {
         TRACE_DEVEL("icsf_get_attribute failed\n");
+        free(a);
         return icsf_to_ock_err(rc, reason);
     }
     *attr = a;
