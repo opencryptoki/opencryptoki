@@ -1004,6 +1004,8 @@ CK_RV icsftok_init_token(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
 
     /* Check pin */
     rc = compute_sha1(tokdata, pin, pin_len, hash_sha);
+    if (rc != CKR_OK)
+        goto done;
     if (memcmp(tokdata->nv_token_data->so_pin_sha, hash_sha,
                SHA1_HASH_SIZE) != 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_INCORRECT));
