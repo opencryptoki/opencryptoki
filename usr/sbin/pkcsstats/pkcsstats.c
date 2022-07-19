@@ -80,16 +80,17 @@ static void make_shm_name(char *shm_name, size_t max_shm_len, int user_id)
 }
 
 static int open_shm(uid_t user_id, const char *user_name,
-                    CK_ULONG num_slots, int *shm_fd, CK_BYTE **shm_data,
+                    CK_ULONG num_slots, CK_BYTE **shm_data,
                     CK_ULONG *shm_size)
 {
     char shm_name[PATH_MAX];
     struct stat stat_buf;
+    int shm_fd;
 
     make_shm_name(shm_name, sizeof(shm_name), user_id);
 
-    *shm_fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
-    if (*shm_fd == -1) {
+    shm_fd = shm_open(shm_name, O_RDWR, S_IRUSR | S_IWUSR);
+    if (shm_fd == -1) {
         if (errno == ENOENT)
             warnx("No statistics are available for user '%s'", user_name);
         else
@@ -98,10 +99,10 @@ static int open_shm(uid_t user_id, const char *user_name,
         return 1;
     }
 
-    if (fstat(*shm_fd, &stat_buf)) {
+    if (fstat(shm_fd, &stat_buf)) {
         warnx("Failed to open statistics for user '%s': stat('%s'): %s",
               user_name, shm_name, strerror(errno));
-        close(*shm_fd);
+        close(shm_fd);
         return 1;
     }
 
@@ -113,7 +114,7 @@ static int open_shm(uid_t user_id, const char *user_name,
         (stat_buf.st_mode & ~S_IFMT) != (S_IRUSR | S_IWUSR)) {
         warnx("Failed to open statistics for user '%s': SHM '%s' has wrong mode/owner",
               user_name, shm_name);
-        close(*shm_fd);
+        close(shm_fd);
         return 1;
     }
 
@@ -122,30 +123,29 @@ static int open_shm(uid_t user_id, const char *user_name,
     if ((CK_ULONG)stat_buf.st_size != *shm_size) {
         warnx("Failed to open statistics for user '%s': SHM '%s' has wrong size",
               user_name, shm_name);
-        close(*shm_fd);
+        close(shm_fd);
         return 1;
     }
 
     *shm_data = (CK_BYTE *)mmap(NULL, *shm_size,
                                 PROT_READ | PROT_WRITE, MAP_SHARED,
-                                *shm_fd, 0);
+                                shm_fd, 0);
+    close(shm_fd);
     if (*shm_data == MAP_FAILED) {
         warnx("Failed to open statistics for user '%s': mmap('%s'): %s",
               user_name, shm_name,  strerror(errno));
-        close(*shm_fd);
         return 1;
     }
 
     return 0;
 }
 
-static void close_shm(int shm_fd, CK_BYTE *shm_data, CK_ULONG shm_size)
+static void close_shm(CK_BYTE *shm_data, CK_ULONG shm_size)
 {
-    if (shm_data == NULL || shm_fd == -1)
+    if (shm_data == NULL)
          return;
 
      munmap(shm_data, shm_size);
-     close(shm_fd);
 }
 
 typedef int (*user_f)(int user_id, const char *user_name, void *private);
@@ -307,11 +307,11 @@ static int reset_shm(uid_t user_id, const char *user_name,
                      CK_ULONG num_slots, CK_SLOT_ID *slots,
                      bool slot_id_specified, CK_SLOT_ID slot_id)
 {
-    int rc = 0, shm_fd = -1;
+    int rc = 0;
     CK_BYTE *shm_data = NULL;
     CK_ULONG shm_size = 0;
 
-    rc = open_shm(user_id, user_name, num_slots, &shm_fd, &shm_data, &shm_size);
+    rc = open_shm(user_id, user_name, num_slots, &shm_data, &shm_size);
     if (rc != 0)
         return rc;
 
@@ -326,7 +326,7 @@ static int reset_shm(uid_t user_id, const char *user_name,
             printf("Resetted statistics for user '%s'\n", user_name);
     }
 
-    close_shm(shm_fd, shm_data, shm_size);
+    close_shm(shm_data, shm_size);
     return rc;
 }
 
@@ -566,12 +566,11 @@ static int display_slot_cb(CK_SLOT_ID slot_id, CK_BYTE *slot_data,
 static int display_stats(int user_id, const char *user_name,
                          struct display_data* dd)
 {
-    int rc = 0, shm_fd = -1;
+    int rc = 0;
     CK_BYTE *shm_data = NULL;
     CK_ULONG shm_size = 0;
 
-    rc = open_shm(user_id, user_name, dd->num_slots, &shm_fd, &shm_data,
-                  &shm_size);
+    rc = open_shm(user_id, user_name, dd->num_slots, &shm_data, &shm_size);
     if (rc != 0)
         return rc;
 
@@ -592,7 +591,7 @@ static int display_stats(int user_id, const char *user_name,
         printf("\n\t\t\t]\n\t\t}");
     dd->first_user = false;
 
-    close_shm(shm_fd, shm_data, shm_size);
+    close_shm(shm_data, shm_size);
     return rc;
 }
 
@@ -653,19 +652,18 @@ static int summary_slot_cb(CK_SLOT_ID slot_id, CK_BYTE *slot_data,
 static int display_summary_cb(int user_id, const char *user_name, void *private)
 {
     struct summary_data *sd = private;
-    int rc = 0, shm_fd = -1;
+    int rc = 0;
     CK_BYTE *shm_data = NULL;
     CK_ULONG shm_size = 0;
 
-    rc = open_shm(user_id, user_name, sd->num_slots, &shm_fd, &shm_data,
-                  &shm_size);
+    rc = open_shm(user_id, user_name, sd->num_slots, &shm_data, &shm_size);
     if (rc != 0)
         return rc;
 
     rc = for_all_slots(summary_slot_cb, sd, shm_data, shm_size,
                        sd->num_slots, sd->slots, false, 0);
 
-    close_shm(shm_fd, shm_data, shm_size);
+    close_shm(shm_data, shm_size);
     return rc;
 
 }

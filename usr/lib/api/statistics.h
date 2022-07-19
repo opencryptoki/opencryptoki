@@ -50,7 +50,6 @@ struct statistics {
     CK_ULONG slot_shm_offsets[NUMBER_SLOTS_MANAGED];
     CK_ULONG shm_size;
     char shm_name[PATH_MAX];
-    int shm_handle;
     CK_BYTE *shm_data;
     statistics_increment_f increment_func; /* NULL if statistics disabled */
 };
