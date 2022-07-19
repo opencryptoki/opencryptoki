@@ -67,6 +67,9 @@ static CK_RV statistics_increment(struct statistics *statistics,
     case CKM_SHA256_RSA_PKCS_PSS:
     case CKM_SHA384_RSA_PKCS_PSS:
     case CKM_SHA512_RSA_PKCS_PSS:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_RSA_PKCS_PSS_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
         implicit_mech.mechanism =
                 ((CK_RSA_PKCS_PSS_PARAMS *)mech->pParameter)->hashAlg;
         rc = statistics_increment(statistics, slot, &implicit_mech,
@@ -84,6 +87,9 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         break;
     case CKM_RSA_PKCS_OAEP:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_RSA_PKCS_OAEP_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
         implicit_mech.mechanism =
                 ((CK_RSA_PKCS_OAEP_PARAMS *)mech->pParameter)->hashAlg;
         rc = statistics_increment(statistics, slot, &implicit_mech,
@@ -101,6 +107,9 @@ static CK_RV statistics_increment(struct statistics *statistics,
             return rc;
         break;
     case CKM_ECDH1_DERIVE:
+        if (mech->pParameter == NULL ||
+            mech->ulParameterLen != sizeof(CK_ECDH1_DERIVE_PARAMS))
+            return CKR_MECHANISM_PARAM_INVALID;
         if (((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf == CKD_NULL)
             break;
         rc = digest_from_kdf(((CK_ECDH1_DERIVE_PARAMS *)mech->pParameter)->kdf,
