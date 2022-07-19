@@ -1226,7 +1226,7 @@ static CK_RV print_custom_attrs(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hkey
     int f;
     struct ConfigBaseNode *c, *name, *hex_string, *type;
     struct ConfigStructNode *structnode;
-    int def_attr;
+    int def_attr = 0;
     
     if (cfg != NULL)
     {
