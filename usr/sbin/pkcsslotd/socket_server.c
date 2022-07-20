@@ -210,7 +210,7 @@ static void proc_free(void *client);
 static int admin_xfer_complete(void *client);
 static void admin_event_limit_underrun(struct admin_conn_info *conn);
 static int admin_event_delivered(struct admin_conn_info *conn,
-                                 struct event_info *event);
+                                 struct event_info **event);
 static inline void admin_get(struct admin_conn_info *conn);
 static inline void admin_put(struct admin_conn_info *conn);
 static void admin_hangup(void *client);
@@ -628,10 +628,11 @@ static void event_delivered(struct event_info *event)
     if (event->admin_ref != NULL) {
         conn = event->admin_ref;
         admin_get(conn);
-        rc = admin_event_delivered(conn, event);
+        rc = admin_event_delivered(conn, &event);
         if (rc != 0) {
             admin_hangup(conn);
-            event_free(event);
+            if (event != NULL)
+                event_free(event);
         }
         admin_put(conn);
     } else {
@@ -1147,11 +1148,11 @@ static void admin_event_limit_underrun(struct admin_conn_info *conn)
 }
 
 static int admin_event_delivered(struct admin_conn_info *conn,
-                                 struct event_info *event)
+                                 struct event_info **event)
 {
     int rc;
 
-    DbgLog(DL3, "%s: admin: %p event: %p", __func__, conn, event);
+    DbgLog(DL3, "%s: admin: %p event: %p", __func__, conn, *event);
 
     /*
      * A non-zero return code returned by this function causes the caller to
@@ -1163,32 +1164,33 @@ static int admin_event_delivered(struct admin_conn_info *conn,
         return -EINVAL;
     }
 
-    if (event->event.flags & EVENT_FLAGS_REPLY_REQ) {
-        if (conn->event != event) {
+    if ((*event)->event.flags & EVENT_FLAGS_REPLY_REQ) {
+        if (conn->event != *event) {
             TraceLog("%s: event not the current event", __func__);
             return -EINVAL;
         }
 
         DbgLog(DL3, "%s: Reply version:      %u", __func__,
-               event->reply.version);
+               (*event)->reply.version);
         DbgLog(DL3, "%s: Reply positive:     %u", __func__,
-               event->reply.positive_replies);
+               (*event)->reply.positive_replies);
         DbgLog(DL3, "%s: Reply negative:     %u", __func__,
-               event->reply.negative_replies);
+               (*event)->reply.negative_replies);
         DbgLog(DL3, "%s: Reply not-handled:  %u", __func__,
-               event->reply.nothandled_replies);
+               (*event)->reply.nothandled_replies);
 
         conn->state = ADMIN_SEND_REPLY;
-        rc = client_socket_send(&conn->client_info, &event->reply,
-                                sizeof(event->reply));
+        rc = client_socket_send(&conn->client_info, &(*event)->reply,
+                                sizeof((*event)->reply));
         return rc;
     }
 
     /* No reply required, free the event, and receive the next one */
-    if (event->admin_ref != NULL)
-        admin_put(event->admin_ref);
-    event->admin_ref = NULL;
-    event_free(event);
+    if ((*event)->admin_ref != NULL)
+        admin_put((*event)->admin_ref);
+    (*event)->admin_ref = NULL;
+    event_free(*event);
+    *event = NULL;
 
     conn->event = event_new(0, conn);
     if (conn->event == NULL) {
