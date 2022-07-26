@@ -8977,6 +8977,8 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                 if (rc != CKR_BUFFER_TOO_SMALL)
                     goto out;
             }
+            /* counter was updated in case of CKR_BUFFER_TOO_SMALL */
+            *pulCount = counter;
         } while (rc == CKR_BUFFER_TOO_SMALL);
 
         for (i = 0; i < counter; i++) {
