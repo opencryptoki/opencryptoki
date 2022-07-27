@@ -148,19 +148,19 @@ fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
 echo "* TESTCASE list-key des PASS Listed random des public keys CK_BBOOL attribute"
 else
 echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BBOOL attribute"
 fi
 # CK_ULONG
-if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
 echo "* TESTCASE list-key des PASS Listed random des public keys CK_ULONG attribute"
 else
 echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_ULONG attribute"
 fi
 # CK_BYTE
-if [[ $(grep -A 19 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
 echo "* TESTCASE list-key des PASS Listed random des public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BYTE attribute"
@@ -185,19 +185,19 @@ fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
 echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BBOOL attribute"
 else
 echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BBOOL attribute"
 fi
 # CK_ULONG
-if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
 echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_ULONG attribute"
 else
 echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_ULONG attribute"
 fi
 # CK_BYTE
-if [[ $(grep -A 19 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
 echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BYTE attribute"
@@ -256,19 +256,19 @@ fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "3" ]]; then
+if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "3" ]]; then
 echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BBOOL attribute"
 else
 echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BBOOL attribute"
 fi
 # CK_ULONG
-if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
 echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_ULONG attribute"
 else
 echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_ULONG attribute"
 fi
 # CK_BYTE
-if [[ $(grep -A 57 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
 echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BYTE attribute"
@@ -378,19 +378,19 @@ fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
+if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
 echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BBOOL attribute"
 else
 echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BBOOL attribute"
 fi
 # CK_ULONG
-if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS_BITS:') == "3" ]]; then
+if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS_BITS:') == "3" ]]; then
 echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_ULONG attribute"
 else
 echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_ULONG attribute"
 fi
 # CK_BYTE
-if [[ $(grep -A 205 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS:') == "6" ]]; then
+if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS:') == "6" ]]; then
 echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BYTE attribute"
@@ -500,19 +500,19 @@ fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
+if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
 echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BBOOL attribute"
 else
 echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BBOOL attribute"
 fi
 # CK_ULONG
-if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
 echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_ULONG attribute"
 else
 echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_ULONG attribute"
 fi
 # CK_BYTE
-if [[ $(grep -A 84 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
 echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribute"
