@@ -56,6 +56,10 @@ testcases/pkcs11/sess_mgmt_tests
 testcases/pkcs11/sess_opstate
 testcases/policy/policytest
 testcases/policy/policytest.sh
+testcases/unit/configdump
+testcases/unit/hashmaptest
+testcases/unit/mechtabletest
+testcases/unit/policytest
 usr/sbin/p11sak/p11sak
 usr/sbin/pkcscca/pkcscca
 usr/sbin/pkcsconf/pkcsconf
@@ -65,6 +69,10 @@ usr/sbin/pkcsstats/pkcsstats
 usr/sbin/pkcstok_migrate/pkcstok_migrate
 tools/policyexamplegen
 tools/tableidxgen
+
+# ignore test logs
+*.log
+*.trs
 
 # ignore build stubs
 *.lai
