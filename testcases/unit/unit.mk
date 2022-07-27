@@ -1,8 +1,10 @@
 check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
-	testcases/unit/mechtabletest testcases/unit/configdump
+	testcases/unit/mechtabletest testcases/unit/configdump		\
+	testcases/unit/buffertest testcases/unit/uritest
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
-	testcases/unit/mechtabletest testcases/unit/configdump
+	testcases/unit/mechtabletest testcases/unit/configdump		\
+	testcases/unit/buffertest testcases/unit/uritest
 
 testcases_unit_policytest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/lib/api -I${top_srcdir}/usr/include		\
@@ -42,3 +44,15 @@ testcases_unit_configdump_SOURCES = testcases/unit/configdump.c	\
 
 testcases_unit_configdump_CFLAGS=-I${top_srcdir}/usr/lib/config	\
 	-I${top_builddir}/usr/lib/config
+
+testcases_unit_buffertest_SOURCES=testcases/unit/buffertest.c	\
+	usr/lib/common/buffer.c
+
+testcases_unit_buffertest_CFLAGS=-I${top_srcdir}/usr/lib/common
+
+testcases_unit_uritest_SOURCES=testcases/unit/uritest.c		\
+	usr/lib/common/uri.c usr/lib/common/buffer.c		\
+	usr/lib/common/p11util.c
+
+testcases_unit_uritest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
+	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api
