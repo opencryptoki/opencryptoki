@@ -397,6 +397,7 @@ static inline void confignode_freenumpairlist(struct ConfigNumPairListNode *n)
         free(n->base.key);
         confignode_deepfree(n->beforeFirst);
         confignode_deepfree(n->value);
+        free(n->end);
         free(n);
     }
 }

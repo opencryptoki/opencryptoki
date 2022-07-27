@@ -216,7 +216,7 @@ configelem:
         $$ = confignode_append(&(n->base), $2);
         $1 = NULL;
         $2 = NULL;
-    }    
+    }
     |
     /* A \n 1 2 B */
     BARE eocplus numpairlist BARE eocstar {
@@ -234,6 +234,7 @@ configelem:
         struct ConfigBareStringConstNode *n = confignode_allocbarestringconst($1, @1.first_line);
         if (!n) { YYERROR; }
         $$ = confignode_append(&(n->base), $2);
+        $1 = NULL;
         $2 = NULL;
     }
 
