@@ -14889,6 +14889,20 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
                        "states: 0x%lx\n", tokdata->slot_id, rc);
             goto out;
         }
+
+        /* Re-enciper the wrap blob */
+        TRACE_INFO("Re-encipher the wrap blob\n");
+        rc = ep11tok_reencipher_blob(tokdata, &rd.target_info,
+                                     ep11_data->raw2key_wrap_blob,
+                                     ep11_data->raw2key_wrap_blob_l,
+                                     ep11_data->raw2key_wrap_blob_reenc);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Re-encipher of wrap blob failed.\n");
+            OCK_SYSLOG(LOG_ERR,
+                       "Slot %lu: Failed to re-encipher the wrap blob: 0x%lx\n",
+                       tokdata->slot_id, rc);
+            goto out;
+        }
     }
 
 out:
