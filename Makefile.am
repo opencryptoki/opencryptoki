@@ -247,7 +247,12 @@ installcheck-local: all
 ci-installcheck: ci-prepare installcheck
 	killall -HUP pkcsslotd || true
 	@sbindir@/pkcsslotd
-	cd ${srcdir}/testcases && export PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so && export PKCS11_USER_PIN=$(PKCS11_USER_PIN) && ./misc_tests/p11sak_test.sh | tee log-p11sak.txt
+	pushd ${srcdir}/testcases
+	export PKCSLIB=@libdir@/opencryptoki/libopencryptoki.so
+	export PKCS11_USER_PIN=$(PKCS11_USER_PIN)
+	./misc_tests/p11sak_test.sh | tee log-p11sak.txt
+	./misc_tests/pkcsconf_test.sh | tee log-pkcsconf.txt
+	popd
 	@sbindir@/pkcsstats --all
 	killall -HUP pkcsslotd
 	@echo "done"
