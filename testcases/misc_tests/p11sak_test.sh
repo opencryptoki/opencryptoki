@@ -165,6 +165,12 @@ echo "* TESTCASE list-key des PASS Listed random des public keys CK_BYTE attribu
 else
 echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BYTE attribute"
 fi
+# URI
+if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
+echo "* TESTCASE list-key des PASS list des key pkcs#11 URI"
+else
+echo "* TESTCASE list-key des FAIL list des key pkcs#11 URI"
+fi
 
 
 # check 3DES
@@ -201,6 +207,12 @@ if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == 
 echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BYTE attribute"
+fi
+# URI
+if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
+echo "* TESTCASE list-key 3des PASS list 3des key pkcs#11 URI"
+else
+echo "* TESTCASE list-key 3des FAIL list 3des key pkcs#11 URI"
 fi
 
 
@@ -272,6 +284,12 @@ if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') =
 echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BYTE attribute"
+fi
+# URI
+if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "3" ]]; then
+echo "* TESTCASE list-key aes PASS list aes key pkcs#11 URI"
+else
+echo "* TESTCASE list-key aes FAIL list aes key pkcs#11 URI"
 fi
 
 
@@ -395,6 +413,12 @@ echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BYTE attribu
 else
 echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BYTE attribute"
 fi
+# URI
+if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'URI: pkcs11:.*type=public') == "3" ]]; then
+echo "* TESTCASE list-key rsa PASS list rsa public key pkcs#11 URI"
+else
+echo "* TESTCASE list-key rsa FAIL list rsa public key pkcs#11 URI"
+fi
 
 
 # check EC prime256v1 public key
@@ -516,6 +540,12 @@ if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MOD
 echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BYTE attribute"
 else
 echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribute"
+fi
+# URI
+if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'URI: pkcs11:.*type=public') == "3" ]]; then
+echo "* TESTCASE list-key ec PASS list ec public key pkcs#11 URI"
+else
+echo "* TESTCASE list-key ec FAIL list ec public key pkcs#11 URI"
 fi
 
 
