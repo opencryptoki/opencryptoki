@@ -316,6 +316,205 @@ typedef struct {
                     }                                                    \
                 } while (0);
 
+/*
+ * Macros to enclose EP11 library calls with 1, 2 or 3 key blobs as argument.
+ * If a master key change is active, and the single APQN has the new WK,
+ * obtain and use the re-enciphered blob(s) from CKA_IBM_OPAQUE_REENC from
+ * the key object(s).
+ * If a master key change is active, and the EP11 library call fails with
+ * CKR_IBM_WKID_MISMATCH obtain the re-enciphered blob(s) from
+ * CKA_IBM_OPAQUE_REENC from the key object(s) and retry the library call.
+ * If the retry was successful, indicate that the single APQN has the new WK.
+ */
+#define RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blobsize,\
+                               useblob, useblobsize, rc) \
+                RETRY_REENC_BLOB3_START(tokdata, target_info, obj, blob, \
+                                        blobsize, useblob, useblobsize,  \
+                                        NULL, blob, blobsize, blob,      \
+                                        blobsize,  NULL, blob, blobsize, \
+                                        blob, blobsize, rc)
+
+#define RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, \
+                             rc)                                         \
+                RETRY_REENC_BLOB3_END(tokdata, target_info, useblob,     \
+                                      useblobsize, NULL, 0, NULL, 0, rc)
+
+#define RETRY_REENC_BLOB2_START(tokdata, target_info, obj1, blob1,       \
+                                blobsize1, useblob1, useblobsize1,       \
+                                obj2, blob2, blobsize2, useblob2,        \
+                                useblobsize2, rc)                        \
+                RETRY_REENC_BLOB3_START(tokdata, target_info, obj1,      \
+                                        blob1, blobsize1, useblob1,      \
+                                        useblobsize1, obj2, blob2,       \
+                                        blobsize2, useblob2,             \
+                                        useblobsize2, NULL, blob1,       \
+                                        blobsize1, blob1, blobsize1, rc)
+
+#define RETRY_REENC_BLOB2_END(tokdata, target_info, useblob1,            \
+                              useblobsize1, useblob2, useblobsize2, rc)  \
+                RETRY_REENC_BLOB3_END(tokdata, target_info, useblob1,    \
+                                      useblobsize1, useblob2,            \
+                                      useblobsize2, NULL, 0, rc)
+
+#define RETRY_REENC_BLOB3_START(tokdata, target_info, obj1, blob1,       \
+                                blobsize1, useblob1, useblobsize1,       \
+                                obj2, blob2, blobsize2, useblob2,        \
+                                useblobsize2, obj3, blob3, blobsize3,    \
+                                useblob3, useblobsize3, rc)              \
+                do {                                                     \
+                    int retry = 0;                                       \
+                    do {                                                 \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            ((target_info)->single_apqn_has_new_wk ||    \
+                             retry == 1)) {                              \
+                            /* New WK is set on single APQN */           \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            (rc) = obj_opaque_2_reenc_blob((tokdata),    \
+                                                   (obj1), &(useblob1),  \
+                                                   &(useblobsize1));     \
+                            if ((rc) == CKR_TEMPLATE_INCOMPLETE) {       \
+                                (useblob1) = (blob1);                    \
+                                (useblobsize1) = (blobsize1);            \
+                            } else if ((rc) != CKR_OK) {                 \
+                                TRACE_ERROR("%s reenc blob1 invalid\n",  \
+                                            __func__);                   \
+                                break;                                   \
+                            }                                            \
+                            if (obj2 != NULL) {                          \
+                                (rc) = obj_opaque_2_reenc_blob((tokdata),\
+                                                     (obj2), &(useblob2),\
+                                                     &(useblobsize2));   \
+                                if ((rc) == CKR_TEMPLATE_INCOMPLETE) {   \
+                                    (useblob2) = (blob2);                \
+                                    (useblobsize2) = (blobsize2);        \
+                                } else if ((rc) != CKR_OK) {             \
+                                    TRACE_ERROR(                         \
+                                            "%s reenc blob2 invalid\n",  \
+                                            __func__);                   \
+                                    break;                               \
+                                }                                        \
+                            }                                            \
+                            if (obj3 != NULL) {                          \
+                                (rc) = obj_opaque_2_reenc_blob((tokdata),\
+                                                     (obj3), &(useblob3),\
+                                                     &(useblobsize3));   \
+                                if ((rc) == CKR_TEMPLATE_INCOMPLETE) {   \
+                                    (useblob3) = (blob3);                \
+                                    (useblobsize3) = (blobsize3);        \
+                                } else if ((rc) != CKR_OK) {             \
+                                    TRACE_ERROR(                         \
+                                            "%s reenc blob3 invalid\n",  \
+                                            __func__);                   \
+                                    break;                               \
+                                }                                        \
+                            }                                            \
+                            retry = 1;                                   \
+                        }  else {                                        \
+                            (useblob1) = (blob1);                        \
+                            (useblobsize1) = (blobsize1);                \
+                            if (obj2 != NULL) {                          \
+                                (useblob2) = (blob2);                    \
+                                (useblobsize2) = (blobsize2);            \
+                            }                                            \
+                            if (obj3 != NULL) {                          \
+                                (useblob3) = (blob3);                    \
+                                (useblobsize3) = (blobsize3);            \
+                            }                                            \
+                        }
+
+#define RETRY_REENC_BLOB3_END(tokdata, target_info, useblob1,            \
+                              useblobsize1, useblob2, useblobsize2,      \
+                              useblob3, useblobsize3, rc)                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            /* Single APQN seems to now have new WK */   \
+                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
+                                        "reenc-blob(s)\n", __func__);    \
+                            retry = 1;                                   \
+                            continue;                                    \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 1 &&                                \
+                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
+                            (rc) != CKR_IBM_TARGET_INVALID &&            \
+                            (rc) != CKR_FUNCTION_FAILED) {               \
+                            /* retry with re-enciphered blob worked */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            __sync_or_and_fetch(                         \
+                                 &(target_info)->single_apqn_has_new_wk, \
+                                 1);                                     \
+                        }                                                \
+                        break;                                           \
+                    } while (1);                                         \
+                } while (0);
+
+/*
+ * Macros to enclose EP11 library calls with the wrap-blob as argument.
+ * If a master key change is active, and the single APQN has the new WK,
+ * obtain and use the re-enciphered wrap-blob.
+ * If a master key change is active, and the EP11 library call fails with
+ * CKR_IBM_WKID_MISMATCH use the re-enciphered wrap-blob and retry the
+ * library call.
+ * If the retry was successful, indicate that the single APQN has the new WK.
+ */
+#define RETRY_REENC_WRAPBLOB_START(tokdata, target_info, useblob)        \
+                do {                                                     \
+                    int retry = 0;                                       \
+                    do {                                                 \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            (target_info)->single_apqn_has_new_wk &&     \
+                            retry == 0) {                                \
+                            /* New WK is already set on single APQN */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            (useblob) = ((ep11_private_data_t *)         \
+                                           (tokdata)->private_data)->    \
+                                                raw2key_wrap_blob_reenc; \
+                            retry = 1;                                   \
+                        } else {                                         \
+                            (useblob) = ((ep11_private_data_t *)         \
+                                           (tokdata)->private_data)->    \
+                                                raw2key_wrap_blob;       \
+                        }
+
+#define RETRY_REENC_WRAPBLOB_END(tokdata, target_info, useblob, rc)      \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            /* Single APQN seems to now have new WK */   \
+                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
+                                        "reenc-wrap-blob\n", __func__);  \
+                            (useblob) = ((ep11_private_data_t *)         \
+                                           (tokdata)->private_data)->    \
+                                                raw2key_wrap_blob_reenc; \
+                            retry = 1;                                   \
+                            continue;                                    \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 1 &&                                \
+                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
+                            (rc) != CKR_IBM_TARGET_INVALID &&            \
+                            (rc) != CKR_FUNCTION_FAILED) {               \
+                            /* retry with re-enciphered blob worked */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            __sync_or_and_fetch(                         \
+                                 &(target_info)->single_apqn_has_new_wk, \
+                                 1);                                     \
+                        }                                                \
+                        break;                                           \
+                    } while (1);                                         \
+                } while (0);
+
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
 static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
@@ -383,6 +582,8 @@ static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
 
 static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
                                CK_BYTE **blob, size_t *blobsize);
+static CK_RV obj_opaque_2_reenc_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                     CK_BYTE **blob, size_t *blobsize);
 
 /* EP11 Firmware levels that contain the HMAC min/max keysize fix */
 static const CK_VERSION cex4p_hmac_fix = { .major = 4, .minor = 20 };
@@ -686,7 +887,7 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
 static void free_ep11_target_for_apqn(target_t target);
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         SESSION *session, TEMPLATE *tmpl,
+                                         SESSION *session, OBJECT *key_obj,
                                          CK_BBOOL aes_xts);
 static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
@@ -863,16 +1064,21 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
  */
 
 typedef struct {
+    STDLL_TokData_t *tokdata;
     ep11_session_t *ep11_session;
     CK_BBOOL wrap_was_successful;
     CK_RV wrap_error;
     CK_VOID_PTR secure_key;
     CK_ULONG secure_key_len;
+    CK_VOID_PTR secure_key_reenc;
+    CK_ULONG secure_key_reenc_len;
     CK_BYTE *pkey_buf;
     size_t *pkey_buflen_p;
     /* for AES XTS processing */
     CK_VOID_PTR secure_key2;
     CK_ULONG secure_key_len2;
+    CK_VOID_PTR secure_key_reenc2;
+    CK_ULONG secure_key_reenc_len2;
     CK_BYTE *pkey_buf2;
     size_t *pkey_buflen_p2;
     CK_BBOOL aes_xts;
@@ -914,20 +1120,28 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
     };
     CK_MECHANISM mech = { CKM_IBM_CPACF_WRAP, &iv, sizeof(iv) };
     pkey_wrap_handler_data_t *data = (pkey_wrap_handler_data_t *) handler_data;
+    ep11_private_data_t *ep11_data;
     target_t target = 0;
     CK_RV ret = CKR_OK;
     CK_BBOOL retry = FALSE;
+    CK_BYTE *blob;
+    CK_ULONG bloblen;
+    CK_BBOOL blobretry = FALSE;
 
     if (data->wrap_was_successful)
         goto done;
+
+    ep11_data = data->tokdata->private_data;
 
     ret = get_ep11_target_for_apqn(adapter, domain, &target, XCP_MFL_PROBE);
     if (ret != CKR_OK)
         goto done;
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
+    blob = data->secure_key;
+    bloblen = data->secure_key_len;
 repeat:
-    ret = dll_m_WrapKey(data->secure_key, data->secure_key_len,
+    ret = dll_m_WrapKey(blob, bloblen,
                         NULL, 0, NULL, 0, &mech,
                         data->pkey_buf, data->pkey_buflen_p,
                         target | XCP_TGTFL_SET_SCMD);
@@ -941,11 +1155,22 @@ repeat:
         }
     }
 
+    if (ep11_data->mk_change_active && blobretry == FALSE &&
+        ret == CKR_IBM_WKID_MISMATCH && data->secure_key_reenc != NULL) {
+        blob =  data->secure_key_reenc;
+        bloblen = data->secure_key_reenc_len;
+        blobretry = TRUE;
+        goto repeat;
+    }
+
     if (data->aes_xts && ret == CKR_OK) {
         /* Create the protected key via CKM_IBM_CPACF_WRAP */
         retry = FALSE;
+        blobretry = FALSE;
+        blob = data->secure_key2;
+        bloblen = data->secure_key_len2;
 repeat2:
-        ret = dll_m_WrapKey(data->secure_key2, data->secure_key_len2,
+        ret = dll_m_WrapKey(blob, bloblen,
                             NULL, 0, NULL, 0, &mech,
                             data->pkey_buf2, data->pkey_buflen_p2,
                             target | XCP_TGTFL_SET_SCMD);
@@ -957,6 +1182,14 @@ repeat2:
                 retry = TRUE;
                 goto repeat2;
             }
+        }
+
+        if (ep11_data->mk_change_active && blobretry == FALSE &&
+            ret == CKR_IBM_WKID_MISMATCH && data->secure_key_reenc2 != NULL) {
+            blob =  data->secure_key_reenc2;
+            bloblen = data->secure_key_reenc_len2;
+            blobretry = TRUE;
+            goto repeat2;
         }
     }
 
@@ -980,7 +1213,9 @@ done:
  */
 static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
                                     CK_ATTRIBUTE *skey_attr,
-                                    CK_ATTRIBUTE **pkey_attr, CK_BBOOL aes_xts)
+                                    CK_ATTRIBUTE *skey_reenc_attr,
+                                    CK_ATTRIBUTE **pkey_attr,
+                                    CK_BBOOL aes_xts)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *tmp_attr = NULL;
@@ -1001,19 +1236,35 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
     memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
+    pkey_wrap_handler_data.tokdata = tokdata;
     if (session != NULL)
         pkey_wrap_handler_data.ep11_session =
                                     (ep11_session_t *)session->private_data;
     pkey_wrap_handler_data.secure_key = skey_attr->pValue;
     pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
+    if (skey_reenc_attr != NULL) {
+        pkey_wrap_handler_data.secure_key_reenc = skey_reenc_attr->pValue;
+        pkey_wrap_handler_data.secure_key_reenc_len =
+                                                skey_reenc_attr->ulValueLen;
+    }
     pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&ep11_buf;
     pkey_wrap_handler_data.pkey_buflen_p = &ep11_buflen;
     pkey_wrap_handler_data.aes_xts = FALSE;
 
     if (aes_xts) {
         pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen / 2;
-        pkey_wrap_handler_data.secure_key2 = (CK_BYTE *)skey_attr->pValue + skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.secure_key2 =
+                    (CK_BYTE *)skey_attr->pValue + skey_attr->ulValueLen / 2;
         pkey_wrap_handler_data.secure_key_len2 = skey_attr->ulValueLen / 2;
+        if (skey_reenc_attr != NULL) {
+            pkey_wrap_handler_data.secure_key_reenc_len =
+                                        skey_reenc_attr->ulValueLen / 2;
+            pkey_wrap_handler_data.secure_key_reenc2 =
+                    (CK_BYTE *)skey_reenc_attr->pValue +
+                                        skey_reenc_attr->ulValueLen / 2;
+            pkey_wrap_handler_data.secure_key_reenc_len2 =
+                                        skey_reenc_attr->ulValueLen / 2;
+        }
         pkey_wrap_handler_data.pkey_buf2 = (CK_BYTE *)&ep11_buf2;
         pkey_wrap_handler_data.pkey_buflen_p2 = &ep11_buflen2;
         pkey_wrap_handler_data.aes_xts = TRUE;
@@ -1147,7 +1398,8 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     size_t csum_l = sizeof(csum);
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
-    CK_ATTRIBUTE *pkey_attr = NULL, *blob_attr=NULL;
+    CK_BYTE blob_reenc[MAX_BLOBSIZE];
+    CK_ATTRIBUTE *pkey_attr = NULL, *blob_attr = NULL, *blob_reenc_attr = NULL;
     ep11_target_info_t* target_info;
     CK_RV ret;
 
@@ -1190,10 +1442,20 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
         goto done;
     }
 
+    if (ep11_data->mk_change_active) {
+        ret = build_attribute(CKA_IBM_OPAQUE_REENC, blob_reenc, blobsize,
+                              &blob_reenc_attr);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("build_attribute CKA_IBM_OPAQUE_REENC failed with rc=0x%lx\n", ret);
+            goto done;
+        }
+    }
+
     /* Create a protected key from this blob to obtain the LPAR MK vp. When
      * this function returns ok, we have a 64 byte pkey value: 32 bytes
      * encrypted key + 32 bytes vp. */
-    ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, &pkey_attr, FALSE);
+    ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, blob_reenc_attr,
+                                 &pkey_attr, FALSE);
     if (ret != CKR_OK) {
         TRACE_ERROR("ep11tok_pkey_skey2pkey failed with rc=0x%lx\n", ret);
         goto done;
@@ -1208,6 +1470,8 @@ done:
 
     if (blob_attr)
         free(blob_attr);
+    if (blob_reenc_attr)
+        free(blob_reenc_attr);
     if (pkey_attr)
         free(pkey_attr);
 
@@ -1264,6 +1528,7 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *skey_attr = NULL;
+    CK_ATTRIBUTE *skey_reenc_attr = NULL;
     CK_ATTRIBUTE *pkey_attr = NULL;
     CK_RV ret;
     int vp_offset;
@@ -1276,8 +1541,19 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
+    if (ep11_data->mk_change_active) {
+        if (template_attribute_get_non_empty(key_obj->template,
+                                             CKA_IBM_OPAQUE_REENC,
+                                             &skey_reenc_attr) != CKR_OK) {
+            TRACE_ERROR("This key has no reenc-blob: should not occur!\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
     /* Transform the secure key into a protected key */
-    ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, &pkey_attr, aes_xts);
+    ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, skey_reenc_attr,
+                                 &pkey_attr, aes_xts);
     if (ret != CKR_OK) {
         TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
         goto done;
@@ -1896,11 +2172,16 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     CK_ULONG i;
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
+    RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blob_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_GetAttributeValue(useblob, useblob_len, attrs,
                                      sizeof(attrs) / sizeof(CK_ATTRIBUTE),
                                      target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -2403,6 +2684,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *wrap_blob;
 
     /* tell ep11 the attributes the user specified */
     rc = build_ep11_attrs(tokdata, key_obj->template, &p_attrs, &attrs_len,
@@ -2418,9 +2700,11 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
      * all m_ function are ep11 functions
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                 ep11_data->raw2key_wrap_blob_l, &mech, key,
-                                 ksize, cipher, &clen, target_info->target);
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
+                                 &mech, key, ksize, cipher, &clen,
+                                 target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -2449,11 +2733,13 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
      * card accepts only blobs as keys
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        rc = dll_m_UnwrapKey(cipher, clen, wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob, blen, csum,
                              &cslen, target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3345,6 +3631,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t*) sess->private_data;
+    CK_BYTE *wrap_blob;
 
     rc = template_attribute_get_non_empty(aes_xts_key_obj->template, CKA_VALUE,
                                           &attr);
@@ -3373,10 +3660,12 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * all m_ function are ep11 functions
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        rc = dll_m_EncryptSingle(wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech,
                                  attr->pValue, attr->ulValueLen / 2,
                                  cipher, &clen, target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3406,10 +3695,12 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * card accepts only blobs as keys
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        rc = dll_m_UnwrapKey(cipher, clen, wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
                              ep11_pin_blob_len, &mech, new_p_attrs, new_attrs_len,
                              blob, blob_size, csum, &cslen, target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3427,11 +3718,13 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * all m_ function are ep11 functions
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        rc = dll_m_EncryptSingle(wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, &mech,
                                  ((CK_BYTE *)attr->pValue) + attr->ulValueLen / 2,
                                  attr->ulValueLen / 2, cipher, &clen,
                                  target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3453,12 +3746,14 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      * card accepts only blobs as keys
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
         rc = dll_m_UnwrapKey(cipher, clen,
-                             ep11_data->raw2key_wrap_blob,
+                             wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob + *blob_size,
                              &blob_size2, csum, &cslen, target_info->target);
+    RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3510,6 +3805,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *wrap_blob;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -3592,10 +3888,11 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l, &mech_w,
-                                     data, data_len, cipher, &cipher_l,
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+            rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
+                                     &mech_w, data, data_len, cipher, &cipher_l,
                                      target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3625,11 +3922,13 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_UnwrapKey(cipher, cipher_l, ep11_data->raw2key_wrap_blob,
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+            rc = dll_m_UnwrapKey(cipher, cipher_l, wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
                                  spki, spki_size, target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3690,6 +3989,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG privkey_len, pubkey_len;
     CK_BYTE *pubkey = NULL;
     const struct _ec *curve = NULL;
+    CK_BYTE *wrap_blob;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -3821,10 +4121,11 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+            rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -3855,14 +4156,16 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
-                                 ep11_data->raw2key_wrap_blob,
+                                 wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3917,6 +4220,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *wrap_blob;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -4015,10 +4319,11 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+            rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
 
@@ -4049,14 +4354,16 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
-                                 ep11_data->raw2key_wrap_blob,
+                                 wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -4109,6 +4416,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
+    CK_BYTE *wrap_blob;
 
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -4211,10 +4519,11 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+            rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
                                      &mech_w, data, data_len,
                                      cipher, &cipher_l, target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -4244,14 +4553,16 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
-                                 ep11_data->raw2key_wrap_blob,
+                                 wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -4324,6 +4635,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
     const struct pqc_oid *oid;
     const char *key_type_str;
     CK_MECHANISM_TYPE pqc_mech;
+    CK_BYTE *wrap_blob;
 
     switch (keytype) {
     case CKK_IBM_PQC_DILITHIUM:
@@ -4492,15 +4804,16 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* encrypt */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
             if (ep11_pqc_obj_strength_supported(target_info, pqc_mech,
                                                 pqc_key_obj))
-                rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
-                                         ep11_data->raw2key_wrap_blob_l,
+                rc = dll_m_EncryptSingle(wrap_blob, ep11_data->raw2key_wrap_blob_l,
                                          &mech_w, data, data_len,
                                          cipher, &cipher_l,
                                          target_info->target);
             else
                 rc = CKR_KEY_SIZE_RANGE;
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         TRACE_INFO("%s wrapping wrap key rc=0x%lx cipher_l=0x%lx\n",
@@ -4531,14 +4844,16 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * reads its BER format and builds a blob.
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
             rc = dll_m_UnwrapKey(cipher, cipher_l,
-                                 ep11_data->raw2key_wrap_blob,
+                                 wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -4782,7 +5097,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         }
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, sess, obj->template,
+    rc = update_ep11_attrs_from_blob(tokdata, sess, obj,
                                      (keytype == CKK_AES_XTS));
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
@@ -4936,7 +5251,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     attr = NULL;
 
-    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, xts);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj, xts);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -5563,6 +5878,8 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
     if (rc != CKR_OK) {
@@ -5575,8 +5892,12 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = 0;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+        rc = dll_m_SignSingle(useblob, useblobsize, &mech,
+                              in_data, in_data_len,
+                              out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5597,6 +5918,8 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
     if (rc != CKR_OK) {
@@ -5609,8 +5932,12 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.ulParameterLen = 0;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            signature, sig_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_VerifySingle(useblob, useblob_len, &mech,
+                                in_data, in_data_len,
+                                signature, sig_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5632,6 +5959,8 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -5645,8 +5974,11 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = ctx->mech.pParameter;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          sig, sig_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+        rc = dll_m_SignSingle(useblob, useblobsize, &mech, in_data, in_data_len,
+                              sig, sig_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5671,6 +6003,8 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     size_t spki_len = 0;
     OBJECT *key_obj;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &spki, &spki_len, &key_obj,
                          READ_LOCK);
@@ -5684,8 +6018,12 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata, SESSION *session,
     mech.pParameter = ctx->mech.pParameter;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            signature, sig_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_VerifySingle(useblob, useblob_len, &mech,
+                                in_data, in_data_len,
+                                signature, sig_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5710,6 +6048,8 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &keyblob, &keyblobsize);
     if (rc != CKR_OK) {
@@ -5734,8 +6074,11 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.ulParameterLen = 0;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_SignSingle(keyblob, keyblobsize, &mech, in_data, in_data_len,
-                          out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
+        rc = dll_m_SignSingle(useblob, useblobsize, &mech, in_data, in_data_len,
+                              out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5759,6 +6102,8 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     CK_BYTE *spki;
     size_t spki_len = 0;
     CK_MECHANISM mech;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     rc = obj_opaque_2_blob(tokdata, key_obj, &spki, &spki_len);
     if (rc != CKR_OK) {
@@ -5783,8 +6128,12 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t *tokdata, SESSION  *session,
     mech.ulParameterLen = 0;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_VerifySingle(spki, spki_len, &mech, in_data, in_data_len,
-                            out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
+        rc = dll_m_VerifySingle(useblob, useblob_len, &mech,
+                                in_data, in_data_len,
+                                out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5813,6 +6162,8 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     CK_BYTE *decr_key, *encr_key;
     size_t decr_key_len = 0, encr_key_len = 0;
     int status;
+    CK_BYTE *decr_useblob, *encr_useblob;
+    size_t decr_useblob_len, encr_useblob_len;
 
     UNUSED(decr_ctx);
     UNUSED(encr_ctx);
@@ -5838,9 +6189,18 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    rc = dll_m_ReencryptSingle(decr_key, decr_key_len, encr_key, encr_key_len,
-                               decr_mech, encr_mech, in_data, in_data_len,
-                               out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB2_START(tokdata, target_info,
+                            decr_key_obj, decr_key, decr_key_len,
+                            decr_useblob, decr_useblob_len,
+                            encr_key_obj, encr_key, encr_key_len,
+                            encr_useblob, encr_useblob_len, rc)
+        rc = dll_m_ReencryptSingle(decr_useblob, decr_useblob_len,
+                                   encr_useblob, encr_useblob_len,
+                                   decr_mech, encr_mech, in_data, in_data_len,
+                                   out_data, out_data_len, target_info->target);
+    RETRY_REENC_BLOB2_END(tokdata, target_info,
+                          decr_useblob, decr_useblob_len,
+                          encr_useblob, encr_useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -6109,6 +6469,8 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *spki_attr = NULL;
     CK_BBOOL allocated = FALSE;
     CK_RV rc = CKR_OK;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
         mech->pParameter == NULL) {
@@ -6149,8 +6511,11 @@ static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
 
     case CKO_PRIVATE_KEY:
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_GetAttributeValue(blob, bloblen, get_attr, 1,
+        RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, blob, bloblen,
+                               useblob, useblob_len, rc)
+            rc = dll_m_GetAttributeValue(useblob, useblob_len, get_attr, 1,
                                          target_info->target);
+        RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
         /* Only newer EP11 libs support this, ignore if error */
@@ -6227,6 +6592,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     struct EP11_KYBER_MECH mech_ep11;
     OBJECT *kyber_secret_obj = NULL;
     CK_KEY_TYPE keytype;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -6507,15 +6874,18 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, base_key_obj, keyblob,
+                           keyblobsize, useblob, useblobsize, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             base_key_obj))
             rc = dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len,
-                                 keyblob, keyblobsize, NULL, 0,
+                                 useblob, useblobsize, NULL, 0,
                                  ep11_pin_blob, ep11_pin_blob_len, newblob,
                                  &newblobsize, csum, &cslen,
                                  target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -6550,7 +6920,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     opaque_attr = NULL;
 
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
-        rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, FALSE);
+        rc = update_ep11_attrs_from_blob(tokdata, session, key_obj, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                         __func__, rc);
@@ -7915,7 +8285,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                    (void *)public_key_obj, (void *)private_key_obj);
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, sess, private_key_obj->template, FALSE);
+    rc = update_ep11_attrs_from_blob(tokdata, sess, private_key_obj, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -8098,6 +8468,32 @@ static CK_RV obj_opaque_2_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
          * should cause a failing token_specific_object_add
          */
         TRACE_ERROR("%s no blob\n", __func__);
+        return rc;
+    }
+}
+
+/* Returns a re-enciphered blob for a key object.
+ * The passed key_obj must hold the READ lock!
+ */
+static CK_RV obj_opaque_2_reenc_blob(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                     CK_BYTE **blob, size_t *blobsize)
+{
+    CK_ATTRIBUTE *attr = NULL;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    /* blob already exists */
+    rc = template_attribute_get_non_empty(key_obj->template,
+                                          CKA_IBM_OPAQUE_REENC,
+                                          &attr);
+    if (rc == CKR_OK) {
+        *blob = attr->pValue;
+        *blobsize = (size_t) attr->ulValueLen;
+        TRACE_INFO("%s reenc blob found blobsize=0x%zx\n", __func__, *blobsize);
+        return CKR_OK;
+    } else {
+        TRACE_INFO("%s no reenc blob\n", __func__);
         return rc;
     }
 }
@@ -8416,6 +8812,8 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
     CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     UNUSED(recover_mode);
 
@@ -8502,13 +8900,16 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_sign_state_l /= 2;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
-                                mech, keyblob, keyblobsize,
+                                mech, useblob, useblobsize,
                                 target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -8712,6 +9113,8 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -8742,12 +9145,16 @@ CK_RV ep11tok_sign_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_SignSingle(keyblob, keyblobsize, mech, in_data, in_data_len,
+            rc = dll_m_SignSingle(useblob, useblobsize, mech,
+                                  in_data, in_data_len,
                                   signature, sig_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8779,6 +9186,8 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
     CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -8875,12 +9284,15 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_sign_state_l /= 2;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
             rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
-                                  spki, spki_len, target_info->target);
+                                  useblob, useblob_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9081,6 +9493,8 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t spki_len = 0;
     OBJECT *key_obj = NULL;
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     rc = h_opaque_2_blob(tokdata, key, &spki, &spki_len, &key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -9120,12 +9534,16 @@ CK_RV ep11tok_verify_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
+                           useblob, useblob_len, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_VerifySingle(spki, spki_len, mech, in_data, in_data_len,
+            rc = dll_m_VerifySingle(useblob, useblob_len, mech, 
+                                    in_data, in_data_len,
                                     signature, sig_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9299,6 +9717,8 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -9322,14 +9742,17 @@ CK_RV ep11tok_decrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_DecryptSingle(keyblob, keyblobsize, mech, input_data,
+            rc = dll_m_DecryptSingle(useblob, useblobsize, mech, input_data,
                                      input_data_len, output_data,
                                      p_output_data_len,
                                      target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9503,6 +9926,8 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *useblob;
+    size_t useblobsize;
 
     rc = h_opaque_2_blob(tokdata, key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -9537,14 +9962,17 @@ CK_RV ep11tok_encrypt_single(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
+                           useblob, useblobsize, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_EncryptSingle(keyblob, keyblobsize, mech, input_data,
+            rc = dll_m_EncryptSingle(useblob, useblobsize, mech, input_data,
                                      input_data_len, output_data,
                                      p_output_data_len,
                                      target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -9573,6 +10001,8 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     OBJECT *key_obj = NULL;
     size_t ep11_state_l = MAX_CRYPT_STATE_BYTES * 2;
     CK_BYTE *ep11_state;
+    CK_BYTE *useblob;
+    size_t useblob_len;
 
     ep11_state = calloc(ep11_state_l, 1); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
@@ -9654,8 +10084,11 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, blob,
-                                   blob_len, target_info->target);
+        RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, blob, blob_len,
+                               useblob, useblob_len, rc)
+            rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, useblob,
+                                   useblob_len, target_info->target);
+        RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
@@ -9702,8 +10135,11 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
 
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, blob,
-                                   blob_len, target_info->target);
+        RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, blob, blob_len,
+                               useblob, useblob_len, rc)
+            rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, useblob,
+                                   useblob_len, target_info->target);
+        RETRY_REENC_BLOB_END(tokdata, target_info,useblob, useblob_len, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
@@ -9800,15 +10236,15 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                        CK_ULONG_PTR p_wrapped_key_len)
 {
     CK_RV rc;
-    CK_BYTE *wrapping_blob;
-    size_t wrapping_blob_len;
+    CK_BYTE *wrapping_blob, *use_wrapping_blob = NULL;
+    size_t wrapping_blob_len, use_wrapping_blob_len = 0;
     CK_OBJECT_CLASS class;
-    CK_BYTE *wrap_target_blob;
-    size_t wrap_target_blob_len;
+    CK_BYTE *wrap_target_blob, *use_wrap_target_blob;
+    size_t wrap_target_blob_len, use_wrap_target_blob_len;
     int size_query = 0;
     OBJECT *key_obj = NULL, *wrap_key_obj = NULL, *sobj = NULL;
-    CK_BYTE *sign_blob = NULL;
-    size_t sign_blob_len = ~0;
+    CK_BYTE *sign_blob = NULL, *use_sign_blob = NULL;
+    size_t sign_blob_len = ~0, use_sign_blob_len = 0;
     CK_KEY_TYPE ktype;
 
     /* ep11 weakness:
@@ -9929,10 +10365,21 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * implementation.
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc =
-        dll_m_WrapKey(wrap_target_blob, wrap_target_blob_len, wrapping_blob,
-                      wrapping_blob_len, sign_blob, sign_blob_len, mech,
-                      wrapped_key, p_wrapped_key_len, target_info->target);
+    RETRY_REENC_BLOB3_START(tokdata, target_info,
+                            key_obj, wrap_target_blob, wrap_target_blob_len,
+                            use_wrap_target_blob, use_wrap_target_blob_len,
+                            wrap_key_obj, wrapping_blob, wrapping_blob_len,
+                            use_wrapping_blob, use_wrapping_blob_len,
+                            sobj, sign_blob, sign_blob_len, use_sign_blob,
+                            use_sign_blob_len, rc)
+        rc = dll_m_WrapKey(use_wrap_target_blob, use_wrap_target_blob_len,
+                           use_wrapping_blob, use_wrapping_blob_len,
+                           use_sign_blob, use_sign_blob_len, mech,
+                           wrapped_key, p_wrapped_key_len, target_info->target);
+    RETRY_REENC_BLOB3_END(tokdata, target_info,
+                          use_wrap_target_blob, use_wrap_target_blob_len,
+                          use_wrapping_blob, use_wrapping_blob_len,
+                          use_sign_blob, use_sign_blob_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9969,8 +10416,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_OBJECT_HANDLE_PTR p_key)
 {
     CK_RV rc;
-    CK_BYTE *wrapping_blob, *temp;
-    size_t wrapping_blob_len;
+    CK_BYTE *wrapping_blob, *use_wrapping_blob, *temp;
+    size_t wrapping_blob_len, use_wrapping_blob_len;
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum), temp_len;
     OBJECT *key_obj = NULL;
@@ -9990,8 +10437,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ATTRIBUTE *new_attrs2 = NULL;
     CK_ULONG new_attrs2_len = 0;
     CK_BBOOL isab;
-    CK_BYTE *verifyblob = NULL;
-    size_t verifyblobsize = ~0;
+    CK_BYTE *verifyblob = NULL, *use_verifyblob = NULL;
+    size_t verifyblobsize = ~0, use_verifyblobsize = 0;
     OBJECT *vobj = NULL;
     CK_KEY_TYPE keytype;
 
@@ -10160,12 +10607,21 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
      * the wrapped key comes in BER
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, wrapping_blob,
-                             wrapping_blob_len, verifyblob, verifyblobsize,
-                             ep11_pin_blob,
-                             ep11_pin_blob_len, mech, new_attrs2, new_attrs2_len,
+    RETRY_REENC_BLOB2_START(tokdata, target_info,
+                            kobj, wrapping_blob, wrapping_blob_len,
+                            use_wrapping_blob, use_wrapping_blob_len,
+                            vobj, verifyblob, verifyblobsize,
+                            use_verifyblob, use_verifyblobsize, rc)
+        rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, use_wrapping_blob,
+                             use_wrapping_blob_len, use_verifyblob,
+                             use_verifyblobsize, ep11_pin_blob,
+                             ep11_pin_blob_len, mech,
+                             new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              target_info->target);
+    RETRY_REENC_BLOB2_END(tokdata, target_info, use_wrapping_blob,
+                          use_wrapping_blob_len, use_verifyblob,
+                          use_verifyblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -10207,7 +10663,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, FALSE);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -15692,7 +16148,7 @@ static void put_target_info(STDLL_TokData_t *tokdata,
  * object_mgr_create_final.
  */
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         SESSION *session, TEMPLATE *tmpl,
+                                         SESSION *session, OBJECT *key_obj,
                                          CK_BBOOL aes_xts)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -15703,6 +16159,8 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *attr, *blob_attr = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG i;
+    CK_BYTE *useblob, *blob;
+    size_t usebloblen;
 
     CK_ATTRIBUTE ibm_attrs[] = {
         { CKA_IBM_RESTRICTABLE, &restr, sizeof(restr) },
@@ -15721,17 +16179,22 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     if (!ep11_data->pkey_wrap_supported)
         num_ibm_attrs -= 2;
 
-    if (template_attribute_get_non_empty(tmpl, CKA_IBM_OPAQUE,
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
                                          &blob_attr) != CKR_OK) {
         TRACE_ERROR("This key has no CKA_IBM_OPAQUE: should not occur!\n");
         return CKR_FUNCTION_FAILED;
     }
 
+    blob = blob_attr->pValue;
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_GetAttributeValue(blob_attr->pValue,
-                                     (aes_xts ? blob_attr->ulValueLen / 2 :
-                                     blob_attr->ulValueLen),
-                                     ibm_attrs, num_ibm_attrs, target_info->target);
+    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj,
+                           blob, blob_attr->ulValueLen,
+                           useblob, usebloblen, rc)
+        rc = dll_m_GetAttributeValue(useblob,
+                                     aes_xts ? usebloblen / 2 : usebloblen,
+                                     ibm_attrs, num_ibm_attrs,
+                                     target_info->target);
+    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, usebloblen, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -15756,7 +16219,7 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
             return rc;
         }
 
-        rc = template_update_attribute(tmpl, attr);
+        rc = template_update_attribute(key_obj->template, attr);
         if (rc != CKR_OK) {
             free(attr);
             TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
