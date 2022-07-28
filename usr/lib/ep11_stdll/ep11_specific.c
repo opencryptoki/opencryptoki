@@ -15221,6 +15221,12 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
                        tokdata->slot_id, rc);
             goto out;
         }
+
+        /* Finalize the wrap blob */
+        TRACE_INFO("Finalize the wrap blob\n");
+        memcpy(ep11_data->raw2key_wrap_blob,
+               ep11_data->raw2key_wrap_blob_reenc,
+               ep11_data->raw2key_wrap_blob_l);
     }
 
     /*
