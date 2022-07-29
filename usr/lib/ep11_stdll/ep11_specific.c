@@ -515,6 +515,117 @@ typedef struct {
                     } while (1);                                         \
                 } while (0);
 
+/*
+ * Macros to enclose EP11 library calls with a blob as argument that gets
+ * updated by the EP11 library call.
+ * If a master key change is active, and the single APQN has the new WK,
+ * use the re-enciphered blob for the EP11 library call.
+ * If a master key change is active, and the EP11 library call fails with
+ * CKR_IBM_WKID_MISMATCH use the re-enciphered blob and retry the library call.
+ * Also indicate that the single APQN has the new WK.
+ * If a master key change is active, and the EP11 library call was successful
+ * when using the old blob, re-encipher the (potentially updated) blob.
+ * When re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the
+ * new WK was just activated on the single APQN, indicate that the single APQN
+ * has the new WK, and retry the EP11 library call with the (still unchanged)
+ * re-enciphered blob (which then will be potentially updated by the EP11
+ * library call).
+ */
+#define RETRY_UPDATE_BLOB_START(tokdata, target_info, blob, blobsize,    \
+                                reencblob, reencblobsize,                \
+                                useblob, useblobsize)                    \
+                do {                                                     \
+                    CK_RV rc2;                                           \
+                    int retry = 0;                                       \
+                    do {                                                 \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            ((target_info)->single_apqn_has_new_wk ||    \
+                             retry == 1)) {                              \
+                            /* New WK is set on single APQN */           \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            (useblob) = (reencblob);                     \
+                            (useblobsize) = (reencblobsize);             \
+                            retry = 1;                                   \
+                        } else {                                         \
+                            (useblob) = (blob);                          \
+                            (useblobsize) = (blobsize);                  \
+                        }
+
+#define RETRY_UPDATE_BLOB_END(tokdata, target_info, blob, blobsize,      \
+                              reencblob, reencblobsize,                  \
+                              useblob, useblobsize, rc)                  \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            /* Single APQN seems to now have new WK */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            retry = 1;                                   \
+                            continue;                                    \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
+                            (rc) != CKR_IBM_TARGET_INVALID &&            \
+                            (rc) != CKR_FUNCTION_FAILED) {               \
+                            /* Op worked, re-encipher updated blob */    \
+                            TRACE_DEVEL("%s reencipher updated blob\n",  \
+                                        __func__);                       \
+                            if ((blobsize) != (reencblobsize)) {         \
+                                TRACE_ERROR("%s reencblobsize wrong \n", \
+                                            __func__);                   \
+                                (rc) = CKR_ARGUMENTS_BAD;                \
+                                break;                                   \
+                            }                                            \
+                            rc2 = ep11tok_reencipher_blob((tokdata),     \
+                                                          &(target_info),\
+                                                          (blob),        \
+                                                          (blobsize),    \
+                                                          (reencblob));  \
+                            if (rc2 == CKR_IBM_WK_NOT_INITIALIZED) {     \
+                                /* Single APQN now has new WK */         \
+                                TRACE_DEVEL("%s WKID mismatch on "       \
+                                      "reencipher, retry\n", __func__);  \
+                                retry = 1;                               \
+                                continue;                                \
+                            }                                            \
+                            if (rc2 != CKR_OK) {                         \
+                                (rc) = CKR_DEVICE_ERROR;                 \
+                                TRACE_ERROR("%s\n",                      \
+                                            ock_err(ERR_DEVICE_ERROR));  \
+                                break;                                   \
+                            }                                            \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 1 &&                                \
+                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
+                            (rc) != CKR_IBM_TARGET_INVALID &&            \
+                            (rc) != CKR_FUNCTION_FAILED) {               \
+                            /* retry with re-enciphered blob worked */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            __sync_or_and_fetch(                         \
+                                 &(target_info)->single_apqn_has_new_wk, \
+                                 1);                                     \
+                            /* old blob is no longer valid, replace with
+                             * re-enciphered blob */                     \
+                            if ((blobsize) != (useblobsize)) {           \
+                                TRACE_ERROR("%s useblobsize wrong \n",   \
+                                            __func__);                   \
+                                (rc) = CKR_ARGUMENTS_BAD;                \
+                                break;                                   \
+                            }                                            \
+                            memcpy((blob), (useblob), (blobsize));       \
+                        }                                                \
+                        break;                                           \
+                    } while (1);                                         \
+                } while (0);
+
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
 static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
@@ -891,6 +1002,10 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
                                          CK_BBOOL aes_xts);
 static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
+static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
+                                     ep11_target_info_t **target_info,
+                                     CK_BYTE *blob, CK_ULONG blob_len,
+                                     CK_BYTE *new_blob);
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
@@ -14480,10 +14595,10 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE ktype;
-    size_t keyblobsize = 0;
-    CK_BYTE *keyblob;
+    size_t keyblobsize = 0, reencblobsize = 0;
+    CK_BYTE *keyblob, *reencblob = NULL;
     DL_NODE *node;
-    CK_ATTRIBUTE *ibm_opaque_attr = NULL;
+    CK_ATTRIBUTE *ibm_opaque_attr = NULL, *ibm_opaque_reenc_attr = NULL;
     CK_ATTRIBUTE_PTR attributes = NULL;
     CK_ULONG num_attributes = 0;
     CK_ATTRIBUTE *attr;
@@ -14515,6 +14630,21 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s no key-blob rc=0x%lx\n", __func__, rc);
         return rc;
+    }
+
+    if (ep11_data->mk_change_active) {
+        rc = obj_opaque_2_reenc_blob(tokdata, obj, &reencblob, &reencblobsize);
+        if (rc == CKR_TEMPLATE_INCOMPLETE) {
+            TRACE_DEVEL("%s no reenc key-blob, use old key-blob\n", __func__);
+            reencblob = keyblob;
+            reencblobsize = keyblobsize;
+            rc = CKR_OK;
+        }
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s failed to get reenc key-blob rc=0x%lx\n", __func__,
+                        rc);
+            return rc;
+        }
     }
 
     node = new_tmpl->attribute_list;
@@ -14579,52 +14709,107 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             goto out;
         }
 
+        if (reencblob != NULL) {
+            rc = build_attribute(CKA_IBM_OPAQUE_REENC, reencblob, reencblobsize,
+                                 &ibm_opaque_reenc_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s build_attribute failed rc=0x%lx\n", __func__,
+                            rc);
+                goto out;
+            }
+        }
+
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-            rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
-                                         (ktype != CKK_AES_XTS ?
-                                         ibm_opaque_attr->ulValueLen :
-                                         ibm_opaque_attr->ulValueLen / 2),
+        RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                                ibm_opaque_attr->pValue,
+                                ktype != CKK_AES_XTS ?
+                                     ibm_opaque_attr->ulValueLen :
+                                     ibm_opaque_attr->ulValueLen / 2,
+                                ibm_opaque_reenc_attr->pValue,
+                                ktype != CKK_AES_XTS ?
+                                    ibm_opaque_reenc_attr->ulValueLen :
+                                    ibm_opaque_reenc_attr->ulValueLen / 2,
+                                keyblob, keyblobsize);
+            rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                          attributes, num_attributes,
                                          target_info->target);
+        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                              ibm_opaque_attr->pValue,
+                              ktype != CKK_AES_XTS ?
+                                  ibm_opaque_attr->ulValueLen :
+                                  ibm_opaque_attr->ulValueLen / 2,
+                              ibm_opaque_reenc_attr->pValue,
+                              ktype != CKK_AES_XTS ?
+                                  ibm_opaque_reenc_attr->ulValueLen :
+                                  ibm_opaque_reenc_attr->ulValueLen / 2,
+                              keyblob, keyblobsize, rc);
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
                         __func__, rc);
-            free(ibm_opaque_attr);
             goto out;
         }
 
         if (ktype == CKK_AES_XTS) {
             RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-                rc = dll_m_SetAttributeValue((CK_BYTE *)ibm_opaque_attr->pValue +
-                                             (ibm_opaque_attr->ulValueLen / 2),
-                                             ibm_opaque_attr->ulValueLen / 2,
+            RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                                    (CK_BYTE *)ibm_opaque_attr->pValue +
+                                         (ibm_opaque_attr->ulValueLen / 2),
+                                    ibm_opaque_attr->ulValueLen / 2,
+                                    (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
+                                        (ibm_opaque_reenc_attr->ulValueLen / 2),
+                                    ibm_opaque_reenc_attr->ulValueLen / 2,
+                                    keyblob, keyblobsize);
+                rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                              attributes, num_attributes,
                                              target_info->target);
+            RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                                  (CK_BYTE *)ibm_opaque_attr->pValue +
+                                       (ibm_opaque_attr->ulValueLen / 2),
+                                  ibm_opaque_attr->ulValueLen / 2,
+                                  (CK_BYTE *)ibm_opaque_reenc_attr->pValue +
+                                      (ibm_opaque_reenc_attr->ulValueLen / 2),
+                                  ibm_opaque_reenc_attr->ulValueLen / 2,
+                                  keyblob, keyblobsize, rc);
             RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
             if (rc != CKR_OK) {
                 rc = ep11_error_to_pkcs11_error(rc, NULL);
                 TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
                             __func__, rc);
-                free(ibm_opaque_attr);
                 goto out;
             }
         }
+
         rc = template_update_attribute(new_tmpl, ibm_opaque_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s template_update_attribute failed rc=0x%lx\n",
                         __func__, rc);
-            free(ibm_opaque_attr);
             goto out;
+        }
+        ibm_opaque_attr = NULL;
+
+        if (ibm_opaque_reenc_attr != NULL) {
+            rc = template_update_attribute(new_tmpl, ibm_opaque_reenc_attr);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("%s template_update_attribute failed rc=0x%lx\n",
+                            __func__, rc);
+                goto out;
+            }
+            ibm_opaque_reenc_attr = NULL;
         }
     }
 
 out:
     if (attributes)
         free_attribute_array(attributes, num_attributes);
+
+    if (ibm_opaque_attr != NULL)
+        free(ibm_opaque_attr);
+    if (ibm_opaque_reenc_attr != NULL)
+        free(ibm_opaque_reenc_attr);
 
     return rc;
 }
