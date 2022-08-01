@@ -719,6 +719,169 @@ typedef struct {
                     } while (1);                                         \
                 } while (0);
 
+/*
+ * Macros to enclose EP11 library calls with a key blob and a state blob as
+ * arguments where the state blob gets updated by the EP11 library call.
+ * If a master key change is active, and the single APQN has the new WK,
+ * obtain and use the re-enciphered key blob CKA_IBM_OPAQUE_REENC from
+ * the key object, and also use the re-enciphered state blob(s) for the EP11
+ * library call.
+ * If a master key change is active, and the EP11 library call fails with
+ * CKR_IBM_WKID_MISMATCH use the re-enciphered blobs and retry the library
+ * call.
+ * If the retry was successful, indicate that the single APQN has the new WK.
+ * If a master key change is active, and the EP11 library call was successful
+ * when using the old blobs, re-encipher the (potentially updated) state blob.
+ * When re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the
+ * new WK was just activated on the single APQN, indicate that the single APQN
+ * has the new WK, and retry the EP11 library call with the (still unchanged)
+ * re-enciphered state blob (which then will be potentially updated by the EP11
+ * library call).
+ */
+#define RETRY_REENC_BLOB_STATE_START(tokdata, target_info, obj, blob,    \
+                                     blobsize, useblob, useblobsize,     \
+                                     stateblob, reencstate,              \
+                                     stateblobsize, usestate,            \
+                                     usestatesize, rc)                   \
+                do {                                                     \
+                    int retry = 0;                                       \
+                    do {                                                 \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            ((target_info)->single_apqn_has_new_wk ||    \
+                             retry == 1)) {                              \
+                            /* New WK is set on single APQN */           \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            (rc) = obj_opaque_2_reenc_blob((tokdata),    \
+                                      (obj), &(useblob), &(useblobsize));\
+                            if ((rc) == CKR_TEMPLATE_INCOMPLETE) {       \
+                                (useblob) = (blob);                      \
+                                (useblobsize) = (blobsize);              \
+                            } else if ((rc) != CKR_OK) {                 \
+                                TRACE_ERROR("%s reenc blob invalid\n",   \
+                                            __func__);                   \
+                                break;                                   \
+                            }                                            \
+                            (usestate) = (reencstate);                   \
+                            retry = 1;                                   \
+                        } else {                                         \
+                            (useblob) = (blob);                          \
+                            (useblobsize) = (blobsize);                  \
+                            (usestate) = (stateblob);                    \
+                        }                                                \
+                        (usestatesize) = (stateblobsize);
+
+#define RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blobsize, \
+                                   useblob,  useblobsize, stateblob,     \
+                                   reencstate, stateblobsize, usestate,  \
+                                   usestatesize, newstate, rc)           \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            if (ep11tok_is_blob_new_wkid((tokdata),      \
+                                            (useblob), (useblobsize)) || \
+                                ep11tok_is_blob_new_wkid((tokdata),      \
+                                         (usestate), (usestatesize))) {  \
+                                /* blob has new WK, but single APQN not.
+                                   Wait until other single APQN with
+                                   new WK set is available */            \
+                                TRACE_DEVEL("%s WKID mismatch, blob has "\
+                                            "new WK, retry with new "    \
+                                            "single APQN with new WK, "  \
+                                            "wait if required\n",        \
+                                            __func__);                   \
+                                put_target_info((tokdata),               \
+                                                 (target_info));         \
+                                (target_info) = NULL;                    \
+                                (rc) = refresh_target_info((tokdata),    \
+                                                           TRUE);        \
+                                if ((rc) != CKR_OK)                      \
+                                    break;                               \
+                                (target_info) =                          \
+                                             get_target_info((tokdata)); \
+                                if ((target_info) == NULL) {             \
+                                    (rc) = CKR_FUNCTION_FAILED;          \
+                                    break;                               \
+                                }                                        \
+                                continue;                                \
+                            }                                            \
+                            /* Single APQN seems to now have new WK */   \
+                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
+                                        "reenc-blob\n", __func__);       \
+                            retry = 1;                                   \
+                            continue;                                    \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 1 &&                                \
+                            (((newstate) && (rc) == CKR_OK) ||           \
+                             (!(newstate) &&                             \
+                              (rc) != CKR_IBM_WKID_MISMATCH &&           \
+                              (rc) != CKR_IBM_TARGET_INVALID &&          \
+                              (rc) != CKR_FUNCTION_FAILED))) {           \
+                            /* retry with re-enciphered blob worked */   \
+                            TRACE_DEVEL("%s single APQN has new WK\n",   \
+                                        __func__);                       \
+                            __sync_or_and_fetch(                         \
+                                 &(target_info)->single_apqn_has_new_wk, \
+                                 1);                                     \
+                            /* old blobs are no longer valid, replace with
+                             * re-enciphered blobs */                    \
+                            if ((blobsize) != (useblobsize)) {           \
+                                TRACE_ERROR("%s useblobsize wrong \n",   \
+                                            __func__);                   \
+                                (rc) = CKR_ARGUMENTS_BAD;                \
+                                break;                                   \
+                            }                                            \
+                            memcpy((blob), (useblob), (blobsize));       \
+                            if ((stateblobsize) != (usestatesize)) {     \
+                                TRACE_ERROR("%s usestatesize wrong \n",  \
+                                            __func__);                   \
+                                (rc) = CKR_ARGUMENTS_BAD;                \
+                                break;                                   \
+                            }                                            \
+                            memcpy((stateblob), (usestate),              \
+                                   (stateblobsize));                     \
+                        }                                                \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                      private_data)->mk_change_active && \
+                            retry == 0 &&                                \
+                            (((newstate) && (rc) == CKR_OK) ||           \
+                             (!(newstate) &&                             \
+                              (rc) != CKR_IBM_WKID_MISMATCH &&           \
+                              (rc) != CKR_IBM_TARGET_INVALID &&          \
+                              (rc) != CKR_FUNCTION_FAILED))) {           \
+                            /* worked, re-encipher updated state blob */ \
+                            TRACE_DEVEL("%s reencipher updated state "   \
+                                       "blob\n",  __func__);             \
+                            rc2 = ep11tok_reencipher_blob((tokdata),     \
+                                                        &(target_info),  \
+                                                        (stateblob),     \
+                                                        (stateblobsize), \
+                                                        (reencstate));   \
+                            if (rc2 == CKR_IBM_WK_NOT_INITIALIZED) {     \
+                                /* Single APQN now has new WK */         \
+                                TRACE_DEVEL("%s WKID mismatch on "       \
+                                            "reencipher, retry\n",       \
+                                            __func__);                   \
+                                __sync_or_and_fetch(&(target_info)->     \
+                                                  single_apqn_has_new_wk,\
+                                                  1);                    \
+                                continue;                                \
+                            }                                            \
+                            if (rc2 != CKR_OK) {                         \
+                                (rc) = CKR_DEVICE_ERROR;                 \
+                                TRACE_ERROR("%s\n",                      \
+                                         ock_err(ERR_DEVICE_ERROR));     \
+                                break;                                   \
+                            }                                            \
+                        }                                                \
+                        break;                                           \
+                    } while (1);                                         \
+                } while (0);
+
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
 static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
@@ -5862,7 +6025,8 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     CK_RV rc;
     size_t state_len = MAX(MAX_DIGEST_STATE_BYTES * 2,
                            sizeof(libica_sha_context_t));
-    CK_BYTE *state;
+    size_t usestate_len = 0;
+    CK_BYTE *state, *usestate;
     libica_sha_context_t *libica_ctx;
     ep11_target_info_t* target_info;
 
@@ -5892,8 +6056,25 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         state_len /= 2;
 
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestInit(state, &state_len, mech,
+        RETRY_UPDATE_BLOB_START(tokdata, target_info, state, state_len,
+                                state + state_len, state_len,
+                                usestate, usestate_len)
+            rc = dll_m_DigestInit(usestate, &usestate_len, mech,
                                   target_info->target);
+            if (rc == CKR_OK && retry == 1) {
+                /*
+                 * Initially, the real state_len is unknown, and is set to
+                 * allocated state size / 2. When the state was created on
+                 * an APQN with new WK set already, move the state to the
+                 * final place, which is state + usestate_len, where
+                 * usestate_len now is the real state size.
+                 */
+                memmove(state + usestate_len, state + state_len, usestate_len);
+            }
+            state_len = usestate_len;
+        RETRY_UPDATE_BLOB_END(tokdata, target_info, state, state_len,
+                              state + state_len, state_len,
+                              usestate, usestate_len, rc)
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
@@ -5929,6 +6110,8 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     ep11_target_info_t* target_info;
+    CK_BYTE *state;
+    size_t state_len;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
@@ -5942,9 +6125,17 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                    SHA_MSG_PART_ONLY);
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_Digest(c->context, c->context_len / 2,
+        RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                                c->context, c->context_len / 2,
+                                c->context + (c->context_len / 2),
+                                c->context_len / 2, state, state_len)
+            rc = dll_m_Digest(state, state_len,
                               in_data, in_data_len,
                               out_data, out_data_len, target_info->target);
+        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                              c->context, c->context_len / 2,
+                              c->context + (c->context_len / 2),
+                              c->context_len / 2, state, state_len, rc)
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
@@ -5970,6 +6161,8 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     CK_ULONG len;
     CK_RV rc = CKR_OK;
     ep11_target_info_t* target_info;
+    CK_BYTE *state;
+    size_t state_len;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
@@ -6024,8 +6217,16 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
         }
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestUpdate(c->context, c->context_len / 2,
+        RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                                c->context, c->context_len / 2,
+                                c->context + (c->context_len / 2),
+                                c->context_len / 2, state, state_len)
+            rc = dll_m_DigestUpdate(state, state_len,
                                     in_data, in_data_len, target_info->target);
+        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                              c->context, c->context_len / 2,
+                              c->context + (c->context_len / 2),
+                              c->context_len / 2, state, state_len, rc)
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
@@ -6049,6 +6250,8 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     libica_sha_context_t *libica_ctx = (libica_sha_context_t *)c->context;
     CK_RV rc;
     ep11_target_info_t* target_info;
+    CK_BYTE *state;
+    size_t state_len;
 
     target_info = get_target_info(tokdata);
     if (target_info == NULL)
@@ -6064,8 +6267,16 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                         SHA_MSG_PART_FINAL);
     } else {
         RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestFinal(c->context, c->context_len / 2,
+        RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                                c->context, c->context_len / 2,
+                                c->context + (c->context_len / 2),
+                                c->context_len / 2, state, state_len)
+            rc = dll_m_DigestFinal(state, state_len,
                                    out_data, out_data_len, target_info->target);
+        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                              c->context, c->context_len / 2,
+                              c->context + (c->context_len / 2),
+                              c->context_len / 2, state, state_len, rc)
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
     }
 
@@ -9023,8 +9234,8 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
     CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
-    CK_BYTE *useblob;
-    size_t useblobsize;
+    CK_BYTE *useblob, *usestate;
+    size_t useblobsize, usestate_len;
 
     UNUSED(recover_mode);
 
@@ -9111,16 +9322,36 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_sign_state_l /= 2;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, keyblob, keyblobsize,
-                           useblob, useblobsize, rc)
+    RETRY_REENC_BLOB_STATE_START(tokdata, target_info, key_obj, keyblob,
+                                 keyblobsize, useblob, useblobsize,
+                                 ep11_sign_state,
+                                 ep11_sign_state + ep11_sign_state_l,
+                                 ep11_sign_state_l,
+                                 usestate, usestate_len, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_SignInit(ep11_sign_state, &ep11_sign_state_l,
+            rc = dll_m_SignInit(usestate, &usestate_len,
                                 mech, useblob, useblobsize,
                                 target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
+        if (rc == CKR_OK && retry == 1) {
+            /*
+             * Initially, the real state_len is unknown, and is set to
+             * allocated state size / 2. When the state was created on
+             * an APQN with new WK set already, move the state to the
+             * final place, which is state + usestate_len, where
+             * usestate_len now is the real state size.
+             */
+            memmove(ep11_sign_state + usestate_len,
+                    ep11_sign_state + ep11_sign_state_l, usestate_len);
+        }
+        ep11_sign_state_l = usestate_len;
+    RETRY_REENC_BLOB_STATE_END(tokdata, target_info, keyblob, keyblobsize,
+                               useblob, useblobsize, ep11_sign_state,
+                               ep11_sign_state + ep11_sign_state_l,
+                               ep11_sign_state_l, usestate, usestate_len,
+                               TRUE, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9178,6 +9409,8 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                           READ_LOCK);
@@ -9205,9 +9438,17 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Sign(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_Sign(state, state_len,
                         in_data, in_data_len,
                         signature, sig_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9234,6 +9475,8 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (!in_data || !in_data_len)
         return CKR_OK;
@@ -9251,8 +9494,16 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_SignUpdate(ctx->context, ctx->context_len / 2, in_data,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_SignUpdate(state, state_len, in_data,
                               in_data_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9280,6 +9531,8 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = sign_mgr_sign_final(tokdata, session, length_only, ctx, signature, sig_len);
@@ -9294,8 +9547,16 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_SignFinal(ctx->context, ctx->context_len / 2, signature, sig_len,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_SignFinal(state, state_len, signature, sig_len,
                              target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9397,8 +9658,8 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     size_t ep11_sign_state_l = MAX_SIGN_STATE_BYTES * 2;
     CK_BYTE *ep11_sign_state = calloc(ep11_sign_state_l, 1);
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob, *usestate;
+    size_t useblob_len, usestate_len;
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -9495,15 +9756,35 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_sign_state_l /= 2;
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-    RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, spki, spki_len,
-                           useblob, useblob_len, rc)
+    RETRY_REENC_BLOB_STATE_START(tokdata, target_info, key_obj, spki, spki_len,
+                                 useblob, useblob_len,
+                                 ep11_sign_state,
+                                 ep11_sign_state + ep11_sign_state_l,
+                                 ep11_sign_state_l,
+                                 usestate, usestate_len, rc)
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             key_obj))
-            rc = dll_m_VerifyInit(ep11_sign_state, &ep11_sign_state_l, mech,
+            rc = dll_m_VerifyInit(usestate, &usestate_len, mech,
                                   useblob, useblob_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
+        if (rc == CKR_OK && retry == 1) {
+            /*
+             * Initially, the real state_len is unknown, and is set to
+             * allocated state size / 2. When the state was created on
+             * an APQN with new WK set already, move the state to the
+             * final place, which is state + usestate_len, where
+             * usestate_len now is the real state size.
+             */
+            memmove(ep11_sign_state + usestate_len,
+                    ep11_sign_state + ep11_sign_state_l, usestate_len);
+        }
+        ep11_sign_state_l = usestate_len;
+    RETRY_REENC_BLOB_STATE_END(tokdata, target_info, spki, spki_len,
+                               useblob, useblob_len, ep11_sign_state,
+                               ep11_sign_state + ep11_sign_state_l,
+                               ep11_sign_state_l, usestate, usestate_len,
+                               TRUE, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9559,6 +9840,8 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     rc = h_opaque_2_blob(tokdata, ctx->key, &keyblob, &keyblobsize, &key_obj,
                          READ_LOCK);
@@ -9587,9 +9870,17 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Verify(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_Verify(state, state_len,
                           in_data, in_data_len,
                           signature, sig_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9616,6 +9907,8 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (!in_data || !in_data_len)
         return CKR_OK;
@@ -9633,8 +9926,16 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_VerifyUpdate(ctx->context, ctx->context_len / 2, in_data,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_VerifyUpdate(state, state_len, in_data,
                                 in_data_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9661,6 +9962,8 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = verify_mgr_verify_final(tokdata, session, ctx, signature, sig_len);
@@ -9675,8 +9978,16 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_VerifyFinal(ctx->context, ctx->context_len / 2, signature,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_VerifyFinal(state, state_len, signature,
                                sig_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9783,6 +10094,8 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = decr_mgr_decrypt_final(tokdata, session, length_only,
@@ -9798,9 +10111,17 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_DecryptFinal(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_DecryptFinal(state, state_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9829,6 +10150,8 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = decr_mgr_decrypt(tokdata, session, length_only, ctx,
@@ -9845,9 +10168,17 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Decrypt(ctx->context, ctx->context_len / 2, input_data,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_Decrypt(state, state_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9877,6 +10208,8 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
@@ -9898,9 +10231,17 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_DecryptUpdate(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_DecryptUpdate(state, state_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -9992,6 +10333,8 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = encr_mgr_encrypt_final(tokdata, session, length_only,
@@ -10007,9 +10350,17 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptFinal(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_EncryptFinal(state, state_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -10038,6 +10389,8 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (ctx->pkey_active) {
         rc = encr_mgr_encrypt(tokdata, session, length_only, ctx,
@@ -10054,9 +10407,17 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_Encrypt(ctx->context, ctx->context_len / 2, input_data,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_Encrypt(state, state_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -10086,6 +10447,8 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     OBJECT *key_obj = NULL;
+    CK_BYTE *state;
+    size_t state_len;
 
     if (!input_part || !input_part_len) {
         *p_output_part_len = 0;
@@ -10107,9 +10470,17 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_EncryptUpdate(ctx->context, ctx->context_len / 2,
+    RETRY_UPDATE_BLOB_START(tokdata, target_info,
+                            ctx->context, ctx->context_len / 2,
+                            ctx->context + (ctx->context_len / 2),
+                            ctx->context_len / 2, state, state_len)
+        rc = dll_m_EncryptUpdate(state, state_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
+    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+                          ctx->context, ctx->context_len / 2,
+                          ctx->context + (ctx->context_len / 2),
+                          ctx->context_len / 2, state, state_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
@@ -10212,8 +10583,8 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     OBJECT *key_obj = NULL;
     size_t ep11_state_l = MAX_CRYPT_STATE_BYTES * 2;
     CK_BYTE *ep11_state;
-    CK_BYTE *useblob;
-    size_t useblob_len;
+    CK_BYTE *useblob, *usestate;
+    size_t useblob_len, usestate_len;
 
     ep11_state = calloc(ep11_state_l, 1); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
@@ -10295,11 +10666,29 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     if (op == DECRYPT) {
         ENCR_DECR_CONTEXT *ctx = &session->decr_ctx;
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, blob, blob_len,
-                               useblob, useblob_len, rc)
-            rc = dll_m_DecryptInit(ep11_state, &ep11_state_l, mech, useblob,
+        RETRY_REENC_BLOB_STATE_START(tokdata, target_info, key_obj, blob,
+                                     blob_len, useblob, useblob_len,
+                                     ep11_state, ep11_state + ep11_state_l,
+                                     ep11_state_l, usestate, usestate_len, rc)
+            rc = dll_m_DecryptInit(usestate, &usestate_len, mech, useblob,
                                    useblob_len, target_info->target);
-        RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblob_len, rc)
+            if (rc == CKR_OK && retry == 1) {
+                /*
+                 * Initially, the real state_len is unknown, and is set to
+                 * allocated state size / 2. When the state was created on
+                 * an APQN with new WK set already, move the state to the
+                 * final place, which is state + usestate_len, where
+                 * usestate_len now is the real state size.
+                 */
+                memmove(ep11_state + usestate_len,
+                        ep11_state + ep11_state_l, usestate_len);
+            }
+            ep11_state_l = usestate_len;
+        RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blob_len,
+                                   useblob, useblob_len,
+                                   ep11_state, ep11_state + ep11_state_l,
+                                   ep11_state_l, usestate, usestate_len,
+                                   TRUE, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
@@ -10346,11 +10735,29 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         }
 
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        RETRY_REENC_BLOB_START(tokdata, target_info, key_obj, blob, blob_len,
-                               useblob, useblob_len, rc)
-            rc = dll_m_EncryptInit(ep11_state, &ep11_state_l, mech, useblob,
+        RETRY_REENC_BLOB_STATE_START(tokdata, target_info, key_obj, blob,
+                                     blob_len, useblob, useblob_len,
+                                     ep11_state, ep11_state + ep11_state_l,
+                                     ep11_state_l, usestate, usestate_len, rc)
+            rc = dll_m_EncryptInit(usestate, &usestate_len, mech, useblob,
                                    useblob_len, target_info->target);
-        RETRY_REENC_BLOB_END(tokdata, target_info,useblob, useblob_len, rc)
+            if (rc == CKR_OK && retry == 1) {
+                /*
+                 * Initially, the real state_len is unknown, and is set to
+                 * allocated state size / 2. When the state was created on
+                 * an APQN with new WK set already, move the state to the
+                 * final place, which is state + usestate_len, where
+                 * usestate_len now is the real state size.
+                 */
+                memmove(ep11_state + usestate_len,
+                        ep11_state + ep11_state_l, usestate_len);
+            }
+            ep11_state_l = usestate_len;
+        RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blob_len,
+                                   useblob, useblob_len,
+                                   ep11_state, ep11_state + ep11_state_l,
+                                   ep11_state_l, usestate, usestate_len,
+                                   TRUE, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         ctx->key = key;
         ctx->active = TRUE;
