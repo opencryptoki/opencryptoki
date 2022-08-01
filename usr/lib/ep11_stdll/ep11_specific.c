@@ -882,6 +882,103 @@ typedef struct {
                     } while (1);                                         \
                 } while (0);
 
+/*
+ * Macros to enclose EP11 library calls that create 1 or 2 key blobs as output.
+ * If a master key change is active, and the key blob(s) were created with the
+ * new WK, copy them to the re-enciphered blob(s) and indicate that the
+ * single APQN has the new WK.
+ * If a master key change is active, and the key blob(s) were created with the
+ * old WK, re-encipher the key blob(s).
+ * If re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the new WK
+ * was just activated on the single APQN, indicate that the single APQN has
+ * the new WK, and retry the EP11 library call. This creates new key blob(s)
+ * that are then enciphered with the new WK.
+ */
+#define RETRY_REENC_CREATE_KEY_START()                                   \
+                RETRY_REENC_CREATE_KEY2_START()
+
+#define RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob,           \
+                                   reencblob, blobsize, rc)              \
+                RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob,  \
+                                            reencblob, blobsize, blob,   \
+                                            reencblob, 0, rc)
+
+#define RETRY_REENC_CREATE_KEY2_START()                                  \
+                do {                                                     \
+                    do {                                                 \
+
+#define RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob1,         \
+                                    reencblob1, blobsize1, blob2,        \
+                                    reencblob2, blobsize2, rc)           \
+                        if (((ep11_private_data_t *)(tokdata)->          \
+                                private_data)->mk_change_active &&       \
+                            (rc) == CKR_OK) {                            \
+                            /* Key creation successful */                \
+                            if (ep11tok_is_blob_new_wkid((tokdata),      \
+                                              (blob1), (blobsize1)) ||   \
+                                ((blobsize2) > 0 &&                      \
+                                 ep11tok_is_blob_new_wkid((tokdata),     \
+                                               (blob2), (blobsize2)))) { \
+                                /* Key created with new WK already:
+                                   supply it in reencblob as well */     \
+                                TRACE_DEVEL("%s new key has new WK\n",   \
+                                            __func__);                   \
+                                memcpy((reencblob1), (blob1),            \
+                                       (blobsize1));                     \
+                                if ((blobsize2) > 0)                     \
+                                    memcpy((reencblob2), (blob2),        \
+                                           (blobsize2));                 \
+                                __sync_or_and_fetch(&(target_info)->     \
+                                                 single_apqn_has_new_wk, \
+                                                 1);                     \
+                            } else {                                     \
+                                /* created with old WK, re-encipher it */\
+                                TRACE_DEVEL("%s new key has old WK, "    \
+                                            "reencipher it\n", __func__);\
+                                (rc) = ep11tok_reencipher_blob((tokdata),\
+                                             &(target_info), (blob1),    \
+                                             (blobsize1), (reencblob1)); \
+                                if ((rc) == CKR_IBM_WK_NOT_INITIALIZED) {\
+                                    /* Single APQN now has new WK,
+                                       repeat key creation. */           \
+                                    TRACE_DEVEL("%s WKID mismatch on "   \
+                                                "reencipher, retry\n",   \
+                                                __func__);               \
+                                    continue;                            \
+                                }                                        \
+                                if ((rc) != CKR_OK) {                    \
+                                    (rc) = CKR_DEVICE_ERROR;             \
+                                    TRACE_ERROR("%s\n",                  \
+                                             ock_err(ERR_DEVICE_ERROR)); \
+                                    break;                               \
+                                }                                        \
+                                if ((blobsize2) > 0) {                   \
+                                    (rc) = ep11tok_reencipher_blob(      \
+                                               (tokdata), &(target_info),\
+                                               (blob2),  (blobsize2),    \
+                                               (reencblob2));            \
+                                    if ((rc) ==                          \
+                                            CKR_IBM_WK_NOT_INITIALIZED) {\
+                                        /* Single APQN now has new WK,
+                                           repeat key creation. */       \
+                                        TRACE_DEVEL("%s WKID mismatch "  \
+                                                "on reencipher, retry\n",\
+                                                __func__);               \
+                                        continue;                        \
+                                    }                                    \
+                                    if ((rc) != CKR_OK) {                \
+                                        (rc) = CKR_DEVICE_ERROR;         \
+                                        TRACE_ERROR("%s\n",              \
+                                             ock_err(ERR_DEVICE_ERROR)); \
+                                        break;                           \
+                                    }                                    \
+                                }                                        \
+                            }                                            \
+                        }                                                \
+                        break;                                           \
+                    } while (1);                                         \
+                } while (0);
+
 #define CKF_EP11_HELPER_SESSION      0x80000000
 
 static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
@@ -1794,9 +1891,12 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
 
     /* Create an AES testkey with CKA_IBM_PROTKEY_EXTRACTABLE */
     RETRY_SINGLE_APQN_START(tokdata, ret)
+    RETRY_REENC_CREATE_KEY_START()
         ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
                                 blob, &blobsize, csum, &csum_l,
                                 target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                               blob, blob_reenc, blobsize, ret)
     RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
     if (ret != CKR_OK) {
         TRACE_ERROR("dll_m_GenerateKey failed with rc=0x%lx\n",ret);
@@ -3040,7 +3140,8 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
 static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                            unsigned char *key,
                            CK_ULONG ksize, CK_KEY_TYPE ktype,
-                           unsigned char *blob, size_t * blen, OBJECT * key_obj)
+                           unsigned char *blob, unsigned char *blobreenc,
+                           size_t *blen, OBJECT *key_obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BYTE cipher[MAX_BLOBSIZE];
@@ -3108,11 +3209,13 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_UnwrapKey(cipher, clen, wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob, blen, csum,
                              &cslen, target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob, blobreenc, *blen, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -3328,7 +3431,6 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     ep11_target_info_t* target_info;
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_l = sizeof(csum);
-    CK_BBOOL new_wk, first = TRUE;
     CK_RV rc;
 
     if (ep11_data->raw2key_wrap_blob_l != 0) {
@@ -3343,13 +3445,17 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-retry:
     ep11_data->raw2key_wrap_blob_l = sizeof(ep11_data->raw2key_wrap_blob);
     RETRY_SINGLE_APQN_START(tokdata, rc)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_GenerateKey(&mech, tmpl_in, tmpl_len, NULL, 0,
                                ep11_data->raw2key_wrap_blob,
                                &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
                                target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                               ep11_data->raw2key_wrap_blob,
+                               ep11_data->raw2key_wrap_blob_reenc,
+                               ep11_data->raw2key_wrap_blob_l, rc)
     RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
 
     if (rc != CKR_OK) {
@@ -3362,30 +3468,9 @@ retry:
     }
 
     if (check_expected_mkvp(tokdata, ep11_data->raw2key_wrap_blob,
-                            ep11_data->raw2key_wrap_blob_l, &new_wk) != CKR_OK) {
+                            ep11_data->raw2key_wrap_blob_l, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
-    }
-
-    if (ep11_data->mk_change_active && new_wk == FALSE) {
-        /*
-         * Try to re-encipher wrap blob with new WK.
-         * If new WK was just made active before re-encipher finished,
-         * regenerate the wrap blob.
-         */
-        rc = ep11tok_reencipher_blob(tokdata, &target_info,
-                                     ep11_data->raw2key_wrap_blob,
-                                     ep11_data->raw2key_wrap_blob_l,
-                                     ep11_data->raw2key_wrap_blob_reenc);
-        if (rc == CKR_IBM_WK_NOT_INITIALIZED && first) {
-            first = FALSE;
-            goto retry;
-        }
-
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s reencipher wrap blob failed rc=0x%lx\n",
-                        __func__, rc);
-        }
     }
 
 out:
@@ -3827,8 +3912,8 @@ CK_RV ep11tok_final(STDLL_TokData_t * tokdata, CK_BBOOL in_fork_initializer)
 static CK_RV make_maced_spki(STDLL_TokData_t *tokdata, SESSION * sess,
                              OBJECT *pub_key_obj,
                              CK_BYTE *spki, CK_ULONG spki_len,
-                             CK_BYTE *maced_spki, CK_ULONG *maced_spki_len,
-                             int curve_type)
+                             CK_BYTE *maced_spki, CK_BYTE *maced_spki_reenc,
+                             CK_ULONG *maced_spki_len, int curve_type)
 {
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
@@ -3928,10 +4013,13 @@ make_maced_spki_next:
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_UnwrapKey(spki, spki_len, NULL, 0, NULL, 0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              p_attrs, attrs_len, maced_spki, maced_spki_len,
                              csum, &cslen, target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, maced_spki,
+                               maced_spki_reenc, *maced_spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -3986,7 +4074,8 @@ static int get_curve_type_from_template(TEMPLATE *tmpl)
  */
 static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                 OBJECT *aes_xts_key_obj,
-                                CK_BYTE *blob, size_t *blob_size)
+                                CK_BYTE *blob, CK_BYTE *blobreenc,
+                                size_t *blob_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BYTE cipher[MAX_BLOBSIZE];
@@ -4006,6 +4095,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t*) sess->private_data;
     CK_BYTE *wrap_blob;
+    CK_BBOOL blob_new_mk = CK_FALSE, blob2_new_mk;
 
     rc = template_attribute_get_non_empty(aes_xts_key_obj->template, CKA_VALUE,
                                           &attr);
@@ -4026,6 +4116,20 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto import_aes_xts_key_end;
     }
 
+    rc = check_key_attributes(tokdata, CKK_AES, CKO_SECRET_KEY, p_attrs,
+                              attrs_len, &new_p_attrs, &new_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s AES XTS check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto import_aes_xts_key_end;
+    }
+
+    trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
+
+    ep11_get_pin_blob(ep11_session, object_is_session_object(aes_xts_key_obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+retry:
     memset(cipher, 0, sizeof(cipher));
     memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
 
@@ -4052,28 +4156,18 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
                    attr->ulValueLen / 2, clen, rc);
     }
 
-    rc = check_key_attributes(tokdata, CKK_AES, CKO_SECRET_KEY, p_attrs,
-                              attrs_len, &new_p_attrs, &new_attrs_len, -1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s AES XTS check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto import_aes_xts_key_end;
-    }
-
-    trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
-
-    ep11_get_pin_blob(ep11_session, object_is_session_object(aes_xts_key_obj),
-                      &ep11_pin_blob, &ep11_pin_blob_len);
-
     /* the encrypted key is decrypted and a blob is built,
      * card accepts only blobs as keys
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_UnwrapKey(cipher, clen, wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
                              ep11_pin_blob_len, &mech, new_p_attrs, new_attrs_len,
                              blob, blob_size, csum, &cslen, target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob, blobreenc,
+                               *blob_size, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4084,6 +4178,9 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blob_size, rc);
     }
+
+    if (ep11_data->mk_change_active)
+        blob_new_mk = ep11tok_is_blob_new_wkid(tokdata, blob, *blob_size);
 
     memset(cipher, 0, sizeof(cipher));
 
@@ -4121,12 +4218,15 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
      */
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_UnwrapKey(cipher, clen,
                              wrap_blob,
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob + *blob_size,
                              &blob_size2, csum, &cslen, target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob + *blob_size,
+                               blobreenc + *blob_size, blob_size2, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4136,6 +4236,36 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
         goto import_aes_xts_key_end;
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, blob_size2, rc);
+    }
+
+    if (ep11_data->mk_change_active) {
+        blob2_new_mk = ep11tok_is_blob_new_wkid(tokdata, blob + *blob_size,
+                                                blob_size2);
+        if (blob_new_mk != blob2_new_mk) {
+            /*
+             * New MK has been set after importing key 1 but before
+             * importing key 2
+             */
+            if (blob2_new_mk == TRUE) {
+                /*
+                 * Key 2 was created with new MK, key 1 with old MK.
+                 * Key 2 already has blob and reenc_blob with new MK,
+                 * Key 1 has blob with old MK, and blob_reenc with new MK.
+                 * Supply blob_reenc with new MK in blob also.
+                 */
+                memcpy(blob, blobreenc, *blob_size);
+            } else {
+                /*
+                 * Key 1 was created with new MK, but key 2 with old MK.
+                 * This can happen when the single APQN with new MK went offline
+                 * and a new single APQN with old MK is selected after creating
+                 * key 1 but before creating key 2. Since there is no key1 blob
+                 * with old MK, we need to re-create both keys (both with old
+                 * MK now).
+                 */
+                goto retry;
+            }
+        }
     }
 
     /* update the concatenated blobsize */
@@ -4160,7 +4290,8 @@ import_aes_xts_key_end:
  */
 static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                             OBJECT *rsa_key_obj,
-                            CK_BYTE *blob, size_t *blob_size,
+                            CK_BYTE *blob, CK_BYTE *blobreenc,
+                            size_t *blob_size,
                             CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -4237,7 +4368,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, rsa_key_obj, data, data_len,
-                             blob, blob_size, -1);
+                             blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -4297,11 +4428,14 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_UnwrapKey(cipher, cipher_l, wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
                                  spki, spki_size, target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4341,7 +4475,8 @@ import_RSA_key_end:
  */
 static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
                            OBJECT *ec_key_obj,
-                           CK_BYTE *blob, size_t *blob_size,
+                           CK_BYTE *blob,  CK_BYTE *blobreenc,
+                           size_t *blob_size,
                            CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -4470,7 +4605,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, ec_key_obj, data, data_len,
-                             blob, blob_size, (int)curve->curve_type);
+                             blob, blobreenc, blob_size, (int)curve->curve_type);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -4531,6 +4666,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -4539,6 +4675,8 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4575,7 +4713,8 @@ import_EC_key_end:
  */
 static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                             OBJECT *dsa_key_obj,
-                            CK_BYTE *blob, size_t *blob_size,
+                            CK_BYTE *blob, CK_BYTE *blobreenc,
+                            size_t *blob_size,
                             CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -4668,7 +4807,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, dsa_key_obj, data, data_len,
-                             blob, blob_size, -1);
+                             blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -4729,6 +4868,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -4737,6 +4877,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4771,7 +4913,8 @@ import_DSA_key_end:
  */
 static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
                            OBJECT *dh_key_obj,
-                           CK_BYTE *blob, size_t *blob_size,
+                           CK_BYTE *blob, CK_BYTE *blobreenc,
+                           size_t *blob_size,
                            CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -4856,7 +4999,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, dh_key_obj, data, data_len,
-                             blob, blob_size, -1);
+                             blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -4928,6 +5071,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -4936,6 +5080,8 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -4985,7 +5131,8 @@ import_DH_key_end:
  */
 static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                 OBJECT *pqc_key_obj, CK_KEY_TYPE keytype,
-                                CK_BYTE *blob, size_t *blob_size,
+                                CK_BYTE *blob, CK_BYTE *blobreenc,
+                                size_t *blob_size,
                                 CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -5117,7 +5264,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
          * The card expects MACed-SPKIs as public keys.
          */
         rc = make_maced_spki(tokdata, sess, pqc_key_obj, data, data_len,
-                             blob, blob_size, -1);
+                             blob, blobreenc, blob_size, -1);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s failed to make a MACed-SPKI rc=0x%lx\n",
                         __func__, rc);
@@ -5219,6 +5366,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
          */
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
         RETRY_REENC_WRAPBLOB_START(tokdata, target_info, wrap_blob)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_UnwrapKey(cipher, cipher_l,
                                  wrap_blob,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
@@ -5227,6 +5375,8 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -5271,9 +5421,11 @@ done:
 CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                                 OBJECT * obj)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_KEY_TYPE keytype;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE blob[MAX_BLOBSIZE];
+    CK_BYTE blobreenc[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     CK_BYTE spki[MAX_BLOBSIZE];
     size_t spkisize = sizeof(spki);
@@ -5311,11 +5463,12 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
     memset(blob, 0, sizeof(blob));
+    memset(blobreenc, 0, sizeof(blobreenc));
 
     /* only these keys can be imported */
     switch (keytype) {
     case CKK_RSA:
-        rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize,
+        rc = import_RSA_key(tokdata, sess, obj, blob, blobreenc, &blobsize,
                             spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
@@ -5326,7 +5479,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_EC:
-        rc = import_EC_key(tokdata, sess, obj, blob, &blobsize,
+        rc = import_EC_key(tokdata, sess, obj, blob, blobreenc, &blobsize,
                            spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
@@ -5337,7 +5490,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_DSA:
-        rc = import_DSA_key(tokdata, sess, obj, blob, &blobsize,
+        rc = import_DSA_key(tokdata, sess, obj, blob, blobreenc, &blobsize,
                             spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DSA key rc=0x%lx blobsize=0x%zx\n",
@@ -5348,7 +5501,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_DH:
-        rc = import_DH_key(tokdata, sess, obj, blob, &blobsize,
+        rc = import_DH_key(tokdata, sess, obj, blob, blobreenc, &blobsize,
                            spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DH key rc=0x%lx blobsize=0x%zx\n",
@@ -5360,8 +5513,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         break;
     case CKK_IBM_PQC_DILITHIUM:
     case CKK_IBM_PQC_KYBER:
-        rc = import_IBM_pqc_key(tokdata, sess, obj, keytype, blob, &blobsize,
-                                spki, &spkisize);
+        rc = import_IBM_pqc_key(tokdata, sess, obj, keytype, blob, blobreenc,
+                                &blobsize, spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import IBM PQC key kytype=0x%lx rc=0x%lx blobsize=0x%zx\n",
                         __func__, keytype, rc, blobsize);
@@ -5384,7 +5537,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
          * import that key (make a blob)
          */
         rc = rawkey_2_blob(tokdata, sess, attr->pValue, attr->ulValueLen,
-                           keytype, blob, &blobsize, obj);
+                           keytype, blob, blobreenc, &blobsize, obj);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s rawkey_2_blob rc=0x%lx "
                         "blobsize=0x%zx\n", __func__, rc, blobsize);
@@ -5398,7 +5551,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_AES_XTS:
-        rc = import_aes_xts_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_aes_xts_key(tokdata, sess, obj, blob, blobreenc, &blobsize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import AES XTS key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -5446,6 +5599,23 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, blobreenc, blobsize, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            return rc;
+        }
+
+        rc = template_update_attribute(obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            return rc;
+        }
+    }
+
     if (spkisize > 0 && (class == CKO_PRIVATE_KEY || class == CKO_PUBLIC_KEY)) {
         /* spki may be a MACed SPKI, get length of SPKI part only */
         rc = ber_decode_SEQUENCE(spki, &temp, &temp_len, &spkisize);
@@ -5486,7 +5656,9 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                            CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BYTE blob[MAX_BLOBSIZE], blob2[MAX_BLOBSIZE];
+    CK_BYTE reenc_blob[MAX_BLOBSIZE], reenc_blob2[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
     size_t blobsize2 = sizeof(blob2);
     CK_BYTE csum[MAX_CSUMSIZE];
@@ -5504,8 +5676,10 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
     CK_MECHANISM mech2 = {CKM_AES_KEY_GEN, NULL, 0};
+    CK_BBOOL blob_new_mk = FALSE, blob2_new_mk = FALSE;
 
     memset(blob, 0, sizeof(blob));
+    memset(reenc_blob, 0, sizeof(reenc_blob));
     memset(csum, 0, sizeof(csum));
     memset(blob2, 0, sizeof(blob2));
 
@@ -5555,10 +5729,14 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
+retry:
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
-        rc = dll_m_GenerateKey((xts ? &mech2 : mech), new_attrs2, new_attrs2_len,
+    RETRY_REENC_CREATE_KEY_START()
+        rc = dll_m_GenerateKey(xts ? &mech2 : mech, new_attrs2, new_attrs2_len, 
                                ep11_pin_blob, ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                               blob, reenc_blob, blobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5571,7 +5749,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
 
-    if (check_expected_mkvp(tokdata, blob, blobsize, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, blob, blobsize, &blob_new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
@@ -5579,10 +5757,13 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (xts) {
         RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+        RETRY_REENC_CREATE_KEY_START()
             rc = dll_m_GenerateKey(&mech2, new_attrs2, new_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len, blob2,
                                    &blobsize2, csum, &csum_len,
                                    target_info->target);
+        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                                   blob2, reenc_blob2, blobsize2, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, session);
@@ -5595,10 +5776,37 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
 
-        if (check_expected_mkvp(tokdata, blob2, blobsize2, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, blob2, blobsize2,
+                                &blob2_new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             rc = CKR_DEVICE_ERROR;
             goto error;
+        }
+
+        if (ep11_data->mk_change_active && blob_new_mk != blob2_new_mk) {
+            /*
+             * New MK has been set after generating key 1 but before
+             * generating key 2
+             */
+            if (blob2_new_mk == TRUE) {
+                /*
+                 * Key 2 was created with new MK, key 1 with old MK.
+                 * Key 2 already has blob and reenc_blob with new MK,
+                 * Key 1 has blob with old MK, and blob_reenc with new MK.
+                 * Supply blob_reenc with new MK in blob also.
+                 */
+                memcpy(blob, reenc_blob, blobsize);
+            } else {
+                /*
+                 * Key 1 was created with new MK, but key 2 with old MK.
+                 * This can happen when the single APQN with new MK went offline
+                 * and a new single APQN with old MK is selected after creating
+                 * key 1 but before creating key 2. Since there is no key1 blob
+                 * with old MK, we need to re-create both keys (both with old
+                 * MK now).
+                 */
+                goto retry;
+            }
         }
 
         if (blobsize + blobsize2 > MAX_BLOBSIZE) {
@@ -5608,6 +5816,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
 
         memcpy(blob + blobsize, blob2, blobsize2);
+        if (ep11_data->mk_change_active)
+            memcpy(reenc_blob + blobsize, reenc_blob2, blobsize2);
         blobsize = blobsize + blobsize2;
     }
 
@@ -5624,6 +5834,23 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     attr = NULL;
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, reenc_blob, blobsize, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        attr = NULL;
+    }
 
     rc = update_ep11_attrs_from_blob(tokdata, session, key_obj, xts);
     if (rc != CKR_OK) {
@@ -6981,10 +7208,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
                          CK_ULONG attrs_len)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *keyblob;
     size_t keyblobsize;
     CK_BYTE newblob[MAX_BLOBSIZE];
+    CK_BYTE newblobreenc[MAX_BLOBSIZE];
     size_t newblobsize = sizeof(newblob);
     CK_BYTE csum[MAX_BLOBSIZE];
     CK_ULONG cslen = sizeof(csum);
@@ -7018,6 +7247,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     size_t useblobsize;
 
     memset(newblob, 0, sizeof(newblob));
+    memset(newblobreenc, 0, sizeof(newblobreenc));
 
     if (mech->mechanism == CKM_ECDH1_DERIVE ||
         mech->mechanism == CKM_IBM_EC_X25519 ||
@@ -7298,6 +7528,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
     RETRY_REENC_BLOB_START(tokdata, target_info, base_key_obj, keyblob,
                            keyblobsize, useblob, useblobsize, rc)
+    RETRY_REENC_CREATE_KEY_START()
         if (ep11_pqc_obj_strength_supported(target_info, mech->mechanism,
                                             base_key_obj))
             rc = dll_m_DeriveKey(mech, new_attrs2, new_attrs2_len,
@@ -7307,6 +7538,8 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                                  target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                               newblob, newblobreenc, newblobsize, rc)
     RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
 
@@ -7367,6 +7600,24 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
 
     default:
         break;
+    }
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, newblobreenc, newblobsize,
+                             &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        opaque_attr = NULL;
     }
 
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
@@ -7434,10 +7685,13 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                                  CK_MECHANISM_PTR pMechanism,
                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
+    CK_BYTE publblobreenc[MAX_BLOBSIZE];
     size_t publblobsize = sizeof(publblob);
     CK_BYTE privblob[MAX_BLOBSIZE];
+    CK_BYTE privblobreenc[MAX_BLOBSIZE];
     size_t privblobsize = sizeof(privblob);
     CK_ATTRIBUTE *prime_attr = NULL;
     CK_ATTRIBUTE *base_attr = NULL;
@@ -7469,7 +7723,9 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
 
     memset(&dh_pgs, 0, sizeof(dh_pgs));
     memset(publblob, 0, sizeof(publblob));
+    memset(publblobreenc, 0, sizeof(publblobreenc));
     memset(privblob, 0, sizeof(privblob));
+    memset(privblobreenc, 0, sizeof(privblobreenc));
 
     rc = build_ep11_attrs(tokdata, publ_tmpl, &dh_pPublicKeyTemplate,
                           &dh_ulPublicKeyAttributeCount,
@@ -7599,12 +7855,16 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privblob, &privblobsize,
                                    publblob, &publblobsize, target_info->target);
+    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info,
+                                privblob, privblobreenc, privblobsize,
+                                publblob, publblobreenc, publblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -7637,6 +7897,24 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         goto dh_generate_keypair_end;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, publblobreenc, publblobsize,
+                             &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto dh_generate_keypair_end;
+        }
+
+        rc = template_update_attribute(publ_tmpl, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(opaque_attr);
+            goto dh_generate_keypair_end;
+        }
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -7650,6 +7928,25 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
         free(opaque_attr);
         goto dh_generate_keypair_end;
     }
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, privblobreenc, privblobsize,
+                             &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto dh_generate_keypair_end;
+        }
+
+        rc = template_update_attribute(priv_tmpl, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(opaque_attr);
+            goto dh_generate_keypair_end;
+        }
+    }
+
 #ifdef DEBUG
     TRACE_DEBUG("%s DH SPKI\n", __func__);
     TRACE_DEBUG_DUMP("   ", publblob, publblobsize);
@@ -7745,10 +8042,13 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                   CK_MECHANISM_PTR pMechanism,
                                   TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
+    CK_BYTE publblobreenc[MAX_BLOBSIZE];
     size_t publblobsize = sizeof(publblob);
     CK_BYTE privblob[MAX_BLOBSIZE];
+    CK_BYTE privblobreenc[MAX_BLOBSIZE];
     size_t privblobsize = sizeof(privblob);
     CK_ATTRIBUTE *prime_attr = NULL;
     CK_ATTRIBUTE *sub_prime_attr = NULL;
@@ -7777,7 +8077,9 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
 
     memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
     memset(publblob, 0, sizeof(publblob));
+    memset(publblobreenc, 0, sizeof(publblobreenc));
     memset(privblob, 0, sizeof(privblob));
+    memset(privblobreenc, 0, sizeof(privblobreenc));
 
     rc = build_ep11_attrs(tokdata, publ_tmpl, &dsa_pPublicKeyTemplate,
                           &dsa_ulPublicKeyAttributeCount,
@@ -7937,12 +8239,16 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs, new_publ_attrs_len,
                                    new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    target_info->target);
+    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info,
+                                privblob, privblobreenc, privblobsize,
+                                publblob, publblobreenc, publblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
     if (rc != CKR_OK) {
@@ -7975,6 +8281,24 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
         goto dsa_generate_keypair_end;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, publblobreenc, publblobsize,
+                             &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto dsa_generate_keypair_end;
+        }
+
+        rc = template_update_attribute(publ_tmpl, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(opaque_attr);
+            goto dsa_generate_keypair_end;
+        }
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, privblob, privblobsize, &opaque_attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -7987,6 +8311,24 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                     __func__, rc);
         free(opaque_attr);
         goto dsa_generate_keypair_end;
+    }
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, privblobreenc, privblobsize,
+                             &opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto dsa_generate_keypair_end;
+        }
+
+        rc = template_update_attribute(priv_tmpl, opaque_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(opaque_attr);
+            goto dsa_generate_keypair_end;
+        }
     }
 
     /* set CKA_VALUE of the public key, first get key from SPKI */
@@ -8044,12 +8386,15 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                      CK_MECHANISM_PTR pMechanism,
                                      TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_ATTRIBUTE *n_attr = NULL;
     CK_BYTE privkey_blob[MAX_BLOBSIZE];
+    CK_BYTE privkey_blobreenc[MAX_BLOBSIZE];
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
+    unsigned char spkireenc[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
     CK_ULONG bit_str_len;
     CK_BYTE *key;
@@ -8135,12 +8480,16 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_CREATE_KEY2_START()
         rc = dll_m_GenerateKeyPair(pMechanism,
                                    new_publ_attrs2, new_publ_attrs2_len,
                                    new_priv_attrs2, new_priv_attrs2_len,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, target_info->target);
+    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, privkey_blob,
+                                privkey_blobreenc, privkey_blob_len,
+                                spki, spkireenc, spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -8181,6 +8530,22 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, spkireenc, spki_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+        rc = template_update_attribute(publ_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            goto error;
+        }
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, privkey_blob, privkey_blob_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -8192,6 +8557,22 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                     __func__, rc);
         free(attr);
         goto error;
+    }
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, privkey_blobreenc,
+                             privkey_blob_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        rc = template_update_attribute(priv_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            goto error;
+        }
     }
 
     if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
@@ -8388,11 +8769,14 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                       CK_MECHANISM_PTR pMechanism,
                                       TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE privkey_blob[MAX_BLOBSIZE];
+    CK_BYTE privkey_blobreenc[MAX_BLOBSIZE];
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
+    unsigned char spkireenc[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
     CK_ULONG ktype;
     unsigned char *ep11_pin_blob = NULL;
@@ -8513,6 +8897,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)
+    RETRY_REENC_CREATE_KEY2_START()
         if (ep11_pqc_strength_supported(target_info, pMechanism->mechanism,
                                         pqc_oid))
             rc = dll_m_GenerateKeyPair(pMechanism,
@@ -8523,6 +8908,9 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                        &spki_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
+    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, privkey_blob,
+                                privkey_blobreenc, privkey_blob_len,
+                                spki, spkireenc, spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
@@ -8563,6 +8951,22 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, spkireenc, spki_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+        rc = template_update_attribute(publ_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            goto error;
+        }
+    }
+
     rc = build_attribute(CKA_IBM_OPAQUE, privkey_blob, privkey_blob_len, &attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
@@ -8576,6 +8980,24 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
         goto error;
     }
 
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, privkey_blobreenc,
+                             privkey_blob_len, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+        rc = template_update_attribute(priv_tmpl, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            goto error;
+        }
+    }
+
+    /* Decode SPKI */
     rc = ibm_pqc_priv_unwrap_get_data(publ_tmpl, ktype,
                                       spki, spki_len, TRUE);
     if (rc != CKR_OK) {
@@ -11033,6 +11455,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                          CK_OBJECT_HANDLE wrapping_key,
                          CK_OBJECT_HANDLE_PTR p_key)
 {
+    ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
     CK_BYTE *wrapping_blob, *use_wrapping_blob, *temp;
     size_t wrapping_blob_len, use_wrapping_blob_len;
@@ -11040,6 +11463,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG cslen = sizeof(csum), temp_len;
     OBJECT *key_obj = NULL;
     CK_BYTE keyblob[MAX_BLOBSIZE];
+    CK_BYTE keyblobreenc[MAX_BLOBSIZE];
     size_t keyblobsize = sizeof(keyblob);
     CK_ATTRIBUTE *attr = NULL;
     CK_ULONG i;
@@ -11103,6 +11527,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     memset(keyblob, 0, sizeof(keyblob));
+    memset(keyblobreenc, 0, sizeof(keyblobreenc));
 
     /*get key type of unwrapped key */
     CK_ATTRIBUTE_PTR cla_attr =
@@ -11230,6 +11655,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                             use_wrapping_blob, use_wrapping_blob_len,
                             vobj, verifyblob, verifyblobsize,
                             use_verifyblob, use_verifyblobsize, rc)
+    RETRY_REENC_CREATE_KEY_START()
         rc = dll_m_UnwrapKey(wrapped_key, wrapped_key_len, use_wrapping_blob,
                              use_wrapping_blob_len, use_verifyblob,
                              use_verifyblobsize, ep11_pin_blob,
@@ -11237,6 +11663,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                              new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              target_info->target);
+    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+                               keyblob, keyblobreenc, keyblobsize, rc)
     RETRY_REENC_BLOB2_END(tokdata, target_info, use_wrapping_blob,
                           use_wrapping_blob_len, use_verifyblob,
                           use_verifyblobsize, rc)
@@ -11270,6 +11698,24 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     attr = NULL;
+
+    if (ep11_data->mk_change_active) {
+        rc = build_attribute(CKA_IBM_OPAQUE_REENC, keyblobreenc, keyblobsize,
+                             &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+        attr = NULL;
+    }
 
     if (isab) {
         rc = ab_unwrap_update_template(tokdata, session,
