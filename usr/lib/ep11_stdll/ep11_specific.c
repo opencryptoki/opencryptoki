@@ -247,7 +247,8 @@ typedef struct {
                                          __func__);                      \
                              put_target_info((tokdata), target_info);    \
                              target_info = NULL;                         \
-                             (rc) = refresh_target_info((tokdata));      \
+                             (rc) = refresh_target_info((tokdata),       \
+                                                        FALSE);          \
                              if ((rc) != CKR_OK)                         \
                                  break;                                  \
                              target_info = get_target_info((tokdata));   \
@@ -302,7 +303,8 @@ typedef struct {
                                          __func__);                      \
                              put_target_info((tokdata), (target_info));  \
                              target_info = NULL;                         \
-                             (rc) = refresh_target_info((tokdata));      \
+                             (rc) = refresh_target_info((tokdata),       \
+                                                        FALSE);          \
                              if ((rc) != CKR_OK)                         \
                                  break;                                  \
                              (target_info) = get_target_info((tokdata)); \
@@ -322,8 +324,12 @@ typedef struct {
  * obtain and use the re-enciphered blob(s) from CKA_IBM_OPAQUE_REENC from
  * the key object(s).
  * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH obtain the re-enciphered blob(s) from
- * CKA_IBM_OPAQUE_REENC from the key object(s) and retry the library call.
+ * CKR_IBM_WKID_MISMATCH and the used blob(s) are enciphered with the new WK,
+ * then select a new single APQN that has the new WK. If no available APQN has
+ * the new WK, wait until on at least one the new WK gets activated.
+ * In case the blob(s) are enciphered with the old WK, then obtain the
+ * re-enciphered blob(s) from CKA_IBM_OPAQUE_REENC from the key object(s)
+ * and retry the library call.
  * If the retry was successful, indicate that the single APQN has the new WK.
  */
 #define RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blobsize,\
@@ -431,6 +437,37 @@ typedef struct {
                                       private_data)->mk_change_active && \
                             retry == 0 &&                                \
                             (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            if (ep11tok_is_blob_new_wkid((tokdata),      \
+                                          (useblob1), (useblobsize1)) || \
+                                (useblob2 != NULL &&                     \
+                                 ep11tok_is_blob_new_wkid((tokdata),     \
+                                         (useblob2), (useblobsize2))) || \
+                                (useblob3 != NULL &&                     \
+                                 ep11tok_is_blob_new_wkid((tokdata),     \
+                                         (useblob3), (useblobsize3)))) { \
+                                /* blob has new WK, but single APQN not.
+                                   Wait until other single APQN with
+                                   new WK set is available */            \
+                                TRACE_DEVEL("%s WKID mismatch, blob has "\
+                                            "new WK, retry with new "    \
+                                            "single APQN with new WK, "  \
+                                            "wait if required\n",        \
+                                            __func__);                   \
+                                put_target_info((tokdata),               \
+                                                 (target_info));         \
+                                (target_info) = NULL;                    \
+                                (rc) = refresh_target_info((tokdata),    \
+                                                           TRUE);        \
+                                if ((rc) != CKR_OK)                      \
+                                    break;                               \
+                                (target_info) =                          \
+                                             get_target_info((tokdata)); \
+                                if ((target_info) == NULL) {             \
+                                    (rc) = CKR_FUNCTION_FAILED;          \
+                                    break;                               \
+                                }                                        \
+                                continue;                                \
+                            }                                            \
                             /* Single APQN seems to now have new WK */   \
                             TRACE_DEVEL("%s WKID mismatch, retry with "  \
                                         "reenc-blob(s)\n", __func__);    \
@@ -459,8 +496,11 @@ typedef struct {
  * If a master key change is active, and the single APQN has the new WK,
  * obtain and use the re-enciphered wrap-blob.
  * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH use the re-enciphered wrap-blob and retry the
- * library call.
+ * CKR_IBM_WKID_MISMATCH and the used wrap blob is enciphered with the new WK,
+ * then select a new single APQN that has the new WK. If no available APQN has
+ * the new WK, wait until on at least one the new WK gets activated.
+ * In case the used wrap blob is enciphered with the old WK, then obtain the
+ * re-enciphered wrap-blob and retry the library call.
  * If the retry was successful, indicate that the single APQN has the new WK.
  */
 #define RETRY_REENC_WRAPBLOB_START(tokdata, target_info, useblob)        \
@@ -489,6 +529,34 @@ typedef struct {
                                       private_data)->mk_change_active && \
                             retry == 0 &&                                \
                             (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            if (ep11tok_is_blob_new_wkid((tokdata),      \
+                                   (useblob),                            \
+                                   ((ep11_private_data_t *)              \
+                                           (tokdata)->private_data)->    \
+                                                 raw2key_wrap_blob_l)) { \
+                                /* blob has new WK, but single APQN not.
+                                   Wait until other single APQN with
+                                   new WK set is available */            \
+                                TRACE_DEVEL("%s WKID mismatch, blob has "\
+                                            "new WK, retry with new "    \
+                                            "single APQN with new WK, "  \
+                                            "wait if required\n",        \
+                                            __func__);                   \
+                                put_target_info((tokdata),               \
+                                                 (target_info));         \
+                                (target_info) = NULL;                    \
+                                (rc) = refresh_target_info((tokdata),    \
+                                                           TRUE);        \
+                                if ((rc) != CKR_OK)                      \
+                                    break;                               \
+                                (target_info) =                          \
+                                             get_target_info((tokdata)); \
+                                if ((target_info) == NULL) {             \
+                                    (rc) = CKR_FUNCTION_FAILED;          \
+                                    break;                               \
+                                }                                        \
+                                continue;                                \
+                            }                                            \
                             /* Single APQN seems to now have new WK */   \
                             TRACE_DEVEL("%s WKID mismatch, retry with "  \
                                         "reenc-wrap-blob\n", __func__);  \
@@ -560,6 +628,31 @@ typedef struct {
                                       private_data)->mk_change_active && \
                             retry == 0 &&                                \
                             (rc) == CKR_IBM_WKID_MISMATCH) {             \
+                            if (ep11tok_is_blob_new_wkid((tokdata),      \
+                                            (useblob), (useblobsize))) { \
+                                /* blob has new WK, but single APQN not.
+                                   Wait until other single APQN with
+                                   new WK set is available */            \
+                                TRACE_DEVEL("%s WKID mismatch, blob has "\
+                                            "new WK, retry with new "    \
+                                            "single APQN with new WK, "  \
+                                            "wait if required\n",        \
+                                            __func__);                   \
+                                put_target_info((tokdata),               \
+                                                 (target_info));         \
+                                (target_info) = NULL;                    \
+                                (rc) = refresh_target_info((tokdata),    \
+                                                           TRUE);        \
+                                if ((rc) != CKR_OK)                      \
+                                    break;                               \
+                                (target_info) =                          \
+                                             get_target_info((tokdata)); \
+                                if ((target_info) == NULL) {             \
+                                    (rc) = CKR_FUNCTION_FAILED;          \
+                                    break;                               \
+                                }                                        \
+                                continue;                                \
+                            }                                            \
                             /* Single APQN seems to now have new WK */   \
                             TRACE_DEVEL("%s single APQN has new WK\n",   \
                                         __func__);                       \
@@ -992,7 +1085,8 @@ typedef struct {
 static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata);
 static void put_target_info(STDLL_TokData_t *tokdata,
                             ep11_target_info_t *target_info);
-static CK_RV refresh_target_info(STDLL_TokData_t *tokdata);
+static CK_RV refresh_target_info(STDLL_TokData_t *tokdata,
+                                 CK_BBOOL wait_for_new_wk);
 
 static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
@@ -1006,6 +1100,8 @@ static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
                                      ep11_target_info_t **target_info,
                                      CK_BYTE *blob, CK_ULONG blob_len,
                                      CK_BYTE *new_blob);
+static CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
+                                         CK_BYTE *blob, CK_ULONG blob_len);
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
    crypto algorithms are implemented in software then (no secure key) */
@@ -3463,7 +3559,7 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         goto error;
     }
 
-    rc = refresh_target_info(tokdata);
+    rc = refresh_target_info(tokdata, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to get the target info (refresh_target_info "
                     "rc=0x%lx)\n", __func__, rc);
@@ -14546,12 +14642,15 @@ out:
 }
 
 static CK_RV ep11tok_setup_single_target(STDLL_TokData_t *tokdata,
-                                         ep11_target_info_t *target_info)
+                                         ep11_target_info_t *target_info,
+                                         CK_BBOOL wait_for_new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     struct single_target_data std;
     CK_RV rc;
+    int retries = 0;
 
+retry:
     memset(&std, 0, sizeof(std));
     std.ep11_data = ep11_data;
 
@@ -14567,6 +14666,18 @@ static CK_RV ep11tok_setup_single_target(STDLL_TokData_t *tokdata,
     if (!std.found) {
         TRACE_ERROR("%s no online APQN found\n",__func__);
         return CKR_DEVICE_ERROR;;
+    }
+
+    if (wait_for_new_wk && !std.new_wk_found) {
+        TRACE_DEVEL("%s no APQN with new MK set found, retry in 1 second\n",
+                    __func__);
+
+        retries++;
+        if (retries > 3600) /* Retry for max 1 hour */
+            return CKR_DEVICE_ERROR;
+
+        sleep(1);
+        goto retry;
     }
 
     rc = get_ep11_target_for_apqn(std.adapter, std.domain,
@@ -14854,7 +14965,7 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
     TRACE_DEVEL("%s Refreshing target infos due to event for APQN %02x.%04x\n",
                 __func__, apqn_data->card, apqn_data->domain);
 
-    rc = refresh_target_info(tokdata);
+    rc = refresh_target_info(tokdata, FALSE);
     if (rc != CKR_OK) {
         TRACE_DEVEL("%s Failed to get the target infos (refresh_target_info "
                     "rc=0x%lx)\n", __func__, rc);
@@ -15529,7 +15640,7 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
 
     /* Switch to single APQN mode (only for first event - token_objs = FALSE) */
     if (token_objs == FALSE) {
-        rc = refresh_target_info(tokdata);
+        rc = refresh_target_info(tokdata, FALSE);
         if (rc != CKR_OK) {
             OCK_SYSLOG(LOG_ERR,
                        "Slot %lu: Failed to select a single APQN: 0x%lx\n",
@@ -15950,7 +16061,7 @@ static CK_RV ep11tok_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
         ep11_data->num_mk_change_apqns = 0;
 
         /* Switch to multiple APQN mode */
-        rc = refresh_target_info(tokdata);
+        rc = refresh_target_info(tokdata, FALSE);
         if (rc != CKR_OK) {
             OCK_SYSLOG(LOG_ERR,
                        "Slot %lu: Failed to switch back to multi-APQN mode\n",
@@ -16171,7 +16282,8 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
  * thread save way and gives back the previous one so that it is release when
  * no longer used (i.e. by a concurrently running thread).
  */
-static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
+static CK_RV refresh_target_info(STDLL_TokData_t *tokdata,
+                                 CK_BBOOL wait_for_new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     volatile ep11_target_info_t *prev_info;
@@ -16206,7 +16318,7 @@ static CK_RV refresh_target_info(STDLL_TokData_t *tokdata)
 
     if (ep11_data->mk_change_active) {
         /* MK change active: Setup a single APQN target */
-        rc = ep11tok_setup_single_target(tokdata, target_info);
+        rc = ep11tok_setup_single_target(tokdata, target_info, wait_for_new_wk);
         if (rc != CKR_OK)
             goto error;
     } else {
