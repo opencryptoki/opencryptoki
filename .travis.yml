@@ -60,6 +60,7 @@ before_script:
 
 script:
     - ./configure --silent $CONFIG_OPTS && make V=0
+    - make check V=0
     - sudo make install
     - sudo ldconfig
     - sudo pkcsslotd
