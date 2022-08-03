@@ -6945,7 +6945,6 @@ CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
                                       CK_BBOOL sign)
 {
     OBJECT *key_obj = NULL;
-    CK_BYTE *ptr = NULL;
     CK_KEY_TYPE keytype;
     CK_OBJECT_CLASS class;
     CK_BBOOL flag;
@@ -7043,9 +7042,9 @@ CK_RV ep11tok_sign_verify_init_ibm_ed(STDLL_TokData_t *tokdata,
     ctx->context_len = 0;
     ctx->context = NULL;
     ctx->key = key;
-    ctx->mech.ulParameterLen = mech->ulParameterLen;
     ctx->mech.mechanism = mech->mechanism;
-    ctx->mech.pParameter = ptr;
+    ctx->mech.pParameter = NULL;
+    ctx->mech.ulParameterLen = 0;
     ctx->multi_init = FALSE;
     ctx->multi = FALSE;
     ctx->active = TRUE;
@@ -7239,6 +7238,21 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
         ctx->pkey_active = FALSE;
+        if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
+            ctx->mech.mechanism = mech->mechanism;
+            if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
+                ctx->mech.pParameter = (CK_BYTE *) malloc(mech->ulParameterLen);
+                if (ctx->mech.pParameter == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    sign_mgr_cleanup(tokdata, session, ctx);
+                    goto done;
+                }
+                memcpy(ctx->mech.pParameter, mech->pParameter,
+                      mech->ulParameterLen);
+                ctx->mech.ulParameterLen = mech->ulParameterLen;
+            }
+        }
 
         TRACE_INFO("%s rc=0x%lx blobsize=0x%zx key=0x%lx mech=0x%lx\n",
                    __func__, rc, keyblobsize, key, mech->mechanism);
@@ -7559,6 +7573,21 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_sign_state;
         ctx->context_len = ep11_sign_state_l;
         ctx->pkey_active = FALSE;
+        if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
+            ctx->mech.mechanism = mech->mechanism;
+            if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
+                ctx->mech.pParameter = (CK_BYTE *) malloc(mech->ulParameterLen);
+                if (ctx->mech.pParameter == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    verify_mgr_cleanup(tokdata, session, ctx);
+                    goto done;
+                }
+                memcpy(ctx->mech.pParameter, mech->pParameter,
+                      mech->ulParameterLen);
+                ctx->mech.ulParameterLen = mech->ulParameterLen;
+            }
+        }
 
         TRACE_INFO("%s rc=0x%lx spki_len=0x%zx key=0x%lx "
                    "ep11_sign_state_l=0x%zx mech=0x%lx\n", __func__,
@@ -8275,6 +8304,21 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
         ctx->pkey_active = FALSE;
+        if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
+            ctx->mech.mechanism = mech->mechanism;
+            if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
+                ctx->mech.pParameter = (CK_BYTE *) malloc(mech->ulParameterLen);
+                if (ctx->mech.pParameter == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    decr_mgr_cleanup(tokdata, session, ctx);
+                    goto done;
+                }
+                memcpy(ctx->mech.pParameter, mech->pParameter,
+                      mech->ulParameterLen);
+                ctx->mech.ulParameterLen = mech->ulParameterLen;
+            }
+        }
         if (rc != CKR_OK) {
             decr_mgr_cleanup(tokdata, session, ctx);
             rc = ep11_error_to_pkcs11_error(rc, session);
@@ -8308,6 +8352,21 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         ctx->context = ep11_state;
         ctx->context_len = ep11_state_l;
         ctx->pkey_active = FALSE;
+        if (mech != &ctx->mech) { /* deferred init dup'ed mech already */
+            ctx->mech.mechanism = mech->mechanism;
+            if (mech->ulParameterLen > 0 && mech->pParameter != NULL) {
+                ctx->mech.pParameter = (CK_BYTE *) malloc(mech->ulParameterLen);
+                if (ctx->mech.pParameter == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                    rc = CKR_HOST_MEMORY;
+                    encr_mgr_cleanup(tokdata, session, ctx);
+                    goto done;
+                }
+                memcpy(ctx->mech.pParameter, mech->pParameter,
+                      mech->ulParameterLen);
+                ctx->mech.ulParameterLen = mech->ulParameterLen;
+            }
+        }
         if (rc != CKR_OK) {
             encr_mgr_cleanup(tokdata, session, ctx);
             rc = ep11_error_to_pkcs11_error(rc, session);
