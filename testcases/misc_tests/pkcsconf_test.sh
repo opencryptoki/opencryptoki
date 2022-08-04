@@ -21,6 +21,8 @@ print_test_result() {
 	fi
 }
 
+echo "** Now executing 'pkcsconf_test.sh'"
+
 # create temporary directory
 TMP=$(mktemp -d)
 
@@ -105,12 +107,12 @@ test "${SLOT_DESC}" = "${URI_SLOT_DESC}"
 print_test_result $? "pkcsconf" "slot" "check slot description in URI"
 
 # token test cases
-test -n "${TOKEN_LABL}"   -o \
+test -n "${TOKEN_LABL}" -o \
      -n "${TOKEN_MANU}" -o \
      -n "${TOKEN_MODL}"
 print_test_result $? "pkcsconf" "token" "check output for all required token fields"
 
-test -n "${URI_TOKEN_LABL}"   -o \
+test -n "${URI_TOKEN_LABL}" -o \
      -n "${URI_TOKEN_MANU}" -o \
      -n "${URI_TOKEN_MODL}"
 print_test_result $? "pkcsconf" "token" "check URI for all required token fields"
