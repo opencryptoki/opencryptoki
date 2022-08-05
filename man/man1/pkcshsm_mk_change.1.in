@@ -3,14 +3,14 @@
 .\" Copyright IBM Corp. 2022
 .\" See LICENSE for details.
 .\"
-.TH PKCSHSM_MK_CHJANGE 1 "June 2022" "@PACKAGE_VERSION@" "openCryptoki"
+.TH PKCSHSM_MK_CHANGE 1 "August 2022" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-pkcshsm_mk_change \- utility to manage and control the re-enciphering of secure keys
-for a concurrent HSM master key change for openCryptoki.
+pkcshsm_mk_change \- utility to manage and control the re-enciphering of secure
+keys for a concurrent HSM master key change for openCryptoki.
 
 .SH SYNOPSIS
 .B pkcshsm_mk_change
-.RB [ COMMAND ]
+.I command
 .RB [ OPTIONS ]
 .
 .PP
@@ -19,10 +19,247 @@ for a concurrent HSM master key change for openCryptoki.
 .br
 
 .SH DESCRIPTION
-tbd
+Manages and controls the re-enciphering of secure keys for a concurrent HSM
+master key change for openCryptoki. Secure keys are encrypted by the HSM master
+key(s). The HSM master key(s) must be changed (rolled) from time to time,
+dependent on policies defined by the HSM security officer. Whenever a HSM master
+key is changed, all secure keys that are encrypted with that HSM master key must
+be re-enciphered with the new to be set master key.
+.PP
+Changing HSM master keys needs to be coordinated between the HSM security
+officer and an openCryptoki administrator. The HSM security officer performs a
+master key change via the TKE (Trusted Key Entry), while the openCryptoki
+administrator performs administrative steps using the \fBpkcshsm_mk_change\fP
+tool to re-encipher all openCryptoki token and session key objects, as well as
+currently active crypto operation states with the new master key. Applications
+using those keys can continue to run, the re-enciphering process takes place
+transparently to them.
+.PP
+A concurrent master key change works as follows:
+.RS 2
+.nr step 1 1
+.IP "\n[step]." 3
+The HSM security officer loads the new master keys using the TKE into the NEW
+register of the set of APQNs logically belonging together.
+
+.IP "\n+[step]." 3
+The HSM security officer notifies the openCryptoki administrator that new master
+keys have been loaded for all the APQNs.
+.
+.IP "\n+[step]." 3
+The openCryptoki administrator uses the \fBpkcshsm_mk_change\fP to initiate a
+master key change for openCryptoki, specifying the set of APQNs (and master key
+types) that are to be changed. The \fBpkcshsm_mk_change\fP tool communicates
+with running applications and performs/controls re-encipherment of the key
+objects with the new master key.
+.
+.IP "\n+[step]." 3
+When the \fBpkcshsm_mk_change\fP tool has completed its re-encipherment
+processing, the openCryptoki administrator notifies the HSM security officer
+that openCryptoki is ready to set/activate the new master keys.
+.
+.IP "\n+[step]." 3
+The HSM security officer coordinates with other (non-openCryptoki) applications
+and once all users of the APQNs are OK, he sets/activates the new master keys
+on the APQNs.
+.
+.IP "\n+[step]." 3
+The HSM security officer notifies the openCyptoki administrator when for all
+APQNs the new master key have been set/activated.
+.
+.IP "\n+[step]." 3
+The openCryptoki administrator uses the \fBpkcshsm_mk_change\fP tool to finalize
+the master key change for openCryptoki. The tool communicates with running
+applications and performs/controls finalizing the re-encipherment of the key
+objects with the new master key.
+.
+.IP "\n+[step]." 3
+When the \fBpkcshsm_mk_change\fP tool has completed its finalizing processing,
+the master key change operation is complete.
+.RE
+.
+.PP
+The whole procedure can take an arbitrary amount of time. Especially the time
+between the moment when the new master key has been loaded on all APQNs, and
+the moment the new master keys are set/activated can even last several days,
+due to time required for coordination with other (non-openCryptoki)
+applications/users of the APQNs to prepare for the master key change.
+.PP
+The time to perform the re-encipherment and finalization (steps 3 and 7) of all
+key objects as such depends on the amount of keys and openCryptoki applications
+using them, but is usually relatively short, i.e. seconds up to a few minutes.
+.PP
+The system where openCryptoki runs may be restarted while a master key change
+is ongoing, provided that the re-encipherment and finalization steps (steps 3
+and 7) are not interrupted.
+.PP
+An ongoing master key change operation can be canceled using the
+\fBpkcshsm_mk_change\fP tool, as long as for none of the APQNs the new master
+key has been set/activated, that is up to step 5 from above.
+.
+.SH COMMANDS
+.SS "Initiate a master key change for openCryptoki"
+.
+.B pkcshsm_mk_change reencipher
+.RB [ \-\-apqns | \-a
+.IR APQNS ]
+.RB [ \-\-ep11\-wkvp | \-e
+.IR WKVP ]
+.RB [ \-\-cca\-sym\-mkvp | \-s
+.IR MKVP ]
+.RB [ \-\-cca\-asym\-mkvp | \-S
+.IR MKVP ]
+.RB [ \-\-cca\-aes\-mkvp | \-A
+.IR MKVP ]
+.RB [ \-\-cca\-apka\-mkvp | \-p
+.IR MKVP ]
+.RB [ \-\-verbose | \-v
+.IR LEVEL ]
+.PP
+.
+Use the \fBreencipher\fP command to initiate a master key change operation
+for the specified APQNs and master key types and re-encipher all session and
+token key objects of the affected tokens. For each master key type that is
+changed, the verification pattern of the new, to be set master key must be
+specified.
+.PP
+A CryptoExpress adapter in \fBCCA\fP coprocessor mode has 4 different master
+keys: \fBSYM\fP, \fBASYM\fP, \fBAES\fP, and \fBAPKA\fP. The CCA token of
+openCryptoki only uses SYM, AES, and APKA. Each master key type can be change
+individually, or together with others. You can use the TKE or the
+\fBpanel.exe\fP tool to query the master key verification patterns:
+.B 'panel.exe --mk-query --mktype=<type> --mkregister=NEW'.
+For master key types \fBSYM\fP and \fBASYM\fP, use the hex string under
+\fB[RND]\fP, for types \fBAES\fP and \fBAPKA\fP use the hex string under
+\fB[VER]\fP. For AES and APKA you can also find the master key verification
+patterns in sysfs:
+.B 'cat /sys/bus/ap/devices/<card>.<domain>/mkvps'.
+.PP
+A CryptoExpress adapter in \fBEP11\fP coprocessor mode has only one master key,
+called the EP11 wrapping key (WK). You can use the TKE or the \fBep11info\fP tool
+to query the current wrapping key verification pattern (WKVP) of an EP11 APQN:
+.B 'ep11info -m <adapter> -d <domain> -D'.
+You can also find the wrapping key verification pattern for EP11 APQNs in sysfs:
+.B 'cat /sys/bus/ap/devices/<card>.<domain>/mkvps'.
+.PP
+the \fBpkcshsm_mk_change reencipher\fP command will query all available slots
+and determine if the token in the slot is affected by the master key change,
+based on the list of APQNs and master key types. For each affected slot, it
+prompts for the \fBUSER pin\fP.
+.PP
+On successful completion, the id of the master key change operation is displayed.
+This id must later be specified when finalizing or canceling the operation using
+the \fBfinalize\fP or \fBcancel\fP command.
+.
+.SS "Finalize a master key change for openCryptoki"
+.
+.B pkcshsm_mk_change finalize
+.RB [ \-\-id | \-i
+.IR OPERATION-ID ]
+.RB [ \-\-verbose | \-v
+.IR LEVEL ]
+.PP
+.
+Use the \fBfinalize\fP command to finalize a master key change operation when
+the new master key has been activated on the APQNs. The id of the master key
+change operation to finalize must be specified.
+.
+.SS "Cancel a master key change for openCryptoki"
+.
+.B pkcshsm_mk_change cancel
+.RB [ \-\-id | \-i
+.IR OPERATION-ID ]
+.RB [ \-\-verbose | \-v
+.IR LEVEL ]
+.PP
+.
+Use the \fBcancel\fP command to finalize a master key change operation.
+The id of the master key change operation to cancel must be specified.
+A master key change operation can only be canceled as long as for none of the
+APQNs the new master key have been set/activated.
+.
+.SS "List master key change operations"
+.
+.B pkcshsm_mk_change list
+.RB [ \-\-id | \-i
+.IR OPERATION-ID ]
+.RB [ \-\-verbose | \-v
+.IR LEVEL ]
+.PP
+.
+Use the \fBlist\fP command to list currently active master key change
+operations. If no operation ID is specified, all currently active master key
+change operations are displayed, otherwise only the specified one is displayed.
 
 .SH "OPTIONS"
-tbd
+
+.TP
+.BR \-a ", " \-\-apqns\~\fIAPQNS\fP
+Specifies a comma separated list of APQNs for which a master key change is to
+be performed. Each APQN must be specified in the form \fB card.domain\fP, where
+both \fBcard\fP and \fBdomain\fP are in hex, as displayed by the \fBlszcrypt\fP
+command. Multiple APQNs are separated by a comma.
+This options is only valid with the \fBreencipher\fP command.
+.TP
+.BR \-e ", " \-\-ep11\-wkvp\~\fIWKVP\fP
+Specifies the EP11 wrapping key verification pattern (WKVP) of the new, to be
+set EP11 wrapping key as a 16 bytes hex string.
+This options is only valid with the \fBreencipher\fP command.
+You can use the TKE or the \fBep11info\fP tool to query the current wrapping key
+verification pattern (WKVP) of an EP11 APQN:
+.B 'ep11info -m <adapter> -d <domain> -D'.
+You can also find the wrapping key verification pattern for EP11 APQNs in sysfs:
+.B 'cat /sys/bus/ap/devices/<card>.<domain>/mkvps'.
+.TP
+.BR \-s ", " \-\-cca\-sym\-mkvp\~\fIMKVP\fP
+Specifies the CCA master key verification pattern (MKVP) of the new, to be
+set CCA SYM master key as a 8 bytes hex string.
+This options is only valid with the \fBreencipher\fP command.
+You can use the TKE or the \fBpanel.exe\fP tool to query the master key
+verification patterns:
+.B 'panel.exe --mk-query --mktype=SYM --mkregister=NEW'.
+Use the hex string under \fB[RND]\fP.
+.TP
+.BR \-S ", " \-\-cca\-asym\-mkvp\~\fIMKVP\fP
+Specifies the CCA master key verification pattern (MKVP) of the new, to be
+set CCA ASYM master key as a 8 bytes hex string.
+This options is only valid with the \fBreencipher\fP command.
+You can use the TKE or the \fBpanel.exe\fP tool to query the master key
+verification patterns:
+.B 'panel.exe --mk-query --mktype=ASYM --mkregister=NEW'.
+Use the hex string under \fB[RND]\fP.
+.TP
+.BR \-A ", " \-\-cca\-aes\-mkvp\~\fIMKVP\fP
+Specifies the CCA master key verification pattern (MKVP) of the new, to be
+set CCA AES master key as a 8 bytes hex string.
+This options is only valid with the \fBreencipher\fP command.
+You can use the TKE or the \fBpanel.exe\fP tool to query the master key
+verification patterns:
+.B 'panel.exe --mk-query --mktype=AES --mkregister=NEW'.
+Use the hex string under \fB[VER]\fP.
+You can also find the AES master key verification patterns in sysfs:
+.B 'cat /sys/bus/ap/devices/<card>.<domain>/mkvps'.
+.TP
+.BR \-p ", " \-\-cca\-apka\-mkvp\~\fIMKVP\fP
+Specifies the CCA master key verification pattern (MKVP) of the new, to be
+set CCA APKA master key as a 8 bytes hex string.
+This options is only valid with the \fBreencipher\fP command.
+You can use the TKE or the \fBpanel.exe\fP tool to query the master key
+verification patterns:
+.B 'panel.exe --mk-query --mktype=APKA --mkregister=NEW'.
+Use the hex string under \fB[VER]\fP.
+You can also find the APKA master key verification patterns in sysfs:
+.B 'cat /sys/bus/ap/devices/<card>.<domain>/mkvps'.
+.TP
+.BR \-i ", " \-\-id\~\fIOPERATION-ID\fP
+Specifies the id of the master key change operation for the \fBfinalize\fP,
+\fBcancel\fP, or \fBlist\fP command. On successful completion of the
+\fBreencipher\fP command, the id of the master key change operation is
+displayed.
+.TP
+.BR \-v ", " \-\-verbose\~\fILEVEL\fP
+Specifies the verbose level (optional): \fBnone\fP (default), \fBerror\fP,
+\fBwarn\fP, \fBinfo\fP, \fBdevel\fP, or \fBdebug\fP.
 .TP
 .BR \-h ", " \-\-help
 Displays help text and exits.
@@ -30,6 +267,5 @@ Displays help text and exits.
 .SH SEE ALSO
 .PD 0
 .TP
-\fBopencryptoki\fP(7),
-
+\fBopencryptoki\fP(7)
 .PD
