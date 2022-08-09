@@ -1550,13 +1550,6 @@ CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         goto done;
     }
 
-    rc = save_token_object(tokdata, obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to save token object, rc=0x%lx.\n",rc);
-        XProcUnLock(tokdata);
-        goto done;
-    }
-
     if (object_is_private(obj)) {
         if (tokdata->global_shm->num_priv_tok_obj == 0) {
             TRACE_DEVEL("%s\n", ock_err(ERR_OBJECT_HANDLE_INVALID));
@@ -1596,6 +1589,13 @@ CK_RV object_mgr_save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj)
         }
 
         entry = &tokdata->global_shm->publ_tok_objs[index];
+    }
+
+    rc = save_token_object(tokdata, obj);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to save token object, rc=0x%lx.\n",rc);
+        XProcUnLock(tokdata);
+        goto done;
     }
 
     entry->count_lo = obj->count_lo;
