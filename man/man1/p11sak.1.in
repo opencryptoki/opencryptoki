@@ -238,11 +238,54 @@ attribute of the key and
 can be used to set the binary attributes of the key (see below for detailed description of the attributes).
 .
 .PP
+.SS "Generating IBM Dilithium keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR ibm-dilithium
+.BR VERSION
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the
+.B generate-key
+.B ibm-dilithium
+.B VERSION
+command and key argument to generate an IBM Dilithium key, where
+.I VERSION
+specifies the version of the IBM Dilithium keypair. The following arguments can be used for respective keys:
+.B r2_65
+.PP
+The
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to
+.IR SLOTID
+and the token PIN. The
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and
+.B \-\-attr
+.IR [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
+.
+.PP
 .SS "Listing symmetric and asymmetric keys"
 .
 .B p11sak
 .BR list-key | ls-key | ls
-.BR des | 3des | aes | rsa | ec | public | private | secret | all
+.BR des | 3des | aes | rsa | ec | ibm-dilithium | public | private | secret | all
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -254,17 +297,14 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .PP
 Use the
 .B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, RSA or EC keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type. 
-Keys can be filtered by their given 
-.IR LABEL
-.
+command and key argument to list DES, 3DES, AES, RSA, EC, or IBM Dilithium keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
 .
 .B p11sak
 .BR remove-key | rm-key | rm
-.BR des | 3des | aes | rsa | ec
+.BR des | 3des | aes | rsa | ec | ibm-dilithium
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -276,7 +316,7 @@ Keys can be filtered by their given
 .PP
 Use the
 .B remove-key | rm-key | rm
-command and key argument to delete DES, 3DES, AES, RSA, or EC keys, respectively. All specified cipher keys will be promted to be deleted unless 
+command and key argument to delete DES, 3DES, AES, RSA, EC, or IBM Dilithium keys, respectively. All specified cipher keys will be prompted to be deleted unless 
 a specific key with the 
 .B \-\-label
 .IR LABEL
@@ -290,7 +330,7 @@ option.
 .
 .SH ARGS
 .
-.SS "des | 3des | aes | rsa | ec | public | private | secret | all"
+.SS "des | 3des | aes | rsa | ec | ibm-dilithium | public | private | secret | all"
 
 selects the respective symmetric or asymetric key to be generated or listed. The
 .B public|private|secret|all

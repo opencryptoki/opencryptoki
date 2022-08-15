@@ -173,6 +173,8 @@ static const char* kt2str(p11sak_kt ktype)
         return "RSA_PKCS";
     case kt_EC:
         return "EC";
+    case kt_IBM_DILITHIUM:
+        return "IBM DILITHIUM";
     case kt_GENERIC:
         return "GENERIC";
     case kt_SECRET:
@@ -209,7 +211,10 @@ static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type)
         break;
     case kt_EC:
         *a_key_type = CKK_EC;
-        break;
+        break; 
+    case kt_IBM_DILITHIUM:
+        *a_key_type = CKK_IBM_PQC_DILITHIUM;
+        break; 
     case kt_GENERIC:
         *a_key_type = CKK_GENERIC_SECRET;
         break;
@@ -315,6 +320,8 @@ static const char* CKK2a(CK_KEY_TYPE t)
         return "AES";
     case CKK_EC:
         return "EC";
+    case CKK_IBM_PQC_DILITHIUM:
+        return "IBM DILILTHIUM";
     case CKK_RSA:
         return "RSA";
     case CKK_DH:
@@ -395,6 +402,7 @@ static void print_listkeys_help(void)
     printf("      aes\n");
     printf("      rsa\n");
     printf("      ec\n");
+    printf("      ibm-dilithium\n");
     printf("      public\n");
     printf("      private\n");
     printf("      secret\n");
@@ -422,6 +430,7 @@ static void print_gen_help(void)
     printf("          brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | \n");
     printf("          brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | \n");
     printf("          brainpoolP512r1 | brainpoolP512t1]\n");
+    printf("      ibm-dilithium [r2_65]\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -447,6 +456,7 @@ static void print_removekeys_help(void)
     printf("      aes\n");
     printf("      rsa\n");
     printf("      ec\n");
+    printf("      ibm-dilithium\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -543,6 +553,26 @@ static void print_gen_ec_help(void)
             "      --attr [S D G U X]                      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
+
+static void print_gen_ibm_dilithium_help(void)
+{
+    printf("\n Usage: p11sak generate-key ibm-dilithium [ARGS] [OPTIONS]\n");
+    printf("\n Args:\n");
+    printf("      r2_65\n");
+    printf("\n Options:\n");
+    printf(
+            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf(
+            "      --label LABEL                           key label LABEL to be listed\n");
+    printf(
+            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf( "      -c, --custom-attr [[pub_attrs]:[priv_attrs]] \n");
+    printf( "             for asymmetric keys: set individual key attributes, for more info see\n");
+    printf( "             man 1 p11sak\n");
+    printf("      -h, --help                              Show this help\n\n");
+}
+
 /**
  * Print help for generate-key command
  */
@@ -566,6 +596,9 @@ static CK_RV print_gen_keys_help(p11sak_kt *kt)
         break;
     case kt_EC:
         print_gen_ec_help();
+        break;
+    case kt_IBM_DILITHIUM:
+        print_gen_ibm_dilithium_help();
         break;
     case no_key_type:
         print_gen_help();
@@ -806,6 +839,9 @@ static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech)
         break;
     case kt_EC:
         pmech->mechanism = CKM_EC_KEY_PAIR_GEN;
+        break;
+    case kt_IBM_DILITHIUM:
+        pmech->mechanism = CKM_IBM_DILITHIUM;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -1137,6 +1173,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_GENERIC:
     case kt_RSAPKCS:
     case kt_EC:
+    case kt_IBM_DILITHIUM:
         tmplt[count].type = CKA_KEY_TYPE;
         tmplt[count].pValue = &a_key_type;
         tmplt[count].ulValueLen = sizeof(CK_KEY_TYPE);
@@ -1819,11 +1856,18 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
  * Check args for gen_key command.
  */
 static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
-                                char *ECcurve)
+                                char *ECcurve, char *dilithium_ver)
 {
     switch (*kt) {
     case kt_DES:
     case kt_3DES:
+    case kt_IBM_DILITHIUM:
+        if (strcasecmp(dilithium_ver, "r2_65") == 0) {
+            break;
+        } else {
+            fprintf(stderr, "IBM Dilithium version [%s] not supported \n", dilithium_ver);
+            return CKR_ARGUMENTS_BAD;
+        }
         break;
     case kt_AES:
         if ((keylength == 128) || (keylength == 192) || (keylength == 256)) {
@@ -1876,6 +1920,7 @@ static CK_RV check_args_list_key(p11sak_kt *kt)
     case kt_DES:
     case kt_3DES:
     case kt_EC:
+    case kt_IBM_DILITHIUM:
     case kt_GENERIC:
     case kt_SECRET:
     case kt_PUBLIC:
@@ -1901,6 +1946,7 @@ static CK_RV check_args_remove_key(p11sak_kt *kt)
     case kt_AES:
     case kt_RSAPKCS:
     case kt_EC:
+    case kt_IBM_DILITHIUM:
     case kt_GENERIC:
     case kt_SECRET:
     case kt_PUBLIC:
@@ -1995,6 +2041,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_RSAPKCS;
         } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
+        } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
+            *kt = kt_IBM_DILITHIUM;
         } else if (strcasecmp(argv[i], "generic") == 0) {
             *kt = kt_GENERIC;
         } else if (strcasecmp(argv[i], "secret") == 0) {
@@ -2081,7 +2129,7 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
 static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                                 CK_ULONG *keylength, char **ECcurve,
                                 CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
-                                char **label, char **attr_string)
+                                char **label, char **attr_string, char **dilithium_ver)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2109,6 +2157,10 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
         } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
             *ECcurve = get_string_arg(i + 1, argv, argc);
+            i++;
+        } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
+            *kt = kt_IBM_DILITHIUM;
+            *dilithium_ver = get_string_arg(i + 1, argv, argc);
             i++;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
@@ -2197,7 +2249,7 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
     }
 
     /* Check args */
-    rc = check_args_gen_key(kt, *keylength, *ECcurve);
+    rc = check_args_gen_key(kt, *keylength, *ECcurve, *dilithium_ver);
 
     /* Check required options */
     if (*label == NULL) {
@@ -2244,6 +2296,8 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_RSAPKCS;
         } else if (strcasecmp(argv[i], "ec") == 0) {
             *kt = kt_EC;
+        } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
+            *kt = kt_IBM_DILITHIUM;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
@@ -2325,14 +2379,14 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
                             p11sak_kt *kt, CK_ULONG *keylength, char **ECcurve,
                             CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
                             char **label, char **attr_string, int *long_print,
-                            int *full_uri, CK_BBOOL *forceAll)
+                            int *full_uri, CK_BBOOL *forceAll, char **dilithium_ver)
 {
     CK_RV rc;
 
     switch (cmd) {
     case gen_key:
         rc = parse_gen_key_args(argv, argc, kt, keylength, ECcurve, slot, pin,
-                exponent, label, attr_string);
+                exponent, label, attr_string, dilithium_ver);
         break;
     case list_key:
         rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
@@ -2390,7 +2444,7 @@ done:
 static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                                      p11sak_kt kt, CK_ULONG keylength,
                                      CK_ULONG exponent, char *ECcurve,
-                                     char *label, char *attr_string)
+                                     char *label, char *attr_string, char *dilithium_ver)
 {
     CK_OBJECT_HANDLE pub_keyh, prv_keyh;
     CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
@@ -2405,23 +2459,31 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     memset(pub_attr, 0, sizeof(pub_attr));
     memset(prv_attr, 0, sizeof(prv_attr));
 
-    if (kt == kt_RSAPKCS) {
+    switch (kt)
+    {
+    case kt_RSAPKCS:
         rc = read_rsa_args((CK_ULONG) keylength, exponent, pub_attr,
                 &pub_acount);
         if (rc) {
             fprintf(stderr, "Error setting RSA parameters!\n");
             goto done;
         }
-    } else if (kt == kt_EC) {
+        break;
+    case kt_EC:
         rc = read_ec_args(ECcurve, pub_attr, &pub_acount, &keylength);
         if (rc) {
             fprintf(stderr, "Error parsing EC parameters!\n");
             goto done;
         }
-    } else {
+        break;
+    case kt_IBM_DILITHIUM:
+        printf("Generating Dilithium keypair with %s\n", dilithium_ver);
+        break;
+    default:
         fprintf(stderr, "The key type %d is not yet supported.\n", kt);
         rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
+        break;
     }
 
     rc = set_labelpair_attr(label, pub_attr, &pub_acount, prv_attr,
@@ -2520,7 +2582,8 @@ done:
  */
 static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                            p11sak_kt kt, CK_ULONG keylength, char *ECcurve,
-                           CK_ULONG exponent, char *label, char *attr_string)
+                           CK_ULONG exponent, char *label, char *attr_string,
+                           char *dilithium_ver)
 {
     switch (kt) {
     case kt_DES:
@@ -2530,8 +2593,9 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 attr_string);
     case kt_RSAPKCS:
     case kt_EC:
+    case kt_IBM_DILITHIUM:
         return generate_asymmetric_key(session, slot, kt, keylength, exponent,
-                ECcurve, label, attr_string);
+                ECcurve, label, attr_string, dilithium_ver);
     default:
         fprintf(stderr, "Error: cannot create a key of type %i (%s)\n", kt, kt2str(kt));
         return CKR_ARGUMENTS_BAD;
@@ -2919,13 +2983,13 @@ static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                          p11sak_cmd cmd, p11sak_kt kt, CK_ULONG keylength,
                          CK_ULONG exponent, char *ECcurve, char *label,
                          char *attr_string, int long_print, int full_uri,
-                         CK_BBOOL *forceAll)
+                         CK_BBOOL *forceAll, char *dilithium_ver)
 {
     CK_RV rc;
     switch (cmd) {
     case gen_key:
         rc = generate_ckey(session, slot, kt, keylength, ECcurve, exponent,
-                label, attr_string);
+                label, attr_string, dilithium_ver);
         break;
     case list_key:
         rc = list_ckey(session, slot, kt, long_print, label, full_uri);
@@ -3066,6 +3130,7 @@ int main(int argc, char *argv[])
     char *ECcurve = NULL;
     char *attr_string = NULL;
     CK_ULONG keylength = 0;
+    char *dilithium_ver = NULL;
     CK_RV rc = CKR_OK;
     CK_SESSION_HANDLE session;
     char *pin = NULL;
@@ -3090,7 +3155,8 @@ int main(int argc, char *argv[])
 
     /* Parse command args */
     rc = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve, &slot, &pin,
-            &exponent, &label, &attr_string, &long_print, &full_uri, &forceAll);
+            &exponent, &label, &attr_string, &long_print, &full_uri, &forceAll,
+            &dilithium_ver);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -3137,7 +3203,7 @@ int main(int argc, char *argv[])
 
     /* Execute command */
     rc = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
-            label, attr_string, long_print, full_uri, &forceAll);
+            label, attr_string, long_print, full_uri, &forceAll, dilithium_ver);
     if (rc == CKR_CANCEL) {
         fprintf(stderr, "Cancel execution: p11sak %s command (error code 0x%lX: %s)\n", cmd2str(cmd), rc,
                 p11_get_ckr(rc));
