@@ -977,6 +977,14 @@ typedef struct CK_MECHANISM_INFO {
  *      Bit Flag               Mask        Meaning */
 #define CKF_HW                 0x00000001       /* performed by HW */
 
+/* new for PKCS#11 v3.0 */
+#define CKF_MESSAGE_ENCRYPT    0x00000002
+#define CKF_MESSAGE_DECRYPT    0x00000004
+#define CKF_MESSAGE_SIGN       0x00000008
+#define CKF_MESSAGE_VERIFY     0x00000010
+#define CKF_MULTI_MESSAGE      0x00000020
+#define CKF_FIND_OBJECTS       0x00000040
+
 /* The flags CKF_ENCRYPT, CKF_DECRYPT, CKF_DIGEST, CKF_SIGN,
  * CKG_SIGN_RECOVER, CKF_VERIFY, CKF_VERIFY_RECOVER,
  * CKF_GENERATE, CKF_GENERATE_KEY_PAIR, CKF_WRAP, CKF_UNWRAP,
@@ -1150,6 +1158,10 @@ typedef CK_ULONG CK_RV;
 
 /* CKR_FUNCTION_REJECTED is new for v2.20 */
 #define CKR_FUNCTION_REJECTED                 0x00000200
+
+/* New to v3.0 */
+#define CKR_TOKEN_RESOURCE_EXCEEDED           0x00000201
+#define CKR_OPERATION_CANCEL_FAILED           0x00000202
 
 #define CKR_VENDOR_DEFINED                    0x80000000
 /* Not really a return value, but stored in ulDeviceError of session

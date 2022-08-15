@@ -766,6 +766,35 @@ done:
     return rc;
 }
 
+CK_RV SC_SessionCancel(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
+                       CK_FLAGS flags)
+{
+    SESSION *sess = NULL;
+    CK_RV rc = CKR_OK;
+
+    if (tokdata->initialized == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
+        rc = CKR_CRYPTOKI_NOT_INITIALIZED;
+        goto done;
+    }
+
+    sess = session_mgr_find(tokdata, sSession->sessionh);
+    if (!sess) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        rc = CKR_SESSION_HANDLE_INVALID;
+        goto done;
+    }
+
+    rc = session_mgr_cancel(tokdata, sess, flags);
+
+done:
+    TRACE_INFO("SC_SessionCancel: sess = %lu\n", sSession->sessionh);
+
+    if (sess != NULL)
+        session_mgr_put(tokdata, sess);
+
+    return rc;
+}
 
 CK_RV SC_Login(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                CK_USER_TYPE userType, CK_CHAR_PTR pPin, CK_ULONG ulPinLen)
@@ -3391,6 +3420,7 @@ void SC_SetFunctionList(void)
     function_list.ST_GenerateRandom = SC_GenerateRandom;
     function_list.ST_GetFunctionStatus = NULL;  // SC_GetFunctionStatus;
     function_list.ST_CancelFunction = NULL;     // SC_CancelFunction;
+    function_list.ST_SessionCancel = SC_SessionCancel;
 
     function_list.ST_IBM_ReencryptSingle = SC_IBM_ReencryptSingle;
 
