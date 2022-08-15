@@ -1197,6 +1197,170 @@ CK_RV do_OperationState3(void)
     return rc;
 }
 
+CK_RV do_SessionCancel(void)
+{
+    CK_SLOT_ID slot_id;
+    CK_SESSION_HANDLE session1;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_RV rc;
+
+    CK_BYTE original[1024];
+    CK_BYTE crypt1[1024];
+    CK_BYTE crypt2[1024];
+    CK_BYTE trash1[8];
+    CK_BYTE trash2[8];
+
+    CK_ULONG orig_len, crypt1_len, crypt2_len, trash1_len, trash2_len;
+    CK_ULONG i;
+
+    CK_ULONG key_len = 16;
+    CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}
+    };
+
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE h_key;
+
+    printf("do_SessionCancel...\n");
+    slot_id = SLOT_ID;
+
+    // create two USER RW sessions
+    flags = CKF_SERIAL_SESSION | CKF_RW_SESSION;
+    rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, &session1);
+    if (rc != CKR_OK) {
+        show_error("   C_OpenSession #1", rc);
+        return rc;
+    }
+
+    if (get_user_pin(user_pin))
+        return CKR_FUNCTION_FAILED;
+
+    user_pin_len = (CK_ULONG) strlen((char *) user_pin);
+
+    rc = funcs->C_Login(session1, CKU_USER, user_pin, user_pin_len);
+    if (rc != CKR_OK) {
+        show_error("   C_Login #1", rc);
+        return rc;
+    }
+
+    orig_len = sizeof(original);
+    for (i = 0; i < orig_len; i++)
+        original[i] = i % 255;
+
+    trash1_len = sizeof(trash1);
+    memcpy(trash1, "asdflkjasdlkjadslkj", trash1_len);
+
+    // first generate a AES key
+    mech.mechanism = CKM_AES_KEY_GEN;
+    mech.ulParameterLen = 0;
+    mech.pParameter = NULL;
+
+    if (!mech_supported(slot_id, mech.mechanism)) {
+        printf("Mechanism %s not supported. (skipped)\n",
+               mech_to_str(mech.mechanism));
+        funcs->C_CloseSession(session1);
+        return 0;
+    }
+
+    rc = funcs->C_GenerateKey(session1, &mech, key_gen_tmpl, 1, &h_key);
+    if (rc != CKR_OK) {
+        show_error("   C_GenerateKey #1", rc);
+        return rc;
+    }
+    // now encrypt the original data all at once using CBC
+    mech.mechanism = CKM_AES_CBC;
+    mech.ulParameterLen = 16;
+    mech.pParameter = "1234qwerasdfyxcv";
+
+    rc = funcs->C_EncryptInit(session1, &mech, h_key);
+    if (rc != CKR_OK) {
+        show_error("   C_EncryptInit #1", rc);
+        return rc;
+    }
+
+    // cancel the encrypt session
+    rc = funcs3->C_SessionCancel(session1, CKF_ENCRYPT);
+    if (rc != CKR_OK) {
+        show_error("   C_SessionCancel #1", rc);
+        return rc;
+    }
+
+    crypt1_len = sizeof(crypt1);
+    rc = funcs->C_Encrypt(session1, original, orig_len, crypt1, &crypt1_len);
+    if (rc != CKR_OPERATION_NOT_INITIALIZED) {
+        show_error("   C_Encrypt #1", rc);
+        return rc;
+    }
+
+    // now, begin encrypting multipart
+    rc = funcs->C_EncryptInit(session1, &mech, h_key);
+    if (rc != CKR_OK) {
+        show_error("   C_EncryptInit #2", rc);
+        return rc;
+    }
+
+    // cancel non existing sign session (no effect expected)
+    rc = funcs3->C_SessionCancel(session1, CKF_SIGN);
+    if (rc != CKR_OK) {
+        show_error("   C_SessionCancel #2", rc);
+        return rc;
+    }
+
+    crypt2_len = sizeof(crypt2);
+    rc = funcs->C_EncryptUpdate(session1, original, orig_len / 2,
+                                crypt2, &crypt2_len);
+    if (rc != CKR_OK) {
+        show_error("   C_EncryptUpdate #1", rc);
+        return rc;
+    }
+
+    // cancel non existing decrypt session (no effect expected)
+    rc = funcs3->C_SessionCancel(session1, CKF_DECRYPT);
+    if (rc != CKR_OK) {
+        show_error("   C_SessionCancel #3", rc);
+        return rc;
+    }
+
+    // now, encrypt the rest of the original data
+    i = crypt2_len;
+    crypt2_len = sizeof(crypt2) - crypt2_len;
+    rc = funcs->C_EncryptUpdate(session1,
+                                original + orig_len / 2, orig_len / 2,
+                                crypt2 + i, &crypt2_len);
+    if (rc != CKR_OK) {
+        show_error("   C_EncryptUpdate #3", rc);
+        return rc;
+    }
+
+    crypt2_len += i;
+
+    // cancel non existing find session (no effect expected)
+    rc = funcs3->C_SessionCancel(session1, CKF_FIND_OBJECTS);
+    if (rc != CKR_OK) {
+        show_error("   C_SessionCancel #3", rc);
+        return rc;
+    }
+
+    trash2_len = sizeof(trash2);
+    rc = funcs->C_EncryptFinal(session1, trash2, &trash2_len);
+    if (rc != CKR_OK) {
+        show_error("   C_EncryptFinal #1", rc);
+        return rc;
+    }
+
+    rc = funcs->C_CloseSession(session1);
+    if (rc != CKR_OK) {
+        show_error("   C_CloseSession #1", rc);
+        return rc;
+    }
+
+    printf("Looks okay...\n");
+
+    return rc;
+}
+
 CK_RV sess_mgmt_functions()
 {
     SYSTEMTIME t1, t2;
@@ -1260,6 +1424,13 @@ CK_RV sess_mgmt_functions()
 
     GetSystemTime(&t1);
     rc = do_OperationState3();
+    if (rc && !no_stop)
+        return rc;
+    GetSystemTime(&t2);
+    process_time(t1, t2);
+
+    GetSystemTime(&t1);
+    rc = do_SessionCancel();
     if (rc && !no_stop)
         return rc;
     GetSystemTime(&t2);
