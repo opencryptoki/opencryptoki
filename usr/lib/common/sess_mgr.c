@@ -1206,6 +1206,46 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     return CKR_OK;
 }
 
+CK_RV session_mgr_cancel(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_FLAGS flags)
+{
+    if ((flags & CKF_ENCRYPT) && sess->encr_ctx.active)
+        encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
+
+    if ((flags & CKF_DECRYPT) && sess->decr_ctx.active)
+        decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
+
+    if ((flags & CKF_DIGEST) && sess->digest_ctx.active)
+        digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
+
+    if ((flags & CKF_SIGN) && sess->sign_ctx.active &&
+        !sess->sign_ctx.recover)
+        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+
+    if ((flags & CKF_SIGN_RECOVER) && sess->sign_ctx.active &&
+        sess->sign_ctx.recover)
+        sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
+
+    if ((flags & CKF_VERIFY) && sess->verify_ctx.active &&
+        !sess->verify_ctx.recover)
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
+
+    if ((flags & CKF_VERIFY_RECOVER) && sess->verify_ctx.active &&
+        sess->verify_ctx.recover)
+        verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
+
+    if ((flags & CKF_FIND_OBJECTS) && sess->find_active) {
+        if (sess->find_list)
+            free(sess->find_list);
+        sess->find_list = NULL;
+        sess->find_len = 0;
+        sess->find_idx = 0;
+        sess->find_active = FALSE;
+    }
+
+    return CKR_OK;
+}
+
 // Return TRUE if the session we're in has its PIN expired.
 CK_BBOOL pin_expired(CK_SESSION_INFO *si, CK_FLAGS flags)
 {

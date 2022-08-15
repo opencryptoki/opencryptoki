@@ -4864,21 +4864,43 @@ ret:
 CK_RV C_SessionCancel(CK_SESSION_HANDLE hSession, CK_FLAGS flags)
 {
     CK_RV rv;
-
-    UNUSED(hSession);
-    UNUSED(flags);
+    API_Slot_t *sltp;
+    STDLL_FcnList_t *fcn;
+    ST_SESSION_T rSession;
 
     TRACE_INFO("C_SessionCancel\n");
 
     if (API_Initialized() == FALSE) {
         TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        rv = CKR_CRYPTOKI_NOT_INITIALIZED;
-        goto ret;
+        return CKR_CRYPTOKI_NOT_INITIALIZED;
     }
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-    rv = CKR_FUNCTION_NOT_SUPPORTED;
-ret:
+    if (!Valid_Session(hSession, &rSession)) {
+        TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
+        TRACE_ERROR("Session handle id: %lu\n", hSession);
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+    TRACE_INFO("Valid Session handle id: %lu\n", rSession.sessionh);
+
+    sltp = &(Anchor->SltList[rSession.slotID]);
+    if (sltp->DLLoaded == FALSE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if ((fcn = sltp->FcnList) == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_TOKEN_NOT_PRESENT));
+        return CKR_TOKEN_NOT_PRESENT;
+    }
+    if (fcn->ST_SessionCancel) {
+        BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
+        // Map the Session to the slot session
+        rv = fcn->ST_SessionCancel(sltp->TokData, &rSession, flags);
+        END_OPENSSL_LIBCTX(rv)
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rv = CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
     return rv;
 }
 

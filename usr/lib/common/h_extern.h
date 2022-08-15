@@ -2082,6 +2082,8 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_OBJECT_HANDLE encr_key,
                                CK_OBJECT_HANDLE auth_key, CK_BYTE *data,
                                CK_ULONG data_len);
+CK_RV session_mgr_cancel(STDLL_TokData_t *tokdata, SESSION *sess,
+                         CK_FLAGS flags);
 CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
 CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
 void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
