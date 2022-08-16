@@ -271,6 +271,7 @@ exit 0
 
 %files devel
 %{_includedir}/%{name}/
+%{_libdir}/pkgconfig/%{name}.pc
 
 %files swtok
 %{_libdir}/opencryptoki/stdll/libpkcs11_sw.*
