@@ -1,7 +1,9 @@
 ACLOCAL_AMFLAGS = -I m4
-EXTRA_DIST = opencryptoki.map opencryptoki_tok.map
+EXTRA_DIST = opencryptoki.map opencryptoki_tok.map opencryptoki.pc.in
 CLEANFILES =
-DISTCLEANFILES = *~
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = opencryptoki.pc
+DISTCLEANFILES = *~ $(pkgconfig_DATA)
 MAINTAINERCLEANFILES = test-driver \
 	Makefile.in aclocal.m4 compile configure config.guess \
 	config.sub depcomp install-sh ltmain.sh m4/* missing \

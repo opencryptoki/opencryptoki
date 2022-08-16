@@ -682,6 +682,7 @@ AC_LANG_POP([C++])
 AC_CONFIG_MACRO_DIRS([m4])
 
 AC_CONFIG_FILES([Makefile				\
+		 opencryptoki.pc			\
 		 usr/lib/api/shrd_mem.c			\
 		 man/man1/pkcsconf.1			\
 		 man/man1/pkcsicsf.1			\

@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@/opencryptoki
+stdlldir=@libdir@/opencryptoki/stdll
+includedir=@includedir@/opencryptoki
+
+Name: Opencryptoki
+Description: Opencryptoki PKCS#11 module
+URL: https://github.com/opencryptoki/opencryptoki
+Version: @VERSION@
+Cflags: -I${includedir}
+Libs: -L${libdir} -lopencryptoki

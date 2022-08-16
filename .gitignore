@@ -106,6 +106,7 @@ testcases/policy/policytest.sh
 testcases/ock_tests.sh
 testcases/cleanup_vhsm.exp
 testcases/init_token.sh
+opencryptoki.pc
 
 # ignore generated source (other)
 doc/policy-example.conf
