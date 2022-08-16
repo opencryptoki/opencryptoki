@@ -1768,10 +1768,8 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
         strcpy(buffer, "private ");
         break;
     default:
-        // FIXIT - return code to represent object class invalid
-        rc = CKR_KEY_HANDLE_INVALID;
-        fprintf(stderr, "Object handle invalid (error code 0x%lX: %s)\n",
-               rc, p11_get_ckr(rc));
+        /* its not a key */
+        rc = CKR_KEY_TYPE_INCONSISTENT;
         free(buffer);
         return rc;
     }
@@ -2604,8 +2602,10 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         rc = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
                 &keylength);
         if (rc != CKR_OK) {
-            fprintf(stderr, "Invalid key type (error code 0x%lX: %s)\n", rc,
-                    p11_get_ckr(rc));
+            if (rc != CKR_KEY_TYPE_INCONSISTENT)
+                fprintf(stderr,
+                        "Retrieval of key type failed (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
             continue;
         }
 
@@ -2846,8 +2846,10 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
         rc = tok_key_get_key_type(session, hkey, &keyclass, &keytype,
                 &keylength);
         if (rc != CKR_OK) {
-            fprintf(stderr, "Invalid key type (error code 0x%lX: %s)\n", rc,
-                    p11_get_ckr(rc));
+            if (rc != CKR_KEY_TYPE_INCONSISTENT)
+                fprintf(stderr,
+                        "Retrieval of key type failed (error code 0x%lX: %s)\n",
+                        rc, p11_get_ckr(rc));
             continue;
         }
 
