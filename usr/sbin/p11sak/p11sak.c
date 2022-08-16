@@ -968,12 +968,10 @@ static CK_RV set_battr(const char *attr_string, CK_ATTRIBUTE *attr,
         for (i = 0; i < (int) strlen(attr_string); i++) {
             // attr_string length is checked in parse_gen_key_args to avoid memory problems
             if (prv == 1 && attr_na(char2attrtype(toupper(attr_string[i])), kt_PRIVATE) == 0) {
-                printf("private: %d\n", attr_string[i]);
                 set_bool_attr_from_string(&attr[*count], attr_string[i]);
                 (*count)++;
             } 
             if (prv == 0 && attr_na(char2attrtype(toupper(attr_string[i])), kt_PUBLIC) == 0) {
-                printf("public: %d\n", attr_string[i]);
                 set_bool_attr_from_string(&attr[*count], attr_string[i]);
                 (*count)++;
             }
