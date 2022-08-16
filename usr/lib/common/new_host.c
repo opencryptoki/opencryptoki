@@ -3380,20 +3380,17 @@ CK_RV SC_DigestEncryptUpdate(STDLL_TokData_t *tokdata,
                              CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                              CK_ULONG_PTR pulEncryptedPartLen)
 {
-    UNUSED(sSession);
-    UNUSED(pPart);
-    UNUSED(ulPartLen);
-    UNUSED(pEncryptedPart);
-    UNUSED(pulEncryptedPartLen);
+    CK_RV rc;
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
+    rc = SC_EncryptUpdate(tokdata, sSession, pPart, ulPartLen,
+                          pEncryptedPart, pulEncryptedPartLen);
+    if (rc != CKR_OK || pEncryptedPart == NULL)
+        goto out;
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rc = SC_DigestUpdate(tokdata, sSession, pPart, ulPartLen);
 
-    return CKR_FUNCTION_NOT_SUPPORTED;
+out:
+    return rc;
 }
 
 
@@ -3403,20 +3400,17 @@ CK_RV SC_DecryptDigestUpdate(STDLL_TokData_t *tokdata,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
 {
-    UNUSED(sSession);
-    UNUSED(pEncryptedPart);
-    UNUSED(ulEncryptedPartLen);
-    UNUSED(pPart);
-    UNUSED(pulPartLen);
+    CK_RV rc;
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
+    rc = SC_DecryptUpdate(tokdata, sSession, pEncryptedPart,
+                          ulEncryptedPartLen, pPart, pulPartLen);
+    if (rc != CKR_OK || pPart == NULL)
+        goto out;
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rc = SC_DigestUpdate(tokdata, sSession, pPart, *pulPartLen);
 
-    return CKR_FUNCTION_NOT_SUPPORTED;
+out:
+    return rc;
 }
 
 
@@ -3425,22 +3419,18 @@ CK_RV SC_SignEncryptUpdate(STDLL_TokData_t *tokdata,
                            CK_ULONG ulPartLen, CK_BYTE_PTR pEncryptedPart,
                            CK_ULONG_PTR pulEncryptedPartLen)
 {
-    UNUSED(sSession);
-    UNUSED(pPart);
-    UNUSED(ulPartLen);
-    UNUSED(pEncryptedPart);
-    UNUSED(pulEncryptedPartLen);
+    CK_RV rc;
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
+    rc = SC_EncryptUpdate(tokdata, sSession, pPart, ulPartLen,
+                          pEncryptedPart, pulEncryptedPartLen);
+    if (rc != CKR_OK || pEncryptedPart == NULL)
+        goto out;
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rc = SC_SignUpdate(tokdata, sSession, pPart, ulPartLen);
 
-    return CKR_FUNCTION_NOT_SUPPORTED;
+out:
+    return rc;
 }
-
 
 CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t *tokdata,
                              ST_SESSION_HANDLE *sSession,
@@ -3448,20 +3438,17 @@ CK_RV SC_DecryptVerifyUpdate(STDLL_TokData_t *tokdata,
                              CK_ULONG ulEncryptedPartLen, CK_BYTE_PTR pPart,
                              CK_ULONG_PTR pulPartLen)
 {
-    UNUSED(sSession);
-    UNUSED(pEncryptedPart);
-    UNUSED(ulEncryptedPartLen);
-    UNUSED(pPart);
-    UNUSED(pulPartLen);
+    CK_RV rc;
 
-    if (tokdata->initialized == FALSE) {
-        TRACE_ERROR("%s\n", ock_err(ERR_CRYPTOKI_NOT_INITIALIZED));
-        return CKR_CRYPTOKI_NOT_INITIALIZED;
-    }
+    rc = SC_DecryptUpdate(tokdata, sSession, pEncryptedPart,
+                          ulEncryptedPartLen, pPart, pulPartLen);
+    if (rc != CKR_OK || pPart == NULL)
+        goto out;
 
-    TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+    rc = SC_VerifyUpdate(tokdata, sSession, pPart, *pulPartLen);
 
-    return CKR_FUNCTION_NOT_SUPPORTED;
+out:
+    return rc;
 }
 
 
@@ -4109,10 +4096,10 @@ void SC_SetFunctionList(void)
     function_list.ST_VerifyFinal = SC_VerifyFinal;
     function_list.ST_VerifyRecoverInit = SC_VerifyRecoverInit;
     function_list.ST_VerifyRecover = SC_VerifyRecover;
-    function_list.ST_DigestEncryptUpdate = NULL;      // SC_DigestEncryptUpdate;
-    function_list.ST_DecryptDigestUpdate = NULL;      // SC_DecryptDigestUpdate;
-    function_list.ST_SignEncryptUpdate = NULL;  //SC_SignEncryptUpdate;
-    function_list.ST_DecryptVerifyUpdate = NULL;      // SC_DecryptVerifyUpdate;
+    function_list.ST_DigestEncryptUpdate = SC_DigestEncryptUpdate;
+    function_list.ST_DecryptDigestUpdate = SC_DecryptDigestUpdate;
+    function_list.ST_SignEncryptUpdate = SC_SignEncryptUpdate;
+    function_list.ST_DecryptVerifyUpdate = SC_DecryptVerifyUpdate;
     function_list.ST_GenerateKey = SC_GenerateKey;
     function_list.ST_GenerateKeyPair = SC_GenerateKeyPair;
     function_list.ST_WrapKey = SC_WrapKey;
