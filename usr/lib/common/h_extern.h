@@ -2070,7 +2070,7 @@ CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata);
 CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata);
 CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata);
 
-CK_RV session_mgr_get_op_state(SESSION *sess,
+CK_RV session_mgr_get_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_BBOOL length_only,
                                CK_BYTE *data, CK_ULONG *data_len);
 

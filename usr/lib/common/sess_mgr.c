@@ -538,12 +538,14 @@ CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata)
 
 //
 //
-CK_RV session_mgr_get_op_state(SESSION *sess,
+CK_RV session_mgr_get_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_BBOOL length_only,
                                CK_BYTE *data, CK_ULONG *data_len)
 {
     OP_STATE_DATA *op_data = NULL;
-    CK_ULONG op_data_len = 0;
+    CK_ULONG max_data_len = *data_len;
+    CK_ULONG op_data_len;
+    CK_ULONG all_data_len = 0;
     CK_ULONG offset, active_ops;
 
     if (!sess) {
@@ -566,22 +568,29 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
             return CKR_STATE_UNSAVEABLE;
         }
         active_ops++;
-        if (op_data != NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
-            return CKR_STATE_UNSAVEABLE;
-        }
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(ENCR_DECR_CONTEXT) +
             sess->encr_ctx.context_len + sess->encr_ctx.mech.ulParameterLen;
+        all_data_len += op_data_len;
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
-            if (*data_len < op_data_len) {
+            if (max_data_len < op_data_len) {
                 TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
                  return CKR_BUFFER_TOO_SMALL;
             }
 
+            memset(op_data, 0, sizeof(*op_data));
+#ifdef PACKAGE_VERSION
+            strncpy((char *)op_data->library_version, PACKAGE_VERSION,
+                    sizeof(op_data->library_version));
+#endif
+            memcpy(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID));
+            memcpy(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model));
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_ENCR;
@@ -605,6 +614,9 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
                        sess->encr_ctx.mech.pParameter,
                        sess->encr_ctx.mech.ulParameterLen);
             }
+
+            max_data_len -= op_data_len;
+            data += op_data_len;
         }
     }
 
@@ -614,22 +626,29 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
             return CKR_STATE_UNSAVEABLE;
         }
         active_ops++;
-        if (op_data != NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
-            return CKR_STATE_UNSAVEABLE;
-        }
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(ENCR_DECR_CONTEXT) +
             sess->decr_ctx.context_len + sess->decr_ctx.mech.ulParameterLen;
+        all_data_len += op_data_len;
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
-            if (*data_len < op_data_len) {
+            if (max_data_len < op_data_len) {
                 TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
                  return CKR_BUFFER_TOO_SMALL;
             }
 
+            memset(op_data, 0, sizeof(*op_data));
+#ifdef PACKAGE_VERSION
+            strncpy((char *)op_data->library_version, PACKAGE_VERSION,
+                    sizeof(op_data->library_version));
+#endif
+            memcpy(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID));
+            memcpy(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model));
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_DECR;
@@ -653,6 +672,9 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
                        sess->decr_ctx.mech.pParameter,
                        sess->decr_ctx.mech.ulParameterLen);
             }
+
+            max_data_len -= op_data_len;
+            data += op_data_len;
         }
     }
 
@@ -662,22 +684,29 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
             return CKR_STATE_UNSAVEABLE;
         }
         active_ops++;
-        if (op_data != NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
-            return CKR_STATE_UNSAVEABLE;
-        }
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(DIGEST_CONTEXT) +
             sess->digest_ctx.context_len + sess->digest_ctx.mech.ulParameterLen;
+        all_data_len += op_data_len;
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
-            if (*data_len < op_data_len) {
+            if (max_data_len < op_data_len) {
                 TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
                  return CKR_BUFFER_TOO_SMALL;
             }
 
+            memset(op_data, 0, sizeof(*op_data));
+#ifdef PACKAGE_VERSION
+            strncpy((char *)op_data->library_version, PACKAGE_VERSION,
+                    sizeof(op_data->library_version));
+#endif
+            memcpy(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID));
+            memcpy(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model));
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_DIGEST;
@@ -701,6 +730,9 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
                        sess->digest_ctx.mech.pParameter,
                        sess->digest_ctx.mech.ulParameterLen);
             }
+
+            max_data_len -= op_data_len;
+            data += op_data_len;
         }
     }
 
@@ -710,22 +742,29 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
             return CKR_STATE_UNSAVEABLE;
         }
         active_ops++;
-        if (op_data != NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
-            return CKR_STATE_UNSAVEABLE;
-        }
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(SIGN_VERIFY_CONTEXT) +
             sess->sign_ctx.context_len + sess->sign_ctx.mech.ulParameterLen;
+        all_data_len += op_data_len;
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
-            if (*data_len < op_data_len) {
+            if (max_data_len < op_data_len) {
                 TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
                  return CKR_BUFFER_TOO_SMALL;
             }
 
+            memset(op_data, 0, sizeof(*op_data));
+#ifdef PACKAGE_VERSION
+            strncpy((char *)op_data->library_version, PACKAGE_VERSION,
+                    sizeof(op_data->library_version));
+#endif
+            memcpy(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID));
+            memcpy(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model));
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_SIGN;
@@ -749,6 +788,9 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
                        sess->sign_ctx.mech.pParameter,
                        sess->sign_ctx.mech.ulParameterLen);
             }
+
+            max_data_len -= op_data_len;
+            data += op_data_len;
         }
     }
 
@@ -758,22 +800,29 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
             return CKR_STATE_UNSAVEABLE;
         }
         active_ops++;
-        if (op_data != NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
-            return CKR_STATE_UNSAVEABLE;
-        }
         op_data_len = sizeof(OP_STATE_DATA) +
             sizeof(SIGN_VERIFY_CONTEXT) +
             sess->verify_ctx.context_len + sess->verify_ctx.mech.ulParameterLen;
+        all_data_len += op_data_len;
 
         if (length_only == FALSE) {
             op_data = (OP_STATE_DATA *) data;
 
-            if (*data_len < op_data_len) {
+            if (max_data_len < op_data_len) {
                 TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
                  return CKR_BUFFER_TOO_SMALL;
             }
 
+            memset(op_data, 0, sizeof(*op_data));
+#ifdef PACKAGE_VERSION
+            strncpy((char *)op_data->library_version, PACKAGE_VERSION,
+                    sizeof(op_data->library_version));
+#endif
+            memcpy(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID));
+            memcpy(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model));
             op_data->data_len = op_data_len - sizeof(OP_STATE_DATA);
             op_data->session_state = sess->session_info.state;
             op_data->active_operation = STATE_VERIFY;
@@ -797,15 +846,18 @@ CK_RV session_mgr_get_op_state(SESSION *sess,
                        sess->verify_ctx.mech.pParameter,
                        sess->verify_ctx.mech.ulParameterLen);
             }
+
+            max_data_len -= op_data_len;
+            data += op_data_len;
         }
     }
 
-    if (!active_ops) {
+    if (active_ops == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_STATE_UNSAVEABLE));
         return CKR_OPERATION_NOT_INITIALIZED;
     }
 
-    *data_len = op_data_len;
+    *data_len = all_data_len;
     return CKR_OK;
 }
 
@@ -817,6 +869,8 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
                                CK_OBJECT_HANDLE auth_key,
                                CK_BYTE *data, CK_ULONG data_len)
 {
+    CK_BYTE *cur_data;
+    CK_ULONG cur_data_len;
     OP_STATE_DATA *op_data = NULL;
     CK_BYTE *mech_param = NULL;
     CK_BYTE *context = NULL;
@@ -824,226 +878,329 @@ CK_RV session_mgr_set_op_state(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_BYTE *ptr2 = NULL;
     CK_BYTE *ptr3 = NULL;
     CK_ULONG len;
+    CK_ULONG encr_key_needed = 0;
+    CK_ULONG auth_key_needed = 0;
 
     if (!sess || !data) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
-    op_data = (OP_STATE_DATA *) data;
 
-    if (data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+    /*
+     * Validate the new state information. Don't touch the session
+     * until the new state is valid.
+     */
+    cur_data = data;
+    cur_data_len = data_len;
+    while (cur_data_len >= sizeof(OP_STATE_DATA)) {
+        op_data = (OP_STATE_DATA *)cur_data;
+
+        if (cur_data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+
+        /*
+         * Make sure the session states are compatible: same OCK version,
+         * same token model, same session state.
+         */
+#ifdef PACKAGE_VERSION
+        if (strncmp((char *)op_data->library_version, PACKAGE_VERSION,
+                sizeof(op_data->library_version)) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+#endif
+        if (memcmp(op_data->manufacturerID,
+                   tokdata->nv_token_data->token_info.manufacturerID,
+                   sizeof(op_data->manufacturerID)) != 0 ||
+            memcmp(op_data->model, tokdata->nv_token_data->token_info.model,
+                   sizeof(op_data->model)) != 0) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+        if (sess->session_info.state != op_data->session_state) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+
+        switch (op_data->active_operation) {
+        case STATE_ENCR:
+        case STATE_DECR:
+            {
+                ENCR_DECR_CONTEXT *ctx =
+                    (ENCR_DECR_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
+
+                len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len +
+                                                ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+
+                encr_key_needed++;
+            }
+            break;
+
+        case STATE_SIGN:
+        case STATE_VERIFY:
+            {
+                SIGN_VERIFY_CONTEXT *ctx =
+                    (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
+
+                len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
+                                                ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+
+                auth_key_needed++;
+            }
+            break;
+
+        case STATE_DIGEST:
+            {
+                DIGEST_CONTEXT *ctx =
+                    (DIGEST_CONTEXT *) (cur_data + sizeof(OP_STATE_DATA));
+
+                len = sizeof(DIGEST_CONTEXT) + ctx->context_len +
+                                                ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+            }
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+
+        /* move on to next operation */
+        cur_data_len -= (op_data->data_len + sizeof(OP_STATE_DATA));
+        cur_data += (op_data->data_len + sizeof(OP_STATE_DATA));
+    }
+    /* nothing must be left over */
+    if (cur_data_len > 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
         return CKR_SAVED_STATE_INVALID;
     }
 
-    // make sure the session states are compatible
-    //
-    if (sess->session_info.state != op_data->session_state) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
-        return CKR_SAVED_STATE_INVALID;
+    if (encr_key_needed > 0 && encr_key == CK_INVALID_HANDLE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
+        return CKR_KEY_NEEDED;
     }
-    // validate the new state information.  don't touch the session
-    // until the new state is valid.
-    //
-    switch (op_data->active_operation) {
-    case STATE_ENCR:
-    case STATE_DECR:
-        {
-            ENCR_DECR_CONTEXT *ctx =
-                (ENCR_DECR_CONTEXT *) (data + sizeof(OP_STATE_DATA));
-
-            len =
-                sizeof(ENCR_DECR_CONTEXT) + ctx->context_len +
-                ctx->mech.ulParameterLen;
-            if (len != op_data->data_len) {
-                TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
-                return CKR_SAVED_STATE_INVALID;
-            }
-            if (auth_key != CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
-                return CKR_KEY_NOT_NEEDED;
-            }
-            if (encr_key == CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
-                return CKR_KEY_NEEDED;
-            }
-            ptr1 = (CK_BYTE *) ctx;
-            ptr2 = ptr1 + sizeof(ENCR_DECR_CONTEXT);
-            ptr3 = ptr2 + ctx->context_len;
-
-            if (ctx->context_len) {
-                context = (CK_BYTE *) malloc(ctx->context_len);
-                if (!context) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(context, ptr2, ctx->context_len);
-            }
-
-            if (ctx->mech.ulParameterLen) {
-                mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
-                if (!mech_param) {
-                    if (context)
-                        free(context);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
-            }
-        }
-        break;
-    case STATE_SIGN:
-    case STATE_VERIFY:
-        {
-            SIGN_VERIFY_CONTEXT *ctx =
-                (SIGN_VERIFY_CONTEXT *) (data + sizeof(OP_STATE_DATA));
-
-            len =
-                sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
-                ctx->mech.ulParameterLen;
-            if (len != op_data->data_len) {
-                TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
-                return CKR_SAVED_STATE_INVALID;
-            }
-            if (auth_key == CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
-                return CKR_KEY_NEEDED;
-            }
-            if (encr_key != CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
-                return CKR_KEY_NOT_NEEDED;
-            }
-            ptr1 = (CK_BYTE *) ctx;
-            ptr2 = ptr1 + sizeof(SIGN_VERIFY_CONTEXT);
-            ptr3 = ptr2 + ctx->context_len;
-
-            if (ctx->context_len) {
-                context = (CK_BYTE *) malloc(ctx->context_len);
-                if (!context) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(context, ptr2, ctx->context_len);
-            }
-
-            if (ctx->mech.ulParameterLen) {
-                mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
-                if (!mech_param) {
-                    if (context)
-                        free(context);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
-            }
-        }
-        break;
-    case STATE_DIGEST:
-        {
-            DIGEST_CONTEXT *ctx =
-                (DIGEST_CONTEXT *) (data + sizeof(OP_STATE_DATA));
-
-            len =
-                sizeof(DIGEST_CONTEXT) + ctx->context_len +
-                ctx->mech.ulParameterLen;
-            if (len != op_data->data_len) {
-                TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
-                return CKR_SAVED_STATE_INVALID;
-            }
-            if (auth_key != CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
-                return CKR_KEY_NOT_NEEDED;
-            }
-            if (encr_key != CK_INVALID_HANDLE) {
-                TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
-                return CKR_KEY_NOT_NEEDED;
-            }
-            ptr1 = (CK_BYTE *) ctx;
-            ptr2 = ptr1 + sizeof(DIGEST_CONTEXT);
-            ptr3 = ptr2 + ctx->context_len;
-
-            if (ctx->context_len) {
-                context = (CK_BYTE *) malloc(ctx->context_len);
-                if (!context) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(context, ptr2, ctx->context_len);
-            }
-
-            if (ctx->mech.ulParameterLen) {
-                mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
-                if (!mech_param) {
-                    if (context)
-                        free(context);
-                    TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-                    return CKR_HOST_MEMORY;
-                }
-                memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
-            }
-        }
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
-        return CKR_SAVED_STATE_INVALID;
+    if (encr_key_needed == 0 && encr_key != CK_INVALID_HANDLE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
+        return CKR_KEY_NOT_NEEDED;
+    }
+    if (auth_key_needed > 0 && auth_key == CK_INVALID_HANDLE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
+        return CKR_KEY_NEEDED;
+    }
+    if (auth_key_needed == 0 && auth_key != CK_INVALID_HANDLE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_NOT_NEEDED));
+        return CKR_KEY_NOT_NEEDED;
     }
 
-
-    // state information looks okay.  cleanup the current session state, first
-    //
+    /* State information looks okay. Cleanup the current session state, first */
     if (sess->encr_ctx.active)
         encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
-
     if (sess->decr_ctx.active)
         decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
-
     if (sess->digest_ctx.active)
         digest_mgr_cleanup(tokdata, sess, &sess->digest_ctx);
-
     if (sess->sign_ctx.active)
         sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
-
     if (sess->verify_ctx.active)
         verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
 
+    /* Now process the saved operation states */
+    cur_data = data;
+    cur_data_len = data_len;
+    while (cur_data_len >= sizeof(OP_STATE_DATA)) {
+        op_data = (OP_STATE_DATA *)cur_data;
 
-    // copy the new state information
-    //
-    switch (op_data->active_operation) {
-    case STATE_ENCR:
-        memcpy(&sess->encr_ctx, ptr1, sizeof(ENCR_DECR_CONTEXT));
+        if (cur_data_len < op_data->data_len + sizeof(OP_STATE_DATA)) {
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
 
-        sess->encr_ctx.key = encr_key;
-        sess->encr_ctx.context = context;
-        sess->encr_ctx.mech.pParameter = mech_param;
-        break;
-    case STATE_DECR:
-        memcpy(&sess->decr_ctx, ptr1, sizeof(ENCR_DECR_CONTEXT));
+        switch (op_data->active_operation) {
+        case STATE_ENCR:
+        case STATE_DECR:
+            {
+                ENCR_DECR_CONTEXT *ctx =
+                    (ENCR_DECR_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
 
-        sess->decr_ctx.key = encr_key;
-        sess->decr_ctx.context = context;
-        sess->decr_ctx.mech.pParameter = mech_param;
-        break;
-    case STATE_SIGN:
-        memcpy(&sess->sign_ctx, ptr1, sizeof(SIGN_VERIFY_CONTEXT));
+                len = sizeof(ENCR_DECR_CONTEXT) + ctx->context_len +
+                                                ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+                if (encr_key == CK_INVALID_HANDLE) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
+                    return CKR_KEY_NEEDED;
+                }
+                ptr1 = (CK_BYTE *) ctx;
+                ptr2 = ptr1 + sizeof(ENCR_DECR_CONTEXT);
+                ptr3 = ptr2 + ctx->context_len;
 
-        sess->sign_ctx.key = auth_key;
-        sess->sign_ctx.context = context;
-        sess->sign_ctx.mech.pParameter = mech_param;
-        break;
-    case STATE_VERIFY:
-        memcpy(&sess->verify_ctx, ptr1, sizeof(SIGN_VERIFY_CONTEXT));
+                if (ctx->context_len) {
+                    context = (CK_BYTE *) malloc(ctx->context_len);
+                    if (!context) {
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(context, ptr2, ctx->context_len);
+                }
 
-        sess->verify_ctx.key = auth_key;
-        sess->verify_ctx.context = context;
-        sess->verify_ctx.mech.pParameter = mech_param;
-        break;
-    case STATE_DIGEST:
-        memcpy(&sess->digest_ctx, ptr1, sizeof(DIGEST_CONTEXT));
+                if (ctx->mech.ulParameterLen) {
+                    mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
+                    if (!mech_param) {
+                        if (context)
+                            free(context);
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
+                }
+            }
+            break;
 
-        sess->digest_ctx.context = context;
-        sess->digest_ctx.mech.pParameter = mech_param;
-        break;
+        case STATE_SIGN:
+        case STATE_VERIFY:
+            {
+                SIGN_VERIFY_CONTEXT *ctx =
+                    (SIGN_VERIFY_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
+
+                len = sizeof(SIGN_VERIFY_CONTEXT) + ctx->context_len +
+                                                    ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+                if (auth_key == CK_INVALID_HANDLE) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_KEY_NEEDED));
+                    return CKR_KEY_NEEDED;
+                }
+                ptr1 = (CK_BYTE *) ctx;
+                ptr2 = ptr1 + sizeof(SIGN_VERIFY_CONTEXT);
+                ptr3 = ptr2 + ctx->context_len;
+
+                if (ctx->context_len) {
+                    context = (CK_BYTE *) malloc(ctx->context_len);
+                    if (!context) {
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(context, ptr2, ctx->context_len);
+                }
+
+                if (ctx->mech.ulParameterLen) {
+                    mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
+                    if (!mech_param) {
+                        if (context)
+                            free(context);
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
+                }
+            }
+            break;
+
+        case STATE_DIGEST:
+            {
+                DIGEST_CONTEXT *ctx =
+                    (DIGEST_CONTEXT *)(cur_data + sizeof(OP_STATE_DATA));
+
+                len = sizeof(DIGEST_CONTEXT) + ctx->context_len +
+                                                ctx->mech.ulParameterLen;
+                if (len != op_data->data_len) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+                    return CKR_SAVED_STATE_INVALID;
+                }
+                ptr1 = (CK_BYTE *) ctx;
+                ptr2 = ptr1 + sizeof(DIGEST_CONTEXT);
+                ptr3 = ptr2 + ctx->context_len;
+
+                if (ctx->context_len) {
+                    context = (CK_BYTE *) malloc(ctx->context_len);
+                    if (!context) {
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(context, ptr2, ctx->context_len);
+                }
+
+                if (ctx->mech.ulParameterLen) {
+                    mech_param = (CK_BYTE *) malloc(ctx->mech.ulParameterLen);
+                    if (!mech_param) {
+                        if (context)
+                            free(context);
+                        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+                        return CKR_HOST_MEMORY;
+                    }
+                    memcpy(mech_param, ptr3, ctx->mech.ulParameterLen);
+                }
+            }
+            break;
+        default:
+            TRACE_ERROR("%s\n", ock_err(ERR_SAVED_STATE_INVALID));
+            return CKR_SAVED_STATE_INVALID;
+        }
+
+        /* copy the new state information */
+        switch (op_data->active_operation) {
+        case STATE_ENCR:
+            memcpy(&sess->encr_ctx, ptr1, sizeof(ENCR_DECR_CONTEXT));
+
+            sess->encr_ctx.key = encr_key;
+            sess->encr_ctx.context = context;
+            sess->encr_ctx.mech.pParameter = mech_param;
+            break;
+
+        case STATE_DECR:
+            memcpy(&sess->decr_ctx, ptr1, sizeof(ENCR_DECR_CONTEXT));
+
+            sess->decr_ctx.key = encr_key;
+            sess->decr_ctx.context = context;
+            sess->decr_ctx.mech.pParameter = mech_param;
+            break;
+
+        case STATE_SIGN:
+            memcpy(&sess->sign_ctx, ptr1, sizeof(SIGN_VERIFY_CONTEXT));
+
+            sess->sign_ctx.key = auth_key;
+            sess->sign_ctx.context = context;
+            sess->sign_ctx.mech.pParameter = mech_param;
+            break;
+
+        case STATE_VERIFY:
+            memcpy(&sess->verify_ctx, ptr1, sizeof(SIGN_VERIFY_CONTEXT));
+
+            sess->verify_ctx.key = auth_key;
+            sess->verify_ctx.context = context;
+            sess->verify_ctx.mech.pParameter = mech_param;
+            break;
+
+        case STATE_DIGEST:
+            memcpy(&sess->digest_ctx, ptr1, sizeof(DIGEST_CONTEXT));
+
+            sess->digest_ctx.context = context;
+            sess->digest_ctx.mech.pParameter = mech_param;
+            break;
+        }
+
+        context = NULL;
+        mech_param = NULL;
+
+        /* move on to next operation */
+        cur_data_len -= (op_data->data_len + sizeof(OP_STATE_DATA));
+        cur_data += (op_data->data_len + sizeof(OP_STATE_DATA));
     }
 
     return CKR_OK;

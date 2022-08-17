@@ -1141,7 +1141,7 @@ CK_RV SC_GetOperationState(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = session_mgr_get_op_state(sess, length_only, pOperationState,
+    rc = session_mgr_get_op_state(tokdata, sess, length_only, pOperationState,
                                   pulOperationStateLen);
     if (rc != CKR_OK)
         TRACE_DEVEL("session_mgr_get_op_state() failed.\n");
