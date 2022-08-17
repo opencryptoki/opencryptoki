@@ -69,6 +69,8 @@ usr/sbin/pkcsicsf/pkcsicsf
 usr/sbin/pkcsslotd/pkcsslotd
 usr/sbin/pkcsstats/pkcsstats
 usr/sbin/pkcstok_migrate/pkcstok_migrate
+usr/sbin/pkcsep11_migrate/pkcsep11_migrate
+usr/sbin/pkcsep11_session/pkcsep11_session
 tools/policyexamplegen
 tools/tableidxgen
 
