@@ -41,6 +41,7 @@ testcases/misc_tests/tok2tok_transport
 testcases/misc_tests/tok_des
 testcases/misc_tests/tok_obj
 testcases/misc_tests/tok_rsa
+testcases/misc_tests/dual_functions
 testcases/ock_tests.sh
 testcases/pkcs11/attribute
 testcases/pkcs11/copyobjects
