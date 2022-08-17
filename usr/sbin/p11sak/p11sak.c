@@ -2678,7 +2678,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             fprintf(stderr, "Retrieval of label failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
         } else if (long_print) {
-            printf("Label: %s\t\t", label);
+            printf("Label: \"%s\"\t\t", label);
         }
 
         uri = p11_uri_new();
@@ -2777,7 +2777,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 printf(" %*s | ", CELL_SIZE, tmp);
             } else
                 printf(" %*s | ", CELL_SIZE, keytype);
-            printf("%s\n", label);
+            printf("\"%s\"\n", label);
         }
         free(label);
         label = NULL;
