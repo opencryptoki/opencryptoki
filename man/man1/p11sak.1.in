@@ -216,6 +216,7 @@ specifies the eliptic curve used to create the EC key. The following arguments c
 .B prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1
 .B | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1
 .B | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1
+.B | curve25519 | curve448 | ed25519 | ed448
 .PP
 .B Note:
 not all curves will be supported by all tokens and key generation will fail when the specified
@@ -357,7 +358,7 @@ argument has to be followed by either 1024, 2048 or 4096 to set the respective k
 .
 .
 .
-.SS "prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1"
+.SS "prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448"
 the
 .B ec
 argument has to be followed by either of these

@@ -429,7 +429,8 @@ static void print_gen_help(void)
     printf("          brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | \n");
     printf("          brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | \n");
     printf("          brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | \n");
-    printf("          brainpoolP512r1 | brainpoolP512t1]\n");
+    printf("          brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | \n");
+    printf("          ed448]\n");
     printf("      ibm-dilithium [r2_65]\n");
     printf("\n Options:\n");
     printf(
@@ -543,6 +544,10 @@ static void print_gen_ec_help(void)
     printf("      brainpoolP384t1\n");
     printf("      brainpoolP512r1\n");
     printf("      brainpoolP512t1\n");
+    printf("      curve25519\n");
+    printf("      curve448\n");
+    printf("      ed25519\n");
+    printf("      ed448\n");
     printf("\n Options:\n");
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
@@ -771,6 +776,22 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
         pubattr[*pubcount].pValue = (CK_BYTE*) brainpoolP512t1;
         pubattr[*pubcount].ulValueLen = sizeof(brainpoolP512t1);
         *keybits = 512;
+    } else if (strcmp(ECcurve, "curve25519") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) curve25519;
+        pubattr[*pubcount].ulValueLen = sizeof(curve25519);
+        *keybits = 256;
+    } else if (strcmp(ECcurve, "curve448") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) curve448;
+        pubattr[*pubcount].ulValueLen = sizeof(curve448);
+        *keybits = 456;
+    } else if (strcmp(ECcurve, "ed25519") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) ed25519;
+        pubattr[*pubcount].ulValueLen = sizeof(ed25519);
+        *keybits = 256;
+    } else if (strcmp(ECcurve, "ed448") == 0) {
+        pubattr[*pubcount].pValue = (CK_BYTE*) ed448;
+        pubattr[*pubcount].ulValueLen = sizeof(ed448);
+        *keybits = 448;
     } else {
         fprintf(stderr, "Unexpected case while parsing EC curves.\n");
         fprintf(stderr, "Note: not all tokens support all curves.\n");

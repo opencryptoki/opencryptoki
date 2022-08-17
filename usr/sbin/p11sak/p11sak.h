@@ -60,6 +60,10 @@ const CK_BYTE prime256v1[] = OCK_PRIME256V1;
 const CK_BYTE secp384r1[] = OCK_SECP384R1;
 const CK_BYTE secp521r1[] = OCK_SECP521R1;
 const CK_BYTE secp256k1[] = OCK_SECP256K1;
+const CK_BYTE curve25519[] = OCK_CURVE25519;
+const CK_BYTE curve448[] = OCK_CURVE448;
+const CK_BYTE ed25519[] = OCK_ED25519;
+const CK_BYTE ed448[] = OCK_ED448;
 
 CK_BBOOL ckb_true = CK_TRUE;
 CK_BBOOL ckb_false = CK_FALSE;
