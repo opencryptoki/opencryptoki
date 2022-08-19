@@ -1878,6 +1878,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
     switch (*kt) {
     case kt_DES:
     case kt_3DES:
+        break;
     case kt_IBM_DILITHIUM:
         if (strcasecmp(dilithium_ver, "r2_65") == 0) {
             break;
