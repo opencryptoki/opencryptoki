@@ -4268,6 +4268,10 @@ CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
     }
 
     switch (mech->mechanism) {
+    case CKM_MD5_HMAC_GENERAL:
+    case CKM_MD5_HMAC:
+        rc = EVP_DigestSignInit(mdctx, NULL, EVP_md5(), NULL, pkey);
+        break;
     case CKM_SHA_1_HMAC_GENERAL:
     case CKM_SHA_1_HMAC:
         rc = EVP_DigestSignInit(mdctx, NULL, EVP_sha1(), NULL, pkey);
@@ -4371,6 +4375,12 @@ CK_RV openssl_specific_hmac(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
     }
 
     switch (ctx->mech.mechanism) {
+    case CKM_MD5_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_MD5_HMAC:
+        mac_len = MD5_HASH_SIZE;
+        break;
     case CKM_SHA_1_HMAC_GENERAL:
         general = TRUE;
         /* fallthrough */
@@ -4526,6 +4536,12 @@ CK_RV openssl_specific_hmac_final(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *signature,
     }
 
     switch (ctx->mech.mechanism) {
+    case CKM_MD5_HMAC_GENERAL:
+        general = TRUE;
+        /* fallthrough */
+    case CKM_MD5_HMAC:
+        mac_len = MD5_HASH_SIZE;
+        break;
     case CKM_SHA_1_HMAC_GENERAL:
         general = TRUE;
         /* fallthrough */

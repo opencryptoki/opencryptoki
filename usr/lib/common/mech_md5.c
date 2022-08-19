@@ -242,15 +242,7 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
                      CK_ULONG in_data_len, CK_BYTE *out_data,
                      CK_ULONG *out_data_len)
 {
-    OBJECT *key_obj = NULL;
-    CK_ATTRIBUTE *attr = NULL;
-    CK_BYTE hash[MD5_HASH_SIZE];
-    DIGEST_CONTEXT digest_ctx;
-    CK_MECHANISM digest_mech;
-    CK_BYTE k_ipad[MD5_BLOCK_SIZE];
-    CK_BYTE k_opad[MD5_BLOCK_SIZE];
-    CK_ULONG key_bytes, hash_len, hmac_len;
-    CK_ULONG i;
+    CK_ULONG hmac_len;
     CK_RV rc;
 
     if (!sess || !ctx || !out_data_len) {
@@ -274,142 +266,16 @@ CK_RV md5_hmac_sign(STDLL_TokData_t *tokdata,
         return CKR_OK;
     }
 
-    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
+    rc = openssl_specific_hmac_init(tokdata, ctx, &ctx->mech, ctx->key);
+    if (rc != CKR_OK)
+        return rc;
 
-    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key_obj, READ_LOCK);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Failed to acquire key from specified handle.\n");
-        if (rc == CKR_OBJECT_HANDLE_INVALID)
-            return CKR_KEY_HANDLE_INVALID;
-        else
-            return rc;
-    }
+    rc = openssl_specific_hmac(ctx, in_data, in_data_len,
+                               out_data, out_data_len, TRUE);
+    if (rc != CKR_OK)
+        return rc;
 
-    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_VALUE in the template\n");
-        goto done;
-    }
-
-    key_bytes = attr->ulValueLen;
-
-
-    // build (K XOR ipad), (K XOR opad)
-    //
-    if (key_bytes > MD5_BLOCK_SIZE) {
-        digest_mech.mechanism = CKM_MD5;
-        digest_mech.ulParameterLen = 0;
-        digest_mech.pParameter = NULL;
-
-        rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("Digest Mgr Init failed.\n");
-            goto done;
-        }
-
-        hash_len = sizeof(hash);
-        rc = digest_mgr_digest(tokdata, sess, FALSE, &digest_ctx,
-                               attr->pValue, attr->ulValueLen, hash, &hash_len);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("Digest Mgr Digest failed.\n");
-            digest_mgr_cleanup(tokdata, sess, &digest_ctx);
-            goto done;
-        }
-
-        memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
-
-        for (i = 0; i < hash_len; i++) {
-            k_ipad[i] = hash[i] ^ 0x36;
-            k_opad[i] = hash[i] ^ 0x5C;
-        }
-
-        memset(&k_ipad[i], 0x36, MD5_BLOCK_SIZE - i);
-        memset(&k_opad[i], 0x5C, MD5_BLOCK_SIZE - i);
-    } else {
-        CK_BYTE *key = attr->pValue;
-
-        for (i = 0; i < key_bytes; i++) {
-            k_ipad[i] = key[i] ^ 0x36;
-            k_opad[i] = key[i] ^ 0x5C;
-        }
-
-        memset(&k_ipad[i], 0x36, MD5_BLOCK_SIZE - key_bytes);
-        memset(&k_opad[i], 0x5C, MD5_BLOCK_SIZE - key_bytes);
-    }
-
-    digest_mech.mechanism = CKM_MD5;
-    digest_mech.ulParameterLen = 0;
-    digest_mech.pParameter = NULL;
-
-    // inner hash
-    //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Init failed.\n");
-        goto done;
-    }
-
-    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_ipad,
-                                  MD5_BLOCK_SIZE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Update failed.\n");
-        goto done;
-    }
-
-    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, in_data,
-                                  in_data_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Update failed.\n");
-        goto done;
-    }
-
-    hash_len = sizeof(hash);
-    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-                                 &hash_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Final failed.\n");
-        goto done;
-    }
-
-    memset(&digest_ctx, 0x0, sizeof(DIGEST_CONTEXT));
-
-    // outer hash
-    //
-    rc = digest_mgr_init(tokdata, sess, &digest_ctx, &digest_mech, FALSE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Init failed.\n");
-        goto done;
-    }
-
-    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, k_opad,
-                                  MD5_BLOCK_SIZE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Update failed.\n");
-        goto done;
-    }
-
-    rc = digest_mgr_digest_update(tokdata, sess, &digest_ctx, hash, hash_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Update failed.\n");
-        goto done;
-    }
-
-    hash_len = sizeof(hash);
-    rc = digest_mgr_digest_final(tokdata, sess, FALSE, &digest_ctx, hash,
-                                 &hash_len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Digest Mgr Final failed.\n");
-        goto done;
-    }
-
-    memcpy(out_data, hash, hmac_len);
-    *out_data_len = hmac_len;
-
-done:
-    object_put(tokdata, key_obj, TRUE);
-    key_obj = NULL;
-
-    return rc;
+    return CKR_OK;
 }
 
 CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
@@ -417,48 +283,21 @@ CK_RV md5_hmac_verify(STDLL_TokData_t *tokdata, SESSION *sess,
                        CK_BYTE *in_data, CK_ULONG in_data_len,
                        CK_BYTE *signature, CK_ULONG sig_len)
 {
-    CK_BYTE hmac[MD5_HASH_SIZE];
-    SIGN_VERIFY_CONTEXT hmac_ctx;
-    CK_ULONG hmac_len, len;
     CK_RV rc;
 
-    if (!sess || !ctx || !in_data || !signature) {
+    if (!sess || !ctx || !signature) {
         TRACE_ERROR("%s received bad argument(s)\n", __func__);
         return CKR_FUNCTION_FAILED;
     }
 
-    if (ctx->mech.mechanism == CKM_MD5_HMAC_GENERAL)
-        hmac_len = *(CK_ULONG *) ctx->mech.pParameter;
-    else
-        hmac_len = MD5_HASH_SIZE;
+    rc = openssl_specific_hmac_init(tokdata, ctx, &ctx->mech, ctx->key);
+    if (rc != CKR_OK)
+        return rc;
 
-    memset(&hmac_ctx, 0, sizeof(SIGN_VERIFY_CONTEXT));
+    rc = openssl_specific_hmac(ctx, in_data, in_data_len,
+                               signature, &sig_len, FALSE);
+    if (rc != CKR_OK)
+        return rc;
 
-    rc = sign_mgr_init(tokdata, sess, &hmac_ctx, &ctx->mech, FALSE, ctx->key,
-                       FALSE);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Sign Mgr Init failed.\n");
-        goto done;
-    }
-    len = sizeof(hmac);
-    rc = sign_mgr_sign(tokdata, sess, FALSE, &hmac_ctx, in_data, in_data_len,
-                       hmac, &len);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("Sign Mgr Sign failed.\n");
-        goto done;
-    }
-    if ((len != hmac_len) || (len != sig_len)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_LEN_RANGE));
-        rc = CKR_SIGNATURE_LEN_RANGE;
-        goto done;
-    }
-
-    if (CRYPTO_memcmp(hmac, signature, hmac_len) != 0) {
-        TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
-        rc = CKR_SIGNATURE_INVALID;
-    }
-
-done:
-    sign_mgr_cleanup(tokdata, sess, &hmac_ctx);
-    return rc;
+    return CKR_OK;
 }
