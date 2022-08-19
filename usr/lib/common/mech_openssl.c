@@ -4219,6 +4219,16 @@ CK_RV openssl_specific_tdes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                 first, last, ctx);
 }
 
+static void openssl_specific_hmac_free(STDLL_TokData_t *tokdata, SESSION *sess,
+                                       CK_BYTE *context, CK_ULONG context_len)
+{
+    UNUSED(tokdata);
+    UNUSED(sess);
+    UNUSED(context_len);
+
+    EVP_MD_CTX_destroy((EVP_MD_CTX *)context);
+}
+
 CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
                                  SIGN_VERIFY_CONTEXT *ctx,
                                  CK_MECHANISM_PTR mech,
@@ -4325,6 +4335,8 @@ CK_RV openssl_specific_hmac_init(STDLL_TokData_t *tokdata,
         goto done;
     } else {
         ctx->context = (CK_BYTE *) mdctx;
+        ctx->context_free_func = openssl_specific_hmac_free;
+        ctx->state_unsaveable = TRUE;
     }
 
     rc = CKR_OK;
@@ -4487,7 +4499,6 @@ CK_RV openssl_specific_hmac_update(SIGN_VERIFY_CONTEXT *ctx, CK_BYTE *in_data,
         TRACE_ERROR("EVP_DigestSignUpdate failed.\n");
         rv = CKR_FUNCTION_FAILED;
     } else {
-        ctx->context = (CK_BYTE *) mdctx;
         return CKR_OK;
     }
 
