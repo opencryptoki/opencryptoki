@@ -401,16 +401,6 @@ CK_RV do_sign_encrypt_decrypt_verify()
     CK_BYTE signature[32];
     CK_ULONG signature_len;
 
-    if (is_ica_token(SLOT_ID) || is_tpm_token(SLOT_ID)) {
-        /*
-         * The ICA and TPM tokens do not support CKM_SHA256_HMAC in multi-chunk
-         * mode, only single chunk. Use CKM_AES_CMAC instead.
-         */
-        signver_mech.mechanism = CKM_AES_CMAC;
-        mackeygen_mech.mechanism = CKM_AES_KEY_GEN;
-    }
-
-
     testcase_begin("C_SignEncryptUpdate with %s/%s",
                    mech_to_str(signver_mech.mechanism),
                    mech_to_str(endecrypt_mech.mechanism));
@@ -468,11 +458,7 @@ CK_RV do_sign_encrypt_decrypt_verify()
     }
 
     /* generate a MAC key */
-    if (mackeygen_mech.mechanism == CKM_AES_KEY_GEN)
-        rc = generate_AESKey(session, 256 / 8, CK_TRUE, &aeskeygen_mech,
-                             &mac_key);
-    else
-        rc = generate_SecretKey(session, 256, &mackeygen_mech, &mac_key);
+    rc = generate_SecretKey(session, 256, &mackeygen_mech, &mac_key);
     if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("generate key with mech %s (%u) in slot %lu "
