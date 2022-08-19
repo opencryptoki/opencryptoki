@@ -1656,17 +1656,14 @@ CK_RV digest_funcs()
     }
 
     /** HMAC Multipart tests **/
-    /* ica and tpm tokens do not yet support multipart hmac right now. */
-    if (!(is_ica_token(SLOT_ID)) && !(is_tpm_token(SLOT_ID))) {
-        for (i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++) {
-            rc = do_SignUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
-            if (rc && !no_stop)
-                break;
+    for (i = 0; i < NUM_OF_FIPS_HMAC_TEST_SUITES; i++) {
+        rc = do_SignUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
+        if (rc && !no_stop)
+            break;
 
-            rc = do_VerifyUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
-            if (rc && !no_stop)
-                break;
-        }
+        rc = do_VerifyUpdate_FIPS_HMAC(&fips_hmac_test_suites[i]);
+        if (rc && !no_stop)
+            break;
     }
 
     /* HMAC test with a generated generic secret key */
