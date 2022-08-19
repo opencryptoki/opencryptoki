@@ -12,6 +12,7 @@
 #
 # sudo -E ./p11sak_test.sh
 
+status=0
 
 
 echo "** Now executing 'p11sak_test.sh'"
@@ -54,7 +55,11 @@ echo "** Now generating keys - 'p11sak_test.sh'"
 # generate objects
 
 # des
-p11sak generate-key des --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-des
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+	p11sak generate-key des --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-des
+else
+	echo "Skip generating des keys, slot does not support CKM_DES_KEY_GEN"
+fi
 # 3des
 p11sak generate-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-3des
 # aes [128 | 192 | 256]
@@ -70,7 +75,11 @@ p11sak generate-key ec prime256v1 --slot $SLOT --pin $PKCS11_USER_PIN --label p1
 p11sak generate-key ec secp384r1 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp384r1
 p11sak generate-key ec secp521r1 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp521r1
 # ibm-dilithium
-p11sak generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+	p11sak generate-key ibm-dilithium r2_65 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium
+else
+	echo "Skip generating ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
+fi
 
 
 echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
@@ -141,46 +150,61 @@ p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM
 echo "** Now checking output files to determine PASS/FAIL of tests - 'p11sak_test.sh'"
 
 
-# check DES
-grep -q 'p11sak-des' $P11SAK_DES_PRE
-rc=$?
-if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key des PASS Generated random DES key"
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+	# check DES
+	grep -q 'p11sak-des' $P11SAK_DES_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key des PASS Generated random DES key"
+	else
+		echo "* TESTCASE generate-key des FAIL Failed to generate DES key"
+		status=1
+	fi
+	grep -v -q 'p11sak-des' $P11SAK_DES_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key des PASS Deleted generated DES key"
+	else
+		echo "* TESTCASE remove-key des FAIL Failed to delete generated DES key"
+		status=1
+	fi
 else
-echo "* TESTCASE generate-key des FAIL Failed to generate DES key"
-fi
-grep -v -q 'p11sak-des' $P11SAK_DES_POST
-rc=$?
-if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key des PASS Deleted generated DES key"
-else
-echo "* TESTCASE remove-key des FAIL Failed to delete generated DES key"
+	echo "* TESTCASE generate-key des SKIP Generated random DES key"
 fi
 
-
-# CK_BBOOL
-if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
-echo "* TESTCASE list-key des PASS Listed random des public keys CK_BBOOL attribute"
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
+	# CK_BBOOL
+	if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+		echo "* TESTCASE list-key des PASS Listed random des public keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+		echo "* TESTCASE list-key des PASS Listed random des public keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+		echo "* TESTCASE list-key des PASS Listed random des public keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BYTE attribute"
+		status=1
+	fi
+	# URI
+	if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
+		echo "* TESTCASE list-key des PASS list des key pkcs#11 URI"
+	else
+		echo "* TESTCASE list-key des FAIL list des key pkcs#11 URI"
+		status=1
+	fi
 else
-echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BBOOL attribute"
-fi
-# CK_ULONG
-if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
-echo "* TESTCASE list-key des PASS Listed random des public keys CK_ULONG attribute"
-else
-echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_ULONG attribute"
-fi
-# CK_BYTE
-if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
-echo "* TESTCASE list-key des PASS Listed random des public keys CK_BYTE attribute"
-else
-echo "* TESTCASE list-key des FAIL Failed to list des public keys CK_BYTE attribute"
-fi
-# URI
-if [[ $(grep -A 20 'p11sak-des' $P11SAK_DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
-echo "* TESTCASE list-key des PASS list des key pkcs#11 URI"
-else
-echo "* TESTCASE list-key des FAIL list des key pkcs#11 URI"
+	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_BYTE attribute"
 fi
 
 
@@ -188,42 +212,48 @@ fi
 grep -q 'p11sak-3des' $P11SAK_3DES_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key 3des PASS Generated random 3DES key"
+	echo "* TESTCASE generate-key 3des PASS Generated random 3DES key"
 else
-echo "* TESTCASE generate-key 3des FAIL Failed to generate 3DES key"
+	echo "* TESTCASE generate-key 3des FAIL Failed to generate 3DES key"
+	status=1
 fi
 grep -v -q 'p11sak-3des' $P11SAK_3DES_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key 3des PASS Deleted generated 3DES key"
+	echo "* TESTCASE remove-key 3des PASS Deleted generated 3DES key"
 else
-echo "* TESTCASE remove-key 3des FAIL Failed to delete generated 3DES key"
+	echo "* TESTCASE remove-key 3des FAIL Failed to delete generated 3DES key"
+	status=1
 fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
-echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BBOOL attribute"
+if [[ $(grep -A 23 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "1" ]]; then
+	echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BBOOL attribute"
 else
-echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BBOOL attribute"
+	status=1
 fi
 # CK_ULONG
-if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
-echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_ULONG attribute"
+if [[ $(grep -A 23 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+	echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_ULONG attribute"
 else
-echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_ULONG attribute"
+	status=1
 fi
 # CK_BYTE
-if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
-echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BYTE attribute"
+if [[ $(grep -A 23 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+	echo "* TESTCASE list-key 3des PASS Listed random 3des public keys CK_BYTE attribute"
 else
-echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key 3des FAIL Failed to list 3des public keys CK_BYTE attribute"
+	status=1
 fi
 # URI
-if [[ $(grep -A 20 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
-echo "* TESTCASE list-key 3des PASS list 3des key pkcs#11 URI"
+if [[ $(grep -A 23 'p11sak-3des' $P11SAK_3DES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "1" ]]; then
+	echo "* TESTCASE list-key 3des PASS list 3des key pkcs#11 URI"
 else
-echo "* TESTCASE list-key 3des FAIL list 3des key pkcs#11 URI"
+	echo "* TESTCASE list-key 3des FAIL list 3des key pkcs#11 URI"
+	status=1
 fi
 
 
@@ -231,16 +261,18 @@ fi
 grep -q 'p11sak-aes-128' $P11SAK_AES_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key aes-128 PASS Generated random AES 128 key"
+	echo "* TESTCASE generate-key aes-128 PASS Generated random AES 128 key"
 else
-echo "* TESTCASE generate-key aes-128 FAIL Failed to generate AES 128 key"
+	echo "* TESTCASE generate-key aes-128 FAIL Failed to generate AES 128 key"
+	status=1
 fi
 grep -v -q 'p11sak-aes-128' $P11SAK_AES_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key aes-128 PASS Deleted generated AES 128 key"
+	echo "* TESTCASE remove-key aes-128 PASS Deleted generated AES 128 key"
 else
-echo "* TESTCASE remove-key aes-128 FAIL Failed to delete generated AES 128 key"
+	echo "* TESTCASE remove-key aes-128 FAIL Failed to delete generated AES 128 key"
+	status=1
 fi
 
 
@@ -248,16 +280,18 @@ fi
 grep -q 'p11sak-aes-192' $P11SAK_AES_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key aes-192 PASS Generated random AES 192 key"
+	echo "* TESTCASE generate-key aes-192 PASS Generated random AES 192 key"
 else
-echo "* TESTCASE generate-key aes-192 FAIL Failed to generate AES 192 key"
+	echo "* TESTCASE generate-key aes-192 FAIL Failed to generate AES 192 key"
+	status=1
 fi
 grep -v -q 'p11sak-aes-192' $P11SAK_AES_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key aes-192 PASS Deleted generated AES 192 key"
+	echo "* TESTCASE remove-key aes-192 PASS Deleted generated AES 192 key"
 else
-echo "* TESTCASE remove-key aes-192 FAIL Failed to delete generated AES 192 key"
+	echo "* TESTCASE remove-key aes-192 FAIL Failed to delete generated AES 192 key"
+	status=1
 fi
 
 
@@ -265,42 +299,48 @@ fi
 grep -q 'p11sak-aes-256' $P11SAK_AES_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key aes-256 PASS Generated random AES 256 key"
+	echo "* TESTCASE generate-key aes-256 PASS Generated random AES 256 key"
 else
-echo "* TESTCASE generate-key aes-256 FAIL Failed to generate AES 256 key"
+	echo "* TESTCASE generate-key aes-256 FAIL Failed to generate AES 256 key"
+	status=1
 fi
 grep -v -q 'p11sak-aes-256' $P11SAK_AES_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key aes-256 PASS Deleted generated AES 256 key"
+	echo "* TESTCASE remove-key aes-256 PASS Deleted generated AES 256 key"
 else
-echo "* TESTCASE remove-key aes-256 FAIL Failed to delete generated AES 256 key"
+	echo "* TESTCASE remove-key aes-256 FAIL Failed to delete generated AES 256 key"
+	status=1
 fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "3" ]]; then
-echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BBOOL attribute"
+if [[ $(grep -A 69 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "3" ]]; then
+	echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BBOOL attribute"
 else
-echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BBOOL attribute"
+	status=1
 fi
 # CK_ULONG
-if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
-echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_ULONG attribute"
+if [[ $(grep -A 69 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+	echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_ULONG attribute"
 else
-echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_ULONG attribute"
+	status=1
 fi
 # CK_BYTE
-if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
-echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BYTE attribute"
+if [[ $(grep -A 69 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+	echo "* TESTCASE list-key aes PASS Listed random aes public keys CK_BYTE attribute"
 else
-echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key aes FAIL Failed to list aes public keys CK_BYTE attribute"
+	status=1
 fi
 # URI
-if [[ $(grep -A 60 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "3" ]]; then
-echo "* TESTCASE list-key aes PASS list aes key pkcs#11 URI"
+if [[ $(grep -A 69 'p11sak-aes-128' $P11SAK_AES_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "3" ]]; then
+	echo "* TESTCASE list-key aes PASS list aes key pkcs#11 URI"
 else
-echo "* TESTCASE list-key aes FAIL list aes key pkcs#11 URI"
+	echo "* TESTCASE list-key aes FAIL list aes key pkcs#11 URI"
+	status=1
 fi
 
 
@@ -308,16 +348,18 @@ fi
 grep -q 'p11sak-rsa-1024:pub' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 1024 PASS Generated random rsa 1024 public key"
+	echo "* TESTCASE generate-key rsa 1024 PASS Generated random rsa 1024 public key"
 else
-echo "* TESTCASE generate-key rsa 1024 FAIL Failed to generate rsa 1024 public key"
+	echo "* TESTCASE generate-key rsa 1024 FAIL Failed to generate rsa 1024 public key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-1024:pub' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 1024 public key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 1024 public key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 1024 public key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 1024 public key"
+	status=1
 fi
 
 
@@ -325,16 +367,18 @@ fi
 grep -q 'p11sak-rsa-2048:pub' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 2048 PASS Generated random rsa 2048 public key"
+	echo "* TESTCASE generate-key rsa 2048 PASS Generated random rsa 2048 public key"
 else
-echo "* TESTCASE generate-key rsa 2048 FAIL Failed to generate rsa 2048 public key"
+	echo "* TESTCASE generate-key rsa 2048 FAIL Failed to generate rsa 2048 public key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-2048:pub' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 2048 public key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 2048 public key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 2048 public key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 2048 public key"
+	status=1
 fi
 
 
@@ -342,16 +386,18 @@ fi
 grep -q 'p11sak-rsa-4096:pub' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 4096 PASS Generated random rsa 4096 public key"
+	echo "* TESTCASE generate-key rsa 4096 PASS Generated random rsa 4096 public key"
 else
-echo "* TESTCASE generate-key rsa 4096 FAIL Failed to generate rsa 4096 public key"
+	echo "* TESTCASE generate-key rsa 4096 FAIL Failed to generate rsa 4096 public key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-4096:pub' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 4096 public key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 4096 public key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 4096 public key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 4096 public key"
+	status=1
 fi
 
 
@@ -359,16 +405,18 @@ fi
 grep -q 'p11sak-rsa-1024:prv' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 1024 PASS Generated random rsa 1024 private key"
+	echo "* TESTCASE generate-key rsa 1024 PASS Generated random rsa 1024 private key"
 else
-echo "* TESTCASE generate-key rsa 1024 FAIL Failed to generate rsa 1024 private key"
+	echo "* TESTCASE generate-key rsa 1024 FAIL Failed to generate rsa 1024 private key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-1024:prv' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 1024 private key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 1024 private key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 1024 private key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 1024 private key"
+	status=1
 fi
 
 
@@ -376,16 +424,18 @@ fi
 grep -q 'p11sak-rsa-2048:prv' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 2048 PASS Generated random rsa 2048 private key"
+	echo "* TESTCASE generate-key rsa 2048 PASS Generated random rsa 2048 private key"
 else
-echo "* TESTCASE generate-key rsa 2048 FAIL Failed to generate rsa 2048 private key"
+	echo "* TESTCASE generate-key rsa 2048 FAIL Failed to generate rsa 2048 private key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-2048:prv' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 2048 private key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 2048 private key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 2048 private key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 2048 private key"
+	status=1
 fi
 
 
@@ -393,42 +443,48 @@ fi
 grep -q 'p11sak-rsa-4096:prv' $P11SAK_RSA_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key rsa 4096 PASS Generated random rsa 4096 private key"
+	echo "* TESTCASE generate-key rsa 4096 PASS Generated random rsa 4096 private key"
 else
-echo "* TESTCASE generate-key rsa 4096 FAIL Failed to generate rsa 4096 private key"
+	echo "* TESTCASE generate-key rsa 4096 FAIL Failed to generate rsa 4096 private key"
+	status=1
 fi
 grep -v -q 'p11sak-rsa-4096:prv' $P11SAK_RSA_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 4096 private key"
+	echo "* TESTCASE remove-key rsa PASS Deleted generated rsa 4096 private key"
 else
-echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 4096 private key"
+	echo "* TESTCASE remove-key rsa FAIL Failed to delete generated rsa 4096 private key"
+	status=1
 fi
 
 
 # CK_BBOOL
 if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
-echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BBOOL attribute"
 else
-echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BBOOL attribute"
+	status=1
 fi
 # CK_ULONG
 if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS_BITS:') == "3" ]]; then
-echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_ULONG attribute"
 else
-echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_ULONG attribute"
+	status=1
 fi
 # CK_BYTE
 if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'CKA_MODULUS:') == "6" ]]; then
-echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key rsa PASS Listed random rsa public keys CK_BYTE attribute"
 else
-echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key rsa FAIL Failed to list rsa public keys CK_BYTE attribute"
+	status=1
 fi
 # URI
 if [[ $(grep -A 211 'p11sak-rsa-1024:pub' $P11SAK_RSA_LONG | grep -c 'URI: pkcs11:.*type=public') == "3" ]]; then
-echo "* TESTCASE list-key rsa PASS list rsa public key pkcs#11 URI"
+	echo "* TESTCASE list-key rsa PASS list rsa public key pkcs#11 URI"
 else
-echo "* TESTCASE list-key rsa FAIL list rsa public key pkcs#11 URI"
+	echo "* TESTCASE list-key rsa FAIL list rsa public key pkcs#11 URI"
+	status=1
 fi
 
 
@@ -436,16 +492,18 @@ fi
 grep -q 'p11sak-ec-prime256v1:pub' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec prime256v1 PASS Generated random ec prime256v1 public key"
+	echo "* TESTCASE generate-key ec prime256v1 PASS Generated random ec prime256v1 public key"
 else
-echo "* TESTCASE generate-key ec prime256v1 FAIL Failed to generate ec prime256v1 public key"
+	echo "* TESTCASE generate-key ec prime256v1 FAIL Failed to generate ec prime256v1 public key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-prime256v1:pub' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec prime256v1 PASS Deleted generated ec prime256v1 public key"
+	echo "* TESTCASE remove-key ec prime256v1 PASS Deleted generated ec prime256v1 public key"
 else
-echo "* TESTCASE remove-key ec prime256v1 FAIL Failed to delete generated ec prime256v1 public key"
+	echo "* TESTCASE remove-key ec prime256v1 FAIL Failed to delete generated ec prime256v1 public key"
+	status=1
 fi
 
 
@@ -453,16 +511,18 @@ fi
 grep -q 'p11sak-ec-secp384r1:pub' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec secp384r1 PASS Generated random ec secp384r1 public key"
+	echo "* TESTCASE generate-key ec secp384r1 PASS Generated random ec secp384r1 public key"
 else
-echo "* TESTCASE generate-key ec secp384r1 FAIL Failed to generate ec secp384r1 public key"
+	echo "* TESTCASE generate-key ec secp384r1 FAIL Failed to generate ec secp384r1 public key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-secp384r1:pub' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec secp384r1 PASS Deleted generated ec secp384r1 public key"
+	echo "* TESTCASE remove-key ec secp384r1 PASS Deleted generated ec secp384r1 public key"
 else
-echo "* TESTCASE remove-key ec secp384r1 FAIL Failed to delete generated ec secp384r1 public key"
+	echo "* TESTCASE remove-key ec secp384r1 FAIL Failed to delete generated ec secp384r1 public key"
+	status=1
 fi
 
 
@@ -470,16 +530,18 @@ fi
 grep -q 'p11sak-ec-secp521r1:pub' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec secp521r1 PASS Generated random ec secp521r1 public key"
+	echo "* TESTCASE generate-key ec secp521r1 PASS Generated random ec secp521r1 public key"
 else
-echo "* TESTCASE generate-key ec secp521r1 FAIL Failed to generate ec secp521r1 public key"
+	echo "* TESTCASE generate-key ec secp521r1 FAIL Failed to generate ec secp521r1 public key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-secp521r1:pub' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec secp521r1 PASS Deleted generated ec secp521r1 public key"
+	echo "* TESTCASE remove-key ec secp521r1 PASS Deleted generated ec secp521r1 public key"
 else
-echo "* TESTCASE remove-key ec secp521r1 FAIL Failed to delete generated ec secp521r1 public key"
+	echo "* TESTCASE remove-key ec secp521r1 FAIL Failed to delete generated ec secp521r1 public key"
+	status=1
 fi
 
 
@@ -487,16 +549,18 @@ fi
 grep -q 'p11sak-ec-prime256v1:prv' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec prime256v1 PASS Generated random ec prime256v1 private key"
+	echo "* TESTCASE generate-key ec prime256v1 PASS Generated random ec prime256v1 private key"
 else
-echo "* TESTCASE generate-key ec prime256v1 FAIL Failed to generate ec prime256v1 private key"
+	echo "* TESTCASE generate-key ec prime256v1 FAIL Failed to generate ec prime256v1 private key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-prime256v1:prv' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec prime256v1 PASS Deleted generated ec prime256v1 private key"
+	echo "* TESTCASE remove-key ec prime256v1 PASS Deleted generated ec prime256v1 private key"
 else
-echo "* TESTCASE remove-key ec prime256v1 FAIL Failed to delete generated ec prime256v1 private key"
+	echo "* TESTCASE remove-key ec prime256v1 FAIL Failed to delete generated ec prime256v1 private key"
+	status=1
 fi
 
 
@@ -504,16 +568,18 @@ fi
 grep -q 'p11sak-ec-secp384r1:prv' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec secp384r1 PASS Generated random ec secp384r1 private key"
+	echo "* TESTCASE generate-key ec secp384r1 PASS Generated random ec secp384r1 private key"
 else
-echo "* TESTCASE generate-key ec secp384r1 FAIL Failed to generate ec secp384r1 private key"
+	echo "* TESTCASE generate-key ec secp384r1 FAIL Failed to generate ec secp384r1 private key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-secp384r1:prv' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec secp384r1 PASS Deleted generated ec secp384r1 private key"
+	echo "* TESTCASE remove-key ec secp384r1 PASS Deleted generated ec secp384r1 private key"
 else
-echo "* TESTCASE remove-key ec secp384r1 FAIL Failed to delete generated ec secp384r1 private key"
+	echo "* TESTCASE remove-key ec secp384r1 FAIL Failed to delete generated ec secp384r1 private key"
+	status=1
 fi
 
 
@@ -521,62 +587,77 @@ fi
 grep -q 'p11sak-ec-secp521r1:prv' $P11SAK_EC_PRE
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE generate-key ec secp521r1 PASS Generated random ec secp521r1 private key"
+	echo "* TESTCASE generate-key ec secp521r1 PASS Generated random ec secp521r1 private key"
 else
-echo "* TESTCASE generate-key ec secp521r1 FAIL Failed to generate ec secp521r1 private key"
+	echo "* TESTCASE generate-key ec secp521r1 FAIL Failed to generate ec secp521r1 private key"
+	status=1
 fi
 grep -v -q 'p11sak-ec-secp521r1:prv' $P11SAK_EC_POST
 rc=$?
 if [ $rc = 0 ]; then
-echo "* TESTCASE remove-key ec secp521r1 PASS Deleted generated ec secp521r1 private key"
+	echo "* TESTCASE remove-key ec secp521r1 PASS Deleted generated ec secp521r1 private key"
 else
-echo "* TESTCASE remove-key ec secp521r1 FAIL Failed to delete generated ec secp521r1 private key"
+	echo "* TESTCASE remove-key ec secp521r1 FAIL Failed to delete generated ec secp521r1 private key"
+	status=1
 fi
 
 
 # CK_BBOOL
-if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
-echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BBOOL attribute"
+if [[ $(grep -A 99 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "6" ]]; then
+	echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BBOOL attribute"
 else
-echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BBOOL attribute"
+	status=1
 fi
 # CK_ULONG
-if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
-echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_ULONG attribute"
+if [[ $(grep -A 99 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+	echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_ULONG attribute"
 else
-echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_ULONG attribute"
+	status=1
 fi
 # CK_BYTE
-if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
-echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BYTE attribute"
+if [[ $(grep -A 99 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+	echo "* TESTCASE list-key ec PASS Listed random ec public keys CK_BYTE attribute"
 else
-echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key ec FAIL Failed to list ec public keys CK_BYTE attribute"
+	status=1
 fi
 # URI
-if [[ $(grep -A 90 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'URI: pkcs11:.*type=public') == "3" ]]; then
-echo "* TESTCASE list-key ec PASS list ec public key pkcs#11 URI"
+if [[ $(grep -A 99 'p11sak-ec-prime256v1:pub' $P11SAK_EC_LONG | grep -c 'URI: pkcs11:.*type=public') == "3" ]]; then
+	echo "* TESTCASE list-key ec PASS list ec public key pkcs#11 URI"
 else
-echo "* TESTCASE list-key ec FAIL list ec public key pkcs#11 URI"
+	echo "* TESTCASE list-key ec FAIL list ec public key pkcs#11 URI"
+	status=1
 fi
 
 
-# CK_BBOOL
-if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CK_TRUE') == "14" ]]; then
-echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BBOOL attribute"
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
+	# CK_BBOOL
+	if [[ $(grep -A 35 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CK_TRUE') == "11" ]]; then
+		echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -A 35 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+		echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -A 35 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+		echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BYTE attribute"
+		status=1
+	fi
 else
-echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BBOOL attribute"
-fi
-# CK_ULONG
-if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
-echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_ULONG attribute"
-else
-echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_ULONG attribute"
-fi
-# CK_BYTE
-if [[ $(grep -A 32 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
-echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BYTE attribute"
-else
-echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key ibm-dilithium SKIP Listed random ibm-dilithium public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ibm-dilithium SKIP Listed random ibm-dilithium public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ibm-dilithium SKIP Listed random ibm-dilithium public keys CK_BYTE attribute"
 fi
 
 
@@ -602,5 +683,6 @@ rm -f $P11SAK_IBM_DIL_PRE
 rm -f $P11SAK_IBM_DIL_LONG
 rm -f $P11SAK_IBM_DIL_POST
 
-echo "** Now DONE testing - 'p11sak_test.sh'"
+echo "** Now DONE testing - 'p11sak_test.sh' - rc = $status"
 
+exit $status
