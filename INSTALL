@@ -96,6 +96,11 @@ find the X include and library files automatically, but if it doesn't,
 you can use the `configure' options `--x-includes=DIR' and
 `--x-libraries=DIR' to specify their locations.
 
+   Note: Do not specify 'prefix=/foo/bar', 'libdir=/foo/bar' with
+the 'make' invocation. Specify them with 'configure' instead. Specifying
+them with 'make' is not supported by the openCryptoki package and may
+produce unexpected results!
+
 Specifying the System Type
 ==========================
 
