@@ -169,11 +169,12 @@ typedef struct Slot_Mgr_Proc_t_64 {
                                  * sleeping on the condition variable to wakeup.
                                  */
     uint32 slot_session_count[NUMBER_SLOTS_MANAGED];    /* Per process session
-                                                         * count for garbage
+                                                         * counts for garbage
                                                          * collection clean up
                                                          * of the global
                                                          * session count.
                                                          */
+    uint32 slot_rw_session_count[NUMBER_SLOTS_MANAGED];
     time_t_64 reg_time;         // Time application registered
 } Slot_Mgr_Proc_t_64;
 
@@ -201,6 +202,7 @@ typedef struct {
 
     /* Information that the API calls will use. */
     uint32 slot_global_sessions[NUMBER_SLOTS_MANAGED];
+    uint32 slot_global_rw_sessions[NUMBER_SLOTS_MANAGED];
     Slot_Mgr_Proc_t_64 proc_table[NUMBER_PROCESSES_ALLOWED];
 } Slot_Mgr_Shr_t;
 

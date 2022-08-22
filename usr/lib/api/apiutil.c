@@ -156,7 +156,7 @@ void CloseMe(STDLL_TokData_t *tokdata, void *node_value,
         rv = fcn->ST_CloseSession(sltp->TokData, s,
                                   closeme_arg->in_fork_initializer);
         if (rv == CKR_OK) {
-            decr_sess_counts(closeme_arg->slot_id);
+            decr_sess_counts(closeme_arg->slot_id, s->rw_session);
             bt_node_free(&(Anchor->sess_btree), node_handle, TRUE);
         }
     }
@@ -192,6 +192,7 @@ int Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T *rSession)
     if (tmp) {
         rSession->slotID = tmp->slotID;
         rSession->sessionh = tmp->sessionh;
+        rSession->rw_session = tmp->rw_session;
     }
     rc = tmp ? TRUE : FALSE;
     bt_put_node_value(&(Anchor->sess_btree), tmp);
@@ -225,17 +226,18 @@ int slot_present(CK_SLOT_ID id)
     return TRUE;
 }
 
-void get_sess_count(CK_SLOT_ID slotID, CK_ULONG *ret)
+void get_sess_counts(CK_SLOT_ID slotID, CK_ULONG *ret, CK_ULONG *rw_ret)
 {
     Slot_Mgr_Shr_t *shm;
 
     shm = Anchor->SharedMemP;
     ProcLock();
     *ret = shm->slot_global_sessions[slotID];
+    *rw_ret = shm->slot_global_rw_sessions[slotID];
     ProcUnLock();
 }
 
-void incr_sess_counts(CK_SLOT_ID slotID)
+void incr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
 {
     Slot_Mgr_Shr_t *shm;
 #ifdef PKCS64
@@ -250,14 +252,18 @@ void incr_sess_counts(CK_SLOT_ID slotID)
     ProcLock();
 
     shm->slot_global_sessions[slotID]++;
+    if (rw_session)
+        shm->slot_global_rw_sessions[slotID]++;
 
     procp = &shm->proc_table[Anchor->MgrProcIndex];
     procp->slot_session_count[slotID]++;
+    if (rw_session)
+        procp->slot_rw_session_count[slotID]++;
 
     ProcUnLock();
 }
 
-void decr_sess_counts(CK_SLOT_ID slotID)
+void decr_sess_counts(CK_SLOT_ID slotID, CK_BBOOL rw_session)
 {
     Slot_Mgr_Shr_t *shm;
 #ifdef PKCS64
@@ -274,10 +280,16 @@ void decr_sess_counts(CK_SLOT_ID slotID)
     if (shm->slot_global_sessions[slotID] > 0) {
         shm->slot_global_sessions[slotID]--;
     }
+    if (rw_session && shm->slot_global_rw_sessions[slotID] > 0) {
+        shm->slot_global_rw_sessions[slotID]--;
+    }
 
     procp = &shm->proc_table[Anchor->MgrProcIndex];
     if (procp->slot_session_count[slotID] > 0) {
-        procp->slot_session_count[slotID]++;
+        procp->slot_session_count[slotID]--;
+    }
+    if (rw_session && procp->slot_rw_session_count[slotID] > 0) {
+        procp->slot_rw_session_count[slotID]--;
     }
 
     ProcUnLock();

@@ -319,8 +319,12 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
 
                 unsigned int *pGlobalSessions =
                     &(MemPtr->slot_global_sessions[SlotIndex]);
+                unsigned int *pGlobalRWSessions =
+                    &(MemPtr->slot_global_rw_sessions[SlotIndex]);
                 unsigned int *pProcSessions =
                     &(pProc->slot_session_count[SlotIndex]);
+                unsigned int *pProcRWSessions =
+                    &(pProc->slot_rw_session_count[SlotIndex]);
 
                 if (*pProcSessions > 0) {
 
@@ -344,11 +348,14 @@ BOOL CheckForGarbage(Slot_Mgr_Shr_t *MemPtr)
                                SlotIndex, *pGlobalSessions);
 #endif                          /* DEV */
                         *pGlobalSessions = 0;
+                        *pGlobalRWSessions = 0;
                     } else {
                         *pGlobalSessions -= *pProcSessions;
+                        *pGlobalRWSessions -= *pProcRWSessions;
                     }
 
                     *pProcSessions = 0;
+                    *pProcRWSessions = 0;
 
                 }
                 /* end if *pProcSessions */
