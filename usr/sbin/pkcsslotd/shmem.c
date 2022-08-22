@@ -319,6 +319,7 @@ int InitSharedMemory(Slot_Mgr_Shr_t *sp)
     uint16 procindex;
 
     memset(sp->slot_global_sessions, 0, NUMBER_SLOTS_MANAGED * sizeof(uint32));
+    memset(sp->slot_global_rw_sessions, 0, NUMBER_SLOTS_MANAGED * sizeof(uint32));
 
     /* Initialize the process side of things. */
     /* for now don't worry about the condition variables */

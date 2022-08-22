@@ -510,7 +510,7 @@ CK_RV C_CloseSession(CK_SESSION_HANDLE hSession)
             // proper tracking of the number of sessions on a slot.
             // This allows things like InitToken to properly work in case
             // other applications have the token active.
-            decr_sess_counts(rSession.slotID);
+            decr_sess_counts(rSession.slotID, rSession.rw_session);
         } else {
             TRACE_DEVEL("fcn->ST_CloseSession failed:0x%lx\n", rv);
         }
@@ -2837,7 +2837,8 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
         BEGIN_OPENSSL_LIBCTX(Anchor->openssl_libctx, rv)
         rv = fcn->ST_GetTokenInfo(sltp->TokData, slotID, pInfo);
         if (rv == CKR_OK) {
-            get_sess_count(slotID, &(pInfo->ulSessionCount));
+            get_sess_counts(slotID, &pInfo->ulSessionCount,
+                            &pInfo->ulRwSessionCount);
         }
         TRACE_DEVEL("rv %lu CK_TOKEN_INFO Flags %lx\n", rv, pInfo->flags);
         END_OPENSSL_LIBCTX(rv)
@@ -3539,6 +3540,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
                 goto done;
             }
             apiSessp->slotID = slotID;
+            apiSessp->rw_session = (flags & CKF_RW_SESSION);
 
             // NOTE:  Need to add Session counter to the shared
             // memory slot value.... Atomic operation.
@@ -3548,7 +3550,7 @@ CK_RV C_OpenSession(CK_SLOT_ID slotID,
             //  how many sessions this process owns of the total amount.  This
             //  way if the process abends garbage collection in the slot manager
             //  can adequatly clean up the total count value...
-            incr_sess_counts(slotID);
+            incr_sess_counts(slotID, apiSessp->rw_session);
 
         } else {
             free(apiSessp);

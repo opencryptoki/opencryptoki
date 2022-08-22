@@ -871,6 +871,6 @@ void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
     pInfo->ulMaxSessionCount = CK_EFFECTIVELY_INFINITE;
     /* pInfo->ulSessionCount is set at the API level */
     pInfo->ulMaxRwSessionCount = CK_EFFECTIVELY_INFINITE;
-    pInfo->ulRwSessionCount = CK_UNAVAILABLE_INFORMATION;
+    /* pInfo->ulRwSessionCount is set at the API level */
 }
 
