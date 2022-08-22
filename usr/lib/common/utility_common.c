@@ -91,11 +91,13 @@ CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize)
 CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general)
 {
     switch (mech) {
+#if !(NOMD2 )
     case CKM_MD2_HMAC:
     case CKM_MD2_HMAC_GENERAL:
         *digest_mech = CKM_MD2;
         *general = (mech == CKM_MD2_HMAC_GENERAL);
         break;
+#endif
     case CKM_MD5_HMAC:
     case CKM_MD5_HMAC_GENERAL:
         *digest_mech = CKM_MD5;

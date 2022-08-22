@@ -22,6 +22,8 @@
 
 #include <openssl/crypto.h>
 
+#if !(NOMD2)
+
 // Permutation of 0..255 constructed from the digits of pi. It gives a
 // "random" nonlinear byte substitution operation.
 //
@@ -507,3 +509,5 @@ void ckm_md2_transform(STDLL_TokData_t *tokdata,
         t = checksum[i] ^= S[block[i] ^ t];
 
 }
+
+#endif

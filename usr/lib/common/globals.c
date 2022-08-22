@@ -39,10 +39,10 @@ const CK_BYTE ber_idEC[] =
     { 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01 };
 const CK_BYTE ber_rsaEncryption[] =
     { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01 };
+#if !(NOMD2)
 const CK_BYTE ber_md2WithRSAEncryption[] =
     { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x02 };
-const CK_BYTE ber_md4WithRSAEncryption[] =
-    { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x03 };
+#endif
 const CK_BYTE ber_md5WithRSAEncryption[] =
     { 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x04 };
 const CK_BYTE ber_sha1WithRSAEncryption[] =
@@ -54,10 +54,12 @@ const CK_BYTE ber_idDilithium[] =
 
 // Algorithm IDs. (Sequence of OID plus parms, usually NULL)
 //
+#if !(NOMD2)
 const CK_BYTE ber_AlgMd2[] = {
     0x30, 0x0C, 0x06, 0x08, 0x2A, 0x86, 0x48,
     0x86, 0xF7, 0x0D, 0x02, 0x02, 0x05, 0x00
 };
+#endif
 
 const CK_BYTE ber_AlgMd5[] = {
     0x30, 0x0C, 0x06, 0x08, 0x2A, 0x86, 0x48,
@@ -113,14 +115,17 @@ const CK_BYTE ber_AlgIdDilithium[] =
 const CK_ULONG ber_idDSALen = sizeof(ber_idDSA);
 const CK_ULONG ber_idECLen = sizeof(ber_idEC);
 const CK_ULONG ber_rsaEncryptionLen = sizeof(ber_rsaEncryption);
+#if !(NOMD2)
 const CK_ULONG ber_md2WithRSAEncryptionLen = sizeof(ber_md2WithRSAEncryption);
-const CK_ULONG ber_md4WithRSAEncryptionLen = sizeof(ber_md4WithRSAEncryption);
+#endif
 const CK_ULONG ber_md5WithRSAEncryptionLen = sizeof(ber_md5WithRSAEncryption);
 const CK_ULONG ber_sha1WithRSAEncryptionLen = sizeof(ber_sha1WithRSAEncryption);
 const CK_ULONG ber_idDHLen = sizeof(ber_idDH);
 const CK_ULONG ber_idDilithiumLen = sizeof(ber_idDilithium);
 
+#if !(NOMD2)
 const CK_ULONG ber_AlgMd2Len = sizeof(ber_AlgMd2);
+#endif
 const CK_ULONG ber_AlgMd5Len = sizeof(ber_AlgMd5);
 const CK_ULONG ber_AlgSha1Len = sizeof(ber_AlgSha1);
 const CK_ULONG ber_AlgSha224Len = sizeof(ber_AlgSha224);

@@ -155,8 +155,10 @@ struct oc_sha_ctx {
     unsigned int dev_ctx_offs;
 };
 
+#if !(NOMD2)
 #define MD2_HASH_SIZE   16
 #define MD2_BLOCK_SIZE  48
+#endif
 
 #define MD5_HASH_SIZE   16
 #define MD5_BLOCK_SIZE  64
