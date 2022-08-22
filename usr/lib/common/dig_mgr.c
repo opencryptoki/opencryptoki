@@ -79,6 +79,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
             return rc;
         }
         break;
+#if !(NOMD2)
     case CKM_MD2:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -93,6 +94,7 @@ CK_RV digest_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(MD2_CONTEXT));
         break;
+#endif
     case CKM_MD5:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));

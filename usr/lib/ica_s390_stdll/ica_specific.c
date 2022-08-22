@@ -4014,9 +4014,11 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
     if (isMechanismAvailable(tokdata, CKM_SHA512) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
         addMechanismToList(tokdata, CKM_SHA512_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+#if !(NOMD2 )
     if (isMechanismAvailable(tokdata, CKM_MD2) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
         addMechanismToList(tokdata, CKM_MD2_RSA_PKCS, rsa_hw && sha_hw, rsa_props);
+#endif
     if (isMechanismAvailable(tokdata, CKM_MD5) &&
         isMechanismAvailable(tokdata, CKM_RSA_PKCS))
         addMechanismToList(tokdata, CKM_MD5_RSA_PKCS, rsa_hw && sha_hw, rsa_props);

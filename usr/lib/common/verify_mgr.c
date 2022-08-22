@@ -220,7 +220,9 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             memset(ctx->context, 0x0, sizeof(RSA_DIGEST_CONTEXT));
         }
         break;
+#if !(NOMD2)
     case CKM_MD2_RSA_PKCS:
+#endif
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS:
@@ -363,7 +365,9 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
         ctx->context = NULL;
         break;
 #endif
+#if !(NOMD2)
     case CKM_MD2_HMAC:
+#endif
     case CKM_MD5_HMAC:
         if (mech->ulParameterLen != 0) {
             TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
@@ -433,7 +437,9 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
+#if !(NOMD2)
     case CKM_MD2_HMAC_GENERAL:
+#endif
     case CKM_MD5_HMAC_GENERAL:
         {
             CK_MAC_GENERAL_PARAMS *param =
@@ -445,11 +451,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
+#if !(NOMD2)
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
+#endif
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
@@ -492,11 +500,13 @@ CK_RV verify_mgr_init(STDLL_TokData_t *tokdata,
                 rc= CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
+#if !(NOMD2)
             if ((mech->mechanism == CKM_MD2_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
                 goto done;
             }
+#endif
             if ((mech->mechanism == CKM_MD5_HMAC_GENERAL) && (*param > 16)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
                 rc = CKR_MECHANISM_PARAM_INVALID;
@@ -900,7 +910,9 @@ CK_RV verify_mgr_verify(STDLL_TokData_t *tokdata,
     case CKM_RSA_PKCS_PSS:
         return rsa_pss_verify(tokdata, sess, ctx, in_data, in_data_len,
                               signature, sig_len);
+#if !(NOMD2)
     case CKM_MD2_RSA_PKCS:
+#endif
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS:
@@ -1021,7 +1033,9 @@ CK_RV verify_mgr_verify_update(STDLL_TokData_t *tokdata,
     }
 
     switch (ctx->mech.mechanism) {
+#if !(NOMD2)
     case CKM_MD2_RSA_PKCS:
+#endif
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS:
@@ -1112,7 +1126,9 @@ CK_RV verify_mgr_verify_final(STDLL_TokData_t *tokdata,
     }
 
     switch (ctx->mech.mechanism) {
+#if !(NOMD2)
     case CKM_MD2_RSA_PKCS:
+#endif
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
     case CKM_SHA224_RSA_PKCS:

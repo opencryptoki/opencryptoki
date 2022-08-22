@@ -147,14 +147,14 @@ typedef struct _SHA1_CONTEXT {
 
 typedef SHA1_CONTEXT SHA2_CONTEXT;
 
-
+#if !(NOMD2)
 typedef struct _MD2_CONTEXT {
     CK_BYTE state[16];          // state
     CK_BYTE checksum[16];       // checksum
     CK_ULONG count;             // number of bytes, modulo 16
     CK_BYTE buffer[16];         // input buffer
 } MD2_CONTEXT;
-
+#endif
 
 typedef struct _MD5_CONTEXT {
     CK_ULONG i[2];              // number of _bits_ handled mod 2^64

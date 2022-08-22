@@ -67,16 +67,18 @@ extern const CK_ULONG ber_idECLen;
 extern const CK_BYTE ber_idDilithium[];
 extern const CK_ULONG ber_idDilithiumLen;
 
+#if !(NOMD2)
 extern const CK_BYTE ber_md2WithRSAEncryption[];
 extern const CK_ULONG ber_md2WithRSAEncryptionLen;
-extern const CK_BYTE ber_md4WithRSAEncryption[];
-extern const CK_ULONG ber_md4WithRSAEncryptionLen;
+#endif
 extern const CK_BYTE ber_md5WithRSAEncryption[];
 extern const CK_ULONG ber_md5WithRSAEncryptionLen;
 extern const CK_BYTE ber_sha1WithRSAEncryption[];
 extern const CK_ULONG ber_sha1WithRSAEncryptionLen;
+#if !(NOMD2)
 extern const CK_BYTE ber_AlgMd2[];
 extern const CK_ULONG ber_AlgMd2Len;
+#endif
 extern const CK_BYTE ber_AlgMd5[];
 extern const CK_ULONG ber_AlgMd5Len;
 extern const CK_BYTE ber_AlgSha1[];
@@ -1622,6 +1624,7 @@ CK_RV sha_hmac_verify(STDLL_TokData_t *tokdata,
 //adding the hmac secret key generation here
 CK_RV ckm_generic_secret_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
 
+#if !(NOMD2)
 // MD2 mechanisms
 //
 CK_RV md2_hash(STDLL_TokData_t *tokdata, SESSION *sess, CK_BBOOL length_only,
@@ -1659,6 +1662,7 @@ CK_RV ckm_md2_final(STDLL_TokData_t *tokdata, MD2_CONTEXT *context,
 
 void ckm_md2_transform(STDLL_TokData_t *tokdata, CK_BYTE *state,
                        CK_BYTE *checksum, CK_BYTE *block);
+#endif
 
 
 // MD5 mechanisms

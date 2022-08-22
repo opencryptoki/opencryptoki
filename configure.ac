@@ -194,6 +194,10 @@ AC_ARG_ENABLE([pkcsstats],
 	AS_HELP_STRING([--enable-pkcsstats],[build pkcsstats tool @<:@default=enabled@:>@]),
 	[],
 	[enable_pkcsstats=yes])
+	
+dnl --- support for MD2
+AC_ARG_ENABLE([md2],
+	AS_HELP_STRING([--enable-md2],[build opencryptoki with support for MD2]))
 
 dnl ---
 dnl --- Check for external software
@@ -661,6 +665,15 @@ libitm and gcc>=4.7 is required])
     fi
 fi
 AM_CONDITIONAL([ENABLE_LOCKS], [test "x$enable_locks" = "xyes"])
+
+dnl --- enable_md2
+if test "x$enable_md2" = "xyes"; then
+	enable_md2=yes
+else
+	enable_md2=no
+	CFLAGS="$CFLAGS -DNOMD2"
+fi
+AM_CONDITIONAL([ENABLE_MD2], [test "x$enable_md2" = "xyes"])
 
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wextra"
 
