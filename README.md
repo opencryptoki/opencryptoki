@@ -84,6 +84,10 @@ directory and do the following:
 ```
     $ make
 ```
+   **Note:** Do not specify `prefix=/foo/bar`, `libdir=/foo/bar` with
+   the `make` invocation. Specify them with `configure` instead. Specifying
+   them with `make` is not supported by the openCryptoki package and may
+   produce unexpected results!
 
 4. openCryptoki defaults to be usable by anyone who is in the group ``pkcs11``.
 Add the pkcs11 group before installing it, by typing as root the command:
