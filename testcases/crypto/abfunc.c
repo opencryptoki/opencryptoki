@@ -1191,6 +1191,7 @@ int main(int argc, char **argv)
         }
     } else {
         rc = 0;
+        testcase_begin("%s\n", __func__);
         testcase_skip("%s only supported on the EP11 token.\n", argv[0]);
     }
 
