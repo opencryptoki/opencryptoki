@@ -2133,6 +2133,26 @@ CK_BBOOL pin_expired(CK_SESSION_INFO *, CK_FLAGS);
 CK_BBOOL pin_locked(CK_SESSION_INFO *, CK_FLAGS);
 void set_login_flags(CK_USER_TYPE, CK_FLAGS_32 *);
 
+#define CONTEXT_TYPE_DIGEST     1
+#define CONTEXT_TYPE_SIGN       2
+#define CONTEXT_TYPE_VERIFY     3
+#define CONTEXT_TYPE_ENCRYPT    4
+#define CONTEXT_TYPE_DECRYPT    5
+
+CK_RV session_mgr_iterate_session_ops(STDLL_TokData_t *tokdata,
+                                      SESSION *session,
+                                      CK_RV (*cb)(STDLL_TokData_t *tokdata,
+                                                  SESSION *session,
+                                                  CK_ULONG ctx_type,
+                                                  CK_MECHANISM *mech,
+                                                  CK_OBJECT_HANDLE key,
+                                                  CK_BYTE *context,
+                                                  CK_ULONG context_len,
+                                                  CK_BBOOL init_pending,
+                                                  CK_BBOOL pkey_active,
+                                                  CK_BBOOL recover,
+                                                  void *private),
+                                      void *private);
 
 // object manager routines
 //

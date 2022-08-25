@@ -1299,3 +1299,146 @@ void set_login_flags(CK_USER_TYPE userType, CK_FLAGS_32 *flags)
         }
     }
 }
+
+struct session_iterate_data {
+    CK_RV (*cb)(STDLL_TokData_t *tokdata, SESSION *session, CK_ULONG ctx_type,
+                CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                CK_BYTE *context, CK_ULONG context_len,
+                CK_BBOOL init_pending, CK_BBOOL pkey_active, CK_BBOOL recover,
+                void *private);
+    void *private;
+    CK_RV error;
+};
+
+static void session_mgr_iterate_session_ops_cb(STDLL_TokData_t *tokdata,
+                                               void *p1, unsigned long p2,
+                                               void *p3)
+{
+    struct session_iterate_data *sid = p3;
+    SESSION *session = p1;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(p2);
+
+    if (sid->error != CKR_OK)
+        return;
+
+    if (session->digest_ctx.active &&
+        session->digest_ctx.context != NULL &&
+        session->digest_ctx.context_len > 0) {
+        rc = sid->cb(tokdata, session, CONTEXT_TYPE_DIGEST,
+                     &session->digest_ctx.mech, CK_INVALID_HANDLE,
+                     session->digest_ctx.context,
+                     session->digest_ctx.context_len,
+                     FALSE, FALSE, FALSE, sid->private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s callback function failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+    if (session->sign_ctx.active &&
+        session->sign_ctx.context != NULL &&
+        session->sign_ctx.context_len > 0) {
+        rc = sid->cb(tokdata, session, CONTEXT_TYPE_SIGN,
+                     &session->sign_ctx.mech, session->sign_ctx.key,
+                     session->sign_ctx.context,
+                     session->sign_ctx.context_len,
+                     session->sign_ctx.init_pending,
+                     session->sign_ctx.pkey_active,
+                     session->sign_ctx.recover,
+                     sid->private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s callback function failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+    if (session->verify_ctx.active &&
+        session->verify_ctx.context != NULL &&
+        session->verify_ctx.context_len > 0) {
+        rc = sid->cb(tokdata, session, CONTEXT_TYPE_VERIFY,
+                     &session->verify_ctx.mech, session->verify_ctx.key,
+                     session->verify_ctx.context,
+                     session->verify_ctx.context_len,
+                     session->verify_ctx.init_pending,
+                     session->verify_ctx.pkey_active,
+                     session->verify_ctx.recover,
+                     sid->private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s callback function failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+    if (session->encr_ctx.active &&
+        session->encr_ctx.context != NULL &&
+        session->encr_ctx.context_len > 0) {
+        rc = sid->cb(tokdata, session, CONTEXT_TYPE_ENCRYPT,
+                     &session->encr_ctx.mech, session->encr_ctx.key,
+                     session->encr_ctx.context,
+                     session->encr_ctx.context_len,
+                     session->encr_ctx.init_pending,
+                     session->encr_ctx.pkey_active, FALSE,
+                     sid->private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s callback function failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+    if (session->decr_ctx.active &&
+        session->decr_ctx.context != NULL &&
+        session->decr_ctx.context_len > 0) {
+        rc = sid->cb(tokdata, session, CONTEXT_TYPE_DECRYPT,
+                     &session->decr_ctx.mech, session->decr_ctx.key,
+                     session->decr_ctx.context,
+                     session->decr_ctx.context_len,
+                     session->decr_ctx.init_pending,
+                     session->decr_ctx.pkey_active, FALSE,
+                     sid->private);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s callback function failed: 0x%lx\n",
+                        __func__, rc);
+            goto out;
+        }
+    }
+
+out:
+    if (rc != CKR_OK)
+        sid->error = rc;
+}
+
+CK_RV session_mgr_iterate_session_ops(STDLL_TokData_t *tokdata,
+                                      SESSION *session,
+                                      CK_RV (*cb)(STDLL_TokData_t *tokdata,
+                                                  SESSION *session,
+                                                  CK_ULONG ctx_type,
+                                                  CK_MECHANISM *mech,
+                                                  CK_OBJECT_HANDLE key,
+                                                  CK_BYTE *context,
+                                                  CK_ULONG context_len,
+                                                  CK_BBOOL init_pending,
+                                                  CK_BBOOL pkey_active,
+                                                  CK_BBOOL recover,
+                                                  void *private),
+                                      void *private)
+{
+    struct session_iterate_data sid;
+
+    sid.cb = cb;
+    sid.private = private;
+    sid.error = CKR_OK;
+
+    if (session != NULL)
+        session_mgr_iterate_session_ops_cb(tokdata, session, 0, &sid);
+    else
+        bt_for_each_node(tokdata, &tokdata->sess_btree,
+                         session_mgr_iterate_session_ops_cb, &sid);
+
+    return sid.error;
+}
