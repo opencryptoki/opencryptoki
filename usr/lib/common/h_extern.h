@@ -2263,6 +2263,18 @@ CK_RV obj_mgr_reencipher_secure_key_finalize(STDLL_TokData_t *tokdata,
 CK_RV obj_mgr_reencipher_secure_key_cancel(STDLL_TokData_t *tokdata,
                                            OBJECT *obj);
 
+CK_RV obj_mgr_iterate_key_objects(STDLL_TokData_t *tokdata,
+                                  CK_BBOOL session_objects,
+                                  CK_BBOOL token_objects,
+                                  CK_BBOOL(*filter)(STDLL_TokData_t *tokdata,
+                                                    OBJECT *obj,
+                                                    void *filter_data),
+                                  void *filter_data,
+                                  CK_RV (*cb)(STDLL_TokData_t *tokdata,
+                                              OBJECT *obj, void *cb_data),
+                                  void *cb_data, CK_BBOOL syslog,
+                                  const char *msg);
+
 /* structures used to hold arguments to callback functions triggered by either
  * bt_for_each_node or bt_node_free */
 struct find_args {
