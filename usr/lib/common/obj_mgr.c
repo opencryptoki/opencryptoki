@@ -28,6 +28,7 @@
 #include "attributes.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "ock_syslog.h"
 
 #include "../api/apiproto.h"
 #include "../api/policy.h"
@@ -2507,4 +2508,190 @@ CK_RV obj_mgr_reencipher_secure_key_cancel(STDLL_TokData_t *tokdata,
 
 out:
     return rc;
+}
+
+struct iterate_obj_data {
+    CK_BBOOL (*filter)(STDLL_TokData_t *tokdata, OBJECT *obj,
+                       void *filter_data);
+    void *filter_data;
+    CK_RV (*cb)(STDLL_TokData_t *tokdata, OBJECT *obj, void *cb_data);
+    void *cb_data;
+    const char *msg;
+    CK_BBOOL syslog;
+    CK_RV error;
+};
+
+static void obj_mgr_iterate_key_objects_cb(STDLL_TokData_t *tokdata, void *p1,
+                                           unsigned long p2, void *p3)
+{
+    struct iterate_obj_data *iod = p3;
+    OBJECT *obj = p1;
+    CK_OBJECT_CLASS class;
+    CK_RV rc;
+
+    UNUSED(p2);
+
+    if (iod->error != CKR_OK) /* Skip if previous reported an error */
+        return;
+
+    rc = object_lock(obj, WRITE_LOCK);
+    if (rc != CKR_OK) {
+        if (iod->syslog)
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to get the object lock\n",
+                       tokdata->slot_id);
+        return;
+    }
+
+    rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get object class: 0x%lx\n", __func__, rc);
+        if (iod->syslog)
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to get object class: 0x%lx\n",
+                       tokdata->slot_id, rc);
+        iod->error = rc;
+        goto out;
+    }
+
+    switch (class) {
+    case CKO_PUBLIC_KEY:
+    case CKO_PRIVATE_KEY:
+    case CKO_SECRET_KEY:
+        break;
+    default:
+        /* Not a key object */
+        goto out;
+    }
+
+    if (iod->filter != NULL &&
+        !iod->filter(tokdata, obj, iod->filter_data))
+        goto out;
+
+    if (obj->session != NULL) {
+        TRACE_INFO("%s %s session object 0x%lx of session 0x%lx\n",
+                   __func__, iod->msg, p2, obj->session->handle);
+        if (iod->syslog)
+            OCK_SYSLOG(LOG_DEBUG, "Slot %lu: %s session object 0x%lx of "
+                       "session 0x%lx\n", tokdata->slot_id, iod->msg, p2,
+                       obj->session->handle);
+    } else {
+        TRACE_INFO("%s %s token object %s\n", __func__, iod->msg, obj->name);
+        if (iod->syslog)
+            OCK_SYSLOG(LOG_DEBUG, "Slot %lu: %s token object '%s'\n",
+                       tokdata->slot_id, iod->msg, obj->name);
+    }
+
+    rc = iod->cb(tokdata, obj, iod->cb_data);
+    if (rc != CKR_OK) {
+        if (obj->session != NULL) {
+            TRACE_ERROR("%s callback failed to process session object: 0x%lx\n",
+                        __func__, rc);
+            if (iod->syslog)
+                OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to %s session object "
+                           "0x%lx of session 0x%lx: 0x%lx\n", tokdata->slot_id,
+                           iod->msg, p2, obj->session->handle, rc);
+        } else {
+            TRACE_ERROR("%s callback failed to process token object %s: 0x%lx\n",
+                        __func__, obj->name, rc);
+            if (iod->syslog)
+                OCK_SYSLOG(LOG_ERR,
+                           "Slot %lu: Failed to %s token object '%s': 0x%lx\n",
+                           tokdata->slot_id, iod->msg, obj->name, rc);
+        }
+        iod->error = rc;
+        goto out;
+    }
+
+out:
+    object_unlock(obj);
+}
+
+CK_RV obj_mgr_iterate_key_objects(STDLL_TokData_t *tokdata,
+                                  CK_BBOOL session_objects,
+                                  CK_BBOOL token_objects,
+                                  CK_BBOOL(*filter)(STDLL_TokData_t *tokdata,
+                                                    OBJECT *obj,
+                                                    void *filter_data),
+                                  void *filter_data,
+                                  CK_RV (*cb)(STDLL_TokData_t *tokdata,
+                                              OBJECT *obj, void *cb_data),
+                                  void *cb_data, CK_BBOOL syslog,
+                                  const char *msg)
+{
+    struct iterate_obj_data iod;
+    CK_RV rc;
+
+    iod.filter = filter;
+    iod.filter_data = filter_data;
+    iod.cb = cb;
+    iod.cb_data = cb_data;
+    iod.syslog = syslog;
+    iod.msg = msg;
+    iod.error = CKR_OK;
+
+    if (session_objects) {
+        /* Session objects */
+        bt_for_each_node(tokdata, &tokdata->sess_obj_btree,
+                         obj_mgr_iterate_key_objects_cb, &iod);
+        if (iod.error != CKR_OK) {
+            TRACE_ERROR("%s failed to %s session objects: 0x%lx\n",
+                        __func__, msg, iod.error);
+            if (syslog)
+                OCK_SYSLOG(LOG_ERR,
+                           "Slot %lu: Failed to %s session objects: 0x%lx\n",
+                           tokdata->slot_id, msg, iod.error);
+            return iod.error;
+        }
+    }
+
+    if (token_objects) {
+        /* Update token objects */
+        rc = XProcLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to get Process Lock.\n");
+            if (syslog)
+                OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to get Process Lock\n",
+                           tokdata->slot_id);
+            return rc;
+        }
+
+        object_mgr_update_from_shm(tokdata);
+
+        rc = XProcUnLock(tokdata);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Failed to release Process Lock.\n");
+            if (syslog)
+                OCK_SYSLOG(LOG_ERR,
+                           "Slot %lu: Failed to release Process Lock\n",
+                           tokdata->slot_id);
+            return rc;
+        }
+
+        /* Public token objects */
+        bt_for_each_node(tokdata, &tokdata->publ_token_obj_btree,
+                         obj_mgr_iterate_key_objects_cb, &iod);
+        if (iod.error != CKR_OK) {
+            TRACE_ERROR("%s failed to %s public token objects: 0x%lx\n",
+                        __func__, msg, iod.error);
+            if (syslog)
+                OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to %s public token "
+                           "objects: 0x%lx\n", tokdata->slot_id, msg,
+                           iod.error);
+            return iod.error;
+        }
+
+        /* Private token objects */
+        bt_for_each_node(tokdata, &tokdata->priv_token_obj_btree,
+                         obj_mgr_iterate_key_objects_cb, &iod);
+        if (iod.error != CKR_OK) {
+            TRACE_ERROR("%s failed to %s private token objects: 0x%lx\n",
+                        __func__, msg, iod.error);
+            if (syslog)
+                OCK_SYSLOG(LOG_ERR,"Slot %lu: Failed to %s private token "
+                           "objects: 0x%lx\n", tokdata->slot_id, msg,
+                           iod.error);
+            return iod.error;
+        }
+    }
+
+    return CKR_OK;
 }
