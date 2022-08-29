@@ -53,6 +53,10 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                 CK_OBJECT_HANDLE_PTR phPublicKey,
                                 CK_OBJECT_HANDLE_PTR phPrivateKey);
 
+CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
+                                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                                    CK_ULONG operation);
+
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key);

@@ -7061,6 +7061,86 @@ done:
     return rc;
 }
 
+CK_RV ep11tok_check_single_mech_key(STDLL_TokData_t *tokdata, SESSION * session,
+                                    CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                                    CK_ULONG operation)
+{
+    OBJECT *key_obj = NULL;
+    size_t blob_len = 0;
+    CK_BYTE *blob;
+    CK_ATTRIBUTE_TYPE type;
+    CK_BBOOL flag;
+    int policy_op;
+    const char *str_op;
+    CK_RV rc;
+
+    switch (operation) {
+    case OP_ENCRYPT_INIT:
+        policy_op = POLICY_CHECK_ENCRYPT;
+        type = CKA_ENCRYPT;
+        str_op = "encrypt";
+        break;
+    case OP_DECRYPT_INIT:
+        policy_op = POLICY_CHECK_DECRYPT;
+        type = CKA_DECRYPT;
+        str_op = "decrypt";
+        break;
+    case OP_SIGN_INIT:
+        policy_op = POLICY_CHECK_SIGNATURE;
+        type = CKA_SIGN;
+        str_op = "sign";
+        break;
+    case OP_VERIFY_INIT:
+        policy_op = POLICY_CHECK_VERIFY;
+        type = CKA_VERIFY;
+        str_op = "verify";
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    rc = h_opaque_2_blob(tokdata, key, &blob, &blob_len, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s no blob rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    rc = template_attribute_get_bool(key_obj->template, type, &flag);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find attribute 0x%lx for the key (op: %s).\n",
+                    type, str_op);
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
+    if (flag != TRUE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_FUNCTION_NOT_PERMITTED));
+        rc = CKR_KEY_FUNCTION_NOT_PERMITTED;
+        goto error;
+    }
+
+    if (!key_object_is_mechanism_allowed(key_obj->template, mech->mechanism)) {
+        TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto error;
+    }
+
+    rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
+                                          &key_obj->strength, policy_op,
+                                          session);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("POLICY_VIOLATION on %s initialization\n", str_op);
+        goto error;
+    }
+
+error:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
 CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                         CK_MECHANISM * mech, CK_BBOOL recover_mode,
                         CK_OBJECT_HANDLE key)
