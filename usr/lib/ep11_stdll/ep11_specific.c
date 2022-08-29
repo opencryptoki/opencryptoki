@@ -8380,6 +8380,15 @@ CK_BOOL ep11tok_mech_single_only(CK_MECHANISM *mech)
     switch (mech->mechanism) {
     case CKM_IBM_ECDSA_OTHER:
     case CKM_IBM_KYBER:
+    case CKM_RSA_PKCS:
+    case CKM_RSA_PKCS_OAEP:
+    case CKM_RSA_PKCS_PSS:
+    case CKM_RSA_X9_31:
+    case CKM_ECDSA:
+    case CKM_DSA:
+    case CKM_IBM_ED25519_SHA512:
+    case CKM_IBM_ED448_SHA3:
+    case CKM_IBM_DILITHIUM:
         return CK_TRUE;
     default:
         return CK_FALSE;
