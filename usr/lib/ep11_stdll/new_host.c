@@ -2039,6 +2039,11 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * faster. In case of multi-part operations we are doing the EncryptInit
          * when EncryptUpdate comes into play.
          */
+        rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
+                                           OP_ENCRYPT_INIT);
+        if (rc != CKR_OK)
+            goto done;
+
         sess->encr_ctx.init_pending = TRUE;
         sess->encr_ctx.active = TRUE;
         sess->encr_ctx.key = hKey;
@@ -2053,6 +2058,7 @@ CK_RV SC_EncryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
+                encr_mgr_cleanup(tokdata, sess, &sess->encr_ctx);
                 goto done;
             }
         } else {
@@ -2357,6 +2363,11 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * faster. In case of multi-part operations we are doing the DecryptInit
          * when DecryptUpdate comes into play.
          */
+        rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
+                                           OP_DECRYPT_INIT);
+        if (rc != CKR_OK)
+            goto done;
+
         sess->decr_ctx.init_pending = TRUE;
         sess->decr_ctx.active = TRUE;
         sess->decr_ctx.key = hKey;
@@ -2371,6 +2382,7 @@ CK_RV SC_DecryptInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
+                decr_mgr_cleanup(tokdata, sess, &sess->decr_ctx);
                 goto done;
             }
         } else {
@@ -2901,6 +2913,11 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * In case of multi-part operations we are doing the SignInit when
          * SignUpdate comes into play.
          */
+        rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
+                                           OP_SIGN_INIT);
+        if (rc != CKR_OK)
+            goto done;
+
         sess->sign_ctx.init_pending = TRUE;
         sess->sign_ctx.active = TRUE;
         sess->sign_ctx.key = hKey;
@@ -2915,6 +2932,7 @@ CK_RV SC_SignInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
+                sign_mgr_cleanup(tokdata, sess, &sess->sign_ctx);
                 goto done;
             }
         } else {
@@ -3290,6 +3308,11 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
          * faster. In case of multi-part operations we are doing the VerifyInit
          * when VerifyUpdate comes into play.
          */
+        rc = ep11tok_check_single_mech_key(tokdata, sess, pMechanism, hKey,
+                                           OP_VERIFY_INIT);
+        if (rc != CKR_OK)
+            goto done;
+
         sess->verify_ctx.init_pending = TRUE;
         sess->verify_ctx.active = TRUE;
         sess->verify_ctx.multi = FALSE;
@@ -3305,6 +3328,7 @@ CK_RV SC_VerifyInit(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
             } else {
                 TRACE_ERROR("%s Memory allocation failed\n", __func__);
                 rc = CKR_HOST_MEMORY;
+                verify_mgr_cleanup(tokdata, sess, &sess->verify_ctx);
                 goto done;
             }
         } else {
