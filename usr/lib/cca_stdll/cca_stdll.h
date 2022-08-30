@@ -103,6 +103,11 @@
 #define CCA_RSA_EXTTOK_PUBKEY_OFFSET  8
 /* Offset to length of n within an public RSA key section in an ext public RSA key token */
 #define CCA_RSA_EXTTOK_PUBKEY_N_LENGTH_OFFSET 10
+/* Offset into the rule_array returned by the STATCRD2 command for the
+ * adapter serial number */
+#define CCA_STATCRD2_SERIAL_NUMBER_OFFSET  112
+
+#define CCA_SERIALNO_LENGTH                8
 
 /* CCA internal HMAC token payload bit length field offset */
 #define CCA_HMAC_INTTOK_PAYLOAD_LENGTH_OFFSET 38
