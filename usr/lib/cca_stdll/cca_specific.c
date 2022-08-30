@@ -1015,12 +1015,12 @@ static CK_RV cca_check_mks(STDLL_TokData_t *tokdata)
         goto iterate;
 
     /* Check if adapter and/or domain auto-selection is used */
-    val = getenv(CCA_DEFAUT_ADAPTER_ENVAR);
+    val = getenv(CCA_DEFAULT_ADAPTER_ENVAR);
     if (val != NULL && strcmp(val, CCA_DEVICE_ANY) == 0)
         cca_private->dev_any = TRUE;
     TRACE_DEVEL("dev_any: %d\n", cca_private->dev_any);
 
-    val = getenv(CCA_DEFAUT_DOMAIN_ENVAR);
+    val = getenv(CCA_DEFAULT_DOMAIN_ENVAR);
     if (val != NULL && strcmp(val, CCA_DOMAIN_ANY) == 0)
         cca_private->dom_any = TRUE;
     TRACE_DEVEL("dom_any: %d\n", cca_private->dom_any);
