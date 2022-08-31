@@ -1659,6 +1659,13 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
 
     TRACE_INFO("cca %s slot=%lu running\n", __func__, SlotNumber);
 
+    /* Request the API layer to lock against HSM-MK-change state changes. */
+    rc = init_hsm_mk_change_lock(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("init_hsm_mk_change_lock failed.\n");
+        goto error;
+    }
+
     cca_private = calloc(1, sizeof(*cca_private));
     if (cca_private == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
