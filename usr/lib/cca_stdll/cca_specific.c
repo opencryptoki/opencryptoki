@@ -756,6 +756,174 @@ static CK_RV cca_get_adapter_serial_number(char *serialno)
     return CKR_OK;
 }
 
+static CK_RV cca_get_mk_state(enum cca_mk_type mk_type,
+                              enum cca_cmk_state *cur,
+                              enum cca_nmk_state *new)
+{
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long return_code, reason_code, rule_array_count, verb_data_length;
+    char *cmk, *nmk;
+
+    switch (mk_type) {
+    case CCA_MK_SYM:
+        memcpy(rule_array, "STATCCAE", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        break;
+    case CCA_MK_AES:
+        memcpy(rule_array, "STATAES ", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        break;
+    case CCA_MK_APKA:
+        memcpy(rule_array, "STATAPKA", CCA_KEYWORD_SIZE);
+        rule_array_count = 1;
+        break;
+    default:
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (%s) failed. return:%ld, reason:%ld\n",
+                    rule_array, return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (mk_type) {
+    case CCA_MK_SYM:
+        cmk = (char *)&rule_array[CCA_STATCCAE_SYM_CMK_OFFSET];
+        nmk = (char *)&rule_array[CCA_STATCCAE_SYM_NMK_OFFSET];
+        break;
+    case CCA_MK_AES:
+        cmk = (char *)&rule_array[CCA_STATAES_AES_CMK_OFFSET];
+        nmk = (char *)&rule_array[CCA_STATAES_AES_NMK_OFFSET];
+        break;
+    case CCA_MK_APKA:
+        cmk = (char *)&rule_array[CCA_STATAPKA_APKA_CMK_OFFSET];
+        nmk = (char *)&rule_array[CCA_STATAPKA_APKA_NMK_OFFSET];
+        break;
+    default:
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    cmk[1] = '\0';
+    nmk[1] = '\0';
+
+    if (cur != NULL) {
+        if (sscanf(cmk, "%d", (int *)cur) != 1) {
+            TRACE_ERROR("Bad CMK status '%s'\n", cmk);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (new != NULL) {
+        if (sscanf(nmk, "%d", (int *)new) != 1) {
+            TRACE_ERROR("Bad CMK status '%s'\n", nmk);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
+                           unsigned char *cur_aes, unsigned char *new_aes,
+                           unsigned char *cur_apka, unsigned char *new_apka)
+{
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    unsigned char verb_data[256] = { 0, };
+    long return_code, reason_code, rule_array_count, verb_data_length;
+    unsigned short *id;
+
+    /* Get master key verification patterns */
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "STATICSB", CCA_KEYWORD_SIZE);
+    rule_array_count = 1;
+    verb_data_length = sizeof(verb_data);
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, verb_data);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATICSB) failed . return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (cur_sym != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_CMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_SYM_CMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) current SYM MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(cur_sym, verb_data + CCA_STATICSB_SYM_CMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    if (new_sym != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_NMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_SYM_NMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) new SYM MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(new_sym, verb_data + CCA_STATICSB_SYM_NMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    if (cur_aes != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_AES_CMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_AES_CMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) current AES MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(cur_aes, verb_data + CCA_STATICSB_AES_CMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    if (new_aes != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_AES_NMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_AES_NMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) new AES MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(new_aes, verb_data + CCA_STATICSB_AES_NMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    if (cur_apka != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_CMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_APKA_CMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) current APKA MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(cur_apka, verb_data + CCA_STATICSB_APKA_CMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    if (new_apka != NULL) {
+        id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_NMK_ID_OFFSET);
+        if (*id != CCA_STATICSB_APKA_NMK_ID) {
+            TRACE_ERROR("CSUACFQ (STATICSB) new APKA MKVP not available\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        memcpy(new_apka, verb_data + CCA_STATICSB_APKA_NMK_MKVP_OFFSET,
+               CCA_MKVP_LENGTH);
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV cca_cmp_mkvp(unsigned char mkvp[CCA_MKVP_LENGTH],
                           unsigned char exp_mkvp[CCA_MKVP_LENGTH],
                           const char *mktype, const char *adapter,
@@ -789,10 +957,10 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     char serialno[CCA_SERIALNO_LENGTH + 1];
-    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-    unsigned char verb_data[256] = { 0, };
-    long return_code, reason_code, rule_array_count, verb_data_length;
-    unsigned short *id;
+    unsigned char sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char apka_mkvp[CCA_MKVP_LENGTH];
+    enum cca_cmk_state mk_state;
     CK_RV rc;
 
     UNUSED(private);
@@ -807,24 +975,16 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     TRACE_DEVEL("%s (%02X.%04X) serialno: %s\n", adapter, card, domain,
                 serialno);
 
-    /* Get status of AES master key (DES, 3DES keys) */
-    memcpy(rule_array, "STATCCAE", CCA_KEYWORD_SIZE);
-    rule_array_count = 1;
-    verb_data_length = 0;
-    dll_CSUACFQ(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &verb_data_length, NULL);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSUACFQ (STATCCAE) failed for %s (%02X.%04X). return:%ld, reason:%ld\n",
-                    adapter, card, domain, return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+    /* Get status of SYM master key (DES, 3DES keys) */
+    rc = cca_get_mk_state(CCA_MK_SYM, &mk_state, NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mk_state (SYM) failed for %s (%02X.%04X)\n",
+                    adapter, card, domain);
+        return rc;
     }
 
-    /* This value should be 2 if the master key is set in the card */
-    if (memcmp(&rule_array[CCA_STATCCAE_CMK_OFFSET], "2       ",
-               CCA_KEYWORD_SIZE)) {
+    /* Ensure the master key is set in the card */
+    if (mk_state != CCA_CMK_STATUS_FULL) {
         TRACE_ERROR("CCA SYM master key is not yet loaded on adapter %s (%02X.%04X)\n",
                     adapter, card, domain);
         OCK_SYSLOG(LOG_ERR,
@@ -834,24 +994,15 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     }
 
     /* Get status of AES master key (AES, HMAC keys) */
-    memset(rule_array, 0, sizeof(rule_array));
-    memcpy(rule_array, "STATAES ", CCA_KEYWORD_SIZE);
-    rule_array_count = 1;
-    verb_data_length = 0;
-    dll_CSUACFQ(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &verb_data_length, NULL);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSUACFQ (STATAES) failed for %s (%02X.%04X). return:%ld, reason:%ld\n",
-                    adapter, card, domain, return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+    rc = cca_get_mk_state(CCA_MK_AES, &mk_state, NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mk_state (AES) failed for %s (%02X.%04X)\n",
+                    adapter, card, domain);
+        return rc;
     }
 
-    /* This value should be 2 if the master key is set in the card */
-    if (memcmp(&rule_array[CCA_STATAES_CMK_OFFSET], "2       ",
-               CCA_KEYWORD_SIZE)) {
+    /* Ensure the master key is set in the card */
+    if (mk_state != CCA_CMK_STATUS_FULL) {
         TRACE_ERROR("CCA AES master key is not yet loaded on adapter %s (%02X.%04X)\n",
                     adapter, card, domain);
         OCK_SYSLOG(LOG_ERR,
@@ -861,90 +1012,44 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     }
 
     /* Get status of APKA master key (RSA and ECC keys) */
-    memset(rule_array, 0, sizeof(rule_array));
-    memcpy(rule_array, "STATAPKA", CCA_KEYWORD_SIZE);
-    rule_array_count = 1;
-    verb_data_length = 0;
-    dll_CSUACFQ(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &verb_data_length, NULL);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSUACFQ (STATAPKA) failed for %s (%02X.%04X). return:%ld, reason:%ld\n",
-                    adapter, card, domain, return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
+    rc = cca_get_mk_state(CCA_MK_APKA, &mk_state, NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mk_state (APKA) failed for %s (%02X.%04X)\n",
+                    adapter, card, domain);
+        return rc;
     }
 
-    if (memcmp(&rule_array[CCA_STATAPKA_CMK_OFFSET], "2       ",
-               CCA_KEYWORD_SIZE)) {
+    /* Ensure the master key is set in the card */
+    if (mk_state != CCA_CMK_STATUS_FULL) {
         TRACE_ERROR("CCA APKA master key is not yet loaded on adapter %s (%02X.%04X)\n",
                     adapter, card, domain);
         OCK_SYSLOG(LOG_ERR,
                    "CCA APKA master key is not yet loaded on adapter %s (%02X.%04X)\n",
                    adapter, card, domain);
         return CKR_DEVICE_ERROR;
-   }
+    }
 
     /* Get master key verification patterns */
-    memset(rule_array, 0, sizeof(rule_array));
-    memcpy(rule_array, "STATICSB", CCA_KEYWORD_SIZE);
-    rule_array_count = 1;
-    verb_data_length = sizeof(verb_data);
-    dll_CSUACFQ(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &verb_data_length, verb_data);
-
-    if (return_code != CCA_SUCCESS) {
-        TRACE_ERROR("CSUACFQ (STATICSB) failed for %s (%02X.%04X). return:%ld, reason:%ld\n",
-                    adapter, card, domain, return_code, reason_code);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    id = (unsigned short *)(verb_data + CCA_STATICSB_SYM_CMK_ID_OFFSET);
-    if (*id != CCA_STATICSB_SYM_CMK_ID) {
-        TRACE_ERROR("CSUACFQ (STATICSB) SYM MKVP not available for %s (%02X.%04X)\n",
+    rc = cca_get_mkvps(sym_mkvp, NULL, aes_mkvp, NULL, apka_mkvp, NULL);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mkvps failed for %s (%02X.%04X)\n",
                     adapter, card, domain);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    id = (unsigned short *)(verb_data + CCA_STATICSB_AES_CMK_ID_OFFSET);
-    if (*id != CCA_STATICSB_AES_CMK_ID) {
-        TRACE_ERROR("CSUACFQ (STATICSB) AES MKVP not available for %s (%02X.%04X)s\n",
-                    adapter, card, domain);
-        return CKR_FUNCTION_FAILED;
-    }
-
-    id = (unsigned short *)(verb_data + CCA_STATICSB_APKA_CMK_ID_OFFSET);
-    if (*id != CCA_STATICSB_APKA_CMK_ID) {
-        TRACE_ERROR("CSUACFQ (STATICSB) APKA MKVP not available for %s (%02X.%04X)\n",
-                    adapter, card, domain);
-        return CKR_FUNCTION_FAILED;
+        return rc;
     }
 
     TRACE_DEBUG("Master key verification patterns for %s (%02X.%04X)\n",
                 adapter, card, domain);
-    TRACE_DEBUG_DUMP("SYM MKVP:  ",
-                     verb_data + CCA_STATICSB_SYM_CMK_MKVP_OFFSET,
-                     CCA_MKVP_LENGTH);
-    TRACE_DEBUG_DUMP("AES MKVP:  ",
-                     verb_data + CCA_STATICSB_AES_CMK_MKVP_OFFSET,
-                     CCA_MKVP_LENGTH);
-    TRACE_DEBUG_DUMP("APKA MKVP: ",
-                     verb_data + CCA_STATICSB_APKA_CMK_MKVP_OFFSET,
-                     CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("SYM MKVP:  ", sym_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("AES MKVP:  ", aes_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("APKA MKVP: ", apka_mkvp, CCA_MKVP_LENGTH);
 
-    rc = cca_cmp_mkvp(verb_data + CCA_STATICSB_SYM_CMK_MKVP_OFFSET,
-                      cca_private->expected_sym_mkvp,
+    rc = cca_cmp_mkvp(sym_mkvp, cca_private->expected_sym_mkvp,
                       "SYM", adapter, card, domain,
                       cca_private->expected_sym_mkvp_set);
-    rc |= cca_cmp_mkvp(verb_data + CCA_STATICSB_AES_CMK_MKVP_OFFSET,
-                       cca_private->expected_aes_mkvp,
+    rc |= cca_cmp_mkvp(aes_mkvp, cca_private->expected_aes_mkvp,
                        "AES", adapter, card, domain,
                        cca_private->expected_aes_mkvp_set);
-    rc |= cca_cmp_mkvp(verb_data + CCA_STATICSB_APKA_CMK_MKVP_OFFSET,
-                       cca_private->expected_apka_mkvp,
+    rc |= cca_cmp_mkvp(apka_mkvp, cca_private->expected_apka_mkvp,
                        "APKA", adapter, card, domain,
                        cca_private->expected_apka_mkvp_set);
     if (rc != CKR_OK)

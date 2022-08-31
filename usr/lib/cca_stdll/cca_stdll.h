@@ -80,25 +80,37 @@
 /* Offset into an RSA public key area of the value of e, the public exponent */
 #define CCA_RSA_INTTOK_PUBKEY_E_OFFSET  12
 /* Offset into the rule_array returned by the STATCCAE command for the
- * Current Symmetric Master Key register status */
-#define CCA_STATCCAE_CMK_OFFSET  8
+ * New and Current Symmetric Master Key register status */
+#define CCA_STATCCAE_SYM_NMK_OFFSET   0
+#define CCA_STATCCAE_SYM_CMK_OFFSET   8
 /* Offset into the rule_array returned by the STATAES command for the
- * Current AES Master Key register status */
-#define CCA_STATAES_CMK_OFFSET   8
+ * New and Current AES Master Key register status */
+#define CCA_STATAES_AES_NMK_OFFSET   0
+#define CCA_STATAES_AES_CMK_OFFSET   8
 /* Offset into the rule_array returned by the STATAPKA command for the
- * Current APKA Master Key register status */
-#define CCA_STATAPKA_CMK_OFFSET  8
+ * New and Current APKA Master Key register status */
+#define CCA_STATAPKA_APKA_NMK_OFFSET  0
+#define CCA_STATAPKA_APKA_CMK_OFFSET  8
 /* Offsets into the verb_data returned by the STATICSB command for the
  * Master Key register verification pattern */
 #define CCA_STATICSB_SYM_CMK_ID            0x0f07
-#define CCA_STATICSB_SYM_CMK_ID_OFFSET     134 /* ID = 0x0f01 */
+#define CCA_STATICSB_SYM_CMK_ID_OFFSET     134 /* ID = 0x0f07 */
 #define CCA_STATICSB_SYM_CMK_MKVP_OFFSET   136 /* 8 bytes MKVP */
+#define CCA_STATICSB_SYM_NMK_ID            0x0f06
+#define CCA_STATICSB_SYM_NMK_ID_OFFSET     146 /* ID = 0x0f06 */
+#define CCA_STATICSB_SYM_NMK_MKVP_OFFSET   148 /* 8 bytes MKVP */
 #define CCA_STATICSB_AES_CMK_ID            0x0f0b
 #define CCA_STATICSB_AES_CMK_ID_OFFSET     182 /* ID = 0x0f0b */
 #define CCA_STATICSB_AES_CMK_MKVP_OFFSET   184 /* 8 bytes MKVP */
+#define CCA_STATICSB_AES_NMK_ID            0x0f0a
+#define CCA_STATICSB_AES_NMK_ID_OFFSET     194 /* ID = 0x0f0a */
+#define CCA_STATICSB_AES_NMK_MKVP_OFFSET   196 /* 8 bytes MKVP */
 #define CCA_STATICSB_APKA_CMK_ID           0x0f0e
 #define CCA_STATICSB_APKA_CMK_ID_OFFSET    218 /* ID = 0x0f0e */
 #define CCA_STATICSB_APKA_CMK_MKVP_OFFSET  220 /* 8 bytes MKVP */
+#define CCA_STATICSB_APKA_NMK_ID           0x0f0d
+#define CCA_STATICSB_APKA_NMK_ID_OFFSET    230 /* ID = 0x0f0d */
+#define CCA_STATICSB_APKA_NMK_MKVP_OFFSET  232 /* 8 bytes MKVP */
 /* Offset to start of public RSA key section for an external public RSA key token */
 #define CCA_RSA_EXTTOK_PUBKEY_OFFSET  8
 /* Offset to length of n within an public RSA key section in an ext public RSA key token */
@@ -128,6 +140,23 @@ enum cca_key_type {
 #define CCA_DOMAIN_ANY              "DOM-ANY"
 
 #define CCA_MKVP_LENGTH             8
+
+enum cca_mk_type {
+    CCA_MK_SYM,
+    CCA_MK_AES,
+    CCA_MK_APKA,
+};
+
+enum cca_nmk_state {
+    CCA_NMK_STATUS_CLEAR   = 1,
+    CCA_NMK_STATUS_PARTIAL = 2,
+    CCA_NMK_STATUS_FULL    = 3,
+};
+
+enum cca_cmk_state {
+    CCA_CMK_STATUS_CLEAR = 1,
+    CCA_CMK_STATUS_FULL  = 2,
+};
 
 /* CCA STDLL debug logging definitions */
 
