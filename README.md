@@ -17,6 +17,10 @@ CCA, ICA, TPM , SWToken, ICSF and EP11.
 For a more in-depth overview of openCryptoki, please refer to manual
 [openCryptoki - An Open Source Implementation of PKCS #11](https://www.ibm.com/docs/en/linux-on-systems?topic=11-version-317)
 
+**Note:** The TPM token is deprecated, because it supports only TPM version 1.2.
+Does not work with TPM version 2.0. We plan to remove the TPM token in a future 
+openCryptoki release or version.
+
 ## REQUIREMENTS:
 
 - IBM ICA - requires libica library version 3.3.0 or higher for accessing ICA
@@ -25,7 +29,8 @@ hardware crypto on IBM zSeries.
 - IBM CCA - requires IBM XCrypto CEX3C card (or higher) and the CEX3C host
 libraries and tools version 4.1 (or higher).
 
-- TPM     - requires a TPM, TPM tools, and TCG software stack.
+- TPM (**deprecated**) - requires a TPM, TPM tools, and TCG software stack.
+Supports TPM version 1.2 only. 
 
 - SWToken - The software token uses OpenSSL version 1.1.1 or higher.
 
