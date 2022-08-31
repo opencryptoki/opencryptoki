@@ -7454,6 +7454,344 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+struct cca_affected_data {
+    struct hsm_mk_change_info *info;
+    CK_BBOOL affected;
+};
+
+static CK_RV cca_mk_change_is_affected_cb(STDLL_TokData_t *tokdata,
+                                          const char *adapter,
+                                          unsigned short card,
+                                          unsigned short domain,
+                                          void *private)
+{
+    struct cca_affected_data *ad = private;
+
+    UNUSED(tokdata);
+
+    if (hsm_mk_change_apqns_find(ad->info->apqns, ad->info->num_apqns,
+                                 card, domain)) {
+        TRACE_DEVEL("%s APQN %02X.%04X (%s) is affected by MK change\n",
+                    __func__, card, domain, adapter);
+        ad->affected = TRUE;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_mk_change_is_affected(STDLL_TokData_t *tokdata,
+                                       struct hsm_mk_change_info *info)
+{
+    unsigned int i;
+    CK_BBOOL affected = FALSE;
+    struct cca_affected_data ad;
+    CK_RV rc;
+
+    for (i = 0; i < info->num_mkvps; i++) {
+        TRACE_DEVEL("%s MK type: %d\n", __func__, info->mkvps[i].type);
+        switch (info->mkvps[i].type) {
+        case HSM_MK_TYPE_CCA_SYM:
+        case HSM_MK_TYPE_CCA_AES:
+        case HSM_MK_TYPE_CCA_APKA:
+            affected = TRUE;
+            break;
+        default:
+            break;
+        }
+    }
+    if (!affected)
+        goto out;
+
+    ad.info = info;
+    ad.affected = FALSE;
+    rc = cca_iterate_adapters(tokdata, cca_mk_change_is_affected_cb, &ad);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    affected = ad.affected;
+
+out:
+    TRACE_DEVEL("%s affected: %d\n", __func__, affected);
+
+    return affected ? CKR_OK : CKR_FUNCTION_NOT_SUPPORTED;
+}
+
+static const char *mk_type_to_string(enum cca_mk_type mk_type)
+{
+    switch (mk_type) {
+    case CCA_MK_SYM:
+        return "SYM";
+    case CCA_MK_AES:
+        return "AES";
+    case CCA_MK_APKA:
+        return "APKA";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static CK_RV cca_mk_change_apqn_check_mk_state(enum cca_mk_type mk_type,
+                                               const char *adapter,
+                                               unsigned short card,
+                                               unsigned short domain,
+                                               CK_SLOT_ID slot,
+                                               CK_BBOOL *error)
+{
+    const char *mk_type_str = mk_type_to_string(mk_type);
+    enum cca_cmk_state cur_mk_state;
+    enum cca_nmk_state new_mk_state;
+    CK_RV rc;
+
+    rc = cca_get_mk_state(mk_type, &cur_mk_state, &new_mk_state);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mk_state (%s) failed for %s (%02X.%04X)\n",
+                mk_type_str, adapter, card, domain);
+        return rc;
+    }
+
+    /* Ensure that a current master key is set in the card */
+    if (cur_mk_state != CCA_CMK_STATUS_FULL) {
+        TRACE_ERROR("%s No CURRENT CCA %s master key is set on APQN %02X.%04X (%s)\n",
+                    __func__, mk_type_str, card, domain, adapter);
+        warnx("Slot %lu: No CURRENT CCA %s master key is set on APQN %02X.%04X (%s)",
+              slot, mk_type_str, card, domain, adapter);
+        *error = TRUE;
+    }
+
+    /* Ensure the a new master key is set in the card */
+    if (new_mk_state != CCA_NMK_STATUS_FULL) {
+        TRACE_ERROR("%s No NEW CCA %s master key is set on APQN %02X.%04X (%s)\n",
+                    __func__, mk_type_str, card, domain, adapter);
+         warnx("Slot %lu: No NEW CCA %s master key is set on APQN %02X.%04X (%s)",
+               slot, mk_type_str, card, domain, adapter);
+        *error = TRUE;
+    }
+
+    return CKR_OK;
+}
+
+static void cca_mk_change_apqn_check_mkvp(enum cca_mk_type mk_type,
+                                          const unsigned char *queried_mkvp,
+                                          const unsigned char *expected_mkvp,
+                                          const char *adapter,
+                                          unsigned short card,
+                                          unsigned short domain,
+                                          CK_SLOT_ID slot,
+                                          CK_BBOOL new_mk,
+                                          const char *msg,
+                                          CK_BBOOL *error)
+{
+    const char *mk_type_str = mk_type_to_string(mk_type);
+
+    if (memcmp(queried_mkvp, expected_mkvp, CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("%s CCA %s master key on APQN %02X.%04X (%s) does not "
+                    "match the %s master key\n",
+                    new_mk ? "NEW" : "CURRENT", mk_type_str, card, domain,
+                    adapter, msg);
+        warnx("Slot %lu: The %s CCA %s MK on APQN %02X.%04X (%s) does not "
+              "match the %s MKVP", slot, new_mk ? "NEW" : "CURRENT",
+              mk_type_str, card, domain, adapter, msg);
+        *error = TRUE;
+    }
+}
+
+struct apqn_check_data {
+    CK_SLOT_ID slot;
+    event_mk_change_data_t *op;
+    struct hsm_mk_change_info *info;
+    const unsigned char *sym_new_mk;
+    const unsigned char *aes_new_mk;
+    const unsigned char *apka_new_mk;
+    CK_BBOOL error;
+};
+
+static CK_RV cca_mk_change_apqn_check_cb(STDLL_TokData_t *tokdata,
+                                         const char *adapter,
+                                         unsigned short card,
+                                         unsigned short domain,
+                                         void *private)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    struct apqn_check_data *ac = (struct apqn_check_data *)private;
+    unsigned char sym_cur_mkvp[CCA_MKVP_LENGTH];
+    unsigned char sym_new_mkvp[CCA_MKVP_LENGTH];
+    unsigned char aes_cur_mkvp[CCA_MKVP_LENGTH];
+    unsigned char aes_new_mkvp[CCA_MKVP_LENGTH];
+    unsigned char apka_cur_mkvp[CCA_MKVP_LENGTH];
+    unsigned char apka_new_mkvp[CCA_MKVP_LENGTH];
+    CK_RV rc;
+
+    /* Check that this APQN is part of the MK change operation */
+    if (hsm_mk_change_apqns_find(ac->info->apqns, ac->info->num_apqns,
+                                 card, domain) == FALSE) {
+        TRACE_ERROR("%s APQN %02X.%04X (%s) is not part of MK change '%s'\n",
+                    __func__, card, domain, adapter, ac->op->id);
+        warnx("Slot %lu: APQN %02X.%04X must be included into this operation.",
+              ac->slot, card, domain);
+
+        ac->error = TRUE;
+        return CKR_OK;
+    }
+
+    if (ac->sym_new_mk != NULL) {
+        /* Check status of AES master key (DES, 3DES keys) */
+        rc = cca_mk_change_apqn_check_mk_state(CCA_MK_SYM, adapter, card,
+                                               domain, ac->slot, &ac->error);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (ac->aes_new_mk != NULL) {
+        /* Check status of AES master key (AES, HMAC keys) */
+        rc = cca_mk_change_apqn_check_mk_state(CCA_MK_AES, adapter, card,
+                                               domain, ac->slot, &ac->error);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (ac->apka_new_mk != NULL) {
+        /* Check status of APKA master key (RSA and ECC keys) */
+        rc = cca_mk_change_apqn_check_mk_state(CCA_MK_APKA, adapter, card,
+                                               domain, ac->slot, &ac->error);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    /* Get master key verification patterns */
+    rc = cca_get_mkvps(sym_cur_mkvp, sym_new_mkvp, aes_cur_mkvp, aes_new_mkvp,
+                       apka_cur_mkvp, apka_new_mkvp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_get_mkvps failed for %s (%02X.%04X)\n",
+                    adapter, card, domain);
+        return rc;
+    }
+
+    TRACE_DEBUG("Master key verification patterns for %s (%02X.%04X)\n",
+                adapter, card, domain);
+    TRACE_DEBUG_DUMP("SYM CUR MKVP:  ", sym_cur_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("SYM NEW MKVP:  ", sym_new_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("AES CUR MKVP:  ", aes_cur_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("AES NEW MKVP:  ", aes_new_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("APKA CUR MKVP: ", apka_cur_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("APKA NEW MKVP: ", apka_new_mkvp, CCA_MKVP_LENGTH);
+
+    /* Current MKs (only those included in the op) must be the expected MKs */
+    if (ac->sym_new_mk != NULL)
+        cca_mk_change_apqn_check_mkvp(CCA_MK_SYM, sym_cur_mkvp,
+                                      cca_private->expected_sym_mkvp,
+                                      adapter, card, domain, ac->slot, FALSE,
+                                      "expected", &ac->error);
+    if (ac->aes_new_mk != NULL)
+            cca_mk_change_apqn_check_mkvp(CCA_MK_AES, aes_cur_mkvp,
+                                      cca_private->expected_aes_mkvp,
+                                      adapter, card, domain, ac->slot, FALSE,
+                                      "expected", &ac->error);
+    if (ac->apka_new_mk != NULL)
+        cca_mk_change_apqn_check_mkvp(CCA_MK_APKA, apka_cur_mkvp,
+                                      cca_private->expected_apka_mkvp,
+                                      adapter, card, domain, ac->slot, FALSE,
+                                      "expected", &ac->error);
+
+    /* New MKs must be the expected new MKs of the operation */
+    if (ac->sym_new_mk != NULL)
+        cca_mk_change_apqn_check_mkvp(CCA_MK_SYM, sym_new_mkvp, ac->sym_new_mk,
+                                      adapter, card, domain, ac->slot, TRUE,
+                                      "specified", &ac->error);
+    if (ac->aes_new_mk != NULL)
+        cca_mk_change_apqn_check_mkvp(CCA_MK_AES, aes_new_mkvp, ac->aes_new_mk,
+                                      adapter, card, domain, ac->slot, TRUE,
+                                      "specified", &ac->error);
+    if (ac->apka_new_mk != NULL)
+        cca_mk_change_apqn_check_mkvp(CCA_MK_APKA, apka_new_mkvp, ac->apka_new_mk,
+                                      adapter, card, domain, ac->slot, TRUE,
+                                      "specified", &ac->error);
+
+    return CKR_OK;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread safe and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV cca_mk_change_init_query(STDLL_TokData_t *tokdata,
+                                      event_mk_change_data_t *op,
+                                      struct hsm_mk_change_info *info)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    struct apqn_check_data acd;
+    struct hsm_mkvp mkvps[3];
+    unsigned int num_mkvps = 0;
+    CK_RV rc;
+
+    TRACE_DEVEL("%s initial query for MK change op: %s\n", __func__, op->id);
+
+    memset(&acd, 0, sizeof(acd));
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+
+    acd.sym_new_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                              HSM_MK_TYPE_CCA_SYM,
+                                              CCA_MKVP_LENGTH);
+    acd.aes_new_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                              HSM_MK_TYPE_CCA_AES,
+                                              CCA_MKVP_LENGTH);
+    acd.apka_new_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                               HSM_MK_TYPE_CCA_APKA,
+                                               CCA_MKVP_LENGTH);
+
+    /* Check if selected APQNs have the expected MKs set/loaded */
+    rc = cca_iterate_adapters(tokdata, cca_mk_change_apqn_check_cb, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (acd.error)
+        return CKR_FUNCTION_FAILED;
+
+    /* Save current MKVPs of affected MK types of this token */
+    if (acd.sym_new_mk != NULL) {
+        mkvps[num_mkvps].type = HSM_MK_TYPE_CCA_SYM;
+        mkvps[num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        mkvps[num_mkvps].mkvp = cca_private->expected_sym_mkvp;
+        num_mkvps++;
+    }
+    if (acd.aes_new_mk != NULL) {
+        mkvps[num_mkvps].type = HSM_MK_TYPE_CCA_AES;
+        mkvps[num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        mkvps[num_mkvps].mkvp = cca_private->expected_aes_mkvp;
+        num_mkvps++;
+    }
+    if (acd.apka_new_mk != NULL) {
+        mkvps[num_mkvps].type = HSM_MK_TYPE_CCA_APKA;
+        mkvps[num_mkvps].mkvp_len = CCA_MKVP_LENGTH;
+        mkvps[num_mkvps].mkvp = cca_private->expected_apka_mkvp;
+        num_mkvps++;
+    }
+
+    rc = hsm_mk_change_lock_create();
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = hsm_mk_change_lock(TRUE);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = hsm_mk_change_token_mkvps_save(op->id, tokdata->slot_id,
+                                        mkvps, num_mkvps);
+
+    hsm_mk_change_unlock();
+
+out:
+    hsm_mk_change_lock_destroy();
+
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -7469,14 +7807,16 @@ static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
     size_t bytes_read = 0;
     struct hsm_mk_change_info info = { 0 };
     event_mk_change_data_t *hdr = (event_mk_change_data_t *)payload;
-    unsigned int i;
 
-    UNUSED(tokdata);
-    UNUSED(event_type);
     UNUSED(event_flags);
+
+    TRACE_DEVEL("%s event: 0x%x\n", __func__, event_type);
 
     if (payload_len <= sizeof (*hdr))
         return CKR_DATA_LEN_RANGE;
+
+    TRACE_DEVEL("%s id: '%s' flags: 0x%x tool_pid: %d\n", __func__, hdr->id,
+                hdr->flags, hdr->tool_pid);
 
     rc = hsm_mk_change_info_unflatten((unsigned char *)payload + sizeof(*hdr),
                                       payload_len - sizeof(*hdr),
@@ -7488,27 +7828,30 @@ static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    for (i = 0; i < info.num_mkvps; i++) {
-        switch (info.mkvps[i].type) {
-        case HSM_MK_TYPE_CCA_SYM:
-        case HSM_MK_TYPE_CCA_AES:
-        case HSM_MK_TYPE_CCA_APKA:
-            /* Affected, but can't fulfill it */
-            rc = CKR_FUNCTION_FAILED;
-            TRACE_ERROR("The CCA token does not support concurrent HSM master key changes\n");
-            warnx("The CCA token does not support concurrent HSM master key changes");
-            goto out;
+    rc = cca_mk_change_is_affected(tokdata, &info);
+    if (rc != CKR_OK)
+        goto out;
 
-        default:
-            break;
-        }
+    switch (event_type) {
+    case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
+        rc = cca_mk_change_init_query(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE:
+    case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
+    case EVENT_TYPE_MK_CHANGE_CANCEL:
+        rc = CKR_OK;
+        break;
+    default:
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
     }
-
-    /* Not affected */
-    rc = CKR_FUNCTION_NOT_SUPPORTED;
 
 out:
     hsm_mk_change_info_clean(&info);
+
+    TRACE_DEVEL("%s rc: 0x%lx\n", __func__, rc);
     return rc;
 }
 
@@ -7536,6 +7879,11 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
                                      (event_udev_apqn_data_t *)payload);
 
     case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE:
+    case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
+    case EVENT_TYPE_MK_CHANGE_CANCEL:
         return cca_handle_mk_change_event(tokdata, event_type, event_flags,
                                           payload, payload_len);
 
