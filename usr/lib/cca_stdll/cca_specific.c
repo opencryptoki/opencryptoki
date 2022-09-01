@@ -262,6 +262,19 @@ enum cca_token_type {
     sec_ecc_publ_key
 };
 
+struct cca_mk_change_op {
+    volatile int mk_change_active;
+    char mk_change_op[8]; /* set if mk_change_active = 1 */
+    unsigned char new_sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char new_aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char new_apka_mkvp[CCA_MKVP_LENGTH];
+    CK_BBOOL new_sym_mkvp_set;
+    CK_BBOOL new_aes_mkvp_set;
+    CK_BBOOL new_apka_mkvp_set;
+    struct apqn *apqns;
+    unsigned int num_apqns;
+};
+
 /* CCA token private data */
 struct cca_private_data {
     void *lib_csulcca;
@@ -284,6 +297,7 @@ struct cca_private_data {
     unsigned short usage_domains[256];
     CK_BBOOL inconsistent;
     char serialno[CCA_SERIALNO_LENGTH + 1];
+    struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -299,6 +313,7 @@ struct cca_private_data {
 const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen);
+static CK_RV cca_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 
 /*
  * Helper function: Analyse given CCA token.
@@ -1709,6 +1724,15 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    rc = cca_mk_change_check_pending_ops(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to check for pending HSM MK change operations "
+                    "rc=0x%lx\n", __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to check for pending HSM MK "
+                   "change operations rc=0x%lx\n", tokdata->slot_id, rc);
+        goto error;
+    }
+
     rc = cca_check_mks(tokdata);
     if (rc != CKR_OK)
         goto error;
@@ -1724,6 +1748,7 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                            CK_BBOOL in_fork_initializer)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
+    CK_ULONG i;
 
     TRACE_INFO("cca %s running\n", __func__);
 
@@ -1734,6 +1759,12 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
         if (cca_private->lib_csulcca != NULL && !in_fork_initializer)
             dlclose(cca_private->lib_csulcca);
         cca_private->lib_csulcca = NULL;
+
+        for (i = 0; i < CCA_NUM_MK_TYPES; i++) {
+            if (cca_private->mk_change_ops[i].mk_change_active &&
+                cca_private->mk_change_ops[i].apqns != NULL)
+                free(cca_private->mk_change_ops[i].apqns);
+        }
 
         free(cca_private);
     }
@@ -7517,6 +7548,283 @@ out:
 
     return affected ? CKR_OK : CKR_FUNCTION_NOT_SUPPORTED;
 }
+
+static unsigned char *cca_mk_change_find_mkvp_in_ops(STDLL_TokData_t *tokdata,
+                                                     enum cca_mk_type mk_type,
+                                                     unsigned int *idx)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned int i;
+
+    for (i = 0; i < CCA_NUM_MK_TYPES; i++) {
+        if (cca_private->mk_change_ops[i].mk_change_active) {
+            switch (mk_type) {
+            case CCA_MK_SYM:
+                if (cca_private->mk_change_ops[i].new_sym_mkvp_set) {
+                    if (idx != NULL)
+                        *idx = i;
+                    return cca_private->mk_change_ops[i].new_sym_mkvp;
+                }
+                break;
+            case CCA_MK_AES:
+                if (cca_private->mk_change_ops[i].new_aes_mkvp_set) {
+                    if (idx != NULL)
+                        *idx = i;
+                    return cca_private->mk_change_ops[i].new_aes_mkvp;
+                }
+                break;
+            case CCA_MK_APKA:
+                if (cca_private->mk_change_ops[i].new_apka_mkvp_set) {
+                    if (idx != NULL)
+                        *idx = i;
+                    return cca_private->mk_change_ops[i].new_apka_mkvp;
+                }
+                break;
+            default:
+                break;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+static CK_RV cca_mk_change_activate_op(STDLL_TokData_t *tokdata, const char *id,
+                                       struct hsm_mk_change_info *info,
+                                       const unsigned char *new_sym_mk,
+                                       const unsigned char *new_aes_mk,
+                                       const unsigned char *new_apka_mk,
+                                       unsigned int *idx)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned int i;
+    int op_idx;
+
+    /* Find a free operation slot */
+    for (i = 0, op_idx = -1; i < CCA_NUM_MK_TYPES; i++) {
+        if (cca_private->mk_change_ops[i].mk_change_active == FALSE) {
+            op_idx = i;
+            break;
+        }
+    }
+    if (op_idx == -1) {
+        TRACE_ERROR("%s More than %d MK change ops are already active\n",
+                    __func__, CCA_NUM_MK_TYPES);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* remember the infos of this MK change op */
+    memset(&cca_private->mk_change_ops[op_idx], 0,
+           sizeof(cca_private->mk_change_ops[op_idx]));
+    strncpy(cca_private->mk_change_ops[op_idx].mk_change_op, id,
+            sizeof(cca_private->mk_change_ops[op_idx].mk_change_op) - 1);
+    cca_private->mk_change_ops[op_idx].mk_change_op
+       [sizeof(cca_private->mk_change_ops[op_idx].mk_change_op) - 1] = '\0';
+
+    if (new_sym_mk != NULL) {
+        memcpy(cca_private->mk_change_ops[op_idx].new_sym_mkvp, new_sym_mk,
+               CCA_MKVP_LENGTH);
+        cca_private->mk_change_ops[op_idx].new_sym_mkvp_set = TRUE;
+        TRACE_DEBUG_DUMP("New SYM MK: ", (void *)new_sym_mk,
+                         CCA_MKVP_LENGTH);
+    }
+    if (new_aes_mk != NULL) {
+        memcpy(cca_private->mk_change_ops[op_idx].new_aes_mkvp, new_aes_mk,
+               CCA_MKVP_LENGTH);
+        cca_private->mk_change_ops[op_idx].new_aes_mkvp_set = TRUE;
+        TRACE_DEBUG_DUMP("New AES MK: ", (void *)new_aes_mk,
+                         CCA_MKVP_LENGTH);
+    }
+    if (new_apka_mk != NULL) {
+        memcpy(cca_private->mk_change_ops[op_idx].new_apka_mkvp, new_apka_mk,
+               CCA_MKVP_LENGTH);
+        cca_private->mk_change_ops[op_idx].new_apka_mkvp_set = TRUE;
+        TRACE_DEBUG_DUMP("New APKA MK: ", (void *)new_apka_mk,
+                         CCA_MKVP_LENGTH);
+    }
+
+    cca_private->mk_change_ops[op_idx].apqns = calloc(info->num_apqns,
+                                                      sizeof(struct apqn));
+    if (cca_private->mk_change_ops[op_idx].apqns == NULL) {
+        TRACE_ERROR("%s Failed to allocate list of MK change APQNs\n",
+                    __func__);
+        return CKR_HOST_MEMORY;
+    }
+
+    cca_private->mk_change_ops[op_idx].num_apqns = info->num_apqns;
+    memcpy(cca_private->mk_change_ops[op_idx].apqns, info->apqns,
+           info->num_apqns * sizeof(struct apqn));
+
+    cca_private->mk_change_ops[op_idx].mk_change_active = TRUE;
+
+    TRACE_DEVEL("%s active MK change op (idx %u): %s\n", __func__, op_idx,
+                cca_private->mk_change_ops[op_idx].mk_change_op);
+    OCK_SYSLOG(LOG_INFO, "Slot %lu: A concurrent HSM master key change "
+               "operation (%s) is active for CCA %s%s%s%s%s\n",
+               tokdata->slot_id,
+               cca_private->mk_change_ops[op_idx].mk_change_op,
+               new_sym_mk != NULL ? "SYM" : "",
+               (new_sym_mk != NULL && new_aes_mk != NULL) ? ", " : "",
+               new_aes_mk != NULL ? "AES" : "",
+               ((new_aes_mk != NULL && new_apka_mk != NULL) ||
+                (new_aes_mk == NULL && new_sym_mk != NULL &&
+                 new_apka_mk != NULL)) ? ", " : "",
+               new_apka_mk != NULL ? "APKA" : "");
+
+    *idx = op_idx;
+
+    return CKR_OK;
+}
+
+static CK_RV cca_mk_change_check_pending_ops_cb(struct hsm_mk_change_op *op,
+                                                void *private)
+{
+    STDLL_TokData_t *tokdata = private;
+    struct cca_private_data *cca_private;
+    struct hsm_mkvp *mkvps = NULL;
+    unsigned int num_mkvps = 0;
+    unsigned int i;
+    const unsigned char *new_sym_mk = NULL;
+    const unsigned char *new_aes_mk = NULL;
+    const unsigned char *new_apka_mk = NULL;
+    const unsigned char *mkvp;
+    CK_RV rc;
+
+    cca_private = tokdata->private_data;
+
+    rc = cca_mk_change_is_affected(tokdata, &op->info);
+    if (rc != CKR_OK)
+        return CKR_OK;
+
+    new_sym_mk = hsm_mk_change_mkvps_find(op->info.mkvps, op->info.num_mkvps,
+                                          HSM_MK_TYPE_CCA_SYM,
+                                          CCA_MKVP_LENGTH);
+    new_aes_mk = hsm_mk_change_mkvps_find(op->info.mkvps, op->info.num_mkvps,
+                                          HSM_MK_TYPE_CCA_AES,
+                                          CCA_MKVP_LENGTH);
+    new_apka_mk = hsm_mk_change_mkvps_find(op->info.mkvps, op->info.num_mkvps,
+                                           HSM_MK_TYPE_CCA_APKA,
+                                           CCA_MKVP_LENGTH);
+    if (new_sym_mk == NULL && new_aes_mk == NULL && new_apka_mk == NULL) {
+        TRACE_ERROR("%s No CCA MK type found in MK change operation: %s\n",
+                    __func__, op->id);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    switch (op->state) {
+    case HSM_MK_CH_STATE_REENCIPHERING:
+    case HSM_MK_CH_STATE_REENCIPHERED:
+        /*
+         * There can be up to 3 active MK change ops for the CCA token,
+         * one for each MK type, if the MKs are changed individually.
+         * However, these ops can not have intersecting MK types.
+         * No need to have the hsm_mk_change_rwlock, we're in token init
+         * function, and the API layer starts the event thread only after all
+         * token init's have been performed.
+         */
+        if (new_sym_mk != NULL &&
+            cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_SYM, &i) != NULL) {
+            TRACE_ERROR("%s Another MK change for CCA SYM is already "
+                        "active: %s\n", __func__,
+                        cca_private->mk_change_ops[i].mk_change_op);
+            return CKR_FUNCTION_FAILED;
+        }
+        if (new_aes_mk != NULL &&
+            cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_AES, &i) != NULL) {
+            TRACE_ERROR("%s Another MK change for CCA AES is already "
+                        "active: %s\n", __func__,
+                        cca_private->mk_change_ops[i].mk_change_op);
+            return CKR_FUNCTION_FAILED;
+        }
+        if (new_apka_mk != NULL &&
+            cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_APKA, &i) != NULL) {
+            TRACE_ERROR("%s Another MK change for CCA APKA is already "
+                        "active: %s\n", __func__,
+                        cca_private->mk_change_ops[i].mk_change_op);
+            return CKR_FUNCTION_FAILED;
+        }
+
+        rc = cca_mk_change_activate_op(tokdata, op->id, &op->info,
+                                       new_sym_mk, new_aes_mk, new_apka_mk,
+                                       &i);
+        if (rc != CKR_OK)
+            return rc;
+
+        /* Load expected current MKVPs */
+        rc = hsm_mk_change_token_mkvps_load(op->id, tokdata->slot_id,
+                                            &mkvps, &num_mkvps);
+        /* Ignore if this failed, no expected current MKVP is set then */
+        if (rc == CKR_OK) {
+            mkvp = hsm_mk_change_mkvps_find(mkvps, num_mkvps,
+                                            HSM_MK_TYPE_CCA_SYM,
+                                            CCA_MKVP_LENGTH);
+            if (mkvp != NULL) {
+                memcpy(cca_private->expected_sym_mkvp, mkvp, CCA_MKVP_LENGTH);
+                cca_private->expected_sym_mkvp_set = TRUE;
+                TRACE_DEBUG_DUMP("Current SYM MKVP: ",
+                                 cca_private->expected_sym_mkvp,
+                                 CCA_MKVP_LENGTH);
+            }
+
+            mkvp = hsm_mk_change_mkvps_find(mkvps, num_mkvps,
+                                            HSM_MK_TYPE_CCA_AES,
+                                            CCA_MKVP_LENGTH);
+            if (mkvp != NULL) {
+                memcpy(cca_private->expected_aes_mkvp, mkvp, CCA_MKVP_LENGTH);
+                cca_private->expected_aes_mkvp_set = TRUE;
+                TRACE_DEBUG_DUMP("Current AES MKVP: ",
+                                 cca_private->expected_aes_mkvp,
+                                 CCA_MKVP_LENGTH);
+            }
+
+            mkvp = hsm_mk_change_mkvps_find(mkvps, num_mkvps,
+                                            HSM_MK_TYPE_CCA_APKA,
+                                            CCA_MKVP_LENGTH);
+            if (mkvp != NULL) {
+                memcpy(cca_private->expected_apka_mkvp, mkvp, CCA_MKVP_LENGTH);
+                cca_private->expected_apka_mkvp_set = TRUE;
+                TRACE_DEBUG_DUMP("Current APKA MKVP: ",
+                                 cca_private->expected_apka_mkvp,
+                                 CCA_MKVP_LENGTH);
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    if (mkvps != NULL) {
+        hsm_mk_change_mkvps_clean(mkvps, num_mkvps);
+        free(mkvps);
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_mk_change_check_pending_ops(STDLL_TokData_t *tokdata)
+{
+    CK_RV rc;
+
+    rc = hsm_mk_change_lock_create();
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = hsm_mk_change_lock(FALSE);
+    if (rc != CKR_OK)
+        goto out;
+
+    rc = hsm_mk_change_op_iterate(cca_mk_change_check_pending_ops_cb,
+                                  tokdata);
+
+    hsm_mk_change_unlock();
+
+out:
+    hsm_mk_change_lock_destroy();
+
+    return rc;
+}
+
 
 static const char *mk_type_to_string(enum cca_mk_type mk_type)
 {
