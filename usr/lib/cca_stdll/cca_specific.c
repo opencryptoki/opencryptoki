@@ -480,15 +480,19 @@ static CK_BBOOL analyse_cca_key_token(const CK_BYTE *t, CK_ULONG tlen,
 
 static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
                                  enum cca_token_type keytype,
-                                 const CK_BYTE *mkvp)
+                                 const CK_BYTE *mkvp, CK_BBOOL *new_mk)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     const char *mktype;
-    const CK_BYTE *expected_mkvp;
+    const CK_BYTE *expected_mkvp, *new_mkvp;
+
+    if (new_mk != NULL)
+        *new_mk = FALSE;
 
     switch (keytype) {
     case sec_des_data_key:
         expected_mkvp = cca_private->expected_sym_mkvp;
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_SYM, NULL);
         mktype = "SYM";
         break;
 
@@ -496,12 +500,14 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
     case sec_aes_cipher_key:
     case sec_hmac_key:
         expected_mkvp = cca_private->expected_aes_mkvp;
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_AES, NULL);
         mktype = "AES";
         break;
 
     case sec_rsa_priv_key:
     case sec_ecc_priv_key:
         expected_mkvp = cca_private->expected_apka_mkvp;
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_APKA, NULL);
         mktype = "APKA";
         break;
 
@@ -516,6 +522,15 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata,
     }
 
     if (memcmp(mkvp, expected_mkvp, CCA_MKVP_LENGTH) != 0) {
+        /* If an MK change operation is active, also allow the new MK */
+        if (new_mkvp != NULL &&
+            memcmp(mkvp, new_mkvp, CCA_MKVP_LENGTH) == 0) {
+            TRACE_DEVEL("The key is wrapped by the new MK\n");
+            if (new_mk != NULL)
+                *new_mk = TRUE;
+           return CKR_OK;
+        }
+
         TRACE_ERROR("The key's master key verification pattern does not "
                     "match the expected CCA %s master key\n", mktype);
         TRACE_DEBUG_DUMP("MKVP of key:   ", (CK_BYTE *)mkvp, CCA_MKVP_LENGTH);
@@ -1078,14 +1093,17 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     TRACE_DEBUG("Master key verification patterns for %s (%02X.%04X)\n",
                 adapter, card, domain);
     TRACE_DEBUG_DUMP("SYM CUR MKVP:  ", sym_mkvp, CCA_MKVP_LENGTH);
-    if (sym_new_state == CCA_NMK_STATUS_FULL)
+    if (sym_new_state == CCA_NMK_STATUS_FULL) {
         TRACE_DEBUG_DUMP("SYM NEW MKVP:  ", sym_new_mkvp, CCA_MKVP_LENGTH);
+    }
     TRACE_DEBUG_DUMP("AES CUR MKVP:  ", aes_mkvp, CCA_MKVP_LENGTH);
-    if (aes_new_state == CCA_NMK_STATUS_FULL)
+    if (aes_new_state == CCA_NMK_STATUS_FULL) {
         TRACE_DEBUG_DUMP("AES NEW MKVP:  ", aes_new_mkvp, CCA_MKVP_LENGTH);
+    }
     TRACE_DEBUG_DUMP("APKA CUR MKVP: ", apka_mkvp, CCA_MKVP_LENGTH);
-    if (apka_new_state == CCA_NMK_STATUS_FULL)
+    if (apka_new_state == CCA_NMK_STATUS_FULL) {
         TRACE_DEBUG_DUMP("APKA NEW MKVP: ", apka_new_mkvp, CCA_MKVP_LENGTH);
+    }
 
     op_sym_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_SYM,
                                                  &sym_op_idx);
@@ -2017,7 +2035,7 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
@@ -2561,7 +2579,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
@@ -4029,7 +4047,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
@@ -5158,7 +5176,7 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -5408,7 +5426,7 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -5682,7 +5700,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -5750,7 +5768,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -5821,7 +5839,7 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -5904,7 +5922,7 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -6261,7 +6279,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -6399,7 +6417,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
@@ -6780,7 +6798,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
@@ -7122,7 +7140,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
     }
