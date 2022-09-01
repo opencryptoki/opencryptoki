@@ -147,6 +147,8 @@ enum cca_mk_type {
     CCA_MK_APKA,
 };
 
+#define CCA_NUM_MK_TYPES        3
+
 enum cca_nmk_state {
     CCA_NMK_STATUS_CLEAR   = 1,
     CCA_NMK_STATUS_PARTIAL = 2,
