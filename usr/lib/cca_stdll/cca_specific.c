@@ -15,6 +15,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -314,6 +315,9 @@ const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen);
 static CK_RV cca_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
+static unsigned char *cca_mk_change_find_mkvp_in_ops(STDLL_TokData_t *tokdata,
+                                                     enum cca_mk_type mk_type,
+                                                     unsigned int *idx);
 
 /*
  * Helper function: Analyse given CCA token.
@@ -941,10 +945,22 @@ static CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
 
 static CK_RV cca_cmp_mkvp(unsigned char mkvp[CCA_MKVP_LENGTH],
                           unsigned char exp_mkvp[CCA_MKVP_LENGTH],
+                          unsigned char *new_mkvp,
                           const char *mktype, const char *adapter,
                           unsigned short card, unsigned short domain,
                           CK_BBOOL expected_mkvps_set)
 {
+    /*
+     * If an MK change operation is pending, the current MK may already
+     * be the new MK of the operation.
+     */
+    if (new_mkvp != NULL &&
+        memcmp(mkvp, new_mkvp, CCA_MKVP_LENGTH) == 0) {
+        TRACE_DEVEL("CCA %s master key on adapter %s (%02X.%04X) has "
+                    "the new MK\n", mktype, adapter, card, domain);
+        return CKR_OK;
+    }
+
     if (expected_mkvps_set == FALSE &&
         memcmp(exp_mkvp, cca_zero_mkvp, CCA_MKVP_LENGTH) == 0) {
         /* zero expected MKVP, copy current one */
@@ -973,10 +989,16 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     struct cca_private_data *cca_private = tokdata->private_data;
     char serialno[CCA_SERIALNO_LENGTH + 1];
     unsigned char sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char sym_new_mkvp[CCA_MKVP_LENGTH];
     unsigned char aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char aes_new_mkvp[CCA_MKVP_LENGTH];
     unsigned char apka_mkvp[CCA_MKVP_LENGTH];
+    unsigned char apka_new_mkvp[CCA_MKVP_LENGTH];
+    unsigned char *op_sym_mkvp, *op_aes_mkvp, *op_apka_mkvp;
+    unsigned int sym_op_idx, aes_op_idx, apka_op_idx;
     enum cca_cmk_state mk_state;
-    CK_RV rc;
+    enum cca_nmk_state sym_new_state, aes_new_state, apka_new_state;
+    CK_RV rc, rc2 = CKR_OK;
 
     UNUSED(private);
 
@@ -991,7 +1013,7 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
                 serialno);
 
     /* Get status of SYM master key (DES, 3DES keys) */
-    rc = cca_get_mk_state(CCA_MK_SYM, &mk_state, NULL);
+    rc = cca_get_mk_state(CCA_MK_SYM, &mk_state, &sym_new_state);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_get_mk_state (SYM) failed for %s (%02X.%04X)\n",
                     adapter, card, domain);
@@ -1009,7 +1031,7 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     }
 
     /* Get status of AES master key (AES, HMAC keys) */
-    rc = cca_get_mk_state(CCA_MK_AES, &mk_state, NULL);
+    rc = cca_get_mk_state(CCA_MK_AES, &mk_state, &aes_new_state);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_get_mk_state (AES) failed for %s (%02X.%04X)\n",
                     adapter, card, domain);
@@ -1027,7 +1049,7 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     }
 
     /* Get status of APKA master key (RSA and ECC keys) */
-    rc = cca_get_mk_state(CCA_MK_APKA, &mk_state, NULL);
+    rc = cca_get_mk_state(CCA_MK_APKA, &mk_state, &apka_new_state);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_get_mk_state (APKA) failed for %s (%02X.%04X)\n",
                     adapter, card, domain);
@@ -1045,7 +1067,8 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     }
 
     /* Get master key verification patterns */
-    rc = cca_get_mkvps(sym_mkvp, NULL, aes_mkvp, NULL, apka_mkvp, NULL);
+    rc = cca_get_mkvps(sym_mkvp, sym_new_mkvp, aes_mkvp, aes_new_mkvp,
+                       apka_mkvp, apka_new_mkvp);
     if (rc != CKR_OK) {
         TRACE_ERROR("cca_get_mkvps failed for %s (%02X.%04X)\n",
                     adapter, card, domain);
@@ -1054,19 +1077,131 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
 
     TRACE_DEBUG("Master key verification patterns for %s (%02X.%04X)\n",
                 adapter, card, domain);
-    TRACE_DEBUG_DUMP("SYM MKVP:  ", sym_mkvp, CCA_MKVP_LENGTH);
-    TRACE_DEBUG_DUMP("AES MKVP:  ", aes_mkvp, CCA_MKVP_LENGTH);
-    TRACE_DEBUG_DUMP("APKA MKVP: ", apka_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("SYM CUR MKVP:  ", sym_mkvp, CCA_MKVP_LENGTH);
+    if (sym_new_state == CCA_NMK_STATUS_FULL)
+        TRACE_DEBUG_DUMP("SYM NEW MKVP:  ", sym_new_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("AES CUR MKVP:  ", aes_mkvp, CCA_MKVP_LENGTH);
+    if (aes_new_state == CCA_NMK_STATUS_FULL)
+        TRACE_DEBUG_DUMP("AES NEW MKVP:  ", aes_new_mkvp, CCA_MKVP_LENGTH);
+    TRACE_DEBUG_DUMP("APKA CUR MKVP: ", apka_mkvp, CCA_MKVP_LENGTH);
+    if (apka_new_state == CCA_NMK_STATUS_FULL)
+        TRACE_DEBUG_DUMP("APKA NEW MKVP: ", apka_new_mkvp, CCA_MKVP_LENGTH);
 
-    rc = cca_cmp_mkvp(sym_mkvp, cca_private->expected_sym_mkvp,
+    op_sym_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_SYM,
+                                                 &sym_op_idx);
+    op_aes_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_AES,
+                                                 &aes_op_idx);
+    op_apka_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_APKA,
+                                                  &apka_op_idx);
+
+    /* Current MK can either be expected one, or new from operation (if any) */
+    rc = cca_cmp_mkvp(sym_mkvp, cca_private->expected_sym_mkvp, op_sym_mkvp,
                       "SYM", adapter, card, domain,
                       cca_private->expected_sym_mkvp_set);
-    rc |= cca_cmp_mkvp(aes_mkvp, cca_private->expected_aes_mkvp,
+    rc |= cca_cmp_mkvp(aes_mkvp, cca_private->expected_aes_mkvp, op_aes_mkvp,
                        "AES", adapter, card, domain,
                        cca_private->expected_aes_mkvp_set);
-    rc |= cca_cmp_mkvp(apka_mkvp, cca_private->expected_apka_mkvp,
+    rc |= cca_cmp_mkvp(apka_mkvp, cca_private->expected_apka_mkvp, op_apka_mkvp,
                        "APKA", adapter, card, domain,
                        cca_private->expected_apka_mkvp_set);
+
+    /*
+     * If new MK is set, it must be the one from the MK change operation(s).
+     * If new MK is not set, the current MK must be the expected new MK of
+     * the operation(s). For this case, report error only if not within the
+     * pkcshsm_mk_change tool process. Otherwise the MK change operation could
+     * not be canceled when the new MK register has already been cleared by
+     * the HSM admin.
+     */
+    if (op_sym_mkvp != NULL) {
+        rc2 |= cca_cmp_mkvp(sym_new_state == CCA_NMK_STATUS_FULL ?
+                                                sym_new_mkvp : sym_mkvp,
+                           op_sym_mkvp, NULL,
+                           sym_new_state == CCA_NMK_STATUS_FULL ?
+                                                "SYM NEW" : "SYM CURRENT",
+                           adapter, card, domain, TRUE);
+        if (sym_new_state != CCA_NMK_STATUS_FULL &&
+            strcmp(program_invocation_short_name, "pkcshsm_mk_change") == 0)
+            rc2 = CKR_OK;
+        rc |= rc2;
+    }
+    if (op_aes_mkvp != NULL) {
+        rc2 |= cca_cmp_mkvp(aes_new_state == CCA_NMK_STATUS_FULL ?
+                                                aes_new_mkvp : aes_mkvp,
+                           op_aes_mkvp, NULL,
+                           aes_new_state == CCA_NMK_STATUS_FULL ?
+                                                "AES NEW" : "AES CURRENT",
+                           adapter, card, domain, TRUE);
+        if (aes_new_state != CCA_NMK_STATUS_FULL &&
+            strcmp(program_invocation_short_name, "pkcshsm_mk_change") == 0)
+            rc2 = CKR_OK;
+        rc |= rc2;
+    }
+    if (op_apka_mkvp != NULL) {
+        rc2 |= cca_cmp_mkvp(apka_new_state == CCA_NMK_STATUS_FULL ?
+                                                apka_new_mkvp : apka_mkvp,
+                           op_apka_mkvp, NULL,
+                           apka_new_state == CCA_NMK_STATUS_FULL ?
+                                                "APKA NEW" : "APKA CURRENT",
+                           adapter, card, domain, TRUE);
+        if (apka_new_state != CCA_NMK_STATUS_FULL &&
+            strcmp(program_invocation_short_name, "pkcshsm_mk_change") == 0)
+            rc2 = CKR_OK;
+        rc |= rc2;
+    }
+
+    /*
+     * If an MK change operation is active, the current APQN must be part
+     * of each operation.
+     */
+    if (op_sym_mkvp != NULL &&
+        !hsm_mk_change_apqns_find(
+                            cca_private->mk_change_ops[sym_op_idx].apqns,
+                            cca_private->mk_change_ops[sym_op_idx].num_apqns,
+                            card, domain)) {
+        TRACE_ERROR("APQN %02X.%04X is used by the CCA token, but it is "
+                    "not part of the active MK change operation '%s'\n",
+                    card, domain,
+                    cca_private->mk_change_ops[sym_op_idx].mk_change_op);
+        OCK_SYSLOG(LOG_ERR, "APQN %02X.%04X is used by the CCA token, but "
+                   "it is not part of the active MK change operation '%s'\n",
+                   card, domain,
+                   cca_private->mk_change_ops[sym_op_idx].mk_change_op);
+        rc |= CKR_DEVICE_ERROR;
+    }
+
+    if (op_aes_mkvp != NULL &&
+        !hsm_mk_change_apqns_find(
+                            cca_private->mk_change_ops[aes_op_idx].apqns,
+                            cca_private->mk_change_ops[aes_op_idx].num_apqns,
+                            card, domain)) {
+        TRACE_ERROR("APQN %02X.%04X is used by the CCA token, but it is "
+                    "not part of the active MK change operation '%s'\n",
+                    card, domain,
+                    cca_private->mk_change_ops[aes_op_idx].mk_change_op);
+        OCK_SYSLOG(LOG_ERR, "APQN %02X.%04X is used by the CCA token, but "
+                   "it is not part of the active MK change operation '%s'\n",
+                   card, domain,
+                   cca_private->mk_change_ops[aes_op_idx].mk_change_op);
+        rc |= CKR_DEVICE_ERROR;
+    }
+
+    if (op_apka_mkvp != NULL &&
+        !hsm_mk_change_apqns_find(
+                            cca_private->mk_change_ops[apka_op_idx].apqns,
+                            cca_private->mk_change_ops[apka_op_idx].num_apqns,
+                            card, domain)) {
+        TRACE_ERROR("APQN %02X.%04X is used by the CCA token, but it is "
+                    "not part of the active MK change operation '%s'\n",
+                    card, domain,
+                    cca_private->mk_change_ops[apka_op_idx].mk_change_op);
+        OCK_SYSLOG(LOG_ERR, "APQN %02X.%04X is used by the CCA token, but "
+                   "it is not part of the active MK change operation '%s'\n",
+                   card, domain,
+                   cca_private->mk_change_ops[apka_op_idx].mk_change_op);
+        rc |= CKR_DEVICE_ERROR;
+    }
+
     if (rc != CKR_OK)
        return CKR_DEVICE_ERROR;
 
@@ -1433,6 +1568,7 @@ static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
 static CK_RV cca_check_mks(STDLL_TokData_t *tokdata)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char *new_mkvp;
     CK_RV rc;
 
     rc = cca_iterate_adapters(tokdata, cca_get_and_check_mkvps, NULL);
@@ -1441,18 +1577,54 @@ static CK_RV cca_check_mks(STDLL_TokData_t *tokdata)
 
     TRACE_DEBUG("Expected master key verification patterns (queried):\n");
     if (cca_private->expected_sym_mkvp_set == FALSE) {
+        /*
+         * If a MK change operation is active, and all APQNs have the new SYM MK
+         * already, use the new SYM MKVP as the queried one.
+         */
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_SYM, NULL);
+        if (new_mkvp &&
+            memcmp(cca_private->expected_sym_mkvp, cca_zero_mkvp,
+                   CCA_MKVP_LENGTH) == 0) {
+            TRACE_DEBUG("%s All APQNs already have the new SYM MK\n",__func__);
+            memcpy(cca_private->expected_sym_mkvp, new_mkvp, CCA_MKVP_LENGTH);
+        }
+
         TRACE_DEBUG_DUMP("SYM MKVP:  ", cca_private->expected_sym_mkvp,
                          CCA_MKVP_LENGTH);
     } else {
         TRACE_DEBUG("SYM MKVP:  specified in config\n");
     }
     if (cca_private->expected_aes_mkvp_set == FALSE) {
+        /*
+         * If a MK change operation is active, and all APQNs have the new AES MK
+         * already, use the new AES MKVP as the queried one.
+         */
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_AES, NULL);
+        if (new_mkvp &&
+            memcmp(cca_private->expected_aes_mkvp, cca_zero_mkvp,
+                   CCA_MKVP_LENGTH) == 0) {
+            TRACE_DEBUG("%s All APQNs already have the new AES MK\n",__func__);
+            memcpy(cca_private->expected_aes_mkvp, new_mkvp, CCA_MKVP_LENGTH);
+        }
+
         TRACE_DEBUG_DUMP("AES MKVP:  ", cca_private->expected_aes_mkvp,
                          CCA_MKVP_LENGTH);
     } else {
         TRACE_DEBUG("AES MKVP:  specified in config\n");
     }
     if (cca_private->expected_apka_mkvp_set == FALSE) {
+        /*
+         * If a MK change operation is active, and all APQNs have the new APKA
+         * MK already, use the new APKA MKVP as the queried one.
+         */
+        new_mkvp = cca_mk_change_find_mkvp_in_ops(tokdata, CCA_MK_APKA, NULL);
+        if (new_mkvp &&
+            memcmp(cca_private->expected_apka_mkvp, cca_zero_mkvp,
+                   CCA_MKVP_LENGTH) == 0) {
+            TRACE_DEBUG("%s All APQNs already have the new APKA MK\n",__func__);
+            memcpy(cca_private->expected_apka_mkvp, new_mkvp, CCA_MKVP_LENGTH);
+        }
+
         TRACE_DEBUG_DUMP("APKA MKVP: ", cca_private->expected_apka_mkvp,
                          CCA_MKVP_LENGTH);
     } else {
