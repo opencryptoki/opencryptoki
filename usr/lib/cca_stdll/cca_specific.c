@@ -299,6 +299,7 @@ struct cca_private_data {
     CK_BBOOL inconsistent;
     char serialno[CCA_SERIALNO_LENGTH + 1];
     struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
+    char token_config_filename[PATH_MAX];
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -1652,7 +1653,7 @@ static CK_RV cca_check_mks(STDLL_TokData_t *tokdata)
     return CKR_OK;
 }
 
-CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
+static CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
 {
     unsigned int i, val;
 
@@ -1670,10 +1671,15 @@ CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
     return CKR_OK;
 }
 
-CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
-                                 struct ConfigStructNode *exp_mkvp_node)
+static CK_RV cca_config_parse_exp_mkvps(char *fname,
+                                        struct ConfigStructNode *exp_mkvp_node,
+                                        unsigned char *expected_sym_mkvp,
+                                        CK_BBOOL *expected_sym_mkvp_set,
+                                        unsigned char *expected_aes_mkvp,
+                                        CK_BBOOL *expected_aes_mkvp_set,
+                                        unsigned char *expected_apka_mkvp,
+                                        CK_BBOOL *expected_apka_mkvp_set)
 {
-    struct cca_private_data *cca_private = tokdata->private_data;
     struct ConfigBaseNode *c;
     char *str;
     CK_RV rc = CKR_OK;
@@ -1686,8 +1692,7 @@ CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
         if (strcasecmp(c->key, CCA_CFG_SYM_MKVP) == 0 &&
             (str = confignode_getstr(c)) != NULL) {
 
-            rc = cca_parse_hex(str, cca_private->expected_sym_mkvp,
-                               CCA_MKVP_LENGTH);
+            rc = cca_parse_hex(str, expected_sym_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
                            "hex value '%s' at line %d\n", fname,
@@ -1698,15 +1703,14 @@ CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
                 break;
             }
 
-            cca_private->expected_sym_mkvp_set = TRUE;
+            *expected_sym_mkvp_set = TRUE;
             continue;
         }
 
         if (strcasecmp(c->key, CCA_CFG_AES_MKVP) == 0 &&
             (str = confignode_getstr(c)) != NULL) {
 
-            rc = cca_parse_hex(str, cca_private->expected_aes_mkvp,
-                               CCA_MKVP_LENGTH);
+            rc = cca_parse_hex(str, expected_aes_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
                            "hex value '%s' at line %d\n", fname,
@@ -1717,15 +1721,14 @@ CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
                 break;
             }
 
-            cca_private->expected_aes_mkvp_set = TRUE;
+            *expected_aes_mkvp_set = TRUE;
             continue;
         }
 
         if (strcasecmp(c->key, CCA_CFG_APKA_MKVP) == 0 &&
             (str = confignode_getstr(c)) != NULL) {
 
-            rc = cca_parse_hex(str, cca_private->expected_apka_mkvp,
-                               CCA_MKVP_LENGTH);
+            rc = cca_parse_hex(str, expected_apka_mkvp, CCA_MKVP_LENGTH);
             if (rc != CKR_OK) {
                 OCK_SYSLOG(LOG_ERR, "Error parsing config file '%s': invalid "
                            "hex value '%s' at line %d\n", fname,
@@ -1736,7 +1739,7 @@ CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
                 break;
             }
 
-            cca_private->expected_apka_mkvp_set = TRUE;
+            *expected_apka_mkvp_set = TRUE;
             continue;
         }
 
@@ -1748,18 +1751,18 @@ CK_RV cca_config_parse_exp_mkvps(STDLL_TokData_t *tokdata, char *fname,
     }
 
     TRACE_DEBUG("Expected master key verification patterns\n");
-    if (cca_private->expected_sym_mkvp_set == TRUE) {
-        TRACE_DEBUG_DUMP("SYM MKVP:  ", cca_private->expected_sym_mkvp, CCA_MKVP_LENGTH);
+    if (*expected_sym_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("SYM MKVP:  ", expected_sym_mkvp, CCA_MKVP_LENGTH);
     } else {
         TRACE_DEBUG("SYM MKVP:  not specified\n");
     }
-    if (cca_private->expected_aes_mkvp_set == TRUE) {
-        TRACE_DEBUG_DUMP("AES MKVP:  ", cca_private->expected_aes_mkvp, CCA_MKVP_LENGTH);
+    if (*expected_aes_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("AES MKVP:  ", expected_aes_mkvp, CCA_MKVP_LENGTH);
     } else {
         TRACE_DEBUG("AES MKVP:  not specified\n");
     }
-    if (cca_private->expected_apka_mkvp_set == TRUE) {
-        TRACE_DEBUG_DUMP("APKA MKVP: ", cca_private->expected_apka_mkvp, CCA_MKVP_LENGTH);
+    if (*expected_apka_mkvp_set == TRUE) {
+        TRACE_DEBUG_DUMP("APKA MKVP: ", expected_apka_mkvp, CCA_MKVP_LENGTH);
     } else {
         TRACE_DEBUG("APKA MKVP: not specified\n");
     }
@@ -1777,6 +1780,7 @@ static void cca_config_parse_error(int line, int col, const char *msg)
 
 CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
 {
+    struct cca_private_data *cca_private = tokdata->private_data;
     char fname[PATH_MAX];
     FILE *file;
     struct ConfigBaseNode *c, *config = NULL;
@@ -1811,6 +1815,11 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
         goto done;
     }
 
+    strncpy(cca_private->token_config_filename, fname,
+            sizeof(cca_private->token_config_filename));
+    cca_private->token_config_filename[
+                    sizeof(cca_private->token_config_filename) - 1] = '\0';
+
     confignode_foreach(c, config, i) {
         TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
                     c->key, c->type, c->line);
@@ -1824,7 +1833,13 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
         if (confignode_hastype(c, CT_STRUCT)) {
             struct_node = confignode_to_struct(c);
             if (strcasecmp(struct_node->base.key, CCA_CFG_EXPECTED_MKVPS) == 0) {
-                rc = cca_config_parse_exp_mkvps(tokdata, fname, struct_node);
+                rc = cca_config_parse_exp_mkvps(fname, struct_node,
+                                        cca_private->expected_sym_mkvp,
+                                        &cca_private->expected_sym_mkvp_set,
+                                        cca_private->expected_aes_mkvp,
+                                        &cca_private->expected_aes_mkvp_set,
+                                        cca_private->expected_apka_mkvp,
+                                        &cca_private->expected_apka_mkvp_set);
                 if (rc != CKR_OK)
                     break;
                 continue;
@@ -7779,6 +7794,25 @@ static unsigned char *cca_mk_change_find_mkvp_in_ops(STDLL_TokData_t *tokdata,
     return NULL;
 }
 
+static struct cca_mk_change_op *cca_mk_change_find_op(STDLL_TokData_t *tokdata,
+                                                      const char *op,
+                                                      unsigned int *idx)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned int i;
+
+    for (i = 0; i < CCA_NUM_MK_TYPES; i++) {
+        if (cca_private->mk_change_ops[i].mk_change_active &&
+            strcmp(cca_private->mk_change_ops[i].mk_change_op, op) == 0) {
+            if (idx != NULL)
+                *idx = i;
+            return &cca_private->mk_change_ops[i];
+        }
+    }
+
+    return NULL;
+}
+
 static CK_RV cca_mk_change_activate_op(STDLL_TokData_t *tokdata, const char *id,
                                        struct hsm_mk_change_info *info,
                                        const unsigned char *new_sym_mk,
@@ -8030,11 +8064,114 @@ static const char *mk_type_to_string(enum cca_mk_type mk_type)
     }
 }
 
+static CK_RV cca_check_token_config_expected_mkvp(STDLL_TokData_t *tokdata,
+                                        struct cca_mk_change_op *mk_change_op,
+                                        CK_BBOOL new_wk)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    FILE *file;
+    struct ConfigBaseNode *c, *config = NULL;
+    struct ConfigStructNode *struct_node;
+    unsigned char exp_sym_mkvp[CCA_MKVP_LENGTH];
+    unsigned char exp_aes_mkvp[CCA_MKVP_LENGTH];
+    unsigned char exp_apka_mkvp[CCA_MKVP_LENGTH];
+    CK_BBOOL exp_sym_mkvp_set = FALSE;
+    CK_BBOOL exp_aes_mkvp_set = FALSE;
+    CK_BBOOL exp_apka_mkvp_set = FALSE;
+    CK_RV rc = CKR_OK;
+    int ret, i;
+
+    if (cca_private->token_config_filename[0] == '\0')
+        return CKR_OK;
+
+    file = fopen(cca_private->token_config_filename, "r");
+    if (file == NULL) {
+        TRACE_ERROR("%s fopen('%s') failed with errno: %s\n", __func__,
+                    cca_private->token_config_filename, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ret = parse_configlib_file(file, &config, cca_config_parse_error, 0);
+    if (ret != 0) {
+        TRACE_ERROR("Error parsing config file '%s'\n",
+                    cca_private->token_config_filename);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    confignode_foreach(c, config, i) {
+        TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
+                    c->key, c->type, c->line);
+
+        if (confignode_hastype(c, CT_STRUCT)) {
+            struct_node = confignode_to_struct(c);
+            if (strcasecmp(struct_node->base.key,
+                           CCA_CFG_EXPECTED_MKVPS) == 0) {
+                rc = cca_config_parse_exp_mkvps(
+                            cca_private->token_config_filename, struct_node,
+                            exp_sym_mkvp, &exp_sym_mkvp_set,
+                            exp_aes_mkvp, &exp_aes_mkvp_set,
+                            exp_apka_mkvp, &exp_apka_mkvp_set);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
+        }
+    }
+
+    if (mk_change_op->new_sym_mkvp_set && exp_sym_mkvp_set &&
+        memcmp(exp_sym_mkvp, new_wk ? mk_change_op->new_sym_mkvp :
+                                            cca_private->expected_sym_mkvp,
+               CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("Expected SYM MKVP in config file '%s' does not specify "
+                    "the %s MKVP\n", cca_private->token_config_filename,
+                    new_wk ? "new" : "current");
+        warnx("Expected SYM MKVP in config file '%s' does not specify the %s "
+              "MKVP.", cca_private->token_config_filename,
+              new_wk ? "new" : "current");
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+    if (mk_change_op->new_aes_mkvp_set && exp_aes_mkvp_set &&
+        memcmp(exp_aes_mkvp, new_wk ? mk_change_op->new_aes_mkvp :
+                                            cca_private->expected_aes_mkvp,
+               CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("Expected AES MKVP in config file '%s' does not specify "
+                    "the %s MKVP\n", cca_private->token_config_filename,
+                    new_wk ? "new" : "current");
+        warnx("Expected AES MKVP in config file '%s' does not specify the %s "
+              "MKVP.", cca_private->token_config_filename,
+              new_wk ? "new" : "current");
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+    if (mk_change_op->new_apka_mkvp_set && exp_apka_mkvp_set &&
+        memcmp(exp_apka_mkvp, new_wk ? mk_change_op->new_apka_mkvp :
+                                            cca_private->expected_apka_mkvp,
+               CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("Expected APKA MKVP in config file '%s' does not specify "
+                    "the %s MKVP\n", cca_private->token_config_filename,
+                    new_wk ? "new" : "current");
+        warnx("Expected APKA MKVP in config file '%s' does not specify the %s "
+              "MKVP.", cca_private->token_config_filename,
+              new_wk ? "new" : "current");
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+done:
+    confignode_deepfree(config);
+    fclose(file);
+
+    return rc;
+}
+
 static CK_RV cca_mk_change_apqn_check_mk_state(enum cca_mk_type mk_type,
                                                const char *adapter,
                                                unsigned short card,
                                                unsigned short domain,
                                                CK_SLOT_ID slot,
+                                               CK_BBOOL finalize,
+                                               CK_BBOOL cancel,
                                                CK_BBOOL *error)
 {
     const char *mk_type_str = mk_type_to_string(mk_type);
@@ -8058,13 +8195,24 @@ static CK_RV cca_mk_change_apqn_check_mk_state(enum cca_mk_type mk_type,
         *error = TRUE;
     }
 
-    /* Ensure the a new master key is set in the card */
-    if (new_mk_state != CCA_NMK_STATUS_FULL) {
-        TRACE_ERROR("%s No NEW CCA %s master key is set on APQN %02X.%04X (%s)\n",
-                    __func__, mk_type_str, card, domain, adapter);
-         warnx("Slot %lu: No NEW CCA %s master key is set on APQN %02X.%04X (%s)",
-               slot, mk_type_str, card, domain, adapter);
-        *error = TRUE;
+    if (finalize) {
+        /* Ensure that the new master key register is empty */
+         if (new_mk_state != CCA_NMK_STATUS_CLEAR) {
+             TRACE_ERROR("%s The NEW CCA %s master key register must be empty on APQN %02X.%04X (%s)\n",
+                         __func__, mk_type_str, card, domain, adapter);
+              warnx("Slot %lu: The NEW CCA %s master key register must be empty on APQN %02X.%04X (%s)",
+                    slot, mk_type_str, card, domain, adapter);
+             *error = TRUE;
+         }
+    } else if (!cancel) {
+        /* Ensure that the new master key is set in the card */
+        if (new_mk_state != CCA_NMK_STATUS_FULL) {
+            TRACE_ERROR("%s No NEW CCA %s master key is set on APQN %02X.%04X (%s)\n",
+                        __func__, mk_type_str, card, domain, adapter);
+             warnx("Slot %lu: No NEW CCA %s master key is set on APQN %02X.%04X (%s)",
+                   slot, mk_type_str, card, domain, adapter);
+            *error = TRUE;
+        }
     }
 
     return CKR_OK;
@@ -8102,6 +8250,8 @@ struct apqn_check_data {
     const unsigned char *sym_new_mk;
     const unsigned char *aes_new_mk;
     const unsigned char *apka_new_mk;
+    CK_BBOOL finalize;
+    CK_BBOOL cancel;
     CK_BBOOL error;
 };
 
@@ -8136,7 +8286,9 @@ static CK_RV cca_mk_change_apqn_check_cb(STDLL_TokData_t *tokdata,
     if (ac->sym_new_mk != NULL) {
         /* Check status of AES master key (DES, 3DES keys) */
         rc = cca_mk_change_apqn_check_mk_state(CCA_MK_SYM, adapter, card,
-                                               domain, ac->slot, &ac->error);
+                                               domain, ac->slot,
+                                               ac->finalize, ac->cancel,
+                                               &ac->error);
         if (rc != CKR_OK)
             return rc;
     }
@@ -8144,7 +8296,9 @@ static CK_RV cca_mk_change_apqn_check_cb(STDLL_TokData_t *tokdata,
     if (ac->aes_new_mk != NULL) {
         /* Check status of AES master key (AES, HMAC keys) */
         rc = cca_mk_change_apqn_check_mk_state(CCA_MK_AES, adapter, card,
-                                               domain, ac->slot, &ac->error);
+                                               domain, ac->slot,
+                                               ac->finalize, ac->cancel,
+                                               &ac->error);
         if (rc != CKR_OK)
             return rc;
     }
@@ -8152,7 +8306,9 @@ static CK_RV cca_mk_change_apqn_check_cb(STDLL_TokData_t *tokdata,
     if (ac->apka_new_mk != NULL) {
         /* Check status of APKA master key (RSA and ECC keys) */
         rc = cca_mk_change_apqn_check_mk_state(CCA_MK_APKA, adapter, card,
-                                               domain, ac->slot, &ac->error);
+                                               domain, ac->slot,
+                                               ac->finalize, ac->cancel,
+                                               &ac->error);
         if (rc != CKR_OK)
             return rc;
     }
@@ -8178,19 +8334,34 @@ static CK_RV cca_mk_change_apqn_check_cb(STDLL_TokData_t *tokdata,
     /* Current MKs (only those included in the op) must be the expected MKs */
     if (ac->sym_new_mk != NULL)
         cca_mk_change_apqn_check_mkvp(CCA_MK_SYM, sym_cur_mkvp,
-                                      cca_private->expected_sym_mkvp,
-                                      adapter, card, domain, ac->slot, FALSE,
-                                      "expected", &ac->error);
+                                      ac->finalize ?
+                                              ac->sym_new_mk :
+                                              cca_private->expected_sym_mkvp,
+                                      adapter, card, domain, ac->slot,
+                                      FALSE, ac->finalize ? "operation's NEW" :
+                                                      "expected",
+                                      &ac->error);
     if (ac->aes_new_mk != NULL)
             cca_mk_change_apqn_check_mkvp(CCA_MK_AES, aes_cur_mkvp,
-                                      cca_private->expected_aes_mkvp,
-                                      adapter, card, domain, ac->slot, FALSE,
-                                      "expected", &ac->error);
+                                      ac->finalize ?
+                                              ac->aes_new_mk :
+                                              cca_private->expected_aes_mkvp,
+                                      adapter, card, domain, ac->slot,
+                                      FALSE, ac->finalize ? "operation's NEW" :
+                                                      "expected",
+                                      &ac->error);
     if (ac->apka_new_mk != NULL)
         cca_mk_change_apqn_check_mkvp(CCA_MK_APKA, apka_cur_mkvp,
-                                      cca_private->expected_apka_mkvp,
-                                      adapter, card, domain, ac->slot, FALSE,
-                                      "expected", &ac->error);
+                                      ac->finalize ?
+                                              ac->apka_new_mk :
+                                              cca_private->expected_apka_mkvp,
+                                      adapter, card, domain, ac->slot,
+                                      FALSE, ac->finalize ? "operation's NEW" :
+                                                      "expected",
+                                      &ac->error);
+
+    if (ac->finalize || ac->cancel)
+        return CKR_OK; /* Don't check New MKs for finalize or cancel */
 
     /* New MKs must be the expected new MKs of the operation */
     if (ac->sym_new_mk != NULL)
@@ -8295,6 +8466,142 @@ out:
  * performed by this function must be thread save and use locks to lock
  * against concurrent access by other threads.
  */
+static CK_RV cca_mk_change_finalize_query(STDLL_TokData_t *tokdata,
+                                          event_mk_change_data_t *op,
+                                          struct hsm_mk_change_info *info)
+{
+    struct cca_mk_change_op *mk_change_op;
+    struct apqn_check_data acd;
+    CK_RV rc;
+
+    TRACE_DEVEL("%s finalize query for MK change op: %s\n", __func__, op->id);
+
+    if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Read-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    mk_change_op = cca_mk_change_find_op(tokdata, op->id, NULL);
+    if (mk_change_op == NULL) {
+        TRACE_ERROR("%s operation '%s' not active\n", __func__, op->id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    memset(&acd, 0, sizeof(acd));
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+    acd.finalize = TRUE; /* New MKs must be current ones */
+
+    if (mk_change_op->new_sym_mkvp_set)
+        acd.sym_new_mk = mk_change_op->new_sym_mkvp;
+    if (mk_change_op->new_aes_mkvp_set)
+        acd.aes_new_mk = mk_change_op->new_aes_mkvp;
+    if (mk_change_op->new_apka_mkvp_set)
+        acd.apka_new_mk = mk_change_op->new_apka_mkvp;
+
+    /* Check if selected APQNs have the expected MKs set/loaded */
+    rc = cca_iterate_adapters(tokdata, cca_mk_change_apqn_check_cb, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n", __func__, rc);
+        goto out;
+    }
+
+    if (acd.error) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = cca_check_token_config_expected_mkvp(tokdata, mk_change_op, TRUE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_check_token_config_expected_mkvp failed: 0x%lx\n",
+                    __func__, rc);
+        goto out;
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV cca_mk_change_cancel_query(STDLL_TokData_t *tokdata,
+                                        event_mk_change_data_t *op,
+                                        struct hsm_mk_change_info *info)
+{
+    struct cca_mk_change_op *mk_change_op;
+    struct apqn_check_data acd;
+    CK_RV rc;
+
+    TRACE_DEVEL("%s cancel query for MK change op: %s\n", __func__, op->id);
+
+    if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("MK-change Read-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    mk_change_op = cca_mk_change_find_op(tokdata, op->id, NULL);
+    if (mk_change_op == NULL) {
+        TRACE_ERROR("%s operation '%s' not active\n", __func__, op->id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    memset(&acd, 0, sizeof(acd));
+    acd.slot = tokdata->slot_id;
+    acd.op = op;
+    acd.info = info;
+    acd.cancel = TRUE; /* No new MKs must be set */
+
+    if (mk_change_op->new_sym_mkvp_set)
+        acd.sym_new_mk = mk_change_op->new_sym_mkvp;
+    if (mk_change_op->new_aes_mkvp_set)
+        acd.aes_new_mk = mk_change_op->new_aes_mkvp;
+    if (mk_change_op->new_apka_mkvp_set)
+        acd.apka_new_mk = mk_change_op->new_apka_mkvp;
+
+    /* Check if selected APQNs have the expected MKs set/loaded */
+    rc = cca_iterate_adapters(tokdata, cca_mk_change_apqn_check_cb, &acd);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_iterate_adapters failed: 0x%lx\n", __func__, rc);
+        goto out;
+    }
+
+    if (acd.error) {
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = cca_check_token_config_expected_mkvp(tokdata, mk_change_op, FALSE);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_check_token_config_expected_mkvp failed: 0x%lx\n",
+                    __func__, rc);
+        goto out;
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
 static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
                                         unsigned int event_type,
                                         unsigned int event_flags,
@@ -8330,14 +8637,42 @@ static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto out;
 
+    if (event_type != EVENT_TYPE_MK_CHANGE_INITIATE_QUERY &&
+        event_type != EVENT_TYPE_MK_CHANGE_REENCIPHER) {
+        /* Operation must be active */
+        if (pthread_rwlock_rdlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+            TRACE_DEVEL("HSM-MK-change Read-Lock failed.\n");
+            rc = CKR_CANT_LOCK;
+            goto out;
+        }
+
+        if (cca_mk_change_find_op(tokdata, hdr->id, NULL) == NULL) {
+            TRACE_ERROR("%s Must be a currently active operation: '%s'\n",
+                        __func__, hdr->id);
+            rc = CKR_FUNCTION_FAILED;
+            pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock);
+            goto out;
+        }
+
+        if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+            TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+            rc = CKR_CANT_LOCK;
+            goto out;
+        }
+    }
+
     switch (event_type) {
     case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
         rc = cca_mk_change_init_query(tokdata, hdr, &info);
         break;
-    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
     case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
-    case EVENT_TYPE_MK_CHANGE_FINALIZE:
+        rc = cca_mk_change_finalize_query(tokdata, hdr, &info);
+        break;
     case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
+        rc = cca_mk_change_cancel_query(tokdata, hdr, &info);
+        break;
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+    case EVENT_TYPE_MK_CHANGE_FINALIZE:
     case EVENT_TYPE_MK_CHANGE_CANCEL:
         rc = CKR_OK;
         break;
