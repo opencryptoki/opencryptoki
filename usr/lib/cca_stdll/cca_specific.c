@@ -111,6 +111,7 @@ static CSNDKRW_t dll_CSNDKRW;
 static CSNBKYT_t dll_CSNBKYT;
 static CSNBKYTX_t dll_CSNBKYTX;
 static CSNBKTC_t dll_CSNBKTC;
+static CSNBKTC2_t dll_CSNBKTC2;
 static CSNBKTR_t dll_CSNBKTR;
 static CSNBRNG_t dll_CSNBRNG;
 static CSNBRNGL_t dll_CSNBRNGL;
@@ -636,6 +637,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     *(void **)(&dll_CSNBKYT) = dlsym(hdl, "CSNBKYT");
     *(void **)(&dll_CSNBKYTX) = dlsym(hdl, "CSNBKYTX");
     *(void **)(&dll_CSNBKTC) = dlsym(hdl, "CSNBKTC");
+    *(void **)(&dll_CSNBKTC2) = dlsym(hdl, "CSNBKTC2");
     *(void **)(&dll_CSNBKTR) = dlsym(hdl, "CSNBKTR");
     *(void **)(&dll_CSNBRNG) = dlsym(hdl, "CSNBRNG");
     *(void **)(&dll_CSNBRNGL) = dlsym(hdl, "CSNBRNGL");
@@ -8066,7 +8068,7 @@ static const char *mk_type_to_string(enum cca_mk_type mk_type)
 
 static CK_RV cca_check_token_config_expected_mkvp(STDLL_TokData_t *tokdata,
                                         struct cca_mk_change_op *mk_change_op,
-                                        CK_BBOOL new_wk)
+                                        CK_BBOOL new_mk)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     FILE *file;
@@ -8120,41 +8122,41 @@ static CK_RV cca_check_token_config_expected_mkvp(STDLL_TokData_t *tokdata,
     }
 
     if (mk_change_op->new_sym_mkvp_set && exp_sym_mkvp_set &&
-        memcmp(exp_sym_mkvp, new_wk ? mk_change_op->new_sym_mkvp :
+        memcmp(exp_sym_mkvp, new_mk ? mk_change_op->new_sym_mkvp :
                                             cca_private->expected_sym_mkvp,
                CCA_MKVP_LENGTH) != 0) {
         TRACE_ERROR("Expected SYM MKVP in config file '%s' does not specify "
                     "the %s MKVP\n", cca_private->token_config_filename,
-                    new_wk ? "new" : "current");
+                    new_mk ? "new" : "current");
         warnx("Expected SYM MKVP in config file '%s' does not specify the %s "
               "MKVP.", cca_private->token_config_filename,
-              new_wk ? "new" : "current");
+              new_mk ? "new" : "current");
         rc = CKR_FUNCTION_FAILED;
     }
 
     if (mk_change_op->new_aes_mkvp_set && exp_aes_mkvp_set &&
-        memcmp(exp_aes_mkvp, new_wk ? mk_change_op->new_aes_mkvp :
+        memcmp(exp_aes_mkvp, new_mk ? mk_change_op->new_aes_mkvp :
                                             cca_private->expected_aes_mkvp,
                CCA_MKVP_LENGTH) != 0) {
         TRACE_ERROR("Expected AES MKVP in config file '%s' does not specify "
                     "the %s MKVP\n", cca_private->token_config_filename,
-                    new_wk ? "new" : "current");
+                    new_mk ? "new" : "current");
         warnx("Expected AES MKVP in config file '%s' does not specify the %s "
               "MKVP.", cca_private->token_config_filename,
-              new_wk ? "new" : "current");
+              new_mk ? "new" : "current");
         rc = CKR_FUNCTION_FAILED;
     }
 
     if (mk_change_op->new_apka_mkvp_set && exp_apka_mkvp_set &&
-        memcmp(exp_apka_mkvp, new_wk ? mk_change_op->new_apka_mkvp :
+        memcmp(exp_apka_mkvp, new_mk ? mk_change_op->new_apka_mkvp :
                                             cca_private->expected_apka_mkvp,
                CCA_MKVP_LENGTH) != 0) {
         TRACE_ERROR("Expected APKA MKVP in config file '%s' does not specify "
                     "the %s MKVP\n", cca_private->token_config_filename,
-                    new_wk ? "new" : "current");
+                    new_mk ? "new" : "current");
         warnx("Expected APKA MKVP in config file '%s' does not specify the %s "
               "MKVP.", cca_private->token_config_filename,
-              new_wk ? "new" : "current");
+              new_mk ? "new" : "current");
         rc = CKR_FUNCTION_FAILED;
     }
 
@@ -8597,6 +8599,356 @@ out:
     return rc;
 }
 
+static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
+                                    struct cca_mk_change_op *mk_change_op,
+                                    CK_BYTE *sec_key, CK_BYTE *reenc_sec_key,
+                                    CK_ULONG sec_key_len, CK_BBOOL from_old)
+{
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp = NULL;
+    const CK_BYTE *new_mkvp = NULL;
+    const char *mk_type;
+    const char *verb;
+    enum cca_ktc_type ktc_type;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long return_code, reason_code, rule_array_count, exit_data_len = 0;
+    long token_length = sec_key_len;
+
+    if (analyse_cca_key_token(sec_key, sec_key_len, &keytype, &keybitsize,
+                              &mkvp) == FALSE) {
+        TRACE_ERROR("%s Blob is not a valid secure key token\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memset(rule_array, 0, sizeof(rule_array));
+    if (from_old)
+        memcpy(rule_array, "RTCMK   ", CCA_KEYWORD_SIZE);
+    else
+        memcpy(rule_array, "RTNMK   ", CCA_KEYWORD_SIZE);
+    rule_array_count = 2;
+
+    switch (keytype) {
+    case sec_des_data_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "DES     ", CCA_KEYWORD_SIZE);
+        mk_type = "SYM";
+        new_mkvp = mk_change_op->new_sym_mkvp;
+        ktc_type = CCA_KTC_DATA;
+        break;
+    case sec_aes_data_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "AES     ", CCA_KEYWORD_SIZE);
+        mk_type = "AES";
+        new_mkvp = mk_change_op->new_aes_mkvp;
+        ktc_type = CCA_KTC_DATA;
+        break;
+    case sec_aes_cipher_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "AES     ", CCA_KEYWORD_SIZE);
+        mk_type = "AES";
+        new_mkvp = mk_change_op->new_aes_mkvp;
+        ktc_type = CCA_KTC_CIPHER;
+        break;
+    case sec_hmac_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "HMAC    ", CCA_KEYWORD_SIZE);
+        mk_type = "AES";
+        new_mkvp = mk_change_op->new_aes_mkvp;
+        ktc_type = CCA_KTC_CIPHER;
+        break;
+    case sec_rsa_priv_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "RSA     ", CCA_KEYWORD_SIZE);
+        mk_type = "APKA";
+        new_mkvp = mk_change_op->new_apka_mkvp;
+        ktc_type = CCA_KTC_PKA;
+        break;
+    case sec_ecc_priv_key:
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "ECC     ", CCA_KEYWORD_SIZE);
+        mk_type = "APKA";
+        new_mkvp = mk_change_op->new_apka_mkvp;
+        ktc_type = CCA_KTC_PKA;
+        break;
+    default:
+        TRACE_ERROR("%s Blob is an invalid secure key type: %d\n",
+                    __func__, keytype);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (new_mkvp == NULL) {
+        TRACE_ERROR("%s Master key type %s is not affected by operation %s\n",
+                    __func__, mk_type, mk_change_op->mk_change_op);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(reenc_sec_key, sec_key, sec_key_len);
+
+    switch (ktc_type) {
+    case CCA_KTC_DATA:
+        verb = "CSNBKTC";
+        dll_CSNBKTC(&return_code, &reason_code,
+                    &exit_data_len, NULL,
+                    &rule_array_count, rule_array,
+                    reenc_sec_key);
+        break;
+    case CCA_KTC_CIPHER:
+        verb = "CSNBKTC2";
+        dll_CSNBKTC2(&return_code, &reason_code,
+                     &exit_data_len, NULL,
+                     &rule_array_count, rule_array,
+                     &token_length, reenc_sec_key);
+        break;
+    case CCA_KTC_PKA:
+        verb = "CSNDKTC";
+        dll_CSNDKTC(&return_code, &reason_code,
+                    &exit_data_len, NULL,
+                    &rule_array_count, rule_array,
+                    &token_length, reenc_sec_key);
+        break;
+    default:
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("%s (%s) failed. return:%ld, reason:%ld\n", verb,
+                    rule_array, return_code, reason_code);
+        if (return_code == 8 && reason_code == 48)
+            return CKR_DEVICE_ERROR; /* MKVP of key not valid */
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* check for expected new MK */
+    if (analyse_cca_key_token(reenc_sec_key, sec_key_len, &keytype, &keybitsize,
+                              &mkvp) == FALSE) {
+        TRACE_ERROR("%s Blob is not a valid secure key token\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (memcmp(mkvp, new_mkvp, CCA_MKVP_LENGTH) != 0) {
+        TRACE_ERROR("%s Re-enciphered key blob is not enciphered by expected "
+                    "new %s MK\n", __func__, mk_type);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Re-enciphered key blob is not enciphered"
+                   " by expected new %s MK\n", tokdata->slot_id, mk_type);
+        return CKR_DEVICE_ERROR;
+    }
+
+    return CKR_OK;
+}
+
+struct reencipher_data {
+    STDLL_TokData_t *tokdata;
+    struct cca_mk_change_op *mk_change_op;
+};
+
+static CK_RV cca_reencipher_objects_reenc(CK_BYTE *sec_key,
+                                          CK_BYTE *reenc_sec_key,
+                                          CK_ULONG sec_key_len,
+                                          void *private)
+{
+    struct reencipher_data *rd = private;
+
+    return cca_reencipher_sec_key(rd->tokdata, rd->mk_change_op,
+                                  sec_key, reenc_sec_key, sec_key_len, FALSE);
+}
+
+static CK_RV cca_reencipher_objects_cb(STDLL_TokData_t *tokdata,
+                                       OBJECT *obj, void *cb_data)
+{
+    struct reencipher_data *rd = cb_data;
+    CK_RV rc;
+
+    rc = obj_mgr_reencipher_secure_key(tokdata, obj,
+                                       cca_reencipher_objects_reenc, rd);
+    if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
+        rc = CKR_OK;
+
+    return rc;
+}
+
+static CK_BBOOL cca_reencipher_filter_cb(STDLL_TokData_t *tokdata,
+                                         OBJECT *obj, void *filter_data)
+{
+    struct cca_mk_change_op *mk_change_op  = filter_data;
+    CK_ATTRIBUTE *attr;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp = NULL;
+
+    UNUSED(tokdata);
+
+    if (template_attribute_find(obj->template, CKA_IBM_OPAQUE, &attr) == FALSE)
+        return FALSE;
+
+    if (analyse_cca_key_token(attr->pValue, attr->ulValueLen,
+                              &keytype, &keybitsize, &mkvp) == FALSE)
+        return FALSE;
+
+    switch (keytype) {
+    case sec_des_data_key:
+        return mk_change_op->new_sym_mkvp_set;
+
+    case sec_aes_data_key:
+    case sec_aes_cipher_key:
+    case sec_hmac_key:
+        return mk_change_op->new_aes_mkvp_set;
+
+    case sec_rsa_priv_key:
+    case sec_ecc_priv_key:
+        return mk_change_op->new_apka_mkvp_set;
+
+    default:
+        return FALSE;
+    }
+}
+
+static CK_BBOOL cca_reencipher_cancel_filter_cb(STDLL_TokData_t *tokdata,
+                                                OBJECT *obj, void *filter_data)
+{
+    CK_ATTRIBUTE *attr;
+
+    if (template_attribute_find(obj->template, CKA_IBM_OPAQUE_REENC,
+                                &attr) == FALSE)
+        return FALSE;
+
+    return cca_reencipher_filter_cb(tokdata, obj, filter_data);
+}
+
+static CK_RV cca_reencipher_cancel_objects_cb(STDLL_TokData_t *tokdata,
+                                              OBJECT *obj, void *cb_data)
+{
+    CK_RV rc;
+
+    UNUSED(cb_data);
+
+    rc = obj_mgr_reencipher_secure_key_cancel(tokdata, obj);
+    if (rc == CKR_ATTRIBUTE_TYPE_INVALID)
+        rc = CKR_OK;
+    if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
+        rc = CKR_OK;
+
+    return rc;
+}
+
+/*
+ * ATTENTION: This function is called in a separate thread. All actions
+ * performed by this function must be thread save and use locks to lock
+ * against concurrent access by other threads.
+ */
+static CK_RV cca_mk_change_reencipher(STDLL_TokData_t *tokdata,
+                                      event_mk_change_data_t *op,
+                                      struct hsm_mk_change_info *info)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    struct cca_mk_change_op *mk_change_op;
+    const unsigned char *new_sym_mk = NULL;
+    const unsigned char *new_aes_mk = NULL;
+    const unsigned char *new_apka_mk = NULL;
+    struct reencipher_data rd = { 0 };
+    CK_RV rc = CKR_OK;
+    unsigned int op_idx;
+    CK_BBOOL token_objs = FALSE;
+
+    if ((op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS) != 0) {
+        token_objs = TRUE;
+        /* The tool should have logged in a R/W USER session */
+        if (!session_mgr_user_session_exists(tokdata)) {
+            TRACE_ERROR("%s No user session exists\n", __func__);
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: No user session exists\n",
+                       tokdata->slot_id);
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (pthread_rwlock_wrlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Write-Lock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change Write-Lock failed\n",
+                   tokdata->slot_id);
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    mk_change_op = cca_mk_change_find_op(tokdata, op->id, NULL);
+    if (token_objs == TRUE && mk_change_op == NULL) {
+        TRACE_DEVEL("HSM-MK-change op %s must already be active\n", op->id);
+        OCK_SYSLOG(LOG_ERR,
+                   "Slot %lu: HSM-MK-change %s must already be active\n",
+                   tokdata->slot_id, op->id);
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* Activate this MK change operation if not already active */
+    if (mk_change_op == NULL) {
+        new_sym_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                              HSM_MK_TYPE_CCA_SYM,
+                                              CCA_MKVP_LENGTH);
+        new_aes_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                              HSM_MK_TYPE_CCA_AES,
+                                              CCA_MKVP_LENGTH);
+        new_apka_mk = hsm_mk_change_mkvps_find(info->mkvps, info->num_mkvps,
+                                               HSM_MK_TYPE_CCA_APKA,
+                                               CCA_MKVP_LENGTH);
+        if (new_sym_mk == NULL && new_aes_mk == NULL && new_apka_mk == NULL) {
+            TRACE_ERROR("%s No CCA MK type found in MK change operation: %s\n",
+                        __func__, op->id);
+            OCK_SYSLOG(LOG_ERR, "Slot %lu: No CCA MK type found in MK change "
+                       "operation: %s\n", tokdata->slot_id, op->id);
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        rc = cca_mk_change_activate_op(tokdata, op->id, info,
+                                       new_sym_mk, new_aes_mk, new_apka_mk,
+                                       &op_idx);
+        if (rc != CKR_OK)
+            goto out;
+
+         mk_change_op = &cca_private->mk_change_ops[op_idx];
+    }
+
+    TRACE_DEVEL("%s MK change op: %s\n", __func__,
+                mk_change_op->mk_change_op);
+    if (mk_change_op->new_sym_mkvp_set) {
+        TRACE_DEBUG_DUMP("New SYM MK: ", (void *)mk_change_op->new_sym_mkvp,
+                         CCA_MKVP_LENGTH);
+    }
+    if (mk_change_op->new_aes_mkvp_set) {
+        TRACE_DEBUG_DUMP("New AES MK: ", (void *)mk_change_op->new_aes_mkvp,
+                         CCA_MKVP_LENGTH);
+    }
+    if (mk_change_op->new_apka_mkvp_set) {
+        TRACE_DEBUG_DUMP("New APKA MK: ", (void *)mk_change_op->new_apka_mkvp,
+                         CCA_MKVP_LENGTH);
+    }
+
+    /* Re-encipher key objects */
+    rd.tokdata = tokdata;
+    rd.mk_change_op = mk_change_op;
+
+    rc = obj_mgr_iterate_key_objects(tokdata, !token_objs, token_objs,
+                                     cca_reencipher_filter_cb, mk_change_op,
+                                     cca_reencipher_objects_cb, &rd,
+                                     TRUE, "re-encipher");
+    if (rc != CKR_OK) {
+        obj_mgr_iterate_key_objects(tokdata, !token_objs, token_objs,
+                                    cca_reencipher_cancel_filter_cb, mk_change_op,
+                                    cca_reencipher_cancel_objects_cb, NULL,
+                                    TRUE, "cancel");
+        /*
+         * The pkcshsm_mk_change tool will send a CANCEL event, so leave the
+         * operation active for now.
+         */
+        goto out;
+    }
+
+out:
+    if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
+        TRACE_DEVEL("HSM-MK-change Unlock failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: HSM-MK-change unlock failed\n",
+                   tokdata->slot_id);
+        rc = CKR_CANT_LOCK;
+        goto out;
+    }
+
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -8665,13 +9017,15 @@ static CK_RV cca_handle_mk_change_event(STDLL_TokData_t *tokdata,
     case EVENT_TYPE_MK_CHANGE_INITIATE_QUERY:
         rc = cca_mk_change_init_query(tokdata, hdr, &info);
         break;
+    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
+        rc = cca_mk_change_reencipher(tokdata, hdr, &info);
+        break;
     case EVENT_TYPE_MK_CHANGE_FINALIZE_QUERY:
         rc = cca_mk_change_finalize_query(tokdata, hdr, &info);
         break;
     case EVENT_TYPE_MK_CHANGE_CANCEL_QUERY:
         rc = cca_mk_change_cancel_query(tokdata, hdr, &info);
         break;
-    case EVENT_TYPE_MK_CHANGE_REENCIPHER:
     case EVENT_TYPE_MK_CHANGE_FINALIZE:
     case EVENT_TYPE_MK_CHANGE_CANCEL:
         rc = CKR_OK;

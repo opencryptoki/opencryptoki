@@ -160,6 +160,12 @@ enum cca_cmk_state {
     CCA_CMK_STATUS_FULL  = 2,
 };
 
+enum cca_ktc_type {
+    CCA_KTC_DATA,
+    CCA_KTC_CIPHER,
+    CCA_KTC_PKA,
+};
+
 /* CCA STDLL debug logging definitions */
 
 #ifdef DEBUG
