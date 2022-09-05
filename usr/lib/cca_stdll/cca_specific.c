@@ -8866,6 +8866,130 @@ static CK_RV cca_reencipher_finalize_objects_cb(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+static CK_RV cca_finalize_sessions_cb(STDLL_TokData_t *tokdata,
+                                      SESSION *session, CK_ULONG ctx_type,
+                                      CK_MECHANISM *mech, CK_OBJECT_HANDLE key,
+                                      CK_BYTE *context, CK_ULONG context_len,
+                                      CK_BBOOL init_pending,
+                                      CK_BBOOL pkey_active, CK_BBOOL recover,
+                                      void *private)
+{
+    struct cca_mk_change_op *mk_change_op  = private;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    OBJECT *key_obj = NULL;
+    CK_OBJECT_CLASS class;
+    enum cca_token_type keytype;
+    unsigned int keybitsize;
+    const CK_BYTE *mkvp;
+    CK_RV rc;
+
+    UNUSED(session);
+    UNUSED(ctx_type);
+    UNUSED(mech);
+    UNUSED(context);
+    UNUSED(context_len);
+    UNUSED(init_pending);
+    UNUSED(pkey_active);
+    UNUSED(recover);
+
+    if (key == CK_INVALID_HANDLE)
+        return CKR_OK;
+
+    /*
+     * Update the key object from disk if it is a token object, the secure key
+     * is affected by the MK change operation, and it has been changed by
+     * another process, i.e. due to re-enciphering of the object by the
+     * pkcshsm_mk_change tool.
+     */
+    rc = object_mgr_find_in_map_nocache(tokdata, key, &key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_find_in_map1 failed\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to get key object: 0x%lx\n",
+                   tokdata->slot_id, rc);
+        goto done;
+    }
+
+    if (!object_is_token_object(key_obj))
+        goto done;
+
+    rc = template_attribute_get_ulong(key_obj->template, CKA_CLASS, &class);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s Failed to get object class: 0x%lx\n", __func__, rc);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to get object class: 0x%lx\n",
+                   tokdata->slot_id, rc);
+        goto done;
+    }
+
+    switch (class) {
+    case CKO_PUBLIC_KEY:
+    case CKO_PRIVATE_KEY:
+    case CKO_SECRET_KEY:
+        break;
+    default:
+        /* Not a key object */
+        goto done;
+    }
+
+    if (!template_attribute_find(key_obj->template, CKA_IBM_OPAQUE,
+                                 &opaque_attr)) {
+        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        TRACE_ERROR("%s Failed to get CKA_IBM_OPAQUE\n", __func__);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to gCKA_IBM_OPAQUE\n",
+                   tokdata->slot_id);
+        rc = CKR_TEMPLATE_INCOMPLETE;
+        goto done;
+    }
+
+    if (analyse_cca_key_token(opaque_attr->pValue, opaque_attr->ulValueLen,
+                              &keytype, &keybitsize, &mkvp) == FALSE) {
+        TRACE_ERROR("%s Key token is not valid: handle: %lu\n", __func__, key);
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Key token is not valid: handle: %lu\n",
+                   tokdata->slot_id, key);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    switch (keytype) {
+    case sec_des_data_key:
+        if (mk_change_op->new_sym_mkvp_set == FALSE)
+            goto done;
+        break;
+    case sec_aes_data_key:
+    case sec_aes_cipher_key:
+    case sec_hmac_key:
+        if (mk_change_op->new_aes_mkvp_set == FALSE)
+            goto done;
+        break;
+    case sec_rsa_priv_key:
+    case sec_ecc_priv_key:
+        if (mk_change_op->new_apka_mkvp_set == FALSE)
+            goto done;
+        break;
+    default:
+        goto done;
+    }
+
+    TRACE_INFO("%s Update token key object '%s' referenced by state of session "
+               "0x%lx\n", __func__, key_obj->name, session->handle);
+    OCK_SYSLOG(LOG_DEBUG, "Slot %lu: Update token key object '%s' referenced "
+               "by state of session 0x%lx\n", tokdata->slot_id, key_obj->name,
+               session->handle);
+
+    rc = object_mgr_check_shm(tokdata, key_obj, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("object_mgr_check_shm failed.\n");
+        OCK_SYSLOG(LOG_ERR, "Slot %lu: Failed to update token key object '%s' "
+                   "from SHM: 0x%lx\n", tokdata->slot_id, key_obj->name, rc);
+        goto done;
+    }
+
+done:
+    object_put(tokdata, key_obj, TRUE);
+    key_obj = NULL;
+
+    return rc;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -9057,6 +9181,19 @@ static CK_RV cca_mk_change_finalize_cancel(STDLL_TokData_t *tokdata,
                                      cancel ? "cancel" : "finalize");
     if (rc != CKR_OK)
         goto out;
+
+    if (!token_objs && !cancel) {
+        /* update token keys referenced in active sessions */
+        rc = session_mgr_iterate_session_ops(tokdata, NULL,
+                                             cca_finalize_sessions_cb,
+                                             mk_change_op);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_ERR,
+                       "Slot %lu: Failed to finalize sessions: 0x%lx\n",
+                       tokdata->slot_id, rc);
+            goto out;
+        }
+    }
 
     /*
      * Deactivate this MK change operation.
