@@ -756,7 +756,7 @@ void confignode_dump(FILE *fp, struct ConfigBaseNode *n,
  * f is an integer
  */
 #define confignode_foreach(i,c,f) \
-    for((i)=(c),(f)=1;(f)||(i)!=(c);(i)=(i)->next,(f)=0)
+    for((i)=(c),(f)=1;(i)&&((f)||(i)!=(c));(i)=(i)->next,(f)=0)
 
 static inline struct ConfigBaseNode *
 confignode_find(struct ConfigBaseNode *cfg, const char *key)
