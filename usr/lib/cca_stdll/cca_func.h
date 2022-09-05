@@ -288,6 +288,16 @@ typedef void (*CSNBKTC_t) (long *return_code,
                            unsigned char *rule_array,
                            unsigned char *key_identifier);
 
+/* Key Token Change 2 */
+typedef void (*CSNBKTC2_t) (long *return_code,
+                            long *reason_code,
+                            long *exit_data_length,
+                            unsigned char *exit_data,
+                            long *rule_array_count,
+                            unsigned char *rule_array,
+                            long *key_identifier_length,
+                            unsigned char *key_identifier);
+
 /* Key Translate */
 typedef void (*CSNBKTR_t) (long *return_code,
                            long *reason_code,
