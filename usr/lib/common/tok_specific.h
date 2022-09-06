@@ -49,8 +49,8 @@ CK_RV token_specific_init_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
 CK_RV token_specific_set_pin(STDLL_TokData_t *, SESSION *, CK_CHAR_PTR,
                              CK_ULONG, CK_CHAR_PTR, CK_ULONG);
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t *, CK_BYTE **, CK_ULONG *,
-                                 CK_ULONG, CK_BBOOL *);
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *, TEMPLATE *tmpl, CK_BYTE **,
+                                 CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
 CK_RV token_specific_des_ecb(STDLL_TokData_t *,
                              CK_BYTE *,
@@ -232,11 +232,12 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *, SESSION *,
 CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *,
                                             TEMPLATE *template);
 
-CK_RV token_specific_aes_key_gen(STDLL_TokData_t *,
+CK_RV token_specific_aes_key_gen(STDLL_TokData_t *, TEMPLATE *tmpl,
                                  CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
-CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *,
-        CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *, TEMPLATE *tmpl,
+                                     CK_BYTE **, CK_ULONG *, CK_ULONG,
+                                     CK_BBOOL *);
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *,
                              CK_BYTE *,

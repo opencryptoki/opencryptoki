@@ -3799,10 +3799,10 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BBOOL xts)
     }
 
     if (xts)
-        rc = token_specific.t_aes_xts_key_gen(tokdata, &aes_key, &token_keysize,
+        rc = token_specific.t_aes_xts_key_gen(tokdata, tmpl, &aes_key, &token_keysize,
                                           key_size, &is_opaque);
     else
-        rc = token_specific.t_aes_key_gen(tokdata, &aes_key, &token_keysize,
+        rc = token_specific.t_aes_key_gen(tokdata, tmpl, &aes_key, &token_keysize,
                                           key_size, &is_opaque);
     if (rc != CKR_OK)
         goto err;

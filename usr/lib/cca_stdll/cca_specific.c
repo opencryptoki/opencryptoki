@@ -2060,12 +2060,14 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
-                                 CK_ULONG *len, CK_ULONG keysize,
-                                 CK_BBOOL *is_opaque)
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_BYTE **des_key, CK_ULONG *len,
+                                 CK_ULONG keysize, CK_BBOOL *is_opaque)
 {
     unsigned char key_form[CCA_KEYWORD_SIZE];
     unsigned char key_type_1[CCA_KEYWORD_SIZE];
+
+    UNUSED(tmpl);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -3441,9 +3443,9 @@ done:
     return rc;
 }
 
-CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
-                                 CK_ULONG *len, CK_ULONG key_size,
-                                 CK_BBOOL *is_opaque)
+CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_BYTE **aes_key, CK_ULONG *len,
+                                 CK_ULONG key_size, CK_BBOOL *is_opaque)
 {
     long return_code, reason_code;
     unsigned char key_token[CCA_KEY_ID_SIZE] = { 0, };
@@ -3455,6 +3457,8 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
     unsigned char reserved_1[4] = { 0, };
     unsigned char point_to_array_of_zeros = 0;
     unsigned char mkvp[16] = { 0, };
+
+    UNUSED(tmpl);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));

@@ -1235,7 +1235,7 @@ CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_des_key_gen(tokdata, &des_key, &keysize,
+    rc = token_specific.t_des_key_gen(tokdata, tmpl, &des_key, &keysize,
                                       DES_KEY_SIZE, &is_opaque);
     if (rc != CKR_OK)
         goto err;
