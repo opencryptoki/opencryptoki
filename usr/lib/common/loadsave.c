@@ -1283,6 +1283,7 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     CK_ULONG master_key_len;
     CK_BYTE *master_key = NULL;
     CK_BBOOL is_opaque = FALSE;
+    TEMPLATE *tmpl = NULL;
 
     /* Skip it if master key is not needed. */
     if (!token_specific.data_store.use_master_key)
@@ -1310,20 +1311,29 @@ CK_RV generate_master_key_old(STDLL_TokData_t *tokdata, CK_BYTE *key)
     /* For clear key tokens, let token generate masterkey
      * since token will also encrypt/decrypt the objects.
      */
+    tmpl = (TEMPLATE *)calloc(1, sizeof(TEMPLATE));
+    if (tmpl == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        return CKR_HOST_MEMORY;
+    }
+
     switch (token_specific.data_store.encryption_algorithm) {
     case CKM_DES3_CBC:
-        rc = token_specific.t_des_key_gen(tokdata, &master_key,
+        rc = token_specific.t_des_key_gen(tokdata, tmpl, &master_key,
                                           &master_key_len, key_len,
                                           &is_opaque);
         break;
     case CKM_AES_CBC:
-        rc = token_specific.t_aes_key_gen(tokdata, &master_key,
+        rc = token_specific.t_aes_key_gen(tokdata, tmpl, &master_key,
                                           &master_key_len, key_len,
                                           &is_opaque);
         break;
     default:
+        template_free(tmpl);
         return CKR_MECHANISM_INVALID;
     }
+
+    template_free(tmpl);
 
     if (rc != CKR_OK)
         return rc;

@@ -252,10 +252,12 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **des_key,
-                                 CK_ULONG *len, CK_ULONG keysize,
-                                 CK_BBOOL *is_opaque)
+CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_BYTE **des_key, CK_ULONG *len,
+                                 CK_ULONG keysize, CK_BBOOL *is_opaque)
 {
+    UNUSED(tmpl);
+
     *des_key = malloc(keysize);
     if (*des_key == NULL)
         return CKR_HOST_MEMORY;
@@ -519,10 +521,12 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                                              openssl_specific_rsa_decrypt);
 }
 
-CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
-                                 CK_ULONG *len, CK_ULONG keysize,
+CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                 CK_BYTE **key, CK_ULONG *len, CK_ULONG keysize,
                                  CK_BBOOL *is_opaque)
 {
+    UNUSED(tmpl);
+
     *key = malloc(keysize);
     if (*key == NULL)
         return CKR_HOST_MEMORY;
@@ -532,10 +536,12 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
     return rng_generate(tokdata, *key, keysize);
 }
 
-CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
-                                    CK_ULONG *len, CK_ULONG keysize,
-                                    CK_BBOOL *is_opaque)
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                                     CK_BYTE **key, CK_ULONG *len,
+                                     CK_ULONG keysize, CK_BBOOL *is_opaque)
 {
+    UNUSED(tmpl);
+
     *key = malloc(keysize);
     if (*key == NULL)
         return CKR_HOST_MEMORY;

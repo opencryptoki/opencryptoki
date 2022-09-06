@@ -82,8 +82,8 @@ struct token_specific_struct {
     CK_RV(*t_set_pin) (STDLL_TokData_t *, SESSION *, CK_CHAR_PTR, CK_ULONG,
                        CK_CHAR_PTR, CK_ULONG);
 
-    CK_RV(*t_des_key_gen) (STDLL_TokData_t *, CK_BYTE **, CK_ULONG *, CK_ULONG,
-                           CK_BBOOL *);
+    CK_RV(*t_des_key_gen) (STDLL_TokData_t *, TEMPLATE *, CK_BYTE **,
+                           CK_ULONG *, CK_ULONG, CK_BBOOL *);
     CK_RV(*t_des_ecb) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
                        CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
     CK_RV(*t_des_cbc) (STDLL_TokData_t *, CK_BYTE *, CK_ULONG,
@@ -209,11 +209,11 @@ struct token_specific_struct {
     CK_RV(*t_generic_secret_key_gen) (STDLL_TokData_t *, TEMPLATE *);
 
     // Token Specific AES functions
-    CK_RV(*t_aes_key_gen) (STDLL_TokData_t *, CK_BYTE **, CK_ULONG *, CK_ULONG,
-                           CK_BBOOL *);
+    CK_RV(*t_aes_key_gen) (STDLL_TokData_t *, TEMPLATE *, CK_BYTE **,
+                           CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
-    CK_RV(*t_aes_xts_key_gen) (STDLL_TokData_t *, CK_BYTE **, CK_ULONG *, CK_ULONG,
-                               CK_BBOOL *);
+    CK_RV(*t_aes_xts_key_gen) (STDLL_TokData_t *, TEMPLATE *, CK_BYTE **,
+                               CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
     CK_RV(*t_aes_ecb) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
                        CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
