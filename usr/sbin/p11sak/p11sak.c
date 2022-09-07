@@ -112,13 +112,15 @@ static void load_pkcs11lib(void)
     atexit(unload_pkcs11lib);
 }
 
-static CK_RV get_pin(char **pin, size_t *pinlen)
+static CK_RV get_pin_prompt(char **pin, size_t *pinlen)
 {
     struct termios old, new;
     int nread;
     char *user_input = NULL;
     size_t buflen = 0;
     CK_RV rc = 0;
+
+    printf("Please enter user PIN: ");
 
     /* turn echoing off */
     if (tcgetattr(fileno(stdin), &old) != 0)
@@ -3186,28 +3188,17 @@ int main(int argc, char *argv[])
     /* now try to load the pkcs11 lib (will exit(99) on failure) */
     load_pkcs11lib();
 
-    /* Prompt for PIN if not already set via option */
-    if (!pin) {
-        printf("Please enter user PIN: ");
-        rc = get_pin(&pin, &pinlen);
-        if (rc != 0)
-            rc = CKR_FUNCTION_FAILED;
-        else
-            pin_allocated = ckb_true;
+    /* no pin in argv, fallback 1: try env */
+    if (!pin)
+        pin = getenv("PKCS11_USER_PIN");
 
-        if (pin == NULL || strlen(pin) == 0) {
-            char *s = getenv("PKCS11_USER_PIN");
-            if (s) {
-                free(pin);
-                pin = strdup(s);
-                if (!pin) {
-                    rc = CKR_HOST_MEMORY;
-                    goto done;
-                }
-            } else {
-                goto done;
-            }
+    /* no pin in argv or env, fallback 2: prompt */
+    if (!pin) {
+        if (get_pin_prompt(&pin, &pinlen) != 0) {
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
+        pin_allocated = ckb_true;
     }
 
     /* Open PKCS#11 session */
