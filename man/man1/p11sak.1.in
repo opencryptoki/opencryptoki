@@ -381,6 +381,9 @@ sets the token to
 sets the token PIN to
 .IR PIN
 .PP
+Alternatively the PKCS11_USER_PIN environment variable may be used to
+provide the token PIN.
+.PP
 .
 .
 .
@@ -512,6 +515,15 @@ variable.
 A custom path for p11sak_defined_attrs.conf can be set with the environment variable
 P11SAK_DEFAULT_CONF_FILE. If none is set p11sak will first look for the file in the user 
 directory, followed by the standard installation path.
+.PP
+.
+.
+.
+.SS "PKCS11_USER_PIN"
+The token PIN can be specified via the environment variable PKCS11_USER_PIN.
+If nothing is set and the option
+.B \-\-pin
+is not specified, p11sak will prompt for the token PIN interactively.
 .PP
 .
 .
