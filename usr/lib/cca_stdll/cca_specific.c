@@ -320,6 +320,10 @@ static CK_RV cca_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 static unsigned char *cca_mk_change_find_mkvp_in_ops(STDLL_TokData_t *tokdata,
                                                      enum cca_mk_type mk_type,
                                                      unsigned int *idx);
+static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
+                                    struct cca_mk_change_op *mk_change_op,
+                                    CK_BYTE *sec_key, CK_BYTE *reenc_sec_key,
+                                    CK_ULONG sec_key_len, CK_BBOOL from_old);
 
 /*
  * Helper function: Analyse given CCA token.
@@ -1496,6 +1500,315 @@ static CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+struct cca_select_single_data {
+    struct cca_mk_change_op *mk_change_op;
+    CK_BBOOL prefer_new_mk;
+    enum cca_mk_type mk_type;
+    char serialno[CCA_SERIALNO_LENGTH + 1];
+    unsigned short card;
+    unsigned short domain;
+    CK_BBOOL found;
+    CK_BBOOL preferred_found;
+};
+
+static CK_RV cca_select_single_apqn_cb(STDLL_TokData_t *tokdata,
+                                       const char *adapter,
+                                       unsigned short card,
+                                       unsigned short domain,
+                                       void *private)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    struct cca_select_single_data *ssd = private;
+    unsigned char cur_sym[CCA_MKVP_LENGTH];
+    unsigned char cur_aes[CCA_MKVP_LENGTH];
+    unsigned char cur_apka[CCA_MKVP_LENGTH];
+    CK_RV rc;
+
+    if (ssd->preferred_found)
+        return CKR_OK;
+
+    TRACE_DEVEL("%s Adapter %s (%02X.%04X)\n", __func__, adapter, card, domain);
+
+    rc = cca_get_mkvps(cur_sym, NULL, cur_aes, NULL, cur_apka, NULL);
+    if (rc != CKR_OK)
+        return CKR_OK; /* adapter may be offline */
+
+    switch (ssd->mk_type) {
+    case CCA_MK_SYM:
+        if (ssd->prefer_new_mk && ssd->mk_change_op->new_sym_mkvp_set &&
+            memcmp(cur_sym, ssd->mk_change_op->new_sym_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        if (ssd->prefer_new_mk == FALSE &&
+            memcmp(cur_sym, cca_private->expected_sym_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        break;
+    case CCA_MK_AES:
+        if (ssd->prefer_new_mk && ssd->mk_change_op->new_aes_mkvp_set &&
+            memcmp(cur_aes, ssd->mk_change_op->new_aes_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        if (ssd->prefer_new_mk == FALSE &&
+            memcmp(cur_aes, cca_private->expected_aes_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        break;
+    case CCA_MK_APKA:
+        if (ssd->prefer_new_mk && ssd->mk_change_op->new_apka_mkvp_set &&
+            memcmp(cur_apka, ssd->mk_change_op->new_apka_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        if (ssd->prefer_new_mk == FALSE &&
+            memcmp(cur_apka, cca_private->expected_apka_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            ssd->preferred_found = TRUE;
+        break;
+    default:
+        return CKR_FUNCTION_FAILED;;
+    }
+
+    rc = cca_get_adapter_serial_number(ssd->serialno);
+    if (rc != CKR_OK)
+        return CKR_OK; /* adapter may be offline */
+
+    ssd->card = card;
+    ssd->domain = domain;
+    ssd->found = TRUE;
+
+    return CKR_OK;
+}
+
+static enum cca_mk_type cca_mk_type_from_key_type(enum cca_token_type keytype)
+{
+    switch (keytype) {
+    case sec_des_data_key:
+        return CCA_MK_SYM;
+    case sec_aes_data_key:
+    case sec_aes_cipher_key:
+    case sec_hmac_key:
+        return CCA_MK_AES;
+    case sec_rsa_priv_key:
+    case sec_ecc_priv_key:
+        return CCA_MK_APKA;
+    default:
+        return -1;
+    }
+}
+
+static struct cca_mk_change_op *cca_mk_change_find_op_by_keytype(
+                                                   STDLL_TokData_t *tokdata,
+                                                   enum cca_token_type keytype)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    enum cca_mk_type mk_type = cca_mk_type_from_key_type(keytype);
+    unsigned int idx;
+
+    if (cca_mk_change_find_mkvp_in_ops(tokdata, mk_type, &idx) == NULL)
+        return NULL;
+
+    return &cca_private->mk_change_ops[idx];
+}
+
+static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
+                                    struct cca_mk_change_op *mk_change_op,
+                                    CK_BBOOL prefer_new_mk,
+                                    enum cca_token_type keytype,
+                                    char *serialno, CK_BBOOL *prefered_selected)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long return_code, reason_code, rule_array_count, device_name_len;
+    unsigned char *device_name;
+    struct cca_select_single_data ssd = { 0 };
+    CK_RV rc;
+
+    ssd.mk_change_op = mk_change_op;
+    ssd.prefer_new_mk = prefer_new_mk;
+    ssd.mk_type = cca_mk_type_from_key_type(keytype);
+
+    rc = cca_iterate_adapters(tokdata, cca_select_single_apqn_cb, &ssd);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ssd.found == FALSE) {
+        TRACE_ERROR("No single CCA APQN found\n");
+        return CKR_DEVICE_ERROR;
+    }
+
+    TRACE_DEVEL("single APQN %02X.%04X (Serialno %s) selected\n",
+                ssd.card, ssd.domain, ssd.serialno);
+    TRACE_DEVEL("APQN with prefered MK found: %d\n", ssd.preferred_found);
+
+    if (prefered_selected != NULL)
+        *prefered_selected = ssd.preferred_found;
+
+    /*
+     * If neither DEV-ANY, nor DOM-ANY is specified, no need to allocate the
+     * adapter, it a single adapter/domain configuration anyway.
+     */
+    if (!cca_private->dev_any && !cca_private->dom_any)
+        goto done;
+
+    /* Allocate the adapter */
+    memcpy(rule_array, "SERIAL  ", CCA_KEYWORD_SIZE );
+    rule_array_count = 1;
+    device_name_len = strlen(ssd.serialno);
+    device_name = (unsigned char *)ssd.serialno;
+
+    if (cca_private->dom_any) {
+        sprintf((char *)(rule_array + CCA_KEYWORD_SIZE), "DOMN%04u", ssd.domain);
+        rule_array_count = 2;
+    }
+
+    dll_CSUACRA(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &device_name_len, device_name);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACRA failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+done:
+    strncpy(serialno, ssd.serialno, CCA_SERIALNO_LENGTH + 1);
+    serialno[CCA_SERIALNO_LENGTH] = '\0';
+
+    return CKR_OK;
+}
+
+static CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long return_code, reason_code, rule_array_count, device_name_len;
+    unsigned char *device_name;
+
+    /*
+     * If neither DEV-ANY, nor DOM-ANY is specified, no need to deallocate the
+     * adapter, it a single adapter/domain configuration anyway.
+     */
+    if (!cca_private->dev_any && !cca_private->dom_any)
+        return CKR_OK;
+
+    /* Deallocate the adapter */
+    memcpy(rule_array, "SERIAL  ", CCA_KEYWORD_SIZE);
+    rule_array_count = 1;
+    device_name_len = strlen(serialno);
+    device_name = (unsigned char *)serialno;
+
+    if (cca_private->dom_any) {
+        memcpy(rule_array + CCA_KEYWORD_SIZE, "DOMN-DEF", CCA_KEYWORD_SIZE);
+        rule_array_count = 2;
+    }
+
+    dll_CSUACRD(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &device_name_len, device_name);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACRD failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
+                                        TEMPLATE* tmpl,  CK_BYTE *sec_key,
+                                        CK_ULONG sec_key_len, CK_BBOOL new_mk,
+                                        enum cca_token_type keytype)
+{
+    struct cca_mk_change_op *mk_change_op;
+    char serialno[CCA_SERIALNO_LENGTH + 1];
+    CK_BBOOL new_selected = FALSE;
+    CK_BYTE reenc_sec_key[CCA_KEY_TOKEN_SIZE] = { 0 };
+    CK_RV rc, rc2;
+    CK_ULONG retries = 0;
+
+    if (sec_key_len > sizeof(reenc_sec_key)) {
+        TRACE_ERROR("%s sec_key_len too large: %lu\n", __func__, sec_key_len);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    mk_change_op = cca_mk_change_find_op_by_keytype(tokdata, keytype);
+    if (mk_change_op == NULL)
+        return CKR_OK;
+
+    if (new_mk) {
+        memcpy(reenc_sec_key, sec_key, sec_key_len);
+        goto add_attr;
+    }
+
+    /* Try to re-encipher to new MK */
+    rc = cca_reencipher_sec_key(tokdata, mk_change_op, sec_key, reenc_sec_key,
+                                sec_key_len, FALSE);
+    if (rc == CKR_OK)
+        goto add_attr;
+
+    TRACE_ERROR("%s cca_reencipher_sec_key failed: 0x%lx\n", __func__, rc);
+    if (rc != CKR_DEVICE_ERROR)
+        return rc;
+
+retry:
+    /* Try to select a APQN with new MK set/activated */
+    rc = cca_select_single_apqn(tokdata, mk_change_op, TRUE, keytype, serialno,
+                                &new_selected);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s cca_select_single_apqn failed: 0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    TRACE_DEVEL("%s new_selected: %d\n", __func__, new_selected);
+
+    /*
+     * Retry re-enciphering, from-OLD if APQN with new MK was selected,
+     * otherwise try to-NEW again.
+     */
+    rc = cca_reencipher_sec_key(tokdata, mk_change_op, sec_key, reenc_sec_key,
+                                sec_key_len, new_selected);
+    if (rc != CKR_OK)
+        TRACE_ERROR("%s cca_reencipher_sec_key (2) failed: 0x%lx\n", __func__,
+                    rc);
+
+    rc2 = cca_deselect_single_apqn(tokdata, serialno);
+    if (rc2 != CKR_OK) {
+        TRACE_ERROR("%s cca_deselect_single_apqn failed: 0x%lx\n", __func__,
+                    rc2);
+        return rc2;
+    }
+
+    if (rc == CKR_OK)
+        goto add_attr;
+
+    /*
+     * If re-enciphering to-New has failed because the selected single APQN
+     * with old MK set has just got the new MK set, re-select a single APQN
+     * (preferably with new MK set) and retry. We should then get an APQN with
+     * the new MK set and then perform a re-encipher from-OLD.
+     */
+    if (new_selected == FALSE && rc == CKR_DEVICE_ERROR && retries < 2) {
+        retries++;
+        goto retry;
+    }
+
+    return rc;
+
+add_attr:
+    rc = build_update_attribute(tmpl, CKA_IBM_OPAQUE_REENC,
+                                reenc_sec_key, sec_key_len);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_update_attribute(CKA_IBM_OPAQUE_REENC) failed\n");
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
@@ -1980,7 +2293,7 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
+static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                          enum cca_key_type type, CK_BYTE * key,
                          unsigned char *key_form, unsigned char *key_type_1,
                          CK_ULONG key_size)
@@ -1995,6 +2308,8 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
+    CK_RV rc;
 
     if (type == CCA_DES_KEY) {
         switch (key_size) {
@@ -2052,9 +2367,16 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    rc = cca_reencipher_created_key(tokdata, tmpl, key, CCA_KEY_ID_SIZE,
+                                    new_mk, keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+        return rc;
     }
 
     return CKR_OK;
@@ -2083,7 +2405,7 @@ CK_RV token_specific_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(key_form, "OP      ", (size_t) CCA_KEYWORD_SIZE);
     memcpy(key_type_1, "DATA    ", (size_t) CCA_KEYWORD_SIZE);
 
-    return cca_key_gen(tokdata, CCA_DES_KEY, *des_key, key_form,
+    return cca_key_gen(tokdata, tmpl, CCA_DES_KEY, *des_key, key_form,
                        key_type_1, keysize);
 }
 
@@ -2488,6 +2810,7 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -2598,9 +2921,16 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    rv = cca_reencipher_created_key(tokdata, priv_tmpl, priv_key_token,
+                                    priv_key_token_length, new_mk, keytype);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rv);
+        return rv;
     }
 
     TRACE_DEVEL("RSA secure key token generated. size: %ld\n",
@@ -3458,8 +3788,6 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     unsigned char point_to_array_of_zeros = 0;
     unsigned char mkvp[16] = { 0, };
 
-    UNUSED(tmpl);
-
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
@@ -3514,7 +3842,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     memcpy(key_type, "AESTOKEN", (size_t) CCA_KEYWORD_SIZE);
     memcpy(*aes_key, key_token, (size_t) CCA_KEY_ID_SIZE);
 
-    return cca_key_gen(tokdata, CCA_AES_KEY, *aes_key, key_form,
+    return cca_key_gen(tokdata, tmpl, CCA_AES_KEY, *aes_key, key_form,
                        key_type, key_size);
 }
 
@@ -3977,6 +4305,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -4068,9 +4397,16 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    rv = cca_reencipher_created_key(tokdata, priv_tmpl, priv_key_token,
+                                    priv_key_token_length, new_mk, keytype);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rv);
+        return rv;
     }
 
     TRACE_DEVEL("ECC secure private key token generated. size: %ld\n",
@@ -5174,6 +5510,7 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
     enum cca_token_type token_type;
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     rc = template_attribute_find(priv_tmpl, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -5197,9 +5534,18 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, priv_tmpl,
+                                        opaque_attr->pValue,
+                                        opaque_attr->ulValueLen,
+                                        new_mk, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         t = opaque_attr->pValue;
@@ -5447,10 +5793,19 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
+
+        rc = cca_reencipher_created_key(tokdata, priv_tmpl, target_key_token,
+                                        target_key_token_length, new_mk,
+                                        token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
+        }
+
 
         /* Add the key object to the template */
         if ((rc = build_update_attribute(priv_tmpl, CKA_IBM_OPAQUE,
@@ -5665,6 +6020,7 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
     enum cca_token_type token_type;
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     rc = template_attribute_find(object->template, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -5721,9 +6077,18 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
             return CKR_KEY_FUNCTION_NOT_PERMITTED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        opaque_attr->pValue,
+                                        opaque_attr->ulValueLen,
+                                        new_mk, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* create a dummy CKA_VALUE attribute with the key bit size but all zero */
@@ -5789,9 +6154,17 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        target_key_id, CCA_KEY_ID_SIZE, new_mk,
+                                        token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* Add the key object to the template */
@@ -5821,6 +6194,7 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
     enum cca_token_type token_type;
     unsigned int token_payloadbitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     rc = template_attribute_find(object->template, CKA_VALUE, &value_attr);
     if (rc == FALSE) {
@@ -5860,9 +6234,18 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template,
+                                        opaque_attr->pValue,
+                                        opaque_attr->ulValueLen,
+                                        new_mk, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* calculate expected payload size from the given keybitlen */
@@ -5943,9 +6326,16 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, object->template, key_token,
+                                        key_token_len, new_mk, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* Add the key object to the template */
@@ -6280,6 +6670,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
     enum cca_token_type token_type;
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     rc = template_attribute_find(priv_templ, CKA_IBM_OPAQUE, &opaque_attr);
     if (rc == TRUE) {
@@ -6300,9 +6691,18 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return CKR_TEMPLATE_INCONSISTENT;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, priv_templ,
+                                        opaque_attr->pValue,
+                                        opaque_attr->ulValueLen,
+                                        new_mk, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* check curve and add CKA_EC_PARAMS attribute */
@@ -6438,9 +6838,17 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             return CKR_FUNCTION_FAILED;
         }
 
-        if (check_expected_mkvp(tokdata, token_type, mkvp, NULL) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, token_type, mkvp, &new_mk) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+
+        rc = cca_reencipher_created_key(tokdata, priv_templ, target_key_token,
+                                        target_key_token_length, new_mk,
+                                        token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+            return rc;
         }
 
         /* Add key token to template as CKA_IBM_OPAQUE */
@@ -6744,6 +7152,7 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -6819,9 +7228,16 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    rc = cca_reencipher_created_key(tokdata, template, key_token,
+                                    key_token_length, new_mk, keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+        return rc;
     }
 
     /* Add the key object to the template */
@@ -7024,6 +7440,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
     uint16_t val;
     CK_RV rc;
 
@@ -7161,9 +7578,16 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    if (check_expected_mkvp(tokdata, keytype, mkvp, NULL) != CKR_OK) {
+    if (check_expected_mkvp(tokdata, keytype, mkvp, &new_mk) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         return CKR_DEVICE_ERROR;
+    }
+
+    rc = cca_reencipher_created_key(tokdata, key->template, buffer, buffer_len,
+                                    new_mk, keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("cca_reencipher_created_key failed: 0x%lx\n", rc);
+        return rc;
     }
 
     switch (buffer[4]) {
