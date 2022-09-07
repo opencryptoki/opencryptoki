@@ -25,7 +25,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 
-#include <termios.h>
+#include <pin_prompt.h>
 #include "uri.h"
 #include "p11util.h"
 #include "p11sak.h"
@@ -112,51 +112,6 @@ static void load_pkcs11lib(void)
     atexit(unload_pkcs11lib);
 }
 
-static CK_RV get_pin(char **pin, size_t *pinlen)
-{
-    struct termios old, new;
-    int nread;
-    char *user_input = NULL;
-    size_t buflen = 0;
-    CK_RV rc = 0;
-
-    /* turn echoing off */
-    if (tcgetattr(fileno(stdin), &old) != 0)
-        return -1;
-
-    new = old;
-    new.c_lflag &= ~ECHO;
-    if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
-        return -1;
-
-    /* read the pin
-     * Note: getline will allocate memory for user_input. free it when done.
-     */
-    nread = getline(&user_input, &buflen, stdin);
-    if (nread == -1) {
-        rc = -1;
-        goto done;
-    }
-
-    /* Restore terminal */
-    (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-
-    /* start a newline */
-    printf("\n");
-    fflush(stdout);
-
-    /* strip the carriage return (if any) since not part of pin. */
-    if (user_input[nread - 1] == '\n')
-        user_input[nread - 1] = '\0';
-    *pinlen = strlen(user_input);
-    *pin = user_input;
-
-done:
-    if (rc != 0 && user_input)
-        free(user_input);
-
-    return rc;
-}
 /**
  * Translates the given key type to its string representation.
  */
@@ -2031,7 +1986,7 @@ static char* get_string_arg(int pos, char *argv[], int argc)
  */
 static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
                                  CK_ULONG *keylength, CK_SLOT_ID *slot,
-                                 char **pin, int *long_print, char **label,
+                                 const char **pin, int *long_print, char **label,
                                  int *full_uri)
 {
     CK_RV rc;
@@ -2146,8 +2101,9 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
  */
 static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                                 CK_ULONG *keylength, char **ECcurve,
-                                CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
-                                char **label, char **attr_string, char **dilithium_ver)
+                                CK_SLOT_ID *slot, const char **pin,
+                                CK_ULONG *exponent, char **label,
+                                char **attr_string, char **dilithium_ver)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2286,8 +2242,9 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
  * Parse the remove-key args.
  */
 static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
-                                   CK_SLOT_ID *slot, char **pin, char **label,
-                                   CK_ULONG *keylength, CK_BBOOL *forceAll)
+                                   CK_SLOT_ID *slot, const char **pin,
+                                   char **label, CK_ULONG *keylength,
+                                   CK_BBOOL *forceAll)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2395,9 +2352,10 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
  */
 static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
                             p11sak_kt *kt, CK_ULONG *keylength, char **ECcurve,
-                            CK_SLOT_ID *slot, char **pin, CK_ULONG *exponent,
-                            char **label, char **attr_string, int *long_print,
-                            int *full_uri, CK_BBOOL *forceAll, char **dilithium_ver)
+                            CK_SLOT_ID *slot, const char **pin,
+                            CK_ULONG *exponent, char **label,
+                            char **attr_string, int *long_print, int *full_uri,
+                            CK_BBOOL *forceAll, char **dilithium_ver)
 {
     CK_RV rc;
 
@@ -3155,9 +3113,8 @@ int main(int argc, char *argv[])
     char *dilithium_ver = NULL;
     CK_RV rc = CKR_OK;
     CK_SESSION_HANDLE session;
-    char *pin = NULL;
-    size_t pinlen;
-    CK_BBOOL pin_allocated = ckb_false;
+    const char *pin = NULL;
+    char *buf_user = NULL;
     CK_BBOOL forceAll = ckb_false;
 
     /* Check if just help requested */
@@ -3186,28 +3143,18 @@ int main(int argc, char *argv[])
     /* now try to load the pkcs11 lib (will exit(99) on failure) */
     load_pkcs11lib();
 
-    /* Prompt for PIN if not already set via option */
-    if (!pin) {
-        printf("Please enter user PIN: ");
-        rc = get_pin(&pin, &pinlen);
-        if (rc != 0)
-            rc = CKR_FUNCTION_FAILED;
-        else
-            pin_allocated = ckb_true;
+    /* try pin env */
+    if (!pin)
+        pin = getenv("PKCS11_USER_PIN");
 
-        if (pin == NULL || strlen(pin) == 0) {
-            char *s = getenv("PKCS11_USER_PIN");
-            if (s) {
-                free(pin);
-                pin = strdup(s);
-                if (!pin) {
-                    rc = CKR_HOST_MEMORY;
-                    goto done;
-                }
-            } else {
-                goto done;
-            }
-        }
+    /* try pin prompt */
+    if (!pin)
+        pin = pin_prompt(&buf_user, "Please enter user PIN: ");
+
+    /* no pin */
+    if (!pin) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* Open PKCS#11 session */
@@ -3248,9 +3195,7 @@ int main(int argc, char *argv[])
 done:
     /* free */
     confignode_deepfree(cfg);
-    
-    if (pin_allocated)
-        free(pin);
+    pin_free(&buf_user);
 
     return rc;
 }
