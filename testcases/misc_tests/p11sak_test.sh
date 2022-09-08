@@ -38,6 +38,8 @@ P11SAK_EC_POST=p11sak-ec-post.out
 P11SAK_IBM_DIL_PRE=p11sak-ibm-dil-pre.out
 P11SAK_IBM_DIL_LONG=p11sak-ibm-dil-long.out
 P11SAK_IBM_DIL_POST=p11sak-ibm-dil-post.out
+P11SAK_ALL_PINOPT=p11sak-all-pinopt
+P11SAK_ALL_PINENV=p11sak-all-pinenv
 
 
 echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
@@ -99,6 +101,11 @@ p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AES_LO
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_RSA_LONG
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_EC_LONG
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_IBM_DIL_LONG
+
+p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_ALL_PINOPT
+RC_P11SAK_PINOPT=$?
+p11sak list-key all --slot $SLOT &> $P11SAK_ALL_PINENV
+RC_P11SAK_PINENV=$?
 
 echo "** Now remove keys - 'p11sak_test.sh'"
 
@@ -661,6 +668,26 @@ else
 fi
 
 
+# check token pin handling
+if [ $RC_P11SAK_PINOPT = 0 ]; then
+	echo "* TESTCASE list-key pin-opt PASS Token pin option handling"
+else
+	echo "* TESTCASE list-key pin-option FAIL Token pin option handling"
+fi
+
+if [ $RC_P11SAK_PINENV = 0 ]; then
+	echo "* TESTCASE list-key pin-env PASS Token pin option handling"
+else
+	echo "* TESTCASE list-key pin-env FAIL Token pin option handling"
+fi
+
+if diff -q $P11SAK_ALL_PINOPT $P11SAK_ALL_PINENV ; then
+	echo "* TESTCASE list-key pin-both PASS Token pin opt/env output compare"
+else
+	echo "* TESTCASE list-key pin-both FAIL Token pin opt/env output compare"
+fi
+
+
 echo "** Now remove temporary output files - 'p11sak_test.sh'"
 
 
@@ -682,6 +709,8 @@ rm -f $P11SAK_EC_POST
 rm -f $P11SAK_IBM_DIL_PRE
 rm -f $P11SAK_IBM_DIL_LONG
 rm -f $P11SAK_IBM_DIL_POST
+rm -f $P11SAK_ALL_PINOPT
+rm -f $P11SAK_ALL_PINENV
 
 echo "** Now DONE testing - 'p11sak_test.sh' - rc = $status"
 
