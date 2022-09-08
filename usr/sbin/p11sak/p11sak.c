@@ -112,53 +112,47 @@ static void load_pkcs11lib(void)
     atexit(unload_pkcs11lib);
 }
 
-static CK_RV get_pin_prompt(char **pin, size_t *pinlen)
+static char *get_pin_prompt(void)
 {
     struct termios old, new;
     int nread;
-    char *user_input = NULL;
-    size_t buflen = 0;
-    CK_RV rc = 0;
+    size_t pinlen = 0;
+    char *pin = NULL;
 
     printf("Please enter user PIN: ");
+    fflush(stdout);
 
-    /* turn echoing off */
+    /* turn echo off */
     if (tcgetattr(fileno(stdin), &old) != 0)
-        return -1;
+        goto out;
 
     new = old;
     new.c_lflag &= ~ECHO;
+
     if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
-        return -1;
+        goto out;
 
-    /* read the pin
-     * Note: getline will allocate memory for user_input. free it when done.
-     */
-    nread = getline(&user_input, &buflen, stdin);
-    if (nread == -1) {
-        rc = -1;
-        goto done;
-    }
+    /* note: getline will allocate memory for pin. */
+    nread = getline(&pin, &pinlen, stdin);
 
-    /* Restore terminal */
-    (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
+    /* turn echo on (ignore errors) */
+    tcsetattr(fileno(stdin), TCSAFLUSH, &old);
 
     /* start a newline */
     printf("\n");
     fflush(stdout);
 
+    /* delayed getline() error handling */
+    if (nread == -1)
+        goto out;
+
     /* strip the carriage return (if any) since not part of pin. */
-    if (user_input[nread - 1] == '\n')
-        user_input[nread - 1] = '\0';
-    *pinlen = strlen(user_input);
-    *pin = user_input;
-
-done:
-    if (rc != 0 && user_input)
-        free(user_input);
-
-    return rc;
+    if (pin[nread - 1] == '\n')
+        pin[nread - 1] = '\0';
+out:
+    return pin;
 }
+
 /**
  * Translates the given key type to its string representation.
  */
@@ -3158,7 +3152,6 @@ int main(int argc, char *argv[])
     CK_RV rc = CKR_OK;
     CK_SESSION_HANDLE session;
     char *pin = NULL;
-    size_t pinlen;
     CK_BBOOL pin_allocated = ckb_false;
     CK_BBOOL forceAll = ckb_false;
 
@@ -3193,12 +3186,12 @@ int main(int argc, char *argv[])
         pin = getenv("PKCS11_USER_PIN");
 
     /* no pin in argv or env, fallback 2: prompt */
-    if (!pin) {
-        if (get_pin_prompt(&pin, &pinlen) != 0) {
-            rc = CKR_FUNCTION_FAILED;
-            goto done;
-        }
+    if ((!pin) && ((pin = get_pin_prompt()) != NULL))
         pin_allocated = ckb_true;
+
+    if ((!pin) || (strlen(pin) == 0)) {
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
     }
 
     /* Open PKCS#11 session */
@@ -3239,7 +3232,7 @@ int main(int argc, char *argv[])
 done:
     /* free */
     confignode_deepfree(cfg);
-    
+
     if (pin_allocated)
         free(pin);
 
