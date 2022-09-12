@@ -86,7 +86,7 @@ void pkcs_trace(pkcs_trace_level_t level, const char *file, int line,
     printf("%s", buf);
 }
 
-int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
+int compute_hash(int hash_type, int buf_size, const char *buf, char *digest)
 {
     EVP_MD_CTX *md_ctx = NULL;
     unsigned int result_size;
@@ -323,8 +323,8 @@ done:
  * Verify that SO PIN and user PIN are correct by comparing their SHA-1
  * values with the stored hashes in NVTOK.DAT.
  */
-int verify_pins(char *data_store, char *sopin, unsigned long sopinlen,
-                  char *userpin, unsigned long userpinlen)
+int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
+                  const char *userpin, unsigned long userpinlen)
 {
     TOKEN_DATA td;
     char fname[PATH_MAX];

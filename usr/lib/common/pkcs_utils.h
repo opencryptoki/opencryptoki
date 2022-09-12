@@ -26,7 +26,7 @@
 #define compute_sha1(a,b,c)     compute_hash((HASH_SHA1),(b),(a),(c))
 #define compute_md5(a,b,c)      compute_hash(HASH_MD5,(b),(a),(c))
 
-int compute_hash(int hash_type, int buf_size, char *buf, char *digest);
+int compute_hash(int hash_type, int buf_size, const char *buf, char *digest);
 
 CK_RV local_rng(CK_BYTE *output, CK_ULONG bytes);
 
@@ -44,8 +44,8 @@ CK_RV aes_256_gcm_seal(unsigned char *out, unsigned char tag[16],
 
 int get_pin(char **pin, size_t *pinlen);
 
-int verify_pins(char *data_store, char *sopin, unsigned long sopinlen,
-                char *userpin, unsigned long userpinlen);
+int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
+                const char *userpin, unsigned long userpinlen);
 
 void set_perm(int file);
 
