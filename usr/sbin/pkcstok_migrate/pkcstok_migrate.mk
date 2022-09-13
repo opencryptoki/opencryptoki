@@ -5,6 +5,7 @@ noinst_HEADERS += usr/lib/common/host_defs.h
 noinst_HEADERS += usr/include/local_types.h
 noinst_HEADERS += usr/lib/common/h_extern.h
 noinst_HEADERS += usr/lib/common/pkcs_utils.h
+noinst_HEADERS += usr/lib/common/pin_prompt.h
 
 usr_sbin_pkcstok_migrate_pkcstok_migrate_LDFLAGS = -lcrypto -ldl -lrt
 
@@ -23,6 +24,7 @@ usr_sbin_pkcstok_migrate_pkcstok_migrate_SOURCES =		\
 	usr/lib/common/sw_crypt.c				\
 	usr/lib/common/trace.c 					\
 	usr/lib/common/pkcs_utils.c				\
+	usr/lib/common/pin_prompt.c				\
 	usr/sbin/pkcstok_migrate/pkcstok_migrate.c		\
 	usr/lib/config/configuration.c				\
 	usr/lib/config/cfgparse.y 				\
