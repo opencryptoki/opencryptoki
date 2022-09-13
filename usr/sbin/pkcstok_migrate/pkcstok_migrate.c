@@ -28,7 +28,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <grp.h>
-#include <termios.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/mman.h>
@@ -45,6 +44,7 @@
 
 #define OCK_TOOL
 #include "pkcs_utils.h"
+#include "pin_prompt.h"
 
 
 #define TOKVERSION_00         0x00000000
@@ -2562,10 +2562,12 @@ int main(int argc, char **argv)
     int opt = 0, vlevel = -1;
     CK_SLOT_ID slot_id = 0;
     CK_BBOOL slot_id_specified = CK_FALSE;
-    size_t sopinlen, userpinlen, buflen = 0;
+    size_t buflen = 0;
     ssize_t num_chars;
     char *data_store = NULL, *data_store_old = NULL, *conf_dir = NULL;
-    char *sopin = NULL, *userpin = NULL, *verbose = NULL;
+    const char *sopin = NULL, *userpin = NULL;
+    char *buf_so = NULL, *buf_user = NULL;
+    char *verbose = NULL;
     char *buff = NULL;
     char dll_name[PATH_MAX];
     char data_store_new[PATH_MAX];
@@ -2604,20 +2606,10 @@ int main(int argc, char **argv)
             slot_id_specified = CK_TRUE;
             break;
         case 'u':
-            userpin = strdup(optarg);
-            if (userpin == NULL) {
-                warnx("strdup failed.");
-                exit(1);
-            }
-            userpinlen = strlen(userpin);
+            userpin = optarg;
             break;
         case 'p':
-            sopin = strdup(optarg);
-            if (sopin == NULL) {
-                warnx("strdup failed.");
-                exit(1);
-            }
-            sopinlen = strlen(sopin);
+            sopin = optarg;
             break;
         case 'v':
             verbose = strdup(optarg);
@@ -2773,29 +2765,25 @@ int main(int argc, char **argv)
     }
 
     /* Get the SO pin to authorize migration */
-    if (!sopin) {
-        printf("Enter the SO PIN: ");
-        fflush(stdout);
-        ret = get_pin(&sopin, &sopinlen);
-        if (ret != 0) {
-            warnx("Could not get SO PIN.");
-            goto done;
-        }
+    if (!sopin)
+        sopin = pin_prompt(&buf_so, "Enter the SO PIN: ");
+
+    if(!sopin) {
+        warnx("Could not get SO PIN.");
+        goto done;
     }
 
     /* Get the USER pin to authorize migration */
+    if (!userpin)
+        userpin = pin_prompt(&buf_user, "Enter the USER PIN: ");
+
     if (!userpin) {
-        printf("Enter the USER PIN: ");
-        fflush(stdout);
-        ret = get_pin(&userpin, &userpinlen);
-        if (ret != 0) {
-            warnx("Could not get USER PIN.");
-            goto done;
-        }
+        warnx("Could not get USER PIN.");
+        goto done;
     }
 
     /* Verify the SO and USER PINs entered against NVTOK.DAT. */
-    ret = verify_pins(data_store, sopin, sopinlen, userpin, userpinlen);
+    ret = verify_pins(data_store, sopin, strlen(sopin), userpin, strlen(userpin));
     if (ret) {
         warnx("Could not verify pins.");
         goto done;
@@ -2866,8 +2854,8 @@ finalize:
 done:
 
     free(buff);
-    free(sopin);
-    free(userpin);
+    pin_free(&buf_so);
+    pin_free(&buf_user);
     free(data_store);
     free(conf_dir);
     free(verbose);
