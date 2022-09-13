@@ -42,8 +42,6 @@ CK_RV aes_256_gcm_seal(unsigned char *out, unsigned char tag[16],
                        const unsigned char key[32],
                        const unsigned char iv[12]);
 
-int get_pin(char **pin, size_t *pinlen);
-
 int verify_pins(char *data_store, const char *sopin, unsigned long sopinlen,
                 const char *userpin, unsigned long userpinlen);
 
