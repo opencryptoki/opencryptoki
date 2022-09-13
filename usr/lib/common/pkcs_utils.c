@@ -18,7 +18,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <termios.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -259,63 +258,6 @@ CK_RV aes_256_gcm_seal(unsigned char *out, unsigned char tag[16],
     rc = CKR_OK;
 done:
     EVP_CIPHER_CTX_free(ctx);
-    return rc;
-}
-
-int get_pin(char **pin, size_t *pinlen)
-{
-    struct termios old, new;
-    int nread;
-    char *buff = NULL;
-    size_t buflen;
-    int rc = 0;
-
-    /* turn echoing off */
-    if (tcgetattr(fileno(stdin), &old) != 0)
-        return -1;
-
-    new = old;
-    new.c_lflag &= ~ECHO;
-    if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
-        return -1;
-
-    /* read the pin
-     * Note: getline will allocate memory for buff. free it when done.
-     */
-    nread = getline(&buff, &buflen, stdin);
-    if (nread == -1) {
-        (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-        rc = -1;
-        goto done;
-    }
-
-    /* Restore terminal */
-    (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-
-    /* start a newline */
-    printf("\n");
-    fflush(stdout);
-
-    /* Allocate  PIN.
-     * Note: nread includes carriage return.
-     * Replace with terminating NULL.
-     */
-    *pin = (char *) malloc(nread);
-    if (*pin == NULL) {
-        rc = -ENOMEM;
-        goto done;
-    }
-
-    /* strip the carriage return since not part of pin. */
-    buff[nread - 1] = '\0';
-    memcpy(*pin, buff, nread);
-    /* don't include the terminating null in the pinlen */
-    *pinlen = nread - 1;
-
-done:
-    if (buff)
-        free(buff);
-
     return rc;
 }
 
