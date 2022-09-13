@@ -1,10 +1,12 @@
 check_PROGRAMS = testcases/unit/policytest testcases/unit/hashmaptest	\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
-	testcases/unit/buffertest testcases/unit/uritest
+	testcases/unit/buffertest testcases/unit/uritest		\
+	testcases/unit/pintest
 
 TESTS = testcases/unit/policytest testcases/unit/hashmaptest		\
 	testcases/unit/mechtabletest testcases/unit/configdump		\
-	testcases/unit/buffertest testcases/unit/uritest
+	testcases/unit/buffertest testcases/unit/uritest		\
+	testcases/unit/pintest.sh
 
 testcases_unit_policytest_CFLAGS=-I${top_srcdir}/usr/lib/common		\
 	-I${top_srcdir}/usr/lib/api -I${top_srcdir}/usr/include		\
@@ -56,3 +58,9 @@ testcases_unit_uritest_SOURCES=testcases/unit/uritest.c		\
 
 testcases_unit_uritest_CFLAGS=-I${top_srcdir}/usr/lib/common	\
 	-I${top_srcdir}/usr/include -I${top_builddir}/usr/lib/api
+
+testcases_unit_pintest_SOURCES=testcases/unit/pintest.c		\
+	usr/lib/common/buffer.c usr/lib/common/pin_prompt.c
+
+testcases_unit_pintest_CFLAGS=-I${top_srcdir}/usr/lib/common
+testcases_unit_pintest_LDFLAGS=-lcrypto

@@ -63,6 +63,7 @@ testcases/unit/mechtabletest
 testcases/unit/policytest
 testcases/unit/buffertest
 testcases/unit/uritest
+testcases/unit/pintest
 usr/sbin/p11sak/p11sak
 usr/sbin/pkcscca/pkcscca
 usr/sbin/pkcsconf/pkcsconf
