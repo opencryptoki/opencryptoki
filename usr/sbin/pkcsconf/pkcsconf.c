@@ -244,20 +244,15 @@ int main(int argc, char *argv[])
     /* If the user wants to initialize the card check to see if they passed in
      * the SO pin, if not ask for the PIN */
     if (flags & CFG_INITIALIZE) {
-        if (flags & CFG_SLOT) {
-            if (~flags & CFG_SO_PIN) {
-                int rc;
-                do {
-                    printf("Enter the SO PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&(sopin));
-                } while (rc == -EINVAL);
-            }
-            rv = init_token(in_slot, sopin);
-        } else {
-            warnx("Must specify one slot");
-            rv = CKR_FUNCTION_FAILED;
+        if (~flags & CFG_SO_PIN) {
+            int rc;
+            do {
+                printf("Enter the SO PIN: ");
+                fflush(stdout);
+                rc = get_pin(&(sopin));
+            } while (rc == -EINVAL);
         }
+        rv = init_token(in_slot, sopin);
     }
 
     /* If the user wants to initialize the User PIN, check to see if they have
@@ -266,125 +261,110 @@ int main(int argc, char *argv[])
      * verify it
      */
     if (flags & CFG_INIT_USER) {
-        if (flags & CFG_SLOT) {
-            if (~flags & CFG_SO_PIN) {
-                int rc;
+        if (~flags & CFG_SO_PIN) {
+            int rc;
 
-                do {
-                    printf("Enter the SO PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&sopin);
-                } while (rc == -EINVAL);
-            }
-            if (~flags & CFG_NEW_PIN) {
-                int rc;
-
-                do {
-                    printf("Enter the new user PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin);
-                } while (rc == -EINVAL);
-                newpinlen = strlen((char *) newpin);
-                do {
-                    printf("Re-enter the new user PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin2);
-                } while (rc == -EINVAL);
-                newpin2len = strlen((char *) newpin2);
-                if (newpinlen != newpin2len
-                    || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    warnx("New PINs do not match.");
-                    exit(CKR_PIN_INVALID);
-                }
-            }
-            rv = init_user_pin(in_slot, newpin, sopin);
-        } else {
-            warnx("Must specify one slot");
-            rv = CKR_FUNCTION_FAILED;
+            do {
+                printf("Enter the SO PIN: ");
+                fflush(stdout);
+                rc = get_pin(&sopin);
+            } while (rc == -EINVAL);
         }
+        if (~flags & CFG_NEW_PIN) {
+            int rc;
+
+            do {
+                printf("Enter the new user PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin);
+            } while (rc == -EINVAL);
+            newpinlen = strlen((char *) newpin);
+            do {
+                printf("Re-enter the new user PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin2);
+            } while (rc == -EINVAL);
+            newpin2len = strlen((char *) newpin2);
+            if (newpinlen != newpin2len
+                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
+                warnx("New PINs do not match.");
+                exit(CKR_PIN_INVALID);
+            }
+        }
+        rv = init_user_pin(in_slot, newpin, sopin);
     }
 
     /* If the user wants to set the SO PIN, check to see if they have passed the
      * current SO PIN and the New PIN in.  If not prompt and validate them. */
     if (flags & CFG_SET_SO) {
-        if (flags & CFG_SLOT) {
-            if (~flags & CFG_SO_PIN) {
-                int rc;
+        if (~flags & CFG_SO_PIN) {
+            int rc;
 
-                do {
-                    printf("Enter the SO PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&sopin);
-                } while (rc == -EINVAL);
-            }
-            if (~flags & CFG_NEW_PIN) {
-                int rc;
-
-                do {
-                    printf("Enter the new SO PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin);
-                } while (rc == -EINVAL);
-                newpinlen = strlen((char *) newpin);
-                do {
-                    printf("Re-enter the new SO PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin2);
-                } while (rc == -EINVAL);
-                newpin2len = strlen((char *) newpin2);
-                if (newpinlen != newpin2len
-                    || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    warnx("New PINs do not match.");
-                    exit(CKR_PIN_INVALID);
-                }
-            }
-            rv = set_user_pin(in_slot, CKU_SO, sopin, newpin);
-        } else {
-            warnx("Must specify one slot");;
-            rv = CKR_FUNCTION_FAILED;
+            do {
+                printf("Enter the SO PIN: ");
+                fflush(stdout);
+                rc = get_pin(&sopin);
+            } while (rc == -EINVAL);
         }
+        if (~flags & CFG_NEW_PIN) {
+            int rc;
+
+            do {
+                printf("Enter the new SO PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin);
+            } while (rc == -EINVAL);
+            newpinlen = strlen((char *) newpin);
+            do {
+                printf("Re-enter the new SO PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin2);
+            } while (rc == -EINVAL);
+            newpin2len = strlen((char *) newpin2);
+            if (newpinlen != newpin2len
+                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
+                warnx("New PINs do not match.");
+                exit(CKR_PIN_INVALID);
+            }
+        }
+        rv = set_user_pin(in_slot, CKU_SO, sopin, newpin);
     }
 
     /* If the user wants to set the User PIN, check to see if they have passed
      * the current User PIN and the New PIN in. If not prompt and validate them.
      */
     if (flags & CFG_SET_USER) {
-        if (flags & CFG_SLOT) {
-            if (~flags & CFG_USER_PIN) {
-                int rc;
+        if (~flags & CFG_USER_PIN) {
+            int rc;
 
-                do {
-                    printf("Enter user PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&pin);
-                } while (rc == -EINVAL);
-            }
-            if (~flags & CFG_NEW_PIN) {
-                int rc;
-
-                do {
-                    printf("Enter the new user PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin);
-                } while (rc == -EINVAL);
-                newpinlen = strlen((char *) newpin);
-                do {
-                    printf("Re-enter the new user PIN: ");
-                    fflush(stdout);
-                    rc = get_pin(&newpin2);
-                } while (rc == -EINVAL);
-                newpin2len = strlen((char *) newpin2);
-                if (newpinlen != newpin2len
-                    || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                    warnx("New PINs do not match.");
-                    exit(CKR_PIN_INVALID);
-                }
-            }
-            rv = set_user_pin(in_slot, CKU_USER, pin, newpin);
-        } else {
-            warnx("Must specify one slot");
-            rv = CKR_FUNCTION_FAILED;
+            do {
+                printf("Enter user PIN: ");
+                fflush(stdout);
+                rc = get_pin(&pin);
+            } while (rc == -EINVAL);
         }
+        if (~flags & CFG_NEW_PIN) {
+            int rc;
+
+            do {
+                printf("Enter the new user PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin);
+            } while (rc == -EINVAL);
+            newpinlen = strlen((char *) newpin);
+            do {
+                printf("Re-enter the new user PIN: ");
+                fflush(stdout);
+                rc = get_pin(&newpin2);
+            } while (rc == -EINVAL);
+            newpin2len = strlen((char *) newpin2);
+            if (newpinlen != newpin2len
+                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
+                warnx("New PINs do not match.");
+                exit(CKR_PIN_INVALID);
+            }
+        }
+        rv = set_user_pin(in_slot, CKU_USER, pin, newpin);
     }
 
     /* We are done, detach from shared memory, and free the memory we may have
