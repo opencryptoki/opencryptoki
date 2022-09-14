@@ -12,8 +12,8 @@ usr_sbin_pkcsicsf_pkcsicsf_CFLAGS =					\
 
 usr_sbin_pkcsicsf_pkcsicsf_SOURCES =					\
 	usr/lib/icsf_stdll/icsf.c usr/lib/icsf_stdll/pbkdf.c		\
-	usr/lib/common/trace.c usr/sbin/pkcsicsf/pkcsicsf.c		\
-	usr/lib/config/configuration.c					\
+	usr/lib/common/trace.c usr/lib/common/pin_prompt.c		\
+	usr/sbin/pkcsicsf/pkcsicsf.c usr/lib/config/configuration.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
 
 usr/sbin/pkcsicsf/pkcsicsf.$(OBJEXT): usr/lib/config/cfgparse.h
