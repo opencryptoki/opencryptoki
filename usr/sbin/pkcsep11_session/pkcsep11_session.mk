@@ -1,6 +1,6 @@
 sbin_PROGRAMS += usr/sbin/pkcsep11_session/pkcsep11_session
 
-usr_sbin_pkcsep11_session_pkcsep11_session_LDFLAGS = -lc -ldl -lpthread
+usr_sbin_pkcsep11_session_pkcsep11_session_LDFLAGS = -lc -ldl -lpthread -lcrypto
 
 usr_sbin_pkcsep11_session_pkcsep11_session_CFLAGS = -DLINUX		\
 	-DPROGRAM_NAME=\"$(@)\" -I${srcdir}/usr/include			\
@@ -9,7 +9,7 @@ usr_sbin_pkcsep11_session_pkcsep11_session_CFLAGS = -DLINUX		\
 	-I${top_builddir}/usr/lib/api
 
 usr_sbin_pkcsep11_session_pkcsep11_session_SOURCES =			\
-	usr/lib/common/p11util.c					\
+	usr/lib/common/p11util.c usr/lib/common/pin_prompt.c		\
 	usr/sbin/pkcsep11_session/pkcsep11_session.c
 
 nodist_usr_sbin_pkcsep11_session_pkcsep11_session_SOURCES =		\

@@ -26,13 +26,13 @@
 #include <regex.h>
 #include <dirent.h>
 #include <libgen.h>
-#include <termios.h>
 #include <errno.h>
 
 #define OCK_NO_EP11_DEFINES
 #include "../../include/pkcs11types.h"
 #include "../../lib/common/p11util.h"
 #include "../../lib/ep11_stdll/ep11_func.h"
+#include "pin_prompt.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
 #define EP11SHAREDLIB_V3 "libep11.so.3"
@@ -90,120 +90,61 @@ CK_VERSION lib_version;
 #define ACTION_VHSMPIN  3
 #define ACTION_STATUS   4
 
-int get_pin(char **pin, size_t *pinlen)
-{
-    struct termios old, new;
-    int nread;
-    char *buff = NULL;
-    size_t buflen;
-    int rc = 0;
-
-    /* turn echoing off */
-    if (tcgetattr(fileno(stdin), &old) != 0)
-        return -1;
-
-    new = old;
-    new.c_lflag &= ~ECHO;
-    if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
-        return -1;
-
-    /* read the pin
-     * Note: getline will allocate memory for buff. free it when done.
-     */
-    nread = getline(&buff, &buflen, stdin);
-    if (nread == -1) {
-        rc = -1;
-        goto done;
-    }
-
-    /* Restore terminal */
-    tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-
-    /* start a newline */
-    printf("\n");
-    fflush(stdout);
-
-    /* Allocate  PIN.
-     * Note: nread includes carriage return.
-     * Replace with terminating NULL.
-     */
-    *pin = (char *) malloc(nread);
-    if (*pin == NULL) {
-        rc = -ENOMEM;
-        goto done;
-    }
-
-    /* strip the carriage return since not part of pin. */
-    buff[nread - 1] = '\0';
-    memcpy(*pin, buff, nread);
-    /* don't include the terminating null in the pinlen */
-    *pinlen = nread - 1;
-
-done:
-    if (buff)
-        free(buff);
-
-    return rc;
-}
-
 static int get_user_pin(CK_BYTE *dest)
 {
-    int ret;
-    char *userpin = NULL;
-    size_t userpinlen;
+    int ret = -1;
+    const char *userpin;
+    char *buf_user = NULL;
 
-    printf("Enter the USER PIN: ");
-    fflush(stdout);
-    ret = get_pin(&userpin, &userpinlen);
-    if (ret != 0) {
+    userpin = pin_prompt(&buf_user, "Enter the USER PIN: ");
+    if (!userpin) {
         fprintf(stderr, "Could not get USER PIN.\n");
-        return -1;
+        goto out;
     }
 
-    if (userpinlen > PKCS11_MAX_PIN_LEN) {
+    if (strlen(userpin) > PKCS11_MAX_PIN_LEN) {
         fprintf(stderr, "The USER PIN must be less than %d chars in length.\n",
                 (int) PKCS11_MAX_PIN_LEN);
-        free(userpin);
-        return -1;
+        goto out;
     }
 
-    memcpy(dest, userpin, userpinlen + 1);
-    free(userpin);
-
-    return 0;
+    memcpy(dest, userpin, strlen(userpin) + 1);
+    ret = 0;
+out:
+    pin_free(&buf_user);
+    return ret;
 }
 
 static int get_vhsm_pin(CK_BYTE *dest)
 {
-    int ret;
-    char *vhsmpin = NULL;
+    int ret = -1;
+    const char *vhsmpin = NULL;
+    char *buf_vhsm = NULL;
     size_t vhsmpinlen;
 
-    printf("Enter the new VHSM PIN: ");
-    fflush(stdout);
-    ret = get_pin(&vhsmpin, &vhsmpinlen);
-    if (ret != 0) {
+    vhsmpin = pin_prompt(&buf_vhsm, "Enter the new VHSM PIN: ");
+    if (!vhsmpin) {
         fprintf(stderr, "Could not get VHSM PIN.\n");
-        return -1;
+        goto out;
     }
+    vhsmpinlen = strlen(vhsmpin);
 
     if (vhsmpinlen < XCP_MIN_PINBYTES) {
         fprintf(stderr, "The VHSM PIN must be at least %d chars in length.\n",
                 (int) XCP_MIN_PINBYTES);
-        free(vhsmpin);
-        return -1;
+        goto out;
     }
     if (vhsmpinlen > XCP_MAX_PINBYTES) {
         fprintf(stderr, "The VHSM PIN must be less than %d chars in length.\n",
                 (int) XCP_MAX_PINBYTES);
-        free(vhsmpin);
-        return -1;
+        goto out;
     }
 
     memcpy(dest, vhsmpin, vhsmpinlen + 1);
-    free(vhsmpin);
-
-    return 0;
+    ret = 0;
+out:
+    pin_free(&buf_vhsm);
+    return ret;
 }
 
 static int do_GetFunctionList(void)
