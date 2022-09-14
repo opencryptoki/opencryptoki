@@ -19,7 +19,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <termios.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -32,6 +31,7 @@
 #include "defs.h"
 #include "cfgparser.h"
 #include "configuration.h"
+#include "pin_prompt.h"
 
 #define CFG_ADD         0x0001
 #define CFG_LIST        0x0002
@@ -79,62 +79,6 @@ static void usage(char *progname)
     printf("\t-u the URI to connect to\n");
 
     exit(-1);
-}
-
-static int get_pin(char **pin, size_t *pinlen)
-{
-    struct termios old, new;
-    int nread;
-    char *buff = NULL;
-    size_t buflen;
-    int rc = 0;
-
-    /* turn echoing off */
-    if (tcgetattr(fileno(stdin), &old) != 0)
-        return -1;
-
-    new = old;
-    new.c_lflag &= ~ECHO;
-    if (tcsetattr(fileno(stdin), TCSAFLUSH, &new) != 0)
-        return -1;
-
-    /* read the pin
-     * Note: getline will allocate memory for buff. free it when done.
-     */
-    nread = getline(&buff, &buflen, stdin);
-    if (nread == -1) {
-        rc = -1;
-        goto done;
-    }
-
-    /* Restore terminal */
-    (void) tcsetattr(fileno(stdin), TCSAFLUSH, &old);
-
-    /* start a newline */
-    printf("\n");
-    fflush(stdout);
-
-    /* Allocate  PIN.
-     * Note: nread includes carriage return.
-     * Replace with terminating NULL.
-     */
-    *pin = (char *) malloc(nread);
-    if (*pin == NULL) {
-        rc = -ENOMEM;
-        goto done;
-    }
-
-    /* strip the carriage return since not part of pin. */
-    buff[nread - 1] = '\0';
-    memcpy(*pin, buff, nread);
-    /* don't include the terminating null in the pinlen */
-    *pinlen = nread - 1;
-
-done:
-    if (buff)
-        free(buff);
-
-    return rc;
 }
 
 static int get_free_slot(struct ConfigBaseNode *config)
@@ -476,20 +420,17 @@ static int retrieve_all(void)
     return 0;
 }
 
-static int secure_racf_passwd(char *racfpwd, unsigned int len)
+static int secure_racf_passwd(const char *racfpwd, unsigned int len)
 {
-    char *sopin = NULL;
+    const char *sopin;
+    char *buf_so = NULL;
     unsigned char masterkey[AES_KEY_SIZE_256];
     char fname[PATH_MAX];
     int rc;
-    size_t sopinlen;
-
 
     /* get the SO PIN */
-    printf("Enter the SO PIN: ");
-    fflush(stdout);
-    rc = get_pin(&sopin, &sopinlen);
-    if (rc != 0) {
+    sopin = pin_prompt(&buf_so, "Enter the SO PIN: ");
+    if (!sopin) {
         fprintf(stderr, "Could not get SO PIN.\n");
         rc = -1;
         goto cleanup;
@@ -525,16 +466,15 @@ static int secure_racf_passwd(char *racfpwd, unsigned int len)
     }
 
 cleanup:
-    if (sopin)
-        free(sopin);
+    pin_free(&buf_so);
 
     return rc;
 }
 
 int main(int argc, char **argv)
 {
-    char *racfpwd = NULL;
-    size_t racflen;
+    const char *racfpwd = NULL;
+    char *buf_racfpwd = NULL;
     char *tokenname = NULL;
     int c;
     int rc = 0;
@@ -657,11 +597,10 @@ int main(int argc, char **argv)
     /* get racf password if needed */
     if ((flags & CFG_ADD) || (flags & CFG_LIST)) {
         if (flags & CFG_MECH_SIMPLE) {
-            printf("Enter the RACF passwd: ");
-            fflush(stdout);
-            rc = get_pin(&racfpwd, &racflen);
-            if (rc != 0) {
+            racfpwd = pin_prompt(&buf_racfpwd, "Enter the RACF passwd: ");
+            if (!racfpwd) {
                 fprintf(stderr, "Could not get RACF passwd.\n");
+                rc = -1;
                 goto cleanup;
             }
 
@@ -734,8 +673,7 @@ cleanup:
         free(uri);
     if (mech)
         free(mech);
-    if (racfpwd)
-        free(racfpwd);
+    pin_free(&buf_racfpwd);
 
     return rc;
 }
