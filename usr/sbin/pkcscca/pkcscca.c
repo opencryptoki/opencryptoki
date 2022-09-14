@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <termios.h>
 #include <unistd.h>
 #include <unistd.h>
 
@@ -42,6 +41,7 @@
 
 #define OCK_TOOL
 #include "pkcs_utils.h"
+#include "pin_prompt.h"
 
 #include "pkcscca.h"
 
@@ -476,7 +476,7 @@ cleanup:
     return 0;
 }
 
-int load_masterkey(char *mkfile, char *pin, char *masterkey)
+int load_masterkey(char *mkfile, const char *pin, char *masterkey)
 {
     unsigned char des3_key[3 * DES_KEY_SIZE];
     char hash_sha[SHA1_HASH_SIZE];
@@ -1141,7 +1141,7 @@ void key_migration_results(struct key_count migrated, struct key_count failed)
     printf("\n");
 }
 
-int migrate_wrapped_keys(CK_SLOT_ID slot_id, char *userpin, int masterkey)
+int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
 {
     CK_FUNCTION_LIST *funcs;
     CK_KEY_TYPE key_type = 0;
@@ -1243,7 +1243,7 @@ finalize:
     return exit_code;
 }
 
-int migrate_version(char *sopin, char *userpin, unsigned char *data_store)
+int migrate_version(const char *sopin, const char *userpin, unsigned char *data_store)
 {
     char masterkey[MASTER_KEY_SIZE_CCA];
     char fname[PATH_MAX];
@@ -1370,11 +1370,11 @@ static int verbose_str2level(char *str)
 
 int main(int argc, char **argv)
 {
-    int ret = 0, opt = 0, c_flag = 0, masterkey = 0;
+    int ret = -1, opt = 0, c_flag = 0, masterkey = 0;
     int data_store_len = 0;
     CK_SLOT_ID slot_id = 0;
-    char *sopin = NULL, *userpin = NULL;
-    size_t sopinlen, userpinlen;
+    const char *sopin = NULL, *userpin = NULL;
+    char *buf_so = NULL, *buf_user = NULL;
     char *data_store = NULL;
     char *m_type = NULL;
     char *mk_type = NULL;
@@ -1467,25 +1467,21 @@ int main(int argc, char **argv)
     }
 
     /* get the SO pin to authorize migration */
-    printf("Enter the SO PIN: ");
-    fflush(stdout);
-    ret = get_pin(&sopin, &sopinlen);
-    if (ret != 0) {
+    sopin = pin_prompt(&buf_so, "Enter the SO PIN: ");
+    if (!sopin) {
         print_error("Could not get SO PIN.\n");
         goto done;
     }
 
     /* get the USER pin to authorize migration */
-    printf("Enter the USER PIN: ");
-    fflush(stdout);
-    ret = get_pin(&userpin, &userpinlen);
-    if (ret != 0) {
+    userpin = pin_prompt(&buf_user, "Enter the USER PIN: ");
+    if (!userpin) {
         print_error("Could not get USER PIN.\n");
         goto done;
     }
 
     /* verify the SO and USER PINs entered. */
-    ret = verify_pins(data_store, sopin, sopinlen, userpin, userpinlen);
+    ret = verify_pins(data_store, sopin, strlen(sopin), userpin, strlen(userpin));
     if (ret)
         goto done;
 
@@ -1519,10 +1515,8 @@ int main(int argc, char **argv)
     }
 
 done:
-    if (sopin)
-        free(sopin);
-    if (userpin)
-        free(userpin);
+    pin_free(&buf_so);
+    pin_free(&buf_user);
     if (data_store)
         free(data_store);
 
