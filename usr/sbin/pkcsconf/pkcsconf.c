@@ -14,7 +14,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <dlfcn.h>
-#include <termios.h>
 #include <pkcs11types.h>
 #include <locale.h>
 #include <limits.h>
@@ -32,6 +31,7 @@
 #include "defs.h"
 #include "mechtable.h"
 #include "uri.h"
+#include "pin_prompt.h"
 
 #define LEEDS_DEFAULT_PIN "87654321"
 #define PIN_SIZE 80
@@ -39,8 +39,8 @@
 #define DELETE     127
 #define LINE_FEED  10
 
-#define CFG_SO_PIN         0x0001
-#define CFG_USER_PIN       0x0002
+#define CFG_UNUSED_1       0x0001
+#define CFG_UNUSED_2       0x0002
 #define CFG_SLOT           0x0004
 #define CFG_PKCS_INFO      0x0008
 #define CFG_TOKEN_INFO     0x0010
@@ -56,18 +56,16 @@
 
 CK_RV init(void);
 void usage(char *);
-int echo(int);
-int get_pin(CK_CHAR **);
 int get_slot(char *);
 CK_RV display_pkcs11_info(void);
 CK_RV get_slot_list(CK_BOOL tokenPresent);
 CK_RV display_slot_info(int);
 CK_RV display_token_info(int);
 CK_RV display_mechanism_info(int);
-CK_RV init_token(int, CK_CHAR_PTR);
-CK_RV init_user_pin(int, CK_CHAR_PTR, CK_CHAR_PTR);
+CK_RV init_token(int, const char *);
+CK_RV init_user_pin(int, const char *, const char *);
 CK_RV list_slot(int);
-CK_RV set_user_pin(int, CK_USER_TYPE, CK_CHAR_PTR, CK_CHAR_PTR);
+CK_RV set_user_pin(int, CK_USER_TYPE, const char *, const char *);
 
 void *dllPtr;
 CK_FUNCTION_LIST_PTR FunctionPtr = NULL;
@@ -80,13 +78,9 @@ int main(int argc, char *argv[])
 {
     CK_RV rv = CKR_OK;          // Return Code
     CK_FLAGS flags = 0;         // Bit mask for what options were passed in
-    CK_CHAR_PTR sopin = NULL,   // The Security Office PIN
-        pin = NULL,             // The User PIN
-        newpin = NULL,          // To store PIN changes
-        newpin2 = NULL;         // To store validation of PIN change
-
-    int c,                      // To store passed in options
-     newpinlen, newpin2len, errflag = 0;        // Error Flag
+    int c, errflag = 0;
+    const char *pin_user = NULL, *pin_so = NULL, *pin_new = NULL;
+    char *buf_user = NULL, *buf_so = NULL, *buf_new = NULL;
 
     /* Parse the command line parameters */
     while ((c = getopt(argc, argv, "itsmIc:S:U:upPn:lh")) != (-1)) {
@@ -105,46 +99,27 @@ int main(int argc, char *argv[])
             }
             break;
         case 'S':              /* the SO pin */
-            if (flags & CFG_SO_PIN) {
+            if (pin_so) {
                 warnx("Must specify a single SO PIN.");
                 errflag++;
             } else {
-                flags |= CFG_SO_PIN;
-                sopin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
-                if (sopin == NULL) {
-                    rv = CKR_HOST_MEMORY;
-                    goto done;
-                }
-                memcpy(sopin, optarg, strlen(optarg) + 1);
+                pin_so = optarg;
             }
             break;
         case 'U':              /* the user pin */
-            if (flags & CFG_USER_PIN) {
+            if (pin_user) {
                 warnx("Must specify a single user PIN.");
                 errflag++;
             } else {
-                flags |= CFG_USER_PIN;
-                pin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
-                if (pin == NULL) {
-                    rv = CKR_HOST_MEMORY;
-                    goto done;
-                }
-
-                memcpy(pin, optarg, strlen(optarg) + 1);
+                pin_user = optarg;
             }
             break;
         case 'n':              /* the new pin */
-            if (flags & CFG_NEW_PIN) {
-                warnx("Must specify a single new PIN.");
+            if (pin_new) {
+                warnx("Must specify a single user PIN.");
                 errflag++;
             } else {
-                flags |= CFG_NEW_PIN;
-                newpin = (CK_CHAR_PTR) malloc(strlen(optarg) + 1);
-                if (newpin == NULL) {
-                    rv = CKR_HOST_MEMORY;
-                    goto done;
-                }
-                memcpy(newpin, optarg, strlen(optarg) + 1);
+                pin_new = optarg;
             }
             break;
         case 'i':              /* display PKCS11 info */
@@ -243,15 +218,10 @@ int main(int argc, char *argv[])
     /* If the user wants to initialize the card check to see if they passed in
      * the SO pin, if not ask for the PIN */
     if (flags & CFG_INITIALIZE) {
-        if (~flags & CFG_SO_PIN) {
-            int rc;
-            do {
-                printf("Enter the SO PIN: ");
-                fflush(stdout);
-                rc = get_pin(&(sopin));
-            } while (rc == -EINVAL);
-        }
-        rv = init_token(in_slot, sopin);
+        if (!pin_so)
+            pin_so = pin_prompt(&buf_so, "Enter the SO PIN: ");
+
+        rv = init_token(in_slot, pin_so);
     }
 
     /* If the user wants to initialize the User PIN, check to see if they have
@@ -260,136 +230,79 @@ int main(int argc, char *argv[])
      * verify it
      */
     if (flags & CFG_INIT_USER) {
-        if (~flags & CFG_SO_PIN) {
-            int rc;
+        if (!pin_so)
+            pin_so = pin_prompt(&buf_so, "Enter the SO PIN: ");
 
-            do {
-                printf("Enter the SO PIN: ");
-                fflush(stdout);
-                rc = get_pin(&sopin);
-            } while (rc == -EINVAL);
-        }
-        if (~flags & CFG_NEW_PIN) {
-            int rc;
+        if (!pin_new)
+            pin_new = pin_prompt_new(&buf_new,
+                                     "Enter the new user PIN: ",
+                                     "Re-enter the new user PIN: ");
 
-            do {
-                printf("Enter the new user PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin);
-            } while (rc == -EINVAL);
-            newpinlen = strlen((char *) newpin);
-            do {
-                printf("Re-enter the new user PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin2);
-            } while (rc == -EINVAL);
-            newpin2len = strlen((char *) newpin2);
-            if (newpinlen != newpin2len
-                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                warnx("New PINs do not match.");
-                exit(CKR_PIN_INVALID);
-            }
+        if (!pin_new) {
+            warnx("Invalid new user pin");
+            rv = CKR_PIN_INVALID;
+            goto done;
         }
-        rv = init_user_pin(in_slot, newpin, sopin);
+
+        rv = init_user_pin(in_slot, pin_new, pin_so);
+
+        /* partial cleanup/re-init for chained sub-functions */
+        pin_new = NULL;
+        pin_free(&buf_new);
     }
 
     /* If the user wants to set the SO PIN, check to see if they have passed the
      * current SO PIN and the New PIN in.  If not prompt and validate them. */
     if (flags & CFG_SET_SO) {
-        if (~flags & CFG_SO_PIN) {
-            int rc;
+        if (!pin_so)
+            pin_so = pin_prompt(&buf_so, "Enter the SO PIN: ");
 
-            do {
-                printf("Enter the SO PIN: ");
-                fflush(stdout);
-                rc = get_pin(&sopin);
-            } while (rc == -EINVAL);
-        }
-        if (~flags & CFG_NEW_PIN) {
-            int rc;
+        if (!pin_new)
+            pin_new = pin_prompt_new(&buf_new,
+                                     "Enter the new SO PIN: ",
+                                     "Re-enter the new SO PIN: ");
 
-            do {
-                printf("Enter the new SO PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin);
-            } while (rc == -EINVAL);
-            newpinlen = strlen((char *) newpin);
-            do {
-                printf("Re-enter the new SO PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin2);
-            } while (rc == -EINVAL);
-            newpin2len = strlen((char *) newpin2);
-            if (newpinlen != newpin2len
-                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                warnx("New PINs do not match.");
-                exit(CKR_PIN_INVALID);
-            }
+        if (!pin_new) {
+            warnx("Invalid new so pin");
+            rv = CKR_PIN_INVALID;
+            goto done;
         }
-        rv = set_user_pin(in_slot, CKU_SO, sopin, newpin);
+
+        rv = set_user_pin(in_slot, CKU_SO, pin_so, pin_new);
+
+        /* partial cleanup/re-init for chained sub-functions */
+        pin_new = NULL;
+        pin_free(&buf_new);
     }
 
     /* If the user wants to set the User PIN, check to see if they have passed
      * the current User PIN and the New PIN in. If not prompt and validate them.
      */
     if (flags & CFG_SET_USER) {
-        if (~flags & CFG_USER_PIN) {
-            int rc;
+        if (!pin_user)
+            pin_user = pin_prompt(&buf_user, "Enter user PIN: ");
 
-            do {
-                printf("Enter user PIN: ");
-                fflush(stdout);
-                rc = get_pin(&pin);
-            } while (rc == -EINVAL);
-        }
-        if (~flags & CFG_NEW_PIN) {
-            int rc;
+        if (!pin_new)
+            pin_new = pin_prompt_new(&buf_new,
+                                     "Enter the new user PIN: ",
+                                     "Re-enter the new user PIN: ");
 
-            do {
-                printf("Enter the new user PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin);
-            } while (rc == -EINVAL);
-            newpinlen = strlen((char *) newpin);
-            do {
-                printf("Re-enter the new user PIN: ");
-                fflush(stdout);
-                rc = get_pin(&newpin2);
-            } while (rc == -EINVAL);
-            newpin2len = strlen((char *) newpin2);
-            if (newpinlen != newpin2len
-                || memcmp(newpin, newpin2, strlen((char *) newpin)) != 0) {
-                warnx("New PINs do not match.");
-                exit(CKR_PIN_INVALID);
-            }
+        if (!pin_new) {
+            warnx("Invalid new user pin");
+            rv = CKR_PIN_INVALID;
+            goto done;
         }
-        rv = set_user_pin(in_slot, CKU_USER, pin, newpin);
+
+        rv = set_user_pin(in_slot, CKU_USER, pin_user, pin_new);
     }
 
     /* We are done, detach from shared memory, and free the memory we may have
-     * allocated.  In the case of PIN's we use cleanse to ensure that they are
-     * not left around in system memory*/
+     * allocated. */
 
 done:
-    if (sopin) {
-        OPENSSL_cleanse(sopin, strlen((char *) sopin));
-        free(sopin);
-    }
-
-    if (pin) {
-        OPENSSL_cleanse(pin, strlen((char *) pin));
-        free(pin);
-    }
-
-    if (newpin) {
-        OPENSSL_cleanse(newpin, strlen((char *) newpin));
-        free(newpin);
-    }
-
-    if (newpin2) {
-        OPENSSL_cleanse(newpin2, strlen((char *) newpin2));
-        free(newpin2);
-    }
+    pin_free(&buf_user);
+    pin_free(&buf_so);
+    pin_free(&buf_new);
 
     free(SlotList);
     if (FunctionPtr)
@@ -398,47 +311,6 @@ done:
         dlclose(dllPtr);
 
     return rv;
-}
-
-int get_pin(CK_CHAR **pin)
-{
-    int count;
-    char buff[PIN_SIZE] = { 0 }, c = 0;
-    int rc = 0;
-
-    *pin = NULL;
-    /* Turn off echoing to the terminal when getting the password */
-    echo(FALSE);
-    /* Get each character and print out a '*' for each input */
-    for (count = 0; (c != LINE_FEED) && (count < PIN_SIZE);) {
-        buff[count] = getc(stdin);
-        c = buff[count];
-        if (c == BACK_SPACE || c == DELETE) {
-            if (count)
-                count--;
-            continue;
-        }
-        fflush(stdout);
-        count++;
-    }
-    echo(TRUE);
-    /* After we get the password go to the next line */
-    printf("\n");
-    fflush(stdout);
-    /* Allocate 80 bytes for the user PIN. This is large enough
-     * for the tokens supported in AIX 5.0 and 5.1 */
-    *pin = (unsigned char *) malloc(PIN_SIZE);
-    if (!(*pin)) {
-        rc = -ENOMEM;
-        goto out;
-    }
-    /* Strip the carage return from the user input (it is not part
-     * of the PIN) and put the PIN in the return buffer */
-    buff[count - 1] = '\0';
-    /* keep the trailing null for the strlen */
-    strncpy((char *) *pin, buff, PIN_SIZE);
-out:
-    return rc;
 }
 
 int get_slot(char *optarg)
@@ -465,41 +337,6 @@ int get_slot(char *optarg)
         return -1;
 
     return (int)val;
-}
-
-int echo(int bool)
-{
-    struct termios term;
-
-    /* flush standard out to make sure everything that needs to be displayed has
-     * been displayed */
-    fflush(stdout);
-
-    /* get the current terminal attributes */
-    if (tcgetattr(STDIN_FILENO, &term) != 0)
-        return -1;
-
-    /* Since we are calling this function we must want to read in a char at a
-     * time.  Therefore set the cc structure before setting the terminal attrs
-     */
-    term.c_cc[VMIN] = 1;
-    term.c_cc[VTIME] = 0;
-
-    /* If we are turning off the display of input characters AND with the
-     * inverse of the ECHO mask, if we are turning on the display OR with the
-     * ECHO mask.
-     * We also set if we are reading in canonical or noncanonical mode.  */
-    if (bool)
-        term.c_lflag |= (ECHO | ICANON);
-    else
-        term.c_lflag &= ~(ECHO | ICANON);
-
-    /* Set the attributes, and flush the streams so that any input already
-     * displayed on the terminal is invalid */
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &term) != 0)
-        return -1;
-
-    return 0;
 }
 
 CK_RV check_user_and_group(void)
@@ -976,7 +813,7 @@ CK_RV display_token_info(int slot_id)
     return CKR_OK;
 }
 
-CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
+CK_RV init_token(int slot_id, const char *pin)
 {
     /* Note this function reinitializes a token to the state it was
      * in just after the initial install
@@ -988,12 +825,8 @@ CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
      */
 
     CK_RV rc;                   // Return Code
-    CK_ULONG pinlen;            // Length of the PIN
     CK_CHAR label[32],          // What we want to set the Label of the card to
              enteredlabel[33];  // Max size of 32 + carriage return;
-
-    /* Find out the size of the entered PIN */
-    pinlen = strlen((char *) pin);
 
     /* Get the token label from the user, NOTE it states to give a unique label
      * but it is never verified as unique.  This is becuase Netscape requires a
@@ -1014,7 +847,7 @@ CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
     memcpy((char *) label, (char *) enteredlabel,
            strlen((char *) enteredlabel));
 
-    rc = FunctionPtr->C_InitToken(slot_id, pin, pinlen, label);
+    rc = FunctionPtr->C_InitToken(slot_id, (CK_CHAR_PTR)pin, strlen(pin), label);
     if (rc != CKR_OK) {
         if (rc == CKR_PIN_INCORRECT)
             warnx("Incorrect PIN entered.");
@@ -1027,16 +860,11 @@ CK_RV init_token(int slot_id, CK_CHAR_PTR pin)
     return CKR_OK;
 }
 
-CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
+CK_RV init_user_pin(int slot_id, const char *pin, const char *sopin)
 {
     CK_RV rc;                   // Return Value
     CK_FLAGS flags = 0;         // Mask that we will use when opening the session
     CK_SESSION_HANDLE session_handle;   // The session handle we get
-    CK_ULONG pinlen, sopinlen;  // Length of the user and SO PINs
-
-    /* get the length of the PINs */
-    pinlen = strlen((char *) pin);
-    sopinlen = strlen((char *) sopin);
 
     /* set the mask we will use for Open Session */
     flags |= CKF_SERIAL_SESSION;
@@ -1053,7 +881,8 @@ CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
 
     /* After the session is open, we must login as the SO to initialize
      * the PIN */
-    rc = FunctionPtr->C_Login(session_handle, CKU_SO, sopin, sopinlen);
+    rc = FunctionPtr->C_Login(session_handle, CKU_SO,
+                              (CK_CHAR_PTR)sopin, strlen(sopin));
     if (rc != CKR_OK) {
         if (rc == CKR_PIN_INCORRECT)
             warnx("Incorrect PIN entered.");
@@ -1063,7 +892,7 @@ CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
     }
 
     /* Call the function to Init the PIN */
-    rc = FunctionPtr->C_InitPIN(session_handle, pin, pinlen);
+    rc = FunctionPtr->C_InitPIN(session_handle, (CK_CHAR_PTR)pin, strlen(pin));
     if (rc != CKR_OK)
         warnx("Error setting PIN: 0x%lX (%s)", rc, p11_get_ckr(rc));
 
@@ -1081,20 +910,15 @@ CK_RV init_user_pin(int slot_id, CK_CHAR_PTR pin, CK_CHAR_PTR sopin)
     return CKR_OK;
 }
 
-CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin,
-                   CK_CHAR_PTR newpin)
+CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, const char *oldpin,
+                   const char *newpin)
 {
     CK_RV rc;                   // Return Value
     CK_FLAGS flags = 0;         // Mash ot open the session with
     CK_SESSION_HANDLE session_handle;   // The handle of the session we will open
-    CK_ULONG oldpinlen, newpinlen;      // The size of the new and ole PINS
 
     /* NOTE: This function is used for both the setting of the SO and USER pins,
      *       the CK_USER_TYPE specifes which we are changing. */
-
-    /* Get the size of the PINs */
-    oldpinlen = strlen((char *) oldpin);
-    newpinlen = strlen((char *) newpin);
 
     /* set the flags we will open the session with */
     flags |= CKF_SERIAL_SESSION;
@@ -1109,7 +933,8 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin,
     }
 
     /* Login to the session we just created as the pkcs11 passed in USER type */
-    rc = FunctionPtr->C_Login(session_handle, user, oldpin, oldpinlen);
+    rc = FunctionPtr->C_Login(session_handle, user,
+                              (CK_CHAR_PTR)oldpin, strlen(oldpin));
     if (rc != CKR_OK) {
         if (rc == CKR_PIN_INCORRECT)
             warnx("Incorrect PIN entered.");
@@ -1119,8 +944,9 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, CK_CHAR_PTR oldpin,
     }
 
     /* set the new PIN */
-    rc = FunctionPtr->C_SetPIN(session_handle, oldpin, oldpinlen,
-                               newpin, newpinlen);
+    rc = FunctionPtr->C_SetPIN(session_handle,
+                               (CK_CHAR_PTR)oldpin, strlen(oldpin),
+                               (CK_CHAR_PTR)newpin, strlen(newpin));
     if (rc != CKR_OK)
         warnx("Error setting PIN: 0x%lX (%s)\n", rc, p11_get_ckr(rc));
 
