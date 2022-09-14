@@ -59,7 +59,6 @@ void usage(char *);
 int echo(int);
 int get_pin(CK_CHAR **);
 int get_slot(char *);
-CK_RV cleanup(void);
 CK_RV display_pkcs11_info(void);
 CK_RV get_slot_list(CK_BOOL tokenPresent);
 CK_RV display_slot_info(int);
@@ -392,9 +391,13 @@ done:
         free(newpin2);
     }
 
-    cleanup();
+    free(SlotList);
+    if (FunctionPtr)
+        FunctionPtr->C_Finalize(NULL);
+    if (dllPtr)
+        dlclose(dllPtr);
 
-    return rv == CKR_OK ? 0 : -1;
+    return rv;
 }
 
 int get_pin(CK_CHAR **pin)
@@ -1152,7 +1155,7 @@ CK_RV init(void)
     if (!symPtr) {
         warnx("Error getting function list, symbol not found, error: %s",
                dlerror());
-        return rc;
+        return -1;
     }
 
     symPtr(&FunctionPtr);
@@ -1170,26 +1173,9 @@ CK_RV init(void)
                    "group to be able to communicate with the pkcsslotd "
                    "daemon.\n");
         }
-
-        cleanup();
     }
 
     return rc;
-}
-
-CK_RV cleanup(void)
-{
-    CK_RV rc = CKR_OK;                   // Return Code
-
-    /* To clean up we will free the slot list we create, call the Finalize
-     * routine for PKCS11 and close the dynamically linked library */
-    free(SlotList);
-    if (FunctionPtr)
-        rc = FunctionPtr->C_Finalize(NULL);
-    if (dllPtr)
-        dlclose(dllPtr);
-
-    exit(rc);
 }
 
 void usage(char *progname)
