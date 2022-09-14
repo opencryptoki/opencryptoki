@@ -313,6 +313,53 @@ struct cca_private_data {
 #define REGEX_CARD_PATTERN      "card[0-9a-fA-F]+"
 #define MASK_COPRO              0x10000000
 
+/*
+ * Macros to enclose CCA verbs that use a secure key blob.
+ * If the CCA verb fails with return code 8 reason code 48 "One or more keys
+ * has a master key verification pattern that is not valid.", check if the
+ * secure key bob is enciphered with the new MK already. If so, and if a
+ * MK change operation for that master key type is currently active, select
+ * a single APQN that has the new MK set/activated. Wait in case no APQN is
+ * currently available. Once a single APQN has been selected, retry the CCA
+ * verb on the now selected single APQN.
+ */
+#define RETRY_NEW_MK_BLOB_START()                                            \
+                do {                                                         \
+                    int single_selected = 0;                                 \
+                    char serialno[CCA_SERIALNO_LENGTH + 1];                  \
+                    do {
+
+#define RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,             \
+                              blob, bloblen)                                 \
+                RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,    \
+                                       blob, bloblen, NULL, 0)
+
+#define RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,            \
+                               blob1, bloblen1, blob2, bloblen2)             \
+                        if ((return_code) == 8 && (reason_code) == 48) {     \
+                            TRACE_DEVEL("%s MKVP mismatch\n", __func__);     \
+                            if (!single_selected &&                          \
+                                cca_check_blob_select_single_apqn((tokdata), \
+                                                      (blob1), (bloblen1),   \
+                                                      (blob2), (bloblen2),   \
+                                                      serialno)) {           \
+                                single_selected = 1;                         \
+                                continue;                                    \
+                            }                                                \
+                        }                                                    \
+                        if (single_selected) {                               \
+                            if (cca_deselect_single_apqn((tokdata),          \
+                                                      serialno) != CKR_OK) { \
+                                TRACE_ERROR("%s Failed to de-select single " \
+                                            "APQN\n", __func__);             \
+                                (return_code) = 16;                          \
+                                (reason_code) = 336;                         \
+                            }                                                \
+                        }                                                    \
+                        break;                                               \
+                    } while (1);                                             \
+                } while (0);
+
 const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen);
@@ -1502,8 +1549,10 @@ static CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
 
 struct cca_select_single_data {
     struct cca_mk_change_op *mk_change_op;
+    struct cca_mk_change_op *mk_change_op2;
     CK_BBOOL prefer_new_mk;
     enum cca_mk_type mk_type;
+    enum cca_mk_type mk_type2;
     char serialno[CCA_SERIALNO_LENGTH + 1];
     unsigned short card;
     unsigned short domain;
@@ -1511,13 +1560,62 @@ struct cca_select_single_data {
     CK_BBOOL preferred_found;
 };
 
+static CK_BBOOL cca_select_single_apqn_check_mkvp(
+                                    STDLL_TokData_t *tokdata,
+                                    const struct cca_mk_change_op *mk_change_op,
+                                    enum cca_mk_type mk_type,
+                                    CK_BBOOL prefer_new_mk,
+                                    const unsigned char *cur_sym,
+                                    const unsigned char *cur_aes,
+                                    const unsigned char *cur_apka)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    CK_BBOOL preferred_found = FALSE;
+
+    switch (mk_type) {
+    case CCA_MK_SYM:
+        if (prefer_new_mk && mk_change_op->new_sym_mkvp_set &&
+            memcmp(cur_sym, mk_change_op->new_sym_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        if (prefer_new_mk == FALSE &&
+            memcmp(cur_sym, cca_private->expected_sym_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        break;
+    case CCA_MK_AES:
+        if (prefer_new_mk && mk_change_op->new_aes_mkvp_set &&
+            memcmp(cur_aes, mk_change_op->new_aes_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        if (prefer_new_mk == FALSE &&
+            memcmp(cur_aes, cca_private->expected_aes_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        break;
+    case CCA_MK_APKA:
+        if (prefer_new_mk && mk_change_op->new_apka_mkvp_set &&
+            memcmp(cur_apka, mk_change_op->new_apka_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        if (prefer_new_mk == FALSE &&
+            memcmp(cur_apka, cca_private->expected_apka_mkvp,
+                   CCA_MKVP_LENGTH) == 0)
+            preferred_found = TRUE;
+        break;
+    default:
+        return FALSE;
+    }
+
+    return preferred_found;
+}
+
 static CK_RV cca_select_single_apqn_cb(STDLL_TokData_t *tokdata,
                                        const char *adapter,
                                        unsigned short card,
                                        unsigned short domain,
                                        void *private)
 {
-    struct cca_private_data *cca_private = tokdata->private_data;
     struct cca_select_single_data *ssd = private;
     unsigned char cur_sym[CCA_MKVP_LENGTH];
     unsigned char cur_aes[CCA_MKVP_LENGTH];
@@ -1533,40 +1631,16 @@ static CK_RV cca_select_single_apqn_cb(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         return CKR_OK; /* adapter may be offline */
 
-    switch (ssd->mk_type) {
-    case CCA_MK_SYM:
-        if (ssd->prefer_new_mk && ssd->mk_change_op->new_sym_mkvp_set &&
-            memcmp(cur_sym, ssd->mk_change_op->new_sym_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        if (ssd->prefer_new_mk == FALSE &&
-            memcmp(cur_sym, cca_private->expected_sym_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        break;
-    case CCA_MK_AES:
-        if (ssd->prefer_new_mk && ssd->mk_change_op->new_aes_mkvp_set &&
-            memcmp(cur_aes, ssd->mk_change_op->new_aes_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        if (ssd->prefer_new_mk == FALSE &&
-            memcmp(cur_aes, cca_private->expected_aes_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        break;
-    case CCA_MK_APKA:
-        if (ssd->prefer_new_mk && ssd->mk_change_op->new_apka_mkvp_set &&
-            memcmp(cur_apka, ssd->mk_change_op->new_apka_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        if (ssd->prefer_new_mk == FALSE &&
-            memcmp(cur_apka, cca_private->expected_apka_mkvp,
-                   CCA_MKVP_LENGTH) == 0)
-            ssd->preferred_found = TRUE;
-        break;
-    default:
-        return CKR_FUNCTION_FAILED;;
-    }
+    ssd->preferred_found =
+            cca_select_single_apqn_check_mkvp(tokdata, ssd->mk_change_op,
+                                              ssd->mk_type, ssd->prefer_new_mk,
+                                              cur_sym, cur_aes, cur_apka);
+
+    if (ssd->mk_change_op2 != NULL)
+        ssd->preferred_found &=
+            cca_select_single_apqn_check_mkvp(tokdata, ssd->mk_change_op2,
+                                              ssd->mk_type2, ssd->prefer_new_mk,
+                                              cur_sym, cur_aes, cur_apka);
 
     rc = cca_get_adapter_serial_number(ssd->serialno);
     if (rc != CKR_OK)
@@ -1612,20 +1686,27 @@ static struct cca_mk_change_op *cca_mk_change_find_op_by_keytype(
 
 static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
                                     struct cca_mk_change_op *mk_change_op,
+                                    struct cca_mk_change_op *mk_change_op2,
                                     CK_BBOOL prefer_new_mk,
                                     enum cca_token_type keytype,
-                                    char *serialno, CK_BBOOL *prefered_selected)
+                                    enum cca_token_type keytype2,
+                                    char *serialno, CK_BBOOL *prefered_selected,
+                                    CK_BBOOL wait_for_new_wk)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long return_code, reason_code, rule_array_count, device_name_len;
     unsigned char *device_name;
     struct cca_select_single_data ssd = { 0 };
+    int retries = 0;
     CK_RV rc;
 
+retry:
     ssd.mk_change_op = mk_change_op;
+    ssd.mk_change_op2 = mk_change_op2;
     ssd.prefer_new_mk = prefer_new_mk;
     ssd.mk_type = cca_mk_type_from_key_type(keytype);
+    ssd.mk_type2 = cca_mk_type_from_key_type(keytype2);
 
     rc = cca_iterate_adapters(tokdata, cca_select_single_apqn_cb, &ssd);
     if (rc != CKR_OK)
@@ -1642,6 +1723,18 @@ static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
 
     if (prefered_selected != NULL)
         *prefered_selected = ssd.preferred_found;
+
+    if (prefer_new_mk && wait_for_new_wk && !ssd.preferred_found) {
+        TRACE_DEVEL("%s no APQN with new MK set found, retry in 1 second\n",
+                    __func__);
+
+        retries++;
+        if (retries > 3600) /* Retry for max 1 hour */
+            return CKR_DEVICE_ERROR;
+
+        sleep(1);
+        goto retry;
+    }
 
     /*
      * If neither DEV-ANY, nor DOM-ANY is specified, no need to allocate the
@@ -1756,8 +1849,8 @@ static CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
 
 retry:
     /* Try to select a APQN with new MK set/activated */
-    rc = cca_select_single_apqn(tokdata, mk_change_op, TRUE, keytype, serialno,
-                                &new_selected);
+    rc = cca_select_single_apqn(tokdata, mk_change_op, NULL, TRUE, keytype, 0,
+                                serialno, &new_selected, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s cca_select_single_apqn failed: 0x%lx\n", __func__, rc);
         return rc;
@@ -1807,6 +1900,60 @@ add_attr:
     }
 
     return CKR_OK;
+}
+
+static CK_BBOOL cca_check_blob_select_single_apqn(STDLL_TokData_t *tokdata,
+                                                  const CK_BYTE *sec_key1,
+                                                  CK_ULONG sec_key1_len,
+                                                  const CK_BYTE *sec_key2,
+                                                  CK_ULONG sec_key2_len,
+                                                  char *serialno)
+{
+    enum cca_token_type keytype1, keytype2 = -1;
+    unsigned int keybitsize1, keybitsize2;
+    const CK_BYTE *mkvp1, *mkvp2;
+    CK_BBOOL new_mk1 = FALSE, new_mk2 = FALSE, new_selected = FALSE;
+    struct cca_mk_change_op *mk_change_op1 = NULL, *mk_change_op2 = NULL;
+
+    if (analyse_cca_key_token(sec_key1, sec_key1_len, &keytype1, &keybitsize1,
+                              &mkvp1) == FALSE)
+        return FALSE;
+
+    if (check_expected_mkvp(tokdata, keytype1, mkvp1, &new_mk1) != CKR_OK)
+        return FALSE;
+
+    TRACE_DEVEL("%s new_mk1: %d\n", __func__, new_mk1);
+
+    mk_change_op1 = cca_mk_change_find_op_by_keytype(tokdata, keytype1);
+
+    if (sec_key2 != NULL) {
+        if (analyse_cca_key_token(sec_key2, sec_key2_len, &keytype2, &keybitsize2,
+                                  &mkvp2) == FALSE)
+            return FALSE;
+
+        if (check_expected_mkvp(tokdata, keytype1, mkvp1, &new_mk1) != CKR_OK)
+            return FALSE;
+
+        TRACE_DEVEL("%s new_mk1: %d\n", __func__, new_mk1);
+
+        mk_change_op2 = cca_mk_change_find_op_by_keytype(tokdata, keytype2);
+    }
+
+    if (new_mk1 == FALSE && new_mk2 == FALSE)
+        return FALSE;
+
+    if (mk_change_op1 == NULL && mk_change_op2 == NULL)
+        return FALSE;
+
+    /* Select a single APQN with new MK(s) set, wait if required */
+    TRACE_DEVEL("%s select single APQN with new MK set, wait if needed\n",
+                __func__);
+    if (cca_select_single_apqn(tokdata, mk_change_op1, mk_change_op2, TRUE,
+                               keytype1, keytype2, serialno,
+                               &new_selected, TRUE) != CKR_OK)
+        return FALSE;
+
+    return new_selected;
 }
 
 static CK_RV cca_get_adapter_domain_selection_infos(STDLL_TokData_t *tokdata)
@@ -2478,19 +2625,21 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "CBC     ", (size_t) CCA_KEYWORD_SIZE);
 
-    if (encrypt) {
-        dll_CSNBENC(&return_code, &reason_code, NULL, NULL, attr->pValue, //id,
-                    &length, in_data,   //in,
-                    init_v,     //iv,
-                    &rule_array_count, rule_array, &pad_character,
-                    chaining_vector, local_out); //out_data); //out);
-    } else {
-        dll_CSNBDEC(&return_code, &reason_code, NULL, NULL, attr->pValue, //id,
-                    &length, in_data,   //in,
-                    init_v,     //iv,
-                    &rule_array_count, rule_array, chaining_vector, local_out);
-                    //out_data); //out);
-    }
+    RETRY_NEW_MK_BLOB_START()
+        if (encrypt) {
+            dll_CSNBENC(&return_code, &reason_code, NULL, NULL, attr->pValue,
+                        &length, in_data,
+                        init_v,
+                        &rule_array_count, rule_array, &pad_character,
+                        chaining_vector, local_out);
+        } else {
+            dll_CSNBDEC(&return_code, &reason_code, NULL, NULL, attr->pValue,
+                        &length, in_data,
+                        init_v,
+                        &rule_array_count, rule_array, chaining_vector, local_out);
+        }
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt)
@@ -3026,19 +3175,22 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
 
     data_structure_length = 0;
 
-    dll_CSNDPKE(&return_code,
-                &reason_code,
-                NULL, NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &in_data_len,
-                in_data,
-                &data_structure_length,  // must be 0
-                NULL,           // ignored
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) out_data_len,
-                out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDPKE(&return_code,
+                    &reason_code,
+                    NULL, NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &in_data_len,
+                    in_data,
+                    &data_structure_length,  // must be 0
+                    NULL,           // ignored
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) out_data_len,
+                    out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
@@ -3087,20 +3239,23 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
 
     data_structure_length = 0;
 
-    dll_CSNDPKD(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &in_data_len,
-                in_data,
-                &data_structure_length,  // must be 0
-                NULL,           // ignored
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) out_data_len,
-                out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDPKD(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &in_data_len,
+                    in_data,
+                    &data_structure_length,  // must be 0
+                    NULL,           // ignored
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) out_data_len,
+                    out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld, reason:%ld\n",
@@ -3200,19 +3355,22 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
     data_structure_length = 0;
 
-    dll_CSNDPKE(&return_code,
-                &reason_code,
-                NULL, NULL,
-                &rule_array_count,
-                rule_array,
-                (long *)&in_data_len,
-                in_data,
-                &data_structure_length,  // must be 0
-                NULL,           // ignored
-                (long *)&(attr->ulValueLen),
-                attr->pValue,
-                (long *)out_data_len,
-                out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDPKE(&return_code,
+                    &reason_code,
+                    NULL, NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&in_data_len,
+                    in_data,
+                    &data_structure_length,  // must be 0
+                    NULL,           // ignored
+                    (long *)&(attr->ulValueLen),
+                    attr->pValue,
+                    (long *)out_data_len,
+                    out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
@@ -3317,20 +3475,23 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
     data_structure_length = 0;
 
-    dll_CSNDPKD(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *)&in_data_len,
-                in_data,
-                &data_structure_length,  // must be 0
-                NULL,           // ignored
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *)out_data_len,
-                out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDPKD(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&in_data_len,
+                    in_data,
+                    &data_structure_length,  // must be 0
+                    NULL,           // ignored
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *)out_data_len,
+                    out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld, reason:%ld\n",
@@ -3386,17 +3547,20 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
-    dll_CSNDDSG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) &in_data_len,
-                in_data,
-                (long *) out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) &in_data_len,
+                    in_data,
+                    (long *) out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, reason: %ld\n",
@@ -3446,16 +3610,19 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
-    dll_CSNDDSV(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) &in_data_len,
-                in_data, (long *) &out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSV(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) &in_data_len,
+                    in_data, (long *) &out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -3588,17 +3755,20 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
         break;
     }
 
-    dll_CSNDDSG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *)&(attr->ulValueLen),
-                attr->pValue,
-                &message_len,
-                message,
-                (long *)out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&(attr->ulValueLen),
+                    attr->pValue,
+                    &message_len,
+                    message,
+                    (long *)out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA PSS SIGN) failed. return :%ld, reason: %ld\n",
@@ -3726,17 +3896,20 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
         break;
     }
 
-    dll_CSNDDSV(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *)&(attr->ulValueLen),
-                attr->pValue,
-                &message_len,
-                message,
-                (long *)&out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSV(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *)&(attr->ulValueLen),
+                    attr->pValue,
+                    &message_len,
+                    message,
+                    (long *)&out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code == 4 && reason_code == 429) {
         rc = CKR_SIGNATURE_INVALID;
@@ -3880,50 +4053,53 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ",
            rule_array_count * (size_t) CCA_KEYWORD_SIZE);
 
-    if (encrypt) {
-        dll_CSNBSAE(&return_code,
-                    &reason_code,
-                    &exit_data_len,
-                    exit_data,
-                    &rule_array_count,
-                    rule_array,
-                    &key_len,
-                    attr->pValue,
-                    &key_params_len,
-                    NULL,
-                    &block_size,
-                    &IV_len,
-                    NULL,
-                    &chain_vector_len,
-                    NULL,
-                    (long int *)&in_data_len,
-                    in_data,
-                    (long int *)out_data_len,
-                    local_out,
-                    &opt_data_len, NULL);
-    } else {
-        dll_CSNBSAD(&return_code,
-                    &reason_code,
-                    &exit_data_len,
-                    exit_data,
-                    &rule_array_count,
-                    rule_array,
-                    &key_len,
-                    attr->pValue,
-                    &key_params_len,
-                    NULL,
-                    &block_size,
-                    &IV_len,
-                    NULL,
-                    &chain_vector_len,
-                    NULL,
-                    (long int *)&in_data_len,
-                    in_data,
-                    (long int *)out_data_len,
-                    local_out,
-                    &opt_data_len,
-                    NULL);
-    }
+    RETRY_NEW_MK_BLOB_START()
+        if (encrypt) {
+            dll_CSNBSAE(&return_code,
+                        &reason_code,
+                        &exit_data_len,
+                        exit_data,
+                        &rule_array_count,
+                        rule_array,
+                        &key_len,
+                        attr->pValue,
+                        &key_params_len,
+                        NULL,
+                        &block_size,
+                        &IV_len,
+                        NULL,
+                        &chain_vector_len,
+                        NULL,
+                        (long int *)&in_data_len,
+                        in_data,
+                        (long int *)out_data_len,
+                        local_out,
+                        &opt_data_len, NULL);
+        } else {
+            dll_CSNBSAD(&return_code,
+                        &reason_code,
+                        &exit_data_len,
+                        exit_data,
+                        &rule_array_count,
+                        rule_array,
+                        &key_len,
+                        attr->pValue,
+                        &key_params_len,
+                        NULL,
+                        &block_size,
+                        &IV_len,
+                        NULL,
+                        &chain_vector_len,
+                        NULL,
+                        (long int *)&in_data_len,
+                        in_data,
+                        (long int *)out_data_len,
+                        local_out,
+                        &opt_data_len,
+                        NULL);
+        }
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt) {
@@ -3999,51 +4175,54 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     }
 
     length = in_data_len;
-    if (encrypt) {
-        dll_CSNBSAE(&return_code,
-                    &reason_code,
-                    &exit_data_len,
-                    exit_data,
-                    &rule_array_count,
-                    rule_array,
-                    &key_len,
-                    attr->pValue,
-                    &key_params_len,
-                    exit_data,
-                    &block_size,
-                    &IV_len,
-                    init_v,
-                    &chain_vector_len,
-                    chaining_vector,
-                    &length,
-                    in_data,
-                    (long int *)out_data_len,
-                    local_out,
-                    &opt_data_len,
-                    NULL);
-    } else {
-        dll_CSNBSAD(&return_code,
-                    &reason_code,
-                    &exit_data_len,
-                    exit_data,
-                    &rule_array_count,
-                    rule_array,
-                    &key_len,
-                    attr->pValue,
-                    &key_params_len,
-                    NULL,
-                    &block_size,
-                    &IV_len,
-                    init_v,
-                    &chain_vector_len,
-                    chaining_vector,
-                    &length,
-                    in_data,
-                    (long int *)out_data_len,
-                    local_out,
-                    &opt_data_len,
-                    NULL);
-    }
+    RETRY_NEW_MK_BLOB_START()
+        if (encrypt) {
+            dll_CSNBSAE(&return_code,
+                        &reason_code,
+                        &exit_data_len,
+                        exit_data,
+                        &rule_array_count,
+                        rule_array,
+                        &key_len,
+                        attr->pValue,
+                        &key_params_len,
+                        exit_data,
+                        &block_size,
+                        &IV_len,
+                        init_v,
+                        &chain_vector_len,
+                        chaining_vector,
+                        &length,
+                        in_data,
+                        (long int *)out_data_len,
+                        local_out,
+                        &opt_data_len,
+                        NULL);
+        } else {
+            dll_CSNBSAD(&return_code,
+                        &reason_code,
+                        &exit_data_len,
+                        exit_data,
+                        &rule_array_count,
+                        rule_array,
+                        &key_len,
+                        attr->pValue,
+                        &key_params_len,
+                        NULL,
+                        &block_size,
+                        &IV_len,
+                        init_v,
+                        &chain_vector_len,
+                        chaining_vector,
+                        &length,
+                        in_data,
+                        (long int *)out_data_len,
+                        local_out,
+                        &opt_data_len,
+                        NULL);
+        }
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt) {
@@ -4479,17 +4658,20 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
     *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
 
-    dll_CSNDDSG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) &in_data_len,
-                in_data,
-                (long *) out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) &in_data_len,
+                    in_data,
+                    (long *) out_data_len, &signature_bit_length, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (EC SIGN) failed. return:%ld,"
@@ -4536,16 +4718,19 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
 
-    dll_CSNDDSV(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                (long *) &(attr->ulValueLen),
-                attr->pValue,
-                (long *) &in_data_len,
-                in_data, (long *) &out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDDSV(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    (long *) &(attr->ulValueLen),
+                    attr->pValue,
+                    (long *) &in_data_len,
+                    in_data, (long *) &out_data_len, out_data);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          attr->pValue, attr->ulValueLen)
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -5070,12 +5255,15 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
-        dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&attr->ulValueLen, attr->pValue,
-                    (long int *)&in_data_len, in_data,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &cca_ctx->hash_len, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen, attr->pValue,
+                        (long int *)&in_data_len, in_data,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &cca_ctx->hash_len, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC GENERATE) failed. "
@@ -5092,12 +5280,15 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         memcpy(signature, cca_ctx->hash, cca_ctx->hash_len);
         *sig_len = cca_ctx->hash_len;
     } else {                    // verify
-        dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&attr->ulValueLen,
-                    attr->pValue, (long int *)&in_data_len, in_data,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &cca_ctx->hash_len, signature);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen,
+                        attr->pValue, (long int *)&in_data_len, in_data,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &cca_ctx->hash_len, signature);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
@@ -5298,13 +5489,16 @@ send:
     TRACE_INFO("CSNBHMG: key length is %lu\n", attr->ulValueLen);
 
     if (sign) {
-        dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-		    (long int *)&attr->ulValueLen, attr->pValue,
-                    use_buffer ? &buffer_len : (long int *) &in_data_len,
-                    use_buffer ? buffer : in_data,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &hsize, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen, attr->pValue,
+                        use_buffer ? &buffer_len : (long int *) &in_data_len,
+                        use_buffer ? buffer : in_data,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &hsize, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC SIGN UPDATE) failed. "
@@ -5312,13 +5506,16 @@ send:
             rc = CKR_FUNCTION_FAILED;
         }
     } else {                    // verify
-        dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&attr->ulValueLen, attr->pValue,
-                    use_buffer ? &buffer_len : (long int *) &in_data_len,
-                    use_buffer ? buffer : in_data,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &hsize, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen, attr->pValue,
+                        use_buffer ? &buffer_len : (long int *) &in_data_len,
+                        use_buffer ? buffer : in_data,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &hsize, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC VERIFY UPDATE) failed. "
                         "return:%ld, reason:%ld\n", return_code, reason_code);
@@ -5426,12 +5623,15 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
-        dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&attr->ulValueLen, attr->pValue,
-                    &cca_ctx->tail_len, cca_ctx->tail,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &cca_ctx->hash_len, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen, attr->pValue,
+                        &cca_ctx->tail_len, cca_ctx->tail,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &cca_ctx->hash_len, cca_ctx->hash);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC SIGN FINAL) failed. "
@@ -5448,12 +5648,15 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         *sig_len = cca_ctx->hash_len;
 
     } else {                    // verify
-        dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&attr->ulValueLen, attr->pValue,
-                    &cca_ctx->tail_len, cca_ctx->tail,
-                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                    &cca_ctx->hash_len, signature);
+        RETRY_NEW_MK_BLOB_START()
+            dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&attr->ulValueLen, attr->pValue,
+                        &cca_ctx->tail_len, cca_ctx->tail,
+                        &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                        &cca_ctx->hash_len, signature);
+        RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                              attr->pValue, attr->ulValueLen)
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
@@ -7261,7 +7464,8 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     return CKR_OK;
 }
 
-static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
+static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
+                                      CK_MECHANISM *mech, CK_BBOOL length_only,
                                       OBJECT *wrapping_key, OBJECT *key,
                                       CK_BYTE *wrapped_key,
                                       CK_ULONG *wrapped_key_len)
@@ -7393,10 +7597,14 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(CK_MECHANISM *mech, CK_BBOOL length_only,
         return rc;
     }
 
-    dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, (long *)&key_opaque->ulValueLen,
-                key_opaque->pValue, (long *)&wrap_key_opaque->ulValueLen,
-                wrap_key_opaque->pValue, &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, (long *)&key_opaque->ulValueLen,
+                    key_opaque->pValue, (long *)&wrap_key_opaque->ulValueLen,
+                    wrap_key_opaque->pValue, &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,
+                           key_opaque->pValue, key_opaque->ulValueLen,
+                           wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYX (SYMMETRIC KEY EXPORT) failed."
@@ -7555,10 +7763,13 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    dll_CSNDSYI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, (long *)&wrapped_key_len, wrapped_key,
-                (long *)&wrap_key_opaque->ulValueLen, wrap_key_opaque->pValue,
-                &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNDSYI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, (long *)&wrapped_key_len, wrapped_key,
+                    (long *)&wrap_key_opaque->ulValueLen, wrap_key_opaque->pValue,
+                    &buffer_len, buffer);
+    RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
+                          wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYI (SYMMETRIC KEY IMPORT) failed."
@@ -7724,7 +7935,8 @@ CK_RV token_specific_key_wrap(STDLL_TokData_t *tokdata, SESSION *session,
         if (wrap_key_class != CKO_PUBLIC_KEY && wrap_key_type != CKK_RSA)
             return CKR_WRAPPING_KEY_TYPE_INCONSISTENT;
 
-        return ccatok_wrap_key_rsa_pkcs(mech, length_only, wrapping_key, key,
+        return ccatok_wrap_key_rsa_pkcs(tokdata,
+                                        mech, length_only, wrapping_key, key,
                                         wrapped_key, wrapped_key_len);
     default:
         return CKR_MECHANISM_INVALID;
@@ -8027,13 +8239,17 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
-    dll_CSNBCTT2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                 rule_array, (long *)&decr_key_opaque->ulValueLen,
-                 decr_key_opaque->pValue, &in_iv_len, in_iv,
-                 (long *)&in_data_len, in_data, &cv_len, cv,
-                 (long *)&encr_key_opaque->ulValueLen, encr_key_opaque->pValue,
-                 &out_iv_len, out_iv, (long *)out_data_len, out_data,
-                 &zero, NULL, &zero, NULL);
+    RETRY_NEW_MK_BLOB_START()
+        dll_CSNBCTT2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                     rule_array, (long *)&decr_key_opaque->ulValueLen,
+                     decr_key_opaque->pValue, &in_iv_len, in_iv,
+                     (long *)&in_data_len, in_data, &cv_len, cv,
+                     (long *)&encr_key_opaque->ulValueLen, encr_key_opaque->pValue,
+                     &out_iv_len, out_iv, (long *)out_data_len, out_data,
+                     &zero, NULL, &zero, NULL);
+    RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,
+                           encr_key_opaque->pValue, encr_key_opaque->ulValueLen,
+                           decr_key_opaque->pValue, decr_key_opaque->ulValueLen);
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBCTT2 (CIPHER TEXT TRANSLATE) failed."
