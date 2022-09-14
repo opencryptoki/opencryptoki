@@ -5,6 +5,7 @@ noinst_HEADERS += usr/lib/common/host_defs.h
 noinst_HEADERS += usr/include/local_types.h
 noinst_HEADERS += usr/lib/common/h_extern.h
 noinst_HEADERS += usr/lib/common/pkcs_utils.h
+noinst_HEADERS += usr/lib/common/pin_prompt.h
 
 usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber
 
@@ -38,8 +39,9 @@ usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/profile_obj.c usr/lib/common/attributes.c	\
 	usr/lib/common/mech_rng.c usr/lib/common/pkcs_utils.c		\
 	usr/lib/common/dlist.c usr/sbin/pkcscca/pkcscca.c		\
-	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c   \
-	usr/lib/api/policyhelper.c usr/lib/common/mech_openssl.c
+	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
+	usr/lib/common/pin_prompt.c usr/lib/common/mech_openssl.c	\
+	usr/lib/api/policyhelper.c
 
 nodist_usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/api/mechtable.c
 
