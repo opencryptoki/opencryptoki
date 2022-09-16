@@ -247,7 +247,8 @@ static void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_
 static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
                                       CK_SESSION_HANDLE_PTR phSession);
 static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                       ST_SESSION_HANDLE * sSession);
+                                       ST_SESSION_HANDLE * sSession,
+                                       CK_BBOOL in_fork_initializer);
 
 static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
                                             TEMPLATE *template,
@@ -11036,7 +11037,8 @@ CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
                            CK_ULONG ulCount);
 CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
                      CK_SESSION_HANDLE_PTR phSession);
-CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession);
+CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
+                      CK_BBOOL in_fork_initializer);
 
 static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
                                       SESSION * session,
@@ -11516,7 +11518,7 @@ done:
     }
 
     if (helper_session != CK_INVALID_HANDLE) {
-        rc2 = ep11_close_helper_session(tokdata, &handle);
+        rc2 = ep11_close_helper_session(tokdata, &handle, FALSE);
         if (rc2 != CKR_OK)
             TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
                         __func__, rc2);
@@ -11614,7 +11616,7 @@ free_session:
     session->private_data = NULL;
 
     if (helper_session != CK_INVALID_HANDLE) {
-        rc2 = ep11_close_helper_session(tokdata, &handle);
+        rc2 = ep11_close_helper_session(tokdata, &handle, in_fork_initializer);
         if (rc2 != CKR_OK)
             TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
                         __func__, rc2);
@@ -11678,13 +11680,14 @@ static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
 }
 
 static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                       ST_SESSION_HANDLE * sSession)
+                                       ST_SESSION_HANDLE * sSession,
+                                       CK_BBOOL in_fork_initializer)
 {
     CK_RV rc;
 
     TRACE_INFO("%s\n", __func__);
 
-    rc = SC_CloseSession(tokdata, sSession);
+    rc = SC_CloseSession(tokdata, sSession, in_fork_initializer);
     if (rc != CKR_OK)
         TRACE_ERROR("%s SC_CloseSession failed: 0x%lx\n", __func__, rc);
 
