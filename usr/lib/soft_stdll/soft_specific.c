@@ -181,7 +181,6 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_SSL3_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
     {CKM_SSL3_MD5_MAC, {384, 384, CKF_SIGN | CKF_VERIFY}},
     {CKM_SSL3_SHA1_MAC, {384, 384, CKF_SIGN | CKF_VERIFY}},
-#if !(NOAES)
     {CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
     {CKM_AES_ECB, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
@@ -203,7 +202,6 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
-#endif
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #if !(NO_EC)
     {CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_GENERATE_KEY_PAIR |
@@ -526,8 +524,6 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                                              openssl_specific_rsa_decrypt);
 }
 
-#ifndef NOAES
-
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
                                  CK_ULONG *len, CK_ULONG keysize,
                                  CK_BBOOL *is_opaque)
@@ -651,8 +647,6 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return openssl_specific_aes_cmac(tokdata, message, message_len, key, mac,
                                      first, last, ctx);
 }
-
-#endif
 
 /* Begin code contributed by Corrent corp. */
 #ifndef NODH

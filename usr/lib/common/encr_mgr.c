@@ -818,7 +818,6 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
         return rsa_x509_encrypt(tokdata, sess, length_only, ctx,
                                 in_data, in_data_len,
                                 out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_CBC:
         return aes_cbc_encrypt(tokdata, sess, length_only, ctx,
                                in_data, in_data_len,
@@ -857,7 +856,6 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
         return aes_cfb_encrypt(tokdata, sess, length_only, ctx,
                                in_data, in_data_len,
                                out_data, out_data_len, 0x10);
-#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -961,7 +959,6 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata,
         return des3_cbc_pad_encrypt_update(tokdata, sess, length_only, ctx,
                                            in_data, in_data_len,
                                            out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_ECB:
         return aes_ecb_encrypt_update(tokdata, sess, length_only, ctx,
                                       in_data, in_data_len,
@@ -998,7 +995,6 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata,
         return aes_cfb_encrypt_update(tokdata, sess, length_only, ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len, 0x10);
-#endif
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -1084,7 +1080,6 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
         return des3_cbc_pad_encrypt_final(tokdata, sess, length_only,
                                           ctx, out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_ECB:
         return aes_ecb_encrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len);
@@ -1112,7 +1107,6 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB128:
         return aes_cfb_encrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len, 0x10);
-#endif
     default:
         return CKR_MECHANISM_INVALID;
     }

@@ -827,7 +827,6 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
         return rsa_x509_decrypt(tokdata, sess, length_only,
                                 ctx,
                                 in_data, in_data_len, out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_CBC:
         return aes_cbc_decrypt(tokdata, sess, length_only,
                                ctx,
@@ -867,7 +866,6 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
                                ctx,
                                in_data, in_data_len,
                                out_data, out_data_len, 0x10);
-#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -980,7 +978,6 @@ CK_RV decr_mgr_decrypt_update(STDLL_TokData_t *tokdata,
                                            ctx,
                                            in_data, in_data_len,
                                            out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_ECB:
         return aes_ecb_decrypt_update(tokdata, sess, length_only,
                                       ctx,
@@ -1025,7 +1022,6 @@ CK_RV decr_mgr_decrypt_update(STDLL_TokData_t *tokdata,
                                       ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len, 0x10);
-#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -1112,7 +1108,6 @@ CK_RV decr_mgr_decrypt_final(STDLL_TokData_t *tokdata,
     case CKM_DES3_CBC_PAD:
         return des3_cbc_pad_decrypt_final(tokdata, sess, length_only,
                                           ctx, out_data, out_data_len);
-#ifndef NOAES
     case CKM_AES_ECB:
         return aes_ecb_decrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len);
@@ -1140,7 +1135,6 @@ CK_RV decr_mgr_decrypt_final(STDLL_TokData_t *tokdata,
     case CKM_AES_GCM:
         return aes_gcm_decrypt_final(tokdata, sess, length_only, ctx,
                                      out_data, out_data_len);
-#endif
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;

@@ -205,12 +205,10 @@ static const MECH_LIST_ELEMENT cca_mech_list[] = {
      {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_DES3_CBC_PAD,
      {24, 24, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-#ifndef NOAES
     {CKM_AES_KEY_GEN, {16, 32, CKF_HW | CKF_GENERATE}},
     {CKM_AES_ECB, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
     {CKM_AES_CBC_PAD, {16, 32, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT}},
-#endif
     {CKM_SHA512, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA512_HMAC, {256, 2048, CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_HMAC_GENERAL, {256, 2048, CKF_SIGN | CKF_VERIFY}},
@@ -2888,8 +2886,6 @@ done:
     return rc;
 }
 
-
-#ifndef NOAES
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **aes_key,
                                  CK_ULONG *len, CK_ULONG key_size,
                                  CK_BBOOL *is_opaque)
@@ -3203,7 +3199,6 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
 
     return CKR_OK;
 }
-#endif
 
 /* See the top of this file for the declarations of mech_list and
  * mech_list_len.

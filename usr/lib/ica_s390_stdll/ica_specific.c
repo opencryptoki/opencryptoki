@@ -20,9 +20,7 @@
 #include <link.h>
 #include <errno.h>
 
-#ifndef NOAES
 #include <openssl/aes.h>
-#endif
 
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -2639,8 +2637,6 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                                              os_specific_rsa_decrypt);
 }
 
-#ifndef NOAES
-
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
                                  CK_ULONG *len, CK_ULONG keysize,
                                  CK_BBOOL *is_opaque)
@@ -3433,8 +3429,6 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
-#endif
-
 typedef struct _REF_MECH_LIST_ELEMENT {
     CK_ULONG lica_idx; /* 0 means its a combined mechanism */
     CK_MECHANISM_TYPE mech_type;
@@ -3542,7 +3536,6 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {54, CKM_MD5_HMAC, {0, 0, CKF_SIGN | CKF_VERIFY}},
     {55, CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
-#if !(NOAES)
     {P_RNG, CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
     {AES_ECB, CKM_AES_ECB,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
@@ -3573,7 +3566,6 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {AES_CMAC, CKM_AES_MAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {AES_CMAC, CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {AES_CMAC, CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
-#endif
     {P_RNG, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #ifndef NO_EC
     {EC_DH, CKM_ECDH1_DERIVE,

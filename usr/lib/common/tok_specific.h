@@ -232,7 +232,6 @@ CK_RV token_specific_hmac_verify_final(STDLL_TokData_t *, SESSION *,
 CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *,
                                             TEMPLATE *template);
 
-#ifndef NOAES
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *,
                                  CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
@@ -285,8 +284,6 @@ CK_RV token_specific_aes_mac(STDLL_TokData_t *,
 CK_RV token_specific_aes_cmac(STDLL_TokData_t *,
                               CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
                               CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
-
-#endif
 
 CK_RV token_specific_dsa_generate_keypair(STDLL_TokData_t *,
                                           TEMPLATE *, TEMPLATE *);

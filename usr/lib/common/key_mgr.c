@@ -188,11 +188,9 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     case CKM_SSL3_PRE_MASTER_KEY_GEN:
         rc = ckm_ssl3_pre_master_key_gen(tokdata, key_obj->template, mech);
         break;
-#ifndef NOAES
     case CKM_AES_KEY_GEN:
         rc = ckm_aes_key_gen(tokdata, key_obj->template);
         break;
-#endif
     case CKM_GENERIC_SECRET_KEY_GEN:
         rc = ckm_generic_secret_key_gen(tokdata, key_obj->template);
         break;
@@ -924,7 +922,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#ifndef NOAES
     case CKK_AES:
         rc = aes_wrap_get_data(key_obj->template, length_only, &data,
                                &data_len);
@@ -933,7 +930,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#endif
     case CKK_EC:
         rc = ecdsa_priv_wrap_get_data(key_obj->template, length_only, &data,
                                       &data_len);
@@ -970,7 +966,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#ifndef NOAES
     case CKM_AES_ECB:
     case CKM_AES_CBC:
     case CKM_AES_CTR:
@@ -988,7 +983,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#endif
 #if !(NOCMF)
     case CKM_CDMF_CBC_PAD:
 #endif
