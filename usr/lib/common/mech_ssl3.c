@@ -1958,9 +1958,6 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
-    case CKK_RC2:
-    case CKK_RC4:
-    case CKK_RC5:
     case CKK_CAST:
     case CKK_CAST3:
     case CKK_CAST5:

@@ -2537,24 +2537,6 @@ CK_RV generic_secret_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
 CK_RV generic_secret_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len,
                             CK_BBOOL fromend);
 
-// RC2 routines
-CK_RV rc2_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc2_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc2_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                             CK_ATTRIBUTE *attr, CK_ULONG mode);
-
-// RC4 routines
-CK_RV rc4_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc4_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc4_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                             CK_ATTRIBUTE *attr, CK_ULONG mode);
-
-// RC5 routines
-CK_RV rc5_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc5_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV rc5_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                             CK_ATTRIBUTE *attr, CK_ULONG mode);
-
 // DES routines
 CK_RV des_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_BBOOL des_check_weak_key(CK_BYTE *key);
