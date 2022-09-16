@@ -196,12 +196,6 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return des2_set_default_attributes(tmpl, mode);
         case CKK_DES3:
             return des3_set_default_attributes(tmpl, mode);
-        case CKK_CAST:
-            return cast_set_default_attributes(tmpl, mode);
-        case CKK_CAST3:
-            return cast3_set_default_attributes(tmpl, mode);
-        case CKK_CAST5:
-            return cast5_set_default_attributes(tmpl, mode);
         case CKK_IDEA:
             return idea_set_default_attributes(tmpl, mode);
         case CKK_SKIPJACK:
@@ -455,12 +449,6 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return des2_check_required_attributes(tmpl, mode);
         case CKK_DES3:
             return des3_check_required_attributes(tmpl, mode);
-        case CKK_CAST:
-            return cast_check_required_attributes(tmpl, mode);
-        case CKK_CAST3:
-            return cast3_check_required_attributes(tmpl, mode);
-        case CKK_CAST5:
-            return cast5_check_required_attributes(tmpl, mode);
         case CKK_IDEA:
             return idea_check_required_attributes(tmpl, mode);
         case CKK_SKIPJACK:
@@ -1700,12 +1688,6 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return des2_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_DES3:
             return des3_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_CAST:
-            return cast_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_CAST3:
-            return cast3_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_CAST5:
-            return cast5_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_IDEA:
             return idea_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_SKIPJACK:
