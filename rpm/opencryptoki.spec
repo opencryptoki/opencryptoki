@@ -232,18 +232,27 @@ exit 0
 %doc ChangeLog FAQ README.md
 %doc doc/opencryptoki-howto.md
 %doc doc/README.token_data
+%doc doc/policy-example.conf
+%doc doc/strength-example.conf
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
+%config(noreplace) %{_sysconfdir}/%{name}/strength.conf
+%config(noreplace) %{_sysconfdir}/%{name}/p11sak_defined_attrs.conf
 %{_prefix}/lib/tmpfiles.d/%{name}.conf
 %{_unitdir}/pkcsslotd.service
 %{_sbindir}/pkcsconf
 %{_sbindir}/pkcsslotd
 %{_sbindir}/p11sak
 %{_sbindir}/pkcstok_migrate
+%{_sbindir}/pkcsstats
 %{_mandir}/man1/pkcsconf.1*
 %{_mandir}/man1/p11sak.1*
 %{_mandir}/man1/pkcstok_migrate.1*
+%{_mandir}/man1/pkcsstats.1*
 %{_mandir}/man5/%{name}.conf.5*
+%{_mandir}/man5/p11sak_defined_attrs.conf.5*
+%{_mandir}/man5/policy.conf.5*
+%{_mandir}/man5/strength.conf.5*
 %{_mandir}/man7/%{name}.7*
 %{_mandir}/man8/pkcsslotd.8*
 %{_libdir}/opencryptoki/methods
@@ -302,6 +311,7 @@ exit 0
 
 %files ccatok
 %doc doc/README.cca_stdll
+%config(noreplace) %{_sysconfdir}/%{name}/ccatok.conf
 %{_sbindir}/pkcscca
 %{_mandir}/man1/pkcscca.1*
 %{_libdir}/opencryptoki/stdll/libpkcs11_cca.*
