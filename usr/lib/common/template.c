@@ -162,8 +162,6 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return ecdsa_publ_set_default_attributes(tmpl, mode);
         case CKK_DH:
             return dh_publ_set_default_attributes(tmpl, mode);
-        case CKK_KEA:
-            return kea_publ_set_default_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_set_default_attributes(tmpl, mode);
         default:
@@ -181,8 +179,6 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return ecdsa_priv_set_default_attributes(tmpl, mode);
         case CKK_DH:
             return dh_priv_set_default_attributes(tmpl, mode);
-        case CKK_KEA:
-            return kea_priv_set_default_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_set_default_attributes(tmpl, mode);
         default:
@@ -431,8 +427,6 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return ecdsa_publ_check_required_attributes(tmpl, mode);
         case CKK_DH:
             return dh_publ_check_required_attributes(tmpl, mode);
-        case CKK_KEA:
-            return kea_publ_check_required_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_check_required_attributes(tmpl, mode);
         default:
@@ -450,8 +444,6 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return ecdsa_priv_check_required_attributes(tmpl, mode);
         case CKK_DH:
             return dh_priv_check_required_attributes(tmpl, mode);
-        case CKK_KEA:
-            return kea_priv_check_required_attributes(tmpl, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_check_required_attributes(tmpl, mode);
         default:
@@ -1407,8 +1399,6 @@ CK_BBOOL template_check_exportability(TEMPLATE *tmpl, CK_ATTRIBUTE_TYPE type)
         case CKK_X9_42_DH:
         case CKK_DH:
             return dh_priv_check_exportability(type);
-        case CKK_KEA:
-            return kea_priv_check_exportability(type);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -1690,8 +1680,6 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return ecdsa_publ_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_DH:
             return dh_publ_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_KEA:
-            return kea_publ_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_publ_validate_attribute(tokdata, tmpl, attr, mode);
         default:
@@ -1708,8 +1696,6 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return ecdsa_priv_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_DH:
             return dh_priv_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_KEA:
-            return kea_priv_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_IBM_PQC_DILITHIUM:
             return ibm_dilithium_priv_validate_attribute(tokdata, tmpl, attr, mode);
         default:
