@@ -1,3 +1,17 @@
++ openCryptoki 3.19
+- CCA: check for expected master key verification patterns at token init
+- CCA: check master key verification pattern of created keys to be as expected
+- EP11: check for expected wrapping key verification pattern at token init
+- EP11: check wrapping key verification pattern of created keys to be as expected
+- p11sak/pkcsconf: display PKCS#11 URIs
+- p11sak: add support for IBM specific Dilithium keys
+- p11sak: allow to list keys filtered by label
+- common: add support for dual-function cryptographic functions
+- Add support for C_SessionCancel function (PKCS#11 v3.0)
+- EP11: add support for schnorr signatures (mechanism CKM_IBM_ECDSA_OTHER)
+- EP11: add support for Bitcoin key derivation (mechanism CKM_IBM_BTC_DERIVE)
+- Bug fixes
+
 + openCryptoki 3.18
 - Default to FIPS compliant token data format (tokversion = 3.12)
 - Add support for restricting usage of mechanisms and keys via a global policy
