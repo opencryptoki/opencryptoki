@@ -102,10 +102,6 @@
 //    idea_validate_attribute
 //    idea_priv_check_exportability
 //
-//    cdmf_check_required_attributes
-//    cdmf_validate_attribute
-//    cdmf_priv_check_exportability
-//
 //    skipjack_check_required_attributes
 //    skipjack_validate_attribute
 //    skipjack_priv_check_exportability
@@ -1697,7 +1693,6 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
     CK_RV rc;
 
     switch (keytype) {
-    case CKK_CDMF:
     case CKK_DES:
         rc = des_unwrap(tokdata, tmpl, data, data_len, fromend);
         break;
@@ -7542,156 +7537,6 @@ CK_RV idea_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 }
 
-
-// cdmf_check_required_attributes()
-//
-CK_RV cdmf_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
-{
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_VALUE\n");
-            return rc;
-        }
-    }
-
-    return secret_key_check_required_attributes(tmpl, mode);
-}
-
-
-#if !(NOCDMF)
-//  cdmf_set_default_attributes()
-//
-CK_RV cdmf_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
-{
-    CK_ATTRIBUTE *value_attr = NULL;
-    CK_ATTRIBUTE *type_attr = NULL;
-    CK_RV rc;
-
-    if (mode)
-        value_attr = NULL;
-
-    secret_key_set_default_attributes(tmpl, mode);
-
-    type_attr =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
-    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
-
-    if (!type_attr || !value_attr) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    value_attr->type = CKA_VALUE;
-    value_attr->ulValueLen = 0;
-    value_attr->pValue = NULL;
-
-    type_attr->type = CKA_KEY_TYPE;
-    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
-    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_CDMF;
-
-    rc = template_update_attribute(tmpl, type_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    type_attr = NULL;
-    rc = template_update_attribute(tmpl, value_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    value_attr = NULL;
-
-    return CKR_OK;
-
-error:
-    if (type_attr)
-        free(type_attr);
-    if (value_attr)
-        free(value_attr);
-
-    return rc;
-}
-
-
-// cdmf_validate_attribute()
-//
-CK_RV cdmf_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                              CK_ATTRIBUTE *attr, CK_ULONG mode)
-{
-    CK_ULONG len;
-
-    switch (attr->type) {
-    case CKA_VALUE:
-#if 0
-        CDMF_Transform_Args args;
-#endif
-        CK_ULONG req_len, repl_len;
-        CK_BYTE cdmf_key[DES_KEY_SIZE];
-        CK_RV rc;
-
-        if (mode != MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-            return CKR_ATTRIBUTE_READ_ONLY;
-        }
-        if (attr->ulValueLen != DES_KEY_SIZE || attr->pValue == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-#if 0
-        req_len = sizeof(args);
-        repl_len = DES_KEY_SIZE;
-
-        memcpy(args.des_key, attr->pValue, DES_KEY_SIZE);
-
-        rc = communicate(PK_CDMF_TRANSFORM_KEY,
-                         &args, req_len, cdmf_key, &repl_len, NULL, 0, NULL, 0);
-
-        if (rc != CKR_OK)
-            return rc;
-
-        if (rc == CKR_OK) {
-            if (repl_len != DES_KEY_SIZE)
-                return CKR_GENERAL_ERROR;
-
-            memcpy(attr->pValue, cdmf_key, DES_KEY_SIZE);
-        }
-
-        return CKR_OK;
-#else
-        return tok_cdmf_transform(attr->pValue, DES_KEY_SIZE);
-#endif
-    case CKA_VALUE_LEN:
-        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        if (tokdata->nv_token_data->tweak_vector.netscape_mods == TRUE) {
-            if (mode == MODE_CREATE || mode == MODE_KEYGEN) {
-                len = *(CK_ULONG *) attr->pValue;
-                if (len != DES_KEY_SIZE) {
-                    TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-                    return CKR_ATTRIBUTE_VALUE_INVALID;
-                }
-                return CKR_OK;
-            }
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-            return CKR_ATTRIBUTE_READ_ONLY;
-        }
-        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
-        return CKR_ATTRIBUTE_TYPE_INVALID;
-    default:
-        return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
-    }
-}
-
-#endif
 
 // skipjack_check_required_attributes()
 //

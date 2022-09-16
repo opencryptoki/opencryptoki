@@ -5,7 +5,7 @@ noinst_HEADERS += 							\
 	usr/lib/tpm_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS =				\
-	-DLINUX -DNOCDMF -DNODSA -DNODH	-DMMAP				\
+	-DLINUX -DNODSA -DNODH	-DMMAP					\
 	-DTOK_NEW_DATA_STORE=0xffffffff					\
 	-I${srcdir}/usr/lib/tpm_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include	-DSTDLL_NAME=\"tpmtok\"			\

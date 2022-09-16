@@ -7,7 +7,7 @@ noinst_HEADERS +=							\
 	usr/lib/icsf_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_icsf_la_CFLAGS =				\
-	-DNOCDMF -DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll	\
+	-DNODSA -DNODH	-DMMAP -I${srcdir}/usr/lib/icsf_stdll		\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
 	-DSTDLL_NAME=\"icsftok\"					\
 	-DTOK_NEW_DATA_STORE=0xffffffff					\

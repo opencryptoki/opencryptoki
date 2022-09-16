@@ -170,36 +170,6 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
         break;
-    case CKM_CDMF_ECB:
-        if (mech->ulParameterLen != 0) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            rc = CKR_MECHANISM_PARAM_INVALID;
-            goto done;
-        }
-        // is the key type correct?
-        //
-        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
-                                          &keytype);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            goto done;
-        }
-
-        if (keytype != CKK_CDMF) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            rc = CKR_KEY_TYPE_INCONSISTENT;
-            goto done;
-        }
-
-        ctx->context_len = sizeof(DES_CONTEXT);
-        ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
-        if (!ctx->context) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-        memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
-        break;
     case CKM_DES_CBC:
     case CKM_DES_CBC_PAD:
         if (mech->ulParameterLen != DES_BLOCK_SIZE ||
@@ -257,38 +227,6 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         }
 
         if ((keytype != CKK_DES3)) {
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
-            rc = CKR_KEY_TYPE_INCONSISTENT;
-            goto done;
-        }
-
-        ctx->context_len = sizeof(DES_CONTEXT);
-        ctx->context = (CK_BYTE *) malloc(sizeof(DES_CONTEXT));
-        if (!ctx->context) {
-            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-            rc = CKR_HOST_MEMORY;
-            goto done;
-        }
-        memset(ctx->context, 0x0, sizeof(DES_CONTEXT));
-        break;
-    case CKM_CDMF_CBC:
-    case CKM_CDMF_CBC_PAD:
-        if (mech->ulParameterLen != DES_BLOCK_SIZE ||
-            mech->pParameter == NULL) {
-            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-            rc = CKR_MECHANISM_PARAM_INVALID;
-            goto done;
-        }
-        // is the key type correct?
-        //
-        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
-                                          &keytype);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
-            goto done;
-        }
-
-        if (keytype != CKK_CDMF) {
             TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
             rc = CKR_KEY_TYPE_INCONSISTENT;
             goto done;
@@ -749,18 +687,15 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
         return CKR_OPERATION_ACTIVE;
     }
     switch (ctx->mech.mechanism) {
-    case CKM_CDMF_ECB:
     case CKM_DES_ECB:
         return pk_des_ecb_encrypt(tokdata, sess, length_only, ctx,
                                   in_data, in_data_len,
                                   out_data, out_data_len);
-    case CKM_CDMF_CBC:
     case CKM_DES_CBC:
         return pk_des_cbc_encrypt(tokdata, sess, length_only, ctx,
                                   in_data, in_data_len,
                                   out_data, out_data_len);
     case CKM_DES_CBC_PAD:
-    case CKM_CDMF_CBC_PAD:
         return des_cbc_pad_encrypt(tokdata, sess, length_only, ctx,
                                    in_data, in_data_len,
                                    out_data, out_data_len);
@@ -902,18 +837,15 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata,
     }
 
     switch (ctx->mech.mechanism) {
-    case CKM_CDMF_ECB:
     case CKM_DES_ECB:
         return des_ecb_encrypt_update(tokdata, sess, length_only, ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len);
-    case CKM_CDMF_CBC:
     case CKM_DES_CBC:
         return des_cbc_encrypt_update(tokdata, sess, length_only, ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len);
     case CKM_DES_CBC_PAD:
-    case CKM_CDMF_CBC_PAD:
         return des_cbc_pad_encrypt_update(tokdata, sess, length_only, ctx,
                                           in_data, in_data_len,
                                           out_data, out_data_len);
@@ -1032,16 +964,13 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
         return CKR_OPERATION_ACTIVE;
     }
     switch (ctx->mech.mechanism) {
-    case CKM_CDMF_ECB:
     case CKM_DES_ECB:
         return des_ecb_encrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len);
-    case CKM_CDMF_CBC:
     case CKM_DES_CBC:
         return des_cbc_encrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len);
     case CKM_DES_CBC_PAD:
-    case CKM_CDMF_CBC_PAD:
         return des_cbc_pad_encrypt_final(tokdata, sess, length_only,
                                          ctx, out_data, out_data_len);
     case CKM_DES_OFB64:

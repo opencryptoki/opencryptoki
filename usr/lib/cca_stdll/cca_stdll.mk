@@ -6,7 +6,7 @@ noinst_HEADERS +=							\
 	usr/lib/cca_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
-	-DLINUX -DNOCDMF -DNODSA -DNODH -DNOECB				\
+	-DLINUX -DNODSA -DNODH -DNOECB					\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-I${srcdir}/usr/lib/cca_stdll -I${srcdir}/usr/lib/common	\
 	-I${srcdir}/usr/include -DSTDLL_NAME=\"ccatok\"			\

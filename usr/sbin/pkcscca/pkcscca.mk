@@ -11,7 +11,7 @@ usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt
 usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DSTDLL_NAME=\"pkcscca\"					\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
-	-DNOCDMF -DNODSA -DNODH						\
+	-DNODSA -DNODH							\
 	-DOCK_NO_SET_PERM -DOCK_NO_LOCAL_RNG				\
 	-I${srcdir}/usr/include 					\
 	-I${srcdir}/usr/lib/common					\

@@ -891,9 +891,6 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     case CKM_DES3_KEY_GEN:
         *type = CKK_DES3;
         break;
-    case CKM_CDMF_KEY_GEN:
-        *type = CKK_CDMF;
-        break;
     case CKM_AES_KEY_GEN:
         *type = CKK_AES;
         break;
