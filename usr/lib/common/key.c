@@ -68,10 +68,6 @@
 //    des3_validate_attribute
 //    des3_priv_check_exportability
 //
-//    skipjack_check_required_attributes
-//    skipjack_validate_attribute
-//    skipjack_priv_check_exportability
-//
 //    baton_check_required_attributes
 //    baton_validate_attribute
 //    baton_priv_check_exportability
@@ -6205,104 +6201,6 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl,
 
     return CKR_OK;
 }
-
-// skipjack_check_required_attributes()
-//
-CK_RV skipjack_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
-{
-    CK_ATTRIBUTE *attr = NULL;
-    CK_RV rc;
-
-    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &attr);
-    if (rc != CKR_OK) {
-        if (mode == MODE_CREATE) {
-            TRACE_ERROR("Could not find CKA_VALUE\n");
-            return rc;
-        }
-    }
-
-    return secret_key_check_required_attributes(tmpl, mode);
-}
-
-
-//  skipjack_set_default_attributes()
-//
-CK_RV skipjack_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
-{
-    CK_ATTRIBUTE *value_attr = NULL;
-    CK_ATTRIBUTE *type_attr = NULL;
-    CK_RV rc;
-
-    if (mode)
-        value_attr = NULL;
-
-    secret_key_set_default_attributes(tmpl, mode);
-
-    type_attr =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
-    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
-
-    if (!type_attr || !value_attr) {
-        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto error;
-    }
-
-    value_attr->type = CKA_VALUE;
-    value_attr->ulValueLen = 0;
-    value_attr->pValue = NULL;
-
-    type_attr->type = CKA_KEY_TYPE;
-    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
-    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_SKIPJACK;
-
-    rc = template_update_attribute(tmpl, type_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    type_attr = NULL;
-    rc = template_update_attribute(tmpl, value_attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("template_update_attribute failed\n");
-        goto error;
-    }
-    value_attr = NULL;
-
-    return CKR_OK;
-
-error:
-    if (type_attr)
-        free(type_attr);
-    if (value_attr)
-        free(value_attr);
-
-    return rc;
-}
-
-
-// skipjack_validate_attribute()
-//
-CK_RV skipjack_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                                  CK_ATTRIBUTE *attr, CK_ULONG mode)
-{
-    switch (attr->type) {
-    case CKA_VALUE:
-        if (mode != MODE_CREATE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
-            return CKR_ATTRIBUTE_READ_ONLY;
-        }
-        if (attr->ulValueLen != 20) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
-            return CKR_ATTRIBUTE_VALUE_INVALID;
-        }
-        return CKR_OK;
-    default:
-        return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
-    }
-}
-
 
 // baton_check_required_attributes()
 //
