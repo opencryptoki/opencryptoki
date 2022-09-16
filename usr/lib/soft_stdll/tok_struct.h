@@ -137,7 +137,6 @@ token_spec_t token_specific = {
     &token_specific_hmac_verify_final,
     &token_specific_generic_secret_key_gen,
     // AES
-#ifndef NOAES
     &token_specific_aes_key_gen,
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
@@ -150,20 +149,6 @@ token_spec_t token_specific = {
     &token_specific_aes_cfb,
     &token_specific_aes_mac,
     &token_specific_aes_cmac,
-#else
-    NULL,                       // aes_key_gen
-    NULL,                       // aes_ecb
-    NULL,                       // aes_cbc
-    NULL,                       // aes_ctr
-    NULL,                       // aes_gcm_init
-    NULL,                       // aes_gcm
-    NULL,                       // aes_gcm_update
-    NULL,                       // aes_gcm_final
-    NULL,                       // aes_mac
-    NULL,                       // aes_cmac
-    NULL,                       // aes_ofb
-    NULL,                       // aes_cfb
-#endif
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign

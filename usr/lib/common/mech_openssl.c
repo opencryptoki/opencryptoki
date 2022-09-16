@@ -3154,7 +3154,6 @@ static const EVP_CIPHER *openssl_cipher_from_mech(CK_MECHANISM_TYPE mech,
         if (keytype == CKK_DES3 && keylen == DES_KEY_SIZE * 3)
             return EVP_des_ede3_cfb64();
         break;
-#ifndef NOAES
     case CKM_AES_ECB:
         if (keytype != CKK_AES)
             break;
@@ -3253,7 +3252,6 @@ static const EVP_CIPHER *openssl_cipher_from_mech(CK_MECHANISM_TYPE mech,
             break;
         }
         break;
-#endif
     default:
         TRACE_ERROR("mechanism 0x%lx not supported\n", mech);
         return NULL;
@@ -3538,9 +3536,6 @@ err:
     *ctx = NULL;
     return rv;
 }
-
-
-#ifndef NOAES
 
 CK_RV openssl_specific_aes_ecb(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,
@@ -4080,8 +4075,6 @@ CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return openssl_cmac_perform(CKM_AES_CMAC, message, message_len, key, mac,
                                 first, last, ctx);
 }
-
-#endif
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,

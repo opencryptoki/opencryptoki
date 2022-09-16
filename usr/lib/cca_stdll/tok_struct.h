@@ -103,16 +103,11 @@ token_spec_t token_specific = {
     &token_specific_hmac_verify_update,
     &token_specific_hmac_verify_final,
     &token_specific_generic_secret_key_gen,
-#ifndef NOAES
+
     // AES
     &token_specific_aes_key_gen,
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
-#else
-    NULL,
-    NULL,
-    NULL,
-#endif
     NULL,                       // aes_ctr
     NULL,                       // aes_gcm_init,
     NULL,                       // aes_gcm
