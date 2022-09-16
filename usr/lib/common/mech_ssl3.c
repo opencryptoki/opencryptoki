@@ -1958,9 +1958,6 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
     case CKK_DES:
     case CKK_DES2:
     case CKK_DES3:
-    case CKK_CAST:
-    case CKK_CAST3:
-    case CKK_CAST5:
         rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *) & write_len,
                              sizeof(CK_ULONG), &client_val_len_attr);
         rc |=
