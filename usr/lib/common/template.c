@@ -196,8 +196,6 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return des2_set_default_attributes(tmpl, mode);
         case CKK_DES3:
             return des3_set_default_attributes(tmpl, mode);
-        case CKK_JUNIPER:
-            return juniper_set_default_attributes(tmpl, mode);
         case CKK_AES:
             return aes_set_default_attributes(tmpl, basetmpl, mode);
         default:
@@ -443,8 +441,6 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
             return des2_check_required_attributes(tmpl, mode);
         case CKK_DES3:
             return des3_check_required_attributes(tmpl, mode);
-        case CKK_JUNIPER:
-            return juniper_check_required_attributes(tmpl, mode);
         case CKK_AES:
             return aes_check_required_attributes(tmpl, mode);
         default:
@@ -1676,8 +1672,6 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return des2_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_DES3:
             return des3_validate_attribute(tokdata, tmpl, attr, mode);
-        case CKK_JUNIPER:
-            return juniper_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_AES:
             return aes_validate_attribute(tokdata, tmpl, attr, mode);
         default:
