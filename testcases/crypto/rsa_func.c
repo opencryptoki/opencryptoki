@@ -1400,12 +1400,6 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 mech.pParameter = &des_iv;
                 key_type = CKK_DES;
                 break;
-            case CKM_CDMF_KEY_GEN:
-                mech.mechanism = CKM_CDMF_CBC;
-                mech.ulParameterLen = DES_IV_SIZE;
-                mech.pParameter = &des_iv;
-                key_type = CKK_CDMF;
-                break;
             default:
                 testcase_error("unknown mech");
                 goto error;

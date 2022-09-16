@@ -413,12 +413,6 @@ CK_RV dp_x9dh_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV dp_x9dh_validate_attribute(TEMPLATE *tmpl,
                                  CK_ATTRIBUTE *attr, CK_ULONG mode);
 
-CK_RV communicate(CK_ULONG cmd_id,
-                  CK_VOID_PTR pReq, CK_ULONG req_len,
-                  CK_VOID_PTR pRep, CK_ULONG_PTR repl_len,
-                  CK_BYTE_PTR pOut, CK_ULONG out_len,
-                  CK_BYTE_PTR pIn, CK_ULONG in_len);
-
 CK_RV save_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_private_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
 CK_RV save_public_token_object(STDLL_TokData_t *tokdata, OBJECT *obj);
@@ -987,7 +981,6 @@ CK_RV des_ecb_wrap_key(STDLL_TokData_t *tokdata, SESSION *sess,
 // DES mechanisms
 //
 CK_RV ckm_des_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
-CK_RV ckm_cdmf_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl);
 
 CK_RV ckm_des_ecb_encrypt(STDLL_TokData_t *tokdata,
                           CK_BYTE *in_data, CK_ULONG in_data_len,
@@ -2634,12 +2627,6 @@ CK_RV cast5_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 CK_RV idea_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV idea_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
 CK_RV idea_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                              CK_ATTRIBUTE *attr, CK_ULONG mode);
-
-// CDMF routines
-CK_RV cdmf_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV cdmf_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode);
-CK_RV cdmf_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                               CK_ATTRIBUTE *attr, CK_ULONG mode);
 
 // SKIPJACK routines

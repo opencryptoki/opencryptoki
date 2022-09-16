@@ -115,16 +115,6 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
         subclass = CKK_DES3;
         break;
-#if !(NOCDMF)
-    case CKM_CDMF_KEY_GEN:
-        if (subclass != 0 && subclass != CKK_CDMF) {
-            TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-            return CKR_TEMPLATE_INCONSISTENT;
-        }
-
-        subclass = CKK_CDMF;
-        break;
-#endif
     case CKM_SSL3_PRE_MASTER_KEY_GEN:
         if (subclass != 0 && subclass != CKK_GENERIC_SECRET) {
             TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
@@ -180,11 +170,6 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
     case CKM_DES3_KEY_GEN:
         rc = ckm_des3_key_gen(tokdata, key_obj->template);
         break;
-#if !(NOCDMF)
-    case CKM_CDMF_KEY_GEN:
-        rc = ckm_cdmf_key_gen(tokdata, key_obj->template);
-        break;
-#endif
     case CKM_SSL3_PRE_MASTER_KEY_GEN:
         rc = ckm_ssl3_pre_master_key_gen(tokdata, key_obj->template, mech);
         break;
@@ -797,10 +782,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     //  A secret key can be used to wrap a private key.
 
     switch (mech->mechanism) {
-#if !(NOCDMF)
-    case CKM_CDMF_CBC:
-    case CKM_CDMF_CBC_PAD:
-#endif
     case CKM_DES_CBC:
     case CKM_DES3_ECB:
     case CKM_DES3_CBC:
@@ -819,7 +800,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-    case CKM_CDMF_ECB:
     case CKM_DES_ECB:
     case CKM_AES_ECB:
     case CKM_AES_CBC:
@@ -867,9 +847,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     }
 
     switch (keytype) {
-#if !(NOCDMF)
-    case CKK_CDMF:
-#endif
     case CKK_DES:
         rc = des_wrap_get_data(key_obj->template, length_only, &data,
                                &data_len);
@@ -948,10 +925,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     // we might need to format the wrapped data based on the mechanism
     //
     switch (mech->mechanism) {
-#if !(NOCMF)
-    case CKM_CDMF_ECB:
-    case CKM_CDMF_CBC:
-#endif
     case CKM_DES_ECB:
     case CKM_DES_CBC:
     case CKM_DES3_ECB:
@@ -983,9 +956,6 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#if !(NOCMF)
-    case CKM_CDMF_CBC_PAD:
-#endif
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
@@ -1154,7 +1124,6 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     }
 
     switch (mech->mechanism) {
-    case CKM_CDMF_ECB:
     case CKM_DES_ECB:
     case CKM_AES_ECB:
     case CKM_AES_CBC:
@@ -1167,10 +1136,6 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
             goto done;
         }
         break;
-#if !(NOCMF)
-    case CKM_CDMF_CBC:
-    case CKM_CDMF_CBC_PAD:
-#endif
     case CKM_DES_CBC:
     case CKM_DES3_ECB:
     case CKM_DES3_CBC:
@@ -1212,13 +1177,9 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
          */
         switch (mech->mechanism) {
         case CKM_RSA_X_509:
-        case CKM_CDMF_ECB:
         case CKM_DES_ECB:
         case CKM_AES_ECB:
         case CKM_AES_CBC:
-#if !(NOCMF)
-        case CKM_CDMF_CBC:
-#endif
         case CKM_DES_CBC:
         case CKM_DES3_ECB:
         case CKM_DES3_CBC:

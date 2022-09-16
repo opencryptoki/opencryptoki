@@ -3,7 +3,7 @@ nobase_lib_LTLIBRARIES += opencryptoki/stdll/libpkcs11_sw.la
 noinst_HEADERS += usr/lib/soft_stdll/tok_struct.h
 
 opencryptoki_stdll_libpkcs11_sw_la_CFLAGS =				\
-	-DDEV -D_THREAD_SAFE -DSHALLOW=0 -DSWTOK=1 -DLITE=0 -DNOCDMF	\
+	-DDEV -D_THREAD_SAFE -DSHALLOW=0 -DSWTOK=1 -DLITE=0		\
 	-DNOMD2 -DNODSA -DNORIPE -fPIC -I${srcdir}/usr/lib/soft_stdll	\
 	-DTOK_NEW_DATA_STORE=0x0003000c					\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/include		\
