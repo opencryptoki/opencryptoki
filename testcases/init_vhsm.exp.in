@@ -20,6 +20,11 @@ expect {
     timeout { send_user "Timeout on VHSM pin\n"; exit 1 }
 }
 expect {
+    "Re-enter the new VHSM PIN:" { sleep .1; send $env(PKCS11_VHSM_PIN); send "\r"; }
+    eof { send_user "Unexpected EOF on VHSM pin\n"; exit 1 }
+    timeout { send_user "Timeout on VHSM pin\n"; exit 1 }
+}
+expect {
     "VHSM-pin successfully set." {}
     eof { send_user "Unexpected EOF at the end\n"; exit 1 }
     timeout { send_user "Unexpected timeout at the end\n"; exit 1 }

@@ -122,7 +122,9 @@ static int get_vhsm_pin(CK_BYTE *dest)
     char *buf_vhsm = NULL;
     size_t vhsmpinlen;
 
-    vhsmpin = pin_prompt(&buf_vhsm, "Enter the new VHSM PIN: ");
+    vhsmpin = pin_prompt_new(&buf_vhsm,
+                             "Enter the new VHSM PIN: ",
+                             "Re-enter the new VHSM PIN: ");
     if (!vhsmpin) {
         fprintf(stderr, "Could not get VHSM PIN.\n");
         goto out;
