@@ -35,6 +35,7 @@
 #include "pin_prompt.h"
 
 #define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
+#define EP11SHAREDLIB_V4 "libep11.so.4"
 #define EP11SHAREDLIB_V3 "libep11.so.3"
 #define EP11SHAREDLIB_V2 "libep11.so.2"
 #define EP11SHAREDLIB_V1 "libep11.so.1"
@@ -1050,8 +1051,14 @@ static void *ep11_load_host_lib(void)
         return lib_ep11;
     }
 
-    ep11_lib_name = EP11SHAREDLIB_V3;
+    ep11_lib_name = EP11SHAREDLIB_V4;
     lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
+
+    if (lib_ep11 == NULL) {
+        /* Try version 3 instead */
+        ep11_lib_name = EP11SHAREDLIB_V3;
+        lib_ep11 = dlopen(ep11_lib_name, DLOPEN_FLAGS);
+    }
 
     if (lib_ep11 == NULL) {
         /* Try version 2 instead */
@@ -1073,7 +1080,7 @@ static void *ep11_load_host_lib(void)
 
     if (lib_ep11 == NULL) {
         errstr = dlerror();
-        fprintf(stderr, "Error loading shared library '%s[.3|.2|.1]' [%s]\n",
+        fprintf(stderr, "Error loading shared library '%s[.4|.3|.2|.1]' [%s]\n",
                 EP11SHAREDLIB, errstr);
         return NULL;
     }
