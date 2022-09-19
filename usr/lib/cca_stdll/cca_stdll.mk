@@ -15,7 +15,7 @@ opencryptoki_stdll_libpkcs11_cca_la_CFLAGS =				\
 
 opencryptoki_stdll_libpkcs11_cca_la_LDFLAGS = -shared			\
 	-Wl,-z,defs,-Bsymbolic -lcrypto -lpthread -nostartfiles		\
-	-Wl,-soname,$@ -lrt -ldl					\
+	-Wl,-soname,$@ -lrt -ldl -llber					\
 	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_cca_la_SOURCES = usr/lib/common/asn1.c	\

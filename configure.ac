@@ -75,7 +75,6 @@ AC_CHECK_HEADERS([lber.h ldap.h],
 		[OPENLDAP_LIBS="-llber -lldap"],
 		[AC_MSG_ERROR([lber.h and ldap.h are missing. Please install
 			      'openldap-devel'.])])
-LIBS="$LIBS $OPENLDAP_LIBS"
 AC_SUBST([OPENLDAP_LIBS])
 
 dnl Define custom variables
