@@ -13,7 +13,7 @@ opencryptoki_stdll_libpkcs11_tpm_la_CFLAGS =				\
 
 opencryptoki_stdll_libpkcs11_tpm_la_LDFLAGS =				\
 	-shared -Wl,-z,defs,-Bsymbolic -lcrypto -ltspi -lpthread -lrt	\
-	-Wl,--version-script=${srcdir}/opencryptoki_tok.map
+	-llber -Wl,--version-script=${srcdir}/opencryptoki_tok.map
 
 opencryptoki_stdll_libpkcs11_tpm_la_SOURCES =				\
 	usr/lib/common/asn1.c usr/lib/common/dig_mgr.c			\

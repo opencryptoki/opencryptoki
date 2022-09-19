@@ -6,7 +6,7 @@ noinst_HEADERS += usr/include/local_types.h
 noinst_HEADERS += usr/lib/common/h_extern.h
 noinst_HEADERS += usr/lib/common/pkcs_utils.h
 
-usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt
+usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber
 
 usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DSTDLL_NAME=\"pkcscca\"					\
