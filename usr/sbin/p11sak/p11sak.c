@@ -369,6 +369,7 @@ static void print_listkeys_help(void)
     printf(
             "      --slot SLOTID        openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN            pkcs11 user PIN\n");
+    printf("      --force-pin-prompt   enforce user PIN prompt\n");
     printf("      -h, --help           Show this help\n\n");
 }
 
@@ -391,6 +392,7 @@ static void print_gen_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -417,6 +419,7 @@ static void print_removekeys_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           Key label LABEL to be removed\n");
     printf(
@@ -430,6 +433,7 @@ static void print_gen_des_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -448,6 +452,7 @@ static void print_gen_aes_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -466,6 +471,7 @@ static void print_gen_rsa_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -507,6 +513,7 @@ static void print_gen_ec_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -523,6 +530,7 @@ static void print_gen_ibm_dilithium_help(void)
     printf(
             "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
     printf(
             "      --label LABEL                           key label LABEL to be listed\n");
     printf(
@@ -1987,7 +1995,7 @@ static char* get_string_arg(int pos, char *argv[], int argc)
 static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
                                  CK_ULONG *keylength, CK_SLOT_ID *slot,
                                  const char **pin, int *long_print, char **label,
-                                 int *full_uri)
+                                 int *full_uri, int *force_pin_prompt)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2076,6 +2084,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             i++;
         } else if (strcmp(argv[i], "--detailed-uri") == 0) {
             *full_uri = 1;
+        } else if (strcmp(argv[i], "--force-pin-prompt") == 0) {
+            *force_pin_prompt = 1;
         } else if ((strcmp(argv[i], "-h") == 0)
                 || (strcmp(argv[i], "--help") == 0)) {
             print_listkeys_help();
@@ -2103,7 +2113,8 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                                 CK_ULONG *keylength, char **ECcurve,
                                 CK_SLOT_ID *slot, const char **pin,
                                 CK_ULONG *exponent, char **label,
-                                char **attr_string, char **dilithium_ver)
+                                char **attr_string, char **dilithium_ver,
+                                int *force_pin_prompt)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2201,6 +2212,8 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                 return CKR_ARGUMENTS_BAD;
             }
             i++;
+        } else if (strcmp(argv[i], "--force-pin-prompt") == 0) {
+            *force_pin_prompt = 1;
         } else if ((strcmp(argv[i], "-h") == 0)
                 || (strcmp(argv[i], "--help") == 0)) {
             print_gen_keys_help(kt);
@@ -2244,7 +2257,7 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
 static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
                                    CK_SLOT_ID *slot, const char **pin,
                                    char **label, CK_ULONG *keylength,
-                                   CK_BBOOL *forceAll)
+                                   CK_BBOOL *forceAll, int *force_pin_prompt)
 {
     CK_RV rc;
     CK_BBOOL slotIDset = CK_FALSE;
@@ -2318,6 +2331,8 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
                 return CKR_ARGUMENTS_BAD;
             }
             i++;
+        } else if (strcmp(argv[i], "--force-pin-prompt") == 0) {
+            *force_pin_prompt = 1;
         } else if ((strcmp(argv[i], "-f") == 0)
                 || (strcmp(argv[i], "--force") == 0)) {
             *forceAll = ckb_true;
@@ -2355,22 +2370,23 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
                             CK_SLOT_ID *slot, const char **pin,
                             CK_ULONG *exponent, char **label,
                             char **attr_string, int *long_print, int *full_uri,
-                            CK_BBOOL *forceAll, char **dilithium_ver)
+                            CK_BBOOL *forceAll, char **dilithium_ver,
+                            int *force_pin_prompt)
 {
     CK_RV rc;
 
     switch (cmd) {
     case gen_key:
         rc = parse_gen_key_args(argv, argc, kt, keylength, ECcurve, slot, pin,
-                exponent, label, attr_string, dilithium_ver);
+                exponent, label, attr_string, dilithium_ver, force_pin_prompt);
         break;
     case list_key:
         rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
-                long_print, label, full_uri);
+                long_print, label, full_uri, force_pin_prompt);
         break;
     case remove_key:
         rc = parse_remove_key_args(argv, argc, kt, slot, pin, label, keylength,
-                forceAll);
+                forceAll, force_pin_prompt);
         break;
     default:
         fprintf(stderr, "Error: unknown command %d specified.\n", cmd);
@@ -3116,6 +3132,7 @@ int main(int argc, char *argv[])
     const char *pin = NULL;
     char *buf_user = NULL;
     CK_BBOOL forceAll = ckb_false;
+    int force_pin_prompt = 0;
 
     /* Check if just help requested */
     if (argc < 3) {
@@ -3135,7 +3152,7 @@ int main(int argc, char *argv[])
     /* Parse command args */
     rc = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve, &slot, &pin,
             &exponent, &label, &attr_string, &long_print, &full_uri, &forceAll,
-            &dilithium_ver);
+            &dilithium_ver, &force_pin_prompt);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -3148,7 +3165,7 @@ int main(int argc, char *argv[])
         pin = getenv("PKCS11_USER_PIN");
 
     /* try pin prompt */
-    if (!pin)
+    if (force_pin_prompt || !pin)
         pin = pin_prompt(&buf_user, "Please enter user PIN: ");
 
     /* no pin */
