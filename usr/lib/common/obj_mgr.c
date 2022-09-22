@@ -324,7 +324,7 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = object_copy(tokdata, pTemplate, ulCount, old_obj, &new_obj);
+    rc = object_copy(tokdata, sess, pTemplate, ulCount, old_obj, &new_obj);
     if (rc != CKR_OK) {
         TRACE_DEVEL("Object Copy failed.\n");
         goto done;
@@ -1691,7 +1691,7 @@ CK_RV object_mgr_set_attribute_values(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         goto done;
 
-    rc = object_set_attribute_values(tokdata, obj, pTemplate, ulCount);
+    rc = object_set_attribute_values(tokdata, sess, obj, pTemplate, ulCount);
     if (rc != CKR_OK) {
         TRACE_DEVEL("object_set_attribute_values failed.\n");
         goto done;

@@ -2235,7 +2235,7 @@ CK_RV object_create_skel(STDLL_TokData_t *tokdata,
                          CK_ULONG mode,
                          CK_ULONG class, CK_ULONG subclass, OBJECT **key);
 
-CK_RV object_copy(STDLL_TokData_t *tokdata,
+CK_RV object_copy(STDLL_TokData_t *tokdata, SESSION *sess,
                   CK_ATTRIBUTE *pTemplate,
                   CK_ULONG ulCount, OBJECT *old_obj, OBJECT **new_obj);
 
@@ -2254,7 +2254,7 @@ CK_RV object_restore_withSize(struct policy *policy, CK_BYTE *data,
                               OBJECT **obj, CK_BBOOL replace, int data_size,
                               const char *fname);
 
-CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata,
+CK_RV object_set_attribute_values(STDLL_TokData_t *tokdata, SESSION *sess,
                                   OBJECT *obj,
                                   CK_ATTRIBUTE *pTemplate, CK_ULONG ulCount);
 
