@@ -1268,7 +1268,7 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
         /* ok got the passwd, perform simple ldap bind call */
         rc = icsf_login(&new_ld, slot_data[slot_id]->uri,
                         slot_data[slot_id]->dn, (char *)racfpwd);
-        if (rc != CKR_OK) {
+        if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
             return NULL;
         }
@@ -1278,7 +1278,7 @@ LDAP *getLDAPhandle(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id)
                              slot_data[slot_id]->cert_file,
                              slot_data[slot_id]->key_file,
                              slot_data[slot_id]->ca_file, ca_dir);
-        if (rc != CKR_OK) {
+        if (rc != 0) {
             TRACE_DEVEL("Failed to bind to ldap server.\n");
             return NULL;
         }
