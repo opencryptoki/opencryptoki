@@ -448,7 +448,7 @@ static CK_RV config_parse_slot(const char *config_file,
         if (str != NULL) {
             for (k = 0; k < refs_len; k++) {
                 if (!strcasecmp(refs[k].key, c->key)) {
-                    strncpy(refs[k].addr, str, refs[i].len);
+                    strncpy(refs[k].addr, str, refs[k].len);
                     refs[k].addr[refs[k].len - 1] = '\0';
                     goto found;
                 }
