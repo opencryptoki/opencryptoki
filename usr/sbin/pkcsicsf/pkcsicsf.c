@@ -610,7 +610,8 @@ int main(int argc, char **argv)
             rc = icsf_sasl_login(&ld, uri, NULL, NULL, NULL, NULL);
         }
         if (rc) {
-            fprintf(stderr, "Failed to bind to the ldap server.\n");
+            fprintf(stderr, "Failed to bind to the ldap server: %s (%d)\n",
+                    ldap_err2string(rc), rc);
             goto cleanup;
         }
     }

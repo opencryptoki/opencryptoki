@@ -244,7 +244,7 @@ static int icsf_force_ldap_v3(LDAP * ld)
     if (rc != LDAP_OPT_SUCCESS) {
         TRACE_ERROR("Failed to get LDAP version: %s (%d)\n",
                     ldap_err2string(rc), rc);
-        return -1;
+        return rc;
     }
     if (version < LDAP_VERSION3) {
         TRACE_INFO("Changing version from %d to %d.\n", version, LDAP_VERSION3);
@@ -253,7 +253,7 @@ static int icsf_force_ldap_v3(LDAP * ld)
         if (rc != LDAP_OPT_SUCCESS) {
             TRACE_ERROR("Failed to set LDAP version: %s (%d)\n",
                         ldap_err2string(rc), rc);
-            return -1;
+            return rc;
         }
     }
 
@@ -282,7 +282,7 @@ int icsf_login(LDAP ** ld, const char *uri, const char *dn,
     if (rc != LDAP_SUCCESS) {
         TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
                     uri ? uri : "(null)", ldap_err2string(rc), rc);
-        return -1;
+        return rc;
     }
 
     if (icsf_force_ldap_v3(*ld))
@@ -294,7 +294,7 @@ int icsf_login(LDAP ** ld, const char *uri, const char *dn,
     rc = ldap_sasl_bind_s(*ld, dn, LDAP_SASL_SIMPLE, &cred, NULL, NULL, NULL);
     if (rc != LDAP_SUCCESS) {
         TRACE_ERROR("LDAP bind failed: %s (%d)\n", ldap_err2string(rc), rc);
-        return -1;
+        return rc;
     }
 
     return 0;
@@ -320,7 +320,7 @@ static int icsf_set_sasl_params(LDAP * ld, const char *cert, const char *key,
         if (rc != LDAP_SUCCESS) {
             TRACE_ERROR("Failed to set certificate file for TLS: "
                         "%s (%d)\n", ldap_err2string(rc), rc);
-            return -1;
+            return rc;
         }
     }
 
@@ -330,7 +330,7 @@ static int icsf_set_sasl_params(LDAP * ld, const char *cert, const char *key,
         if (rc != LDAP_SUCCESS) {
             TRACE_ERROR("Failed to set key file for TLS: "
                         "%s (%d)\n", ldap_err2string(rc), rc);
-            return -1;
+            return rc;
         }
     }
 
@@ -340,7 +340,7 @@ static int icsf_set_sasl_params(LDAP * ld, const char *cert, const char *key,
         if (rc != LDAP_SUCCESS) {
             TRACE_ERROR("Failed to set CA certificate file for TLS:"
                         " %s (%d)\n", ldap_err2string(rc), rc);
-            return -1;
+            return rc;
         }
     }
 
@@ -350,7 +350,7 @@ static int icsf_set_sasl_params(LDAP * ld, const char *cert, const char *key,
         if (rc != LDAP_SUCCESS) {
             TRACE_ERROR("Failed to set CA certificate dir for TLS: "
                         "%s (%d)\n", ldap_err2string(rc), rc);
-            return -1;
+            return rc;
         }
     }
 
@@ -377,15 +377,17 @@ int icsf_sasl_login(LDAP ** ld, const char *uri, const char *cert,
     if (rc != LDAP_SUCCESS) {
         TRACE_ERROR("Failed to connect to \"%s\": %s (%d)\n",
                     uri ? uri : "(null)", ldap_err2string(rc), rc);
-        return -1;
+        return rc;
     }
 
-    if (icsf_force_ldap_v3(*ld))
-        return -1;
+    rc = icsf_force_ldap_v3(*ld);
+    if (rc != 0)
+        return rc;
 
     /* Initialize TLS */
-    if (icsf_set_sasl_params(*ld, cert, key, ca, ca_dir))
-        return -1;
+    rc = icsf_set_sasl_params(*ld, cert, key, ca, ca_dir);
+    if (rc != 0)
+        return rc;
 
     TRACE_DEVEL("Binding\n");
     rc = ldap_sasl_bind_s(*ld, NULL, "EXTERNAL", NULL, NULL, NULL, NULL);
@@ -398,7 +400,7 @@ int icsf_sasl_login(LDAP ** ld, const char *uri, const char *cert,
                     ext_msg ? ext_msg : "");
         if (ext_msg)
             ldap_memfree(ext_msg);
-        return -1;
+        return rc;
     }
 
     return 0;
