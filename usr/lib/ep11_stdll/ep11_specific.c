@@ -249,6 +249,8 @@ static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
 static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
                                        ST_SESSION_HANDLE * sSession,
                                        CK_BBOOL in_fork_initializer);
+static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
+                                void *handler_data);
 
 static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
                                             TEMPLATE *template,
@@ -662,6 +664,7 @@ static CK_RV check_expected_mkvp(STDLL_TokData_t *tokdata, CK_BYTE *blob,
  */
 
 typedef struct {
+    ep11_session_t *ep11_session;
     CK_BBOOL wrap_was_successful;
     CK_VOID_PTR secure_key;
     CK_ULONG secure_key_len;
@@ -707,6 +710,7 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
     pkey_wrap_handler_data_t *data = (pkey_wrap_handler_data_t *) handler_data;
     target_t target = 0;
     CK_RV ret;
+    CK_BBOOL retry = FALSE;
 
     if (data->wrap_was_successful)
         goto done;
@@ -716,10 +720,21 @@ static CK_RV ep11tok_pkey_wrap_handler(uint_32 adapter, uint_32 domain,
         goto done;
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
+repeat:
     ret = dll_m_WrapKey(data->secure_key, data->secure_key_len,
                         NULL, 0, NULL, 0, &mech,
                         data->pkey_buf, data->pkey_buflen_p,
                         target | XCP_TGTFL_SET_SCMD);
+    if (ret == CKR_SESSION_CLOSED && retry == FALSE &&
+        data->ep11_session != NULL) {
+        /* Re-login the EP11 session and retry once */
+        ret = ep11_login_handler(adapter, domain, data->ep11_session);
+        if (ret == CKR_OK) {
+            retry = TRUE;
+            goto repeat;
+        }
+    }
+
     if (ret == CKR_OK)
         data->wrap_was_successful = CK_TRUE;
 
@@ -736,7 +751,7 @@ done:
  * Creates a protected key from the given secure key object via the ep11 lib
  * CKM_IBM_CPACF_WRAP mechanism.
  */
-static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
+static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
                                     CK_ATTRIBUTE *skey_attr,
                                     CK_ATTRIBUTE **pkey_attr)
 {
@@ -750,6 +765,9 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
     memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
+    if (session != NULL)
+        pkey_wrap_handler_data.ep11_session =
+                                    (ep11_session_t *)session->private_data;
     pkey_wrap_handler_data.secure_key = skey_attr->pValue;
     pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
     pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&ep11_buf;
@@ -869,7 +887,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     /* Create a protected key from this blob to obtain the LPAR MK vp. When
      * this function returns ok, we have a 64 byte pkey value: 32 bytes
      * encrypted key + 32 bytes vp. */
-    ret = ep11tok_pkey_skey2pkey(tokdata, blob_attr, &pkey_attr);
+    ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, &pkey_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("ep11tok_pkey_skey2pkey failed with rc=0x%lx\n", ret);
         goto done;
@@ -935,7 +953,8 @@ static CK_BBOOL ep11tok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
  * Create a new protected key for the given key obj and update attribute
  * CKA_IBM_OPAQUE with the new pkey.
  */
-static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
+                                 OBJECT *key_obj)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *skey_attr = NULL;
@@ -952,7 +971,7 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
     }
 
     /* Transform the secure key into a protected key */
-    ret = ep11tok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr);
+    ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, &pkey_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
         goto done;
@@ -1075,7 +1094,7 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
             !ep11tok_pkey_is_valid(tokdata, key_obj)) {
             /* this key has either no pkey attr, or it is not valid,
              * try to create one */
-            ret = ep11tok_pkey_update(tokdata, key_obj);
+            ret = ep11tok_pkey_update(tokdata, session, key_obj);
             if (ret != CKR_OK) {
                 TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
                 if (ret == CKR_FUNCTION_NOT_SUPPORTED)
