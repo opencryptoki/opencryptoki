@@ -140,7 +140,7 @@ CK_RV object_create(STDLL_TokData_t * tokdata,
 //
 // The old_obj must hold the READ lock!
 //
-CK_RV object_copy(STDLL_TokData_t * tokdata,
+CK_RV object_copy(STDLL_TokData_t * tokdata, SESSION *sess,
                   CK_ATTRIBUTE * pTemplate,
                   CK_ULONG ulCount, OBJECT * old_obj, OBJECT ** new_obj)
 {
@@ -228,7 +228,7 @@ CK_RV object_copy(STDLL_TokData_t * tokdata,
      * changed.
      */
     if (token_specific.t_set_attribute_values != NULL) {
-        rc = token_specific.t_set_attribute_values(tokdata, o, new_tmpl);
+        rc = token_specific.t_set_attribute_values(tokdata, sess, o, new_tmpl);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_specific_set_attribute_values failed with %lu\n",
                         rc);
@@ -620,7 +620,7 @@ CK_RV object_get_attribute_values(OBJECT * obj,
 
 // object_set_attribute_values()
 //
-CK_RV object_set_attribute_values(STDLL_TokData_t * tokdata,
+CK_RV object_set_attribute_values(STDLL_TokData_t * tokdata, SESSION *sess,
                                   OBJECT * obj,
                                   CK_ATTRIBUTE * pTemplate, CK_ULONG ulCount)
 {
@@ -669,7 +669,8 @@ CK_RV object_set_attribute_values(STDLL_TokData_t * tokdata,
     }
 
     if (token_specific.t_set_attribute_values != NULL) {
-        rc = token_specific.t_set_attribute_values(tokdata, obj, new_tmpl);
+        rc = token_specific.t_set_attribute_values(tokdata, sess,
+                                                   obj, new_tmpl);
         if (rc != CKR_OK) {
             TRACE_DEVEL("token_specific_set_attribute_values failed with %lu\n",
                         rc);

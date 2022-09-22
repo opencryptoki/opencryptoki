@@ -582,7 +582,7 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
 static void free_ep11_target_for_apqn(target_t target);
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         TEMPLATE *tmpl);
+                                         SESSION * session, TEMPLATE *tmpl);
 
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
@@ -1484,11 +1484,11 @@ static CK_RV check_ab_unwrap(STDLL_TokData_t * tokdata,
  * otherwise.
  */
 static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
+                                       SESSION * session,
                                        CK_BYTE *blob, size_t blob_len,
                                        OBJECT *obj,
                                        CK_KEY_TYPE keytype)
 {
-    ep11_target_info_t* target_info;
     CK_RV rc;
     CK_BBOOL trusted, encrypt, decrypt, wrap, unwrap, sign, sign_recover,
              verify, verify_recover, derive, extractable, local,
@@ -1518,15 +1518,11 @@ static CK_RV ab_unwrap_update_template(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr;
     CK_BBOOL cktrue = TRUE;
 
-    target_info = get_target_info(tokdata);
-    if (target_info == NULL)
-        return CKR_FUNCTION_FAILED;
-
-    rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
-                                 sizeof(attrs) / sizeof(CK_ATTRIBUTE),
-                                 target_info->target);
-
-    put_target_info(tokdata, target_info);
+    RETRY_START(rc, tokdata)
+        rc = dll_m_GetAttributeValue(blob, blob_len, attrs,
+                                     sizeof(attrs) / sizeof(CK_ATTRIBUTE),
+                                     target_info->target);
+    RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         TRACE_ERROR("Retrieving attributes from AB unwrapped key failed, rc=0x%lx\n",
@@ -3872,7 +3868,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         return rc;
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, sess, obj->template);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -3978,7 +3974,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     attr = NULL;
 
-    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -5293,7 +5289,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
 
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
-        rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+        rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                         __func__, rc);
@@ -6807,7 +6803,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                    (void *)public_key_obj, (void *)private_key_obj);
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, private_key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, sess, private_key_obj->template);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -8980,7 +8976,8 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     attr = NULL;
 
     if (isab) {
-        rc = ab_unwrap_update_template(tokdata, keyblob, keyblobsize, key_obj,
+        rc = ab_unwrap_update_template(tokdata, session,
+                                       keyblob, keyblobsize, key_obj,
                                        *(CK_KEY_TYPE *) keytype_attr->pValue);
         if (rc != CKR_OK) {
             TRACE_ERROR("ab_unwrap_update_template failed with rc=0x%08lx\n", rc);
@@ -8988,7 +8985,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -11247,6 +11244,7 @@ static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
             TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
             /* ignore the error here, the adapter may not be able to perform
              * m_Login at this moment */
+            rc = CKR_OK;
             goto strict_mode;
         }
 #ifdef DEBUG
@@ -12428,7 +12426,9 @@ static void free_ep11_target_for_apqn(target_t target)
     }
 }
 
-CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
+CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
+                                          SESSION *session,
+                                          OBJECT *obj,
                                           TEMPLATE *new_tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
@@ -12441,7 +12441,6 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
     CK_ULONG num_attributes = 0;
     CK_ATTRIBUTE *attr;
     CK_RV rc;
-    ep11_target_info_t* target_info;
 
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
     if (rc != CKR_OK) {
@@ -12527,17 +12526,11 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata, OBJECT *obj,
             goto out;
         }
 
-        target_info = get_target_info(tokdata);
-        if (target_info == NULL) {
-            rc = CKR_FUNCTION_FAILED;
-            goto out;
-        }
-
-        rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
-                                     ibm_opaque_attr->ulValueLen, attributes,
-                                     num_attributes, target_info->target);
-
-        put_target_info(tokdata, target_info);
+        RETRY_START(rc, tokdata)
+            rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
+                                         ibm_opaque_attr->ulValueLen, attributes,
+                                         num_attributes, target_info->target);
+        RETRY_END(rc, tokdata, session)
 
         if (rc != CKR_OK) {
             rc = ep11_error_to_pkcs11_error(rc, NULL);
@@ -12810,7 +12803,7 @@ static void put_target_info(STDLL_TokData_t *tokdata,
  * object_mgr_create_final.
  */
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         TEMPLATE *tmpl)
+                                         SESSION * session, TEMPLATE *tmpl)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BBOOL restr = CK_FALSE; /*, never_mod = CK_FALSE; */
@@ -12818,7 +12811,6 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
     CK_BBOOL pkeyextr = CK_FALSE, pkeyneverextr = CK_FALSE;
     CK_ULONG stdcomp1 = 0;
     CK_ATTRIBUTE *attr, *blob_attr = NULL;
-    ep11_target_info_t* target_info;
     CK_RV rc = CKR_OK;
     CK_ULONG i;
 
@@ -12845,15 +12837,11 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
-    target_info = get_target_info(tokdata);
-    if (target_info == NULL)
-        return CKR_FUNCTION_FAILED;
-
-    rc = dll_m_GetAttributeValue(blob_attr->pValue,
-                                 blob_attr->ulValueLen, ibm_attrs,
-                                 num_ibm_attrs, target_info->target);
-
-    put_target_info(tokdata, target_info);
+    RETRY_START(rc, tokdata)
+        rc = dll_m_GetAttributeValue(blob_attr->pValue,
+                                     blob_attr->ulValueLen, ibm_attrs,
+                                     num_ibm_attrs, target_info->target);
+    RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, NULL);
