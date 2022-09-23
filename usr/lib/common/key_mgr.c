@@ -136,6 +136,14 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
         subclass = CKK_AES;
         break;
+    case CKM_AES_XTS_KEY_GEN:
+            if (subclass != 0 && subclass != CKK_AES_XTS) {
+                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+
+            subclass = CKK_AES_XTS;
+            break;
     case CKM_GENERIC_SECRET_KEY_GEN:
         if (subclass != 0 && subclass != CKK_GENERIC_SECRET) {
             TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
@@ -175,6 +183,9 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         break;
     case CKM_AES_KEY_GEN:
         rc = ckm_aes_key_gen(tokdata, key_obj->template);
+        break;
+    case CKM_AES_XTS_KEY_GEN:
+        rc = ckm_aes_xts_key_gen(tokdata, key_obj->template);
         break;
     case CKM_GENERIC_SECRET_KEY_GEN:
         rc = ckm_generic_secret_key_gen(tokdata, key_obj->template);

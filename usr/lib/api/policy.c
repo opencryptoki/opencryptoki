@@ -255,6 +255,7 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         *comptarget = COMPARE_SYMMETRIC;
         break;
     case CKK_AES:
+    case CKK_AES_XTS:
         *siglen = 128;
         /* Fallthrough */
     case CKK_GENERIC_SECRET:
@@ -889,7 +890,9 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_AES_CTR:
         case CKM_AES_ECB:
         case CKM_AES_GCM:
+        case CKM_AES_XTS:
         case CKM_AES_KEY_GEN:
+        case CKM_AES_XTS_KEY_GEN:
         case CKM_AES_MAC:
         case CKM_AES_MAC_GENERAL:
         case CKM_AES_OFB:

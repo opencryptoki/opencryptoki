@@ -198,6 +198,8 @@ CK_RV template_add_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
             return des3_set_default_attributes(tmpl, mode);
         case CKK_AES:
             return aes_set_default_attributes(tmpl, basetmpl, mode);
+        case CKK_AES_XTS:
+            return aes_xts_set_default_attributes(tmpl, basetmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
                         subclass);
@@ -442,6 +444,7 @@ CK_RV template_check_required_attributes(TEMPLATE *tmpl, CK_ULONG class,
         case CKK_DES3:
             return des3_check_required_attributes(tmpl, mode);
         case CKK_AES:
+        case CKK_AES_XTS:
             return aes_check_required_attributes(tmpl, mode);
         default:
             TRACE_ERROR("%s: %lx\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID),
@@ -1674,6 +1677,8 @@ CK_RV template_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             return des3_validate_attribute(tokdata, tmpl, attr, mode);
         case CKK_AES:
             return aes_validate_attribute(tokdata, tmpl, attr, mode);
+        case CKK_AES_XTS:
+            return aes_xts_validate_attribute(tokdata, tmpl, attr, mode);
         default:
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID; // unknown key type

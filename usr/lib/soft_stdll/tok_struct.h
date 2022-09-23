@@ -138,6 +138,7 @@ token_spec_t token_specific = {
     &token_specific_generic_secret_key_gen,
     // AES
     &token_specific_aes_key_gen,
+    NULL,                      // aes_xts_key_gen
     &token_specific_aes_ecb,
     &token_specific_aes_cbc,
     &token_specific_aes_ctr,
@@ -149,6 +150,7 @@ token_spec_t token_specific = {
     &token_specific_aes_cfb,
     &token_specific_aes_mac,
     &token_specific_aes_cmac,
+    NULL,                       // aes_xts
     // DSA
     NULL,                       // dsa_generate_keypair
     NULL,                       // dsa_sign

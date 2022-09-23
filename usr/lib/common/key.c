@@ -6194,6 +6194,80 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl,
     return CKR_OK;
 }
 
+//  aes_xts_set_default_attributes()
+//
+CK_RV aes_xts_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode)
+{
+    CK_ATTRIBUTE *value_attr = NULL;
+    CK_ATTRIBUTE *type_attr = NULL;
+    CK_ATTRIBUTE *len_attr = NULL;
+    CK_ULONG keysize;
+    CK_RV rc;
+
+    if (mode)
+        value_attr = NULL;
+
+    secret_key_set_default_attributes(tmpl, mode);
+
+    value_attr = (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE));
+    type_attr =
+        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_KEY_TYPE));
+
+    if (!value_attr || !type_attr) {
+        TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+        rc = CKR_HOST_MEMORY;
+        goto error;
+    }
+
+    value_attr->type = CKA_VALUE;
+    value_attr->ulValueLen = 0;
+    value_attr->pValue = NULL;
+
+    type_attr->type = CKA_KEY_TYPE;
+    type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
+    type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
+    *(CK_KEY_TYPE *) type_attr->pValue = CKK_AES_XTS;
+
+    rc = template_update_attribute(tmpl, type_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    type_attr = NULL;
+    rc = template_update_attribute(tmpl, value_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto error;
+    }
+    value_attr = NULL;
+
+    /* If CKA_VALUE specified in base tmpl, add CKA_VALUE_LEN to tmpl. */
+    if (template_attribute_find(basetmpl, CKA_VALUE, &value_attr) &&
+        !template_attribute_find(basetmpl, CKA_VALUE_LEN, &len_attr)) {
+        keysize = value_attr->ulValueLen;
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&keysize, sizeof(CK_ULONG), &len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_attribute failed\n");
+            goto error;
+        }
+        rc = template_update_attribute(tmpl, len_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute failed\n");
+            goto error;
+        }
+        value_attr = NULL;
+    }
+
+    return CKR_OK;
+
+error:
+    if (type_attr)
+        free(type_attr);
+    if (value_attr)
+        free(value_attr);
+
+    return rc;
+}
 //  aes_set_default_attributes()
 //
 CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode)
@@ -6334,6 +6408,54 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             val = *(CK_ULONG *) attr->pValue;
             if (val != AES_KEY_SIZE_128 &&
                 val != AES_KEY_SIZE_192 && val != AES_KEY_SIZE_256) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            return CKR_OK;
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    default:
+        return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
+    }
+}
+
+//
+//
+CK_RV aes_xts_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
+                             CK_ATTRIBUTE *attr, CK_ULONG mode)
+{
+    CK_ULONG val;
+
+    switch (attr->type) {
+    case CKA_VALUE:
+        // key length is either 32 or 64 bytes
+        //
+        if (mode == MODE_CREATE) {
+            if (attr->ulValueLen != (AES_KEY_SIZE_128 * 2) &&
+                attr->ulValueLen != (AES_KEY_SIZE_256 * 2)) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            return CKR_OK;
+        }
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_READ_ONLY));
+        return CKR_ATTRIBUTE_READ_ONLY;
+    case CKA_VALUE_LEN:
+        if (attr->ulValueLen != sizeof(CK_ULONG) || attr->pValue == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+            return CKR_ATTRIBUTE_VALUE_INVALID;
+        }
+        if (mode == MODE_CREATE || mode == MODE_DERIVE ||
+            mode == MODE_KEYGEN || mode == MODE_UNWRAP) {
+            if (attr->ulValueLen != sizeof(CK_ULONG) ||
+                attr->pValue == NULL) {
+                TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+                return CKR_ATTRIBUTE_VALUE_INVALID;
+            }
+            val = *(CK_ULONG *) attr->pValue;
+            if (val != (AES_KEY_SIZE_128 *2) &&
+                val != (AES_KEY_SIZE_256 *2)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }

@@ -548,6 +548,39 @@ CK_RV encr_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
+    case CKM_AES_XTS:
+            // XXX Copied in from DES3, should be verified - KEY
+        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE ||
+                    mech->pParameter == NULL) {
+                    TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+                    rc = CKR_MECHANISM_PARAM_INVALID;
+                    goto done;
+                }
+        // is the key type correct?
+        //
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                              &keytype);
+        TRACE_ERROR("Key type %lx\n",keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_AES_XTS) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        ctx->context_len = sizeof(AES_CONTEXT);
+        ctx->context = (CK_BYTE *) malloc(sizeof(AES_CONTEXT));
+        if (!ctx->context) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+        memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         rc = CKR_MECHANISM_INVALID;
@@ -791,6 +824,10 @@ CK_RV encr_mgr_encrypt(STDLL_TokData_t *tokdata,
         return aes_cfb_encrypt(tokdata, sess, length_only, ctx,
                                in_data, in_data_len,
                                out_data, out_data_len, 0x10);
+    case CKM_AES_XTS:
+            return aes_xts_encrypt(tokdata, sess, length_only, ctx,
+                                   in_data, in_data_len,
+                                   out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -927,6 +964,10 @@ CK_RV encr_mgr_encrypt_update(STDLL_TokData_t *tokdata,
         return aes_cfb_encrypt_update(tokdata, sess, length_only, ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len, 0x10);
+    case CKM_AES_XTS:
+        return aes_xts_encrypt_update(tokdata, sess, length_only, ctx,
+                                      in_data, in_data_len,
+                                      out_data, out_data_len);
     default:
         return CKR_MECHANISM_INVALID;
     }
@@ -1036,6 +1077,9 @@ encr_mgr_encrypt_final(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB128:
         return aes_cfb_encrypt_final(tokdata, sess, length_only,
                                      ctx, out_data, out_data_len, 0x10);
+    case CKM_AES_XTS:
+        return aes_xts_encrypt_final(tokdata, sess, length_only,
+                                     ctx, out_data, out_data_len);
     default:
         return CKR_MECHANISM_INVALID;
     }

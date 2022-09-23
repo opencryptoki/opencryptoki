@@ -235,6 +235,9 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t *,
 CK_RV token_specific_aes_key_gen(STDLL_TokData_t *,
                                  CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *,
+        CK_BYTE **, CK_ULONG *, CK_ULONG, CK_BBOOL *);
+
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *,
                              CK_BYTE *,
                              CK_ULONG,
@@ -285,6 +288,11 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *,
                               CK_BYTE *, CK_ULONG, OBJECT *, CK_BYTE *,
                               CK_BBOOL, CK_BBOOL, CK_VOID_PTR *);
 
+CK_RV token_specific_aes_xts(STDLL_TokData_t *,
+                             CK_BYTE *,
+                             CK_ULONG,
+                             CK_BYTE *,
+                             CK_ULONG *, OBJECT *, CK_BYTE *, CK_BYTE);
 CK_RV token_specific_dsa_generate_keypair(STDLL_TokData_t *,
                                           TEMPLATE *, TEMPLATE *);
 CK_RV token_specific_dsa_sign(STDLL_TokData_t *, CK_BYTE *, CK_ULONG, CK_ULONG);

@@ -160,6 +160,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
         switch (keytype) {
         case CKK_GENERIC_SECRET:
         case CKK_AES:
+        case CKK_AES_XTS:
             rc = template_attribute_get_non_empty(o->template, CKA_VALUE,
                                                   &value_attr);
             if (rc != CKR_OK) {
