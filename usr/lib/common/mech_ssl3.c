@@ -1954,6 +1954,7 @@ CK_RV ssl3_kmd_process_write_keys(STDLL_TokData_t *tokdata,
     }
     switch (keytype) {
     case CKK_AES:
+    case CKK_AES_XTS:
     case CKK_GENERIC_SECRET:
     case CKK_DES:
     case CKK_DES2:

@@ -136,6 +136,14 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
 
         subclass = CKK_AES;
         break;
+    case CKM_AES_XTS_KEY_GEN:
+            if (subclass != 0 && subclass != CKK_AES_XTS) {
+                TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+
+            subclass = CKK_AES_XTS;
+            break;
     case CKM_GENERIC_SECRET_KEY_GEN:
         if (subclass != 0 && subclass != CKK_GENERIC_SECRET) {
             TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
@@ -174,7 +182,10 @@ CK_RV key_mgr_generate_key(STDLL_TokData_t *tokdata,
         rc = ckm_ssl3_pre_master_key_gen(tokdata, key_obj->template, mech);
         break;
     case CKM_AES_KEY_GEN:
-        rc = ckm_aes_key_gen(tokdata, key_obj->template);
+        rc = ckm_aes_key_gen(tokdata, key_obj->template, FALSE);
+        break;
+    case CKM_AES_XTS_KEY_GEN:
+        rc = ckm_aes_key_gen(tokdata, key_obj->template, TRUE);
         break;
     case CKM_GENERIC_SECRET_KEY_GEN:
         rc = ckm_generic_secret_key_gen(tokdata, key_obj->template);
@@ -793,6 +804,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
     case CKM_AES_CFB8:
     case CKM_AES_CFB64:
     case CKM_AES_CFB128:
+    case CKM_AES_XTS:
         if ((class != CKO_SECRET_KEY) && (class != CKO_PRIVATE_KEY)) {
             TRACE_ERROR
                 ("Specified mechanism only wraps secret & private keys.\n");
@@ -900,6 +912,7 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         }
         break;
     case CKK_AES:
+    case CKK_AES_XTS:
         rc = aes_wrap_get_data(key_obj->template, length_only, &data,
                                &data_len);
         if (rc != CKR_OK) {
@@ -962,10 +975,10 @@ CK_RV key_mgr_wrap_key(STDLL_TokData_t *tokdata,
         // these mechanisms pad themselves
         //
         break;
-
     case CKM_RSA_PKCS_OAEP:
     case CKM_RSA_PKCS:
     case CKM_RSA_X_509:
+    case CKM_AES_XTS:
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -1147,6 +1160,7 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
     case CKM_DES_CBC_PAD:
     case CKM_DES3_CBC_PAD:
     case CKM_AES_CBC_PAD:
+    case CKM_AES_XTS:
         if ((keyclass != CKO_SECRET_KEY) && (keyclass != CKO_PRIVATE_KEY)) {
             TRACE_ERROR("Specified mech unwraps secret & private keys only.\n");
             rc = CKR_ARGUMENTS_BAD;
@@ -1188,7 +1202,9 @@ CK_RV key_mgr_unwrap_key(STDLL_TokData_t *tokdata,
         case CKM_AES_CFB8:
         case CKM_AES_CFB64:
         case CKM_AES_CFB128:
-            if (keytype != CKK_AES && keytype != CKK_GENERIC_SECRET) {
+        case CKM_AES_XTS:
+            if (keytype != CKK_AES && keytype != CKK_AES_XTS &&
+                keytype != CKK_GENERIC_SECRET) {
                 TRACE_ERROR("The key type does not allow CKA_VALUE_LEN to be "
                             "specified in the unwrapping template.\n");
                 rc = CKR_TEMPLATE_INCONSISTENT;

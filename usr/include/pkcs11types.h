@@ -431,6 +431,8 @@ typedef CK_ULONG CK_KEY_TYPE;
 #define CKK_CDMF            0x0000001E
 /* CKK_AES is new for v2.11 */
 #define CKK_AES             0x0000001F
+/* CKK_AES_XTS is new for v3.0 */
+#define CKK_AES_XTS         0x00000035
 
 #define CKK_VENDOR_DEFINED  0x80000000
 
@@ -902,6 +904,9 @@ typedef CK_ULONG CK_MECHANISM_TYPE;
 #define CKM_JUNIPER_SHUFFLE            0x00001064
 #define CKM_JUNIPER_WRAP               0x00001065
 #define CKM_FASTHASH                   0x00001070
+/* The following are new for v3.0 */
+#define CKM_AES_XTS                    0x00001071
+#define CKM_AES_XTS_KEY_GEN            0x00001072
 /* The following are new for v2.11 */
 #define CKM_AES_KEY_GEN                0x00001080
 #define CKM_AES_ECB                    0x00001081

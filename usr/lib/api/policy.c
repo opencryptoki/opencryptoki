@@ -254,8 +254,11 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
         *siglen = 64;
         *comptarget = COMPARE_SYMMETRIC;
         break;
+    case CKK_AES_XTS:
+        /* Fallthrough */
     case CKK_AES:
-        *siglen = 128;
+        if (*(CK_ULONG *)keytype->pValue == CKK_AES)
+            *siglen = 128;
         /* Fallthrough */
     case CKK_GENERIC_SECRET:
         rv = getattr(d, CKA_VALUE_LEN, &keysize);
@@ -270,6 +273,8 @@ static CK_RV policy_extract_key_data(get_attr_val_f getattr, void *d,
             goto out;
         }
         *size = (*(CK_ULONG*)keysize->pValue) * 8;
+        if (*(CK_ULONG *)keytype->pValue == CKK_AES_XTS)
+            *size /= 2;
         *comptarget = COMPARE_SYMMETRIC;
         break;
     case CKK_IBM_PQC_DILITHIUM:
@@ -889,7 +894,9 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_AES_CTR:
         case CKM_AES_ECB:
         case CKM_AES_GCM:
+        case CKM_AES_XTS:
         case CKM_AES_KEY_GEN:
+        case CKM_AES_XTS_KEY_GEN:
         case CKM_AES_MAC:
         case CKM_AES_MAC_GENERAL:
         case CKM_AES_OFB:
