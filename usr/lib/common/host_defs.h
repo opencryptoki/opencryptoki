@@ -119,6 +119,13 @@ typedef struct _AES_CONTEXT {
     CK_BBOOL cbc_pad;
 } AES_CONTEXT;
 
+typedef struct _AES_XTS_CONTEXT {
+    CK_BYTE iv[AES_INIT_VECTOR_SIZE];
+    CK_BYTE data[2 * AES_BLOCK_SIZE];
+    CK_ULONG len;
+    CK_BBOOL initialized;
+} AES_XTS_CONTEXT;
+
 typedef struct _AES_DATA_CONTEXT {
     CK_BYTE data[AES_BLOCK_SIZE];
     CK_ULONG len;

@@ -894,6 +894,9 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
     case CKM_AES_KEY_GEN:
         *type = CKK_AES;
         break;
+    case CKM_AES_XTS_KEY_GEN:
+        *type = CKK_AES_XTS;
+        break;
     case CKM_GENERIC_SECRET_KEY_GEN:
         *type = CKK_GENERIC_SECRET;
         break;
@@ -1007,6 +1010,14 @@ CK_RV ecdh_get_derived_key_size(CK_ULONG prime_len, CK_BYTE *curve_oid,
             if (*key_len != AES_KEY_SIZE_128 &&
                 *key_len != AES_KEY_SIZE_192 &&
                 *key_len != AES_KEY_SIZE_256) {
+                TRACE_ERROR("Derived key length does not work for the key "
+                            "type\n");
+                return CKR_TEMPLATE_INCONSISTENT;
+            }
+            break;
+        case CKK_AES_XTS:
+            if (*key_len != (AES_KEY_SIZE_128 * 2) &&
+                *key_len != (AES_KEY_SIZE_256 * 2)) {
                 TRACE_ERROR("Derived key length does not work for the key "
                             "type\n");
                 return CKR_TEMPLATE_INCONSISTENT;
@@ -1145,6 +1156,7 @@ CK_RV ecdh_pkcs_derive(STDLL_TokData_t *tokdata, SESSION *sess,
     switch (keytype) {
     case CKK_GENERIC_SECRET:
     case CKK_AES:
+    case CKK_AES_XTS:
         /* Supply CKA_VAUE_LEN since this is required for those key types */
         rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE*)&key_len,
                              sizeof(key_len), &vallen_attr);

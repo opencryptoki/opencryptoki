@@ -546,6 +546,36 @@ CK_RV decr_mgr_init(STDLL_TokData_t *tokdata,
         }
         memset(ctx->context, 0x0, sizeof(AES_CONTEXT));
         break;
+    case CKM_AES_XTS:
+        if (mech->ulParameterLen != AES_INIT_VECTOR_SIZE ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
+            goto done;
+        }
+
+        rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE,
+                                          &keytype);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("Could not find CKA_KEY_TYPE for the key.\n");
+            goto done;
+        }
+
+        if (keytype != CKK_AES_XTS) {
+            TRACE_ERROR("%s\n", ock_err(ERR_KEY_TYPE_INCONSISTENT));
+            rc = CKR_KEY_TYPE_INCONSISTENT;
+            goto done;
+        }
+
+        ctx->context_len = sizeof(AES_XTS_CONTEXT);
+        ctx->context = (CK_BYTE *) malloc(sizeof(AES_XTS_CONTEXT));
+        if (!ctx->context) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+        memset(ctx->context, 0x0, sizeof(AES_XTS_CONTEXT));
+        break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         rc = CKR_MECHANISM_INVALID;
@@ -794,6 +824,10 @@ CK_RV decr_mgr_decrypt(STDLL_TokData_t *tokdata,
                                ctx,
                                in_data, in_data_len,
                                out_data, out_data_len, 0x10);
+    case CKM_AES_XTS:
+            return aes_xts_decrypt(tokdata, sess, length_only, ctx,
+                                   in_data, in_data_len,
+                                   out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -947,6 +981,10 @@ CK_RV decr_mgr_decrypt_update(STDLL_TokData_t *tokdata,
                                       ctx,
                                       in_data, in_data_len,
                                       out_data, out_data_len, 0x10);
+    case CKM_AES_XTS:
+        return aes_xts_decrypt_update(tokdata, sess, length_only, ctx,
+                                      in_data, in_data_len,
+                                      out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;
@@ -1057,6 +1095,9 @@ CK_RV decr_mgr_decrypt_final(STDLL_TokData_t *tokdata,
     case CKM_AES_GCM:
         return aes_gcm_decrypt_final(tokdata, sess, length_only, ctx,
                                      out_data, out_data_len);
+    case CKM_AES_XTS:
+        return aes_xts_decrypt_final(tokdata, sess, length_only,
+                                     ctx, out_data, out_data_len);
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
         return CKR_MECHANISM_INVALID;

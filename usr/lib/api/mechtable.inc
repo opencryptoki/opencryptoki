@@ -40,6 +40,8 @@ const struct mechrow mechtable_rows[] =
      { "CKM_AES_ECB",                 CKM_AES_ECB,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP },
      { "CKM_AES_GCM",                 CKM_AES_GCM,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },
      { "CKM_AES_KEY_GEN",             CKM_AES_KEY_GEN,               0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_AES_XTS_KEY_GEN",         CKM_AES_XTS_KEY_GEN,           0, MC_INFORMATION_UNAVAILABLE, MCF_KEYGEN },
+     { "CKM_AES_XTS",                 CKM_AES_XTS,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT },
      { "CKM_AES_MAC",                 CKM_AES_MAC,                  16,                          8, MCF_SIGNVERIFY },
      { "CKM_AES_MAC_GENERAL",         CKM_AES_MAC_GENERAL,          16,                         16, MCF_SIGNVERIFY | MCF_NEEDSPARAM | MCF_MAC_GENERAL },
      { "CKM_AES_OFB",                 CKM_AES_OFB,                  16, MC_INFORMATION_UNAVAILABLE, MCF_ENCRYPTDECRYPT | MCF_WRAPUNWRAP | MCF_NEEDSPARAM },

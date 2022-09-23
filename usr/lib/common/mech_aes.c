@@ -488,6 +488,85 @@ done:
     return rc;
 }
 
+static CK_RV aes_xts_crypt(STDLL_TokData_t *tokdata,
+                           SESSION *sess,
+                           CK_BBOOL length_only,
+                           CK_BBOOL encrypt,
+                           ENCR_DECR_CONTEXT *ctx,
+                           CK_BYTE *in_data,
+                           CK_ULONG in_data_len,
+                           CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    AES_XTS_CONTEXT *context;
+    OBJECT *key = NULL;
+    CK_RV rc;
+
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+    context = (AES_XTS_CONTEXT *)ctx->context;
+
+    /* CKM_AES_XTS requires the input data to be at least one full block */
+    if (in_data_len < AES_BLOCK_SIZE) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+        return CKR_DATA_LEN_RANGE;
+    }
+
+    rc = object_mgr_find_in_map1(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    if (length_only == TRUE) {
+        *out_data_len = in_data_len;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        rc = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    rc = ckm_aes_xts_crypt(tokdata, in_data, in_data_len, out_data,
+                           out_data_len, ctx->mech.pParameter, key,
+                           TRUE, TRUE, context->iv, encrypt);
+
+done:
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return rc;
+}
+
+CK_RV aes_xts_encrypt(STDLL_TokData_t *tokdata,
+                      SESSION *sess,
+                      CK_BBOOL length_only,
+                      ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data,
+                      CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt(tokdata, sess, length_only, TRUE, ctx,
+                         in_data, in_data_len, out_data, out_data_len);
+}
+
+CK_RV aes_xts_decrypt(STDLL_TokData_t *tokdata,
+                      SESSION *sess,
+                      CK_BBOOL length_only,
+                      ENCR_DECR_CONTEXT *ctx,
+                      CK_BYTE *in_data,
+                      CK_ULONG in_data_len,
+                      CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt(tokdata, sess, length_only, FALSE, ctx,
+                         in_data, in_data_len, out_data, out_data_len);
+}
+
 //
 //
 CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
@@ -1191,6 +1270,135 @@ CK_RV aes_ctr_decrypt_update(STDLL_TokData_t *tokdata,
     }
 }
 
+static CK_RV aes_xts_crypt_update(STDLL_TokData_t *tokdata,
+                                  SESSION *sess,
+                                  CK_BBOOL length_only,
+                                  CK_BBOOL encrypt,
+                                  ENCR_DECR_CONTEXT *ctx,
+                                  CK_BYTE *in_data,
+                                  CK_ULONG in_data_len,
+                                  CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    AES_XTS_CONTEXT *context = NULL;
+    OBJECT *key = NULL;
+    CK_BYTE *clear = NULL;
+    CK_ULONG total, remain, out_len;
+    CK_RV rc;
+
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+    context = (AES_XTS_CONTEXT *)ctx->context;
+
+    total = (context->len + in_data_len);
+
+    if (total < 2 * AES_BLOCK_SIZE) {
+        if (length_only == FALSE && in_data_len > 0) {
+            memcpy(context->data + context->len, in_data, in_data_len);
+            context->len += in_data_len;
+        }
+
+        *out_data_len = 0;
+        return CKR_OK;
+    }
+
+    /* We have at least 2 full blocks, keep at least one full block */
+    remain = AES_BLOCK_SIZE + (total % AES_BLOCK_SIZE);
+    out_len = total - remain;
+
+    if (length_only == TRUE) {
+        *out_data_len = out_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < out_len)
+        return CKR_BUFFER_TOO_SMALL;
+
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    if (out_len < context->len) {
+        rc = ckm_aes_xts_crypt(tokdata, context->data, out_len, out_data,
+                               out_data_len, ctx->mech.pParameter, key,
+                               !context->initialized, FALSE, context->iv,
+                               encrypt);
+        if (rc == CKR_OK) {
+            TRACE_ERROR("ckm_aes_xts_crypt failed\n");
+            goto out;
+        }
+
+        memmove(context->data, context->data + out_len,
+                context->len - out_len);
+        context->len -= out_len;
+
+        memcpy(context->data + context->len, in_data, in_data_len);
+        context->len += in_data_len;
+
+        context->initialized = TRUE;
+    } else {
+        clear = (CK_BYTE *) malloc(out_len);
+        if (!clear) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        memcpy(clear, context->data, context->len);
+        memcpy(clear + context->len, in_data, out_len - context->len);
+
+        rc = ckm_aes_xts_crypt(tokdata, clear, out_len, out_data,
+                                 out_data_len, ctx->mech.pParameter, key,
+                                 !context->initialized, FALSE, context->iv,
+                                 encrypt);
+        if (rc == CKR_OK) {
+            if (remain != 0)
+                memcpy(context->data, in_data + (in_data_len - remain),
+                       remain);
+            context->len = remain;
+
+            context->initialized = TRUE;
+        } else {
+            TRACE_ERROR("ckm_aes_xts_crypt failed\n");
+        }
+
+        free(clear);
+    }
+
+out:
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return rc;
+}
+
+CK_RV aes_xts_encrypt_update(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
+                             CK_BBOOL length_only,
+                             ENCR_DECR_CONTEXT *ctx,
+                             CK_BYTE *in_data,
+                             CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt_update(tokdata, sess, length_only, TRUE, ctx,
+                                in_data, in_data_len, out_data, out_data_len);
+}
+
+CK_RV aes_xts_decrypt_update(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
+                             CK_BBOOL length_only,
+                             ENCR_DECR_CONTEXT *ctx,
+                             CK_BYTE *in_data,
+                             CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt_update(tokdata, sess, length_only, FALSE, ctx,
+                                in_data, in_data_len, out_data, out_data_len);
+}
+
 //
 //
 CK_RV aes_ecb_encrypt_final(STDLL_TokData_t *tokdata,
@@ -1554,6 +1762,73 @@ CK_RV aes_ctr_decrypt_final(STDLL_TokData_t *tokdata,
     *out_data_len = 0;
 
     return CKR_OK;
+}
+
+static CK_RV aes_xts_crypt_final(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
+                                 CK_BBOOL length_only,
+                                 CK_BBOOL encrypt,
+                                 ENCR_DECR_CONTEXT *ctx,
+                                 CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    AES_XTS_CONTEXT *context = NULL;
+    OBJECT *key = NULL;
+    CK_RV rc;
+
+
+    if (!sess || !ctx || !out_data_len) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+    context = (AES_XTS_CONTEXT *)ctx->context;
+
+    if (length_only) {
+        *out_data_len = context->len;
+        return CKR_OK;
+    }
+
+    rc = object_mgr_find_in_map_nocache(tokdata, ctx->key, &key, READ_LOCK);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to find specified object.\n");
+        return rc;
+    }
+
+    rc = ckm_aes_xts_crypt(tokdata, context->data, context->len, out_data,
+                           out_data_len, ctx->mech.pParameter, key,
+                           !context->initialized, TRUE, context->iv,
+                           encrypt);
+    if (rc == CKR_OK) {
+        *out_data_len = context->len;
+
+        memset(context, 0, sizeof(*context));
+    } else {
+        TRACE_ERROR("ckm_aes_xts_crypt failed\n");
+    }
+
+    object_put(tokdata, key, TRUE);
+    key = NULL;
+
+    return CKR_OK;
+}
+
+CK_RV aes_xts_encrypt_final(STDLL_TokData_t *tokdata,
+                            SESSION *sess,
+                            CK_BBOOL length_only,
+                            ENCR_DECR_CONTEXT *ctx,
+                            CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt_final(tokdata, sess, length_only, TRUE, ctx,
+                               out_data, out_data_len);
+}
+
+CK_RV aes_xts_decrypt_final(STDLL_TokData_t *tokdata,
+                            SESSION *sess,
+                            CK_BBOOL length_only,
+                            ENCR_DECR_CONTEXT *ctx,
+                            CK_BYTE *out_data, CK_ULONG *out_data_len)
+{
+    return aes_xts_crypt_final(tokdata, sess, length_only, FALSE, ctx,
+                               out_data, out_data_len);
 }
 
 CK_RV aes_ofb_encrypt(STDLL_TokData_t *tokdata,
@@ -3492,7 +3767,7 @@ void aes_gcm_param_from_compat(const CK_GCM_PARAMS_COMPAT *from,
 
 //
 //
-CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
+CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl, CK_BBOOL xts)
 {
     CK_ATTRIBUTE *opaque_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
@@ -3511,8 +3786,10 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         return rc;
     }
 
-    if (key_size != AES_KEY_SIZE_128 &&
-        key_size != AES_KEY_SIZE_192 && key_size != AES_KEY_SIZE_256) {
+    if (key_size != (AES_KEY_SIZE_128  * (xts ? 2 : 1)) &&
+        (xts || key_size != AES_KEY_SIZE_192) &&
+        key_size != (AES_KEY_SIZE_256  * (xts ? 2 : 1))) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
         return CKR_ATTRIBUTE_VALUE_INVALID;
     }
 
@@ -3521,9 +3798,12 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_key_gen(tokdata, &aes_key, &token_keysize,
-                                      key_size, &is_opaque);
-
+    if (xts)
+        rc = token_specific.t_aes_xts_key_gen(tokdata, &aes_key, &token_keysize,
+                                          key_size, &is_opaque);
+    else
+        rc = token_specific.t_aes_key_gen(tokdata, &aes_key, &token_keysize,
+                                          key_size, &is_opaque);
     if (rc != CKR_OK)
         goto err;
 
@@ -3581,7 +3861,7 @@ CK_RV ckm_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl)
     key_type_attr->type = CKA_KEY_TYPE;
     key_type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     key_type_attr->pValue = (CK_BYTE *) key_type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) key_type_attr->pValue = CKK_AES;
+    *(CK_KEY_TYPE *) key_type_attr->pValue = xts ? CKK_AES_XTS : CKK_AES;
 
     class_attr->type = CKA_CLASS;
     class_attr->ulValueLen = sizeof(CK_OBJECT_CLASS);
@@ -3897,4 +4177,40 @@ CK_RV ckm_aes_wrap_format(STDLL_TokData_t *tokdata,
     }
 
     return CKR_OK;
+}
+
+CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata,
+                        CK_BYTE *in_data,
+                        CK_ULONG in_data_len,
+                        CK_BYTE *out_data,
+                        CK_ULONG *out_data_len,
+                        CK_BYTE *tweak, OBJECT *key,
+                        CK_BBOOL initial, CK_BBOOL final,
+                        CK_BYTE *iv, CK_BBOOL encrypt)
+{
+    CK_ULONG rc;
+
+    if (!in_data || !out_data || !tweak || !iv || !key) {
+        TRACE_ERROR("%s received bad argument(s)\n", __func__);
+        return CKR_FUNCTION_FAILED;
+    }
+    if (*out_data_len < in_data_len) {
+        *out_data_len = in_data_len;
+        TRACE_ERROR("%s\n", ock_err(ERR_BUFFER_TOO_SMALL));
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    if (token_specific.t_aes_xts == NULL) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    rc = token_specific.t_aes_xts(tokdata, in_data, in_data_len,
+                                  out_data, out_data_len, key, tweak, encrypt,
+                                  initial, final, iv);
+
+    if (rc != CKR_OK)
+        TRACE_DEVEL("Token specific aes xts encrypt failed.\n");
+
+    return rc;
 }

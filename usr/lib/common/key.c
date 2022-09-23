@@ -1654,7 +1654,9 @@ CK_RV secret_key_unwrap(STDLL_TokData_t *tokdata,
         rc = des3_unwrap(tokdata, tmpl, data, data_len, fromend);
         break;
     case CKK_AES:
-        rc = aes_unwrap(tokdata, tmpl, data, data_len, fromend);
+    case CKK_AES_XTS:
+        rc = aes_unwrap(tokdata, tmpl, data, data_len, fromend,
+                        keytype == CKK_AES_XTS);
         break;
     case CKK_GENERIC_SECRET:
         rc = generic_secret_unwrap(tmpl, data, data_len, fromend);
@@ -6196,7 +6198,8 @@ CK_RV des3_wrap_get_data(TEMPLATE *tmpl,
 
 //  aes_set_default_attributes()
 //
-CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mode)
+CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl,
+                                 CK_ULONG mode, CK_BBOOL xts)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *type_attr = NULL;
@@ -6226,7 +6229,7 @@ CK_RV aes_set_default_attributes(TEMPLATE *tmpl, TEMPLATE *basetmpl, CK_ULONG mo
     type_attr->type = CKA_KEY_TYPE;
     type_attr->ulValueLen = sizeof(CK_KEY_TYPE);
     type_attr->pValue = (CK_BYTE *) type_attr + sizeof(CK_ATTRIBUTE);
-    *(CK_KEY_TYPE *) type_attr->pValue = CKK_AES;
+    *(CK_KEY_TYPE *) type_attr->pValue = xts ? CKK_AES_XTS : CKK_AES;
 
     rc = template_update_attribute(tmpl, type_attr);
     if (rc != CKR_OK) {
@@ -6300,7 +6303,7 @@ CK_RV aes_check_required_attributes(TEMPLATE *tmpl, CK_ULONG mode)
 //
 //
 CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
-                             CK_ATTRIBUTE *attr, CK_ULONG mode)
+                             CK_ATTRIBUTE *attr, CK_ULONG mode, CK_BBOOL xts)
 {
     CK_ULONG val;
 
@@ -6309,9 +6312,9 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         // key length is either 16, 24 or 32 bytes
         //
         if (mode == MODE_CREATE) {
-            if (attr->ulValueLen != AES_KEY_SIZE_128 &&
-                attr->ulValueLen != AES_KEY_SIZE_192 &&
-                attr->ulValueLen != AES_KEY_SIZE_256) {
+            if (attr->ulValueLen != (AES_KEY_SIZE_128 * (xts ? 2 : 1)) &&
+                (xts || attr->ulValueLen != AES_KEY_SIZE_192) &&
+                attr->ulValueLen != (AES_KEY_SIZE_256 * (xts ? 2 : 1))) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
@@ -6332,8 +6335,9 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
             val = *(CK_ULONG *) attr->pValue;
-            if (val != AES_KEY_SIZE_128 &&
-                val != AES_KEY_SIZE_192 && val != AES_KEY_SIZE_256) {
+            if (val != (AES_KEY_SIZE_128 * (xts ? 2 : 1)) &&
+                (xts || val != AES_KEY_SIZE_192) &&
+                val != (AES_KEY_SIZE_256 * (xts ? 2 : 1))) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
@@ -6345,7 +6349,6 @@ CK_RV aes_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return secret_key_validate_attribute(tokdata, tmpl, attr, mode);
     }
 }
-
 
 //
 //
@@ -6390,7 +6393,7 @@ CK_RV aes_wrap_get_data(TEMPLATE *tmpl,
 CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
                  TEMPLATE *tmpl,
                  CK_BYTE *data,
-                 CK_ULONG data_len, CK_BBOOL fromend)
+                 CK_ULONG data_len, CK_BBOOL fromend, CK_BBOOL xts)
 {
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *val_len_attr = NULL;
@@ -6420,8 +6423,9 @@ CK_RV aes_unwrap(STDLL_TokData_t *tokdata,
         key_size = data_len;
 
     /* key_size should be one of AES's possible sizes */
-    if (key_size != AES_KEY_SIZE_128 &&
-        key_size != AES_KEY_SIZE_192 && key_size != AES_KEY_SIZE_256) {
+    if (key_size != (AES_KEY_SIZE_128  * (xts ? 2 : 1)) &&
+        (xts || key_size != AES_KEY_SIZE_192) &&
+        key_size != (AES_KEY_SIZE_256  * (xts ? 2 : 1))) {
         TRACE_ERROR("%s\n", ock_err(ERR_WRAPPED_KEY_LEN_RANGE));
         return CKR_WRAPPED_KEY_LEN_RANGE;
     }
