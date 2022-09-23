@@ -233,7 +233,8 @@ static int confignode_dump_i(FILE *fp, struct ConfigBaseNode *n,
         }
         if (atbol) {
             confignode_dump_indent(fp, curindent);
-            atbol = 0;
+            if (curindent != 0)
+                atbol = 0;
         } else if (i->type != CT_EOC) {
             /* In this case, we did not indent, but if a user writes
                multiple configurations in one line, we will
