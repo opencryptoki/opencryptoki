@@ -1648,7 +1648,7 @@ CK_RV ber_encode_RSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ULONG *data_len, CK_ATTRIBUTE *modulus,
                               CK_ATTRIBUTE *publ_exp)
 {
-    CK_ULONG len, offset, total, total_len;
+    CK_ULONG len = 0, offset, total, total_len;
     CK_RV rc;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
@@ -2205,7 +2205,7 @@ CK_RV ber_encode_DSAPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                               CK_ATTRIBUTE *subprime, CK_ATTRIBUTE *base,
                               CK_ATTRIBUTE *value)
 {
-    CK_ULONG len, parm_len, id_len, pub_len, offset, total;
+    CK_ULONG len = 0, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
@@ -3352,7 +3352,7 @@ CK_RV ber_encode_DHPublicKey(CK_BBOOL length_only, CK_BYTE **data,
                              CK_ULONG *data_len, CK_ATTRIBUTE *prime,
                              CK_ATTRIBUTE *base, CK_ATTRIBUTE *value)
 {
-    CK_ULONG len, parm_len, id_len, pub_len, offset, total;
+    CK_ULONG len = 0, parm_len, id_len, pub_len, offset, total;
     CK_RV rc = 0;
     CK_BYTE *buf = NULL;
     CK_BYTE *buf2 = NULL;
@@ -3628,7 +3628,7 @@ CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
                           CK_ATTRIBUTE *rho, CK_ATTRIBUTE *t1)
 {
     CK_BYTE *buf = NULL, *buf2 = NULL, *buf3 = NULL, *buf4 = NULL;
-    CK_ULONG len, len4, offset, total, total_len;
+    CK_ULONG len = 0, len4, offset, total, total_len;
     CK_RV rc;
 
     UNUSED(length_only);
