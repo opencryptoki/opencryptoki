@@ -96,7 +96,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -377,7 +377,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;

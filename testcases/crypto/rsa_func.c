@@ -103,7 +103,7 @@ CK_RV do_EncryptDecryptRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -388,7 +388,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].mod_len * 8);
             free(s);
             continue;
@@ -718,7 +718,7 @@ CK_RV do_SignVerifyRSA(struct GENERATED_TEST_SUITE_INFO * tsuite,
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -981,7 +981,7 @@ CK_RV do_SignVerify_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -1212,7 +1212,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits.='%ld'",
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
                           SLOT_ID, tsuite->tv[i].modbits);
             continue;
         }
