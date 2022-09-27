@@ -10272,7 +10272,6 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
             continue;
         }
 
-
         ep11_config_error_token(fname, c->key, c->line, NULL);
         rc = CKR_FUNCTION_FAILED;
         break;
@@ -10291,7 +10290,7 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
                    "%s: Error: At least one APQN mode needs to be present "
                    " in config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
                    __func__, fname);
-        rc = CKR_FUNCTION_FAILED;
+        return CKR_FUNCTION_FAILED;
     } else if (whitemode && anymode) {
         TRACE_ERROR("%s Only one APQN mode can be present in config file:"
                     " APQN_ALLOWLIST or APQN_ANY\n", __func__);
@@ -10299,7 +10298,7 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
                    "%s: Error: Only one APQN mode can be present in"
                    " config file '%s': APQN_ALLOWLIST or APQN_ANY\n",
                    __func__, fname);
-        rc = CKR_FUNCTION_FAILED;
+        return CKR_FUNCTION_FAILED;
     } else if (whitemode) {
         /* at least one APQN needs to be defined */
         if (ep11_data->target_list.length < 1) {
@@ -10308,7 +10307,7 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
             OCK_SYSLOG(LOG_ERR,
                        "%s: Error: At least one APQN needs to be defined in"
                        " config file '%s'\n", __func__, fname);
-            rc = CKR_FUNCTION_FAILED;
+            return CKR_FUNCTION_FAILED;
         }
     }
 
