@@ -1623,6 +1623,13 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
 
         rc = CKR_OK;            // set return value
 
+        if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+                               tsuite->tv[i].mod_len * 8)) {
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+                          SLOT_ID, tsuite->tv[i].mod_len * 8);
+            continue;
+        }
+
         // special case for ica
         // prime1, prime2, exp1, exp2, coef
         // must be size mod_len/2 or smaller
@@ -1823,6 +1830,13 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         testcase_begin("%s Verify with test vector %d.", tsuite->name, i);
 
         rc = CKR_OK;            // set return value
+
+        if (!keysize_supported(slot_id, tsuite->mech.mechanism,
+                               tsuite->tv[i].mod_len * 8)) {
+            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+                          SLOT_ID, tsuite->tv[i].mod_len * 8);
+            continue;
+        }
 
         // special case for EP11
         // modulus length must be multiple of 128 byte
