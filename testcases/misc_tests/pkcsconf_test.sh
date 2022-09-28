@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # COPYRIGHT (c) International Business Machines Corp. 2022
 #
