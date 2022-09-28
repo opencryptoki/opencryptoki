@@ -175,6 +175,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_SSL3_MD5_MAC, {384, 384, CKF_SIGN | CKF_VERIFY}},
     {CKM_SSL3_SHA1_MAC, {384, 384, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
+    {CKM_AES_XTS_KEY_GEN, {32, 64, CKF_GENERATE}},
     {CKM_AES_ECB, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC, {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_AES_CBC_PAD,
@@ -195,6 +196,7 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
     {CKM_AES_MAC_GENERAL, {16, 32, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {CKM_AES_XTS, {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #if !(NO_EC)
     {CKM_EC_KEY_PAIR_GEN, {160, 521, CKF_GENERATE_KEY_PAIR |
@@ -530,6 +532,19 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
     return rng_generate(tokdata, *key, keysize);
 }
 
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
+                                    CK_ULONG *len, CK_ULONG keysize,
+                                    CK_BBOOL *is_opaque)
+{
+    *key = malloc(keysize);
+    if (*key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = keysize;
+    *is_opaque = FALSE;
+
+    return rng_generate(tokdata, *key, keysize);
+}
+
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
                              CK_BYTE *in_data,
                              CK_ULONG in_data_len,
@@ -639,6 +654,18 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 
     return openssl_specific_aes_cmac(tokdata, message, message_len, key, mac,
                                      first, last, ctx);
+}
+
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE *tweak,
+                             CK_BOOL encrypt, CK_BBOOL initial, CK_BBOOL final,
+                             CK_BYTE* iv)
+{
+    return openssl_specific_aes_xts(tokdata, in_data, in_data_len,
+                                    out_data, out_data_len, key_obj,
+                                    tweak, encrypt, initial, final, iv);
 }
 
 /* Begin code contributed by Corrent corp. */

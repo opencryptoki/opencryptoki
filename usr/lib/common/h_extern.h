@@ -2971,6 +2971,12 @@ CK_RV openssl_specific_aes_mac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
                                 CK_ULONG message_len, OBJECT *key, CK_BYTE *mac,
                                 CK_BBOOL first, CK_BBOOL last, CK_VOID_PTR *ctx);
+CK_RV openssl_specific_aes_xts(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data, CK_ULONG in_data_len,
+                               CK_BYTE *out_data, CK_ULONG *out_data_len,
+                               OBJECT *key_obj, CK_BYTE *tweak,
+                               CK_BOOL encrypt, CK_BBOOL initial,
+                               CK_BBOOL final, CK_BYTE* iv);
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
                                CK_BYTE *in_data,

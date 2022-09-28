@@ -3252,6 +3252,18 @@ static const EVP_CIPHER *openssl_cipher_from_mech(CK_MECHANISM_TYPE mech,
             break;
         }
         break;
+    case CKM_AES_XTS:
+        if (keytype != CKK_AES_XTS)
+            break;
+        switch (keylen * 8) {
+        case 256:
+            return EVP_aes_128_xts();
+        case 512:
+            return EVP_aes_256_xts();
+        default:
+            break;
+        }
+        break;
     default:
         TRACE_ERROR("mechanism 0x%lx not supported\n", mech);
         return NULL;
@@ -3298,7 +3310,9 @@ static CK_RV openssl_cipher_perform(OBJECT *key, CK_MECHANISM_TYPE mech,
 #else
     blocksize = EVP_CIPHER_get_block_size(cipher);
 #endif
-    if (in_data_len % blocksize || in_data_len > INT_MAX) {
+    if ((mech == CKM_AES_XTS ? in_data_len < AES_BLOCK_SIZE :
+                               in_data_len % blocksize) ||
+        in_data_len > INT_MAX) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         return CKR_DATA_LEN_RANGE;
     }
@@ -4074,6 +4088,170 @@ CK_RV openssl_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
 
     return openssl_cmac_perform(CKM_AES_CMAC, message, message_len, key, mac,
                                 first, last, ctx);
+}
+
+static EVP_CIPHER_CTX *aes_xts_init_ecb_cipher_ctx(const CK_BYTE *key,
+                                                   CK_ULONG keylen,
+                                                   CK_BBOOL encrypt)
+{
+    const EVP_CIPHER *cipher;
+    EVP_CIPHER_CTX *ctx = NULL;
+
+    if (key == NULL)
+        return NULL;
+
+    switch (keylen) {
+    case AES_KEY_SIZE_128:
+        cipher = EVP_aes_128_ecb();
+        break;
+    case AES_KEY_SIZE_256:
+        cipher = EVP_aes_256_ecb();
+        break;
+    default:
+        TRACE_ERROR("Key size wrong: %lu.\n", keylen);
+        return NULL;
+    }
+
+    ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("EVP_CIPHER_CTX_new failed\n");
+        return NULL;
+    }
+
+    if (EVP_CipherInit_ex(ctx, cipher, NULL, key, NULL,
+                  encrypt ? 1 : 0) != 1) {
+        EVP_CIPHER_CTX_free(ctx);
+        TRACE_ERROR("EVP_CipherInit_ex failed\n");
+        return NULL;
+    }
+
+    return ctx;
+}
+
+static void aes_xts_xor_block(const CK_BYTE *in1, const CK_BYTE *in2,
+                              CK_BYTE *out)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < AES_BLOCK_SIZE; i++)
+        out[i] = in1[i] ^ in2[i];
+}
+
+static void aes_xts_mult(CK_BYTE *iv)
+{
+    CK_ULONG c, i;
+
+    for (c = 0, i = 0; i < AES_BLOCK_SIZE; ++i) {
+        c += ((CK_ULONG)iv[i]) << 1;
+        iv[i] = (CK_BYTE)c;
+        c = c >> 8;
+    }
+
+    iv[0] ^= (CK_BYTE)(0x87 & (0 - c));
+}
+
+struct aes_xts_cb_data {
+    EVP_CIPHER_CTX *tweak_ctx;
+    EVP_CIPHER_CTX *cipher_ctx;
+};
+
+static CK_RV aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv, void * cb_data)
+{
+    struct aes_xts_cb_data *data = cb_data;
+
+    if (EVP_Cipher(data->tweak_ctx, iv, tweak, AES_BLOCK_SIZE) <= 0) {
+        TRACE_ERROR("EVP_Cipher failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
+                                   CK_BYTE *iv, void * cb_data)
+{
+    struct aes_xts_cb_data *data = cb_data;
+    CK_BYTE buf[AES_INIT_VECTOR_SIZE];
+
+    while (len >= AES_BLOCK_SIZE) {
+        aes_xts_xor_block(in, iv, buf);
+
+        if (EVP_Cipher(data->cipher_ctx, out, buf, AES_BLOCK_SIZE) <= 0) {
+            TRACE_ERROR("EVP_Cipher failed\n");
+            return CKR_FUNCTION_FAILED;
+        }
+
+        aes_xts_xor_block(out, iv, out);
+
+        in += AES_BLOCK_SIZE;
+        out += AES_BLOCK_SIZE;
+        len -= AES_BLOCK_SIZE;
+
+        aes_xts_mult(iv);
+    }
+
+    return CKR_OK;
+}
+
+CK_RV openssl_specific_aes_xts(STDLL_TokData_t *tokdata,
+                               CK_BYTE *in_data, CK_ULONG in_data_len,
+                               CK_BYTE *out_data, CK_ULONG *out_data_len,
+                               OBJECT *key_obj, CK_BYTE *tweak,
+                               CK_BOOL encrypt, CK_BBOOL initial,
+                               CK_BBOOL final, CK_BYTE* iv)
+{
+    struct aes_xts_cb_data data = { 0 };
+    CK_ATTRIBUTE *key_attr;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    if (initial && final)
+        return openssl_cipher_perform(key_obj, CKM_AES_XTS,
+                                      in_data, in_data_len,
+                                      out_data, out_data_len,
+                                      tweak, NULL, encrypt);
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                          &key_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    if (initial) {
+        data.tweak_ctx = aes_xts_init_ecb_cipher_ctx(
+                        (CK_BYTE *)key_attr->pValue + key_attr->ulValueLen / 2,
+                        key_attr->ulValueLen / 2, TRUE);
+        if (data.tweak_ctx == NULL) {
+            TRACE_ERROR("aes_xts_init_ecb_cipher_ctx failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+    }
+
+    data.cipher_ctx = aes_xts_init_ecb_cipher_ctx((CK_BYTE *)key_attr->pValue,
+                                                  key_attr->ulValueLen / 2,
+                                                  encrypt);
+    if (data.cipher_ctx == NULL) {
+        TRACE_ERROR("aes_xts_init_ecb_cipher_ctx failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    rc = aes_xts_cipher(in_data, in_data_len, out_data, out_data_len,
+                        tweak, encrypt, initial, final, iv,
+                        aes_xts_iv_from_tweak,
+                        aes_xts_cipher_blocks,
+                        &data);
+
+out:
+    if (data.tweak_ctx != NULL)
+        EVP_CIPHER_CTX_free(data.tweak_ctx);
+    if (data.cipher_ctx != NULL)
+        EVP_CIPHER_CTX_free(data.cipher_ctx);
+
+    return rc;
 }
 
 CK_RV openssl_specific_des_ecb(STDLL_TokData_t *tokdata,
