@@ -167,13 +167,12 @@ int is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
 /** Create an AES key handle with given value **/
 CK_RV create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
                     unsigned char key[], unsigned char key_len,
-                    CK_OBJECT_HANDLE * h_key)
+                    CK_KEY_TYPE keyType, CK_OBJECT_HANDLE * h_key)
 {
     CK_RV rc;
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
-    CK_KEY_TYPE keyType = CKK_AES;
     CK_ATTRIBUTE keyTemplate[] = {
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_CLASS, &keyClass, sizeof(keyClass)},

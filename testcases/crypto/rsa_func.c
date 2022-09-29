@@ -1388,6 +1388,12 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                 mech.pParameter = &aes_iv;
                 key_type = CKK_AES;
                 break;
+            case CKM_AES_XTS_KEY_GEN:
+                mech.mechanism = CKM_AES_XTS;
+                mech.ulParameterLen = AES_IV_SIZE;
+                mech.pParameter = &aes_iv;
+                key_type = CKK_AES_XTS;
+                break;
             case CKM_DES3_KEY_GEN:
                 mech.mechanism = CKM_DES3_CBC;
                 mech.ulParameterLen = DES_IV_SIZE;
@@ -1474,6 +1480,7 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
          * unwrapping the key.
          */
         if (((keygen_mech.mechanism == CKM_AES_KEY_GEN) ||
+             (keygen_mech.mechanism == CKM_AES_XTS_KEY_GEN) ||
              (keygen_mech.mechanism == CKM_GENERIC_SECRET_KEY_GEN)) &&
             (wrap_mech.mechanism == CKM_RSA_X_509)) {
             unwrapped_keylen = tsuite->tv[i].keylen;

@@ -1122,7 +1122,49 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_keywrap_generated_tv[] = {
         .publ_exp = {0x01, 0x00, 0x01},
         .keylen = 256,
         .keytype = {CKM_GENERIC_SECRET_KEY_GEN, 0, 0},
-    }
+    },
+    {                           // 84
+        .modbits = 1024,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 32,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
+    {                           // 85
+        .modbits = 1024,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 64,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
+    {                           // 86
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 32,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
+    {                           // 87
+        .modbits = 2048,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 64,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
+    {                           // 88
+        .modbits = 4096,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 32,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
+    {                           // 89
+        .modbits = 4096,
+        .publ_exp_len = 3,
+        .publ_exp = {0x01, 0x00, 0x01},
+        .keylen = 64,
+        .keytype = {CKM_AES_XTS_KEY_GEN, 0, 0},
+    },
 };
 
 static struct RSA_GENERATED_TEST_VECTOR rsa_generated_tv[] = {
@@ -1578,13 +1620,13 @@ static struct RSA_GENERATED_TEST_VECTOR rsa_x509_generated_tv[] = {
 struct GENERATED_TEST_SUITE_INFO generated_keywrap_test_suites[] = {
     {
         .name = "RSA PKCS",
-        .tvcount = 84,
+        .tvcount = 90,
         .tv = rsa_keywrap_generated_tv,
         .mech = {CKM_RSA_PKCS, 0, 0},
     },
     {
         .name = "RSA X.509",
-        .tvcount = 84,
+        .tvcount = 90,
         .tv = rsa_keywrap_generated_tv,
         .mech = {CKM_RSA_X_509, 0, 0},
     }
