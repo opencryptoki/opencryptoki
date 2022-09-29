@@ -72,14 +72,21 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
     /** iterate over test key sizes **/
     for (i = 0; i < 3; i++) {
+        if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
+            continue;
 
         testcase_begin("%s Encryption/Decryption with key len=%ld and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
+        /** set crypto mech **/
+        mech = tsuite->mech;
+
         /** generate key **/
-        mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], !pkey,
-                             &mechkey, &h_key);
+        mechkey = mech.mechanism == CKM_AES_XTS ? aes_xts_keygen : aes_keygen;
+        rc = generate_AESKey(session,
+                             mech.mechanism == CKM_AES_XTS ? key_lens[i] * 2 :
+                                                             key_lens[i],
+                             !pkey, &mechkey, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("AES key generation is not allowed by policy");
@@ -100,9 +107,6 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
 
         for (j = 0; j < orig_len; j++)
             original[j] = j % 255;
-
-        /** set crypto mech **/
-        mech = tsuite->mech;
 
         /** single encryption **/
         rc = funcs->C_EncryptInit(session, &mech, h_key);
@@ -216,14 +220,21 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
 
     /** iterate over key sizes **/
     for (i = 0; i < 3; i++) {
+        if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
+            continue;
 
         testcase_begin("%s Multipart Encryption/Decryption with "
                        "key len=%ld and pkey=%X.", tsuite->name, key_lens[i], pkey);
 
+        /** set crypto mech **/
+        mech = tsuite->mech;
+
         /** generate key **/
-        mechkey = aes_keygen;
-        rc = generate_AESKey(session, key_lens[i], !pkey,
-                             &mechkey, &h_key);
+        mechkey = mech.mechanism == CKM_AES_XTS ? aes_xts_keygen : aes_keygen;
+        rc = generate_AESKey(session,
+                             mech.mechanism == CKM_AES_XTS ? key_lens[i] * 2 :
+                                                                 key_lens[i],
+                             !pkey, &mechkey, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("AES key generation is not allowed by policy");
@@ -245,9 +256,6 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
         for (j = 0; j < orig_len; j++)
             original[j] = j % 255;
 
-        /** set crypto mech **/
-        mech = tsuite->mech;
-
         /** multipart encryption **/
         rc = funcs->C_EncryptInit(session, &mech, h_key);
         if (rc != CKR_OK) {
@@ -255,11 +263,12 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
             goto error;
         }
 
-        /* Encrypt in place except for CBC_PAD, since it
+        /* Encrypt in place except for CBC_PAD or XTS, since it
          * pads and pkcs padding can make it unclear about what is
          * output at what stage. (See pkcs11v2.20 Section 11.2)
          */
-        if (mech.mechanism != CKM_AES_CBC_PAD) {
+        if (mech.mechanism != CKM_AES_CBC_PAD &&
+            mech.mechanism != CKM_AES_XTS) {
 
             memcpy(crypt, original, orig_len);
             crypt_len = orig_len;
@@ -316,11 +325,12 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
             goto error;
         }
 
-        /* decrypt in place.  skip for AES_CBC_PAD since it
+        /* decrypt in place.  skip for AES_CBC_PAD or XTS since it
          * pads and pkcs padding can make it unclear about what is
          * output at what stage. (See pkcs11v2.20 Section 11.2)
          */
-        if (mech.mechanism != CKM_AES_CBC_PAD) {
+        if (mech.mechanism != CKM_AES_CBC_PAD &&
+            mech.mechanism != CKM_AES_XTS) {
 
             memcpy(decrypt, crypt, crypt_len);
             k = 0;
@@ -493,11 +503,15 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         testcase_begin("%s Encryption with published test vector %d and pkey=%X.",
                        tsuite->name, i, pkey);
 
-        rc = CKR_OK;
+        /** get mech **/
+        mech = tsuite->mech;
 
         /** create key handle **/
         rc = create_AESKey(session, !pkey,
-                           tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+                           tsuite->tv[i].key, tsuite->tv[i].klen,
+                           mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS :
+                                                                   CKK_AES,
+                           &h_key);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -509,8 +523,6 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
             goto error;
         }
 
-        /** get mech **/
-        mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
@@ -523,6 +535,9 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
                 testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
                 goto error;
             }
+        } else if (mech.mechanism == CKM_AES_XTS) {
+            mech.pParameter = tsuite->tv[i].iv;
+            mech.ulParameterLen = tsuite->tv[i].ivlen;
         }
 
         /** clear buffers **/
@@ -655,11 +670,15 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         testcase_begin("%s Multipart Encryption with published test "
                        "vector %d and pkey=%X.", tsuite->name, i, pkey);
 
-        rc = CKR_OK;
+        /** get mech **/
+        mech = tsuite->mech;
 
         /** create key handle **/
         rc = create_AESKey(session, !pkey,
-                           tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+                           tsuite->tv[i].key, tsuite->tv[i].klen,
+                           mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS :
+                                                                     CKK_AES,
+                           &h_key);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -671,8 +690,6 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
             goto error;
         }
 
-        /** get mech **/
-        mech = tsuite->mech;
         if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
@@ -685,6 +702,9 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
                 testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
                 goto error;
             }
+        } else if (mech.mechanism == CKM_AES_XTS) {
+            mech.pParameter = tsuite->tv[i].iv;
+            mech.ulParameterLen = tsuite->tv[i].ivlen;
         }
 
         /** clear buffers **/
@@ -858,11 +878,15 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         testcase_begin("%s Decryption with published test vector %d and pkey=%X.",
                        tsuite->name, i, pkey);
 
-        rc = CKR_OK;
+        /** get mech **/
+        mech = tsuite->mech;
 
         /** create key handle **/
         rc = create_AESKey(session, !pkey,
-                           tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+                           tsuite->tv[i].key, tsuite->tv[i].klen,
+                           mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS :
+                                                                   CKK_AES,
+                           &h_key);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -873,10 +897,8 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
             testcase_error("C_CreateObject rc=%s", p11_get_ckr(rc));
             goto error;
         }
-
-        /** get mech **/
-        mech = tsuite->mech;
-        if (mech.mechanism == CKM_AES_GCM) {
+               
+	if (mech.mechanism == CKM_AES_GCM) {
             gcm_param = ((CK_GCM_PARAMS *) mech.pParameter);
             gcm_param->ulTagBits = tsuite->tv[i].taglen;
             rc = alloc_gcm_param(gcm_param,
@@ -888,6 +910,9 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
                 testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
                 goto error;
             }
+        } else if (mech.mechanism == CKM_AES_XTS) {
+            mech.pParameter = tsuite->tv[i].iv;
+            mech.ulParameterLen = tsuite->tv[i].ivlen;
         }
 
         /** clear buffers **/
@@ -1019,9 +1044,15 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         testcase_begin("%s Multipart Decryption with published test "
                        "vector %d and pkey=%X.", tsuite->name, i, pkey);
 
+        /** get mech **/
+        mech = tsuite->mech;
+
         /** create key handle **/
         rc = create_AESKey(session, !pkey,
-                           tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+                           tsuite->tv[i].key, tsuite->tv[i].klen,
+                           mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS :
+                                                                     CKK_AES,
+                           &h_key);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -1047,6 +1078,9 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
                 testcase_error("alloc_gcm_param rc=%s", p11_get_ckr(rc));
                 goto error;
             }
+        } else if (mech.mechanism == CKM_AES_XTS) {
+            mech.pParameter = tsuite->tv[i].iv;
+            mech.ulParameterLen = tsuite->tv[i].ivlen;
         }
 
         /** clear buffers **/
@@ -1196,7 +1230,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     CK_RV rc = CKR_OK;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_OBJECT_CLASS key_class = CKO_SECRET_KEY;
-    CK_KEY_TYPE key_type = CKK_AES;
+    CK_KEY_TYPE key_type;
     CK_ATTRIBUTE template[] = {
         {CKA_CLASS, &key_class, sizeof(key_class)},
         {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
@@ -1240,12 +1274,16 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         if (key_lens[i] % AES_BLOCK_SIZE != 0)
             continue;
 
+        if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
+            continue;
+
         testcase_begin("%s Wrap/Unwrap key test with keylength=%ld and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         /** set mechanisms **/
         mech = tsuite->mech;
-        mechkey = aes_keygen;
+        mechkey = mech.mechanism == CKM_AES_XTS ? aes_xts_keygen : aes_keygen;
+        key_type = mech.mechanism == CKM_AES_XTS ? CKK_AES_XTS : CKK_AES;
 
         /** set key_size **/
         key_size = key_lens[i];
@@ -1256,7 +1294,10 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         memset(decrypt, 0, sizeof(decrypt));
 
         /** generate crypto key (must be extractable) **/
-        rc = generate_AESKey(session, key_lens[i], CK_TRUE, &mechkey, &h_key);
+        rc = generate_AESKey(session,
+                             mech.mechanism == CKM_AES_XTS ? key_lens[i] * 2 :
+                                                                   key_lens[i],
+                             CK_TRUE, &mechkey, &h_key);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
                 testcase_skip("AES key generation is not allowed by policy");
@@ -1268,7 +1309,9 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         }
 
         /** generate wrapping key **/
-        rc = generate_AESKey(session, key_lens[i], !pkey,
+        rc = generate_AESKey(session,
+                             mech.mechanism == CKM_AES_XTS ? key_lens[i] * 2 :
+                                                           key_lens[i], !pkey,
                              &mechkey, &w_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
@@ -1528,14 +1571,18 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         bits = mech_info.ulMinKeySize;
 
     for (i = 0; i < 3; i++) {
+        if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
+            continue;
 
         testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
-        key_size = key_lens[i];
+        key_size = tsuite->mech.mechanism == CKM_AES_XTS ?
+                                            key_lens[i] * 2 : key_lens[i];
 
         /** first mechanism generate AES wrapping key **/
-        mech.mechanism = CKM_AES_KEY_GEN;
+        mech.mechanism = tsuite->mech.mechanism == CKM_AES_XTS ?
+                                      CKM_AES_XTS_KEY_GEN : CKM_AES_KEY_GEN;
         mech.ulParameterLen = 0;
         mech.pParameter = NULL;
 
@@ -2127,7 +2174,8 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
 
         /** create key handle **/
         rc = create_AESKey(session, !pkey,
-                           tsuite->tv[i].key, tsuite->tv[i].klen, &h_key);
+                           tsuite->tv[i].key, tsuite->tv[i].klen, CKK_AES,
+                           &h_key);
 
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {

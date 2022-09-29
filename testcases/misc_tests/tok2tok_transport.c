@@ -190,7 +190,20 @@ struct wrapping_mech_info wrapping_tests[] = {
         .wrapping_mech = { CKM_AES_CBC_PAD, aes_iv, sizeof(aes_iv) },
         .wrapping_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
         .sym_keylen = 32,
-    },    {
+    },
+    {
+        .name = "Wrap/Unwrap with AES 128 XTS",
+        .wrapping_mech = { CKM_AES_XTS, aes_iv, sizeof(aes_iv) },
+        .wrapping_key_gen_mech = { CKM_AES_XTS_KEY_GEN, 0, 0 },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "Wrap/Unwrap with AES 256 XTS",
+        .wrapping_mech = { CKM_AES_XTS, aes_iv, sizeof(aes_iv) },
+        .wrapping_key_gen_mech = { CKM_AES_XTS_KEY_GEN, 0, 0 },
+        .sym_keylen = 64,
+    },
+    {
         .name = "Wrap/Unwrap with DES ECB",
         .wrapping_mech = { CKM_DES_ECB, 0, 0 },
         .wrapping_key_gen_mech = { CKM_DES_KEY_GEN, 0, 0 },
@@ -272,6 +285,18 @@ struct wrapped_mech_info wrapped_key_tests[] = {
         .wrapped_key_gen_mech = { CKM_AES_KEY_GEN, 0, 0 },
         .operation_mech = { CKM_AES_ECB, 0, 0 },
         .sym_keylen = 32,
+    },
+    {
+        .name = "key type AES-XTS 128",
+        .wrapped_key_gen_mech = { CKM_AES_XTS_KEY_GEN, 0, 0 },
+        .operation_mech = { CKM_AES_XTS, aes_iv, sizeof(aes_iv) },
+        .sym_keylen = 32,
+    },
+    {
+        .name = "key type AES-XTS 256",
+        .wrapped_key_gen_mech = { CKM_AES_XTS_KEY_GEN, 0, 0 },
+        .operation_mech = { CKM_AES_XTS, aes_iv, sizeof(aes_iv) },
+        .sym_keylen = 64,
     },
     {
         .name = "key type DES3",
@@ -385,6 +410,7 @@ CK_RV do_perform_operation(CK_MECHANISM *mech,
         /* Perform Encrypt/Decrypt operation */
         switch (mech->mechanism) {
         case CKM_AES_ECB:
+        case CKM_AES_XTS:
             input_size = 16;
             encr_key = sym_key1;
             decr_key = sym_key2;
@@ -637,6 +663,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         break;
 
     case CKM_AES_KEY_GEN:
+    case CKM_AES_XTS_KEY_GEN:
         rc = generate_AESKey(session1, tsuite->sym_keylen, CK_TRUE,
                              &tsuite->wrapped_key_gen_mech, &sym_key);
         break;
@@ -750,6 +777,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
     /* Get class and key type from original key */
     switch (tsuite->wrapped_key_gen_mech.mechanism) {
     case CKM_AES_KEY_GEN:
+    case CKM_AES_XTS_KEY_GEN:
     case CKM_GENERIC_SECRET_KEY_GEN:
         unwrap_tmpl_num = 3;
         break;
@@ -833,7 +861,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
         goto testcase_cleanup;
     }
 
-    if (key_type == CKK_AES || key_type == CKK_GENERIC_SECRET) {
+    if (key_type == CKK_AES || key_type == CKK_AES_XTS ||
+        key_type == CKK_GENERIC_SECRET) {
         /* Check if the unwrapped key has the desired key length */
         rc = funcs->C_GetAttributeValue(session2, unwrapped_key,
                                         getattr_tmpl, 1);
@@ -902,9 +931,9 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
     char *s = NULL;
     CK_BYTE modulus[512];
     CK_BYTE publ_exp[16];
-    CK_BYTE key[32];
+    CK_BYTE key[64];
     CK_ULONG key_size = 0;
-    CK_BYTE value[32];
+    CK_BYTE value[64];
     CK_ATTRIBUTE rsa_publ_tmpl[] = {
         {CKA_MODULUS, modulus, sizeof(modulus) },
         {CKA_PUBLIC_EXPONENT, publ_exp, sizeof(publ_exp) },
@@ -1036,16 +1065,34 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         break;
 
     case CKM_AES_KEY_GEN:
-        key_size = 32;
+        key_size = tsuite->sym_keylen;
         rc = funcs->C_GenerateRandom(session2, key, key_size);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateRandom(), rc=%s.", p11_get_ckr(rc));
             goto testcase_cleanup;
         }
 
-        rc = create_AESKey(session2, CK_TRUE, key, key_size, &sym_wrap_key2);
+        rc = create_AESKey(session2, CK_TRUE, key, key_size, CKK_AES,
+                           &sym_wrap_key2);
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("AES key import is not allowed by policy");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
+        break;
+
+    case CKM_AES_XTS_KEY_GEN:
+        key_size = tsuite->sym_keylen;
+        rc = funcs->C_GenerateRandom(session2, key, key_size);
+        if (rc != CKR_OK) {
+            testcase_error("C_GenerateRandom(), rc=%s.", p11_get_ckr(rc));
+            goto testcase_cleanup;
+        }
+
+        rc = create_AESKey(session2, CK_TRUE, key, key_size, CKK_AES_XTS,
+                           &sym_wrap_key2);
+        if (rc == CKR_POLICY_VIOLATION) {
+            testcase_skip("AES-XTS key import is not allowed by policy");
             rc = CKR_OK;
             goto testcase_cleanup;
         }
@@ -1131,7 +1178,15 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         sym_tmpl[0].ulValueLen = key_size;
 
         rc = create_AESKey(session1, CK_TRUE, sym_tmpl[0].pValue, sym_tmpl[0].ulValueLen,
-                           &sym_wrap_key1);
+                           CKK_AES, &sym_wrap_key1);
+        break;
+
+    case CKM_AES_XTS_KEY_GEN:
+        memcpy(sym_tmpl[0].pValue, key, key_size);
+        sym_tmpl[0].ulValueLen = key_size;
+
+        rc = create_AESKey(session1, CK_TRUE, sym_tmpl[0].pValue, sym_tmpl[0].ulValueLen,
+                           CKK_AES_XTS, &sym_wrap_key1);
         break;
 
     case CKM_DES3_KEY_GEN:
@@ -1180,6 +1235,18 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
 
     /* Wrap/unwrap different keys with this wrapping key */
     for (i = 0; i< NUM_WRAPPED_KEY_TESTS; i++) {
+        /* Some combinations can not work due to size restrictions */
+        if (wrapped_key_tests[i].wrapped_key_gen_mech.mechanism == CKM_AES_XTS_KEY_GEN &&
+            ((tsuite->wrapping_mech.mechanism == CKM_RSA_PKCS &&
+              tsuite->rsa_modbits <= 512) ||
+             (tsuite->wrapping_mech.mechanism == CKM_RSA_PKCS_OAEP &&
+              tsuite->rsa_modbits <= 1024)))
+                continue;
+
+        if (wrapped_key_tests[i].wrapped_key_gen_mech.mechanism == CKM_DES_KEY_GEN &&
+            tsuite->wrapping_mech.mechanism == CKM_AES_XTS)
+            continue;
+
         rc = do_wrap_key_test(&wrapped_key_tests[i], &tsuite->wrapping_mech);
         if (rc != CKR_OK)
             break;

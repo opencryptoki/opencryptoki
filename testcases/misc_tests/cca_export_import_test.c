@@ -609,7 +609,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
 
 	// create ock aes key
 
-	rc = create_AESKey(session, CK_TRUE, key, keylen, &hkey);
+	rc = create_AESKey(session, CK_TRUE, key, keylen, CKK_AES, &hkey);
 	if (rc != CKR_OK) {
         if (rc == CKR_POLICY_VIOLATION) {
             testcase_skip("AES key generation is not allowed by policy");
