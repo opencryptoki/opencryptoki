@@ -4214,3 +4214,126 @@ CK_RV ckm_aes_xts_crypt(STDLL_TokData_t *tokdata,
 
     return rc;
 }
+
+CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
+                     CK_BYTE *out_data, CK_ULONG *out_data_len,
+                     CK_BYTE *tweak, CK_BOOL encrypt, CK_BBOOL initial,
+                     CK_BBOOL final, CK_BYTE* iv,
+                     CK_RV (*iv_from_tweak)(CK_BYTE *tweak, CK_BYTE* iv,
+                                            void * cb_data),
+                     CK_RV (*cipher_blocks)(CK_BYTE *in, CK_BYTE *out,
+                                            CK_ULONG len, CK_BYTE *iv,
+                                            void * cb_data),
+                     void *cb_data)
+{
+    unsigned char partial[AES_BLOCK_SIZE];
+    unsigned char iv_prev[AES_INIT_VECTOR_SIZE];
+    CK_ULONG len, rest;
+    CK_RV rc;
+
+    /* Full block size unless final call */
+    if (!final && (in_data_len % AES_BLOCK_SIZE) != 0)
+        return CKR_DATA_LEN_RANGE;
+    /* Final block must be at least one full block */
+    if (final && in_data_len < AES_BLOCK_SIZE)
+        return CKR_DATA_LEN_RANGE;
+
+    if (out_data == NULL) {
+        *out_data_len = in_data_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < in_data_len)
+        return CKR_BUFFER_TOO_SMALL;
+
+    /* Calculate IV from tweak if initial call, otherwise IV is already set */
+    if (initial) {
+        rc = iv_from_tweak(tweak, iv, cb_data);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("iv_from_tweak callback failed\n");
+            return rc;
+        }
+    }
+
+    rest = in_data_len % AES_BLOCK_SIZE;
+    len = in_data_len - rest;
+
+    /*
+     * It was checked above that we have at least one full block if we are in
+     * the final call.
+     */
+    if (!encrypt && final)
+        len -= AES_BLOCK_SIZE;
+
+    /* process full blocks */
+    if (len > 0) {
+        rc = cipher_blocks(in_data, out_data, len, iv, cb_data);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cipher_blocks callback failed\n");
+            return rc;
+        }
+
+        in_data += len;
+        in_data_len -= len;
+        out_data += len;
+        *out_data_len = len;
+    }
+
+    if (!encrypt && final) {
+        /* Remember IV of block n-1 */
+        memcpy(iv_prev, iv, AES_BLOCK_SIZE);
+
+        rc = cipher_blocks(in_data, out_data, AES_BLOCK_SIZE, iv, cb_data);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cipher_blocks callback failed\n");
+            return rc;
+        }
+
+        in_data += AES_BLOCK_SIZE;
+        in_data_len -= AES_BLOCK_SIZE;
+        out_data += AES_BLOCK_SIZE;
+        *out_data_len = AES_BLOCK_SIZE;
+    }
+
+    /* Partial block? Only possible for final call */
+    if (final && in_data_len > 0) {
+        /*
+         * It was checked above that we had at least one previous
+         * block if we are in the final call, thus
+         * 'out_data - AES_BLOCK_SIZE' or 'in_data - AES_BLOCK_SIZE' is OK.
+         */
+        if (!encrypt) {
+            /*
+             * For decrypt: The last complete block uses the
+             * IV from n-1, and the very last incomplete block
+             * uses the IV from n.
+             */
+            rc = cipher_blocks(in_data - AES_BLOCK_SIZE,
+                               out_data - AES_BLOCK_SIZE,
+                               AES_BLOCK_SIZE, iv, cb_data);
+            if (rc != CKR_OK) {
+                TRACE_ERROR("cipher_blocks callback failed\n");
+                return rc;
+            }
+
+            /* Restore IV from block n-1 */
+            memcpy(iv, iv_prev, AES_BLOCK_SIZE);
+        }
+
+        /* Steal ciphertext to complete the block */
+        memcpy(partial, in_data, in_data_len);
+        memcpy(out_data, out_data - AES_BLOCK_SIZE, in_data_len);
+        memcpy(partial + in_data_len, out_data - AES_BLOCK_SIZE + in_data_len,
+               AES_BLOCK_SIZE - in_data_len);
+        *out_data_len += in_data_len;
+
+        rc = cipher_blocks(partial, out_data - AES_BLOCK_SIZE,
+                           AES_BLOCK_SIZE, iv, cb_data);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("cipher_blocks callback failed\n");
+            return rc;
+        }
+    }
+
+    return CKR_OK;
+}
