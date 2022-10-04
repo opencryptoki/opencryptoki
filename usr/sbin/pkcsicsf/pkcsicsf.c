@@ -129,7 +129,8 @@ static void add_token_config_entry(struct ConfigIdxStructNode *s, char *key, cha
         return;
 
     v = confignode_allocstringvaldumpable(key, value, 0, NULL);
-    confignode_append(s->value, &v->base);
+    if (v != NULL)
+        confignode_append(s->value, &v->base);
 }
 
 static int add_token_config(const char *configname,
@@ -150,7 +151,7 @@ static int add_token_config(const char *configname,
             confignode_freeeoc(eoc1);
             confignode_freeeoc(eoc2);
         }
-        confignode_freeidxstruct(s);
+        confignode_deepfree(&s->base);
         fprintf(stderr, "Failed to add an entry for %s token\n", token.name);
         return -1;
     }
@@ -179,7 +180,7 @@ static int add_token_config(const char *configname,
     if (tfp == NULL) {
         fprintf(stderr, "fopen failed, line %d: %s\n",
                 __LINE__, strerror(errno));
-        confignode_freeidxstruct(s);
+        confignode_deepfree(&s->base);
         return -1;
     }
 
@@ -188,7 +189,7 @@ static int add_token_config(const char *configname,
     confignode_dump(tfp, &s->base, NULL, 2);
 
     fclose(tfp);
-    confignode_freeidxstruct(s);
+    confignode_deepfree(&s->base);
 
     return 0;
 }
