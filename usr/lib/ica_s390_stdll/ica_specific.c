@@ -125,6 +125,16 @@ typedef void (*ica_ec_key_free_t) (ICA_EC_KEY *key);
 #endif
 typedef void (*ica_cleanup_t) (void);
 
+typedef unsigned int (*ica_aes_xts_ex_t)(const unsigned char *in_data,
+                                         unsigned char *out_data,
+                                         unsigned long data_length,
+                                         unsigned char *key1,
+                                         unsigned char *key2,
+                                         unsigned int key_length,
+                                         unsigned char *tweak,
+                                         unsigned char *iv,
+                                         unsigned int direction);
+
 /*
  * These symbols loaded from libica via dlsym() can be static, even if
  * multiple instances of the ICA token are used. The libica library loaded
@@ -146,6 +156,7 @@ static ica_ec_key_get_private_key_t    p_ica_ec_key_get_private_key;
 static ica_ec_key_free_t               p_ica_ec_key_free;
 #endif
 static ica_cleanup_t                   p_ica_cleanup;
+static ica_aes_xts_ex_t                p_ica_aes_xts_ex;
 
 static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata);
 
@@ -307,6 +318,8 @@ static CK_RV load_libica(ica_private_data_t *ica_data)
 #endif
 
     BIND(ica_data->libica_dso, ica_cleanup);
+
+    BIND(ica_data->libica_dso, ica_aes_xts_ex);
 
     return CKR_OK;
 }
@@ -2650,6 +2663,19 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
     return rng_generate(tokdata, *key, keysize);
 }
 
+CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, CK_BYTE **key,
+                                     CK_ULONG *len, CK_ULONG keysize,
+                                     CK_BBOOL *is_opaque)
+{
+    *key = malloc(keysize);
+    if (*key == NULL)
+        return CKR_HOST_MEMORY;
+    *len = keysize;
+    *is_opaque = FALSE;
+
+    return rng_generate(tokdata, *key, keysize);
+}
+
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
@@ -3429,6 +3455,63 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata, CK_BYTE *message,
     return rc;
 }
 
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE *tweak,
+                             CK_BOOL encrypt, CK_BBOOL initial, CK_BBOOL final,
+                             CK_BYTE* iv)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_ATTRIBUTE *key_attr;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    if (!ica_data->ica_aes_available || p_ica_aes_xts_ex == NULL)
+        return openssl_specific_aes_xts(tokdata, in_data, in_data_len,
+                                        out_data, out_data_len, key_obj,
+                                        tweak, encrypt, initial, final, iv);
+
+    /* Full block size unless final call */
+    if (!final && (in_data_len % AES_BLOCK_SIZE) != 0)
+        return CKR_DATA_LEN_RANGE;
+    /* Final block must be at least one full block */
+    if (final && in_data_len < AES_BLOCK_SIZE)
+        return CKR_DATA_LEN_RANGE;
+
+    if (out_data == NULL) {
+        *out_data_len = in_data_len;
+        return CKR_OK;
+    }
+
+    if (*out_data_len < in_data_len)
+        return CKR_BUFFER_TOO_SMALL;
+
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_VALUE,
+                                          &key_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    rc = p_ica_aes_xts_ex(in_data, out_data, in_data_len,
+                          key_attr->pValue, (unsigned char *)key_attr->pValue +
+                                                   key_attr->ulValueLen / 2,
+                          key_attr->ulValueLen / 2,
+                          initial ? tweak : NULL, iv,
+                          encrypt ? ICA_ENCRYPT : ICA_DECRYPT);
+
+    if (rc == 0) {
+        *out_data_len = in_data_len;
+    } else {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+    }
+
+    return rc;
+}
+
 typedef struct _REF_MECH_LIST_ELEMENT {
     CK_ULONG lica_idx; /* 0 means its a combined mechanism */
     CK_MECHANISM_TYPE mech_type;
@@ -3537,6 +3620,7 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {55, CKM_MD5_HMAC_GENERAL, {0, 0, CKF_SIGN | CKF_VERIFY}},
 #endif
     {P_RNG, CKM_AES_KEY_GEN, {16, 32, CKF_GENERATE}},
+    {P_RNG, CKM_AES_XTS_KEY_GEN, {32, 64, CKF_GENERATE}},
     {AES_ECB, CKM_AES_ECB,
      {16, 32, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
     },
@@ -3566,6 +3650,9 @@ static const REF_MECH_LIST_ELEMENT ref_mech_list[] = {
     {AES_CMAC, CKM_AES_MAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {AES_CMAC, CKM_AES_CMAC, {16, 32, CKF_SIGN | CKF_VERIFY}},
     {AES_CMAC, CKM_AES_CMAC_GENERAL, {16, 32, CKF_SIGN | CKF_VERIFY}},
+    {AES_XTS, CKM_AES_XTS,
+     {32, 64, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}
+    },
     {P_RNG, CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_GENERATE}},
 #ifndef NO_EC
     {EC_DH, CKM_ECDH1_DERIVE,
@@ -3955,6 +4042,9 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                     libica_func_list[i].mech_mode_id == RSA_ME)
                     adjust_rsa_key_sizes(rsa_props,
                                      &ica_data->mech_list[ica_data->mech_list_len].mech_info);
+                if (libica_func_list[i].mech_mode_id == AES_XTS &&
+                    p_ica_aes_xts_ex == NULL)
+                    ica_data->mech_list[ica_data->mech_list_len].mech_info.flags &= (~CKF_HW);
 
                 ica_data->mech_list_len++;
             } else {
@@ -3967,6 +4057,9 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                     libica_func_list[i].mech_mode_id == RSA_ME)
                     adjust_rsa_key_sizes(rsa_props,
                                      &ica_data->mech_list[ulActMechCtr].mech_info);
+                if (libica_func_list[i].mech_mode_id == AES_XTS &&
+                    p_ica_aes_xts_ex == NULL)
+                    ica_data->mech_list[ulActMechCtr].mech_info.flags &= (~CKF_HW);
             }
             refIdx++;
         }
