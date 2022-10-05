@@ -1402,7 +1402,7 @@ CK_RV ec_point_from_priv_key(CK_BYTE *parms, CK_ULONG parms_len,
 
     group = EC_GROUP_new_by_curve_name(nid);
     if (group == NULL) {
-        rc = CKR_FUNCTION_FAILED;
+        rc = CKR_CURVE_NOT_SUPPORTED;
         goto done;
     }
 

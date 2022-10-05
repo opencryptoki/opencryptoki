@@ -5688,7 +5688,6 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         CK_ULONG privlen = 0, publen = 0;
         uint8_t curve_type;
         uint16_t curve_bitlen;
-        CK_ULONG field_len;
 
         /* Check if curve supported and determine curve type and bitlen */
         rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
@@ -5707,18 +5706,19 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         privlen = attr->ulValueLen;
         privkey = attr->pValue;
 
-        /* Find public key data as BER encoded OCTET STRING in template */
-        rc = template_attribute_get_non_empty(priv_templ, CKA_EC_POINT, &attr);
+        /* calculate the public key from the private key */
+        rc = template_attribute_get_non_empty(priv_templ, CKA_ECDSA_PARAMS,
+                                              &attr);
         if (rc != CKR_OK) {
-            TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
+            TRACE_ERROR("Could not find CKA_ECDSA_PARAMS for the key.\n");
             return rc;
         }
 
-        rc = ber_decode_OCTET_STRING(attr->pValue, &pubkey, &publen,
-                                     &field_len);
-        if (rc != CKR_OK || attr->ulValueLen != field_len) {
-            TRACE_DEVEL("ber decoding of public key failed\n");
-            return CKR_ATTRIBUTE_VALUE_INVALID;
+        rc = ec_point_from_priv_key(attr->pValue, attr->ulValueLen,
+                                    privkey, privlen, &pubkey, &publen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ec_point_from_priv_key failed.\n");
+            return rc;
         }
 
         /* Build key_value_structure */
@@ -5728,6 +5728,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
                                                   pubkey, publen, curve_type, curve_bitlen,
                                                   (unsigned char *)&key_value_structure,
                                                   &key_value_structure_length);
+        free(pubkey);
         if (rc != CKR_OK)
             return rc;
 
