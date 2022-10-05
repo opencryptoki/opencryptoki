@@ -3062,6 +3062,10 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
     0, NULL};
     struct berval publicValue = { 0, NULL }, bvParam = {
     0, NULL};
+    CK_ECDH1_DERIVE_PARAMS *ecdh_params = NULL;
+    struct berval kdfCode = { 0, NULL };
+    struct berval sharedData = { 0, NULL };
+    CK_BYTE kdf = 0;
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(mech);
@@ -3075,6 +3079,9 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
         break;
     case CKM_DH_PKCS_DERIVE:
         strpad(rule_array, "PKCS-DH", ICSF_RULE_ITEM_LEN, ' ');
+        break;
+    case CKM_ECDH1_DERIVE:
+        strpad(rule_array, "EC-DH", ICSF_RULE_ITEM_LEN, ' ');
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -3104,7 +3111,11 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
      *    serverRandomData    OCTET STRING
      * }
      *
-     * EC-DH is not supported
+     * EC-DH_DVKInputParmsList ::= SEQUENCE {
+     *    kdfCode                  OCTET STRING,
+     *    sharedData               OCTET STRING,
+     *    EC-DH_publicValue        OCTET STRING
+     * }
      *
      * attrList is built by icsf_ber_put_attribute_list()
      */
@@ -3155,6 +3166,23 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
             goto cleanup;
         }
         break;
+    case CKM_ECDH1_DERIVE:
+        ecdh_params = (CK_ECDH1_DERIVE_PARAMS *)mech->pParameter;
+
+        kdf = ecdh_params->kdf;
+        kdfCode.bv_val = (char *)&kdf;
+        kdfCode.bv_len = sizeof(kdf);
+        sharedData.bv_val = (char *)ecdh_params->pSharedData;
+        sharedData.bv_len = ecdh_params->ulSharedDataLen;
+        publicValue.bv_val = (char *)ecdh_params->pPublicData;
+        publicValue.bv_len = ecdh_params->ulPublicDataLen;
+
+        if (ber_printf(msg, "t{OOO}", 2 | LBER_CLASS_CONTEXT | LBER_CONSTRUCTED,
+                       &kdfCode, &sharedData, &publicValue) < 0) {
+            TRACE_ERROR("Failed to encode message.\n");
+            goto cleanup;
+        }
+        break;
     default:
         TRACE_ERROR("Mechanism not supported.\n");
         return -1;
@@ -3190,8 +3218,6 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
             version->minor = bvParam.bv_val[1];
         }
     }
-
-    rc = 0;
 
 cleanup:
     if (msg)
