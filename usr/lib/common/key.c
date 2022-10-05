@@ -3939,12 +3939,7 @@ CK_RV ecdsa_priv_wrap_get_data(TEMPLATE *tmpl,
     }
     rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &point);
     if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find CKA_EC_POINT for the key.\n");
-        return rc;
-    }
-    rc = template_attribute_get_non_empty(tmpl, CKA_VALUE, &point);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("Could not find EC Point for the key.\n");
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
         return rc;
     }
 
