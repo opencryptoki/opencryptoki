@@ -981,7 +981,6 @@ CK_RV run_DeriveECDHKeyKAT()
         rc = create_ECPrivateKey(session,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyA, ecdh_tv[i].privkey_len,
-                                 ecdh_tv[i].pubkeyA, ecdh_tv[i].pubkey_len,
                                  &priv_keyA, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -1024,7 +1023,6 @@ CK_RV run_DeriveECDHKeyKAT()
         rc = create_ECPrivateKey(session,
                                  ecdh_tv[i].params, ecdh_tv[i].params_len,
                                  ecdh_tv[i].privkeyB, ecdh_tv[i].privkey_len,
-                                 ecdh_tv[i].pubkeyB, ecdh_tv[i].pubkey_len,
                                  &priv_keyB, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_CURVE_NOT_SUPPORTED) {
@@ -1715,7 +1713,6 @@ CK_RV run_ImportECCKeyPairSignVerify()
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
-                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                  &priv_key, !pkey);
         if (rc != CKR_OK) {
             if (rc == CKR_POLICY_VIOLATION) {
@@ -1924,7 +1921,6 @@ CK_RV run_TransferECCKeyPairSignVerify()
 
         rc = create_ECPrivateKey(session, ec_tv[i].params, ec_tv[i].params_len,
                                  ec_tv[i].privkey, ec_tv[i].privkey_len,
-                                 ec_tv[i].pubkey, ec_tv[i].pubkey_len,
                                  &priv_key, CK_TRUE); // key to be wrapped must be extractable
 
         if (rc != CKR_OK) {

@@ -535,8 +535,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
                           CK_ULONG params_len,
                           CK_BYTE privatekey[],
                           CK_ULONG privatekey_len,
-                          CK_BYTE pubkey[],
-                          CK_ULONG pubkey_len, CK_OBJECT_HANDLE * priv_key,
+                          CK_OBJECT_HANDLE * priv_key,
                           CK_BBOOL extractable)
 {
 
@@ -561,7 +560,6 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_SIGN, &true, sizeof(true)},
         {CKA_DERIVE, &true, sizeof(true)},
         {CKA_EC_PARAMS, params, params_len},
-        {CKA_EC_POINT, pubkey, pubkey_len},
         {CKA_VALUE, privatekey, privatekey_len},
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)}
     };
