@@ -394,17 +394,17 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
             continue;
         }
 
-        if (is_ep11_token(slot_id)) {
+        if (is_ep11_token(slot_id) || is_icsf_token(slot_id)) {
             if (!is_valid_ep11_pubexp(tsuite->tv[i].pub_exp,
                                       tsuite->tv[i].pubexp_len)) {
-                testcase_skip("EP11 Token cannot be used with publ_exp.='%s'", s);
+                testcase_skip("EP11/ICSF Token cannot be used with publ_exp.='%s'", s);
                 free(s);
                 continue;
             }
             // modulus length must be multiple of 128 byte
             // skip test if modulus length has unsuported size
             if ((tsuite->tv[i].mod_len % 128) != 0) {
-                testcase_skip("EP11 Token cannot be used with this test vector.");
+                testcase_skip("EP11/ICSF Token cannot be used with this test vector.");
                 free(s);
                 continue;
             }
@@ -1656,14 +1656,14 @@ CK_RV do_SignRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
                 testcase_skip("ICA Token cannot be used with this test vector.");
                 continue;
             }
-
         }
-        // special case for EP11
+
+        // special case for EP11 + ICSF
         // modulus length must be multiple of 128 byte
         // skip test if modulus length has unsuported size
-        if (is_ep11_token(slot_id)) {
+        if (is_ep11_token(slot_id) || is_icsf_token(slot_id)) {
             if ((tsuite->tv[i].mod_len % 128) != 0) {
-                testcase_skip("EP11 Token cannot be used with this test vector.");
+                testcase_skip("EP11/ICSF Token cannot be used with this test vector.");
                 continue;
             }
         }
@@ -1845,12 +1845,12 @@ CK_RV do_VerifyRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             continue;
         }
 
-        // special case for EP11
+        // special case for EP11 + ICSF
         // modulus length must be multiple of 128 byte
         // skip test if modulus length has unsuported size
-        if (is_ep11_token(slot_id)) {
+        if (is_ep11_token(slot_id) || is_icsf_token(slot_id)) {
             if ((tsuite->tv[i].mod_len % 128) != 0) {
-                testcase_skip("EP11 Token cannot be used with this test vector.");
+                testcase_skip("EP11/ICSF Token cannot be used with this test vector.");
                 continue;
             }
         }

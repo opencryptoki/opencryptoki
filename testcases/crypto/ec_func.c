@@ -446,6 +446,9 @@ CK_RV run_DeriveECDHKey()
         CK_ULONG pub_attr_montgomery_len =
                             sizeof(pub_attr_montgomery)/sizeof(CK_ATTRIBUTE);
 
+        if (is_icsf_token(SLOT_ID))
+            prv_attr_len -= 1; /* ICSF does not support array attributes */
+
         CK_ATTRIBUTE *prv_attr_gen = prv_attr;
         CK_ULONG prv_attr_gen_len = prv_attr_len;
         CK_ATTRIBUTE *pub_attr_gen = pub_attr;
@@ -653,6 +656,15 @@ CK_RV run_DeriveECDHKey()
                     testcase_skip("Curve %s can not be used without the "
                                   "derived key size specified in "
                                   "CKA_VALUE_LEN\n", der_ec_supported[i].name);
+                    continue;
+                }
+
+                if (is_icsf_token(SLOT_ID) && secret_key_len[k] == 0) {
+                    testcase_skip("ICSF token can not derive keys without CKA_VALUE_LEN\n");
+                    continue;
+                }
+                if (is_icsf_token(SLOT_ID) && secret_key_len[k] > 256) {
+                    testcase_skip("ICSF token can not derive keys of that size\n");
                     continue;
                 }
 
@@ -1703,7 +1715,8 @@ CK_RV run_ImportECCKeyPairSignVerify()
     }
 
     for (i = 0; i < EC_TV_NUM; i++) {
-        if ((is_ica_token(SLOT_ID) || is_cca_token(SLOT_ID))) {
+        if ((is_ica_token(SLOT_ID) || is_cca_token(SLOT_ID) ||
+             is_icsf_token(SLOT_ID))) {
             if (!curve_supported((char *)ec_tv[i].name)) {
                 testcase_skip("Slot %u doesn't support this curve: %s",
                               (unsigned int)SLOT_ID,ec_tv[i].name);
@@ -2024,15 +2037,18 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_WRAP_TEMPLATE, &cka_wrap_tmpl, sizeof(cka_wrap_tmpl)},
             {CKA_UNWRAP_TEMPLATE, &cka_unwrap_tmpl, sizeof(cka_unwrap_tmpl)},
         };
+        CK_ULONG secret_tmpl_len = sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE);
 
         if (ec_tv[i].curve_type == CURVE_EDWARDS)
             derive = FALSE;
         if (ec_tv[i].curve_type == CURVE_MONTGOMERY)
             sign = FALSE;
 
+        if (is_icsf_token(SLOT_ID))
+            secret_tmpl_len -= 2; /* ICSF does not support array-attributes */
+
         rc = funcs->C_GenerateKey(session, &aes_keygen_mech, secret_tmpl,
-                                  sizeof(secret_tmpl) / sizeof(CK_ATTRIBUTE),
-                                  &secret_key);
+                                  secret_tmpl_len, &secret_key);
         if (rc != CKR_OK) {
             testcase_error("C_GenerateKey, rc=%s", p11_get_ckr(rc));
             goto testcase_cleanup;
@@ -2071,7 +2087,6 @@ CK_RV run_TransferECCKeyPairSignVerify()
         CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
         CK_KEY_TYPE key_type = CKK_EC;
         CK_BYTE unwrap_label[] = "unwrapped_private_EC_Key";
-        CK_BYTE subject[] = {0};
         CK_BYTE id[] = { 123 };
 
         CK_ATTRIBUTE unwrap_tmpl[] = {
@@ -2079,19 +2094,21 @@ CK_RV run_TransferECCKeyPairSignVerify()
             {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
             {CKA_TOKEN, &true, sizeof(true)},
             {CKA_LABEL, &unwrap_label, sizeof(unwrap_label)},
-            {CKA_SUBJECT, subject, sizeof(subject)},
             {CKA_ID, id, sizeof(id)},
             {CKA_SENSITIVE, &true, sizeof(true)},
             {CKA_DERIVE, &derive, sizeof(derive)},
             {CKA_SIGN, &sign, sizeof(sign)},
-            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
             {CKA_EXTRACTABLE, &false, sizeof(false)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(true)},
         };
+        CK_ULONG unwrap_tmpl_len = sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE);
+
+        if (is_icsf_token(SLOT_ID))
+            unwrap_tmpl_len -= 1; /* ICSF does not supp. CKA_IBM_PROTKEY_... */
 
         rc = funcs->C_UnwrapKey(session, &wrap_mech, secret_key,
                                 wrapped_key, wrapped_keylen,
-                                unwrap_tmpl,
-                                sizeof(unwrap_tmpl) / sizeof(CK_ATTRIBUTE),
+                                unwrap_tmpl, unwrap_tmpl_len,
                                 &unwrapped_key);
         if (rc != CKR_OK) {
             testcase_fail("C_UnwrapKey, rc=%s", p11_get_ckr(rc));
