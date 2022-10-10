@@ -1576,6 +1576,8 @@ static const char *get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
         return "RSA-PKCS";
     case CKM_SHA_1_HMAC:
         return "SHA-1";
+    case CKM_SHA224_HMAC:
+        return "SHA-224";
     case CKM_SHA256_HMAC:
         return "SHA-256";
     case CKM_SHA384_HMAC:
@@ -1593,6 +1595,11 @@ static const char *get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
             return "SHA-1   VER-RSA";
         else
             return "SHA-1   SIGN-RSA";
+    case CKM_SHA224_RSA_PKCS:
+        if (arg)
+            return "SHA-224 VER-RSA";
+        else
+            return "SHA-224 SIGN-RSA";
     case CKM_SHA256_RSA_PKCS:
         if (arg)
             return "SHA-256 VER-RSA";
@@ -1623,6 +1630,26 @@ static const char *get_algorithm_rule(CK_MECHANISM_PTR mech, int arg)
             return "SHA-1   VER-EC";
         else
             return "SHA-1   SIGN-EC";
+    case CKM_ECDSA_SHA224:
+        if (arg)
+            return "SHA-224 VER-EC";
+        else
+            return "SHA-224 SIGN-EC";
+    case CKM_ECDSA_SHA256:
+        if (arg)
+            return "SHA-256 VER-EC";
+        else
+            return "SHA-256 SIGN-EC";
+    case CKM_ECDSA_SHA384:
+        if (arg)
+            return "SHA-384 VER-EC";
+        else
+            return "SHA-384 SIGN-EC";
+    case CKM_ECDSA_SHA512:
+        if (arg)
+            return "SHA-512 VER-EC";
+        else
+            return "SHA-512 SIGN-EC";
     case CKM_SSL3_KEY_AND_MAC_DERIVE:
         return "SSL-KM";
     case CKM_TLS_KEY_AND_MAC_DERIVE:
@@ -1681,13 +1708,18 @@ CK_RV icsf_block_size(CK_MECHANISM_TYPE mech_type, CK_ULONG_PTR p_block_size)
         block_size = MD5_BLOCK_SIZE;
         break;
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
         block_size = SHA1_BLOCK_SIZE;
         break;
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         block_size = SHA384_BLOCK_SIZE;
         break;
     default:

@@ -75,11 +75,13 @@ static const MECH_LIST_ELEMENT icsf_mech_list[] = {
      {512, 4096, CKF_HW | CKF_ENCRYPT | CKF_DECRYPT | CKF_SIGN | CKF_VERIFY }},
     {CKM_MD5_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA1_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA224_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA256_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA384_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_RSA_PKCS, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA_1, {0, 0, CKF_HW | CKF_DIGEST}},
     {CKM_SHA_1_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
+    {CKM_SHA224_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA256_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA384_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_SHA512_HMAC, {0, 0, CKF_HW | CKF_SIGN | CKF_VERIFY}},
@@ -96,7 +98,19 @@ static const MECH_LIST_ELEMENT icsf_mech_list[] = {
     {CKM_DSA_SHA1, {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_DSA, {512, 2048, CKF_HW | CKF_SIGN | CKF_VERIFY}},
     {CKM_ECDSA_SHA1,
-     {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+      {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+      CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS}},
+    {CKM_ECDSA_SHA224,
+      {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+      CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS}},
+    {CKM_ECDSA_SHA256,
+      {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+      CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS}},
+    {CKM_ECDSA_SHA384,
+      {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
+      CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS}},
+    {CKM_ECDSA_SHA512,
+      {512, 4096, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
       CKF_EC_NAMEDCURVE | CKF_EC_UNCOMPRESS}},
     {CKM_ECDSA,
      {160, 521, CKF_HW | CKF_SIGN | CKF_VERIFY | CKF_EC_F_P |
@@ -3873,6 +3887,8 @@ int get_signverify_len(CK_MECHANISM mech)
     case CKM_SHA_1_HMAC:
     case CKM_SSL3_SHA1_MAC:
         return SHA1_HASH_SIZE;
+    case CKM_SHA224_HMAC:
+        return SHA224_HASH_SIZE;
     case CKM_SHA256_HMAC:
         return SHA256_HASH_SIZE;
     case CKM_SHA384_HMAC:
@@ -3936,6 +3952,7 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -3969,11 +3986,16 @@ CK_RV icsftok_sign_init(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* these can do mulitpart and require data caching
          * and do not require a mechanism parameter.
          */
@@ -4108,6 +4130,7 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4153,11 +4176,16 @@ CK_RV icsftok_sign(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         rc = icsf_hash_signverify(session_state->ld, &reason,
                                   &mapping->icsf_object, &ctx->mech,
                                   "ONLY", (char *)in_data, in_data_len,
@@ -4246,6 +4274,7 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4267,11 +4296,16 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* caching data since ICSF wants in multiple of blocksize */
         if (multi_part_ctx && multi_part_ctx->data) {
 
@@ -4399,6 +4433,7 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4425,11 +4460,16 @@ CK_RV icsftok_sign_final(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* see if any data left in the cache */
         if (multi_part_ctx && multi_part_ctx->used_data_len) {
             if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
@@ -4529,6 +4569,7 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4564,11 +4605,16 @@ CK_RV icsftok_verify_init(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* these can do mulitpart and require data caching
          * but do not require a mechanism parameter
          */
@@ -4705,6 +4751,7 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4732,11 +4779,16 @@ CK_RV icsftok_verify(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         rc = icsf_hash_signverify(session_state->ld, &reason,
                                   &mapping->icsf_object, &ctx->mech,
                                   "ONLY", (char *)in_data, in_data_len,
@@ -4816,6 +4868,7 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4837,11 +4890,16 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* caching data since ICSF wants in multiple of blocksize */
         if (multi_part_ctx && multi_part_ctx->data) {
 
@@ -4975,6 +5033,7 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
     switch (ctx->mech.mechanism) {
     case CKM_MD5_HMAC:
     case CKM_SHA_1_HMAC:
+    case CKM_SHA224_HMAC:
     case CKM_SHA256_HMAC:
     case CKM_SHA384_HMAC:
     case CKM_SHA512_HMAC:
@@ -4992,11 +5051,16 @@ CK_RV icsftok_verify_final(STDLL_TokData_t * tokdata,
         break;
     case CKM_MD5_RSA_PKCS:
     case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
     case CKM_SHA256_RSA_PKCS:
     case CKM_SHA384_RSA_PKCS:
     case CKM_SHA512_RSA_PKCS:
     case CKM_DSA_SHA1:
     case CKM_ECDSA_SHA1:
+    case CKM_ECDSA_SHA224:
+    case CKM_ECDSA_SHA256:
+    case CKM_ECDSA_SHA384:
+    case CKM_ECDSA_SHA512:
         /* see if any data left in the cache */
         if (multi_part_ctx && multi_part_ctx->used_data_len) {
             if (!(buffer = malloc(multi_part_ctx->used_data_len))) {
