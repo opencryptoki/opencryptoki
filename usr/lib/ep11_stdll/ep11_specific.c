@@ -5374,15 +5374,10 @@ error:
 
 
 
-static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
-                                 SESSION * sess,
+static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
+                                 SESSION *sess,
                                  CK_MECHANISM_PTR pMechanism,
-                                 TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
-                                 CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-                                 CK_ULONG ulPublicKeyAttributeCount,
-                                 CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-                                 CK_ULONG ulPrivateKeyAttributeCount,
-                                 CK_SESSION_HANDLE h)
+                                 TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
@@ -5399,9 +5394,6 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG dh_ulPublicKeyAttributeCount = 0;
     CK_ATTRIBUTE_PTR dh_pPrivateKeyTemplate = NULL;
     CK_ULONG dh_ulPrivateKeyAttributeCount = 0;
-    size_t p_len = 0, g_len = 0;
-    int new_public_attr;
-    CK_ULONG i;
     CK_ULONG data_len;
     CK_ULONG field_len;
     CK_BYTE *data;
@@ -5421,48 +5413,93 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         unsigned char *pg;
     } dh_pgs;
 
-    UNUSED(h);
-
     memset(&dh_pgs, 0, sizeof(dh_pgs));
     memset(publblob, 0, sizeof(publblob));
     memset(privblob, 0, sizeof(privblob));
 
+    rc = build_ep11_attrs(tokdata, publ_tmpl, &dh_pPublicKeyTemplate,
+                          &dh_ulPublicKeyAttributeCount,
+                          CKK_DH, CKO_PUBLIC_KEY, -1, pMechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl, &dh_pPrivateKeyTemplate,
+                          &dh_ulPrivateKeyAttributeCount,
+                          CKK_DH, CKO_PRIVATE_KEY, -1, pMechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
+                              dh_pPublicKeyTemplate,
+                              dh_ulPublicKeyAttributeCount,
+                              &new_publ_attrs, &new_publ_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
+                              dh_pPrivateKeyTemplate,
+                              dh_ulPrivateKeyAttributeCount,
+                              &new_priv_attrs, &new_priv_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dh_generate_keypair_end;
+    }
+
     /* card does not want CKA_PRIME/CKA_BASE in template but in dh_pgs */
-    pPublicKeyTemplate_new =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) *
-                                ulPublicKeyAttributeCount);
-    if (!pPublicKeyTemplate_new) {
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_PRIME,
+                                          &prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH No CKA_PRIME attribute found\n", __func__);
+        goto dh_generate_keypair_end;
+    }
+
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_BASE,
+                                          &base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DH No CKA_BASE attribute found\n", __func__);
+        goto dh_generate_keypair_end;
+    }
+
+    dh_pgs.pg = malloc(prime_attr->ulValueLen * 2);
+    if (!dh_pgs.pg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-    memset(pPublicKeyTemplate_new, 0,
-           sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
-
-    for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
-        /* filter out CKA_PRIME/CKA_BASE,
-         * but remember where they can  be found
-         */
-        switch (pPublicKeyTemplate[i].type) {
-        case CKA_PRIME:
-            prime_attr = &(pPublicKeyTemplate[i]);
-            p_len = pPublicKeyTemplate[i].ulValueLen;
-            break;
-        case CKA_BASE:
-            base_attr = &(pPublicKeyTemplate[i]);
-            g_len = pPublicKeyTemplate[i].ulValueLen;
-            break;
-        default:
-            /* copy all other attributes */
-            memcpy(&pPublicKeyTemplate_new[new_public_attr],
-                   &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
-            new_public_attr++;
-        }
+        rc = CKR_HOST_MEMORY;
+        goto dh_generate_keypair_end;
     }
 
-    if (prime_attr == NULL || base_attr == NULL) {
-        TRACE_ERROR("%s Incomplete template prime_attr=%p base_attr=%p\n",
-                    __func__, (void *)prime_attr, (void *)base_attr);
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    memset(dh_pgs.pg, 0, prime_attr->ulValueLen * 2);
+    /* copy CKA_PRIME value */
+    memcpy(dh_pgs.pg, prime_attr->pValue, prime_attr->ulValueLen);
+    /* copy CKA_BASE value, it must have leading zeros
+     * if it is shorter than CKA_PRIME
+     */
+    memcpy(dh_pgs.pg + prime_attr->ulValueLen +
+                        (prime_attr->ulValueLen - base_attr->ulValueLen),
+           base_attr->pValue, base_attr->ulValueLen);
+    dh_pgs.pg_bytes = prime_attr->ulValueLen * 2;
+
+#ifdef DEBUG
+    TRACE_DEBUG("%s P:\n", __func__);
+    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[0], prime_attr->ulValueLen);
+    TRACE_DEBUG("%s G:\n", __func__);
+    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[prime_attr->ulValueLen],
+                     prime_attr->ulValueLen);
+#endif
+
+    rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
+                                CKA_IBM_STRUCT_PARAMS, dh_pgs.pg,
+                                dh_pgs.pg_bytes);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
+                    __func__, rc);
         goto dh_generate_keypair_end;
     }
 
@@ -5480,6 +5517,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         free(attr);
         goto dh_generate_keypair_end;
     }
+
     rc = build_attribute(CKA_BASE, base_attr->pValue,
                          base_attr->ulValueLen, &attr);
     if (rc != CKR_OK) {
@@ -5494,89 +5532,16 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
         goto dh_generate_keypair_end;
     }
 
-    /* copy CKA_PRIME/CKA_BASE values */
-    dh_pgs.pg = malloc(p_len * 2);
-    if (!dh_pgs.pg) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
-        goto dh_generate_keypair_end;
-    }
-    memset(dh_pgs.pg, 0, p_len * 2);
-    memcpy(dh_pgs.pg, prime_attr->pValue, p_len);     /* copy CKA_PRIME value */
-    /* copy CKA_BASE value, it must have leading zeros
-     * if it is shorter than CKA_PRIME
-     */
-    memcpy(dh_pgs.pg + p_len + (p_len - g_len), base_attr->pValue, g_len);
-    dh_pgs.pg_bytes = p_len * 2;
-
-#ifdef DEBUG
-    TRACE_DEBUG("%s P:\n", __func__);
-    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[0], p_len);
-    TRACE_DEBUG("%s G:\n", __func__);
-    TRACE_DEBUG_DUMP("    ", &dh_pgs.pg[p_len], p_len);
-#endif
-
-    /* add special attribute, do not add it to ock's pPublicKeyTemplate */
-    CK_ATTRIBUTE pgs[] = { {CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
-                            dh_pgs.pg_bytes}
-    };
-    memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-           &(pgs[0]), sizeof(CK_ATTRIBUTE));
-
-    rc = check_key_attributes(tokdata, CKK_DH, CKO_PUBLIC_KEY,
-                              pPublicKeyTemplate_new, new_public_attr + 1,
-                              &dh_pPublicKeyTemplate,
-                              &dh_ulPublicKeyAttributeCount, -1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s DH check public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto dh_generate_keypair_end;
-    }
-
-    rc = check_key_attributes(tokdata, CKK_DH, CKO_PRIVATE_KEY,
-                              pPrivateKeyTemplate, ulPrivateKeyAttributeCount,
-                              &dh_pPrivateKeyTemplate,
-                              &dh_ulPrivateKeyAttributeCount, -1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s DH check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto dh_generate_keypair_end;
-    }
-
-    rc = build_ep11_attrs(tokdata, publ_tmpl,
-                          &new_publ_attrs, &new_publ_attrs_len,
-                          CKK_DH, CKO_PUBLIC_KEY, -1, pMechanism);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
-        goto dh_generate_keypair_end;
-    }
-
-    rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
-                           CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dh_pgs.pg,
-                           dh_pgs.pg_bytes);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n", __func__, rc);
-        goto dh_generate_keypair_end;
-    }
-
-    rc = build_ep11_attrs(tokdata, priv_tmpl,
-                          &new_priv_attrs, &new_priv_attrs_len,
-                          CKK_DH, CKO_PRIVATE_KEY, -1, pMechanism);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
-        goto dh_generate_keypair_end;
-    }
-
     trace_attributes(__func__, "DH public key attributes:",
                      new_publ_attrs, new_publ_attrs_len);
     trace_attributes(__func__, "DH private key attributes:",
                      new_priv_attrs, new_priv_attrs_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object
-                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
-                       || ep11_is_session_object(pPrivateKeyTemplate,
-                                                 ulPrivateKeyAttributeCount)),
+                      (ep11_is_session_object(new_publ_attrs,
+                                              new_publ_attrs_len) ||
+                       ep11_is_session_object(new_priv_attrs,
+                                              new_priv_attrs_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
@@ -5595,7 +5560,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t * tokdata,
     }
 
     TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
-               __func__, rc, p_len, publblobsize, privblobsize);
+               __func__, rc, prime_attr->ulValueLen, publblobsize, privblobsize);
 
     if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5700,15 +5665,10 @@ dh_generate_keypair_end:
     return rc;
 }
 
-static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
-                                  SESSION * sess,
+static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
+                                  SESSION *sess,
                                   CK_MECHANISM_PTR pMechanism,
-                                  TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
-                                  CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-                                  CK_ULONG ulPublicKeyAttributeCount,
-                                  CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-                                  CK_ULONG ulPrivateKeyAttributeCount,
-                                  CK_SESSION_HANDLE h)
+                                  TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_RV rc;
     CK_BYTE publblob[MAX_BLOBSIZE];
@@ -5721,9 +5681,6 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *opaque_attr = NULL;
     CK_ATTRIBUTE *value_attr = NULL;
     CK_ATTRIBUTE *attr = NULL;
-    size_t p_len = 0, q_len = 0, g_len = 0;
-    int new_public_attr;
-    CK_ULONG i;
     CK_ATTRIBUTE *pPublicKeyTemplate_new = NULL;
     CK_BYTE *key;
     CK_BYTE *data, *oid, *parm;
@@ -5737,8 +5694,6 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
     CK_ATTRIBUTE *new_publ_attrs = NULL, *new_priv_attrs = NULL;
     CK_ULONG new_publ_attrs_len = 0, new_priv_attrs_len = 0;
-    CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
-    CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
 
     /* ep11 accepts CKA_PRIME,CKA_SUBPRIME,CKA_BASE only in this format */
     struct {
@@ -5746,49 +5701,109 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         unsigned char *pqg;
     } dsa_pqgs;
 
-    UNUSED(h);
-
     memset(&dsa_pqgs, 0, sizeof(dsa_pqgs));
     memset(publblob, 0, sizeof(publblob));
     memset(privblob, 0, sizeof(privblob));
 
-    /* card does not want CKA_PRIME/CKA_BASE/CKA_SUBPRIME
-     * in template but in dsa_pqgs
+    rc = build_ep11_attrs(tokdata, publ_tmpl, &dsa_pPublicKeyTemplate,
+                          &dsa_ulPublicKeyAttributeCount,
+                          CKK_DSA, CKO_PUBLIC_KEY, -1, pMechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = build_ep11_attrs(tokdata, priv_tmpl, &dsa_pPrivateKeyTemplate,
+                          &dsa_ulPrivateKeyAttributeCount,
+                          CKK_DSA, CKO_PRIVATE_KEY, -1, pMechanism);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
+                              dsa_pPublicKeyTemplate,
+                              dsa_ulPublicKeyAttributeCount,
+                              &new_publ_attrs, &new_publ_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA check public key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
+                              dsa_pPrivateKeyTemplate,
+                              dsa_ulPrivateKeyAttributeCount,
+                              &new_priv_attrs, &new_priv_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto dsa_generate_keypair_end;
+    }
+
+    /*
+     * card does not want CKA_PRIME/CKA_BASE/CKA_SUBPRIME in template but in
+     * dsa_pqgs
      */
-    pPublicKeyTemplate_new =
-        (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) *
-                                ulPublicKeyAttributeCount);
-    if (!pPublicKeyTemplate_new) {
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_PRIME,
+                                          &prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA No CKA_PRIME attribute found\n", __func__);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_SUBPRIME,
+                                          &sub_prime_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA No CKA_SUBPRIME attribute found\n", __func__);
+        goto dsa_generate_keypair_end;
+    }
+
+    rc = template_attribute_get_non_empty(publ_tmpl, CKA_BASE,
+                                          &base_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s DSA No CKA_BASE attribute found\n", __func__);
+        goto dsa_generate_keypair_end;
+    }
+
+    /* if CKA_SUBPRIME,CKA_BASE are smaller than CKA_PRIME
+     * then they are extented by leading zeros till they have
+     * the size of CKA_PRIME
+     */
+    dsa_pqgs.pqg = malloc(prime_attr->ulValueLen * 3);
+    if (!dsa_pqgs.pqg) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-    memset(pPublicKeyTemplate_new, 0,
-           sizeof(CK_ATTRIBUTE) * ulPublicKeyAttributeCount);
-
-    for (i = 0, new_public_attr = 0; i < ulPublicKeyAttributeCount; i++) {
-        switch (pPublicKeyTemplate[i].type) {
-        case CKA_PRIME:
-            prime_attr = &(pPublicKeyTemplate[i]);
-            p_len = pPublicKeyTemplate[i].ulValueLen;
-            break;
-        case CKA_SUBPRIME:
-            sub_prime_attr = &(pPublicKeyTemplate[i]);
-            q_len = pPublicKeyTemplate[i].ulValueLen;
-            break;
-        case CKA_BASE:
-            base_attr = &(pPublicKeyTemplate[i]);
-            g_len = pPublicKeyTemplate[i].ulValueLen;
-            break;
-        default:
-            /* copy all other attributes */
-            memcpy(&pPublicKeyTemplate_new[new_public_attr],
-                   &(pPublicKeyTemplate[i]), sizeof(CK_ATTRIBUTE));
-            new_public_attr++;
-        }
+        rc = CKR_HOST_MEMORY;
+        goto dsa_generate_keypair_end;
     }
 
-    if (prime_attr == NULL || sub_prime_attr == NULL || base_attr == NULL) {
-        rc = CKR_TEMPLATE_INCOMPLETE;
+    memset(dsa_pqgs.pqg, 0, prime_attr->ulValueLen * 3);
+    memcpy(dsa_pqgs.pqg, prime_attr->pValue, prime_attr->ulValueLen);
+    memcpy(dsa_pqgs.pqg + prime_attr->ulValueLen +
+                         (prime_attr->ulValueLen - sub_prime_attr->ulValueLen),
+           sub_prime_attr->pValue, sub_prime_attr->ulValueLen);
+    memcpy(dsa_pqgs.pqg + 2 * prime_attr->ulValueLen +
+                         (prime_attr->ulValueLen - base_attr->ulValueLen),
+           base_attr->pValue, base_attr->ulValueLen);
+    dsa_pqgs.pqg_bytes = prime_attr->ulValueLen * 3;
+
+#ifdef DEBUG
+    TRACE_DEBUG("%s P:\n", __func__);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[0], prime_attr->ulValueLen);
+    TRACE_DEBUG("%s Q:\n", __func__);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[prime_attr->ulValueLen],
+                     prime_attr->ulValueLen);
+    TRACE_DEBUG("%s G:\n", __func__);
+    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[2 * prime_attr->ulValueLen],
+                     prime_attr->ulValueLen);
+#endif
+
+    rc = add_to_attribute_array(&new_publ_attrs, &new_publ_attrs_len,
+                                CKA_IBM_STRUCT_PARAMS, dsa_pqgs.pqg,
+                                dsa_pqgs.pqg_bytes);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n",
+                    __func__, rc);
         goto dsa_generate_keypair_end;
     }
 
@@ -5799,22 +5814,6 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
     }
-
-    rc = template_update_attribute(priv_tmpl, attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
-                    __func__, rc);
-        free(attr);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = build_attribute(CKA_BASE, base_attr->pValue,
-                         base_attr->ulValueLen, &attr);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
     rc = template_update_attribute(priv_tmpl, attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
@@ -5829,7 +5828,6 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
     }
-
     rc = template_update_attribute(priv_tmpl, attr);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
@@ -5838,99 +5836,36 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         goto dsa_generate_keypair_end;
     }
 
-    /* if CKA_SUBPRIME,CKA_BASE are smaller than CKA_PRIME
-     * then they are extented by leading zeros till they have
-     * the size of CKA_PRIME
-     */
-    dsa_pqgs.pqg = malloc(p_len * 3);
-    if (!dsa_pqgs.pqg) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        rc = CKR_HOST_MEMORY;
+    rc = build_attribute(CKA_BASE, base_attr->pValue,
+                         base_attr->ulValueLen, &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
         goto dsa_generate_keypair_end;
     }
-    memset(dsa_pqgs.pqg, 0, p_len * 3);
-    memcpy(dsa_pqgs.pqg, prime_attr->pValue, p_len);
-    memcpy(dsa_pqgs.pqg + p_len + (p_len - q_len),
-           sub_prime_attr->pValue, q_len);
-    memcpy(dsa_pqgs.pqg + 2 * p_len + (p_len - g_len),
-           base_attr->pValue, g_len);
-    dsa_pqgs.pqg_bytes = p_len * 3;
-
-#ifdef DEBUG
-    TRACE_DEBUG("%s P:\n", __func__);
-    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[0], p_len);
-    TRACE_DEBUG("%s Q:\n", __func__);
-    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[p_len], p_len);
-    TRACE_DEBUG("%s G:\n", __func__);
-    TRACE_DEBUG_DUMP("    ", &dsa_pqgs.pqg[2 * p_len], p_len);
-#endif
-
-    CK_ATTRIBUTE pqgs[] = { {CKA_IBM_STRUCT_PARAMS,
-                             (CK_VOID_PTR) dsa_pqgs.pqg, dsa_pqgs.pqg_bytes}
-    };
-
-    /* add special attribute, do not add it to ock's pPublicKeyTemplate */
-    memcpy(&(pPublicKeyTemplate_new[new_public_attr]),
-           &(pqgs[0]), sizeof(CK_ATTRIBUTE));
-
-    rc = build_ep11_attrs(tokdata, publ_tmpl,
-                          &new_publ_attrs, &new_publ_attrs_len,
-                          CKK_DSA, CKO_PUBLIC_KEY, -1, pMechanism);
+    rc = template_update_attribute(priv_tmpl, attr);
     if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PUBLIC_KEY,
-                              new_publ_attrs, new_publ_attrs_len,
-                              &new_publ_attrs2, &new_publ_attrs2_len, -1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s DSA check public key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = add_to_attribute_array(&new_publ_attrs2, &new_publ_attrs2_len,
-                           CKA_IBM_STRUCT_PARAMS, (CK_VOID_PTR) dsa_pqgs.pqg,
-                           dsa_pqgs.pqg_bytes);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s add_to_attribute_array failed with rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = build_ep11_attrs(tokdata, priv_tmpl,
-                          &new_priv_attrs, &new_priv_attrs_len,
-                          CKK_DSA, CKO_PRIVATE_KEY, -1, pMechanism);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s build_ep11_attrs failed with rc=0x%lx\n", __func__, rc);
-        goto dsa_generate_keypair_end;
-    }
-
-    rc = check_key_attributes(tokdata, CKK_DSA, CKO_PRIVATE_KEY,
-                              new_priv_attrs, new_priv_attrs_len,
-                              &new_priv_attrs2, &new_priv_attrs2_len, -1);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s DSA check private key attributes failed with "
-                    "rc=0x%lx\n", __func__, rc);
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        free(attr);
         goto dsa_generate_keypair_end;
     }
 
     trace_attributes(__func__, "DSA public key attributes:",
-                     new_publ_attrs2, new_publ_attrs2_len);
+                     new_publ_attrs, new_publ_attrs_len);
     trace_attributes(__func__, "DSA private key attributes:",
-                     new_priv_attrs2, new_priv_attrs2_len);
+                     new_priv_attrs, new_priv_attrs_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object
-                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
-                       || ep11_is_session_object(pPrivateKeyTemplate,
-                                                 ulPrivateKeyAttributeCount)),
+                      (ep11_is_session_object(new_publ_attrs,
+                                              new_publ_attrs_len) ||
+                       ep11_is_session_object(new_priv_attrs,
+                                              new_priv_attrs_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
         rc = dll_m_GenerateKeyPair(pMechanism,
-                                   new_publ_attrs2, new_publ_attrs2_len,
-                                   new_priv_attrs2, new_priv_attrs2_len,
+                                   new_publ_attrs, new_publ_attrs_len,
+                                   new_priv_attrs, new_priv_attrs_len,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    target_info->target);
@@ -5943,10 +5878,8 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t * tokdata,
         goto dsa_generate_keypair_end;
     }
 
-    TRACE_INFO("%s rc=0x%lx p_len=%zd publblobsize=0x%zx privblobsize=0x%zx "
-               "npattr=0x%x\n",
-               __func__, rc, p_len, publblobsize, privblobsize,
-               new_public_attr + 1);
+    TRACE_INFO("%s rc=0x%lx plen=%zd publblobsize=0x%zx privblobsize=0x%zx\n",
+               __func__, rc, prime_attr->ulValueLen, publblobsize, privblobsize);
 
     if (check_expected_mkvp(tokdata, privblob, privblobsize) != CKR_OK) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -6030,22 +5963,13 @@ dsa_generate_keypair_end:
         free_attribute_array(new_publ_attrs, new_publ_attrs_len);
     if (new_priv_attrs)
         free_attribute_array(new_priv_attrs, new_priv_attrs_len);
-    if (new_publ_attrs2)
-        free_attribute_array(new_publ_attrs2, new_publ_attrs2_len);
-    if (new_priv_attrs)
-        free_attribute_array(new_priv_attrs2, new_priv_attrs2_len);
     return rc;
 }
 
-static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
-                                     SESSION * sess,
+static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
                                      CK_MECHANISM_PTR pMechanism,
-                                     TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
-                                     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-                                     CK_ULONG ulPublicKeyAttributeCount,
-                                     CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-                                     CK_ULONG ulPrivateKeyAttributeCount,
-                                     CK_SESSION_HANDLE h)
+                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
@@ -6054,7 +5978,6 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
-    CK_ULONG i;
     CK_ULONG bit_str_len;
     CK_BYTE *key;
     CK_BYTE *data, *oid, *parm;
@@ -6073,8 +5996,6 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *new_publ_attrs2 = NULL, *new_priv_attrs2 = NULL;
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
     const struct _ec *curve = NULL;
-
-    UNUSED(h);
 
     if (pMechanism->mechanism == CKM_EC_KEY_PAIR_GEN) {
         ktype = CKK_EC;
@@ -6132,24 +6053,16 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t * tokdata,
         goto error;
     }
 
-    /* debug */
-    for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
-        TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
-                   __func__, new_pPrivateKeyTemplate[i].type,
-                   new_pPrivateKeyTemplate[i].ulValueLen,
-                   new_ulPrivateKeyAttributeCount);
-    }
-
     trace_attributes(__func__, "RSA/EC public key attributes:",
                      new_publ_attrs2, new_publ_attrs2_len);
     trace_attributes(__func__, "RSA/EC private key attributes:",
                      new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object
-                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
-                       || ep11_is_session_object(pPrivateKeyTemplate,
-                                                 ulPrivateKeyAttributeCount)),
+                      (ep11_is_session_object(new_publ_attrs2,
+                                              new_publ_attrs2_len) ||
+                       ep11_is_session_object(new_priv_attrs2,
+                                              new_priv_attrs2_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
@@ -6406,15 +6319,10 @@ error:
     return rc;
 }
 
-static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
-                                     SESSION * sess,
+static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t *tokdata,
+                                     SESSION *sess,
                                      CK_MECHANISM_PTR pMechanism,
-                                     TEMPLATE * publ_tmpl, TEMPLATE * priv_tmpl,
-                                     CK_ATTRIBUTE_PTR pPublicKeyTemplate,
-                                     CK_ULONG ulPublicKeyAttributeCount,
-                                     CK_ATTRIBUTE_PTR pPrivateKeyTemplate,
-                                     CK_ULONG ulPrivateKeyAttributeCount,
-                                     CK_SESSION_HANDLE h)
+                                     TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
@@ -6422,7 +6330,6 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     size_t privkey_blob_len = sizeof(privkey_blob);
     unsigned char spki[MAX_BLOBSIZE];
     size_t spki_len = sizeof(spki);
-    CK_ULONG i;
     CK_ULONG bit_str_len;
     CK_BYTE *key;
     CK_BYTE *data, *oid, *parm;
@@ -6443,8 +6350,6 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
     CK_ULONG new_publ_attrs2_len = 0, new_priv_attrs2_len = 0;
     const CK_BYTE dilithium_oid[] = { 0x06, 0x0b, 0x2b, 0x06, 0x01, 0x04, 0x01,
                                       0x02, 0x82, 0x0b, 0x01, 0x06, 0x05 };
-
-    UNUSED(h);
 
     if (pMechanism->mechanism != CKM_IBM_DILITHIUM) {
         TRACE_ERROR("Invalid mechanism provided for %s\n ", __func__);
@@ -6503,24 +6408,16 @@ static CK_RV ibm_dilithium_generate_keypair(STDLL_TokData_t * tokdata,
         goto error;
     }
 
-    /* debug */
-    for (i = 0; i < new_ulPrivateKeyAttributeCount; i++) {
-        TRACE_INFO("%s gen priv attr type=0x%lx valuelen=0x%lx attrcnt=0x%lx\n",
-                   __func__, new_pPrivateKeyTemplate[i].type,
-                   new_pPrivateKeyTemplate[i].ulValueLen,
-                   new_ulPrivateKeyAttributeCount);
-    }
-
     trace_attributes(__func__, "Dilithium public key attributes:",
                      new_publ_attrs2, new_publ_attrs2_len);
     trace_attributes(__func__, "Dilithium private key attributes:",
                      new_priv_attrs2, new_priv_attrs2_len);
 
     ep11_get_pin_blob(ep11_session,
-                      (ep11_is_session_object
-                       (pPublicKeyTemplate, ulPublicKeyAttributeCount)
-                       || ep11_is_session_object(pPrivateKeyTemplate,
-                                                 ulPrivateKeyAttributeCount)),
+                      (ep11_is_session_object(new_publ_attrs2,
+                                              new_publ_attrs2_len) ||
+                       ep11_is_session_object(new_priv_attrs2,
+                                              new_priv_attrs2_len)),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
@@ -6763,42 +6660,25 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
     case CKM_DH_PKCS_KEY_PAIR_GEN:
         rc = dh_generate_keypair(tokdata, sess, pMechanism,
                                  public_key_obj->template,
-                                 private_key_obj->template,
-                                 pPublicKeyTemplate,
-                                 ulPublicKeyAttributeCount,
-                                 pPrivateKeyTemplate,
-                                 ulPrivateKeyAttributeCount, sess->handle);
+                                 private_key_obj->template);
         break;
     case CKM_EC_KEY_PAIR_GEN:  /* takes same parameters as RSA */
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
     case CKM_RSA_X9_31_KEY_PAIR_GEN:
         rc = rsa_ec_generate_keypair(tokdata, sess, pMechanism,
                                      public_key_obj->template,
-                                     private_key_obj->template,
-                                     pPublicKeyTemplate,
-                                     ulPublicKeyAttributeCount,
-                                     pPrivateKeyTemplate,
-                                     ulPrivateKeyAttributeCount, sess->handle);
+                                     private_key_obj->template);
         break;
     case CKM_DSA_PARAMETER_GEN:
     case CKM_DSA_KEY_PAIR_GEN:
         rc = dsa_generate_keypair(tokdata, sess, pMechanism,
                                   public_key_obj->template,
-                                  private_key_obj->template,
-                                  pPublicKeyTemplate,
-                                  ulPublicKeyAttributeCount,
-                                  pPrivateKeyTemplate,
-                                  ulPrivateKeyAttributeCount, sess->handle);
+                                  private_key_obj->template);
         break;
     case CKM_IBM_DILITHIUM:
         rc = ibm_dilithium_generate_keypair(tokdata, sess, pMechanism,
                                             public_key_obj->template,
-                                            private_key_obj->template,
-                                            pPublicKeyTemplate,
-                                            ulPublicKeyAttributeCount,
-                                            pPrivateKeyTemplate,
-                                            ulPrivateKeyAttributeCount,
-                                            sess->handle);
+                                            private_key_obj->template);
         break;
     default:
         TRACE_ERROR("%s invalid mech %s\n", __func__,
