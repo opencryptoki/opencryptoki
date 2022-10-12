@@ -6669,7 +6669,6 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                                      public_key_obj->template,
                                      private_key_obj->template);
         break;
-    case CKM_DSA_PARAMETER_GEN:
     case CKM_DSA_KEY_PAIR_GEN:
         rc = dsa_generate_keypair(tokdata, sess, pMechanism,
                                   public_key_obj->template,
@@ -9042,10 +9041,8 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_DES3_KEY_GEN,
     CKM_DH_PKCS_DERIVE,
     CKM_DH_PKCS_KEY_PAIR_GEN,
-    CKM_DH_PKCS_PARAMETER_GEN,
     CKM_DSA,
     CKM_DSA_KEY_PAIR_GEN,
-    CKM_DSA_PARAMETER_GEN,
     CKM_DSA_SHA1,
     CKM_EC_KEY_PAIR_GEN,
     CKM_ECDH1_DERIVE,
