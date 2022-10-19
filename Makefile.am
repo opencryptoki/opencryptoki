@@ -41,6 +41,7 @@ include tools/tools.mk
 include doc/doc.mk
 
 install-data-hook:
+	getent group pkcs11 > /dev/null || $(GROUPADD) -r pkcs11
 if ENABLE_LIBRARY
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
 	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11
