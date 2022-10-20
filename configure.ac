@@ -140,7 +140,7 @@ AC_ARG_ENABLE([swtok],
 dnl --- EP11 token
 AC_ARG_ENABLE([ep11tok],
     AS_HELP_STRING([--enable-ep11tok],[build ep11 token @<:@default=enabled
-	if zcrypt is present@:>@]),
+	if libica development files are present@:>@]),
     [],
     [enable_ep11tok=check])
 
@@ -162,13 +162,13 @@ AC_ARG_ENABLE([icsftok],
 dnl --- token-specific stuff
 dnl --- pkcsep11_migrate
 AC_ARG_ENABLE([pkcsep11_migrate],
-	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 library is present@:>@]),
+	AS_HELP_STRING([--enable-pkcsep11_migrate],[build pkcsep11_migrate (EP11 token key migration tool) @<:@default=enabled if EP11 token is enabled@:>@]),
 	[],
 	[enable_pkcsep11_migrate=check])
 
 dnl --- pkcsep11_session
 AC_ARG_ENABLE([pkcsep11_session],
-	AS_HELP_STRING([--enable-pkcsep11_session],[build pkcsep11_session (EP11 token session logout tool) @<:@default=enabled if EP11 library is present@:>@]),
+	AS_HELP_STRING([--enable-pkcsep11_session],[build pkcsep11_session (EP11 token session logout tool) @<:@default=enabled if EP11 token is enabled@:>@]),
 	[],
 	[enable_pkcsep11_session=check])
 
@@ -213,12 +213,6 @@ AC_ARG_WITH([libica],
 	AS_HELP_STRING([--with-libica@<:@=DIR@:>@],[libica development files location]),
 	[],
 	[with_libica=check])
-
-dnl --- zcrypt development files
-AC_ARG_WITH([zcrypt],
-	AS_HELP_STRING([--with-zcrypt@<:@=DIR@:>@],[zcrypt development files location]),
-	[],
-	[with_zcrypt=check])
 
 dnl --- TSS (TrouSerS) development files
 AC_ARG_WITH([tss],
@@ -337,40 +331,6 @@ if test "x$with_libica" != "xno"; then
 fi
 AC_SUBST([LIBICA_CFLAGS])
 AC_SUBST([LIBICA_LIBS])
-
-
-dnl --- with_zcrypt
-ZCRYPT_CFLAGS=
-ZCRYPT_LIBS=
-if test "x$with_zcrypt" != "xno"; then
-	if test "x$with_zcrypt" != "xyes" -a "x$with_zcrypt" != "xcheck"; then
-		ZCRYPT_CFLAGS="-I$with_zcrypt"
-		ZCRYPT_LIBS="-L$with_zcrypt"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $ZCRYPT_CFLAGS"
-	LIBS="$LIBS $ZCRYPT_LIBS"
-	AC_CHECK_HEADER([asm/zcrypt.h], [], [
-		if test "x$with_zcrypt" != "xcheck"; then
-			AC_MSG_ERROR([Build with zcrypt requested but zcrypt headers couldn't be found])
-		fi
-		with_zcrypt=no
-	])
-
-	if test "x$with_zcrypt" != "xno"; then
-		with_zcrypt=yes
-	fi
-
-	if test "x$with_zcrypt" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-
-fi
-AC_SUBST([ZCRYPT_CFLAGS])
-AC_SUBST([ZCRYPT_LIBS])
-
 
 dnl --- with_tss
 TSS_CFLAGS=
@@ -563,15 +523,11 @@ AM_CONDITIONAL([ENABLE_SWTOK], [test "x$enable_swtok" = "xyes"])
 
 dnl --- enable_ep11tok
 if test "x$enable_ep11tok" = "xyes"; then
-	if test "x$with_zcrypt" != "xyes"; then
-		AC_MSG_ERROR([ep11 token build requested but ep11 development files not found])
-		enable_ep11=no
-	fi
 	AC_CHECK_HEADER([ica_api.h], [], [
 		AC_MSG_ERROR([ep11 token build requested but Libica headers couldn't be found])
 	])
 fi
-if test "x$enable_ep11tok" != "xno" -a "x$with_zcrypt" != "xno"; then
+if test "x$enable_ep11tok" != "xno"; then
 	enable_ep11tok=yes
 	AC_CHECK_HEADER([ica_api.h], [], [
 		enable_ep11tok=no
@@ -612,12 +568,12 @@ AM_CONDITIONAL([ENABLE_TPMTOK], [test "x$enable_tpmtok" = "xyes"])
 
 dnl --- enable_pkcsep11_migrate
 if test "x$enable_pkcsep11_migrate" = "xyes"; then
-	if test "x$with_zcrypt" != "xyes"; then
-		AC_MSG_ERROR([pkcsep11_migrate build requested but no ep11 libraries found])
+	if test "x$enable_ep11tok" != "xyes"; then
+		AC_MSG_ERROR([pkcsep11_migrate build requested but the ep11 token is not enabled])
 		enable_pkcsep11_migrate=no
 	fi
 fi
-if test "x$enable_pkcsep11_migrate" != "xno" -a "x$with_zcrypt" != "xno"; then
+if test "x$enable_pkcsep11_migrate" != "xno" -a "x$enable_ep11tok" = "xyes"; then
 	enable_pkcsep11_migrate=yes
 else
 	enable_pkcsep11_migrate=no
@@ -626,13 +582,13 @@ AM_CONDITIONAL([ENABLE_PKCSEP11_MIGRATE], [test "x$enable_pkcsep11_migrate" = "x
 
 dnl --- enable_pkcsep11_session
 if test "x$enable_pkcsep11_session" = "xyes"; then
-	if test "x$with_zcrypt" != "xyes"; then
-		AC_MSG_ERROR([pkcsep11_session build requested but no ep11 libraries found])
+	if test "x$enable_ep11tok" != "xyes"; then
+		AC_MSG_ERROR([pkcsep11_session build requested but the ep11 token is not enabled])
 		enable_pkcsep11_session=no
 	fi
 fi
 
-if test "x$enable_pkcsep11_session" != "xno" -a "x$with_zcrypt" != "xno"; then
+if test "x$enable_pkcsep11_session" != "xno" -a "x$enable_ep11tok" = "xyes"; then
 	enable_pkcsep11_session=yes
 else
 	enable_pkcsep11_session=no
