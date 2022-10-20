@@ -103,12 +103,12 @@ man/man7/opencryptoki.7
 misc/opencryptoki.conf
 misc/pkcsslotd.service
 misc/pkcsslotd
+misc/opencryptoki.pc
 testcases/init_vhsm.exp
 testcases/policy/policytest.sh
 testcases/ock_tests.sh
 testcases/cleanup_vhsm.exp
 testcases/init_token.sh
-opencryptoki.pc
 
 # ignore generated source (other)
 doc/policy-example.conf
