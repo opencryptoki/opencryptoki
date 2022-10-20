@@ -20,8 +20,11 @@ if ENABLE_ICSFTOK
 TOKENS += icsf
 endif
 
-EXTRA_DIST +=								\
-	misc/pkcsslotd.in misc/pkcsslotd.service.in misc/tmpfiles.conf.in
+EXTRA_DIST += misc/pkcsslotd.in misc/pkcsslotd.service.in 		\
+	misc/tmpfiles.conf.in misc/opencryptoki.pc.in
+	
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = misc/opencryptoki.pc
 
 if ENABLE_DAEMON
 if ENABLE_SYSTEMD
