@@ -220,12 +220,6 @@ AC_ARG_WITH([tss],
 	[],
 	[with_tss=check])
 
-dnl --- xcryptolinz development files (IBM CCA development files)
-AC_ARG_WITH([xcryptolinz],
-	AS_HELP_STRING([--with-xcryptolinz@<:@=DIR@:>@],[CCA library (xcryptolinz) location]),
-	[],
-	[with_xcryptolinz=check])
-
 dnl --- systemd system unit files location
 AC_ARG_WITH([systemd],
 	AS_HELP_STRING([--with-systemd@<:@=DIR@:>@],[systemd system unit files location]),
@@ -366,42 +360,6 @@ if test "x$with_tss" != "xno"; then
 fi
 AC_SUBST([TSS_CFLAGS])
 AC_SUBST([TSS_LIBS])
-
-dnl --- with_xcryptolinz
-XCRYPTOLINZ_CFLAGS=
-XCRYPTOLINZ_LIBS=
-if test "x$with_xcryptolinz" != "xno"; then
-	if test "x$with_xcryptolinz" != "xyes" -a "x$with_xcryptolinz" != "xcheck"; then
-		XCRYPTOLINZ_CFLAGS="-I$with_xcryptolinz"
-		XCRYPTOLINZ_LIBS="-L$with_xcryptolinz"
-	fi
-	old_cflags="$CFLAGS"
-	old_libs="$LIBS"
-	CFLAGS="$CFLAGS $XCRYPTOLINZ_CFLAGS"
-	LIBS="$LIBS $XCRYPTOLINZ_LIBS"
-dnl - The above may not be necessary since opencryptoki brings this header file anyway.
-	AC_CHECK_HEADER([csulincl.h], [], [
-		if test "x$with_xcryptolinz" != "xcheck"; then
-			AC_MSG_ERROR([Build with xcryptolinz requested but xcryptolinz headers couldn't be found])
-		fi
-		with_xcryptolinz=no
-	])
-	if test "x$with_xcryptolinz" != "xno"; then
-		AC_CHECK_LIB([csulcca], [CSNBKTC],
-			[with_xcryptolinz=yes], [
-				if test "x$with_xcryptolinz" != "xcheck"; then
-					AC_MSG_ERROR([Build with xcryptolinz requested but xcryptolinz libraries couldn't be found])
-				fi
-				with_xcryptolinz=no
-		])
-	fi
-	if test "x$with_xcryptolinz" = "xno"; then
-		CFLAGS="$old_cflags"
-		LIBS="$old_libs"
-	fi
-fi
-AC_SUBST([XCRYPTOLINZ_CFLAGS])
-AC_SUBST([XCRYPTOLINZ_LIBS])
 
 dnl --- with_libudev
 LIBUDEV_CFLAGS=
