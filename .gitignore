@@ -100,7 +100,7 @@ man/man5/opencryptoki.conf.5
 man/man5/strength.conf.5
 man/man8/pkcsslotd.8
 man/man7/opencryptoki.7
-misc/tmpfiles.conf
+misc/opencryptoki.conf
 misc/pkcsslotd.service
 misc/pkcsslotd
 testcases/init_vhsm.exp

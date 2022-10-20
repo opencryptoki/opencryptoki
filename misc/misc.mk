@@ -26,15 +26,18 @@ EXTRA_DIST +=								\
 if ENABLE_DAEMON
 if ENABLE_SYSTEMD
 servicedir = $(unitdir)
-service_DATA = misc/pkcsslotd.service misc/tmpfiles.conf
+service_DATA = misc/pkcsslotd.service
 
-CLEANFILES += misc/pkcsslotd.service misc/tmpfiles.conf
+tmpfilesdir = $(DESTDIR)/usr/lib/tmpfiles.d
+tmpfiles_DATA = misc/opencryptoki.conf
+
+CLEANFILES += misc/pkcsslotd.service misc/opencryptoki.conf
 
 ${srcdir}/misc/pkcsslotd.service: ${srcdir}/misc/pkcsslotd.service.in
 	@SED@ -e s!\@sbindir\@!"@sbindir@"!g < $< > $@-t
 	mv $@-t $@
 
-${srcdir}/misc/tmpfiles.conf: ${srcdir}/misc/tmpfiles.conf.in
+${srcdir}/misc/opencryptoki.conf: ${srcdir}/misc/tmpfiles.conf.in
 	@SED@ -e s!\@lockdir\@!$(lockdir)!g < $< > $@-t
 	$(foreach TOK,$(TOKENS),\
 		echo "D $(lockdir)/$(TOK) 0770 root pkcs11 -" >> $@-t;)
