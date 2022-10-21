@@ -1967,6 +1967,11 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
         case CKA_NEVER_EXTRACTABLE:
         case CKA_LOCAL:
             break;
+        /* EP11 does not like empty (zero length) attributes of that types */
+        case CKA_PUBLIC_KEY_INFO:
+            if (attr->ulValueLen == 0)
+                break;
+            /* Fallthrough */
         default:
             if (attr->ulValueLen > 0 && attr->pValue == NULL)
                 return CKR_ATTRIBUTE_VALUE_INVALID;
