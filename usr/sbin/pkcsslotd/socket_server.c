@@ -1298,7 +1298,7 @@ static int listener_socket_create(const char *file_path)
         ErrLog("%s: Group PKCS#11 does not exist", __func__);
         goto error;
     }
-    if (chown(file_path, 0, grp->gr_gid)) {
+    if (chown(file_path, -1, grp->gr_gid)) {
         err = errno;
         ErrLog("%s: Could not change file group on socket, errno %d (%s).",
                __func__, err, strerror(err));

@@ -12,7 +12,8 @@
 
 . /etc/init.d/functions
 
-PIDFILE=/run/pkcsslotd.pid
+RUNDIR=/run/opencryptoki
+PIDFILE=$RUNDIR/pkcsslotd.pid
 LOCKFILE=/var/lock/subsys/pkcsslotd
 SLOTDBIN=@sbindir@/pkcsslotd
 
@@ -22,7 +23,11 @@ start() {
 
     echo -n $"Starting pkcsslotd: "
 
-    daemon $SLOTDBIN
+    mkdir -p $RUNDIR
+    chown pkcsslotd:pkcs11 $RUNDIR
+    chmod 710 $RUNDIR
+
+    daemon --user=pkcsslotd $SLOTDBIN
 
     RETVAL=$?
     echo

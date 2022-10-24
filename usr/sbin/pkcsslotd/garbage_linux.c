@@ -488,7 +488,11 @@ BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
     proc_t *p;
     proc_t procstore;
 
-    /* If kill(pid, 0) returns -1 and errno/Err = ESRCH the pid doesn't exist */
+    /*
+     * If kill(pid, 0) returns -1 and errno/Err = ESRCH the pid doesn't exist.
+     * In case of EPERM we assume that the process exist and try to read its
+     * stats.
+     */
     if (kill(pid, 0) == -1) {
         Err = errno;
         if (Err == ESRCH) {
@@ -497,7 +501,7 @@ BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
                    "process table (kill() returned %s)",
                    pid, SysConst(Err));
             return FALSE;
-        } else {
+        } else if (Err != EPERM) {
             /* some other error occurred */
             DbgLog(DL3, "IsValidProcessEntry: kill() returned %s (%d; %#x)",
                    SysConst(Err), Err, Err);
