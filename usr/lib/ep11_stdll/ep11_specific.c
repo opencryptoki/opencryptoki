@@ -1719,8 +1719,7 @@ static CK_RV check_key_attributes(STDLL_TokData_t * tokdata,
             check_types = &check_types_pub[0];
             attr_cnt = sizeof(check_types_pub) / sizeof(CK_ULONG);
         }
-        /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN
-           and CKM_DH_PKCS_PARAMETER_GEN and CKK_IBM_PQC_DILITHIUM */
+        /* do nothing for CKM_DH_PKCS_KEY_PAIR_GEN and CKK_IBM_PQC_DILITHIUM */
         break;
     case CKO_PRIVATE_KEY:
         if ((kt == CKK_EC) || (kt == CKK_ECDSA) || (kt == CKK_DSA)) {
