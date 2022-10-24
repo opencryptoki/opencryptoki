@@ -230,9 +230,10 @@ AC_ARG_WITH([tss],
 
 dnl --- systemd system unit files location
 AC_ARG_WITH([systemd],
-	AS_HELP_STRING([--with-systemd@<:@=DIR@:>@],[systemd system unit files location]),
+	AS_HELP_STRING([--with-systemd@<:@=DIR@:>@],
+	[Build a systemd service unit file for pkcsslotd (default yes), and optionally specify the systemd system unit files location. Specify '--without-systemd' to build an init-d script instead]),
 	[],
-	[with_systemd=no])
+	[with_systemd=yes])
 	
 dnl --- libudev development files
 AC_ARG_WITH([libudev],
