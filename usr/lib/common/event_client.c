@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <grp.h>
+#include <pwd.h>
 
 #include "slotmgr.h"
 #include "event_client.h"
@@ -27,6 +28,7 @@ static int connect_socket(const char *file_path)
     struct sockaddr_un daemon_address;
     struct stat file_info;
     struct group *grp;
+    struct passwd *pwd;
     int rc;
 
     if (stat(file_path, &file_info))
@@ -36,7 +38,11 @@ static int connect_socket(const char *file_path)
     if (!grp)
         return -errno;
 
-    if (file_info.st_uid != 0 || file_info.st_gid != grp->gr_gid)
+    pwd = getpwnam("pkcsslotd");
+    if (!pwd)
+        return -errno;
+
+    if (file_info.st_uid != pwd->pw_uid || file_info.st_gid != grp->gr_gid)
         return -EPERM;
 
     if ((socketfd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)

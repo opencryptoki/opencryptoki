@@ -40,6 +40,14 @@ include doc/doc.mk
 
 install-data-hook:
 	getent group pkcs11 > /dev/null || $(GROUPADD) -r pkcs11
+	getent passwd pkcsslotd >/dev/null || $(USERADD) -r -g pkcs11 -d /run/opencryptoki -s /sbin/nologin -c "Opencryptoki pkcsslotd user" pkcsslotd
+	$(MKDIR_P) $(DESTDIR)/run/opencryptoki/
+	$(CHOWN) pkcsslotd:pkcs11 $(DESTDIR)/run/opencryptoki/
+	$(CHGRP) pkcs11 $(DESTDIR)/run/opencryptoki/
+	$(CHMOD) 0710 $(DESTDIR)/run/opencryptoki/
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki
+	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki
+	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki
 if ENABLE_LIBRARY
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
 	$(MKDIR_P) $(DESTDIR)$(libdir)/pkcs11

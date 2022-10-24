@@ -33,10 +33,10 @@
 #define OCK_HSM_MK_CHANGE_PATH CONFIG_PATH "/HSM_MK_CHANGE"
 #define OCK_HSM_MK_CHANGE_LOCK_FILE LOCKDIR_PATH "/LCK..HSM_MK_CHANGElock"
 
-#define PROC_SOCKET_FILE_PATH "/run/pkcsslotd.socket"
-#define ADMIN_SOCKET_FILE_PATH "/run/pkcsslotd.admin.socket"
+#define PROC_SOCKET_FILE_PATH "/run/opencryptoki/pkcsslotd.socket"
+#define ADMIN_SOCKET_FILE_PATH "/run/opencryptoki/pkcsslotd.admin.socket"
 
-#define PID_FILE_PATH "/run/pkcsslotd.pid"
+#define PID_FILE_PATH "/run/opencryptoki/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
 #ifndef CK_BOOL

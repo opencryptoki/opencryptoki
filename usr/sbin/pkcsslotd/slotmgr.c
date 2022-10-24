@@ -8,13 +8,16 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
+#define _DEFAULT_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/prctl.h>
 #include <grp.h>
+#include <pwd.h>
 #include <string.h>
 #include <openssl/evp.h>
 
@@ -47,6 +50,7 @@ Slot_Mgr_Socket_t socketData;
 struct dircheckinfo_s {
     const char *dir;
     int mode;
+    int owner_pkcsslotd;
 };
 
 /*
@@ -113,28 +117,80 @@ int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
     return 0;
 }
 
+/*
+ * This function is called only when running as root user.
+ * Change uid to 'pkcsslotd' and gid to 'pkcs11' and set the group access list
+ * to the groups of user 'pkcsslotd'.
+ * The setuid() call also drops all capabilities (effective and permitted).
+ * The pkcsslotd is then restarted via execv() which applies the capabilities
+ * of the executable file (if any) to the running process, just as if
+ * pkcsslotd was started as pkcsslotd user right away.
+ */
+void drop_privileges(struct passwd *pwd)
+{
+    char program[PATH_MAX + 1] = { 0 };
+    char* args[] = { program, NULL };
+
+    if (readlink("/proc/self/exe", program, PATH_MAX) == -1) {
+        fprintf(stderr, "Failed to get executable file name: %s\n",
+                strerror(errno));
+        exit(1);
+    }
+
+    if (initgroups(pwd->pw_name, pwd->pw_gid) != 0) {
+        fprintf(stderr, "Failed to set the group access list: %s\n",
+                strerror(errno));
+        exit(1);
+    }
+
+    if (setgid(pwd->pw_gid) != 0) {
+        fprintf(stderr, "Failed to set gid to 'pkcs11': %s\n", strerror(errno));
+        exit(1);
+    }
+
+    if (setuid(pwd->pw_uid) != 0) {
+        fprintf(stderr, "Failed to set uid to 'pkcsslotd': %s\n",
+                strerror(errno));
+        exit(1);
+    }
+
+    DbgLog(DL0, "Changed uid from 'root' to 'pkcsslotd' and gid to 'pkcs11'.\n");
+
+    /*
+     * Start pkcsslotd again as pkcsslotd user. This will also apply the
+     * capabilities to those that are set for the executable file (if any).
+     */
+    if (execv(program, args) != 0) {
+        fprintf(stderr, "Failed to re-start pkcsslotd: %s\n",
+                strerror(errno));
+        exit(1);
+    }
+}
+
 /** This function does basic sanity checks to make sure the
  *  eco system is in place for opencryptoki to run properly.
  **/
 void run_sanity_checks(void)
 {
-    int i, ec, uid = -1;
-    struct group *grp = NULL;
+    int i, ec;
+    uid_t uid;
+    gid_t gid;
+    struct passwd *pwd;
+    struct group *grp;
     struct stat sbuf;
     struct dircheckinfo_s dircheck[] = {
-        //drwxrwx---
-        {LOCKDIR_PATH, S_IRWXU | S_IRWXG},
-        {OCK_LOGDIR, S_IRWXU | S_IRWXG},
-        {CONFIG_PATH, S_IRWXU | S_IRWXG},
-        {OCK_HSM_MK_CHANGE_PATH, S_IRWXU | S_IRWXG},
-        {NULL, 0},
+        { "/run/opencryptoki", S_IRWXU | S_IXGRP, 1 },
+        { LOCKDIR_PATH, S_IRWXU | S_IRWXG, 0 },
+        { OCK_LOGDIR, S_IRWXU | S_IRWXG, 0 },
+        { CONFIG_PATH, S_IRWXU | S_IRWXG, 0 },
+        { OCK_HSM_MK_CHANGE_PATH, S_IRWXU | S_IRWXG, 0 },
+        { NULL, 0, 0 },
     };
 
-    /* first check that our effective user id is root */
-    uid = (int) geteuid();
-    if (uid != 0) {
-        fprintf(stderr, "This daemon needs root privilegies, "
-                "but the effective user id is not 'root'.\n");
+    /* check that the pkcsslotd user exists */
+    pwd = getpwnam("pkcsslotd");
+    if (pwd == NULL) {
+        fprintf(stderr, "There is no 'pkcsslotd' user on this system.\n");
         exit(1);
     }
 
@@ -145,16 +201,27 @@ void run_sanity_checks(void)
         exit(1);
     }
 
+    /* check that our effective user id is pkcsslotd or root */
+    uid = geteuid();
+    if (uid != 0 && uid != pwd->pw_uid) {
+        fprintf(stderr, "This daemon needs to be run under the 'pkcsslotd' "
+                "or the 'root' user.\n");
+        exit(1);
+    }
+
     /* check effective group id */
-    uid = (int) getegid();
-    if (uid != 0 && uid != (int) grp->gr_gid) {
+    gid = getegid();
+    if (gid != 0 && gid != grp->gr_gid) {
         fprintf(stderr, "This daemon should have an effective group id of "
                 "'root' or 'pkcs11'.\n");
         exit(1);
     }
 
-    /* Create base lock and log directory here. API..Lock file is
-     * accessed from the daemon in CreateXProcLock() in mutex.c.*/
+    /*
+     * Check if base directories exist. If not, create them.
+     * Creation of the directory will only work if running as root.
+     * The directories are usually created by tmpfiles.d during system startup.
+     */
     for (i = 0; dircheck[i].dir != NULL; i++) {
         ec = stat(dircheck[i].dir, &sbuf);
         if (ec != 0 && errno == ENOENT) {
@@ -164,10 +231,12 @@ void run_sanity_checks(void)
                 fprintf(stderr, "Directory %s missing\n", dircheck[i].dir);
                 exit(2);
             }
-            /* set ownership to root, and pkcs11 group */
-            if (chown(dircheck[i].dir, geteuid(), grp->gr_gid) != 0) {
+            /* set ownership to root or pkcsslotd, and pkcs11 group */
+            if (chown(dircheck[i].dir,
+                      dircheck[i].owner_pkcsslotd ? pwd->pw_uid : geteuid(),
+                      grp->gr_gid) != 0) {
                 fprintf(stderr,
-                        "Failed to set owner:group ownership on %s directory",
+                        "Failed to set owner:group ownership on %s directory\n",
                         dircheck[i].dir);
                 exit(1);
             }
@@ -175,21 +244,27 @@ void run_sanity_checks(void)
              * trying explictly here again */
             if (chmod(dircheck[i].dir, dircheck[i].mode) != 0) {
                 fprintf(stderr,
-                        "Failed to change permissions on %s directory",
+                        "Failed to change permissions on %s directory\n",
                         dircheck[i].dir);
                 exit(1);
             }
         }
     }
 
-    /* check if token directory is available, if not flag an error.
-     * We do not create token directories here as admin should
-     * configure and decide which tokens to expose to opencryptoki
-     * outside of opencryptoki and pkcsslotd */
-    ec = stat(CONFIG_PATH, &sbuf);
-    if (ec != 0 && errno == ENOENT) {
-        fprintf(stderr, "Token directories missing\n");
-        exit(2);
+    if (uid == 0)
+        drop_privileges(pwd);
+
+    /* Do not allow execve() to grant additional privileges */
+    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0) {
+        fprintf(stderr, "Failed to set NO_NEW_PRIVS flag: %s\n",
+                strerror(errno));
+        exit(1);
+    }
+
+    if (chdir("/run/opencryptoki") != 0) {
+        fprintf(stderr, "Failed to set current directory: %s\n",
+                strerror(errno));
+        exit(1);
     }
 }
 

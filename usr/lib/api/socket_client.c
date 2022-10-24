@@ -21,6 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <grp.h>
+#include <pwd.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -41,6 +42,7 @@ int connect_socket(const char *file_path)
     struct sockaddr_un daemon_address;
     struct stat file_info;
     struct group *grp;
+    struct passwd *pwd;
 
     if (stat(file_path, &file_info)) {
         OCK_SYSLOG(LOG_ERR,
@@ -57,7 +59,15 @@ int connect_socket(const char *file_path)
         return -1;
     }
 
-    if (file_info.st_uid != 0 || file_info.st_gid != grp->gr_gid) {
+    pwd = getpwnam("pkcsslotd");
+    if (!pwd) {
+        OCK_SYSLOG(LOG_ERR,
+                   "connect_socket: pkcsslotd user does not exist, errno=%d",
+                   errno);
+        return -1;
+    }
+
+    if (file_info.st_uid != pwd->pw_uid || file_info.st_gid != grp->gr_gid) {
         OCK_SYSLOG(LOG_ERR,
                    "connect_socket: incorrect permissions on socket file");
         return -1;

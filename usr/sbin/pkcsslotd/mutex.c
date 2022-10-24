@@ -27,6 +27,9 @@ int CreateXProcLock(void)
     struct group *grp;
     mode_t mode = (S_IRUSR | S_IRGRP);
 
+    if (xplfd == -1)
+        xplfd = open(OCK_API_LOCK_FILE, O_RDONLY);
+
     if (xplfd == -1) {
         xplfd = open(OCK_API_LOCK_FILE, O_CREAT | O_RDONLY, mode);
 

@@ -3,8 +3,10 @@ Description=Daemon which manages cryptographic hardware tokens for the openCrypt
 After=local-fs.target
 
 [Service]
+User=pkcsslotd
+Group=pkcs11
 Type=forking
-PIDFile=/run/pkcsslotd.pid
+PIDFile=/run/opencryptoki/pkcsslotd.pid
 ExecStart=@sbindir@/pkcsslotd
 
 [Install]

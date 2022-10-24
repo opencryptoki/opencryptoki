@@ -50,9 +50,11 @@ dnl Used in various scripts
 AC_PATH_PROG([ID], [id], [/us/bin/id])
 AC_PATH_PROG([USERMOD], [usermod], [/usr/sbin/usermod])
 AC_PATH_PROG([GROUPADD], [groupadd], [/usr/sbin/groupadd])
+AC_PATH_PROG([USERADD], [useradd], [/usr/sbin/useradd])
 AC_PATH_PROG([CAT], [cat], [/bin/cat])
 AC_PATH_PROG([CHMOD], [chmod], [/bin/chmod])
 AC_PATH_PROG([CHGRP], [chgrp], [/bin/chgrp])
+AC_PATH_PROG([CHOWN], [chown], [/bin/chown])
 AC_PROG_AWK
 AC_PROG_INSTALL
 AC_PROG_LN_S

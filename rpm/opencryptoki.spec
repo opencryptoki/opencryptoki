@@ -216,8 +216,9 @@ rm -f $RPM_BUILD_ROOT/%{_libdir}/%{name}/stdll/*.la
 %endif
 
 %pre libs
-# Create pkcs11 group
+# Create pkcs11 group and pkcsslotd user
 getent group pkcs11 >/dev/null || groupadd -r pkcs11
+getent passwd pkcsslotd >/dev/null || useradd -r -g pkcs11 -d /run/opencryptoki -s /sbin/nologin -c "Opencryptoki pkcsslotd user" pkcsslotd
 exit 0
 
 %post
@@ -265,6 +266,7 @@ exit 0
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/HSM_MK_CHANGE/
 %dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}
 %dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/*
+%dir %attr(710,pkcsslotd,pkcs11) /run/%{name}/
 
 %files libs
 %license LICENSE

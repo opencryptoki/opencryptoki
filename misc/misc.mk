@@ -37,11 +37,14 @@ tmpfiles_DATA = misc/opencryptoki.conf
 CLEANFILES += misc/pkcsslotd.service misc/opencryptoki.conf
 
 ${srcdir}/misc/pkcsslotd.service: ${srcdir}/misc/pkcsslotd.service.in
-	@SED@ -e s!\@sbindir\@!"@sbindir@"!g < $< > $@-t
+	@SED@ -e s!\@sbindir\@!"@sbindir@"!g \
+	      -e s!\@localstatedir\@!$(localstatedir)!g < $< > $@-t
 	mv $@-t $@
 
 ${srcdir}/misc/opencryptoki.conf: ${srcdir}/misc/tmpfiles.conf.in
-	@SED@ -e s!\@lockdir\@!$(lockdir)!g < $< > $@-t
+	@SED@ -e s!\@lockdir\@!$(lockdir)!g \
+	      -e s!\@logdir\@!$(logdir)!g \
+	      -e s!\@localstatedir\@!$(localstatedir)!g < $< > $@-t
 	$(foreach TOK,$(TOKENS),\
 		echo "D $(lockdir)/$(TOK) 0770 root pkcs11 -" >> $@-t;)
 	mv $@-t $@
