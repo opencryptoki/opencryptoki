@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/prctl.h>
+#include <sys/capability.h>
 #include <grp.h>
 #include <pwd.h>
 #include <string.h>
@@ -114,6 +115,42 @@ int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
         return -1;
     }
     EVP_MD_CTX_destroy(md_ctx);
+    return 0;
+}
+
+/*
+ * Drop any effective and permitted capabilities (if any).
+ * This function is called after initialization, but before becoming a daemon.
+ */
+int drop_capabilities(void)
+{
+    cap_t caps;
+
+    caps = cap_get_proc();
+    if (caps == NULL) {
+        fprintf(stderr, "Failed to get process's capabilities: %s\n",
+                strerror(errno));
+        return -1;
+    }
+
+    if (cap_clear(caps) != 0) {
+        fprintf(stderr, "Failed to clear capabilities: %s\n",
+                strerror(errno));
+        cap_free(caps);
+        return -1;
+    }
+
+    if (cap_set_proc(caps) != 0) {
+        fprintf(stderr, "Failed to set process's capabilities: %s\n",
+                strerror(errno));
+        cap_free(caps);
+        return -1;
+    }
+
+    cap_free(caps);
+
+    DbgLog(DL0, "Dropped all capabilities.\n");
+
     return 0;
 }
 
@@ -790,6 +827,9 @@ int main(int argc, char *argv[], char *envp[])
         if (ret)
             return EACCES;
     }
+
+    if (drop_capabilities() != 0)
+        return 7;
 
     /*
      *  Become a Daemon, if called for
