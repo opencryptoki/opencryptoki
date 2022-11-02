@@ -5,7 +5,7 @@ noinst_HEADERS +=							\
 
 EXTRA_DIST += usr/sbin/pkcsslotd/opencryptoki.conf
 
-usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto
+usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS = -lpthread -lcrypto -lcap
 if HAVE_LIBUDEV
 usr_sbin_pkcsslotd_pkcsslotd_LDFLAGS += -ludev
 endif
