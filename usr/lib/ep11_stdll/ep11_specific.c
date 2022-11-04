@@ -4988,6 +4988,9 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_MECHANISM_PTR mech_orig = mech;
     CK_ATTRIBUTE *ec_params;
     CK_IBM_BTC_DERIVE_PARAMS *btc_params = NULL;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_length = 0;
+    CK_ATTRIBUTE *spki_attr = NULL;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5328,6 +5331,29 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
                         __func__, rc);
             goto error;
         }
+
+        /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to key */
+        rc = publ_key_get_spki(key_obj->template, ktype, FALSE,
+                               &spki, &spki_length);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("publ_key_get_spki failed\n");
+            goto error;
+        }
+
+        rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &spki_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+
+        rc = template_update_attribute(key_obj->template, spki_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            goto error;
+        }
+        spki_attr = NULL;
     }
 
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
@@ -5380,6 +5406,8 @@ error:
         free(opaque_attr);
     if (chk_attr != NULL)
         free(chk_attr);
+    if (spki_attr != NULL)
+        free(spki_attr);
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
     if (new_attrs1)
