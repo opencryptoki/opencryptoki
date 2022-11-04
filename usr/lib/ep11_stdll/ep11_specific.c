@@ -4987,6 +4987,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG used_firmware_API_version;
     CK_MECHANISM_PTR mech_orig = mech;
     CK_ATTRIBUTE *ec_params;
+    CK_IBM_BTC_DERIVE_PARAMS *btc_params = NULL;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -5103,6 +5104,18 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
             ecdh1_mech.ulParameterLen = ecdh1_parms->ulPublicDataLen;
             mech = &ecdh1_mech;
         }
+    }
+
+    if (mech->mechanism == CKM_IBM_BTC_DERIVE) {
+        if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
+            mech->pParameter == NULL) {
+            TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
+                        __func__, ep11_get_ckm(tokdata, mech->mechanism),
+                        mech->ulParameterLen);
+            return CKR_MECHANISM_PARAM_INVALID;
+        }
+
+        btc_params = (CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter;
     }
 
     rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
@@ -5298,6 +5311,13 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
     opaque_attr = NULL;
+
+    if (mech->mechanism == CKM_IBM_BTC_DERIVE &&
+        btc_params != NULL && btc_params->pChainCode != NULL &&
+        cslen >= CK_IBM_BTC_CHAINCODE_LENGTH) {
+        memcpy(btc_params->pChainCode, csum, CK_IBM_BTC_CHAINCODE_LENGTH);
+        btc_params->ulChainCodeLen = CK_IBM_BTC_CHAINCODE_LENGTH;
+    }
 
     if (mech->mechanism == CKM_IBM_BTC_DERIVE && class == CKO_PUBLIC_KEY) {
         /* Derived blob is an SPKI, extract public EC key attributes */
