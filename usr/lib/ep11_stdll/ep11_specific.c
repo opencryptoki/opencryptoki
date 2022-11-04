@@ -2744,9 +2744,10 @@ static int get_curve_type_from_template(TEMPLATE *tmpl)
  * SPKIs for public imported RSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
-                            OBJECT * rsa_key_obj,
-                            CK_BYTE * blob, size_t * blob_size)
+static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                            OBJECT *rsa_key_obj,
+                            CK_BYTE *blob, size_t *blob_size,
+                            CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -2758,8 +2759,6 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
@@ -2830,6 +2829,8 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_RSA_key_end;
         }
 
+        *spki_size = 0; /* common code will extract SPKI from object */
+
     } else {
 
         /* imported private RSA key goes here */
@@ -2883,7 +2884,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
                                  ep11_data->raw2key_wrap_blob_l, NULL, ~0,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
-                                 csum, &cslen, target_info->target);
+                                 spki, spki_size, target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -2920,9 +2921,10 @@ import_RSA_key_end:
  * SPKIs for public imported EC keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
-                           OBJECT * ec_key_obj,
-                           CK_BYTE * blob, size_t * blob_size)
+static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           OBJECT *ec_key_obj,
+                           CK_BYTE *blob, size_t *blob_size,
+                           CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -2934,8 +2936,6 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
@@ -3058,6 +3058,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_EC_key_end;
         }
 
+        *spki_size = 0; /* common code will extract SPKI from object */
+
     } else {
 
         /* imported private EC key goes here */
@@ -3114,7 +3116,8 @@ static CK_RV import_EC_key(STDLL_TokData_t * tokdata, SESSION * sess,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, target_info->target);
+                                 blob_size, spki, spki_size,
+                                 target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3148,9 +3151,10 @@ import_EC_key_end:
  * SPKIs for public imported DSA keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
-                            OBJECT * dsa_key_obj,
-                            CK_BYTE * blob, size_t * blob_size)
+static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                            OBJECT *dsa_key_obj,
+                            CK_BYTE *blob, size_t *blob_size,
+                            CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -3162,8 +3166,6 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
@@ -3250,6 +3252,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_DSA_key_end;
         }
 
+        *spki_size = 0; /* common code will extract SPKI from object */
+
     } else {
 
         /* imported private DSA key goes here */
@@ -3306,7 +3310,8 @@ static CK_RV import_DSA_key(STDLL_TokData_t * tokdata, SESSION * sess,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, target_info->target);
+                                 blob_size, spki, spki_size,
+                                 target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3338,9 +3343,10 @@ import_DSA_key_end:
  * SPKIs for public imported DH keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
-                           OBJECT * dh_key_obj,
-                           CK_BYTE * blob, size_t * blob_size)
+static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                           OBJECT *dh_key_obj,
+                           CK_BYTE *blob, size_t *blob_size,
+                           CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -3352,8 +3358,6 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
@@ -3432,6 +3436,8 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto import_DH_key_end;
         }
 
+        *spki_size = 0; /* common code will extract SPKI from object */
+
     } else {
         CK_ATTRIBUTE *value;
         CK_ATTRIBUTE *value_bits;
@@ -3499,7 +3505,8 @@ static CK_RV import_DH_key(STDLL_TokData_t * tokdata, SESSION * sess,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, target_info->target);
+                                 blob_size, spki, spki_size,
+                                 target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3546,9 +3553,10 @@ import_DH_key_end:
  * SPKIs for public imported IBM Dilithium keys.
  * Similar to rawkey_2_blob, but keys must follow a standard BER encoding.
  */
-static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
-                           OBJECT * dilithium_key_obj,
-                           CK_BYTE * blob, size_t * blob_size)
+static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                                      OBJECT *dilithium_key_obj,
+                                      CK_BYTE *blob, size_t *blob_size,
+                                      CK_BYTE *spki, size_t *spki_size)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_RV rc;
@@ -3560,8 +3568,6 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_BYTE csum[MAX_BLOBSIZE];
-    CK_ULONG cslen = sizeof(csum);
     CK_OBJECT_CLASS class;
     CK_BYTE *data = NULL;
     CK_ULONG data_len;
@@ -3651,6 +3657,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
             goto done;
         }
 
+        *spki_size = 0; /* common code will extract SPKI from object */
+
     } else {
 
         /* imported private IBM Dilithium key goes here */
@@ -3708,7 +3716,8 @@ static CK_RV import_IBM_Dilithium_key(STDLL_TokData_t * tokdata, SESSION * sess,
                                  ep11_pin_blob,
                                  ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob,
-                                 blob_size, csum, &cslen, target_info->target);
+                                 blob_size, spki, spki_size,
+                                 target_info->target);
         RETRY_END(rc, tokdata, sess)
 
         if (rc != CKR_OK) {
@@ -3746,9 +3755,13 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     CK_ATTRIBUTE *attr = NULL;
     CK_BYTE blob[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
+    CK_BYTE spki[MAX_BLOBSIZE];
+    size_t spkisize = sizeof(spki);
     CK_RV rc;
     CK_ULONG class;
     CK_BBOOL attrbound;
+    CK_BYTE *temp;
+    CK_ULONG temp_len;
 
     /* get key type */
     rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &keytype);
@@ -3782,7 +3795,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     /* only these keys can be imported */
     switch (keytype) {
     case CKK_RSA:
-        rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_RSA_key(tokdata, sess, obj, blob, &blobsize,
+                            spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import RSA key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -3792,7 +3806,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_EC:
-        rc = import_EC_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_EC_key(tokdata, sess, obj, blob, &blobsize,
+                           spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import EC key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -3802,7 +3817,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_DSA:
-        rc = import_DSA_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_DSA_key(tokdata, sess, obj, blob, &blobsize,
+                            spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DSA key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -3812,7 +3828,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_DH:
-        rc = import_DH_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_DH_key(tokdata, sess, obj, blob, &blobsize,
+                           spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import DH key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -3822,7 +3839,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                    __func__, rc, blobsize);
         break;
     case CKK_IBM_PQC_DILITHIUM:
-        rc = import_IBM_Dilithium_key(tokdata, sess, obj, blob, &blobsize);
+        rc = import_IBM_Dilithium_key(tokdata, sess, obj, blob, &blobsize,
+                                      spki, &spkisize);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s import IBM Dilithium key rc=0x%lx blobsize=0x%zx\n",
                         __func__, rc, blobsize);
@@ -3888,6 +3906,31 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
                     __func__, rc);
         free(attr);
         return rc;
+    }
+
+    if (spkisize > 0 && (class == CKO_PRIVATE_KEY || class == CKO_PUBLIC_KEY)) {
+        /* spki may be a MACed SPKI, get length of SPKI part only */
+        rc = ber_decode_SEQUENCE(spki, &temp, &temp_len, &spkisize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ber_decode_SEQUENCE failed rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+
+        rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spkisize, &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__,
+                        rc);
+            return rc;
+        }
+
+        rc = template_update_attribute(obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            return rc;
+        }
     }
 
     rc = update_ep11_attrs_from_blob(tokdata, sess, obj->template);
