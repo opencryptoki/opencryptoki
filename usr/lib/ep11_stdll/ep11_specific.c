@@ -5334,7 +5334,148 @@ static CK_RV ep11tok_kyber_mech_post_process(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
+static CK_RV ep11tok_btc_mech_pre_process(STDLL_TokData_t *tokdata,
+                                          OBJECT *key_obj,
+                                          CK_ATTRIBUTE **new_attrs,
+                                          CK_ULONG *new_attrs_len)
+{
+    CK_ATTRIBUTE *ec_params;
+    CK_ULONG i, privlen;
+    CK_RV rc;
+
+    UNUSED(tokdata);
+
+    /*
+     * CKM_IBM_BTC_DERIVE requires CKA_VALUE_LEN to specify the byte length
+     * of the to be derived EC key. CKA_VALUE_LEN is dependent on the
+     * curve used.
+     * CKA_VALUE_LEN can not be already in the user supplied template,
+     * since this is not allowed by the key template check routines.
+     */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
+                                          &ec_params);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("CKA_EC_PARAMS is required in derive template\n");
+        return rc;
+    }
+
+    for (i = 0; i < NUMEC; i++) {
+        if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
+            memcmp(ec_params->pValue, der_ec_supported[i].data,
+                   ec_params->ulValueLen) == 0) {
+            privlen = (der_ec_supported[i].len_bits + 7) / 8;
+            rc = add_to_attribute_array(new_attrs, new_attrs_len,
+                                        CKA_VALUE_LEN,
+                                        (CK_BYTE_PTR)&privlen,
+                                        sizeof(privlen));
+            if (rc != CKR_OK) {
+                TRACE_ERROR("Adding attribute failed type=CKA_VALUE_LEN "
+                            "rc=0x%lx\n", rc);
+                return rc;
+            }
+            break;
+        }
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ep11tok_btc_mech_post_process(STDLL_TokData_t *tokdata,
+                                           SESSION *session, CK_MECHANISM *mech,
+                                           CK_ULONG class, CK_ULONG ktype,
+                                           OBJECT *key_obj,
+                                           CK_BYTE *blob, CK_ULONG bloblen,
+                                           CK_BYTE *csum, CK_ULONG cslen)
+{
+    CK_IBM_BTC_DERIVE_PARAMS *btc_params = NULL;
+    CK_BYTE *spki = NULL;
+    CK_ULONG spki_length = 0;
+    CK_BYTE buf[MAX_BLOBSIZE];
+    CK_ATTRIBUTE get_attr[1] = {{ CKA_PUBLIC_KEY_INFO, &buf, sizeof(buf) }};
+    CK_ATTRIBUTE *spki_attr = NULL;
+    CK_BBOOL allocated = FALSE;
+    CK_RV rc = CKR_OK;
+
+    if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
+        mech->pParameter == NULL) {
+        TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
+                    __func__, ep11_get_ckm(tokdata, mech->mechanism),
+                    mech->ulParameterLen);
+        return CKR_MECHANISM_PARAM_INVALID;
+    }
+
+    btc_params = (CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter;
+
+    if (btc_params != NULL && btc_params->pChainCode != NULL &&
+        cslen >= CK_IBM_BTC_CHAINCODE_LENGTH) {
+        memcpy(btc_params->pChainCode, csum, CK_IBM_BTC_CHAINCODE_LENGTH);
+        btc_params->ulChainCodeLen = CK_IBM_BTC_CHAINCODE_LENGTH;
+    }
+
+    switch (class) {
+    case CKO_PUBLIC_KEY:
+        /* Derived blob is an SPKI, extract public EC key attributes */
+        rc = ecdsa_priv_unwrap_get_data(key_obj->template, blob, bloblen);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ecdsa_priv_unwrap_get_data failed with "
+                        "rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+
+        /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to key */
+        rc = publ_key_get_spki(key_obj->template, ktype, FALSE,
+                               &spki, &spki_length);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("publ_key_get_spki failed\n");
+            return rc;
+        }
+
+        allocated = TRUE;
+        break;
+
+    case CKO_PRIVATE_KEY:
+        RETRY_START(rc, tokdata)
+            rc = dll_m_GetAttributeValue(blob, bloblen, get_attr, 1,
+                                         target_info->target);
+        RETRY_END(rc, tokdata, session)
+
+        /* Only newer EP11 libs support this, ignore if error */
+        if (rc != CKR_OK)
+            return CKR_OK;
+
+        spki = get_attr[0].pValue;
+        spki_length = get_attr[0].ulValueLen;
+        break;
+
+    default:
+        /* do nothing */
+        return CKR_OK;
+    }
+
+    rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length,
+                         &spki_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        goto out;
+    }
+
+    rc = template_update_attribute(key_obj->template, spki_attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        free(spki_attr);
+        goto out;
+    }
+
+out:
+    if (allocated && spki != NULL)
+        free(spki);
+
+    return rc;
+}
+
+CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
                          CK_ULONG attrs_len)
@@ -5363,17 +5504,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ULONG ecpoint_len, field_len, key_len = 0;
     CK_ATTRIBUTE *new_attrs1 = NULL, *new_attrs2 = NULL;
     CK_ULONG new_attrs1_len = 0, new_attrs2_len = 0;
-    CK_ULONG privlen, i;
+    CK_ULONG privlen;
     int curve_type;
     CK_BBOOL allocated = FALSE;
     ep11_target_info_t* target_info;
     CK_ULONG used_firmware_API_version;
     CK_MECHANISM_PTR mech_orig = mech;
-    CK_ATTRIBUTE *ec_params;
-    CK_IBM_BTC_DERIVE_PARAMS *btc_params = NULL;
-    CK_BYTE *spki = NULL;
-    CK_ULONG spki_length = 0;
-    CK_ATTRIBUTE *spki_attr = NULL;
     struct EP11_KYBER_MECH mech_ep11;
     OBJECT *kyber_secret_obj = NULL;
 
@@ -5494,18 +5630,6 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    if (mech->mechanism == CKM_IBM_BTC_DERIVE) {
-        if (mech->ulParameterLen != sizeof(CK_IBM_BTC_DERIVE_PARAMS) ||
-            mech->pParameter == NULL) {
-            TRACE_ERROR("%s Param NULL or len for %s wrong: %lu\n",
-                        __func__, ep11_get_ckm(tokdata, mech->mechanism),
-                        mech->ulParameterLen);
-            return CKR_MECHANISM_PARAM_INVALID;
-        }
-
-        btc_params = (CK_IBM_BTC_DERIVE_PARAMS *)mech->pParameter;
-    }
-
     rc = h_opaque_2_blob(tokdata, hBaseKey, &keyblob, &keyblobsize,
                          &base_key_obj, READ_LOCK);
     if (rc != CKR_OK) {
@@ -5623,46 +5747,24 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    if (mech->mechanism == CKM_IBM_BTC_DERIVE) {
-        /*
-         * CKM_IBM_BTC_DERIVE requires CKA_VALUE_LEN to specify the byte length
-         * of the to be derived EC key. CKA_VALUE_LEN is dependent on the
-         * curve used.
-         * CKA_VALUE_LEN can not be already in the user supplied template,
-         * since this is not allowed by the key template check routines.
-         */
-        rc = template_attribute_get_non_empty(key_obj->template, CKA_EC_PARAMS,
-                                              &ec_params);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("CKA_EC_PARAMS is required in derive template\n");
+    switch (mech->mechanism) {
+    case CKM_IBM_BTC_DERIVE:
+        rc = ep11tok_btc_mech_pre_process(tokdata, key_obj, &new_attrs2,
+                                          &new_attrs2_len);
+        if (rc != CKR_OK)
             goto error;
-        }
+        break;
 
-        for (i = 0; i < NUMEC; i++) {
-            if (der_ec_supported[i].data_size == ec_params->ulValueLen &&
-                memcmp(ec_params->pValue, der_ec_supported[i].data,
-                       ec_params->ulValueLen) == 0) {
-                privlen = (der_ec_supported[i].len_bits + 7) / 8;
-                rc = add_to_attribute_array(&new_attrs2, &new_attrs2_len,
-                                            CKA_VALUE_LEN,
-                                            (CK_BYTE_PTR)&privlen,
-                                            sizeof(privlen));
-                if (rc != CKR_OK) {
-                    TRACE_ERROR("Adding attribute failed type=CKA_VALUE_LEN "
-                                "rc=0x%lx\n", rc);
-                    goto error;
-                }
-                break;
-            }
-        }
-    }
-
-    if (mech->mechanism == CKM_IBM_KYBER) {
+    case CKM_IBM_KYBER:
         rc = ep11tok_kyber_mech_pre_process(tokdata, mech, &mech_ep11,
                                             &kyber_secret_obj);
         if (rc != CKR_OK)
             goto error;
         mech = &mech_ep11.mech;
+        break;
+
+    default:
+        break;
     }
 
     trace_attributes(__func__, "Derive:", new_attrs2, new_attrs2_len);
@@ -5713,47 +5815,6 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     opaque_attr = NULL;
 
-    if (mech->mechanism == CKM_IBM_BTC_DERIVE &&
-        btc_params != NULL && btc_params->pChainCode != NULL &&
-        cslen >= CK_IBM_BTC_CHAINCODE_LENGTH) {
-        memcpy(btc_params->pChainCode, csum, CK_IBM_BTC_CHAINCODE_LENGTH);
-        btc_params->ulChainCodeLen = CK_IBM_BTC_CHAINCODE_LENGTH;
-    }
-
-    if (mech->mechanism == CKM_IBM_BTC_DERIVE && class == CKO_PUBLIC_KEY) {
-        /* Derived blob is an SPKI, extract public EC key attributes */
-        rc = ecdsa_priv_unwrap_get_data(key_obj->template,
-                                        newblob, newblobsize);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s ecdsa_priv_unwrap_get_data failed with rc=0x%lx\n",
-                        __func__, rc);
-            goto error;
-        }
-
-        /* Extract the SPKI and add CKA_PUBLIC_KEY_INFO to key */
-        rc = publ_key_get_spki(key_obj->template, ktype, FALSE,
-                               &spki, &spki_length);
-        if (rc != CKR_OK) {
-            TRACE_DEVEL("publ_key_get_spki failed\n");
-            goto error;
-        }
-
-        rc = build_attribute(CKA_PUBLIC_KEY_INFO, spki, spki_length, &spki_attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
-                        __func__, rc);
-            goto error;
-        }
-
-        rc = template_update_attribute(key_obj->template, spki_attr);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s template_update_attribute failed with "
-                        "rc=0x%lx\n", __func__, rc);
-            goto error;
-        }
-        spki_attr = NULL;
-    }
-
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
         rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
         if (rc != CKR_OK) {
@@ -5763,10 +5824,23 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    if (mech->mechanism == CKM_IBM_KYBER) {
+    switch (mech->mechanism) {
+    case CKM_IBM_BTC_DERIVE:
+        rc = ep11tok_btc_mech_post_process(tokdata, session, mech, class, ktype,
+                                           key_obj, newblob, newblobsize,
+                                           csum, cslen);
+        if (rc != CKR_OK)
+            goto error;
+        break;
+
+    case CKM_IBM_KYBER:
         rc = ep11tok_kyber_mech_post_process(tokdata, mech_orig, csum, cslen);
         if (rc != CKR_OK)
             goto error;
+        break;
+
+    default:
+        break;
     }
 
     if (class == CKO_SECRET_KEY && cslen >= EP11_CSUMSIZE) {
@@ -5810,10 +5884,6 @@ error:
         free(opaque_attr);
     if (chk_attr != NULL)
         free(chk_attr);
-    if (spki_attr != NULL)
-        free(spki_attr);
-    if (spki != NULL)
-        free(spki);
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
     if (new_attrs1)
