@@ -123,6 +123,11 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
     switch(class) {
     case CKO_PUBLIC_KEY:
     case CKO_PRIVATE_KEY:
+        /* Skip if there is already a non-empty CKA_PUBLIC_KEY_INFO */
+        if (template_attribute_get_non_empty(o->template, CKA_PUBLIC_KEY_INFO,
+                                             &spki_attr) == CKR_OK)
+            break;
+
         rc = template_attribute_get_ulong(o->template, CKA_KEY_TYPE, &keytype);
         if (rc != CKR_OK) {
             TRACE_ERROR("Could not find CKA_KEY_TYPE for the key object.\n");
