@@ -5451,6 +5451,8 @@ error:
         free(chk_attr);
     if (spki_attr != NULL)
         free(spki_attr);
+    if (spki != NULL)
+        free(spki);
     if (new_attrs)
         free_attribute_array(new_attrs, new_attrs_len);
     if (new_attrs1)
