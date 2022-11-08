@@ -300,7 +300,7 @@ Use the
 command and key argument to generate an IBM Dilithium key, where
 .I VERSION
 specifies the version of the IBM Dilithium keypair. The following arguments can be used for respective keys:
-.B r2_65
+.B r2_65 | r2_87 | r3_44 | r3_65 | r3_87
 .PP
 The
 .B \-\-slot
@@ -414,6 +414,16 @@ to select the EC curve used to generate the key.
 .
 .
 
+.SS "r2_6|r2_87|r3_44|r3_65|r3_875"
+the
+.B ibm-dilithium
+argument has to be followed by either of these
+.I VERSION
+to select the IBM dilithium version used to generate the key.
+.PP
+.
+.
+.
 .SH OPTIONS
 
 .SS "\-\-slot SLOTID"
