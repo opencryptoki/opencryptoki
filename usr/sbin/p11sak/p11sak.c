@@ -395,7 +395,7 @@ static void print_gen_help(void)
     printf("          brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | \n");
     printf("          brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | \n");
     printf("          ed448]\n");
-    printf("      ibm-dilithium [r2_65]\n");
+    printf("      ibm-dilithium [r2_65 | r2_87 | r3_44 | r3_65 | r3_87]\n");
     printf("\n Options:\n");
     printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
@@ -539,6 +539,10 @@ static void print_gen_ibm_dilithium_help(void)
     printf("\n Usage: p11sak generate-key ibm-dilithium [ARGS] [OPTIONS]\n");
     printf("\n Args:\n");
     printf("      r2_65\n");
+    printf("      r2_87\n");
+    printf("      r3_44\n");
+    printf("      r3_65\n");
+    printf("      r3_87\n");
     printf("\n Options:\n");
     printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
@@ -772,6 +776,35 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
         fprintf(stderr, "Note: not all tokens support all curves.\n");
         return CKR_ARGUMENTS_BAD;
     }
+    (*pubcount)++;
+
+    return CKR_OK;
+}
+/**
+ * Builds the CKA_IBM_DILITHIUM_KEYFORM attribute from the given version.
+ */
+static CK_RV read_dilithium_args(const char *dilithium_ver, CK_ULONG *keyform,
+                                 CK_ATTRIBUTE *pubattr, CK_ULONG *pubcount)
+{
+    if (strcasecmp(dilithium_ver, "r2_65") == 0) {
+        *keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND2_65;
+    } else if (strcasecmp(dilithium_ver, "r2_87") == 0) {
+        *keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND2_87;
+    } else if (strcasecmp(dilithium_ver, "r3_44") == 0) {
+        *keyform =  CK_IBM_DILITHIUM_KEYFORM_ROUND3_44;
+    } else if (strcasecmp(dilithium_ver, "r3_65") == 0) {
+        *keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND3_65;
+    } else if (strcasecmp(dilithium_ver, "r3_87") == 0) {
+        *keyform = CK_IBM_DILITHIUM_KEYFORM_ROUND3_87;
+    } else {
+        fprintf(stderr, "Unexpected case while parsing dilithium version.\n");
+        fprintf(stderr, "Note: not all tokens support all versions.\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    pubattr[*pubcount].type = CKA_IBM_DILITHIUM_KEYFORM;
+    pubattr[*pubcount].ulValueLen = sizeof(CK_ULONG);
+    pubattr[*pubcount].pValue = keyform;
     (*pubcount)++;
 
     return CKR_OK;
@@ -1164,6 +1197,8 @@ static CK_RV key_pair_gen(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session))
             fprintf(stderr, "Key pair generation rejected by policy\n");
+        else if (kt == kt_IBM_DILITHIUM && rc == CKR_KEY_SIZE_RANGE)
+            fprintf(stderr, "IBM Dilithum version is not supported\n");
         else
             fprintf(stderr, "Key pair generation failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
@@ -1917,11 +1952,15 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
     case kt_IBM_DILITHIUM:
         if (dilithium_ver == NULL) {
             fprintf(stderr,
-                    "Cipher key type [%d] supported but Dilithium version not set in arguments. Try adding argument <r2_65>\n",
+                    "Cipher key type [%d] supported but Dilithium version not set in arguments. Try adding argument <r2_65>, <r2_87>, <r3_44>, <r3_65>, or <r3_87>\n",
                     *kt);
             return CKR_ARGUMENTS_BAD;
         }
-        if (strcasecmp(dilithium_ver, "r2_65") == 0) {
+        if (strcasecmp(dilithium_ver, "r2_65") == 0 ||
+            strcasecmp(dilithium_ver, "r2_87") == 0 ||
+            strcasecmp(dilithium_ver, "r3_44") == 0 ||
+            strcasecmp(dilithium_ver, "r3_65") == 0 ||
+            strcasecmp(dilithium_ver, "r3_87") == 0) {
             break;
         } else {
             fprintf(stderr, "IBM Dilithium version [%s] not supported \n", dilithium_ver);
@@ -2545,7 +2584,7 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     CK_ATTRIBUTE prv_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
     CK_ULONG prv_acount = 0;
     CK_MECHANISM mech;
-    CK_ULONG i;
+    CK_ULONG i, keyform;
     CK_RV rc;
     const char separator = ':';
 
@@ -2570,6 +2609,12 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         }
         break;
     case kt_IBM_DILITHIUM:
+        rc = read_dilithium_args(dilithium_ver, &keyform,
+                                 pub_attr, &pub_acount);
+        if (rc) {
+            fprintf(stderr, "Error parsing Dilithium parameters!\n");
+            goto done;
+        }
         printf("Generating Dilithium keypair with %s\n", dilithium_ver);
         break;
     default:
