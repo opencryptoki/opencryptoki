@@ -1843,6 +1843,12 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
     case kt_3DES:
         break;
     case kt_IBM_DILITHIUM:
+        if (dilithium_ver == NULL) {
+            fprintf(stderr,
+                    "Cipher key type [%d] supported but Dilithium version not set in arguments. Try adding argument <r2_65>\n",
+                    *kt);
+            return CKR_ARGUMENTS_BAD;
+        }
         if (strcasecmp(dilithium_ver, "r2_65") == 0) {
             break;
         } else {
