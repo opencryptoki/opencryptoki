@@ -16,7 +16,7 @@ p11sak \- generate and list token keys in an openCryptoki token repository.
 
 .SH DESCRIPTION
 .B p11sak can be used to generate, list and delete the token keys in an openCryptoki token repository.
-The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES, 3DES, AES, AES-XTS) and asymmetric (RSA, EC, IBM Dilithium) keys.
+The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES, 3DES, AES, AES-XTS) and asymmetric (RSA, EC, IBM Dilithium, IBM Kyber) keys.
 This tool is especially capable of a well defined listing of keys with their PKCS #11 attributes.
 .
 .
@@ -320,11 +320,54 @@ attribute of the key and
 can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
 .
 .PP
+.SS "Generating IBM Kyber keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR ibm-kyber
+.BR VERSION
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.I [M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the
+.B generate-key
+.B ibm-kyber
+.B VERSION
+command and key argument to generate an IBM Kyber key, where
+.I VERSION
+specifies the version of the IBM Kyber keypair. The following arguments can be used for respective keys:
+.B r2_768 | r2_1024
+.PP
+The
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to
+.IR SLOTID
+and the token PIN. The
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and
+.B \-\-attr
+.I [M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
+.
+.PP
 .SS "Listing symmetric and asymmetric keys"
 .
 .B p11sak
 .BR list-key | ls-key | ls
-.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | public | private | secret | all
+.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber | public | private | secret | all
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -336,14 +379,14 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .PP
 Use the
 .B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, AES-XTS, RSA, EC, or IBM Dilithium keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
+command and key argument to list DES, 3DES, AES, AES-XTS, RSA, EC, IBM Dilithium, or IBM Kyber keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
 .
 .B p11sak
 .BR remove-key | rm-key | rm
-.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium
+.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -355,7 +398,7 @@ command and key argument to list DES, 3DES, AES, AES-XTS, RSA, EC, or IBM Dilith
 .PP
 Use the
 .B remove-key | rm-key | rm
-command and key argument to delete DES, 3DES, AES, AES-XTS, RSA, EC, or IBM Dilithium keys, respectively. All specified cipher keys will be prompted to be deleted unless 
+command and key argument to delete DES, 3DES, AES, AES-XTS, RSA, EC, IBM Dilithium, or IBM Kyber keys, respectively. All specified cipher keys will be prompted to be deleted unless 
 a specific key with the 
 .B \-\-label
 .IR LABEL
@@ -369,7 +412,7 @@ option.
 .
 .SH ARGS
 .
-.SS "des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | public | private | secret | all"
+.SS "des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber | public | private | secret | all"
 
 selects the respective symmetric or asymmetric key to be generated or listed. The
 .B public|private|secret|all
@@ -420,6 +463,16 @@ the
 argument has to be followed by either of these
 .I VERSION
 to select the IBM dilithium version used to generate the key.
+.PP
+.
+.
+.
+.SS "r2_768|r2_1024"
+the
+.B ibm-kyber
+argument has to be followed by either of these
+.I VERSION
+to select the IBM kyber version used to generate the key.
 .PP
 .
 .

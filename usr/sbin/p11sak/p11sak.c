@@ -132,6 +132,8 @@ static const char* kt2str(p11sak_kt ktype)
         return "EC";
     case kt_IBM_DILITHIUM:
         return "IBM DILITHIUM";
+    case kt_IBM_KYBER:
+        return "IBM KYBER";
     case kt_GENERIC:
         return "GENERIC";
     case kt_SECRET:
@@ -175,6 +177,9 @@ static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type)
     case kt_IBM_DILITHIUM:
         *a_key_type = CKK_IBM_PQC_DILITHIUM;
         break; 
+    case kt_IBM_KYBER:
+        *a_key_type = CKK_IBM_PQC_KYBER;
+        break;
     case kt_GENERIC:
         *a_key_type = CKK_GENERIC_SECRET;
         break;
@@ -284,6 +289,8 @@ static const char* CKK2a(CK_KEY_TYPE t)
         return "EC";
     case CKK_IBM_PQC_DILITHIUM:
         return "IBM DILILTHIUM";
+    case CKK_IBM_PQC_KYBER:
+        return "IBM KYBER";
     case CKK_RSA:
         return "RSA";
     case CKK_DH:
@@ -366,6 +373,7 @@ static void print_listkeys_help(void)
     printf("      rsa\n");
     printf("      ec\n");
     printf("      ibm-dilithium\n");
+    printf("      ibm-kyber\n");
     printf("      public\n");
     printf("      private\n");
     printf("      secret\n");
@@ -396,6 +404,7 @@ static void print_gen_help(void)
     printf("          brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | \n");
     printf("          ed448]\n");
     printf("      ibm-dilithium [r2_65 | r2_87 | r3_44 | r3_65 | r3_87]\n");
+    printf("      ibm-kyber [r2_768 | r2_1024]\n");
     printf("\n Options:\n");
     printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
@@ -421,6 +430,7 @@ static void print_removekeys_help(void)
     printf("      rsa\n");
     printf("      ec\n");
     printf("      ibm-dilithium\n");
+    printf("      ibm-kyber\n");
     printf("\n Options:\n");
     printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
@@ -556,6 +566,25 @@ static void print_gen_ibm_dilithium_help(void)
     printf("      -h, --help                              Show this help\n\n");
 }
 
+static void print_gen_ibm_kyber_help(void)
+{
+    printf("\n Usage: p11sak generate-key ibm-kyber [ARGS] [OPTIONS]\n");
+    printf("\n Args:\n");
+    printf("      r2_768\n");
+    printf("      r2_1024\n");
+    printf("\n Options:\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --label PUB_LABEL:PRIV_LABEL\n");
+    printf("              for asymmetric keys: set individual labels for public and private key\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf("             for asymmetric keys: set individual key attributes, values see above\n");
+    printf("      -h, --help                              Show this help\n\n");
+}
+
 /**
  * Print help for generate-key command
  */
@@ -585,6 +614,9 @@ static CK_RV print_gen_keys_help(p11sak_kt *kt)
         break;
     case kt_IBM_DILITHIUM:
         print_gen_ibm_dilithium_help();
+        break;
+    case kt_IBM_KYBER:
+        print_gen_ibm_kyber_help();
         break;
     case no_key_type:
         print_gen_help();
@@ -810,6 +842,29 @@ static CK_RV read_dilithium_args(const char *dilithium_ver, CK_ULONG *keyform,
     return CKR_OK;
 }
 /**
+ * Builds the CKA_IBM_KYBER_KEYFORM attribute from the given version.
+ */
+static CK_RV read_kyber_args(const char *kyber_ver, CK_ULONG *keyform,
+                             CK_ATTRIBUTE *pubattr, CK_ULONG *pubcount)
+{
+    if (strcasecmp(kyber_ver, "r2_768") == 0) {
+        *keyform = CK_IBM_KYBER_KEYFORM_ROUND2_768;
+    } else if (strcasecmp(kyber_ver, "r2_1024") == 0) {
+        *keyform = CK_IBM_KYBER_KEYFORM_ROUND2_1024;
+    } else {
+        fprintf(stderr, "Unexpected case while parsing kyber version.\n");
+        fprintf(stderr, "Note: not all tokens support all versions.\n");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    pubattr[*pubcount].type = CKA_IBM_KYBER_KEYFORM;
+    pubattr[*pubcount].ulValueLen = sizeof(CK_ULONG);
+    pubattr[*pubcount].pValue = keyform;
+    (*pubcount)++;
+
+    return CKR_OK;
+}
+/**
  * Builds two CKA_LABEL attributes from given label.
  * By default the specified label is extended with ":pub" and ":prv" for the
  * public and private key objects.
@@ -925,6 +980,9 @@ static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech)
         break;
     case kt_IBM_DILITHIUM:
         pmech->mechanism = CKM_IBM_DILITHIUM;
+        break;
+    case kt_IBM_KYBER:
+        pmech->mechanism = CKM_IBM_KYBER;
         break;
     default:
         return CKR_MECHANISM_INVALID;
@@ -1199,6 +1257,8 @@ static CK_RV key_pair_gen(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             fprintf(stderr, "Key pair generation rejected by policy\n");
         else if (kt == kt_IBM_DILITHIUM && rc == CKR_KEY_SIZE_RANGE)
             fprintf(stderr, "IBM Dilithum version is not supported\n");
+        else if (kt == kt_IBM_KYBER && rc == CKR_KEY_SIZE_RANGE)
+            fprintf(stderr, "IBM Kyber version is not supported\n");
         else
             fprintf(stderr, "Key pair generation failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
@@ -1260,6 +1320,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_RSAPKCS:
     case kt_EC:
     case kt_IBM_DILITHIUM:
+    case kt_IBM_KYBER:
         tmplt[count].type = CKA_KEY_TYPE;
         tmplt[count].pValue = &a_key_type;
         tmplt[count].ulValueLen = sizeof(CK_KEY_TYPE);
@@ -1943,27 +2004,42 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
  * Check args for gen_key command.
  */
 static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
-                                char *ECcurve, char *dilithium_ver)
+                                char *ECcurve, char *pqc_ver)
 {
     switch (*kt) {
     case kt_DES:
     case kt_3DES:
         break;
     case kt_IBM_DILITHIUM:
-        if (dilithium_ver == NULL) {
+        if (pqc_ver == NULL) {
             fprintf(stderr,
                     "Cipher key type [%d] supported but Dilithium version not set in arguments. Try adding argument <r2_65>, <r2_87>, <r3_44>, <r3_65>, or <r3_87>\n",
                     *kt);
             return CKR_ARGUMENTS_BAD;
         }
-        if (strcasecmp(dilithium_ver, "r2_65") == 0 ||
-            strcasecmp(dilithium_ver, "r2_87") == 0 ||
-            strcasecmp(dilithium_ver, "r3_44") == 0 ||
-            strcasecmp(dilithium_ver, "r3_65") == 0 ||
-            strcasecmp(dilithium_ver, "r3_87") == 0) {
+        if (strcasecmp(pqc_ver, "r2_65") == 0 ||
+            strcasecmp(pqc_ver, "r2_87") == 0 ||
+            strcasecmp(pqc_ver, "r3_44") == 0 ||
+            strcasecmp(pqc_ver, "r3_65") == 0 ||
+            strcasecmp(pqc_ver, "r3_87") == 0) {
             break;
         } else {
-            fprintf(stderr, "IBM Dilithium version [%s] not supported \n", dilithium_ver);
+            fprintf(stderr, "IBM Dilithium version [%s] not supported \n", pqc_ver);
+            return CKR_ARGUMENTS_BAD;
+        }
+        break;
+    case kt_IBM_KYBER:
+        if (pqc_ver == NULL) {
+            fprintf(stderr,
+                    "Cipher key type [%d] supported but Kyber version not set in arguments. Try adding argument <r2_1024> or <r2_1024>\n",
+                    *kt);
+            return CKR_ARGUMENTS_BAD;
+        }
+        if (strcasecmp(pqc_ver, "r2_768") == 0 ||
+            strcasecmp(pqc_ver, "r2_1024") == 0) {
+            break;
+        } else {
+            fprintf(stderr, "IBM Kyber version [%s] not supported \n", pqc_ver);
             return CKR_ARGUMENTS_BAD;
         }
         break;
@@ -2030,6 +2106,7 @@ static CK_RV check_args_list_key(p11sak_kt *kt)
     case kt_3DES:
     case kt_EC:
     case kt_IBM_DILITHIUM:
+    case kt_IBM_KYBER:
     case kt_GENERIC:
     case kt_SECRET:
     case kt_PUBLIC:
@@ -2057,6 +2134,7 @@ static CK_RV check_args_remove_key(p11sak_kt *kt)
     case kt_RSAPKCS:
     case kt_EC:
     case kt_IBM_DILITHIUM:
+    case kt_IBM_KYBER:
     case kt_GENERIC:
     case kt_SECRET:
     case kt_PUBLIC:
@@ -2155,6 +2233,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_EC;
         } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
             *kt = kt_IBM_DILITHIUM;
+        } else if (strcasecmp(argv[i], "ibm-kyber") == 0) {
+            *kt = kt_IBM_KYBER;
         } else if (strcasecmp(argv[i], "generic") == 0) {
             *kt = kt_GENERIC;
         } else if (strcasecmp(argv[i], "secret") == 0) {
@@ -2244,7 +2324,7 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
                                 CK_ULONG *keylength, char **ECcurve,
                                 CK_SLOT_ID *slot, const char **pin,
                                 CK_ULONG *exponent, char **label,
-                                char **attr_string, char **dilithium_ver,
+                                char **attr_string, char **pqc_ver,
                                 int *force_pin_prompt)
 {
     CK_RV rc;
@@ -2280,7 +2360,11 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
             i++;
         } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
             *kt = kt_IBM_DILITHIUM;
-            *dilithium_ver = get_string_arg(i + 1, argv, argc);
+            *pqc_ver = get_string_arg(i + 1, argv, argc);
+            i++;
+        } else if (strcasecmp(argv[i], "ibm-kyber") == 0) {
+            *kt = kt_IBM_KYBER;
+            *pqc_ver = get_string_arg(i + 1, argv, argc);
             i++;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
@@ -2371,7 +2455,7 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
     }
 
     /* Check args */
-    rc = check_args_gen_key(kt, *keylength, *ECcurve, *dilithium_ver);
+    rc = check_args_gen_key(kt, *keylength, *ECcurve, *pqc_ver);
 
     /* Check required options */
     if (*label == NULL) {
@@ -2423,6 +2507,8 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_EC;
         } else if (strcasecmp(argv[i], "ibm-dilithium") == 0) {
             *kt = kt_IBM_DILITHIUM;
+        } else if (strcasecmp(argv[i], "ibm-kyber") == 0) {
+            *kt = kt_IBM_KYBER;
             /* Get options */
         } else if (strcmp(argv[i], "--slot") == 0) {
             if (i + 1 < argc) {
@@ -2507,7 +2593,7 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
                             CK_SLOT_ID *slot, const char **pin,
                             CK_ULONG *exponent, char **label,
                             char **attr_string, int *long_print, int *full_uri,
-                            CK_BBOOL *forceAll, char **dilithium_ver,
+                            CK_BBOOL *forceAll, char **pqc_ver,
                             int *force_pin_prompt)
 {
     CK_RV rc;
@@ -2515,7 +2601,7 @@ static CK_RV parse_cmd_args(p11sak_cmd cmd, char *argv[], int argc,
     switch (cmd) {
     case gen_key:
         rc = parse_gen_key_args(argv, argc, kt, keylength, ECcurve, slot, pin,
-                exponent, label, attr_string, dilithium_ver, force_pin_prompt);
+                exponent, label, attr_string, pqc_ver, force_pin_prompt);
         break;
     case list_key:
         rc = parse_list_key_args(argv, argc, kt, keylength, slot, pin,
@@ -2576,7 +2662,7 @@ done:
 static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                                      p11sak_kt kt, CK_ULONG keylength,
                                      CK_ULONG exponent, char *ECcurve,
-                                     char *label, char *attr_string, char *dilithium_ver)
+                                     char *label, char *attr_string, char *pqc_ver)
 {
     CK_OBJECT_HANDLE pub_keyh, prv_keyh;
     CK_ATTRIBUTE pub_attr[KEY_MAX_BOOL_ATTR_COUNT + 2];
@@ -2609,13 +2695,21 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         }
         break;
     case kt_IBM_DILITHIUM:
-        rc = read_dilithium_args(dilithium_ver, &keyform,
+        rc = read_dilithium_args(pqc_ver, &keyform,
                                  pub_attr, &pub_acount);
         if (rc) {
             fprintf(stderr, "Error parsing Dilithium parameters!\n");
             goto done;
         }
-        printf("Generating Dilithium keypair with %s\n", dilithium_ver);
+        printf("Generating Dilithium keypair with %s\n", pqc_ver);
+        break;
+    case kt_IBM_KYBER:
+        rc = read_kyber_args(pqc_ver, &keyform, pub_attr, &pub_acount);
+        if (rc) {
+            fprintf(stderr, "Error parsing Kyber parameters!\n");
+            goto done;
+        }
+        printf("Generating Kyber keypair with %s\n", pqc_ver);
         break;
     default:
         fprintf(stderr, "The key type %d is not yet supported.\n", kt);
@@ -2721,7 +2815,7 @@ done:
 static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                            p11sak_kt kt, CK_ULONG keylength, char *ECcurve,
                            CK_ULONG exponent, char *label, char *attr_string,
-                           char *dilithium_ver)
+                           char *pqc_ver)
 {
     switch (kt) {
     case kt_DES:
@@ -2733,8 +2827,9 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     case kt_RSAPKCS:
     case kt_EC:
     case kt_IBM_DILITHIUM:
+    case kt_IBM_KYBER:
         return generate_asymmetric_key(session, slot, kt, keylength, exponent,
-                ECcurve, label, attr_string, dilithium_ver);
+                ECcurve, label, attr_string, pqc_ver);
     default:
         fprintf(stderr, "Error: cannot create a key of type %i (%s)\n", kt, kt2str(kt));
         return CKR_ARGUMENTS_BAD;
@@ -3136,13 +3231,13 @@ static CK_RV execute_cmd(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                          p11sak_cmd cmd, p11sak_kt kt, CK_ULONG keylength,
                          CK_ULONG exponent, char *ECcurve, char *label,
                          char *attr_string, int long_print, int full_uri,
-                         CK_BBOOL *forceAll, char *dilithium_ver)
+                         CK_BBOOL *forceAll, char *pqc_ver)
 {
     CK_RV rc;
     switch (cmd) {
     case gen_key:
         rc = generate_ckey(session, slot, kt, keylength, ECcurve, exponent,
-                label, attr_string, dilithium_ver);
+                label, attr_string, pqc_ver);
         break;
     case list_key:
         rc = list_ckey(session, slot, kt, long_print, label, full_uri);
@@ -3283,7 +3378,7 @@ int main(int argc, char *argv[])
     char *ECcurve = NULL;
     char *attr_string = NULL;
     CK_ULONG keylength = 0;
-    char *dilithium_ver = NULL;
+    char *pqc_ver = NULL;
     CK_RV rc = CKR_OK;
     CK_SESSION_HANDLE session;
     const char *pin = NULL;
@@ -3309,7 +3404,7 @@ int main(int argc, char *argv[])
     /* Parse command args */
     rc = parse_cmd_args(cmd, argv, argc, &kt, &keylength, &ECcurve, &slot, &pin,
             &exponent, &label, &attr_string, &long_print, &full_uri, &forceAll,
-            &dilithium_ver, &force_pin_prompt);
+            &pqc_ver, &force_pin_prompt);
     if (rc != CKR_OK) {
         goto done;
     }
@@ -3346,7 +3441,7 @@ int main(int argc, char *argv[])
 
     /* Execute command */
     rc = execute_cmd(session, slot, cmd, kt, keylength, exponent, ECcurve,
-            label, attr_string, long_print, full_uri, &forceAll, dilithium_ver);
+            label, attr_string, long_print, full_uri, &forceAll, pqc_ver);
     if (rc == CKR_CANCEL) {
         fprintf(stderr, "Cancel execution: p11sak %s command (error code 0x%lX: %s)\n", cmd2str(cmd), rc,
                 p11_get_ckr(rc));
