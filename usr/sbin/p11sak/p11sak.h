@@ -26,6 +26,7 @@ typedef enum {
     kt_RSAPKCS,
     kt_EC,
     kt_IBM_DILITHIUM,
+    kt_IBM_KYBER,
     kt_GENERIC,
     kt_SECRET,
     kt_PUBLIC,
