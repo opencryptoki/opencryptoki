@@ -22,6 +22,7 @@ typedef enum {
     kt_DES,
     kt_3DES,
     kt_AES,
+    kt_AES_XTS,
     kt_RSAPKCS,
     kt_EC,
     kt_IBM_DILITHIUM,

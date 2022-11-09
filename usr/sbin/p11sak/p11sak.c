@@ -124,6 +124,8 @@ static const char* kt2str(p11sak_kt ktype)
         return "3DES";
     case kt_AES:
         return "AES";
+    case kt_AES_XTS:
+        return "AES-XTS";
     case kt_RSAPKCS:
         return "RSA_PKCS";
     case kt_EC:
@@ -160,6 +162,9 @@ static CK_RV kt2CKK(p11sak_kt ktype, CK_KEY_TYPE *a_key_type)
         break;
     case kt_AES:
         *a_key_type = CKK_AES;
+        break;
+    case kt_AES_XTS:
+        *a_key_type = CKK_AES_XTS;
         break;
     case kt_RSAPKCS:
         *a_key_type = CKK_RSA;
@@ -273,6 +278,8 @@ static const char* CKK2a(CK_KEY_TYPE t)
         return "3DES";
     case CKK_AES:
         return "AES";
+    case CKK_AES_XTS:
+        return "AES-XTS";
     case CKK_EC:
         return "EC";
     case CKK_IBM_PQC_DILITHIUM:
@@ -355,6 +362,7 @@ static void print_listkeys_help(void)
     printf("      des\n");
     printf("      3des\n");
     printf("      aes\n");
+    printf("      aes-xts\n");
     printf("      rsa\n");
     printf("      ec\n");
     printf("      ibm-dilithium\n");
@@ -380,6 +388,7 @@ static void print_gen_help(void)
     printf("      des\n");
     printf("      3des\n");
     printf("      aes [128 | 192 | 256]\n");
+    printf("      aes-xts [128 | 256]\n");
     printf("      rsa [1024 | 2048 | 4096]\n");
     printf("      ec [prime256v1 | prime192v1 | secp224r1 | secp384r1 | secp521r1 | secp256k1 | \n");
     printf("          brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | \n");
@@ -412,6 +421,7 @@ static void print_removekeys_help(void)
     printf("      des\n");
     printf("      3des\n");
     printf("      aes\n");
+    printf("      aes-xts\n");
     printf("      rsa\n");
     printf("      ec\n");
     printf("      ibm-dilithium\n");
@@ -447,6 +457,24 @@ static void print_gen_aes_help(void)
     printf("\n Args:\n");
     printf("      128\n");
     printf("      192\n");
+    printf("      256\n");
+    printf("\n Options:\n");
+    printf(
+            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --pin PIN                               pkcs11 user PIN\n");
+    printf("      --force-pin-prompt                      enforce user PIN prompt\n");
+    printf(
+            "      --label LABEL                           key label LABEL to be listed\n");
+    printf(
+            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      -h, --help                              Show this help\n\n");
+}
+
+static void print_gen_aes_xts_help(void)
+{
+    printf("\n Usage: p11sak generate-key aes-xts [ARGS] [OPTIONS]\n");
+    printf("\n Args:\n");
+    printf("      128\n");
     printf("      256\n");
     printf("\n Options:\n");
     printf(
@@ -558,6 +586,9 @@ static CK_RV print_gen_keys_help(p11sak_kt *kt)
         break;
     case kt_AES:
         print_gen_aes_help();
+        break;
+    case kt_AES_XTS:
+        print_gen_aes_xts_help();
         break;
     case kt_RSAPKCS:
         print_gen_rsa_help();
@@ -818,6 +849,9 @@ static CK_RV key_pair_gen_mech(p11sak_kt kt, CK_MECHANISM *pmech)
     case kt_AES:
         pmech->mechanism = CKM_AES_KEY_GEN;
         break;
+    case kt_AES_XTS:
+        pmech->mechanism = CKM_AES_XTS_KEY_GEN;
+        break;
     case kt_RSAPKCS:
         pmech->mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN;
         break;
@@ -845,6 +879,7 @@ static CK_BBOOL attr_na(const CK_ULONG attr_type, p11sak_kt ktype)
     case kt_DES:
     case kt_3DES:
     case kt_AES:
+    case kt_AES_XTS:
     case kt_SECRET:
         switch (attr_type) {
         case CKA_TRUSTED:
@@ -1000,6 +1035,7 @@ CK_BBOOL is_mech_supported(CK_SLOT_ID slot, CK_MECHANISM *pmech,
         case CKM_DES_KEY_GEN:
         case CKM_DES3_KEY_GEN:
         case CKM_AES_KEY_GEN:
+        case CKM_AES_XTS_KEY_GEN:
             keybits /= 8; /* mechinfo reports key size in bytes */
             break;
         }
@@ -1152,6 +1188,7 @@ static CK_RV tok_key_list_init(CK_SESSION_HANDLE session, p11sak_kt kt,
     case kt_DES:
     case kt_3DES:
     case kt_AES:
+    case kt_AES_XTS:
     case kt_GENERIC:
     case kt_RSAPKCS:
     case kt_EC:
@@ -1808,6 +1845,7 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
     *klength = 0;
     switch (kt) {
     case CKK_AES:
+    case CKK_AES_XTS:
     case CKK_GENERIC_SECRET:
         template[0].type = CKA_VALUE_LEN;
         template[0].pValue = &vl;
@@ -1820,6 +1858,8 @@ static CK_RV tok_key_get_key_type(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE hk
             return rc;
         }
         *klength = vl * 8;
+        if (kt == CKK_AES_XTS)
+            *klength /= 2;
         break;
     default:
         // Fall through - template values set above
@@ -1866,6 +1906,16 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             return CKR_ARGUMENTS_BAD;
         }
         break;
+    case kt_AES_XTS:
+        if ((keylength == 128) || (keylength == 256)) {
+            break;
+        } else {
+            fprintf(stderr,
+                    "Cipher key type [%d] and key bit length %ld is not supported. Try adding argument -bits <128|256>\n",
+                    *kt, keylength);
+            return CKR_ARGUMENTS_BAD;
+        }
+        break;
     case kt_RSAPKCS:
         if ((keylength == 1024) || (keylength == 2048) || (keylength == 4096)) {
             break;
@@ -1903,6 +1953,7 @@ static CK_RV check_args_list_key(p11sak_kt *kt)
 {
     switch (*kt) {
     case kt_AES:
+    case kt_AES_XTS:
     case kt_RSAPKCS:
     case kt_DES:
     case kt_3DES:
@@ -1931,6 +1982,7 @@ static CK_RV check_args_remove_key(p11sak_kt *kt)
     case kt_DES:
     case kt_3DES:
     case kt_AES:
+    case kt_AES_XTS:
     case kt_RSAPKCS:
     case kt_EC:
     case kt_IBM_DILITHIUM:
@@ -2024,6 +2076,8 @@ static CK_RV parse_list_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_3DES;
         } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
+        } else if (strcasecmp(argv[i], "aes-xts") == 0) {
+            *kt = kt_AES_XTS;
         } else if (strcasecmp(argv[i], "rsa") == 0) {
             *kt = kt_RSAPKCS;
         } else if (strcasecmp(argv[i], "ec") == 0) {
@@ -2139,6 +2193,10 @@ static CK_RV parse_gen_key_args(char *argv[], int argc, p11sak_kt *kt,
             *keylength = 192;
         } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
+            *keylength = get_ulong_arg(i + 1, argv, argc);
+            i++;
+        } else if (strcasecmp(argv[i], "aes-xts") == 0) {
+            *kt = kt_AES_XTS;
             *keylength = get_ulong_arg(i + 1, argv, argc);
             i++;
         } else if (strcasecmp(argv[i], "rsa") == 0) {
@@ -2286,6 +2344,8 @@ static CK_RV parse_remove_key_args(char *argv[], int argc, p11sak_kt *kt,
             *kt = kt_3DES;
         } else if (strcasecmp(argv[i], "aes") == 0) {
             *kt = kt_AES;
+        } else if (strcasecmp(argv[i], "aes-xts") == 0) {
+            *kt = kt_AES_XTS;
         } else if (strcasecmp(argv[i], "rsa") == 0) {
             *kt = kt_RSAPKCS;
         } else if (strcasecmp(argv[i], "ec") == 0) {
@@ -2421,6 +2481,9 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 p11_get_ckr(rc));
         goto done;
     }
+
+    if (kt == kt_AES_XTS)
+        keylength *= 2;
 
     rc = tok_key_gen(session, slot, keylength, &mech, attr_string, &hkey,
                      label);
@@ -2587,6 +2650,7 @@ static CK_RV generate_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     case kt_DES:
     case kt_3DES:
     case kt_AES:
+    case kt_AES_XTS:
         return generate_symmetric_key(session, slot, kt, keylength, label,
                 attr_string);
     case kt_RSAPKCS:

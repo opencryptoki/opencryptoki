@@ -16,7 +16,7 @@ p11sak \- generate and list token keys in an openCryptoki token repository.
 
 .SH DESCRIPTION
 .B p11sak can be used to generate, list and delete the token keys in an openCryptoki token repository.
-The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES; 3DES, AES) and asymetric (RSA, EC) keys.
+The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES, 3DES, AES, AES-XTS) and asymmetric (RSA, EC, IBM Dilithium) keys.
 This tool is especially capable of a well defined listing of keys with their PKCS #11 attributes.
 .
 .
@@ -130,6 +130,44 @@ Use the
 .B aes
 .B 128|192|256
 command and key argument to generate a AES key with 128, 192 or 256 bit length, respectively. The
+.B \-\-slot
+.IR SLOTID
+and
+.B \-\-pin
+.IR PIN
+options are required to set the token to
+.IR SLOTID
+and the token PIN. The
+.B \-\-label
+option allows the user to set the
+.IR LABEL
+attribute of the key and
+.B \-\-attr
+.IR [P M R L S E D G V W U A X N T]
+can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.
+.PP
+.SS "Generating AES-XTS keys"
+.
+.B p11sak
+.BR generate-key | gen-key | gen
+.BR aes-xts
+.BR 128 | 256
+.B \-\-slot
+.IR SLOTID
+.B \-\-pin
+.IR PIN
+.B \-\-label
+.IR LABEL
+.B \-\-attr
+.IR [P M R L S E D G V W U A X N T]
+.B \-\-help | \-h
+.PP
+Use the
+.B generate-key
+.B aes-xts
+.B 128|256
+command and key argument to generate a AES-XTS key with 128 or 256 bit length, respectively. The
 .B \-\-slot
 .IR SLOTID
 and
@@ -286,7 +324,7 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .
 .B p11sak
 .BR list-key | ls-key | ls
-.BR des | 3des | aes | rsa | ec | ibm-dilithium | public | private | secret | all
+.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | public | private | secret | all
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -298,14 +336,14 @@ can be used to set the binary attributes of the key (see below for detailed desc
 .PP
 Use the
 .B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, RSA, EC, or IBM Dilithium keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
+command and key argument to list DES, 3DES, AES, AES-XTS, RSA, EC, or IBM Dilithium keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
 .
 .B p11sak
 .BR remove-key | rm-key | rm
-.BR des | 3des | aes | rsa | ec | ibm-dilithium
+.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium
 .B \-\-slot
 .IR SLOTID
 .B \-\-pin
@@ -317,7 +355,7 @@ command and key argument to list DES, 3DES, AES, RSA, EC, or IBM Dilithium keys,
 .PP
 Use the
 .B remove-key | rm-key | rm
-command and key argument to delete DES, 3DES, AES, RSA, EC, or IBM Dilithium keys, respectively. All specified cipher keys will be prompted to be deleted unless 
+command and key argument to delete DES, 3DES, AES, AES-XTS, RSA, EC, or IBM Dilithium keys, respectively. All specified cipher keys will be prompted to be deleted unless 
 a specific key with the 
 .B \-\-label
 .IR LABEL
@@ -331,9 +369,9 @@ option.
 .
 .SH ARGS
 .
-.SS "des | 3des | aes | rsa | ec | ibm-dilithium | public | private | secret | all"
+.SS "des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | public | private | secret | all"
 
-selects the respective symmetric or asymetric key to be generated or listed. The
+selects the respective symmetric or asymmetric key to be generated or listed. The
 .B public|private|secret|all
 argument can only be used with the
 .B list-key
@@ -346,6 +384,14 @@ command to list either public, private, secret, or all keys.
 the
 .B aes
 argument has to be followed by either 128, 192 or 256 to set the respective key bit length of the AES key.
+.PP
+.
+.
+.
+.SS "128|256"
+the
+.B aes-xts
+argument has to be followed by either 128 or 256 to set the respective key bit length of the AES-XTS key.
 .PP
 .
 .
