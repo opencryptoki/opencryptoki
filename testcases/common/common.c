@@ -1222,7 +1222,10 @@ CK_BBOOL do_GetFunctionList(void)
     CK_FLAGS flags;
     CK_BBOOL rv;
     CK_RV rc;
-    CK_RV(*pfoo) ();
+    CK_RV(*getfunclist)(CK_FUNCTION_LIST **funcs);
+    CK_RV(*getinterfacelist)(CK_INTERFACE_PTR interfaces, CK_ULONG *count);
+    CK_RV(*getinterface)(CK_UTF8CHAR_PTR name, CK_VERSION_PTR version,
+                         CK_INTERFACE_PTR_PTR interface, CK_FLAGS flags);
     char *e;
     char *f = "libopencryptoki.so";
     CK_ULONG nmemb = 0;
@@ -1237,21 +1240,21 @@ CK_BBOOL do_GetFunctionList(void)
     if (pkcs11lib == NULL)
         goto ret;
 
-    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
-    if (pfoo == NULL)
+    *(void **)(&getfunclist) = dlsym(pkcs11lib, "C_GetFunctionList");
+    if (getfunclist == NULL)
         goto ret;
 
-    rc = pfoo(&funcs);
+    rc = getfunclist(&funcs);
     if (rc != CKR_OK) {
         testcase_error("C_GetFunctionList rc=%s", p11_get_ckr(rc));
         goto ret;
     }
 
-    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetInterfaceList");
-    if (pfoo == NULL) {
+    *(void **)(&getinterfacelist) = dlsym(pkcs11lib, "C_GetInterfaceList");
+    if (getinterfacelist == NULL) {
         goto ret;
     }
-    rc = pfoo(NULL, &nmemb);
+    rc = getinterfacelist(NULL, &nmemb);
     if (rc != CKR_OK) {
         testcase_error("C_GetInterfaceList rc=%s", p11_get_ckr(rc));
         goto ret;
@@ -1260,20 +1263,20 @@ CK_BBOOL do_GetFunctionList(void)
     if (ifs == NULL) {
         goto ret;
     }
-    rc = pfoo(ifs, &nmemb);
+    rc = getinterfacelist(ifs, &nmemb);
     if (rc != CKR_OK) {
         testcase_error("C_GetInterfaceList rc=%s", p11_get_ckr(rc));
         goto ret;
     }
 
-    *(void **)(&pfoo) = dlsym(pkcs11lib, "C_GetInterface");
-    if (pfoo == NULL) {
+    *(void **)(&getinterface) = dlsym(pkcs11lib, "C_GetInterface");
+    if (getinterface == NULL) {
         goto ret;
     }
     version.major = 0x03;
     version.minor = 0x00;
     flags = CKF_INTERFACE_FORK_SAFE;
-    rc = pfoo((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
+    rc = getinterface((CK_UTF8CHAR *)"PKCS 11", &version, &interface, flags);
     if (rc != CKR_OK) {
         testcase_error("C_GetInterface rc=%s", p11_get_ckr(rc));
         goto ret;

@@ -597,7 +597,7 @@ void teardown(CK_SESSION_HANDLE session) {
 
 /// Test functions
 
-CK_RV do_CheckMechanismInfo()
+CK_RV do_CheckMechanismInfo(void)
 {
     CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS params = {
         .hSignVerifyKey = CK_INVALID_HANDLE
@@ -1109,7 +1109,7 @@ void do_TestDerive(CK_SESSION_HANDLE session)
     }
 }
 
-void testdriver()
+void testdriver(void)
 {
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_ULONG user_pin_len;

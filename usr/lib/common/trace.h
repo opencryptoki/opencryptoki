@@ -119,8 +119,8 @@ struct trace_handle_t {
 extern struct trace_handle_t trace;
 
 void set_trace(struct trace_handle_t t);
-CK_RV trace_initialize();
-void trace_finalize();
+CK_RV trace_initialize(void);
+void trace_finalize(void);
 void ock_traceit(trace_level_t level, const char *file, int line,
                  const char *stdll_name, const char *fmt, ...)
                  __attribute__ ((format(printf, 5, 6)));

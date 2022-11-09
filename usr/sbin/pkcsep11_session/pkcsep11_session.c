@@ -152,7 +152,7 @@ out:
 static int do_GetFunctionList(void)
 {
     CK_RV rc;
-    CK_RV (*func_list)() = NULL;
+    CK_RV (*func_list)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList) = NULL;
     void *d;
     char *evar;
     char *evar_default = "libopencryptoki.so";
@@ -1010,7 +1010,7 @@ done:
     return CKR_OK;
 }
 
-static CK_RV show_ep11_status()
+static CK_RV show_ep11_status(void)
 {
     ep11_target_t any_target = { 0, 0, { 0 } };
     CK_RV rc;
@@ -1031,7 +1031,7 @@ static CK_RV show_ep11_status()
 #define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW
 #endif
 
-static void *ep11_load_host_lib()
+static void *ep11_load_host_lib(void)
 {
     void *lib_ep11;
     char *ep11_lib_name;

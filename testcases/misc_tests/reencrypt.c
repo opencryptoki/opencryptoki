@@ -758,7 +758,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV do_reencrypt_tests()
+CK_RV do_reencrypt_tests(void)
 {
     CK_ULONG i;
     CK_RV rc;

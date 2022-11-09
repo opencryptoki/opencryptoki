@@ -464,7 +464,7 @@ struct display_data {
     bool first_slot;
 };
 
-static void print_horizontal_line()
+static void print_horizontal_line(void)
 {
     int i;
 
@@ -474,7 +474,7 @@ static void print_horizontal_line()
     printf("-\n");
 }
 
-static void print_header()
+static void print_header(void)
 {
     int i;
 
@@ -488,7 +488,7 @@ static void print_header()
     print_horizontal_line();
 }
 
-static void print_footer()
+static void print_footer(void)
 {
     print_horizontal_line();
     printf("\n");
@@ -710,7 +710,7 @@ done:
 
 int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
 {
-    void (*sym_ptr)();
+    void (*sym_ptr)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
     CK_RV rc;
 
     *dll = dlopen("libopencryptoki.so", RTLD_NOW);
@@ -749,7 +749,7 @@ int init_ock(void **dll, CK_FUNCTION_LIST_PTR *func_list)
     return 0;
 }
 
-static int print_json_start()
+static int print_json_start(void)
 {
     char timestamp[200];
     struct utsname un;

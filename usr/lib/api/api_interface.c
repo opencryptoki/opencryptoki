@@ -39,7 +39,7 @@
 
 #include <openssl/err.h>
 
-void api_init();
+void api_init(void);
 
 static int openssl_err_cb(const char *str, size_t len, void *u)
 {
@@ -307,7 +307,7 @@ static CK_INTERFACE interface_list[] = {
     }
 };
 
-void child_fork_initializer()
+void child_fork_initializer(void)
 {
     /*
      * Reinitialize trace so that the trace output appears under the new
@@ -336,7 +336,7 @@ void child_fork_initializer()
     in_child_fork_initializer = FALSE;
 }
 
-void parent_fork_prepare()
+void parent_fork_prepare(void)
 {
     if (Anchor == NULL)
         return;
@@ -350,7 +350,7 @@ void parent_fork_prepare()
         stop_event_thread();
 }
 
-void parent_fork_after()
+void parent_fork_after(void)
 {
     if (Anchor == NULL)
         return;
@@ -361,7 +361,7 @@ void parent_fork_after()
         start_event_thread();
 }
 
-static CK_RV check_user_and_group()
+static CK_RV check_user_and_group(void)
 {
     int i;
     uid_t euid;
@@ -2861,7 +2861,7 @@ CK_RV C_GetTokenInfo(CK_SLOT_ID slotID, CK_TOKEN_INFO_PTR pInfo)
     return rv;
 }                               // end of C_GetTokenInfo
 
-void Call_Finalize()
+void Call_Finalize(void)
 {
     C_Finalize(NULL);
     return;
@@ -5515,7 +5515,7 @@ void api_init(void)
 void api_fini(void) __attribute__ ((destructor));
 #endif
 
-void api_fini()
+void api_fini(void)
 {
     if (API_Initialized() == TRUE) {
         in_destructor = TRUE;

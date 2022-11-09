@@ -236,7 +236,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV run_GenerateDilithiumKeyPairSignVerify()
+CK_RV run_GenerateDilithiumKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
@@ -323,7 +323,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV run_ImportDilithiumKeyPairSignVerify()
+CK_RV run_ImportDilithiumKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
@@ -526,7 +526,7 @@ done:
     return rc;
 }
 
-CK_RV run_TransferDilithiumKeyPairSignVerify()
+CK_RV run_TransferDilithiumKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;

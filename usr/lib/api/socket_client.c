@@ -456,7 +456,7 @@ static void *event_thread(void *arg)
     return NULL;
 }
 
-int start_event_thread()
+int start_event_thread(void)
 {
     int rc;
 
@@ -472,7 +472,7 @@ int start_event_thread()
     return 0;
 }
 
-int stop_event_thread()
+int stop_event_thread(void)
 {
     int rc;
     void *status;

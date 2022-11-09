@@ -55,10 +55,40 @@ token_spec_t token_specific;
 
 int v_level = 0;
 void *p11_lib = NULL;
-void (*CSNDKTC) ();
-void (*CSNBKTC) ();
-void (*CSNBKTC2) ();
-void (*CSNBDEC) ();
+void (*CSNDKTC)(long *return_code,
+                long *reason_code,
+                long *exit_data_length,
+                unsigned char *exit_data,
+                long *rule_array_count,
+                unsigned char *rule_array, long *key_id_length,
+                unsigned char *key_id);
+void (*CSNBKTC)(long *return_code,
+                long *reason_code,
+                long *exit_data_length,
+                unsigned char *exit_data,
+                long *rule_array_count,
+                unsigned char *rule_array,
+                unsigned char *key_identifier);
+void (*CSNBKTC2)(long *return_code,
+                 long *reason_code,
+                 long *exit_data_length,
+                 unsigned char *exit_data,
+                 long *rule_array_count,
+                 unsigned char *rule_array,
+                 long *key_identifier_length,
+                 unsigned char *key_identifier);
+void (*CSNBDEC)(long *return_code,
+                long *reason_code,
+                long *exit_data_length,
+                unsigned char *exit_data,
+                unsigned char *key_identifier,
+                long *text_length,
+                unsigned char *ciphertext,
+                unsigned char *initialization_vector,
+                long *rule_array_count,
+                unsigned char *rule_array,
+                unsigned char *chaining_vector,
+                unsigned char *plaintext);
 void *lib_csulcca;
 
 static struct algo aes = {(CK_BYTE *)"RTCMK   AES     ", (CK_BYTE *)"AES", 2 };
@@ -593,7 +623,7 @@ done:
 CK_FUNCTION_LIST *p11_init(void)
 {
     CK_RV rv;
-    CK_RV (*pfoo) ();
+    CK_RV (*getfunclist)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
     char *loc1_lib = "/usr/lib/pkcs11/PKCS11_API.so64";
     char *loc2_lib = "libopencryptoki.so";
     CK_FUNCTION_LIST *funcs = NULL;
@@ -610,15 +640,15 @@ CK_FUNCTION_LIST *p11_init(void)
     }
 
 get_list:
-    *(void **)(&pfoo) = dlsym(p11_lib, "C_GetFunctionList");
-    if (pfoo == NULL) {
+    *(void **)(&getfunclist) = dlsym(p11_lib, "C_GetFunctionList");
+    if (getfunclist == NULL) {
         print_error("Couldn't get the address of the C_GetFunctionList "
                     "routine.");
         dlclose(p11_lib);
         return NULL;
     }
 
-    rv = pfoo(&funcs);
+    rv = getfunclist(&funcs);
     if (rv != CKR_OK) {
         p11_error("C_GetFunctionList", rv);
         dlclose(p11_lib);

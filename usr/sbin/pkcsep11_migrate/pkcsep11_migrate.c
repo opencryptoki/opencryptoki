@@ -215,7 +215,7 @@ static CK_RV get_ep11_library_version(CK_VERSION *lib_version)
 }
 
 
-static int check_card_status()
+static int check_card_status(void)
 {
     CK_RV rc;
     ep11_target_t target_list;
@@ -306,7 +306,7 @@ out:
 static int do_GetFunctionList(void)
 {
     CK_RV rc;
-    CK_RV (*func_list) () = NULL;
+    CK_RV (*func_list)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList) = NULL;
     void *d;
     char *evar;
     char *evar_default = "libopencryptoki.so";
@@ -405,7 +405,7 @@ static int do_ParseArgs(int argc, char **argv)
 #define DLOPEN_FLAGS        RTLD_GLOBAL | RTLD_NOW
 #endif
 
-static void *ep11_load_host_lib()
+static void *ep11_load_host_lib(void)
 {
     void *lib_ep11;
     char *ep11_lib_name;

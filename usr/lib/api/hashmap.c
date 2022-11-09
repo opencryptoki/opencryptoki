@@ -78,7 +78,7 @@ struct hashmap {
 /* Create size-optimized empty hash.  First add will expand the hash to its
  * default capacity.
  */
-struct hashmap *hashmap_new()
+struct hashmap *hashmap_new(void)
 {
     struct hashmap *res = malloc(sizeof(struct hashmap));
     if (!res)

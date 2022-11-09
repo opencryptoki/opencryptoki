@@ -22,18 +22,18 @@
 #include "policy.h"
 #include "statistics.h"
 
-void *attach_shared_memory();
+void *attach_shared_memory(void);
 void detach_shared_memory(char *);
 
 
-int API_Initialized();
-int API_Register();
-void API_UnRegister();
+int API_Initialized(void);
+int API_Register(void);
+void API_UnRegister(void);
 int DL_Load_and_Init(API_Slot_t *, CK_SLOT_ID, policy_t policy,
                      statistics_t statistics);
 
 
-CK_RV CreateProcLock();
+CK_RV CreateProcLock(void);
 CK_RV ProcLock(void);
 CK_RV ProcUnLock(void);
 CK_RV ProcClose(void);
@@ -55,7 +55,7 @@ int sessions_exist(CK_SLOT_ID);
 void CloseAllSessions(CK_SLOT_ID slot_id, CK_BBOOL in_fork_initializer);
 int connect_socket(const char *file_path);
 int init_socket_data(int socketfd);
-int start_event_thread();
-int stop_event_thread();
+int start_event_thread(void);
+int stop_event_thread(void);
 
 #endif

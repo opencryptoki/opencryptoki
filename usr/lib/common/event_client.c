@@ -110,7 +110,7 @@ static ssize_t send_all(int socketfd, char *buffer, size_t size)
  * Returns a file descriptor representing the connection, or a negative errno
  * in case of an error.
  */
-int init_event_client()
+int init_event_client(void)
 {
     int fd;
 

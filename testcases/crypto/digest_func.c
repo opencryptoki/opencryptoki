@@ -1607,7 +1607,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV digest_funcs()
+CK_RV digest_funcs(void)
 {
     CK_RV rc;
     unsigned int i;

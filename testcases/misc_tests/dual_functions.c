@@ -38,7 +38,7 @@ CK_BYTE data1[512];
 CK_BYTE data2[512];
 
 
-CK_RV do_digest_encrypt_decrypt_digest()
+CK_RV do_digest_encrypt_decrypt_digest(void)
 {
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
@@ -381,7 +381,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV do_sign_encrypt_decrypt_verify()
+CK_RV do_sign_encrypt_decrypt_verify(void)
 {
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
@@ -742,7 +742,7 @@ testcase_cleanup:
 
 }
 
-CK_RV do_save_restore_dual_state()
+CK_RV do_save_restore_dual_state(void)
 {
     CK_SESSION_HANDLE session;
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
@@ -986,7 +986,7 @@ testcase_cleanup:
 
 }
 
-CK_RV do_dual_functions_tests()
+CK_RV do_dual_functions_tests(void)
 {
     CK_RV rc = CKR_OK;
 

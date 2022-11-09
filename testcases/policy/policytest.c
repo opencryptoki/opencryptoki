@@ -264,7 +264,7 @@ static CK_RV generateECKey(void)
                                     &pubkey, &privkey);
 }
 
-static CK_RV generateAESKey()
+static CK_RV generateAESKey(void)
 {
     CK_OBJECT_HANDLE key;
     CK_ULONG keylen = POLICY_TEST_AES_SIZE / 8;

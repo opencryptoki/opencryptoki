@@ -1078,7 +1078,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV rsa_funcs()
+CK_RV rsa_funcs(void)
 {
     unsigned int i;
     CK_RV rv = CKR_OK;

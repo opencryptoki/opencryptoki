@@ -78,7 +78,7 @@ static void unload_pkcs11lib(void)
 static void load_pkcs11lib(void)
 {
     CK_RV rc;
-    CK_RV (*pfoo)();
+    CK_RV (*getfunclist)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
     const char *libname;
 
     /* check for environment variable PKCSLIB */
@@ -94,14 +94,14 @@ static void load_pkcs11lib(void)
     }
 
     /* get function list */
-    *(void**) (&pfoo) = dlsym(pkcs11lib, "C_GetFunctionList");
-    if (!pfoo) {
+    *(void**) (&getfunclist) = dlsym(pkcs11lib, "C_GetFunctionList");
+    if (!getfunclist) {
         dlclose(pkcs11lib);
         fprintf(stderr, "Error: failed to resolve symbol '%s' from pkcs11 lib '%s'\n",
                 "C_GetFunctionList", libname);
         exit(99);
     }
-    rc = pfoo(&funcs);
+    rc = getfunclist(&funcs);
     if (rc != CKR_OK) {
         dlclose(pkcs11lib);
         fprintf(stderr, "Error: C_GetFunctionList() on pkcs11 lib '%s' failed with rc = 0x%lX - %s)\n",
@@ -3080,7 +3080,7 @@ static CK_RV close_session(CK_SESSION_HANDLE session)
     return rc;
 }
 
-static CK_RV parse_file() {
+static CK_RV parse_file(void) {
     FILE *fp = NULL;
     char *file_loc = getenv("P11SAK_DEFAULT_CONF_FILE");
     char pathname[PATH_MAX];
