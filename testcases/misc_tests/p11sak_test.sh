@@ -41,6 +41,9 @@ P11SAK_EC_POST=p11sak-ec-post.out
 P11SAK_IBM_DIL_PRE=p11sak-ibm-dil-pre.out
 P11SAK_IBM_DIL_LONG=p11sak-ibm-dil-long.out
 P11SAK_IBM_DIL_POST=p11sak-ibm-dil-post.out
+P11SAK_IBM_KYBER_PRE=p11sak-ibm-kyber-pre.out
+P11SAK_IBM_KYBER_LONG=p11sak-ibm-kyber-long.out
+P11SAK_IBM_KYBER_POST=p11sak-ibm-kyber-post.out
 P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
@@ -93,6 +96,12 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 else
 	echo "Skip generating ibm-dilithium keys, slot does not support CKM_IBM_DILITHIUM"
 fi
+# ibm-kyber
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+	p11sak generate-key ibm-kyber r2_1024 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-kyber
+else
+	echo "Skip generating ibm-kyber keys, slot does not support CKM_IBM_KYBER"
+fi
 
 
 echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
@@ -114,6 +123,7 @@ p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AE
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_RSA_LONG
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_EC_LONG
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_IBM_DIL_LONG
+p11sak list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_IBM_KYBER_LONG
 
 p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_ALL_PINOPT
 RC_P11SAK_PINOPT=$?
@@ -158,6 +168,9 @@ p11sak remove-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ec-secp5
 # remove ibm dilithium keys
 p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium:pub -f
 p11sak remove-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-dilithium:prv -f
+# remove ibm kyber keys
+p11sak remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-kyber:pub -f
+p11sak remove-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-ibm-kyber:prv -f
 
 
 echo "** Now list keys and rediirect to post-files - 'p11sak_test.sh'"
@@ -171,6 +184,7 @@ p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_XTS_P
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_POST
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_POST
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_DIL_POST
+p11sak list-key ibm-kyber --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_KYBER_POST
 
 
 echo "** Now checking output files to determine PASS/FAIL of tests - 'p11sak_test.sh'"
@@ -763,6 +777,33 @@ else
 	echo "* TESTCASE list-key ibm-dilithium SKIP Listed random ibm-dilithium public keys CK_BYTE attribute"
 fi
 
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_KYBER) ]]; then
+	# CK_BBOOL
+	if [[ $(grep -A 35 'p11sak-ibm-kyber' $P11SAK_IBM_KYBER_LONG | grep -c 'CK_TRUE') == "12" ]]; then
+		echo "* TESTCASE list-key ibm-kyber PASS Listed random ibm-kyber public keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key ibm-kyber FAIL Failed to list ibm-kyber public keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -A 35 'p11sak-ibm-kyber' $P11SAK_IBM_KYBER_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+		echo "* TESTCASE list-key ibm-kyber PASS Listed random ibm-kyber public keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key ibm-kyber FAIL Failed to list ibm-kyber public keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -A 35 'p11sak-ibm-kyber' $P11SAK_IBM_KYBER_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+		echo "* TESTCASE list-key ibm-kyber PASS Listed random ibm-kyber public keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key ibm-kyber FAIL Failed to list ibm-kyber public keys CK_BYTE attribute"
+		status=1
+	fi
+else
+	echo "* TESTCASE list-key ibm-kyber SKIP Listed random ibm-kyber public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key ibm-kyber SKIP Listed random ibm-kyber public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key ibm-kyber SKIP Listed random ibm-kyber public keys CK_BYTE attribute"
+fi
 
 # check token pin handling
 if [ $RC_P11SAK_PINOPT = 0 ]; then
@@ -820,6 +861,9 @@ rm -f $P11SAK_EC_POST
 rm -f $P11SAK_IBM_DIL_PRE
 rm -f $P11SAK_IBM_DIL_LONG
 rm -f $P11SAK_IBM_DIL_POST
+rm -f $P11SAK_IBM_KYBER_PRE
+rm -f $P11SAK_IBM_KYBER_LONG
+rm -f $P11SAK_IBM_KYBER_POST
 rm -f $P11SAK_ALL_PINOPT
 rm -f $P11SAK_ALL_PINENV
 rm -f $P11SAK_ALL_PINCON
