@@ -591,6 +591,7 @@ AM_CONDITIONAL([ENABLE_MD2], [test "x$enable_md2" = "xyes"])
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wextra"
 
 CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
+CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
