@@ -196,6 +196,7 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
 	fi
 else
 	echo "* TESTCASE generate-key des SKIP Generated random DES key"
+	echo "* TESTCASE remove-key des SKIP Deleted generated DES key"
 fi
 
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DES_KEY_GEN) ]]; then
@@ -231,6 +232,7 @@ else
 	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_BBOOL attribute"
 	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_ULONG attribute"
 	echo "* TESTCASE list-key des SKIP Listed random des public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key des SKIP list des key pkcs#11 URI"
 fi
 
 
@@ -735,7 +737,7 @@ fi
 
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
 	# CK_BBOOL
-	if [[ $(grep -A 35 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CK_TRUE') == "11" ]]; then
+	if [[ $(grep -A 35 'p11sak-ibm-dilithium' $P11SAK_IBM_DIL_LONG | grep -c 'CK_TRUE') == "12" ]]; then
 		echo "* TESTCASE list-key ibm-dilithium PASS Listed random ibm-dilithium public keys CK_BBOOL attribute"
 	else
 		echo "* TESTCASE list-key ibm-dilithium FAIL Failed to list ibm-dilithium public keys CK_BBOOL attribute"
