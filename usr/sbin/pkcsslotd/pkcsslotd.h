@@ -87,11 +87,11 @@ int XProcUnLock(void);
 int CreateXProcLock(void);
 
 int init_socket_server(int event_support_disabled);
-int term_socket_server();
+int term_socket_server(void);
 int init_socket_data(Slot_Mgr_Socket_t *sp);
 int socket_connection_handler(int timeout_secs);
 #ifdef DEV
-void dump_socket_handler();
+void dump_socket_handler(void);
 #endif
 
 #endif                          /* _SLOTMGR_H */

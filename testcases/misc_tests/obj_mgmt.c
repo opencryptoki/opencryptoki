@@ -1713,7 +1713,7 @@ done:
     return rc;
 }
 
-CK_RV obj_mgmt_functions()
+CK_RV obj_mgmt_functions(void)
 {
     int rc;
 

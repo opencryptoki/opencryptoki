@@ -27,7 +27,7 @@ struct event_reply {
     unsigned long nothandled_replies;
 };
 
-int init_event_client();
+int init_event_client(void);
 
 int send_event(int fd, unsigned int type, unsigned int flags,
                unsigned int payload_len, const char *payload,

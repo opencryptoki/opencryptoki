@@ -116,7 +116,7 @@ int compute_hash(int hash_type, int buf_size, char *buf, char *digest)
 /** This function does basic sanity checks to make sure the
  *  eco system is in place for opencryptoki to run properly.
  **/
-void run_sanity_checks()
+void run_sanity_checks(void)
 {
     int i, ec, uid = -1;
     struct group *grp = NULL;

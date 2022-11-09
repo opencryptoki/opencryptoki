@@ -2329,7 +2329,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV do_SetAttributeValuesPkey()
+CK_RV do_SetAttributeValuesPkey(void)
 {
     CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
     CK_FLAGS flags;
@@ -2424,7 +2424,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV do_EncryptDecryptAESPkey()
+CK_RV do_EncryptDecryptAESPkey(void)
 {
     CK_ULONG keylen = 16;
     CK_BBOOL btrue = CK_TRUE;
@@ -2629,7 +2629,7 @@ testcase_cleanup:
 /**
  * Special tests for protected key support.
  */
-CK_RV aes_funcs_pkey()
+CK_RV aes_funcs_pkey(void)
 {
     CK_RV rv;
 
@@ -2640,7 +2640,7 @@ CK_RV aes_funcs_pkey()
     return rv;
 }
 
-CK_RV aes_funcs()
+CK_RV aes_funcs(void)
 {
     unsigned int i;
     CK_RV rv = CKR_OK;

@@ -2186,7 +2186,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
 #define DLOPEN_FLAGS        RTLD_NOW
 #endif
 
-static void *ep11_load_host_lib()
+static void *ep11_load_host_lib(void)
 {
     void *lib_ep11;
     char *ep11_lib_name;

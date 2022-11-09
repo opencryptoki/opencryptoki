@@ -384,7 +384,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV dsa_functions()
+CK_RV dsa_functions(void)
 {
     SYSTEMTIME t1, t2;
     CK_RV rc = CKR_OK;

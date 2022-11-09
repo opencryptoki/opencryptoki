@@ -513,7 +513,7 @@ static struct event_info *event_new(unsigned int payload_len,
     return event;
 }
 
-static void event_limit_underrun()
+static void event_limit_underrun(void)
 {
     struct admin_conn_info *conn;
 
@@ -1786,7 +1786,7 @@ int init_socket_server(int event_support_disabled)
     return TRUE;
 }
 
-int term_socket_server()
+int term_socket_server(void)
 {
     DL_NODE *node, *next;
 
@@ -1933,7 +1933,7 @@ void dump_udev_mon(struct udev_mon *udev_mon)
 }
 #endif
 
-void dump_socket_handler()
+void dump_socket_handler(void)
 {
     DL_NODE *node;
     unsigned long i;

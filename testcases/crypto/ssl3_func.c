@@ -637,7 +637,7 @@ skipped:
     return rc;
 }
 
-CK_RV ssl3_functions()
+CK_RV ssl3_functions(void)
 {
     CK_RV rc;
     SYSTEMTIME t1, t2;

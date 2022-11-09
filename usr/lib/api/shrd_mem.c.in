@@ -50,7 +50,7 @@ extern API_Proc_Struct_t *Anchor;
 // by the slot manager daemon.
 // A NULL pointer will return if the memory region is invalid
 // for any reason
-void *attach_shared_memory()
+void *attach_shared_memory(void)
 {
     int shmid;
     char *shmp;

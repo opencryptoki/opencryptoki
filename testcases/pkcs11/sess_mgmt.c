@@ -1361,7 +1361,7 @@ CK_RV do_SessionCancel(void)
     return rc;
 }
 
-CK_RV sess_mgmt_functions()
+CK_RV sess_mgmt_functions(void)
 {
     SYSTEMTIME t1, t2;
     CK_RV rc;

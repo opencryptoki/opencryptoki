@@ -167,7 +167,7 @@ static int test_uri_base(void)
     return result;
 }
 
-static int test_uri_format()
+static int test_uri_format(void)
 {
     int result = 0;
     const char *cur_uri, *exp_uri;
@@ -329,7 +329,7 @@ static int test_uri_format()
     return result;
 }
 
-static int test_uri_encode()
+static int test_uri_encode(void)
 {
     int result = 0;
     const char *cur_uri, *exp_uri;

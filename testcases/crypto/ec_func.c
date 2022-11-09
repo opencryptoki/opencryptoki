@@ -361,7 +361,7 @@ error:
  * Generate EC key-pairs for parties A and B.
  * Derive shared secrets based on Diffie Hellman key agreement defined in PKCS#3
  */
-CK_RV run_DeriveECDHKey()
+CK_RV run_DeriveECDHKey(void)
 {
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
@@ -899,7 +899,7 @@ testcase_cleanup:
 /*
  * Run some ECDH known answer tests.
  */
-CK_RV run_DeriveECDHKeyKAT()
+CK_RV run_DeriveECDHKeyKAT(void)
 {
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
@@ -1519,7 +1519,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV run_GenerateECCKeyPairSignVerify()
+CK_RV run_GenerateECCKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
@@ -1673,7 +1673,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV run_ImportECCKeyPairSignVerify()
+CK_RV run_ImportECCKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
@@ -1837,7 +1837,7 @@ done:
     return rc;
 }
 
-CK_RV run_TransferECCKeyPairSignVerify()
+CK_RV run_TransferECCKeyPairSignVerify(void)
 {
     CK_MECHANISM mech;
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
@@ -2192,7 +2192,7 @@ done:
  * card. So the actual behavior of this testcase heavily depends on the
  * machine and token config.
  */
-CK_RV run_ImportSignVerify_Pkey()
+CK_RV run_ImportSignVerify_Pkey(void)
 {
     CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SESSION_HANDLE session;
@@ -2467,7 +2467,7 @@ static const char *btc_type_to_str(CK_ULONG btc_type)
  * child keys (public and private, hardened and non hardened) from the master
  * key.
  */
-CK_RV run_DeriveBTC()
+CK_RV run_DeriveBTC(void)
 {
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;

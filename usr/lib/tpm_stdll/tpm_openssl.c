@@ -44,7 +44,7 @@
 #endif
 
 #ifdef DEBUG
-void openssl_print_errors()
+void openssl_print_errors(void)
 {
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     ERR_load_ERR_strings();

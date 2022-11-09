@@ -201,7 +201,7 @@ int Valid_Session(CK_SESSION_HANDLE handle, ST_SESSION_T *rSession)
     return rc;
 }
 
-int API_Initialized()
+int API_Initialized(void)
 {
     if (Anchor == NULL)
         return FALSE;
@@ -321,7 +321,7 @@ int sessions_exist(CK_SLOT_ID slotID)
 // This call must be made with the API Global Mutex Locked
 // and the Anchor control block initialized with the
 // shared memory.  No checking for shared memory validity is done
-int API_Register()
+int API_Register(void)
 {
     long int reuse = -1, free = -1;
     Slot_Mgr_Shr_t *shm;
@@ -416,7 +416,7 @@ int API_Register()
 // This call must be made with the API Global Mutex Locked
 // and the Anchor control block initialized with the
 // shared memory.  No checking for shared memory validity is done
-void API_UnRegister()
+void API_UnRegister(void)
 {
     Slot_Mgr_Shr_t *shm;
 

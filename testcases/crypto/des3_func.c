@@ -1327,7 +1327,7 @@ testcase_cleanup:
     return rc;
 }
 
-CK_RV des3_funcs()
+CK_RV des3_funcs(void)
 {
     int i;
     CK_RV rv;

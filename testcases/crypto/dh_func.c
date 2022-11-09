@@ -513,7 +513,7 @@ testcase_cleanup:
     return rc;
 }                               /* end do_DeriveDHKey() */
 
-CK_RV dh_functions()
+CK_RV dh_functions(void)
 {
     CK_RV rv, rv2;
     CK_MECHANISM_INFO mechinfo;

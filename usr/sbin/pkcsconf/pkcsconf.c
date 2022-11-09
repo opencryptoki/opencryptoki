@@ -963,7 +963,7 @@ CK_RV set_user_pin(int slot_id, CK_USER_TYPE user, const char *oldpin,
 CK_RV init(void)
 {
     CK_RV rc = CKR_OK;          // Return Code
-    void (*symPtr) ();          // Pointer for the Dll
+    void (*symPtr) (CK_FUNCTION_LIST_PTR_PTR ppFunctionList); // Pointer for the Dll
 
     /* Open the PKCS11 API shared library, and inform the user is there is an
      * error */
