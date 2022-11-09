@@ -29,6 +29,9 @@ P11SAK_3DES_POST=p11sak-3des-post.out
 P11SAK_AES_PRE=p11sak-aes-pre.out
 P11SAK_AES_LONG=p11sak-aes-long.out
 P11SAK_AES_POST=p11sak-aes-post.out
+P11SAK_AES_XTS_PRE=p11sak-aes-xts-pre.out
+P11SAK_AES_XTS_LONG=p11sak-aes-xts-long.out
+P11SAK_AES_XTS_POST=p11sak-aes-xts-post.out
 P11SAK_RSA_PRE=p11sak-rsa-pre.out
 P11SAK_RSA_LONG=p11sak-rsa-long.out
 P11SAK_RSA_POST=p11sak-rsa-post.out
@@ -69,6 +72,13 @@ p11sak generate-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-3des
 p11sak generate-key aes 128 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-128
 p11sak generate-key aes 192 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-192
 p11sak generate-key aes 256 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-256
+# aes-xts [128 | 256]
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+	p11sak generate-key aes-xts 128 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-128
+	p11sak generate-key aes-xts 256 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-256
+else
+	echo "Skip generating aes-xts keys, slot does not support CKM_AES_XTS_KEY_GEN"
+fi
 # rsa [1024 | 2048 | 4096]
 p11sak generate-key rsa 1024 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-rsa-1024
 p11sak generate-key rsa 2048 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-rsa-2048
@@ -92,6 +102,7 @@ echo "** Now list keys and redirect output to pre-files - 'p11sak_test.sh'"
 p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_DES_PRE
 p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_3DES_PRE
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_PRE
+p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_XTS_PRE
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_PRE
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_PRE
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_DIL_PRE
@@ -99,6 +110,7 @@ p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM
 p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_DES_LONG
 p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_3DES_LONG
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AES_LONG
+p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_AES_XTS_LONG
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_RSA_LONG
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_EC_LONG
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN --long &> $P11SAK_IBM_DIL_LONG
@@ -122,6 +134,9 @@ p11sak remove-key 3des --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-3des -
 p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-128 -f
 p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-192 -f
 p11sak remove-key aes --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-256 -f
+# aes-xts [128 | 256]
+p11sak remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-128 -f
+p11sak remove-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-256 -f
 # rsa [1024 | 2048 | 4096]
 # remove public key
 p11sak remove-key rsa --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-rsa-1024:pub -f
@@ -152,6 +167,7 @@ echo "** Now list keys and rediirect to post-files - 'p11sak_test.sh'"
 p11sak list-key des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_DES_POST
 p11sak list-key 3des --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_3DES_POST
 p11sak list-key aes --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_POST
+p11sak list-key aes-xts --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_AES_XTS_POST
 p11sak list-key rsa --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_RSA_POST
 p11sak list-key ec --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_EC_POST
 p11sak list-key ibm-dilithium --slot $SLOT --pin $PKCS11_USER_PIN &> $P11SAK_IBM_DIL_POST
@@ -353,6 +369,81 @@ else
 	status=1
 fi
 
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+	# check AES-XTS 128
+	grep -q 'p11sak-aes-xts-128' $P11SAK_AES_XTS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key aes-xts-128 PASS Generated random AES-XTS 128 key"
+	else
+		echo "* TESTCASE generate-key aes-xts-128 FAIL Failed to generate AES-XTS 128 key"
+		status=1
+	fi
+	grep -v -q 'p11sak-aes-xts-128' $P11SAK_AES_XTS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key aes-xts-128 PASS Deleted generated AES-XTS 128 key"
+	else
+		echo "* TESTCASE remove-key aes-xts-128 FAIL Failed to delete generated AES-XTS 128 key"
+		status=1
+	fi
+
+	# check AES-XTS 256
+	grep -q 'p11sak-aes-xts-256' $P11SAK_AES_XTS_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE generate-key aes-xts-256 PASS Generated random AES-XTS 256 key"
+	else
+		echo "* TESTCASE generate-key aes-xts-256 FAIL Failed to generate AES-XTS 256 key"
+		status=1
+	fi
+	grep -v -q 'p11sak-aes-xts-256' $P11SAK_AES_XTS_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-key aes-xts-256 PASS Deleted generated AES-XTS 256 key"
+	else
+		echo "* TESTCASE remove-key aes-xts-256 FAIL Failed to delete generated AES-XTS 256 key"
+		status=1
+	fi
+	
+	# CK_BBOOL
+	if [[ $(grep -A 69 'p11sak-aes-xts-128' $P11SAK_AES_XTS_LONG | grep -c 'CKA_IBM_PROTKEY_EXTRACTABLE: CK_FALSE') == "2" ]]; then
+		echo "* TESTCASE list-key aes-xts PASS Listed random aes-xts public keys CK_BBOOL attribute"
+	else
+		echo "* TESTCASE list-key aes-xts FAIL Failed to list aes-xts public keys CK_BBOOL attribute"
+		status=1
+	fi
+	# CK_ULONG
+	if [[ $(grep -A 69 'p11sak-aes-xts-128' $P11SAK_AES_XTS_LONG | grep -c 'CKA_MODULUS_BITS:') == "0" ]]; then
+		echo "* TESTCASE list-key aes-xts PASS Listed random aes-xts public keys CK_ULONG attribute"
+	else
+		echo "* TESTCASE list-key aes-xts FAIL Failed to list aes-xts public keys CK_ULONG attribute"
+		status=1
+	fi
+	# CK_BYTE
+	if [[ $(grep -A 69 'p11sak-aes-xts-128' $P11SAK_AES_XTS_LONG | grep -c 'CKA_MODULUS:') == "0" ]]; then
+		echo "* TESTCASE list-key aes-xts PASS Listed random aes-xts public keys CK_BYTE attribute"
+	else
+		echo "* TESTCASE list-key aes-xts FAIL Failed to list aes-xts public keys CK_BYTE attribute"
+		status=1
+	fi
+	# URI
+	if [[ $(grep -A 69 'p11sak-aes-xts-128' $P11SAK_AES_XTS_LONG | grep -c 'URI: pkcs11:.*type=secret-key') == "2" ]]; then
+		echo "* TESTCASE list-key aes-xts PASS list aes-xts key pkcs#11 URI"
+	else
+		echo "* TESTCASE list-key aes-xts FAIL list aes-xts key pkcs#11 URI"
+		status=1
+	fi
+else
+	echo "* TESTCASE generate-key aes-xst-128 SKIP Generated random AES-XTS 128 key"
+	echo "* TESTCASE remove-key aes-xts-128 SKIP Deleted generated AES-XTS 128 key"
+	echo "* TESTCASE generate-key aes-xst-256 SKIP Generated random AES-XTS 256 key"
+	echo "* TESTCASE remove-key aes-xts-256 SKIP Deleted generated AES-XTS 256 key"
+	echo "* TESTCASE list-key aes-xts SKIP Listed random aes-xts public keys CK_BBOOL attribute"
+	echo "* TESTCASE list-key aes-xts SKIP Listed random aes-xts public keys CK_ULONG attribute"
+	echo "* TESTCASE list-key aes-xts SKIP Listed random aes-xts public keys CK_BYTE attribute"
+	echo "* TESTCASE list-key aes-xts SKIP list aes-xts key pkcs#11 URI"
+fi
 
 # check RSA 1024 public key
 grep -q 'p11sak-rsa-1024:pub' $P11SAK_RSA_PRE
@@ -715,6 +806,9 @@ rm -f $P11SAK_3DES_POST
 rm -f $P11SAK_AES_PRE
 rm -f $P11SAK_AES_LONG
 rm -f $P11SAK_AES_POST
+rm -f $P11SAK_AES_XTS_PRE
+rm -f $P11SAK_AES_XTS_LONG
+rm -f $P11SAK_AES_XTS_POST
 rm -f $P11SAK_RSA_PRE
 rm -f $P11SAK_RSA_LONG
 rm -f $P11SAK_RSA_POST
