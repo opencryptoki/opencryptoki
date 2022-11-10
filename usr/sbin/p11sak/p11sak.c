@@ -2615,7 +2615,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     CK_INFO info;
     CK_SLOT_INFO slot_info;
     CK_TOKEN_INFO token_info;
-    struct p11_uri *uri;
+    struct p11_uri *uri = NULL;
 
     rc = tok_key_list_init(session, kt, label);
     if (rc != CKR_OK) {
@@ -2653,6 +2653,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         goto done;
     }
 
+    label = NULL;
     while (1) {
         rc = funcs->C_FindObjects(session, &hkey, 1, &count);
         if (rc != CKR_OK) {
@@ -2670,7 +2671,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 fprintf(stderr,
                         "Retrieval of key type failed (error code 0x%lX: %s)\n",
                         rc, p11_get_ckr(rc));
-            continue;
+            goto cont;
         }
 
         rc = tok_key_get_label_attr(session, hkey, &label);
@@ -2682,8 +2683,10 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
         }
 
         uri = p11_uri_new();
-        if (!uri)
-            return CKR_HOST_MEMORY;
+        if (!uri) {
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
 
         if (full_uri) {
             /* include library and slot information only in detailed URIs */
@@ -2698,8 +2701,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             if (rc != CKR_OK) {
                 fprintf(stderr, "Object does not have CKA_CLASS attribute (error code 0x%lX: %s)\n",
                         rc, p11_get_ckr(rc));
-                p11_uri_attributes_free(uri);
-                continue;
+                goto cont;
             }
         }
 
@@ -2708,8 +2710,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             if (rc != CKR_OK) {
                 fprintf(stderr, "Object does not have CKA_ID attribute (error code 0x%lX: %s)\n",
                         rc, p11_get_ckr(rc));
-                p11_uri_attributes_free(uri);
-                continue;
+                goto cont;
             }
         }
 
@@ -2718,8 +2719,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             if (rc != CKR_OK) {
                 fprintf(stderr, "Object does not have CKA_LABEL attribute (error code 0x%lX: %s)\n",
                         rc, p11_get_ckr(rc));
-                p11_uri_attributes_free(uri);
-                continue;
+                goto cont;
             }
         }
 
@@ -2733,9 +2733,6 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
 
             printf("\n      Attributes:\n");
         }
-
-        p11_uri_attributes_free(uri);
-        p11_uri_free(uri);
 
         switch (keyclass) {
         case CKO_SECRET_KEY:
@@ -2779,6 +2776,11 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
                 printf(" %*s | ", CELL_SIZE, keytype);
             printf("\"%s\"\n", label);
         }
+
+cont:
+        p11_uri_attributes_free(uri);
+        p11_uri_free(uri);
+        uri = NULL;
         free(label);
         label = NULL;
         free(keytype);
@@ -2921,6 +2923,8 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
         if (rc != CKR_OK) {
             fprintf(stderr, "Retrieval of label failed (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
+            free(keytype);
+            keytype = NULL;
             continue;
         }
 
