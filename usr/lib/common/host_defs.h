@@ -237,7 +237,7 @@ typedef struct _ATTRIBUTE_PARSE_LIST {
 typedef struct _OP_STATE_DATA {
     CK_CHAR library_version[16]; /* zero termination does not matter here */
     CK_CHAR manufacturerID[member_size(CK_TOKEN_INFO_32, manufacturerID)];
-    CK_CHAR model[member_size(CK_TOKEN_INFO_32, manufacturerID)];
+    CK_CHAR model[member_size(CK_TOKEN_INFO_32, model)];
     CK_STATE session_state;
     CK_ULONG active_operation;
     CK_ULONG data_len;
