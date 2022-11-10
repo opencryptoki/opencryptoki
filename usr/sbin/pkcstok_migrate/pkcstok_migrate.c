@@ -2146,8 +2146,6 @@ static CK_RV update_opencryptoki_conf(CK_SLOT_ID slot_id, char *location)
 
 done:
     confignode_deepfree(config);
-    if (fp_w)
-        fclose(fp_w);
 
     return ret;
 
