@@ -87,7 +87,7 @@ CK_RV object_mgr_add(STDLL_TokData_t *tokdata,
                      CK_ULONG ulCount, CK_OBJECT_HANDLE *handle)
 {
     OBJECT *o = NULL;
-    CK_BBOOL priv_obj, sess_obj, locked = FALSE;
+    CK_BBOOL priv_obj, sess_obj;
     CK_RV rc;
     CK_OBJECT_CLASS class;
     CK_KEY_TYPE keytype;
@@ -214,18 +214,6 @@ done:
     if (spki != NULL)
         free(spki);
 
-    if (locked) {
-        if (rc == CKR_OK) {
-            rc = XProcUnLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to release Process Lock.\n");
-            }
-        } else {
-            /* return error that occurred first */
-            XProcUnLock(tokdata);
-        }
-    }
-
     if (rc == CKR_OK)
         TRACE_DEVEL("Object created: handle: %lu\n", *handle);
 
@@ -310,7 +298,6 @@ CK_RV object_mgr_copy(STDLL_TokData_t *tokdata,
     OBJECT *new_obj = NULL;
     CK_BBOOL priv_obj;
     CK_BBOOL sess_obj;
-    CK_BBOOL locked = FALSE;
     CK_RV rc;
 
     if (!sess || (!pTemplate && ulCount) || !new_handle) {
@@ -355,19 +342,6 @@ done:
     }
     object_put(tokdata, old_obj, TRUE);
     old_obj = NULL;
-
-    if (locked) {
-        if (rc == CKR_OK) {
-            rc = XProcUnLock(tokdata);
-            if (rc != CKR_OK) {
-                TRACE_ERROR("Failed to release Process Lock.\n");
-                goto done;
-            }
-        } else {
-            /* return error that occurred first */
-            XProcUnLock(tokdata);
-        }
-    }
 
     return rc;
 }
