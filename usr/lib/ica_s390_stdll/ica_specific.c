@@ -4032,7 +4032,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
                 ica_data->mech_list[ica_data->mech_list_len].mech_type =
                     ref_mech_list[refIdx].mech_type;
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.flags =
-                    (libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW) ? CKF_HW : 0) |
+                    ((libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW)) ? CKF_HW : 0) |
                     (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW));
                 ica_data->mech_list[ica_data->mech_list_len].mech_info.ulMinKeySize =
                     ref_mech_list[refIdx].mech_info.ulMinKeySize;
@@ -4051,7 +4051,7 @@ static CK_RV mech_list_ica_initialize(STDLL_TokData_t *tokdata)
             } else {
                 /* replace existing entry */
                 ica_data->mech_list[ulActMechCtr].mech_info.flags =
-                    (libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW) ? CKF_HW : 0) |
+                    ((libica_func_list[i].flags & (ICA_FLAG_DHW | ICA_FLAG_SHW)) ? CKF_HW : 0) |
                     (ref_mech_list[refIdx].mech_info.flags & (~CKF_HW));
 
                 if (libica_func_list[i].mech_mode_id == RSA_KEY_GEN_ME ||
