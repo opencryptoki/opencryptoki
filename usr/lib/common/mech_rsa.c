@@ -2601,7 +2601,7 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
         error++;
 
     ps_len = hlen;
-    while ((dbMask[ps_len] == 0x00) && (ps_len < dbMask_len))
+    while ((ps_len < dbMask_len) && (dbMask[ps_len] == 0x00))
         ps_len++;
 
     if ((ps_len >= dbMask_len) ||
@@ -2790,7 +2790,7 @@ CK_RV emsa_pss_verify(STDLL_TokData_t *tokdata,
     /* pkcs1v2.2, Step 10: check DB. */
     i = 0;
     plen = emLen - hlen - pssParms->sLen - 2;
-    while ((buf[i] == 0) && (i < plen))
+    while ((i < plen) && (buf[i] == 0))
         i++;
 
     if ((i != plen) || (buf[i++] != 0x01)) {
