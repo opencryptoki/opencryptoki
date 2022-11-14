@@ -1935,7 +1935,8 @@ static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
     ptr = publKey->exponent + publKey->key_length - sizeof(unsigned long);
     if (*((unsigned long *) ptr) != 0 && *((unsigned long *) ptr) % 2 == 0) {
         TRACE_ERROR("%s\n", ock_err(ERR_TEMPLATE_INCONSISTENT));
-        return CKR_TEMPLATE_INCONSISTENT;
+        rc = CKR_TEMPLATE_INCONSISTENT;
+        goto pubkey_cleanup;
     }
 
 
