@@ -1147,8 +1147,8 @@ CK_RV object_mgr_find_init(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
     if (sess->find_active != FALSE) {
-        return CKR_OPERATION_ACTIVE;
         TRACE_ERROR("%s\n", ock_err(ERR_OPERATION_ACTIVE));
+        return CKR_OPERATION_ACTIVE;
     }
     // initialize the found object list.  if it doesn't exist, allocate
     // a list big enough for 10 handles.  we'll reallocate if we need more
