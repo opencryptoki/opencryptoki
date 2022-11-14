@@ -4449,8 +4449,10 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
     }
 
     target_info = get_target_info(tokdata);
-    if (target_info == NULL)
+    if (target_info == NULL) {
+        free(state);
         return CKR_FUNCTION_FAILED;
+    }
 
     if (ep11tok_libica_digest_available(tokdata, ep11_data, mech->mechanism)) {
         libica_ctx = (libica_sha_context_t *)state;
