@@ -1096,10 +1096,10 @@ static CK_RV tok_key_gen(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     rc = funcs->C_GenerateKey(session, pmech, key_attr, num_attrs, phkey);
     if (rc != CKR_OK) {
         if (is_rejected_by_policy(rc, session)) {
-            fprintf(stderr, "Key generation of key of length %ld bytes is rejected by policy\n",
+            fprintf(stderr, "Key generation of key of length %lu bytes is rejected by policy\n",
                     a_value_len);
         } else {
-            fprintf(stderr, "Key generation of key of length %ld bytes failed\n",
+            fprintf(stderr, "Key generation of key of length %lu bytes failed\n",
                     a_value_len);
             fprintf(stderr, "in tok_key_gen() (error code 0x%lX: %s)\n", rc,
                     p11_get_ckr(rc));
@@ -1901,7 +1901,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr, 
-                    "Cipher key type [%d] and key bit length %ld is not supported. Try adding argument -bits <128|192|256>\n",
+                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument -bits <128|192|256>\n",
                     *kt, keylength);
             return CKR_ARGUMENTS_BAD;
         }
@@ -1911,7 +1911,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr,
-                    "Cipher key type [%d] and key bit length %ld is not supported. Try adding argument -bits <128|256>\n",
+                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument -bits <128|256>\n",
                     *kt, keylength);
             return CKR_ARGUMENTS_BAD;
         }
@@ -1921,7 +1921,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr, 
-                    "[%d] RSA modulus bit length %ld NOT supported. Try adding argument -bits <1024|2048|4096>\n",
+                    "[%d] RSA modulus bit length %lu NOT supported. Try adding argument -bits <1024|2048|4096>\n",
                     *kt, keylength);
         }
         break;
@@ -2472,7 +2472,7 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     CK_MECHANISM mech;
     CK_RV rc;
 
-    printf("Generate symmetric key %s with keylen=%ld and label=[%s]\n",
+    printf("Generate symmetric key %s with keylen=%lu and label=[%s]\n",
             kt2str(kt), keylength, label);
 
     rc = key_pair_gen_mech(kt, &mech);
@@ -2608,7 +2608,7 @@ static CK_RV generate_asymmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             prv_acount, &pub_keyh, &prv_keyh, keylength);
     if (rc != CKR_OK) {
         fprintf(stderr, 
-                "Generating a key pair in the token in slot %ld failed (error code 0x%lX: %s)\n",
+                "Generating a key pair in the token in slot %lu failed (error code 0x%lX: %s)\n",
                 slot, rc, p11_get_ckr(rc));
         goto done;
     }
@@ -2791,7 +2791,7 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
             printf("\n      URI: %s", p11_uri_format(uri));
             printf("\n      Key: ");
             if (keylength > 0)
-                printf("%s %ld\t\t", keytype, keylength);
+                printf("%s %lu\t\t", keytype, keylength);
             else
                 printf("%s\t\t", keytype);
 
@@ -2833,8 +2833,8 @@ static CK_RV list_ckey(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
 
         if (long_print == 0) {
             if (keylength > 0) {
-                char tmp[16];
-                snprintf(tmp, sizeof(tmp), "%s %ld", keytype, keylength);
+                char tmp[50];
+                snprintf(tmp, sizeof(tmp), "%s %lu", keytype, keylength);
                 printf(" %*s | ", CELL_SIZE, tmp);
             } else
                 printf(" %*s | ", CELL_SIZE, keytype);
@@ -3094,14 +3094,14 @@ static CK_RV start_session(CK_SESSION_HANDLE *session, CK_SLOT_ID slot,
 
     rc = funcs->C_GetSlotInfo(slot, &slotinfo);
     if (rc != CKR_OK) {
-        fprintf(stderr, "Slot %ld not available (error code 0x%lX: %s)\n", slot, rc,
+        fprintf(stderr, "Slot %lu not available (error code 0x%lX: %s)\n", slot, rc,
                 p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_GetTokenInfo(slot, &tokeninfo);
     if (rc != CKR_OK) {
-        fprintf(stderr, "Token at slot %ld not available (error code 0x%lX: %s)\n", slot,
+        fprintf(stderr, "Token at slot %lu not available (error code 0x%lX: %s)\n", slot,
                 rc, p11_get_ckr(rc));
         goto done;
     }

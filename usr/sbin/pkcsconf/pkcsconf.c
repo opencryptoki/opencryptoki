@@ -666,7 +666,7 @@ CK_RV list_slot(int slot_id)
         }
 
         /* Display the slot description */
-        printf("%ld:", SlotList[lcv]);
+        printf("%lu:", SlotList[lcv]);
         printf("\tDescription: %.64s\n", SlotInfo.slotDescription);
     }
     return CKR_OK;

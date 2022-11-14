@@ -2653,7 +2653,7 @@ int main(int argc, char **argv)
         printf("  confdir = %s \n", conf_dir);
     }
     if (slot_id_specified)
-        printf("  slot ID = %ld\n", slot_id);
+        printf("  slot ID = %lu\n", slot_id);
     if (userpin)
         printf("  user PIN specified\n");
     if (sopin)
@@ -2733,7 +2733,7 @@ int main(int argc, char **argv)
     }
 
     /* Check if DLL name from conf file is a known and migratable token */
-    printf("Slot ID %ld points to DLL name %s, which is a %s token.\n",
+    printf("Slot ID %lu points to DLL name %s, which is a %s token.\n",
            slot_id, dll_name, dll2name(dll_name));
     if (token_invalid(dll2name(dll_name))) {
         warnx("Please check your input.");
