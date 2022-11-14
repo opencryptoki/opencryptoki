@@ -1104,7 +1104,7 @@ iterate:
         /* Device ANY and domain ANY or default */
         for (adapter = 1, rc = CKR_OK; adapter <= cca_private->num_adapters;
                                                                  adapter++) {
-            sprintf(device_name, "CRP%02d", adapter);
+            sprintf(device_name, "CRP%02u", adapter);
 
             rc |= cca_check_mkvps_domains(tokdata, device_name);
             if (rc == CKR_FUNCTION_FAILED) /* adapter not available, ignore */

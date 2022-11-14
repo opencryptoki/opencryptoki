@@ -395,7 +395,7 @@ done:
 
 int do_inittoken(void)
 {
-    CK_BYTE label[32];
+    CK_BYTE label[32 + 1];
     CK_BYTE so_pin[DEFAULT_SO_PIN_LEN];
     CK_ULONG so_pin_len;
     int len;
@@ -411,7 +411,7 @@ int do_inittoken(void)
     scanf("%32s", label);
     printf("\nLabel is %s:", label);
 
-    for (len = 0; len < 31; len++) {
+    for (len = 0; len < 32; len++) {
         if (label[len] == '\0') {
             label[len] = ' ';
             break;
