@@ -245,37 +245,42 @@ int openssl_get_modulus_and_prime(EVP_PKEY *pkey, unsigned int *size_n,
 #else
     BIGNUM *n_tmp, *p_tmp;
 #endif
+    int len;
 
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     rsa = EVP_PKEY_get0_RSA(pkey);
     /* get the modulus from the RSA object */
     RSA_get0_key(rsa, &n_tmp, NULL, NULL);
-    if ((*size_n = BN_bn2bin(n_tmp, n)) <= 0) {
+    if ((len = BN_bn2bin(n_tmp, n)) <= 0) {
         DEBUG_openssl_print_errors();
         return -1;
     }
+    *size_n = len;
 
     /* get one of the primes from the RSA object */
     RSA_get0_factors(rsa, &p_tmp, NULL);
-    if ((*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
+    if ((len = BN_bn2bin(p_tmp, p)) <= 0) {
         DEBUG_openssl_print_errors();
         return -1;
     }
+    *size_p = len;
 #else
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &n_tmp) ||
-        (*size_n = BN_bn2bin(n_tmp, n)) <= 0) {
+        (len = BN_bn2bin(n_tmp, n)) <= 0) {
         DEBUG_openssl_print_errors();
         BN_free(n_tmp);
         return -1;
     }
+    *size_n = len;
     BN_free(n_tmp);
 
     if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &p_tmp) ||
-        (*size_p = BN_bn2bin(p_tmp, p)) <= 0) {
+        (len = BN_bn2bin(p_tmp, p)) <= 0) {
         DEBUG_openssl_print_errors();
         BN_free(p_tmp);
         return -1;
     }
+    *size_p = len;
     BN_free(p_tmp);
 #endif
 
