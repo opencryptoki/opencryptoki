@@ -1892,15 +1892,17 @@ static CK_RV fill_ec_key_from_pubkey(OSSL_PARAM_BLD *tmpl, const CK_BYTE *data,
     CK_BYTE *ecpoint = NULL;
     CK_ULONG ecpoint_len, privlen;
     CK_BBOOL allocated = FALSE;
+    int len;
 
     CK_RV rc;
 
-    privlen = ec_prime_len_from_nid(nid);
-    if (privlen <= 0) {
+    len = ec_prime_len_from_nid(nid);
+    if (len <= 0) {
         TRACE_ERROR("ec_prime_len_from_nid failed\n");
         rc = CKR_CURVE_NOT_SUPPORTED;
         goto out;
     }
+    privlen = len;
 
     rc = ec_point_from_public_data(data, data_len, privlen, allow_raw,
                                    &allocated, &ecpoint, &ecpoint_len);
@@ -2230,6 +2232,7 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
     BN_CTX *bnctx = NULL;
 #else
     BIGNUM *bn_d = NULL;
+    int len;
 #endif
     CK_BYTE *ecpoint = NULL, *enc_ecpoint = NULL, *d = NULL;
     CK_ULONG ecpoint_len, enc_ecpoint_len, d_len;
@@ -2359,7 +2362,13 @@ CK_RV openssl_specific_ec_generate_keypair(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    d_len = ec_prime_len_from_nid(nid);
+    len = ec_prime_len_from_nid(nid);
+    if (len <= 0) {
+        TRACE_ERROR("ec_prime_len_from_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+    d_len = len;
     d = OPENSSL_zalloc(d_len);
     if (d == NULL) {
         TRACE_ERROR("OPENSSL_zalloc failed\n");
@@ -2436,6 +2445,7 @@ CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     size_t siglen;
     CK_BYTE *sigbuf = NULL;
     const unsigned char *p;
+    int len;
 
     UNUSED(tokdata);
     UNUSED(sess);
@@ -2488,12 +2498,13 @@ CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
 
     ECDSA_SIG_get0(sig, &r, &s);
 
-    privlen = ec_prime_len_from_pkey(ec_key);
-    if (privlen <= 0) {
+    len = ec_prime_len_from_pkey(ec_key);
+    if (len <= 0) {
         TRACE_ERROR("ec_prime_len_from_pkey failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
+    privlen = len;
 
     /* Insert leading 0's if r or s shorter than privlen */
     n = privlen - BN_num_bytes(r);
@@ -2531,6 +2542,7 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
     ECDSA_SIG *sig = NULL;
     BIGNUM *r = NULL, *s = NULL;
     CK_RV rc = CKR_OK;
+    int len;
     size_t siglen;
     CK_BYTE *sigbuf = NULL;
     EVP_PKEY_CTX *ctx = NULL;
@@ -2542,12 +2554,13 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
     if (rc != CKR_OK)
         return rc;
 
-    privlen = ec_prime_len_from_pkey(ec_key);
-    if (privlen <= 0) {
+    len = ec_prime_len_from_pkey(ec_key);
+    if (len <= 0) {
         TRACE_ERROR("ec_prime_len_from_pkey failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
+    privlen = len;
 
     if (signature_len < 2 * privlen) {
         TRACE_ERROR("Signature is too short\n");
@@ -2575,12 +2588,13 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    siglen = i2d_ECDSA_SIG(sig, &sigbuf);
-    if (siglen <= 0) {
+    len = i2d_ECDSA_SIG(sig, &sigbuf);
+    if (len <= 0) {
         TRACE_ERROR("i2d_ECDSA_SIG failed\n");
         rc = CKR_FUNCTION_FAILED;
         goto out;
     }
+    siglen = len;
 
     ctx = EVP_PKEY_CTX_new(ec_key, NULL);
     if (ctx == NULL) {
@@ -2638,7 +2652,7 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
     EVP_PKEY *ec_pub = NULL, *ec_priv = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     size_t secret_len;
-    int nid;
+    int nid, len;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -2740,7 +2754,13 @@ CK_RV openssl_specific_ecdh_pkcs_derive(STDLL_TokData_t *tokdata,
         goto out;
     }
 
-    secret_len = ec_prime_len_from_nid(nid);
+    len = ec_prime_len_from_nid(nid);
+    if (len <= 0) {
+        TRACE_ERROR("ec_prime_len_from_nid failed\n");
+        rc = CKR_CURVE_NOT_SUPPORTED;
+        goto out;
+    }
+    secret_len = len;
     if (EVP_PKEY_derive(ctx, secret_value, &secret_len) <= 0) {
         TRACE_DEVEL("ECDH_compute_key failed\n");
         rc = CKR_FUNCTION_FAILED;
