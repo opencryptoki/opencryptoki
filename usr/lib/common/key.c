@@ -5158,7 +5158,7 @@ CK_RV generic_secret_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     always_sens_attr =
         (CK_ATTRIBUTE *) malloc(sizeof(CK_ATTRIBUTE) + sizeof(CK_BBOOL));
     if (!class_attr || !sensitive_attr || !encrypt_attr || !decrypt_attr
-        || !sign_attr || !verify_attr | !wrap_attr || !unwrap_attr
+        || !sign_attr || !verify_attr || !wrap_attr || !unwrap_attr
         || !extractable_attr || !never_extr_attr || !always_sens_attr) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
         rc = CKR_HOST_MEMORY;
