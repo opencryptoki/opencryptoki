@@ -488,7 +488,7 @@ CK_RV print_mech_info(int slot_id)
     CK_MECHANISM_TYPE_PTR MechanismList = NULL; // Head to Mechanism list
     CK_MECHANISM_INFO MechanismInfo;    // Structure to hold Mechanism Info
     CK_ULONG MechanismCount = 0;        // Number of supported mechanisms
-    unsigned int i;
+    CK_ULONG i;
 
     /* For each slot find out how many mechanisms are supported */
     rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR, &MechanismCount);
@@ -522,7 +522,7 @@ CK_RV print_mech_info(int slot_id)
                   p11_get_ckr(rc));
             return rc;
         }
-        printf("Mechanism #%d\n", i);
+        printf("Mechanism #%lu\n", i);
         printf("\tMechanism: 0x%lX ", MechanismList[i]);
 
         display_mechanism_name(MechanismList[i]);
