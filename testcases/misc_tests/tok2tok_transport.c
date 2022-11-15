@@ -632,7 +632,7 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
                 goto testcase_cleanup;
             }
         }
-        if (is_soft_token(slot_id1) || is_cca_token(slot_id2)) {
+        if (is_soft_token(slot_id1) || is_soft_token(slot_id2)) {
             if (!is_valid_soft_pubexp(tsuite->rsa_publ_exp,
                                       tsuite->rsa_publ_exp_len)) {
                 testcase_skip("Soft Token in scannot be used with publ_exp.='%s'", s);

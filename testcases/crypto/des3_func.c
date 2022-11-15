@@ -1136,7 +1136,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     int k;
     CK_SESSION_HANDLE session;
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE h_key;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
     CK_FLAGS flags;
     CK_RV rc = CKR_OK;
     CK_SLOT_ID slot_id = SLOT_ID;
@@ -1317,7 +1317,8 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     goto testcase_cleanup;
 
 error:
-    rc = funcs->C_DestroyObject(session, h_key);
+    if (h_key != CK_INVALID_HANDLE)
+        rc = funcs->C_DestroyObject(session, h_key);
     if (rc != CKR_OK)
         testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
 
