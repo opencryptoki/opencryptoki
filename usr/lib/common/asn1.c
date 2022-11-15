@@ -3671,6 +3671,7 @@ CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
     memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
+    buf2 = NULL;
 
     rc = ber_encode_BIT_STRING(FALSE, &buf2, &len,
                                t1->pValue, t1->ulValueLen, 0);
@@ -3681,6 +3682,7 @@ CK_RV ber_encode_IBM_DilithiumPublicKey(CK_BBOOL length_only,
     memcpy(buf + offset, buf2, len);
     offset += len;
     free(buf2);
+    buf2 = NULL;
 
     rc = ber_encode_SEQUENCE(FALSE, &buf2, &len, buf, offset);
     if (rc != CKR_OK) {
