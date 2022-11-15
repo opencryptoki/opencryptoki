@@ -585,7 +585,7 @@ CK_RV attach_shm(STDLL_TokData_t *tokdata, CK_SLOT_ID slot_id)
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
-        goto err;
+        return rc;
 
     /*
      * Attach to an existing shared memory region or create it if it doesn't
@@ -617,7 +617,7 @@ CK_RV detach_shm(STDLL_TokData_t *tokdata, CK_BBOOL ignore_ref_count)
 
     rc = XProcLock(tokdata);
     if (rc != CKR_OK)
-        goto err;
+        return rc;
 
     if (sm_close((void *) tokdata->global_shm, 0, ignore_ref_count)) {
         TRACE_DEVEL("sm_close failed.\n");
