@@ -670,6 +670,8 @@ static int proc_new_conn(int socket, struct listener_info *listener)
         rc = -errno;
         ErrLog("%s: failed get credentials of peer process: %s",
                strerror(-rc), __func__);
+        free(conn);
+        conn = NULL;
         goto out;
     }
 
