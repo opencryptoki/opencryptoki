@@ -66,7 +66,7 @@ static void make_shm_name(char *shm_name, size_t max_shm_len, int user_id)
     if (user_id == -1)
         snprintf(shm_name, max_shm_len - 1, "%s_stats", CONFIG_PATH);
     else
-        snprintf(shm_name, max_shm_len - 1, "%s_stats_%u", CONFIG_PATH,
+        snprintf(shm_name, max_shm_len - 1, "%s_stats_%d", CONFIG_PATH,
                  user_id);
 
     for (i = 1; shm_name[i] != '\0'; i++) {
