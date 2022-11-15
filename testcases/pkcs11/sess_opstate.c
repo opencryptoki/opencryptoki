@@ -29,7 +29,7 @@ CK_BYTE_PTR alloc_random_buf(CK_SESSION_HANDLE sess, CK_LONG nbytes)
     CK_RV rc;
     CK_BYTE_PTR ptr = malloc(nbytes);
     if (ptr == NULL) {
-        testcase_error("malloc(%lu) failed", nbytes);
+        testcase_error("malloc(%ld) failed", nbytes);
         return NULL;
     }
 
@@ -77,7 +77,7 @@ int sess_opstate_funcs(int loops)
 
     if (!mech_supported(SLOT_ID, mech1.mechanism)) {
         testcase_skip("Mechanism CKM_SHA256 is not supported with slot "
-                      "%ld. Skipping key check", SLOT_ID);
+                      "%lu. Skipping key check", SLOT_ID);
         goto out;
     }
 
@@ -171,7 +171,7 @@ int sess_opstate_funcs(int loops)
 
         if (!mech_supported(SLOT_ID, mech2.mechanism)) {
             testcase_skip("Mechanism CKM_SHA_1 is not supported with slot "
-                          "%ld. Skipping key check", SLOT_ID);
+                          "%lu. Skipping key check", SLOT_ID);
             continue;
         }
 

@@ -65,7 +65,7 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Using slot %ld...\n\n", slot_id);
+    printf("Using slot %lu...\n\n", slot_id);
 
     if (do_GetFunctionList())
         return -1;
@@ -124,7 +124,7 @@ int main(int argc, char **argv)
      * It should now be the slot number of the token we're using
      */
     if (si.slotID != slot_id) {
-        printf("Test #2 failed. Slot ID was %ld, expected %ld\n", si.slotID,
+        printf("Test #2 failed. Slot ID was %lu, expected %lu\n", si.slotID,
                slot_id);
         goto session_close;
     }
@@ -135,13 +135,13 @@ int main(int argc, char **argv)
     }
 
     if (ti.flags & CKF_USER_PIN_LOCKED) {
-        printf("The USER's PIN is locked for the token in slot %ld.\n"
+        printf("The USER's PIN is locked for the token in slot %lu.\n"
                "Please reset the USER's PIN and re-run this test.\n", slot_id);
         goto session_close;
     }
 
     if (!(ti.flags & CKF_TOKEN_INITIALIZED)) {
-        printf("The token in slot %ld is uninitialized.\n", slot_id);
+        printf("The token in slot %lu is uninitialized.\n", slot_id);
         goto session_close;
     }
     // 3. Login/Logout with correct USER PIN
@@ -281,7 +281,7 @@ int main(int argc, char **argv)
         goto session_close;
     }
 
-    printf("Tests succeeded. USER PIN is now locked for slot %ld.\n"
+    printf("Tests succeeded. USER PIN is now locked for slot %lu.\n"
            "Re-running this test should return CKR_PIN_LOCKED.\n"
            "To unlock this slot, run the init_tok testcase on the slot.\n",
            slot_id);

@@ -186,7 +186,7 @@ int do_HW_Feature_Search(void)
      */
     if (find_count != 2) {
         printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
-               "           It found %ld objects\n", __FILE__, __LINE__,
+               "           It found %lu objects\n", __FILE__, __LINE__,
                find_count);
         rc = -1;
         goto done;
@@ -230,7 +230,7 @@ int do_HW_Feature_Search(void)
 
     if (find_count != 1) {
         printf("%s:%d ERROR:  C_FindObjects #2 should have found 1 object!\n"
-               "           It found %ld objects\n", __FILE__, __LINE__,
+               "           It found %lu objects\n", __FILE__, __LINE__,
                find_count);
         funcs->C_FindObjectsFinal(sess);
         rc = -1;
@@ -292,7 +292,7 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Using slot %ld...\n\n", slot_id);
+    printf("Using slot %lu...\n\n", slot_id);
 
     if (!do_GetFunctionList())
         return -1;

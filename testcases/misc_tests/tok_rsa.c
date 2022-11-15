@@ -306,7 +306,7 @@ int main(int argc, char **argv)
     bits = 512;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_GenerateTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_GenerateTokenRSAKeyPair(512)", rv);
@@ -319,7 +319,7 @@ int main(int argc, char **argv)
     bits = 1024;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_GenerateTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_GenerateTokenRSAKeyPair(1024)", rv);
@@ -332,7 +332,7 @@ int main(int argc, char **argv)
     bits = 2048;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_GenerateTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_GenerateTokenRSAKeyPair(2048)", rv);
@@ -345,7 +345,7 @@ int main(int argc, char **argv)
     bits = 4096;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_GenerateTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_GenerateTokenRSAKeyPair(4096)", rv);
@@ -388,7 +388,7 @@ int main(int argc, char **argv)
     bits = 512;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_VerifyTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_VerifyTokenRSAKeyPair(512)", rv);
@@ -399,7 +399,7 @@ int main(int argc, char **argv)
     bits = 1024;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_VerifyTokenRSAKeyPair(session, label, 1024);
         if (rv != CKR_OK) {
             show_error("do_VerifyTokenRSAKeyPair(1024)", rv);
@@ -410,7 +410,7 @@ int main(int argc, char **argv)
     bits = 2048;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_VerifyTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_VerifyTokenRSAKeyPair(2048)", rv);
@@ -421,7 +421,7 @@ int main(int argc, char **argv)
     bits = 4096;
     if (bits >= rsakeygeninfo.ulMinKeySize
         && bits <= rsakeygeninfo.ulMaxKeySize) {
-        sprintf((char *)label, "XXX DELETE ME TEST LABEL %dbit", bits);
+        sprintf((char *)label, "XXX DELETE ME TEST LABEL %ubit", bits);
         rv = do_VerifyTokenRSAKeyPair(session, label, bits);
         if (rv != CKR_OK) {
             show_error("do_VerifyTokenRSAKeyPair(4096)", rv);

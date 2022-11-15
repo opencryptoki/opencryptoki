@@ -103,7 +103,7 @@ CK_RV do_GenerateKeyPairRSA(void)
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
         testcase_skip("Mechanism CKM_RSA_PKCS_KEY_PAIR_GEN is not supported with slot "
-                      "%ld. Skipping key check", SLOT_ID);
+                      "%lu. Skipping key check", SLOT_ID);
         goto testcase_cleanup;
     }
 

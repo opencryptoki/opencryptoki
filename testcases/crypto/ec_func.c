@@ -331,7 +331,7 @@ CK_RV run_HMACSign(CK_SESSION_HANDLE session, CK_OBJECT_HANDLE h_key,
 
     if (!mech_supported(SLOT_ID, CKM_SHA_1_HMAC)) {
         testcase_notice("Mechanism CKM_SHA_1_HMAC is not supported with slot "
-                        "%ld. Skipping key check", SLOT_ID);
+                        "%lu. Skipping key check", SLOT_ID);
         return CKR_OK;
     }
     if (!check_supp_keysize(SLOT_ID, CKM_SHA_1_HMAC, key_len * 8)) {
@@ -378,10 +378,10 @@ CK_RV run_DeriveECDHKey(void)
     CK_ECDH1_DERIVE_PARAMS ecdh_parmA, ecdh_parmB;
     CK_BBOOL true = CK_TRUE;
     CK_BBOOL false = CK_FALSE;
-    CK_BYTE pubkeyA_value[256];
-    CK_BYTE pubkeyB_value[256];
-    CK_BYTE secretA_value[80000]; //enough space for lengths in secret_key_len[]
-    CK_BYTE deriveB_value[80000];
+    CK_BYTE pubkeyA_value[256] = { 0 };
+    CK_BYTE pubkeyB_value[256] = { 0 };
+    CK_BYTE secretA_value[80000] = { 0 }; //enough space for lengths in secret_key_len[]
+    CK_BYTE deriveB_value[80000] = { 0 };
     CK_OBJECT_CLASS class = CKO_SECRET_KEY;
     CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
     CK_ULONG i, j, k, m;
@@ -832,8 +832,8 @@ CK_RV run_DeriveECDHKey(void)
                     // Compare lengths of derived secrets from key object
                     if (secretA_tmpl[0].ulValueLen !=
                         secretB_tmpl[0].ulValueLen) {
-                        testcase_fail("ERROR: derived key #1 length = %ld, "
-                                      "derived key #2 length = %ld",
+                        testcase_fail("ERROR: derived key #1 length = %lu, "
+                                      "derived key #2 length = %lu",
                                       secretA_tmpl[0].ulValueLen,
                                       secretB_tmpl[0].ulValueLen);
                         goto testcase_cleanup;
@@ -917,8 +917,8 @@ CK_RV run_DeriveECDHKeyKAT(void)
     CK_BBOOL false = CK_FALSE;
     CK_ULONG user_pin_len;
     CK_RV rc = CKR_OK;
-    CK_BYTE secretA_value[1000]; // enough space for key lengths in ecdh_tv[]
-    CK_BYTE secretB_value[1000];
+    CK_BYTE secretA_value[1000] = { 0 }; // enough space for key lengths in ecdh_tv[]
+    CK_BYTE secretB_value[1000] = { 0 };
     CK_ULONG i;
 
     testcase_begin("starting run_DeriveECDHKeyKAT with pkey=%X ...", pkey);
@@ -1190,8 +1190,8 @@ CK_RV run_DeriveECDHKeyKAT(void)
 
         // Compare lengths of derived secret from key object
         if (ecdh_tv[i].derived_key_len != secretA_tmpl[0].ulValueLen) {
-            testcase_fail("ERROR:derived key #1 length = %ld, "
-                          "derived key #2 length = %ld",
+            testcase_fail("ERROR:derived key #1 length = %lu, "
+                          "derived key #2 length = %lu",
                           ecdh_tv[i].derived_key_len,
                           secretA_tmpl[0].ulValueLen);
             goto testcase_cleanup;
@@ -1214,8 +1214,8 @@ CK_RV run_DeriveECDHKeyKAT(void)
 
         // Compare lengths of derived secret from key object
         if (ecdh_tv[i].derived_key_len != secretB_tmpl[0].ulValueLen) {
-            testcase_fail("ERROR:derived key #1 length = %ld, derived key #2 "
-                          "length = %ld", ecdh_tv[i].derived_key_len,
+            testcase_fail("ERROR:derived key #1 length = %lu, derived key #2 "
+                          "length = %lu", ecdh_tv[i].derived_key_len,
                           secretB_tmpl[0].ulValueLen);
             goto testcase_cleanup;
         }

@@ -191,7 +191,7 @@ int do_count_token_objects(void)
         goto done;
     }
 
-    printf("Found:  %ld objects\n", find_count);
+    printf("Found:  %lu objects\n", find_count);
     rc = TRUE;
 
 done:
@@ -343,7 +343,7 @@ int do_destroy_all_token_objects(void)
         for (i = 0; i < find_count; i++) {
             rc = funcs->C_DestroyObject(h_session, obj_list[i]);
             if (rc != CKR_OK) {
-                printf("   C_DestroyObject #%ld returned", i);
+                printf("   C_DestroyObject #%lu returned", i);
                 show_error(" ", rc);
                 rc = FALSE;
                 goto done;
@@ -501,16 +501,16 @@ int do_GetTokenInfo(void)
     printf("      model:                   %16.16s\n", info.model);
     printf("      serialNumber:            %16.16s\n", info.serialNumber);
     printf("      flags:                   %p\n", (void *) info.flags);
-    printf("      ulMaxSessionCount:       %ld\n", info.ulMaxSessionCount);
-    printf("      ulSessionCount:          %ld\n", info.ulSessionCount);
-    printf("      ulMaxRwSessionCount:     %ld\n", info.ulMaxRwSessionCount);
-    printf("      ulRwSessionCount:        %ld\n", info.ulRwSessionCount);
-    printf("      ulMaxPinLen:             %ld\n", info.ulMaxPinLen);
-    printf("      ulMinPinLen:             %ld\n", info.ulMinPinLen);
-    printf("      ulTotalPublicMemory:     %ld\n", info.ulTotalPublicMemory);
-    printf("      ulFreePublicMemory:      %ld\n", info.ulFreePublicMemory);
-    printf("      ulTotalPrivateMemory:    %ld\n", info.ulTotalPrivateMemory);
-    printf("      ulFreePrivateMemory:     %ld\n", info.ulFreePrivateMemory);
+    printf("      ulMaxSessionCount:       %lu\n", info.ulMaxSessionCount);
+    printf("      ulSessionCount:          %lu\n", info.ulSessionCount);
+    printf("      ulMaxRwSessionCount:     %lu\n", info.ulMaxRwSessionCount);
+    printf("      ulRwSessionCount:        %lu\n", info.ulRwSessionCount);
+    printf("      ulMaxPinLen:             %lu\n", info.ulMaxPinLen);
+    printf("      ulMinPinLen:             %lu\n", info.ulMinPinLen);
+    printf("      ulTotalPublicMemory:     %lu\n", info.ulTotalPublicMemory);
+    printf("      ulFreePublicMemory:      %lu\n", info.ulFreePublicMemory);
+    printf("      ulTotalPrivateMemory:    %lu\n", info.ulTotalPrivateMemory);
+    printf("      ulFreePrivateMemory:     %lu\n", info.ulFreePrivateMemory);
     printf("      hardwareVersion:         %d.%d\n", info.hardwareVersion.major,
            info.hardwareVersion.minor);
     printf("      firmwareVersion:         %d.%d\n", info.firmwareVersion.major,

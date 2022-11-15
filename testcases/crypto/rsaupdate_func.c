@@ -89,14 +89,14 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
         }
 
         // begin test
-        testcase_begin("%s Sign and Verify with test vector %d, "
+        testcase_begin("%s Sign and Verify with test vector %u, "
                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu'.",
                        tsuite->name, i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen);
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -229,7 +229,7 @@ CK_RV do_SignVerifyUpdateRSA(struct GENERATED_TEST_SUITE_INFO *tsuite)
             testcase_pass("C_SignFinal set output length.");
         } else {
             testcase_fail("C_SignFinal failed to set length: "
-                          "expected %ld, got %ld.",
+                          "expected %lu, got %lu.",
                           signature_len, tsuite->tv[i].modbits / 8);
             goto error;
         }
@@ -370,14 +370,14 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             goto testcase_cleanup;
         }
         // begin test
-        testcase_begin("%s Sign and Verify with test vector %d, "
+        testcase_begin("%s Sign and Verify with test vector %u, "
                        "\npubl_exp='%s', mod_bits='%lu', keylen='%lu'.",
                        tsuite->name, i, s,
                        tsuite->tv[i].modbits, tsuite->tv[i].keylen);
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           SLOT_ID, tsuite->tv[i].modbits);
             free(s);
             continue;
@@ -501,7 +501,7 @@ CK_RV do_SignVerifyUpdate_RSAPSS(struct GENERATED_TEST_SUITE_INFO * tsuite)
             testcase_pass("C_SignFinal set output length.");
         } else {
             testcase_fail("C_SignFinal failed to set length: "
-                          "expected %ld, got %ld.",
+                          "expected %lu, got %lu.",
                           signature_len, tsuite->tv[i].modbits / 8);
             goto error;
         }
@@ -643,11 +643,11 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             goto testcase_cleanup;
         }
 
-        testcase_begin("%s Verify with test vector %d.", tsuite->name, i);
+        testcase_begin("%s Verify with test vector %u.", tsuite->name, i);
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           SLOT_ID, tsuite->tv[i].mod_len * 8);
             free(s);
             continue;
@@ -768,7 +768,7 @@ CK_RV do_VerifyUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         if (rc == CKR_OK) {
             testcase_pass("C_Verify.");
         } else {
-            testcase_fail("%s Sign Verify with test vector %d "
+            testcase_fail("%s Sign Verify with test vector %u "
                           "failed.", tsuite->name, i);
         }
 
@@ -848,11 +848,11 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             rc = -1;
             goto testcase_cleanup;
         }
-        testcase_begin("%s Sign with test vector %d.", tsuite->name, i);
+        testcase_begin("%s Sign with test vector %u.", tsuite->name, i);
 
         if (!keysize_supported(slot_id, tsuite->mech.mechanism,
                                tsuite->tv[i].mod_len * 8)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           SLOT_ID, tsuite->tv[i].mod_len * 8);
             free(s);
             continue;
@@ -1029,7 +1029,7 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
             testcase_pass("C_SignFinal set output length.");
         } else {
             testcase_fail("C_SignFinal failed to set length: "
-                          "expected %ld, got %ld.",
+                          "expected %lu, got %lu.",
                           actual_len, tsuite->tv[i].mod_len);
             goto error;
         }
@@ -1043,11 +1043,11 @@ CK_RV do_SignUpdateRSA(struct PUBLISHED_TEST_SUITE_INFO * tsuite)
         testcase_new_assertion();
 
         if (actual_len != expected_len) {
-            testcase_fail("%s Sign with test vector %d failed. "
-                          "Expected len=%ld, found len=%ld.",
+            testcase_fail("%s Sign with test vector %u failed. "
+                          "Expected len=%lu, found len=%lu.",
                           tsuite->name, i, expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
-            testcase_fail("%s Sign with test vector %d failed. "
+            testcase_fail("%s Sign with test vector %u failed. "
                           "Signature data does not match test vector "
                           "signature.", tsuite->name, i);
 
