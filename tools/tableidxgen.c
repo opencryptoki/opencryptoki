@@ -416,7 +416,7 @@ static void lognodes(FILE *fp)
 
     fputs("Jump table:\n", fp);
     for (n = root; n; n = n->nextnum) {
-        fprintf(fp, "node %hd: (offset %u)\n", n->num, n->offset);
+        fprintf(fp, "node %hu: (offset %u)\n", n->num, n->offset);
         for (i = 0; i < 256; ++i) {
             if (n->table[i] > 0)
                 fprintf(fp, "  %d (%d) => node %hd\n", i, (int)idxtable[i],
