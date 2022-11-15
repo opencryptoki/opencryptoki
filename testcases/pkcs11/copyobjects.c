@@ -373,7 +373,7 @@ int main(int argc, char **argv)
         if (rv != CKR_FUNCTION_NOT_PARALLEL)
             return rv;
 
-        rc = funcs->C_CancelFunction(hsess);
+        rv = funcs->C_CancelFunction(hsess);
         if (rv != CKR_FUNCTION_NOT_PARALLEL)
             return rv;
     }

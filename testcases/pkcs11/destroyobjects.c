@@ -37,7 +37,7 @@ CK_RV do_DestroyObjects(void)
     CK_ULONG user_pin_len;
     CK_OBJECT_HANDLE keyobj[8];
     CK_OBJECT_HANDLE obj_list[10];
-    CK_OBJECT_HANDLE keyobj_no_destroy;
+    CK_OBJECT_HANDLE keyobj_no_destroy = CK_INVALID_HANDLE;
     CK_ULONG i, num_objs = 0, find_count, found = 0;
     CK_MECHANISM mech;
     CK_BBOOL false = CK_FALSE;

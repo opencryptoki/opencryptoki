@@ -343,7 +343,7 @@ CK_RV do_EncryptDecryptImportRSA(struct PUBLISHED_TEST_SUITE_INFO *tsuite)
     CK_BYTE decrypt[BIG_REQUEST];
     CK_ULONG decrypt_len;
     CK_MECHANISM mech;
-    CK_OBJECT_HANDLE publ_key, priv_key;
+    CK_OBJECT_HANDLE publ_key = CK_INVALID_HANDLE, priv_key = CK_INVALID_HANDLE;
     CK_SLOT_ID slot_id = SLOT_ID;
     CK_SESSION_HANDLE session;
     CK_FLAGS flags;
