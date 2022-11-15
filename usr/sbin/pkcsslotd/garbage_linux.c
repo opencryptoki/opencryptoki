@@ -493,7 +493,7 @@ BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
         Err = errno;
         if (Err == ESRCH) {
             /* The process was not found */
-            DbgLog(DL3, "IsValidProcessEntry: PID %d was not found in the "
+            DbgLog(DL3, "IsValidProcessEntry: PID %lld was not found in the "
                    "process table (kill() returned %s)",
                    pid, SysConst(Err));
             return FALSE;
@@ -524,11 +524,11 @@ BOOL IsValidProcessEntry(pid_t_64 pid, time_t_64 RegTime)
         } else {
             /* p->start_time contains the time at which the process began ??
              * (22nd element in /proc/<pid>/stat file) */
-            DbgLog(DL1, "IsValidProcessEntry: PID %d started at %lu; "
+            DbgLog(DL1, "IsValidProcessEntry: PID %lld started at %lu; "
                    "registered at %ld",
                    pid, p->start_time, RegTime);
             DbgLog(DL4, "IsValidProcessEntry: PID Returned %d flags at "
-                   "%#x; state at %#x",
+                   "%#lx; state at %#x",
                    p->pid, p->flags, p->state);
         }
     }
