@@ -605,7 +605,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
 
     for (keylen = 16; keylen <= 32; keylen += 8) {
 
-	testcase_begin("CCA export/import test with AES%d data key", 8 * keylen);
+	testcase_begin("CCA export/import test with AES%u data key", 8 * keylen);
 
 	// create ock aes key
 
@@ -682,7 +682,7 @@ static CK_RV cca_aes_data_export_import_tests(void)
 	    goto error;
 	}
 
-	testcase_pass("CCA export/import test with AES%d data key: ok", 8 * keylen);
+	testcase_pass("CCA export/import test with AES%u data key: ok", 8 * keylen);
 
 error:
 	free(opaquekey);
@@ -724,7 +724,7 @@ static CK_RV cca_aes_cipher_import_tests(void)
 
     for (i = 0; keybitlen[i]; i++) {
 
-	testcase_begin("CCA import test with AES%d cipher key", keybitlen[i]);
+	testcase_begin("CCA import test with AES%u cipher key", keybitlen[i]);
 
 	// Opencryptoki can't create CCA AES cipher keys.
 	// So let's read a raw CCA AES cipher key from the pkey sysfs api
@@ -774,7 +774,7 @@ static CK_RV cca_aes_cipher_import_tests(void)
 
 	// that's it here
 
-	testcase_pass("CCA import test with AES%d cipher key: ok", keybitlen[i]);
+	testcase_pass("CCA import test with AES%u cipher key: ok", keybitlen[i]);
 
 error:
 	;

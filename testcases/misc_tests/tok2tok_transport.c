@@ -607,13 +607,13 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
 
         if (!keysize_supported(slot_id1, tsuite->wrapped_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %lu cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           slot_id1, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
         if (!keysize_supported(slot_id2, tsuite->wrapped_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %lu cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           slot_id2, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
@@ -1009,14 +1009,14 @@ CK_RV do_wrapping_test(struct wrapping_mech_info *tsuite)
         if (!keysize_supported(slot_id1,
                                tsuite->wrapping_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           slot_id1, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }
         if (!keysize_supported(slot_id2,
                                tsuite->wrapping_key_gen_mech.mechanism,
                                tsuite->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           slot_id2, tsuite->rsa_modbits);
             goto testcase_cleanup;
         }

@@ -92,8 +92,8 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
     };
 
-    testcase_begin("RSA PKCS Encrypt with keylen=%d datalen=%d",
-                   keylength, (int) sizeof(data1));
+    testcase_begin("RSA PKCS Encrypt with keylen=%d datalen=%lu",
+                   keylength, sizeof(data1));
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
         testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (0x%x)",
@@ -174,15 +174,15 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
     max_time /= 1000;
     avg_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
+    printf("%lu iterations: total=%lums min=%lums max=%lums avg=%lums "
            "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    testcase_pass("RSA PKCS Encrypt with keylen=%d datalen=%d",
-                  keylength, (int) sizeof(data1));
+    testcase_pass("RSA PKCS Encrypt with keylen=%d datalen=%lu",
+                  keylength, sizeof(data1));
 
-    testcase_begin("RSA PKCS Decrypt with keylen=%d datalen=%d",
-                   keylength, (int) encdata_len);
+    testcase_begin("RSA PKCS Decrypt with keylen=%d datalen=%lu",
+                   keylength, encdata_len);
     testcase_new_assertion();
 
     tot_time = 0;
@@ -235,12 +235,12 @@ int do_RSA_PKCS_EncryptDecrypt(int keylength)
     max_time /= 1000;
     avg_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
+    printf("%lu iterations: total=%lums min=%lums max=%lums avg=%lums "
            "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    testcase_pass("RSA PKCS Decrypt with keylen=%d datalen=%d",
-                  keylength, (int) encdata_len);
+    testcase_pass("RSA PKCS Decrypt with keylen=%d datalen=%lu",
+                  keylength, encdata_len);
 
 testcase_cleanup:
     testcase_closeall_session();
@@ -327,7 +327,7 @@ int do_RSA_KeyGen(int keylength)
     max_time /= 1000;
     avg_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
+    printf("%lu iterations: total=%lums min=%lums max=%lums avg=%lums "
            "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
@@ -367,8 +367,8 @@ int do_RSA_PKCS_SignVerify(int keylength)
         {CKA_PUBLIC_EXPONENT, &pub_exp, sizeof(pub_exp)}
     };
 
-    testcase_begin("RSA PKCS Sign with keylen=%d datalen=%d",
-                   keylength, (int) sizeof(data1));
+    testcase_begin("RSA PKCS Sign with keylen=%d datalen=%lu",
+                   keylength, sizeof(data1));
 
     if (!mech_supported(SLOT_ID, CKM_RSA_PKCS_KEY_PAIR_GEN)) {
         testcase_skip("Slot %lu doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN (0x%x)",
@@ -446,15 +446,15 @@ int do_RSA_PKCS_SignVerify(int keylength)
     max_time /= 1000;
     avg_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
+    printf("%lu iterations: total=%lums min=%lums max=%lums avg=%lums "
            "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    testcase_pass("RSA PKCS Sign with keylen=%d datalen=%d",
-                  keylength, (int) sizeof(data1));
+    testcase_pass("RSA PKCS Sign with keylen=%d datalen=%lu",
+                  keylength, sizeof(data1));
 
-    testcase_begin("RSA PKCS Verify with keylen=%d datalen=%d",
-                   keylength, (int) sizeof(data1));
+    testcase_begin("RSA PKCS Verify with keylen=%d datalen=%lu",
+                   keylength, sizeof(data1));
     testcase_new_assertion();
 
     tot_time = 0;
@@ -494,12 +494,12 @@ int do_RSA_PKCS_SignVerify(int keylength)
     max_time /= 1000;
     avg_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldms max=%ldms avg=%ldms "
+    printf("%lu iterations: total=%lums min=%lums max=%lums avg=%lums "
            "op/s=%.3f\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time);
 
-    testcase_pass("RSA PKCS Verify with keylen=%d datalen=%d",
-                  keylength, (int) sizeof(data1));
+    testcase_pass("RSA PKCS Verify with keylen=%d datalen=%lu",
+                  keylength, sizeof(data1));
 
 testcase_cleanup:
     testcase_closeall_session();
@@ -626,7 +626,7 @@ int do_DES3_EncrDecr(const char *mode)
     // us -> ms
     tot_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
+    printf("%lu iterations: total=%lums min=%luus max=%luus avg=%luus "
            "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
@@ -677,7 +677,7 @@ int do_DES3_EncrDecr(const char *mode)
     // us -> ms
     tot_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
+    printf("%lu iterations: total=%lums min=%luus max=%luus avg=%luus "
            "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
@@ -722,7 +722,7 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     SYSTEMTIME t1, t2;
     CK_ULONG avg_time, tot_time, min_time, max_time, diff;
 
-    testcase_begin("AES Encrypt with mode=%s keylen=%ld datalen=%d",
+    testcase_begin("AES Encrypt with mode=%s keylen=%lu datalen=%d",
                    mode, key_len * 8, BIG_REQUEST);
 
     if (!mech_supported(SLOT_ID, CKM_AES_KEY_GEN)) {
@@ -819,16 +819,16 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     // us -> ms
     tot_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
+    printf("%lu iterations: total=%lums min=%luus max=%luus avg=%luus "
            "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
-    testcase_pass("AES Encrypt with mode=%s keylen=%ld datalen=%d",
+    testcase_pass("AES Encrypt with mode=%s keylen=%lu datalen=%d",
                    mode, key_len * 8, BIG_REQUEST);
 
-    testcase_begin("AES Decrypt with mode=%s keylen=%ld datalen=%d",
+    testcase_begin("AES Decrypt with mode=%s keylen=%lu datalen=%d",
                    mode, key_len * 8, BIG_REQUEST);
     testcase_new_assertion();
 
@@ -869,13 +869,13 @@ int do_AES_EncrDecr(int keylength, const char *mode)
     // us -> ms
     tot_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
+    printf("%lu iterations: total=%lums min=%luus max=%luus avg=%luus "
            "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *
             BIG_REQUEST) / (double) tot_time);
 
-    testcase_pass("AES Decrypt with mode=%s keylen=%ld datalen=%d",
+    testcase_pass("AES Decrypt with mode=%s keylen=%lu datalen=%d",
                   mode, key_len * 8, BIG_REQUEST);
 
 testcase_cleanup:
@@ -970,7 +970,7 @@ int do_SHA(const char *mode)
 
         if (h_len != hash_len) {
             testcase_error
-                ("returned hashlen %ld doesn't match to expected len %ld\n",
+                ("returned hashlen %lu doesn't match to expected len %lu\n",
                  h_len, hash_len);
             rc = CKR_FUNCTION_FAILED;
             goto testcase_cleanup;
@@ -993,7 +993,7 @@ int do_SHA(const char *mode)
     // us -> ms
     tot_time /= 1000;
 
-    printf("%ld iterations: total=%ldms min=%ldus max=%ldus avg=%ldus "
+    printf("%lu iterations: total=%lums min=%luus max=%luus avg=%luus "
            "op/s=%.3f %.3fMB/s\n", iterations, tot_time, min_time, max_time,
            avg_time, (double) (iterations * 1000) / (double) tot_time,
            (((double) (iterations * 1000) / (double) (1024 * 1024)) *

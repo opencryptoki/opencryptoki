@@ -361,7 +361,7 @@ CK_RV do_reencrypt(struct mech_info *mech1, struct mech_info *mech2)
 
         if (!keysize_supported(slot_id, mech2->key_gen_mech.mechanism,
                                mech2->rsa_modbits)) {
-            testcase_skip("Token in slot %ld cannot be used with modbits='%ld'",
+            testcase_skip("Token in slot %lu cannot be used with modbits='%lu'",
                           slot_id, mech2->rsa_modbits);
             goto testcase_cleanup;
         }
@@ -609,8 +609,8 @@ CK_RV do_encrypt_reencrypt(struct mech_info *mech1)
         if (!keysize_supported(slot_id,
                                mech1->key_gen_mech.mechanism,
                                mech1->rsa_modbits)) {
-            testsuite_skip(NUM_REENCRYPT_TESTS, "Token in slot %ld cannot be "
-                          "used with modbits='%ld'", slot_id,
+            testsuite_skip(NUM_REENCRYPT_TESTS, "Token in slot %lu cannot be "
+                          "used with modbits='%lu'", slot_id,
                           mech1->rsa_modbits);
             goto testcase_cleanup;
         }

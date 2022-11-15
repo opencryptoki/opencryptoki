@@ -147,7 +147,7 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
     for (i = 0; i < 500; i += 100) {
         rc = funcs->C_SignUpdate(session, &data2[i], 100);
         if (rc != CKR_OK) {
-            testcase_error("Iteration #%ld, C_SignUpdate() rc = %s", i / 100,
+            testcase_error("Iteration #%lu, C_SignUpdate() rc = %s", i / 100,
                            p11_get_ckr(rc));
             goto done;
         }
@@ -177,7 +177,7 @@ CK_RV do_SignVerify_SSL3_MD5_MAC(CK_SESSION_HANDLE session)
     for (i = 0; i < 500; i += 100) {
         rc = funcs->C_VerifyUpdate(session, &data2[i], 100);
         if (rc != CKR_OK) {
-            testcase_error("Iteration #%ld, C_VerifyUpdate() rc = %s", i / 100,
+            testcase_error("Iteration #%lu, C_VerifyUpdate() rc = %s", i / 100,
                            p11_get_ckr(rc));
             goto done;
         }

@@ -796,7 +796,7 @@ CK_RV do_FindObjects(void)
     }
 
     if (find_count != 1) {
-        testcase_fail("found %ld instead of just 1 object", find_count);
+        testcase_fail("found %lu instead of just 1 object", find_count);
         return -1;
     }
 
@@ -825,7 +825,7 @@ CK_RV do_FindObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         return -1;
     }
 
@@ -849,7 +849,7 @@ CK_RV do_FindObjects(void)
     }
 
     if (find_count != num_existing_objects + 3) {
-        testcase_fail("found %ld instead of %ld objects", find_count,
+        testcase_fail("found %lu instead of %lu objects", find_count,
                       num_existing_objects + 3);
         return -1;
     }
@@ -1053,7 +1053,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 3) {
-        testcase_fail("found %ld objects instead of expected 3", find_count);
+        testcase_fail("found %lu objects instead of expected 3", find_count);
         return -1;
     }
 
@@ -1077,7 +1077,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 1) {
-        testcase_fail("found %ld objects instead of expected 1", find_count);
+        testcase_fail("found %lu objects instead of expected 1", find_count);
         return -1;
     }
 
@@ -1106,7 +1106,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         return -1;
     }
 
@@ -1151,7 +1151,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 3) {
-        testcase_fail("found %ld objects instead of expected 3", find_count);
+        testcase_fail("found %lu objects instead of expected 3", find_count);
         return -1;
     }
 
@@ -1175,7 +1175,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 1) {
-        testcase_fail("found %ld objects instead of expected 1", find_count);
+        testcase_fail("found %lu objects instead of expected 1", find_count);
         return -1;
     }
 
@@ -1204,7 +1204,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         return -1;
     }
 
@@ -1247,7 +1247,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         return -1;
     }
 
@@ -1453,7 +1453,7 @@ CK_RV do_HWFeatureSearch(void)
      * feature object
      */
     if (find_count != 2) {
-        testcase_fail("found %ld objects when expected 2", find_count);
+        testcase_fail("found %lu objects when expected 2", find_count);
         rc = -1;
         goto destroy;
     }
@@ -1490,7 +1490,7 @@ CK_RV do_HWFeatureSearch(void)
     }
 
     if (find_count != 1) {
-        testcase_fail("found %ld objects when expected 1", find_count);
+        testcase_fail("found %lu objects when expected 1", find_count);
         funcs->C_FindObjectsFinal(h_session);
         rc = -1;
         goto destroy;
@@ -1642,7 +1642,7 @@ CK_RV do_ProfileSearch(void)
         goto destroy;
     }
     if (find_count != 2) {
-        testcase_fail("found %ld objects when expected 1", find_count);
+        testcase_fail("found %lu objects when expected 1", find_count);
         funcs->C_FindObjectsFinal(h_session);
         rc = -1;
         goto destroy;
@@ -1671,7 +1671,7 @@ CK_RV do_ProfileSearch(void)
         goto destroy;
     }
     if (find_count != 1) {
-        testcase_fail("found %ld objects when expected 1", find_count);
+        testcase_fail("found %lu objects when expected 1", find_count);
         funcs->C_FindObjectsFinal(h_session);
         rc = -1;
         goto destroy;

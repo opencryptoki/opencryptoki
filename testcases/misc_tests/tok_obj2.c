@@ -30,7 +30,7 @@ CK_RV C_GetFunctionList(CK_FUNCTION_LIST **);
 
 void show_error(CK_BYTE * str, CK_RV rc)
 {
-    printf("%s returned:  %ld - %s\n", str, rc, p11_get_ckr(rc));
+    printf("%s returned:  %lu - %s\n", str, rc, p11_get_ckr(rc));
 }
 
 int do_GetFunctionList(void)
@@ -209,7 +209,7 @@ int do_count_token_objects(void)
             rc = FALSE;
             goto done;
         }
-        printf("Found:  %d objects\n", find_count);
+        printf("Found:  %lu objects\n", find_count);
     } while (find_count != 0);
 
     rc = funcs->C_FindObjectsFinal(h_session);
@@ -369,7 +369,7 @@ int do_destroy_all_token_objects(void)
         for (i = 0; i < find_count; i++) {
             rc = funcs->C_DestroyObject(h_session, obj_list[i]);
             if (rc != CKR_OK) {
-                printf("   C_DestroyObject #%d returned", i);
+                printf("   C_DestroyObject #%lu returned", i);
                 show_error(" ", rc);
                 rc = FALSE;
                 goto done;
@@ -517,17 +517,17 @@ int do_GetTokenInfo(void)
     printf("      manufacturerID:          %32.32s\n", info.manufacturerID);
     printf("      model:                   %16.16s\n", info.model);
     printf("      serialNumber:            %16.16s\n", info.serialNumber);
-    printf("      flags:                   %0x\n", info.flags);
-    printf("      ulMaxSessionCount:       %d\n", info.ulMaxSessionCount);
-    printf("      ulSessionCount:          %d\n", info.ulSessionCount);
-    printf("      ulMaxRwSessionCount:     %d\n", info.ulMaxRwSessionCount);
-    printf("      ulRwSessionCount:        %d\n", info.ulRwSessionCount);
-    printf("      ulMaxPinLen:             %d\n", info.ulMaxPinLen);
-    printf("      ulMinPinLen:             %d\n", info.ulMinPinLen);
-    printf("      ulTotalPublicMemory:     %d\n", info.ulTotalPublicMemory);
-    printf("      ulFreePublicMemory:      %d\n", info.ulFreePublicMemory);
-    printf("      ulTotalPrivateMemory:    %d\n", info.ulTotalPrivateMemory);
-    printf("      ulFreePrivateMemory:     %d\n", info.ulFreePrivateMemory);
+    printf("      flags:                   %0lx\n", info.flags);
+    printf("      ulMaxSessionCount:       %lu\n", info.ulMaxSessionCount);
+    printf("      ulSessionCount:          %lu\n", info.ulSessionCount);
+    printf("      ulMaxRwSessionCount:     %lu\n", info.ulMaxRwSessionCount);
+    printf("      ulRwSessionCount:        %lu\n", info.ulRwSessionCount);
+    printf("      ulMaxPinLen:             %lu\n", info.ulMaxPinLen);
+    printf("      ulMinPinLen:             %lu\n", info.ulMinPinLen);
+    printf("      ulTotalPublicMemory:     %lu\n", info.ulTotalPublicMemory);
+    printf("      ulFreePublicMemory:      %lu\n", info.ulFreePublicMemory);
+    printf("      ulTotalPrivateMemory:    %lu\n", info.ulTotalPrivateMemory);
+    printf("      ulFreePrivateMemory:     %lu\n", info.ulFreePrivateMemory);
     printf("      hardwareVersion:         %d.%d\n", info.hardwareVersion.major,
            info.hardwareVersion.minor);
     printf("      firmwareVersion:         %d.%d\n", info.firmwareVersion.major,

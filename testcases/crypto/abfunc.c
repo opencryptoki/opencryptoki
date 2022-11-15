@@ -905,7 +905,7 @@ void do_TestKeyWrappingUnwrapping(CK_SESSION_HANDLE session)
         CK_IBM_ATTRIBUTEBOUND_WRAP_PARAMS params;
         CK_MECHANISM mech = {CKM_IBM_ATTRIBUTEBOUND_WRAP, &params, sizeof(params)};
         params.hSignVerifyKey = *(config[i].signingkey);
-        testcase_begin("AB Wrap/Unwrap test %d", i);
+        testcase_begin("AB Wrap/Unwrap test %u", i);
         testcase_new_assertion();
         wrappedkeylen = sizeof(wrappedkey);
         rc = funcs->C_WrapKey(session, &mech, *(config[i].wrappingkey),

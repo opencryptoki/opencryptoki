@@ -202,7 +202,7 @@ CK_RV run_SignVerifyDilithiumKAT(CK_SESSION_HANDLE session,
 
     /* Check if calculated signature len matches with known signature len */
     if (siglen != dilithium_tv[index].sig_len) {
-        testcase_error("Calculated signature length %ld does not match known length %ld.",
+        testcase_error("Calculated signature length %lu does not match known length %lu.",
                        siglen, dilithium_tv[index].sig_len);
         goto testcase_cleanup;
     }
@@ -565,7 +565,7 @@ CK_RV run_TransferDilithiumKeyPairSignVerify(void)
 
     for (i = 0; i < DILITHIUM_TV_NUM; i++) {
 
-        testcase_begin("Starting Dilithium transfer key pair, Sign/Verify KAT index=%ld.",i);
+        testcase_begin("Starting Dilithium transfer key pair, Sign/Verify KAT index=%lu.",i);
 
         /* Create Dilithium private key */
         rc = create_DilithiumPrivateKey(session,

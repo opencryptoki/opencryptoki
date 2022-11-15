@@ -75,7 +75,7 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
         if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
             continue;
 
-        testcase_begin("%s Encryption/Decryption with key len=%ld and pkey=%X.",
+        testcase_begin("%s Encryption/Decryption with key len=%lu and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         /** set crypto mech **/
@@ -146,13 +146,13 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
         if (decrypt_len != orig_len) {
             testcase_fail("decrypted data length does not "
                           "match original data length.\nexpected "
-                          "length=%ld, but found length=%ld\n",
+                          "length=%lu, but found length=%lu\n",
                           orig_len, decrypt_len);
         } else if (memcmp(decrypt, original, orig_len)) {
             testcase_fail("decrypted data does not match " "original data");
         } else {
             testcase_pass("%s Encryption/Decryption with "
-                          "key length %ld passed.", tsuite->name, key_lens[i]);
+                          "key length %lu passed.", tsuite->name, key_lens[i]);
         }
 
         /** clean up **/
@@ -224,7 +224,7 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
             continue;
 
         testcase_begin("%s Multipart Encryption/Decryption with "
-                       "key len=%ld and pkey=%X.", tsuite->name, key_lens[i], pkey);
+                       "key len=%lu and pkey=%X.", tsuite->name, key_lens[i], pkey);
 
         /** set crypto mech **/
         mech = tsuite->mech;
@@ -383,14 +383,14 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
         if (decrypt_len != orig_len) {
             testcase_fail("decrypted multipart data length does not"
                           " match original data length.\nexpected "
-                          "length=%ld, but found length=%ld\n",
+                          "length=%lu, but found length=%lu\n",
                           orig_len, decrypt_len);
         } else if (memcmp(decrypt, original, orig_len)) {
             testcase_fail("decrypted multipart data does not match"
                           " original data");
         } else {
             testcase_pass("%s Multipart Encryption/Decryption with"
-                          " key length %ld passed.", tsuite->name, key_lens[i]);
+                          " key length %lu passed.", tsuite->name, key_lens[i]);
         }
 
         rc = funcs->C_DestroyObject(session, h_key);
@@ -500,7 +500,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
 
     for (i = 0; i < tsuite->tvcount; i++) {
 
-        testcase_begin("%s Encryption with published test vector %d and pkey=%X.",
+        testcase_begin("%s Encryption with published test vector %u and pkey=%X.",
                        tsuite->name, i, pkey);
 
         /** get mech **/
@@ -589,13 +589,13 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         if (output_len != expected_len) {
             testcase_fail("encrypted data length does not match "
                           "test vector's encrypted data length.\n\n"
-                          "expected length=%ld, but found length=%ld\n",
+                          "expected length=%lu, but found length=%lu\n",
                           expected_len, output_len);
         } else if (memcmp(output, expected, expected_len)) {
             testcase_fail("encrypted data does not match test "
                           "vector's encrypted data");
         } else {
-            testcase_pass("%s Encryption with test vector %d "
+            testcase_pass("%s Encryption with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -668,7 +668,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Multipart Encryption with published test "
-                       "vector %d and pkey=%X.", tsuite->name, i, pkey);
+                       "vector %u and pkey=%X.", tsuite->name, i, pkey);
 
         /** get mech **/
         mech = tsuite->mech;
@@ -797,14 +797,14 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         if (crypt_len != expected_len) {
             testcase_fail("encrypted multipart data length does "
                           "not match test vector's encrypted data length."
-                          "\n\nexpected length=%ld, but found length=%ld"
+                          "\n\nexpected length=%lu, but found length=%lu"
                           "\n", expected_len, crypt_len);
         } else if (memcmp(crypt, expected, expected_len)) {
             testcase_fail("encrypted multipart data does not match"
                           " test vector's encrypted data.\n");
         } else {
             testcase_pass("%s Multipart Encryption with test "
-                          "vector %d passed.", tsuite->name, i);
+                          "vector %u passed.", tsuite->name, i);
         }
 
         rc = funcs->C_DestroyObject(session, h_key);
@@ -875,7 +875,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
 
     for (i = 0; i < tsuite->tvcount; i++) {
 
-        testcase_begin("%s Decryption with published test vector %d and pkey=%X.",
+        testcase_begin("%s Decryption with published test vector %u and pkey=%X.",
                        tsuite->name, i, pkey);
 
         /** get mech **/
@@ -963,13 +963,13 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         if (output_len != expected_len) {
             testcase_fail("decrypted data length does not match "
                           "test vector's decrypted data length.\n\n"
-                          "expected length=%ld, but found length=%ld\n",
+                          "expected length=%lu, but found length=%lu\n",
                           expected_len, output_len);
         } else if (memcmp(output, expected, expected_len)) {
             testcase_fail("decrypted data does not match test "
                           "vector's decrypted data");
         } else {
-            testcase_pass("%s Decryption with test vector %d "
+            testcase_pass("%s Decryption with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -1042,7 +1042,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Multipart Decryption with published test "
-                       "vector %d and pkey=%X.", tsuite->name, i, pkey);
+                       "vector %u and pkey=%X.", tsuite->name, i, pkey);
 
         /** get mech **/
         mech = tsuite->mech;
@@ -1171,14 +1171,14 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
         if (p_len != expected_len) {
             testcase_fail("decrypted multipart data length does "
                           "not match test vector's decrypted data "
-                          "length.\n\nexpected length=%ld, but found "
-                          "length=%ld\n", expected_len, p_len);
+                          "length.\n\nexpected length=%lu, but found "
+                          "length=%lu\n", expected_len, p_len);
         } else if (memcmp(plaintext, expected, expected_len)) {
             testcase_fail("decrypted multipart data does not match"
                           " test vector's decrypted data.\n");
         } else {
             testcase_pass("%s Multipart Decryption with test "
-                          "vector %d passed.", tsuite->name, i);
+                          "vector %u passed.", tsuite->name, i);
         }
 
         rc = funcs->C_DestroyObject(session, h_key);
@@ -1277,7 +1277,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
         if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
             continue;
 
-        testcase_begin("%s Wrap/Unwrap key test with keylength=%ld and pkey=%X.",
+        testcase_begin("%s Wrap/Unwrap key test with keylength=%lu and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         /** set mechanisms **/
@@ -1574,7 +1574,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         if (tsuite->mech.mechanism == CKM_AES_XTS && key_lens[i] == 24)
             continue;
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%lu and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         key_size = tsuite->mech.mechanism == CKM_AES_XTS ?
@@ -1711,7 +1711,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
             testcase_new_assertion();
             if (orig_len != decipher_len) {
                 testcase_fail("lengths don't match: "
-                              "%ld vs %ld\n", orig_len, decipher_len);
+                              "%lu vs %lu\n", orig_len, decipher_len);
                 rc = CKR_GENERAL_ERROR;
             } else if (memcmp(original, decipher, orig_len)) {
                 testcase_fail("deciphered data does not match"
@@ -1826,7 +1826,7 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
 
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%lu and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         key_size = key_lens[i];
@@ -2020,7 +2020,7 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
 
     for (i = 0; i < 3; i++) {
 
-        testcase_begin("%s wrap/unwrap of RSA key for key length=%ld and pkey=%X.",
+        testcase_begin("%s wrap/unwrap of RSA key for key length=%lu and pkey=%X.",
                        tsuite->name, key_lens[i], pkey);
 
         key_size = key_lens[i];
@@ -2169,7 +2169,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
 
 
     for (i = 0; i < tsuite->tvcount; i++) {
-        testcase_begin("%s Sign/Verify MAC with published test vector %d and pkey=%X.",
+        testcase_begin("%s Sign/Verify MAC with published test vector %u and pkey=%X.",
                                tsuite->name, i, pkey);
 
         /** create key handle **/
@@ -2293,20 +2293,20 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
              mech.mechanism == CKM_AES_MAC_GENERAL) &&
             actual_len != tsuite->tv[i].tlen) {
             testcase_fail("signature length does not match test vector's "
-                          "signature length\nexpected length=%d, found "
-                          "length=%ld", tsuite->tv[i].tlen, actual_len);
+                          "signature length\nexpected length=%u, found "
+                          "length=%lu", tsuite->tv[i].tlen, actual_len);
         } else if (mech.mechanism != CKM_AES_CMAC_GENERAL &&
                    mech.mechanism != CKM_AES_MAC_GENERAL &&
                    actual_len != mac_len) {
             testcase_fail("signature length does not match test vector's "
-                          "signature length\nexpected length=%ld, found "
-                          "length=%ld", mac_len, actual_len);
+                          "signature length\nexpected length=%lu, found "
+                          "length=%lu", mac_len, actual_len);
         } else if (memcmp(actual, tsuite->tv[i].mac,
                    tsuite->tv[i].tlen < mac_len ? tsuite->tv[i].tlen :
                                                                mac_len)) {
             testcase_fail("signature does not match test vector's signature");
         } else {
-            testcase_pass("%s Sign/Verify MAC with test vector %d "
+            testcase_pass("%s Sign/Verify MAC with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -2539,7 +2539,7 @@ CK_RV do_EncryptDecryptAESPkey(void)
         testcase_fail("Didn't find key with label '%s'in repository", label);
         goto testcase_cleanup;
     } else if (count > 1) {
-        testcase_skip("Found %ld objs with label '%s', only expected one. "
+        testcase_skip("Found %lu objs with label '%s', only expected one. "
                       "Skipping this test.\n", count, label);
         rc = funcs->C_FindObjectsFinal(session);
         goto testcase_cleanup;

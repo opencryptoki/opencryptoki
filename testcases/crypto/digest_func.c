@@ -48,7 +48,7 @@ CK_RV do_Digest(struct digest_test_suite_info *tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -57,7 +57,7 @@ CK_RV do_Digest(struct digest_test_suite_info *tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Starting %s Digest with test vector %d.",
+        testcase_begin("Starting %s Digest with test vector %u.",
                        tsuite->name, i);
 
         rc = CKR_OK;            // set rc
@@ -98,13 +98,13 @@ CK_RV do_Digest(struct digest_test_suite_info *tsuite)
         if (actual_len != expected_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length.\n expected"
-                          " length=%ld, found length=%ld.",
+                          " length=%lu, found length=%lu.",
                           expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
             testcase_fail("hashed data does not match test vector's"
                           " hashed data.");
         } else {
-            testcase_pass("%s Digest with test vector %d passed.",
+            testcase_pass("%s Digest with test vector %u passed.",
                           tsuite->name, i);
         }
     }
@@ -142,7 +142,7 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(slot_id, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -151,7 +151,7 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Starting %s Multipart Digest with test vector %d.",
+        testcase_begin("Starting %s Multipart Digest with test vector %u.",
                        tsuite->name, i);
 
         rc = CKR_OK;            // set rc
@@ -239,7 +239,7 @@ CK_RV do_DigestUpdate(struct digest_test_suite_info * tsuite)
                           "test vector's hashed data.\n");
         } else {
             testcase_pass("%s Multipart Digest with test vector "
-                          "%d passed.", tsuite->name, i);
+                          "%u passed.", tsuite->name, i);
         }
 
     }
@@ -279,7 +279,7 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -288,7 +288,7 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Sign %s with test vector %d.", tsuite->name, i);
+        testcase_begin("Sign %s with test vector %u.", tsuite->name, i);
 
         /** get mechanism and set parameter **/
         mech = tsuite->mech;
@@ -351,7 +351,7 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (actual_mac_len != expected_mac_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length\nexpected "
-                          "length=%ld, found length=%ld",
+                          "length=%lu, found length=%lu",
                           expected_mac_len, actual_mac_len);
             goto error;
         } else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
@@ -359,7 +359,7 @@ CK_RV do_Sign_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
                           "vector's hashed data");
             goto error;
         } else {
-            testcase_pass("%s Sign with test vector %d passed",
+            testcase_pass("%s Sign with test vector %u passed",
                           tsuite->name, i);
         }
 error:
@@ -407,7 +407,7 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -416,7 +416,7 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Verify %s with test vector %d.", tsuite->name, i);
+        testcase_begin("Verify %s with test vector %u.", tsuite->name, i);
 
         /** get mechanism and set parameter **/
         mech = tsuite->mech;
@@ -472,7 +472,7 @@ CK_RV do_Verify_FIPS_HMAC_GENERAL(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (rc != CKR_OK)
             testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
         else
-            testcase_pass("%s C_Verify with test vector %d passed",
+            testcase_pass("%s C_Verify with test vector %u passed",
                           tsuite->name, i);
 
 error:
@@ -521,7 +521,7 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -530,7 +530,7 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Sign %s with test vector %d.", tsuite->name, i);
+        testcase_begin("Sign %s with test vector %u.", tsuite->name, i);
 
         /** get mechanism **/
         mech = tsuite->mech;
@@ -619,13 +619,13 @@ CK_RV do_Sign_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (actual_mac_len != expected_mac_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length\nexpected "
-                          "length=%ld, found length=%ld",
+                          "length=%lu, found length=%lu",
                           expected_mac_len, actual_mac_len);
         } else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
             testcase_fail("hashed data does not match test "
                           "vector's hashed data");
         } else {
-            testcase_pass("%s C_Sign with test vector %d passed.",
+            testcase_pass("%s C_Sign with test vector %u passed.",
                           tsuite->name, i);
         }
 error:
@@ -672,7 +672,7 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -681,7 +681,7 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Verify %s with test vector %d.", tsuite->name, i);
+        testcase_begin("Verify %s with test vector %u.", tsuite->name, i);
 
         /** get mechanism **/
         mech = tsuite->mech;
@@ -764,7 +764,7 @@ CK_RV do_Verify_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
             testcase_fail("C_Verify rc=%s", p11_get_ckr(rc));
 
         else
-            testcase_pass("%s C_Verify with test vector %d passed.",
+            testcase_pass("%s C_Verify with test vector %u passed.",
                           tsuite->name, i);
 error:
         /** clean up **/
@@ -812,7 +812,7 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -821,7 +821,7 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Multipart SignUpdate %s with test vector %d.",
+        testcase_begin("Multipart SignUpdate %s with test vector %u.",
                        tsuite->name, i);
 
         /** get mechanism and set parameter **/
@@ -949,13 +949,13 @@ CK_RV do_SignUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (actual_mac_len != expected_mac_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length\nexpected "
-                          "length=%ld, found length=%ld",
+                          "length=%lu, found length=%lu",
                           expected_mac_len, actual_mac_len);
         } else if (memcmp(actual_mac, expected_mac, expected_mac_len)) {
             testcase_fail("hashed data does not match test "
                           "vector's hashed data");
         } else {
-            testcase_pass("%s Sign with test vector %d passed.",
+            testcase_pass("%s Sign with test vector %u passed.",
                           tsuite->name, i);
         }
 
@@ -1003,7 +1003,7 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -1012,7 +1012,7 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Multipart VerifyUpdate %s with test vector %d.",
+        testcase_begin("Multipart VerifyUpdate %s with test vector %u.",
                        tsuite->name, i);
 
         /** get mechanism and set parameter **/
@@ -1133,7 +1133,7 @@ CK_RV do_VerifyUpdate_FIPS_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (rc != CKR_OK)
             testcase_fail("C_VerifyFinal rc=%s", p11_get_ckr(rc));
         else
-            testcase_pass("%s Verfied with test vector %d passed.",
+            testcase_pass("%s Verfied with test vector %u passed.",
                           tsuite->name, i);
 error:
         /** clean up **/
@@ -1186,7 +1186,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -1195,7 +1195,7 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Sign Verify %s with test vector %d.", tsuite->name, i);
+        testcase_begin("Sign Verify %s with test vector %u.", tsuite->name, i);
 
         /** get mechanism **/
         mech = tsuite->mech;
@@ -1205,8 +1205,8 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
 
         if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
             (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len * 8))) {
-            testcase_skip("keysize %d is not supported in slot %ld",
-                          (unsigned int) key_len, slot_id);
+            testcase_skip("keysize %lu is not supported in slot %lu",
+                          key_len, slot_id);
             continue;
         }
 
@@ -1276,12 +1276,12 @@ CK_RV do_SignVerify_HMAC(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (actual_len != expected_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length\nexpected length="
-                          "%ld, found length=%ld", expected_len, actual_len);
+                          "%lu, found length=%lu", expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
             testcase_fail("hashed data does not match test "
                           "vector's hashed data");
         } else {
-            testcase_pass("%s Sign Verify with test vector %d "
+            testcase_pass("%s Sign Verify with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -1338,7 +1338,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
     /** skip test if mech is not supported with this slot **/
     if (!mech_supported(SLOT_ID, tsuite->mech.mechanism)) {
         testsuite_skip(tsuite->tvcount,
-                       "mechanism %s is not supported with slot %ld",
+                       "mechanism %s is not supported with slot %lu",
                        tsuite->name, slot_id);
         goto testcase_cleanup;
     }
@@ -1347,7 +1347,7 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("Multipart Sign Verify %s with test vector %d.",
+        testcase_begin("Multipart Sign Verify %s with test vector %u.",
                        tsuite->name, i);
 
         /** get mechanism **/
@@ -1358,8 +1358,8 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
 
         if ((is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) &&
             (!check_supp_keysize(SLOT_ID, mech.mechanism, key_len * 8))) {
-            testcase_skip("keysize %d is not supported in slot %ld",
-                          (unsigned int) key_len, slot_id);
+            testcase_skip("keysize %lu is not supported in slot %lu",
+                          key_len, slot_id);
             continue;
         }
 
@@ -1473,12 +1473,12 @@ CK_RV do_SignVerify_HMAC_Update(struct HMAC_TEST_SUITE_INFO * tsuite)
         if (actual_len != expected_len) {
             testcase_fail("hashed data length does not match test "
                           "vector's hashed data length\nexpected length="
-                          "%ld, found length=%ld", expected_len, actual_len);
+                          "%lu, found length=%lu", expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
             testcase_fail("hashed data does not match test "
                           "vector's hashed data");
         } else {
-            testcase_pass("%s Sign Verify Multipart with test vector %d "
+            testcase_pass("%s Sign Verify Multipart with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -1535,12 +1535,12 @@ CK_RV do_HMAC_SignVerify_WithGenKey(void)
      * and also sha1-hmac mechanism
      */
     if (!mech_supported(SLOT_ID, secret_mech.mechanism)) {
-        testsuite_skip(1, "mechanism %ld not supported with slot %ld",
+        testsuite_skip(1, "mechanism %lu not supported with slot %lu",
                        secret_mech.mechanism, slot_id);
         goto testcase_cleanup;
     }
     if (!mech_supported(SLOT_ID, hash_mech.mechanism)) {
-        testsuite_skip(1, "mechanism %ld not supported with slot %ld",
+        testsuite_skip(1, "mechanism %lu not supported with slot %lu",
                        hash_mech.mechanism, slot_id);
         goto testcase_cleanup;
     }

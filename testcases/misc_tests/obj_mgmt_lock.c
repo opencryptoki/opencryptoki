@@ -699,7 +699,7 @@ CK_RV do_FindObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         rc = -1;
         goto destroy;
     }
@@ -944,7 +944,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         rc = -1;
         goto destroy;
     }
@@ -1018,7 +1018,7 @@ CK_RV do_CreateTokenObjects(void)
     }
 
     if (find_count != 0) {
-        testcase_fail("found %ld objects when none where expected", find_count);
+        testcase_fail("found %lu objects when none where expected", find_count);
         rc = -1;
         goto destroy;
     }

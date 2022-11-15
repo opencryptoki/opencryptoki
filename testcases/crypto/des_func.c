@@ -57,7 +57,7 @@ CK_RV do_EncryptDES(struct published_test_suite_info *tsuite)
 
         /** begin testcase **/
         testcase_begin("%s Encryption with published test vector "
-                       "%d.", tsuite->name, i);
+                       "%u.", tsuite->name, i);
 
         rc = CKR_OK;            // set rc
 
@@ -111,13 +111,13 @@ CK_RV do_EncryptDES(struct published_test_suite_info *tsuite)
         if (actual_len != expected_len) {
             testcase_fail("encrypted data length does not "
                           "match test vector's encrypted data "
-                          "length.\n\nexpected length=%ld, but found"
-                          " length=%ld\n", expected_len, actual_len);
+                          "length.\n\nexpected length=%lu, but found"
+                          " length=%lu\n", expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
             testcase_fail("encrypted data does not match test "
                           "vector's encrypted data");
         } else {
-            testcase_pass("%s Encryption with test vector %d "
+            testcase_pass("%s Encryption with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -183,7 +183,7 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info * tsuite)
 
         /** begin test **/
         testcase_begin("%s Multipart Encryption with published "
-                       "test vector %d.", tsuite->name, i);
+                       "test vector %u.", tsuite->name, i);
 
         rc = CKR_OK;            // set rc
 
@@ -286,14 +286,14 @@ CK_RV do_EncryptUpdateDES(struct published_test_suite_info * tsuite)
         if (crypt_len != expected_len) {
             testcase_fail("encrypted multipart data length "
                           "does not match test vector's encrypted "
-                          "data length.\n\nexpected length=%ld, "
-                          "but found length=%ld\n", expected_len, crypt_len);
+                          "data length.\n\nexpected length=%lu, "
+                          "but found length=%lu\n", expected_len, crypt_len);
         } else if (memcmp(crypt, expected, expected_len)) {
             testcase_fail("encrypted multipart data does not "
                           "match test vector's encrypted data.\n");
         } else {
             testcase_pass("%s Multipart Encryption with test "
-                          "vector %d passed.", tsuite->name, i);
+                          "vector %u passed.", tsuite->name, i);
         }
 
         rc = funcs->C_DestroyObject(session, h_key);
@@ -357,7 +357,7 @@ CK_RV do_DecryptDES(struct published_test_suite_info * tsuite)
     for (i = 0; i < tsuite->tvcount; i++) {
 
         /** begin test **/
-        testcase_begin("%s Decryption with published test vector " "%d.",
+        testcase_begin("%s Decryption with published test vector %u.",
                        tsuite->name, i);
 
         rc = CKR_OK;
@@ -412,13 +412,13 @@ CK_RV do_DecryptDES(struct published_test_suite_info * tsuite)
         if (actual_len != expected_len) {
             testcase_fail("decrypted data length does not "
                           "match test vector's decrypted data "
-                          "length.\n\nexpected length=%ld, but found"
-                          " length=%ld\n", expected_len, actual_len);
+                          "length.\n\nexpected length=%lu, but found"
+                          " length=%lu\n", expected_len, actual_len);
         } else if (memcmp(actual, expected, expected_len)) {
             testcase_fail("decrypted data does not match test "
                           "vector's decrypted data.\n");
         } else {
-            testcase_pass("%s Decryption with test vector %d "
+            testcase_pass("%s Decryption with test vector %u "
                           "passed.", tsuite->name, i);
         }
 
@@ -486,7 +486,7 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info * tsuite)
 
         /** begin test **/
         testcase_begin("%s Multipart Decryption with published "
-                       "test vector %d.", tsuite->name, i);
+                       "test vector %u.", tsuite->name, i);
 
         rc = CKR_OK;            // set rc
 
@@ -587,14 +587,14 @@ CK_RV do_DecryptUpdateDES(struct published_test_suite_info * tsuite)
         if (p_len != expected_len) {
             testcase_fail("decrypted multipart data length "
                           "does not  match test vector's decrypted "
-                          "data length.\n\nexpected length=%ld, but "
-                          "found length=%ld\n", expected_len, p_len);
+                          "data length.\n\nexpected length=%lu, but "
+                          "found length=%lu\n", expected_len, p_len);
         } else if (memcmp(plaintext, expected, expected_len)) {
             testcase_fail("decrypted multipart data does not "
                           "match test vector's decrypted data.\n");
         } else {
             testcase_pass("%s Multipart Decryption with test "
-                          "vector  %d passed.", tsuite->name, i);
+                          "vector  %u passed.", tsuite->name, i);
         }
 
         /** clean up **/
@@ -714,8 +714,8 @@ CK_RV do_EncryptDecryptDES(struct generated_test_suite_info * tsuite)
 
     if (decrypt_len != original_len) {
         testcase_fail("decrypted data length does not match "
-                      "original data length.\nexpected length=%ld, "
-                      "but found length=%ld\n", original_len, decrypt_len);
+                      "original data length.\nexpected length=%lu, "
+                      "but found length=%lu\n", original_len, decrypt_len);
     } else if (memcmp(decrypt, original, original_len)) {
         testcase_fail("decrypted data does not match original " "data");
     } else {
@@ -882,8 +882,8 @@ CK_RV do_EncryptDecryptUpdateDES(struct generated_test_suite_info * tsuite)
 
     if (decrypt_len != original_len) {
         testcase_fail("decrypted multipart data length does not "
-                      "match original data length.\nexpected length=%ld,"
-                      " but found length=%ld\n", original_len, decrypt_len);
+                      "match original data length.\nexpected length=%lu,"
+                      " but found length=%lu\n", original_len, decrypt_len);
     } else if (memcmp(decrypt, original, original_len)) {
         testcase_fail("decrypted data does not match original " "data");
     } else {
@@ -1047,7 +1047,7 @@ CK_RV do_WrapUnwrapDES(struct generated_test_suite_info * tsuite)
     testcase_new_assertion();
 
     if (actual_len != expected_len) {
-        testcase_fail("expected length=%ld, but found length=%ld"
+        testcase_fail("expected length=%lu, but found length=%lu"
                       "\n", expected_len, actual_len);
         rc = CKR_GENERAL_ERROR;
     } else if (memcmp(actual, expected, actual_len)) {
