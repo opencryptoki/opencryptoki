@@ -161,7 +161,7 @@ empty list allows no PRF.
 
 .SH NOTES
 
-The policy configuration file has to be owned by \fBroot:pkcs11\fP and
+The policy configuration file has to be owned by \fBroot:@pkcs_group@\fP and
 have mode 0640.  Otherwise, openCryptoki will return
 \fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log the reason
 into syslog.

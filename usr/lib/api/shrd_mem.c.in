@@ -74,7 +74,7 @@ void *attach_shared_memory(void)
     // only check group membership if not root user
     if (uid != 0 && euid != 0) {
         int i, member = 0;
-        grp = getgrnam("pkcs11");
+        grp = getgrnam(PKCS_GROUP);
         if (!grp) {
             // group pkcs11 not known to the system
             return NULL;

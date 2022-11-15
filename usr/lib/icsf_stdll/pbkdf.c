@@ -62,7 +62,7 @@ CK_RV set_perms(int file)
         return CKR_FUNCTION_FAILED;
     }
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (grp) {
         if (fchown(file, -1, grp->gr_gid) != 0) {
             TRACE_ERROR("fchown failed: %s\n", strerror(errno));

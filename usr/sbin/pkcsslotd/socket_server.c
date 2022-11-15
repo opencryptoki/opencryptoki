@@ -1293,9 +1293,9 @@ static int listener_socket_create(const char *file_path)
     }
     // make socket file part of the pkcs11 group, and write accessable
     // for that group
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
-        ErrLog("%s: Group PKCS#11 does not exist", __func__);
+        ErrLog("%s: Group %s does not exist", __func__, PKCS_GROUP);
         goto error;
     }
     if (chown(file_path, -1, grp->gr_gid)) {

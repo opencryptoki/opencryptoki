@@ -2243,7 +2243,7 @@ static CK_RV change_owner(char *dir)
     CK_RV ret;
 
     /* Set group owner */
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (grp) {
         if (chown(dir, -1, grp->gr_gid)) {
             ret = CKR_FUNCTION_FAILED;

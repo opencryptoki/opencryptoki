@@ -180,6 +180,7 @@ configured with Enterprise PKCS#11 (EP11) firmware.
 ./bootstrap.sh
 
 %configure --with-systemd=%{_unitdir}	\
+    --with-pkcsslotd-user=pkcsslotd --with-pkcs-group=pkcs11	\
 %ifarch s390 s390x
     --enable-icatok --enable-ccatok --enable-ep11tok --enable-pkcsep11_migrate
 %else

@@ -80,7 +80,7 @@ definition does not constrain the size of signatures.
 
 .SH NOTES
 
-The strength configuration file has to be owned by \fBroot:pkcs11\fP,
+The strength configuration file has to be owned by \fBroot:@pkcs_group@\fP,
 have mode 0640, and be parsable.  Otherwise, openCryptoki will return
 \fBCKR_FUNCTION_FAILED\fR on \fBC_Initialize\fR and log a
 corresponding message to syslog detailing the reason why the strength

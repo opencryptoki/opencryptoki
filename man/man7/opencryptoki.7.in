@@ -18,7 +18,7 @@ daemon is running.
 
 .SH "SECURITY NOTE"
 All non-root users that require access to PKCS#11 tokens using openCryptoki
-must be assigned to the \fIpkcs11\fP group to be able to communicate with
+must be assigned to the \fI@pkcs_group@\fP group to be able to communicate with
 the \fIpkcsslotd\fP daemon. Only fully trusted users should be granted
 membership in the group. Group members can block other openCryptoki users
 from accessing PKCS#11 tokens.

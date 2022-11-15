@@ -62,7 +62,7 @@ CK_RV hsm_mk_change_lock_create(void)
                 goto error;
             }
 
-            grp = getgrnam("pkcs11");
+            grp = getgrnam(PKCS_GROUP);
             if (grp != NULL) {
                 if (fchown(hsm_mk_change_lock_fd, -1, grp->gr_gid) == -1) {
                     TRACE_ERROR("%s fchown(%s): %s\n", __func__,
@@ -573,7 +573,7 @@ static void hsm_mk_change_op_set_perm(int file)
     // Set absolute permissions or rw-rw----
     fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
-    grp = getgrnam("pkcs11"); // Obtain the group id
+    grp = getgrnam(PKCS_GROUP); // Obtain the group id
     if (grp) {
         // set ownership to pkcs11 group
         if (fchown(file, -1, grp->gr_gid) != 0) {

@@ -82,9 +82,10 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
                            lockdir, strerror(errno));
                 goto err;
             }
-            grp = getgrnam("pkcs11");
+            grp = getgrnam(PKCS_GROUP);
             if (grp == NULL) {
-                fprintf(stderr, "getgrname(pkcs11): %s", strerror(errno));
+                fprintf(stderr, "getgrname(%s): %s", PKCS_GROUP,
+                        strerror(errno));
                 goto err;
             }
             /* set ownership to euid, and pkcs11 group */
@@ -122,7 +123,7 @@ CK_RV CreateXProcLock(char *tokname, STDLL_TokData_t *tokdata)
                     goto err;
                 }
 
-                grp = getgrnam("pkcs11");
+                grp = getgrnam(PKCS_GROUP);
                 if (grp != NULL) {
                     if (fchown(tokdata->spinxplfd, -1, grp->gr_gid) == -1) {
                         OCK_SYSLOG(LOG_ERR,

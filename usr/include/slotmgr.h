@@ -39,6 +39,14 @@
 #define PID_FILE_PATH "/run/opencryptoki/pkcsslotd.pid"
 #define OCK_CONFIG OCK_CONFDIR "/opencryptoki.conf"
 
+#ifndef PKCSSLOTD_USER
+#error "PKCSSLOTD_USER is not defined"
+#endif
+
+#ifndef PKCS_GROUP
+#error "PKCS_GROUP is not defined"
+#endif
+
 #ifndef CK_BOOL
 #define CK_BOOL  CK_BBOOL
 #endif                          /* CK_BOOL */

@@ -39,14 +39,14 @@ include tools/tools.mk
 include doc/doc.mk
 
 install-data-hook:
-	getent group pkcs11 > /dev/null || $(GROUPADD) -r pkcs11
-	getent passwd pkcsslotd >/dev/null || $(USERADD) -r -g pkcs11 -d /run/opencryptoki -s /sbin/nologin -c "Opencryptoki pkcsslotd user" pkcsslotd
+	getent group $(pkcs_group) > /dev/null || $(GROUPADD) -r $(pkcs_group)
+	getent passwd $(pkcsslotd_user) >/dev/null || $(USERADD) -r -g $(pkcs_group) -d /run/opencryptoki -s /sbin/nologin -c "Opencryptoki pkcsslotd user" $(pkcsslotd_user)
 	$(MKDIR_P) $(DESTDIR)/run/opencryptoki/
-	$(CHOWN) pkcsslotd:pkcs11 $(DESTDIR)/run/opencryptoki/
-	$(CHGRP) pkcs11 $(DESTDIR)/run/opencryptoki/
+	$(CHOWN) $(pkcsslotd_user):$(pkcs_group) $(DESTDIR)/run/opencryptoki/
+	$(CHGRP) $(pkcs_group) $(DESTDIR)/run/opencryptoki/
 	$(CHMOD) 0710 $(DESTDIR)/run/opencryptoki/
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki
 if ENABLE_LIBRARY
 	$(MKDIR_P) $(DESTDIR)$(libdir)/opencryptoki/stdll
@@ -66,19 +66,19 @@ if ENABLE_LIBRARY
 endif
 if ENABLE_PKCSHSM_MK_CHANGE
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/HSM_MK_CHANGE
 endif
 if ENABLE_CCATOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_cca.so PKCS11_CCA.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok/TOK_OBJ
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ccatok
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/ccatok
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/ccatok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/ccatok
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/ccatok
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ccatok.conf || $(INSTALL) -m 644 $(srcdir)/usr/lib/cca_stdll/ccatok.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ccatok.conf || true
@@ -87,12 +87,12 @@ if ENABLE_EP11TOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_ep11.so PKCS11_EP11.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok/TOK_OBJ
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok/TOK_OBJ
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/ep11tok
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/ep11tok
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/ep11tok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/ep11tok
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/ep11tok
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || $(INSTALL) -m 644 $(srcdir)/usr/lib/ep11_stdll/ep11tok.conf $(DESTDIR)$(sysconfdir)/opencryptoki/ep11tok.conf || true
@@ -100,30 +100,30 @@ if ENABLE_EP11TOK
 endif
 if ENABLE_P11SAK
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
-	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || $(INSTALL) -g pkcs11 -m 0640 $(srcdir)/usr/sbin/p11sak/p11sak_defined_attrs.conf $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || $(INSTALL) -g $(pkcs_group) -m 0640 $(srcdir)/usr/sbin/p11sak/p11sak_defined_attrs.conf $(DESTDIR)$(sysconfdir)/opencryptoki/p11sak_defined_attrs.conf || true
 endif
 if ENABLE_ICATOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_ica.so PKCS11_ICA.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite/TOK_OBJ
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/lite
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/lite
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/lite
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/lite
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/lite
 endif
 if ENABLE_SWTOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_sw.so PKCS11_SW.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok/TOK_OBJ
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok/TOK_OBJ
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok/TOK_OBJ
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/swtok
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/swtok
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/swtok
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/swtok
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/swtok
 endif
 if ENABLE_TPMTOK
@@ -131,10 +131,10 @@ if ENABLE_TPMTOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_tpm.so PKCS11_TPM.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/tpm
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/tpm
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/tpm
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/tpm
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/tpm
 endif
 if ENABLE_ICSFTOK
@@ -142,16 +142,16 @@ if ENABLE_ICSFTOK
 	cd $(DESTDIR)$(libdir)/opencryptoki/stdll && \
 		ln -fs libpkcs11_icsf.so PKCS11_ICSF.so
 	$(MKDIR_P) $(DESTDIR)$(localstatedir)/lib/opencryptoki/icsf
-	$(CHGRP) pkcs11 $(DESTDIR)$(localstatedir)/lib/opencryptoki/icsf
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(localstatedir)/lib/opencryptoki/icsf
 	$(CHMOD) 0770 $(DESTDIR)$(localstatedir)/lib/opencryptoki/icsf
 	$(MKDIR_P) $(DESTDIR)$(lockdir)/icsf
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir)/icsf
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir)/icsf
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir)/icsf
 endif
 if ENABLE_DAEMON
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki || $(MKDIR_P) $(DESTDIR)$(sysconfdir)/opencryptoki || true
 	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || $(INSTALL) -m 644 $(srcdir)/usr/sbin/pkcsslotd/opencryptoki.conf $(DESTDIR)$(sysconfdir)/opencryptoki/opencryptoki.conf || true
-	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || $(INSTALL) -m 640 -o root -g pkcs11 -T $(srcdir)/doc/strength-example.conf $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || true
+	test -f $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || $(INSTALL) -m 640 -o root -g $(pkcs_group) -T $(srcdir)/doc/strength-example.conf $(DESTDIR)$(sysconfdir)/opencryptoki/strength.conf || true
 endif
 	$(MKDIR_P) $(DESTDIR)/etc/ld.so.conf.d
 	echo "$(libdir)/opencryptoki" >\
@@ -162,7 +162,7 @@ endif
 	@echo "Remember you must run ldconfig before using the above settings"
 	@echo "--------------------------------------------------------------"
 	$(MKDIR_P) $(DESTDIR)$(lockdir) $(DESTDIR)$(logdir)
-	$(CHGRP) pkcs11 $(DESTDIR)$(lockdir) $(DESTDIR)$(logdir)
+	$(CHGRP) $(pkcs_group) $(DESTDIR)$(lockdir) $(DESTDIR)$(logdir)
 	$(CHMOD) 0770 $(DESTDIR)$(lockdir) $(DESTDIR)$(logdir)
 
 

@@ -246,6 +246,18 @@ AC_ARG_WITH([libudev],
 	[],
 	[with_libudev=check])
 
+dnl --- pkcsslotd user
+AC_ARG_WITH([pkcsslotd-user],
+	AS_HELP_STRING([--with-pkcsslotd-user=USER],[set the user under which pkcsslotd runs (default: pkcsslotd)]),
+	[pkcsslotd_user=$withval],
+	[pkcsslotd_user=pkcsslotd])
+
+dnl --- pkcs group
+AC_ARG_WITH([pkcs-group],
+	AS_HELP_STRING([--with-pkcs-group=GROUP],[set the group that all openCryptoki applications must belong to (default: pkcs11)]),
+	[pkcs_group=$withval],
+	[pkcs_group=pkcs11])
+
 dnl ---
 dnl ---
 dnl --- Now that we have all the options, let's check for a valid build
@@ -635,9 +647,13 @@ else
 fi
 AM_CONDITIONAL([ENABLE_MD2], [test "x$enable_md2" = "xyes"])
 
+AC_SUBST([pkcsslotd_user])
+AC_SUBST([pkcs_group])
+
 CFLAGS="$CFLAGS -DPKCS64 -D_XOPEN_SOURCE=600 -Wall -Wextra"
 
 CFLAGS+=' -DCONFIG_PATH=\"$(localstatedir)/lib/opencryptoki\" -DSBIN_PATH=\"$(sbindir)\" -DLIB_PATH=\"$(libdir)\" -DLOCKDIR_PATH=\"$(lockdir)\" -DOCK_CONFDIR=\"$(sysconfdir)/opencryptoki\" -DOCK_LOGDIR=\"$(logdir)\"'
+CFLAGS+=' -DPKCSSLOTD_USER=\"$(pkcsslotd_user)\" -DPKCS_GROUP=\"$(pkcs_group)\"'
 CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -Werror=int-conversion -Werror=strict-prototypes -Werror=old-style-definition -pedantic"
 
 # At this point, CFLAGS is set to something sensible
@@ -701,6 +717,9 @@ echo
 echo "Token-specific features:"
 echo "	pkcsep11migrate build:	$enable_pkcsep11_migrate"
 echo "	pkcsep11session build:	$enable_pkcsep11_session"
+echo
+echo "pkcsslotd user:		$pkcsslotd_user"
+echo "pkcs group:		$pkcs_group"
 echo
 echo "CFLAGS=$CFLAGS"
 echo

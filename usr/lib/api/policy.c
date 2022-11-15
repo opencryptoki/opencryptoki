@@ -1330,10 +1330,11 @@ static CK_RV policy_check_cfg_file(FILE *fp, const char *name)
     struct group *grp = NULL;
     int err;
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
-        TRACE_ERROR("Could not retrieve \"pkcs11\" group!");
-        OCK_SYSLOG(LOG_ERR, "POLICY: Could not retrieve \"pkcs11\" group!");
+        TRACE_ERROR("Could not retrieve \"%s\" group!", PKCS_GROUP);
+        OCK_SYSLOG(LOG_ERR, "POLICY: Could not retrieve \"%s\" group!",
+                   PKCS_GROUP);
         return CKR_GENERAL_ERROR;
     }
     if (fstat(fileno(fp), &statbuf)) {
@@ -1352,10 +1353,10 @@ static CK_RV policy_check_cfg_file(FILE *fp, const char *name)
         return CKR_GENERAL_ERROR;
     }
     if (statbuf.st_gid != grp->gr_gid) {
-        TRACE_ERROR("Policy configuration file %s should have group \"pkcs11\"!\n",
-                    name);
-        OCK_SYSLOG(LOG_ERR, "POLICY: Configuration file %s should have group \"pkcs11\"!\n",
-                   name);
+        TRACE_ERROR("Policy configuration file %s should have group \"%s\"!\n",
+                    name, PKCS_GROUP);
+        OCK_SYSLOG(LOG_ERR, "POLICY: Configuration file %s should have group \"%s\"!\n",
+                   name, PKCS_GROUP);
         return CKR_GENERAL_ERROR;
     }
     if ((statbuf.st_mode & ~S_IFMT) != OCK_POLICY_PERMS) {
