@@ -172,11 +172,11 @@ int sm_open(const char *sm_name, int mode, void **p_addr, size_t len, int force)
         goto done;
     }
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
         rc = -errno;
-        SYS_ERROR(errno, "getgrname(\"pkcs11\"): %s\n",
-                strerror(errno));
+        SYS_ERROR(errno, "getgrname(\"%s\"): %s\n", PKCS_GROUP,
+                  strerror(errno));
         goto done;
     }
     

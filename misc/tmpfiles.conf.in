@@ -1,5 +1,5 @@
 # path          mode    uid     gid     age
-D /run/opencryptoki 710 pkcsslotd pkcs11 -
-d @localstatedir@/lib/opencryptoki 0770 root pkcs11 -
-d @logdir@      0770    root    pkcs11  -
-D @lockdir@     0770    root    pkcs11  -
+D /run/opencryptoki 710 @pkcsslotd_user@ @pkcs_group@ -
+d @localstatedir@/lib/opencryptoki 0770 root @pkcs_group@ -
+d @logdir@      0770    root    @pkcs_group@  -
+D @lockdir@     0770    root    @pkcs_group@  -

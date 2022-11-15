@@ -51,19 +51,19 @@ int connect_socket(const char *file_path)
         return -1;
     }
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
         OCK_SYSLOG(LOG_ERR,
-                   "connect_socket: pkcs11 group does not exist, errno=%d",
-                   errno);
+                   "connect_socket: %s group does not exist, errno=%d",
+                   PKCS_GROUP, errno);
         return -1;
     }
 
-    pwd = getpwnam("pkcsslotd");
+    pwd = getpwnam(PKCSSLOTD_USER);
     if (!pwd) {
         OCK_SYSLOG(LOG_ERR,
-                   "connect_socket: pkcsslotd user does not exist, errno=%d",
-                   errno);
+                   "connect_socket: %s user does not exist, errno=%d",
+                   PKCSSLOTD_USER, errno);
         return -1;
     }
 

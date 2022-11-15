@@ -24,10 +24,10 @@ start() {
     echo -n $"Starting pkcsslotd: "
 
     mkdir -p $RUNDIR
-    chown pkcsslotd:pkcs11 $RUNDIR
+    chown @pkcsslotd_user@:@pkcs_group@ $RUNDIR
     chmod 710 $RUNDIR
 
-    daemon --user=pkcsslotd $SLOTDBIN
+    daemon --user=@pkcsslotd_user@ $SLOTDBIN
 
     RETVAL=$?
     echo

@@ -43,7 +43,7 @@ int CreateSharedMemory(void)
 #if !MMAP
     /*
      * getenv() is safe here since we will exclusively create the segment and
-     * make sure only members of "pkcs11" group can attach to it.
+     * make sure only members of pkcs11 group can attach to it.
      */
     if (((Path = getenv("PKCS11_SHMEM_FILE")) == NULL) || (Path[0] == '\0')) {
         Path = TOK_PATH;
@@ -58,9 +58,9 @@ int CreateSharedMemory(void)
     }
     // SAB  Get the group information for the PKCS#11 group... fail if
     // it does not exist
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
-        ErrLog("Group PKCS#11 does not exist ");
+        ErrLog("Group %s does not exist ", PKCS_GROUP);
         return FALSE;           // Group does not exist... setup is wrong..
     }
 
@@ -141,10 +141,10 @@ int CreateSharedMemory(void)
         int i;
         char *buffer;
 
-        grp = getgrnam("pkcs11");
+        grp = getgrnam(PKCS_GROUP);
         if (!grp) {
-            ErrLog("Group \"pkcs11\" does not exist! "
-                   "Opencryptoki setup is incorrect.");
+            ErrLog("Group \"%s\" does not exist! "
+                   "Opencryptoki setup is incorrect.", PKCS_GROUP);
             return FALSE;       // Group does not exist... setup is wrong..
         }
 
@@ -165,8 +165,8 @@ int CreateSharedMemory(void)
                     return FALSE;
                 }
                 if (fchown(fd, 0, grp->gr_gid) == -1) {
-                    ErrLog("%s: fchown(%s, root, pkcs11): %s", __func__,
-                           MAPFILENAME, strerror(errno));
+                    ErrLog("%s: fchown(%s, root, %s): %s", __func__,
+                           MAPFILENAME, PKCS_GROUP, strerror(errno));
                     close(fd);
                     return FALSE;
                 }

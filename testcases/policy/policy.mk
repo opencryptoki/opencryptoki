@@ -11,6 +11,8 @@ EXTRA_DIST += testcases/policy/policytest.sh
 testcases/policy/policytest.sh: testcases/policy/policytest.sh.in
 	$(AM_V_GEN)@SED@	-e s!\@sysconfdir\@!"@sysconfdir@"!g	\
 		-e s!\@sbindir\@!"@sbindir@"!g				\
-		-e s!\@libdir\@!"@libdir@"!g < $< > $@-t &&		\
+		-e s!\@libdir\@!"@libdir@"!g 				\
+		-e s!\@pkcsslotd_user\@!$(pkcsslotd_user)!g		\
+		-e s!\@pkcs_group\@!$(pkcs_group)!g< $< > $@-t &&	\
 	@CHMOD@ a+x $@-t &&						\
 	$(am__mv) $@-t $@

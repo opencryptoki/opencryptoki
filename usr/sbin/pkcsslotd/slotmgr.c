@@ -181,17 +181,19 @@ void drop_privileges(struct passwd *pwd)
     }
 
     if (setgid(pwd->pw_gid) != 0) {
-        fprintf(stderr, "Failed to set gid to 'pkcs11': %s\n", strerror(errno));
-        exit(1);
-    }
-
-    if (setuid(pwd->pw_uid) != 0) {
-        fprintf(stderr, "Failed to set uid to 'pkcsslotd': %s\n",
+        fprintf(stderr, "Failed to set gid to '%s': %s\n", PKCS_GROUP,
                 strerror(errno));
         exit(1);
     }
 
-    DbgLog(DL0, "Changed uid from 'root' to 'pkcsslotd' and gid to 'pkcs11'.\n");
+    if (setuid(pwd->pw_uid) != 0) {
+        fprintf(stderr, "Failed to set uid to '%s': %s\n", PKCSSLOTD_USER,
+                strerror(errno));
+        exit(1);
+    }
+
+    DbgLog(DL0, "Changed uid from 'root' to '%s' and gid to '%s'.\n",
+           PKCSSLOTD_USER, PKCS_GROUP);
 
     /*
      * Start pkcsslotd again as pkcsslotd user. This will also apply the
@@ -225,24 +227,25 @@ void run_sanity_checks(void)
     };
 
     /* check that the pkcsslotd user exists */
-    pwd = getpwnam("pkcsslotd");
+    pwd = getpwnam(PKCSSLOTD_USER);
     if (pwd == NULL) {
-        fprintf(stderr, "There is no 'pkcsslotd' user on this system.\n");
+        fprintf(stderr, "There is no '%s' user on this system.\n",
+                PKCSSLOTD_USER);
         exit(1);
     }
 
     /* check that the pkcs11 group exists */
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
-        fprintf(stderr, "There is no 'pkcs11' group on this system.\n");
+        fprintf(stderr, "There is no '%s' group on this system.\n", PKCS_GROUP);
         exit(1);
     }
 
     /* check that our effective user id is pkcsslotd or root */
     uid = geteuid();
     if (uid != 0 && uid != pwd->pw_uid) {
-        fprintf(stderr, "This daemon needs to be run under the 'pkcsslotd' "
-                "or the 'root' user.\n");
+        fprintf(stderr, "This daemon needs to be run under the '%s' "
+                "or the 'root' user.\n", PKCSSLOTD_USER);
         exit(1);
     }
 
@@ -250,7 +253,7 @@ void run_sanity_checks(void)
     gid = getegid();
     if (gid != 0 && gid != grp->gr_gid) {
         fprintf(stderr, "This daemon should have an effective group id of "
-                "'root' or 'pkcs11'.\n");
+                "'root' or '%s'.\n", PKCS_GROUP);
         exit(1);
     }
 
@@ -344,9 +347,10 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
 
     /* get 'PKCS11' group id */
     uid = (int) geteuid();
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp) {
-        fprintf(stderr, "PKCS11 group does not exist [errno=%d].\n", errno);
+        fprintf(stderr, "%s group does not exist [errno=%d].\n", PKCS_GROUP,
+                errno);
         return errno;
     } else {
         grpid = grp->gr_gid;
@@ -386,8 +390,8 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
         rc = chown(tokendir, uid, grpid);
         if (rc != 0) {
             fprintf(stderr,
-                    "Could not set PKCS11 group permission [errno=%d].\n",
-                    errno);
+                    "Could not set %s group permission [errno=%d].\n",
+                    PKCS_GROUP, errno);
             umask(proc_umask);
             return rc;
         }
@@ -412,8 +416,8 @@ int chk_create_tokdir(Slot_Info_t_64 *psinfo)
         rc = chown(tokendir, uid, grpid);
         if (rc != 0) {
             fprintf(stderr,
-                    "Could not set PKCS11 group permission [errno=%d].\n",
-                    errno);
+                    "Could not set %s group permission [errno=%d].\n",
+                    PKCS_GROUP, errno);
             umask(proc_umask);
             return rc;
         }

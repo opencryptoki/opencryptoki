@@ -446,7 +446,7 @@ void set_perm(int file)
     // Set absolute permissions or rw-rw----
     fchmod(file, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 
-    grp = getgrnam("pkcs11"); // Obtain the group id
+    grp = getgrnam(PKCS_GROUP); // Obtain the group id
     if (grp) {
         // set ownership to pkcs11 group
         if (fchown(file, -1, grp->gr_gid) != 0) {

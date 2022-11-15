@@ -40,7 +40,7 @@ int CreateXProcLock(void)
                 goto error;
             }
 
-            grp = getgrnam("pkcs11");
+            grp = getgrnam(PKCS_GROUP);
             if (grp != NULL) {
                 if (fchown(xplfd, -1, grp->gr_gid) == -1) {
                     DbgLog(DL0, "%s:fchown(%s):%s\n",

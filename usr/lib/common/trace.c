@@ -178,10 +178,10 @@ CK_RV trace_initialize(void)
         return (CKR_FUNCTION_FAILED);
     }
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (grp == NULL) {
-        OCK_SYSLOG(LOG_ERR, "getgrnam(pkcs11) failed: %s."
-                   "Tracing is disabled.\n", strerror(errno));
+        OCK_SYSLOG(LOG_ERR, "getgrnam(%s) failed: %s."
+                   "Tracing is disabled.\n", PKCS_GROUP, strerror(errno));
         goto error;
     }
 
@@ -201,8 +201,9 @@ CK_RV trace_initialize(void)
 
     /* set pkcs11 group permission on tracefile */
     if (fchown(trace.fd, -1, grp->gr_gid) == -1) {
-        OCK_SYSLOG(LOG_ERR, "fchown(%s,-1,pkcs11) failed: %s."
-                   "Tracing is disabled.\n", tracefile, strerror(errno));
+        OCK_SYSLOG(LOG_ERR, "fchown(%s,-1,%s) failed: %s."
+                   "Tracing is disabled.\n", tracefile, PKCS_GROUP,
+                   strerror(errno));
         goto error;
     }
 

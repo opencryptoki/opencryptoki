@@ -34,11 +34,11 @@ static int connect_socket(const char *file_path)
     if (stat(file_path, &file_info))
         return -errno;
 
-    grp = getgrnam("pkcs11");
+    grp = getgrnam(PKCS_GROUP);
     if (!grp)
         return -errno;
 
-    pwd = getpwnam("pkcsslotd");
+    pwd = getpwnam(PKCSSLOTD_USER);
     if (!pwd)
         return -errno;
 
