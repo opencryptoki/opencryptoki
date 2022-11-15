@@ -802,21 +802,22 @@ CK_RV login(STDLL_TokData_t * tokdata, LDAP ** ld, CK_SLOT_ID slot_id,
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get process lock.\n");
-        goto done;
+        return rc;
     }
 
     /* Check slot data */
     if (slot_data[slot_id] == NULL || !slot_data[slot_id]->initialized) {
         TRACE_ERROR("ICSF slot data not initialized.\n");
         rc = CKR_FUNCTION_FAILED;
-        goto done;
+        XProcUnLock(tokdata);
+        return rc;
     }
     memcpy(&data, slot_data[slot_id], sizeof(data));
 
     rc = XProcUnLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to release process lock.\n");
-        goto done;
+        return rc;
     }
 
     if (data.mech == ICSF_CFG_MECH_SIMPLE) {
@@ -1240,7 +1241,7 @@ CK_RV icsftok_set_pin(STDLL_TokData_t * tokdata, SESSION * sess,
                SHA1_HASH_SIZE);
         tokdata->nv_token_data->token_info.flags &= ~(CKF_SO_PIN_TO_BE_CHANGED);
 
-        XProcUnLock(tokdata);
+        rc = XProcUnLock(tokdata);
         if (rc != CKR_OK) {
             TRACE_ERROR("Process Lock Failed.\n");
             return rc;
@@ -1578,13 +1579,15 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
         if (slot_data[slot_id]->mech == ICSF_CFG_MECH_SIMPLE) {
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
             if (PATH_MAX - strlen(fname) > strlen("/MK_USER")) {
                 strcat(fname, "/MK_USER");
             } else {
                 TRACE_ERROR("MK_USER buffer overflow\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
             rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
@@ -1608,13 +1611,15 @@ CK_RV icsftok_login(STDLL_TokData_t * tokdata, SESSION * sess,
             /* now load the master key */
             if (get_pk_dir(tokdata, fname, PATH_MAX) == NULL) {
                 TRACE_ERROR("pk_dir buffer overflow\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
             if (PATH_MAX - strlen(fname) > strlen("/MK_SO")) {
                 strcat(fname, "/MK_SO");
             } else {
                 TRACE_ERROR("MK_SO buffer overflow\n");
-                return CKR_FUNCTION_FAILED;
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
             }
             rc = get_masterkey(tokdata, pPin, ulPinLen, fname,
                                tokdata->master_key, &mklen);
