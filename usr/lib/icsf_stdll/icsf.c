@@ -918,7 +918,7 @@ static int icsf_ber_put_attribute_list(BerElement * ber, CK_ATTRIBUTE * attrs,
             }
         } else {
             long value;
-            unsigned long mask;
+            unsigned long mask = 0;
 
             /* `long` is used here to support any size of integer,
              * however if the value is shorter than a `long` then
@@ -932,7 +932,8 @@ static int icsf_ber_put_attribute_list(BerElement * ber, CK_ATTRIBUTE * attrs,
             /* Calculate a mask to get just the bits in the range of
              * the given length.
              */
-            mask = (1UL << (8 * attrs[i].ulValueLen)) - 1;
+            if (attrs[i].ulValueLen < sizeof(long))
+                mask = (1UL << (8 * attrs[i].ulValueLen)) - 1;
             if (mask == 0)
                 mask = (unsigned long) -1;
 
