@@ -949,9 +949,9 @@ CK_RV object_mgr_find_in_map1(STDLL_TokData_t *tokdata,
         }
 
         rc = object_unlock(obj);
+        locked = FALSE;
         if (rc != CKR_OK)
             goto done;
-        locked = FALSE;
     }
 
     rc = object_lock(obj, lock_type);
