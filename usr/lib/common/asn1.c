@@ -2564,8 +2564,15 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
             return CKR_FUNCTION_FAILED;
        }
 
-        ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                          val->bv_len);
+        rc = ber_encode_CHOICE(TRUE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
+                               val->bv_len);
+        if (rc != 0) {
+            TRACE_DEVEL("ber_encode_CHOICE failed\n");
+            ber_free(ber, 1);
+            ber_bvfree(val);
+            return CKR_FUNCTION_FAILED;
+       }
+
         offset += len;
         ber_free(ber, 1);
         ber_bvfree(val);
@@ -2642,8 +2649,15 @@ CK_RV der_encode_ECPrivateKey(CK_BBOOL length_only,
             goto error;
        }
 
-        ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
-                          val->bv_len);
+        rc = ber_encode_CHOICE(FALSE, 1, &buf2, &len, (CK_BYTE *)val->bv_val,
+                               val->bv_len);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("ber_encode_CHOICE failed\n");
+            ber_free(ber, 1);
+            ber_bvfree(val);
+            goto error;
+        }
+
         memcpy(buf + offset, buf2, len);
         offset += len;
         free(buf2);
