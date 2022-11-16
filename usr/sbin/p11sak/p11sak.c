@@ -2861,8 +2861,9 @@ cont:
     rc = CKR_OK;
 
 done:
-
     if (rc != CKR_OK) {
+        p11_uri_attributes_free(uri);
+        p11_uri_free(uri);
         free(label);
         free(keytype);
     }
