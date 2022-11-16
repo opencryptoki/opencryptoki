@@ -677,14 +677,6 @@ CK_RV object_mgr_destroy_object(STDLL_TokData_t *tokdata,
     }
 
 done:
-     if (o != NULL) {
-         if (map->is_private)
-            bt_put_node_value(&tokdata->priv_token_obj_btree, o);
-         else
-            bt_put_node_value(&tokdata->publ_token_obj_btree, o);
-         o = NULL;
-    }
-
     bt_put_node_value(&tokdata->object_map_btree, map);
 
     if (locked) {
