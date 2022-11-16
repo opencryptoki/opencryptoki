@@ -1793,7 +1793,7 @@ done:
     CK_ULONG i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
         if (rc == CKR_OK && attr->ulValueLen != CK_UNAVAILABLE_INFORMATION) {
@@ -1851,7 +1851,7 @@ done:
     CK_ULONG i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
@@ -1916,7 +1916,7 @@ done:
     CK_ULONG i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
@@ -3543,7 +3543,7 @@ done:
     CK_ULONG i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
@@ -3640,13 +3640,13 @@ done:
 
     TRACE_DEBUG("Public Template:\n");
     attr = pPublicKeyTemplate;
-    for (i = 0; i < ulPublicKeyAttributeCount; i++, attr++) {
+    for (i = 0; i < ulPublicKeyAttributeCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG_DUMPATTR(attr);
     }
 
     TRACE_DEBUG("Private Template:\n");
     attr = pPrivateKeyTemplate;
-    for (i = 0; i < ulPrivateKeyAttributeCount; i++, attr++) {
+    for (i = 0; i < ulPrivateKeyAttributeCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG_DUMPATTR(attr);
     }
 #endif
@@ -3775,7 +3775,7 @@ done:
     CK_ULONG i;
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
@@ -3879,7 +3879,7 @@ done:
     }
 
     attr = pTemplate;
-    for (i = 0; i < ulCount; i++, attr++) {
+    for (i = 0; i < ulCount && attr != NULL; i++, attr++) {
         TRACE_DEBUG("%lu: Attribute type: 0x%08lx, Value Length: %lu\n",
                     i, attr->type, attr->ulValueLen);
 
