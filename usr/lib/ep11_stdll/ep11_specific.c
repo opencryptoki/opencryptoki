@@ -9784,7 +9784,7 @@ static CK_RV ep11_config_add_apqn(ep11_private_data_t *ep11_data,
 
     if (ep11_data->target_list.length >= MAX_APQN) {
         OCK_SYSLOG(LOG_ERR,"%s: Error: Too many APQNs in config "
-                   "file '%s' (max %d)\n", __func__, fname);
+                   "file '%s' (max %d)\n", __func__, fname, (int) MAX_APQN);
         TRACE_ERROR("Too many APQNs in config file '%s' (max %d)\n",
                     fname, (int) MAX_APQN);
         return CKR_BUFFER_TOO_SMALL;
