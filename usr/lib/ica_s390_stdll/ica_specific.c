@@ -3093,8 +3093,8 @@ CK_RV token_specific_aes_gcm_update(STDLL_TokData_t *tokdata, SESSION *sess,
             context->len = remain;
         } else {                /* case 2 - partial data */
             memcpy(buffer, context->data, AES_BLOCK_SIZE);
-            memcpy(context->data, context->data + AES_BLOCK_SIZE,
-                   context->len - AES_BLOCK_SIZE);
+            memmove(context->data, context->data + AES_BLOCK_SIZE,
+                    context->len - AES_BLOCK_SIZE);
             memcpy(context->data + context->len - AES_BLOCK_SIZE,
                    in_data, in_data_len);
             context->len = context->len - AES_BLOCK_SIZE + in_data_len;
