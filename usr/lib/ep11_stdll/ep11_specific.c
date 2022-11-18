@@ -12735,6 +12735,8 @@ static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata)
     target_info = *((void * volatile *)&ep11_data->target_info);
     if (target_info == NULL) {
         TRACE_ERROR("%s: target_info is NULL\n", __func__);
+        if (pthread_rwlock_unlock(&ep11_data->target_rwlock) != 0)
+            TRACE_DEVEL("Target Unlock failed.\n");
         return NULL;
     }
 
