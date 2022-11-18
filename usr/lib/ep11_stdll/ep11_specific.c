@@ -2432,6 +2432,7 @@ CK_RV ep11tok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
         OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the target lock\n",
                    __func__);
         rc = CKR_CANT_LOCK;
+        free(ep11_data);
         goto error;
     }
 
@@ -3979,7 +3980,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s check secret key attributes failed: rc=0x%lx\n",
                     __func__, rc);
-        return rc;
+        goto error;
     }
 
     rc = object_mgr_create_skel(tokdata, session, new_attrs, new_attrs_len,
@@ -7311,6 +7312,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                                           session);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Sign init\n");
+        free(ep11_sign_state);
         goto done;
     }
 
@@ -7360,8 +7362,10 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
             goto done;
+        }
         mech = &mech_ep11.mech;
     }
 
@@ -7651,6 +7655,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                                           session);
     if (rc != CKR_OK) {
         TRACE_ERROR("POLICY VIOLATION: Verify init\n");
+        free(ep11_sign_state);
         goto done;
     }
 
@@ -7713,8 +7718,10 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
 
     if (mech->mechanism == CKM_IBM_ECDSA_OTHER) {
         rc = ep11tok_ecdsa_other_mech_adjust(mech, &mech_ep11);
-        if (rc != CKR_OK)
+        if (rc != CKR_OK) {
+            free(ep11_sign_state);
             goto done;
+        }
         mech = &mech_ep11.mech;
     }
 
@@ -8651,8 +8658,6 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                                          mech->mechanism)) {
         TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
         rc = CKR_MECHANISM_INVALID;
-        if (size_query)
-            free(wrapped_key);
         goto done;
     }
 
@@ -8662,8 +8667,6 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__,
                     rc);
-        if (size_query)
-            free(wrapped_key);
         goto done;
     }
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
@@ -8683,8 +8686,6 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                                           key_obj->template)) {
         TRACE_ERROR("Wrap template does not match.\n");
         rc = CKR_KEY_HANDLE_INVALID;
-        if (size_query)
-            free(wrapped_key);
         goto done;
     }
 
@@ -8736,13 +8737,13 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                    __func__, rc, (void *)wrapped_key, *p_wrapped_key_len);
     }
 
-    if (size_query)
-        free(wrapped_key);
-
 done:
     if (rc == CKR_OK && !size_query)
         INC_COUNTER(tokdata, session, mech, wrap_key_obj,
                     POLICY_STRENGTH_IDX_0);
+
+    if (size_query)
+        free(wrapped_key);
 
     object_put(tokdata, wrap_key_obj, TRUE);
     wrap_key_obj = NULL;
@@ -12529,6 +12530,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             rc = ep11_error_to_pkcs11_error(rc, NULL);
             TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
                         __func__, rc);
+            free(ibm_opaque_attr);
             goto out;
         }
 
