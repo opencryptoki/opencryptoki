@@ -444,6 +444,22 @@ specified elsewhere)
 sets the key label attribute to
 .IR LABEL
 .PP
+For asymmetric keys, the specified label is appended by \fB:pub\fP and
+\fB.prv\fP for the public and private key objects. Optionally, a user can set
+different labels for the public and private key objects by specifying them
+separated by a colon (\fB:\fP), e.g. \fBpub-label:priv-label\fP. The label
+string in front of the colon is used as label for the public key object, the
+label string after the colon is used for the private key object.
+To set the public and private key label the exact same, use \fBpub-label:=\fP.
+The equal sign (\fB=\fP) means to use the same label string for the private
+key objects as for the public key object.
+In case a colon character or a equal sign is supposed to appear within
+a label string, it must be escaped using a back slash (\fB\\\fP), e.g.
+\fBabc\\:xyz\fP results in \fBabx:xyz\fP where the colon is not treated as
+separator character.
+Note that the shell may interpret escape characters as well, so better quote
+the \fILABEL\fP specification.
+.PP
 .
 .
 .
