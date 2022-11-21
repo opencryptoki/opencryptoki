@@ -2472,7 +2472,7 @@ static CK_RV generate_symmetric_key(CK_SESSION_HANDLE session, CK_SLOT_ID slot,
     CK_MECHANISM mech;
     CK_RV rc;
 
-    printf("Generate symmetric key %s with keylen=%lu and label=[%s]\n",
+    printf("Generate symmetric key %s with keylen=%lu and label=\"%s\"\n",
             kt2str(kt), keylength, label);
 
     rc = key_pair_gen_mech(kt, &mech);
@@ -2927,10 +2927,10 @@ static CK_RV finalize_destroy_object(const char *label, const char *keytype,
     }
 
     if (strncmp(user_input, "y", 1) == 0) {
-        printf("Destroy Object with Label: %s\n", label);
+        printf("Destroy Object with Label: \"%s\"\n", label);
         rc = funcs->C_DestroyObject(*session, *hkey);
         if (rc != CKR_OK) {
-            fprintf(stderr, "Key with label %s could not be destroyed (error code 0x%lX: %s)\n",
+            fprintf(stderr, "Key with label \"%s\" could not be destroyed (error code 0x%lX: %s)\n",
                    label, rc, p11_get_ckr(rc));
             goto done;
         }
@@ -2999,12 +2999,12 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
 
         if (*forceAll) {
             if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
-                printf("Destroy Object with Label: %s\n", label);
+                printf("Destroy Object with Label: \"%s\"\n", label);
 
                 rc = funcs->C_DestroyObject(session, hkey);
                 if (rc != CKR_OK) {
                     fprintf(stderr, 
-                            "Key with label %s could not be destroyed (error code 0x%lX: %s)\n",
+                            "Key with label \"%s\" could not be destroyed (error code 0x%lX: %s)\n",
                             label, rc, p11_get_ckr(rc));
                     goto done;
                 }
@@ -3040,11 +3040,11 @@ done:
 
     if (strlen(rm_label) > 0) {
         if (boolDestroyFlag) {
-            printf("Object with Label: %s found and destroyed \n", rm_label);
+            printf("Object with Label \"%s\" found and destroyed \n", rm_label);
         } else if (boolSkipFlag) {
-            fprintf(stderr, "Object with Label: %s not deleted\n", rm_label);
+            fprintf(stderr, "Object with Label \"%s\" not deleted\n", rm_label);
         } else if (rc == CKR_OK) {
-            fprintf(stderr, "Object with Label: %s not found\n", rm_label);
+            fprintf(stderr, "Object with Label \"%s\" not found\n", rm_label);
         }
     }
 
