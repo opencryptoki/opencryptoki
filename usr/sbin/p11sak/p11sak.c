@@ -374,8 +374,7 @@ static void print_listkeys_help(void)
     printf("      -l, --long           list output with long format\n");
     printf("          --detailed-uri   enable detailed PKCS#11 URI\n");
     printf("      --label LABEL        filter keys by key label\n");
-    printf(
-            "      --slot SLOTID        openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID        openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN            pkcs11 user PIN\n");
     printf("      --force-pin-prompt   enforce user PIN prompt\n");
     printf("      -h, --help           Show this help\n\n");
@@ -398,19 +397,16 @@ static void print_gen_help(void)
     printf("          ed448]\n");
     printf("      ibm-dilithium [r2_65]\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --exponent EXP                          set RSA exponent EXP\n");
-    printf(
-            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
-    printf(
-            "      --attr [[pub_attrs]:[priv_attrs]] \n");
-    printf( "             for asymmetric keys: set individual key attributes, values see above\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --label PUB_LABEL:PRIV_LABEL\n");
+    printf("              for asymmetric keys: set individual labels for public and private key\n");
+    printf("      --exponent EXP                          set RSA exponent EXP\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf("             for asymmetric keys: set individual key attributes, values see above\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -426,28 +422,22 @@ static void print_removekeys_help(void)
     printf("      ec\n");
     printf("      ibm-dilithium\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           Key label LABEL to be removed\n");
-    printf(
-            "      -f, --force                             Force remove all keys of given cipher type\n");
+    printf("      --label LABEL                           Key label LABEL to be removed\n");
+    printf("      -f, --force                             Force remove all keys of given cipher type\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
 static void print_gen_des_help(void)
 {
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -459,14 +449,11 @@ static void print_gen_aes_help(void)
     printf("      192\n");
     printf("      256\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -477,14 +464,11 @@ static void print_gen_aes_xts_help(void)
     printf("      128\n");
     printf("      256\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -496,16 +480,16 @@ static void print_gen_rsa_help(void)
     printf("      2048\n");
     printf("      4096\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --exponent EXP                          set RSA exponent EXP\n");
-    printf(
-            "      --attr [S D G U X]                      set key attributes\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --label PUB_LABEL:PRIV_LABEL\n");
+    printf("              for asymmetric keys: set individual labels for public and private key\n");
+    printf("      --exponent EXP                          set RSA exponent EXP\n");
+    printf("      --attr [S D G U X]                      set key attributes\n");
+    printf("      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf("             for asymmetric keys: set individual key attributes, values see above\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -538,14 +522,15 @@ static void print_gen_ec_help(void)
     printf("      ed25519\n");
     printf("      ed448\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --attr [S D G U X]                      set key attributes\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --label PUB_LABEL:PRIV_LABEL\n");
+    printf("              for asymmetric keys: set individual labels for public and private key\n");
+    printf("      --attr [S D G U X]                      set key attributes\n");
+    printf("      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf("             for asymmetric keys: set individual key attributes, values see above\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -555,17 +540,15 @@ static void print_gen_ibm_dilithium_help(void)
     printf("\n Args:\n");
     printf("      r2_65\n");
     printf("\n Options:\n");
-    printf(
-            "      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
+    printf("      --slot SLOTID                           openCryptoki repository token SLOTID.\n");
     printf("      --pin PIN                               pkcs11 user PIN\n");
     printf("      --force-pin-prompt                      enforce user PIN prompt\n");
-    printf(
-            "      --label LABEL                           key label LABEL to be listed\n");
-    printf(
-            "      --attr [M R L S E D G V W U A X N]      set key attributes\n");
-    printf( "      -c, --custom-attr [[pub_attrs]:[priv_attrs]] \n");
-    printf( "             for asymmetric keys: set individual key attributes, for more info see\n");
-    printf( "             man 1 p11sak\n");
+    printf("      --label LABEL                           key label LABEL to be listed\n");
+    printf("      --label PUB_LABEL:PRIV_LABEL\n");
+    printf("              for asymmetric keys: set individual labels for public and private key\n");
+    printf("      --attr [M R L S E D G V W U A X N]      set key attributes\n");
+    printf("      --attr [[pub_attrs]:[priv_attrs]] \n");
+    printf("             for asymmetric keys: set individual key attributes, values see above\n");
     printf("      -h, --help                              Show this help\n\n");
 }
 
@@ -632,10 +615,8 @@ static void print_gen_attr_help(void)
     printf("           'N': CKA_NEVER_EXTRACTABLE\n");
     printf("\n");
     printf("           CKA_TOKEN is set by default.\n");
-    printf(
-            "           If an attribute is not set explicitly, the default values are used.\n");
-    printf(
-            "           For multiple attributes add char without white space, e. g. 'MLD')\n");
+    printf("           If an attribute is not set explicitly, the default values are used.\n");
+    printf("           For multiple attributes add char without white space, e. g. 'MLD')\n");
     printf("\n");
 
     printf("\n");
@@ -1952,7 +1933,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr, 
-                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument -bits <128|192|256>\n",
+                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument <128|192|256>\n",
                     *kt, keylength);
             return CKR_ARGUMENTS_BAD;
         }
@@ -1962,7 +1943,7 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr,
-                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument -bits <128|256>\n",
+                    "Cipher key type [%d] and key bit length %lu is not supported. Try adding argument <128|256>\n",
                     *kt, keylength);
             return CKR_ARGUMENTS_BAD;
         }
@@ -1972,14 +1953,14 @@ static CK_RV check_args_gen_key(p11sak_kt *kt, CK_ULONG keylength,
             break;
         } else {
             fprintf(stderr, 
-                    "[%d] RSA modulus bit length %lu NOT supported. Try adding argument -bits <1024|2048|4096>\n",
+                    "[%d] RSA modulus bit length %lu NOT supported. Try adding argument <1024|2048|4096>\n",
                     *kt, keylength);
         }
         break;
     case kt_EC:
         if (ECcurve == NULL) {
             fprintf(stderr, 
-                    "Cipher key type [%d] supported but EC curve not set in arguments. Try argument -curve <prime256v1|secp384r1|secp521r1> \n",
+                    "Cipher key type [%d] supported but EC curve not set in arguments. Try argument <prime256v1|secp384r1|secp521r1> \n",
                     *kt);
             return CKR_ARGUMENTS_BAD;
         }
