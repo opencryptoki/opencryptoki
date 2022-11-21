@@ -2882,14 +2882,16 @@ static CK_BBOOL user_input_ok(char *input)
         return CK_FALSE;
 }
 
-static CK_RV confirm_destroy(char **user_input, char* label)
+static CK_RV confirm_destroy(char **user_input, const char* label,
+                             const char *keytype)
 {
     int nread;
     size_t buflen = 0;
     CK_RV rc = CKR_OK;
 
     *user_input = NULL;
-    printf("Are you sure you want to destroy object %s [y/n]? ", label);
+    printf("Are you sure you want to destroy %s key object \"%s\" [y/n]? ",
+           keytype, label);
     while (1) {
         nread = getline(user_input, &buflen, stdin);
         if (nread == -1) {
@@ -2909,13 +2911,15 @@ static CK_RV confirm_destroy(char **user_input, char* label)
     return rc;
 }
 
-static CK_RV finalize_destroy_object(char *label, CK_SESSION_HANDLE *session,
-                                   CK_OBJECT_HANDLE *hkey, CK_BBOOL *boolDestroyFlag)
+static CK_RV finalize_destroy_object(const char *label, const char *keytype,
+                                     CK_SESSION_HANDLE *session,
+                                     CK_OBJECT_HANDLE *hkey,
+                                     CK_BBOOL *boolDestroyFlag)
 {
     char *user_input = NULL;
     CK_RV rc = CKR_OK;
 
-    rc = confirm_destroy(&user_input, label);
+    rc = confirm_destroy(&user_input, label, keytype);
     if (rc != CKR_OK) {
         fprintf(stderr, "Skip deleting Key. User input %s\n", p11_get_ckr(rc));
         rc = CKR_CANCEL;
@@ -3008,7 +3012,8 @@ static CK_RV delete_key(CK_SESSION_HANDLE session, p11sak_kt kt, char *rm_label,
             }
         } else {
             if ((strcmp(rm_label, "") == 0) || (strcmp(rm_label, label) == 0)) {
-                rc = finalize_destroy_object(label, &session, &hkey, &boolDestroyFlag);
+                rc = finalize_destroy_object(label, keytype, &session, &hkey,
+                                             &boolDestroyFlag);
                 if (rc != CKR_OK) {
                     goto done;
                 }
