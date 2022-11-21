@@ -797,28 +797,79 @@ static CK_RV read_ec_args(const char *ECcurve, CK_ATTRIBUTE *pubattr,
 }
 /**
  * Builds two CKA_LABEL attributes from given label.
+ * By default the specified label is extended with ":pub" and ":prv" for the
+ * public and private key objects.
+ * To set 2 different labels for public and private keys, separate them by
+ * colon: "pub-label:prv-label".
+ * To set the exact same label for public and private key, use "pub-label:="
+ * To specify a colon or a equal character within a label, it must be escaped
+ * by a back slash:  * "abc\:xyz" results in "abc:xyz".
  */
 static CK_RV set_labelpair_attr(const char *label, CK_ATTRIBUTE *pubattr,
                                 CK_ULONG *pubcount, CK_ATTRIBUTE *prvattr,
                                 CK_ULONG *prvcount)
 {
-    char *publabel;
-    char *prvlabel;
+    char *publabel = NULL;
+    char *prvlabel = NULL;
+    unsigned int i;
 
-    if (!(publabel = malloc(strlen(label) + 5))) {
-        fprintf(stderr, "Error allocating space for publabel\n");
-        return CKR_HOST_MEMORY;
-    }
-    publabel = strcpy(publabel, label);
-    publabel = strcat(publabel, ":pub");
+    for (i = 0; i < strlen(label); i++) {
+        if (label[i] == '\\') {
+            i++; /* skip escaped character */
+            continue;
+        }
 
-    if (!(prvlabel = malloc(strlen(label) + 5))) {
-        fprintf(stderr, "Error allocating space for prvlabel\n");
-        free(publabel);
-        return CKR_HOST_MEMORY;
+        if (label[i] == ':') {
+            if (!(publabel = strndup(label, i))) {
+                fprintf(stderr, "Error allocating space for publabel\n");
+                return CKR_HOST_MEMORY;
+            }
+            if (!(prvlabel = strdup(&label[i + 1]))) {
+                fprintf(stderr, "Error allocating space for prvlabel\n");
+                free(publabel);
+                return CKR_HOST_MEMORY;
+            }
+            break;
+        }
     }
-    prvlabel = strcpy(prvlabel, label);
-    prvlabel = strcat(prvlabel, ":prv");
+
+    if (publabel != NULL && prvlabel != NULL) {
+        if (strcmp(prvlabel, "=") == 0) {
+            free(prvlabel);
+            if (!(prvlabel = strdup(publabel))) {
+                fprintf(stderr, "Error allocating space for prvlabel\n");
+                free(publabel);
+                return CKR_HOST_MEMORY;
+            }
+        }
+    } else {
+        if (!(publabel = malloc(strlen(label) + 5))) {
+            fprintf(stderr, "Error allocating space for publabel\n");
+            return CKR_HOST_MEMORY;
+        }
+        publabel = strcpy(publabel, label);
+        publabel = strcat(publabel, ":pub");
+
+        if (!(prvlabel = malloc(strlen(label) + 5))) {
+            fprintf(stderr, "Error allocating space for prvlabel\n");
+            free(publabel);
+            return CKR_HOST_MEMORY;
+        }
+        prvlabel = strcpy(prvlabel, label);
+        prvlabel = strcat(prvlabel, ":prv");
+    }
+
+    for (i = 0; i < strlen(publabel); i++) {
+        if (publabel[i] == '\\')
+            memmove(&publabel[i], &publabel[i + 1],
+                    strlen(&publabel[i + 1]) + 1);
+    }
+
+    for (i = 0; i < strlen(prvlabel); i++) {
+        if (prvlabel[i] == '\\')
+            memmove(&prvlabel[i], &prvlabel[i + 1],
+                    strlen(&prvlabel[i + 1]) + 1);
+    }
 
     pubattr[*pubcount].type = CKA_LABEL;
     pubattr[*pubcount].pValue = publabel;
