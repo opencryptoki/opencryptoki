@@ -10,13 +10,15 @@ URL:			https://github.com/opencryptoki/opencryptoki
 Source:			https://github.com/%{name}/%{name}/archive/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 
 Requires(pre):		coreutils
+BuildRequires:		gcc
 BuildRequires:		openssl-devel >= 1.1.1
 BuildRequires:		trousers-devel
 BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool
 BuildRequires:		bison flex
-BuildRequires:		systemd
+BuildRequires:		systemd-devel
 BuildRequires:		libitm-devel
+BuildRequires:		make
 %ifarch s390 s390x
 BuildRequires:		libica-devel >= 3.3
 %endif
@@ -236,8 +238,8 @@ exit 0
 %doc doc/strength-example.conf
 %dir %{_sysconfdir}/%{name}
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
-%config(noreplace) %{_sysconfdir}/%{name}/strength.conf
-%config(noreplace) %{_sysconfdir}/%{name}/p11sak_defined_attrs.conf
+%attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/strength.conf
+%attr(0640, root, pkcs11) %config(noreplace) %{_sysconfdir}/%{name}/p11sak_defined_attrs.conf
 %{_prefix}/lib/tmpfiles.d/%{name}.conf
 %{_unitdir}/pkcsslotd.service
 %{_sbindir}/pkcsconf
