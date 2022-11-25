@@ -61,10 +61,7 @@ typedef struct {
 
 #define BLOBSIZE         2048*4
 
-
-
-static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
-                     CK_ULONG old_len)
+static CK_RV ep11_reencrypt(target_t target, CK_BYTE *blob, CK_ULONG blob_len)
 {
     CK_BYTE req[BLOBSIZE];
     CK_BYTE resp[BLOBSIZE];
@@ -72,6 +69,55 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
     size_t resp_len;
     struct XCPadmresp rb;
     struct XCPadmresp lrb;
+    CK_RV rc;
+
+    memset(&rb, 0, sizeof(rb));
+    memset(&lrb, 0, sizeof(lrb));
+
+    rb.domain = domain;
+    lrb.domain = domain;
+
+    resp_len = BLOBSIZE;
+
+    req_len = _xcpa_cmdblock(req, BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
+                             NULL, blob, blob_len);
+
+    if (req_len < 0) {
+        fprintf(stderr, "reencrypt cmd block construction failed\n");
+        return -4;
+    }
+
+    rc = _m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
+                  target);
+    if (rc != CKR_OK || resp_len == 0) {
+        fprintf(stderr, "reencryption failed: %lx %ld\n", rc, req_len);
+        return -5;
+    }
+
+    if (_xcpa_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
+        fprintf(stderr, "reencryption response malformed: %lx\n", rc);
+        return -6;
+    }
+
+    if (rc != 0) {
+        fprintf(stderr, "reencryption failed: %lx\n", rc);
+        return -7;
+    }
+
+    if (blob_len != lrb.pllen) {
+        fprintf(stderr, "reencryption blob size changed: %lx %lx %lx %lx\n",
+                blob_len, lrb.pllen, resp_len, req_len);
+        return -8;
+    }
+
+    memcpy(blob, lrb.payload, blob_len);
+
+    return 0;
+}
+
+static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj,
+                     CK_KEY_TYPE keytype, CK_BYTE *old, CK_ULONG old_len)
+{
     ep11_target_t target_list;
     struct XCP_Module module;
     target_t target = XCP_TGT_INIT;
@@ -100,8 +146,12 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
                                         1);
     }
 
-    memset(&rb, 0, sizeof(rb));
-    memset(&lrb, 0, sizeof(lrb));
+    if (rc != CKR_OK) {
+        fprintf(stderr,
+                "reencryption C_GetAttributeValue failed: obj %lx rc: %lx\n",
+                obj, rc);
+        return -1;
+    }
 
     if (_m_add_module != NULL) {
         memset(&module, 0, sizeof(module));
@@ -111,8 +161,11 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
         module.module_nr = adapter;
         XCPTGTMASK_SET_DOM(module.domainmask, domain);
         rc = _m_add_module(&module, &target);
-        if (rc != 0)
-            return CKR_FUNCTION_FAILED;
+        if (rc != 0) {
+            fprintf(stderr,
+                    "reencryption m_add_module failed: rc: %lx\n",rc);
+            return -2;
+        }
     } else {
         /* Fall back to old target handling */
         memset(&target_list, 0, sizeof(ep11_target_t));
@@ -122,53 +175,35 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
         target = (target_t)&target_list;
     }
 
-    rb.domain = domain;
-    lrb.domain = domain;
 
     fprintf(stderr, "going to reencrpyt key %lx with blob len %lx: '%s'\n", obj,
             old_len, name);
-    resp_len = BLOBSIZE;
 
-    req_len = _xcpa_cmdblock(req, BLOBSIZE, XCP_ADM_REENCRYPT, &rb,
-                              NULL, old, old_len);
-
-    if (req_len < 0) {
-        fprintf(stderr, "reencrypt cmd block construction failed\n");
-        rc = -2;
-        goto out;
-    }
-
-    rc = _m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
-                  target);
-
-    if (rc != CKR_OK || resp_len == 0) {
-        fprintf(stderr, "reencryption failed: %lx %ld\n", rc, req_len);
+    if (old_len > sizeof(blob)) {
+        fprintf(stderr,
+                "reencryption blob is too large: %lu\n", old_len);
         rc = -3;
         goto out;
     }
 
-    if (_xcpa_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
-        fprintf(stderr, "reencryption response malformed: %lx\n", rc);
-        rc = -4;
-        goto out;
-    }
-
-    if (rc != 0) {
-        fprintf(stderr, "reencryption failed: %lx\n", rc);
-        rc = -7;
-        goto out;
-    }
-
-    if (old_len != lrb.pllen) {
-        fprintf(stderr, "reencryption blob size changed: %lx %lx %lx %lx\n",
-                old_len, lrb.pllen, resp_len, req_len);
-        rc = -5;
-        goto out;
-    }
-
-    memset(blob, 0, sizeof(blob));
     blob_len = old_len;
-    memcpy(blob, lrb.payload, blob_len);
+    memcpy(blob, old, blob_len);
+
+    if (keytype == CKK_AES_XTS) {
+        /* An AES XTS key consists of 2 blobs concatenated to each other */
+        rc = ep11_reencrypt(target, blob, blob_len / 2);
+        if (rc != 0)
+            goto out;
+
+        rc = ep11_reencrypt(target, blob + blob_len / 2, blob_len / 2);
+        if (rc != 0)
+            goto out;
+    } else {
+        rc = ep11_reencrypt(target, blob, blob_len);
+        if (rc != 0)
+            goto out;
+    }
+
     opaque_template[0].ulValueLen = blob_len;
 
     rc = funcs->C_SetAttributeValue(session, key_store[obj], opaque_template,
@@ -177,7 +212,7 @@ static int reencrypt(CK_SESSION_HANDLE session, CK_ULONG obj, CK_BYTE *old,
         fprintf(stderr,
                 "reencryption C_SetAttributeValue failed: obj %lx '%s' rc: %lx\n",
                 obj, name, rc);
-        rc = -6;
+        rc = -9;
         goto out;
     }
 
@@ -616,7 +651,7 @@ int main(int argc, char **argv)
                             "rc = 0x%02x [%s]\n", rc, p11_get_ckr(rc));
                     return rc;
                 } else {
-                    if (reencrypt(session, obj,
+                    if (reencrypt(session, obj, keytype,
                                   (CK_BYTE *) opaque_template[0].pValue,
                                   opaque_template[0].ulValueLen) != 0) {
                         /* reencrypt failed */
