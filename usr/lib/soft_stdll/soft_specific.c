@@ -760,7 +760,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *temp_attr = NULL;
     CK_ATTRIBUTE *value_bits_attr = NULL;
     CK_BYTE *temp_byte = NULL, *temp_byte2 = NULL;
-    CK_ULONG temp_bn_len;
+    CK_ULONG temp_bn_len, value_bits;
 #if !OPENSSL_VERSION_PREREQ(3, 0)
     DH *dh = NULL;
 #else
@@ -822,6 +822,12 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     bn_p = NULL;
     bn_g = NULL;
 
+    /* CKA_VALUE_BITS is optional */
+    if (template_attribute_get_ulong(priv_tmpl, CKA_VALUE_BITS,
+                                     &value_bits) == CKR_OK &&
+        value_bits > 0)
+        DH_set_length(dh, value_bits);
+
     params = EVP_PKEY_new();
     if (params == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
@@ -837,24 +843,44 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
     dh = NULL; /* freed together with params */
 #else
     tmpl = OSSL_PARAM_BLD_new();
-    if (tmpl == NULL)
+    if (tmpl == NULL) {
+        rv = CKR_HOST_MEMORY;
         goto done;
+    }
 
     if (!OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_FFC_P, bn_p) ||
-        !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_FFC_G, bn_g))
+        !OSSL_PARAM_BLD_push_BN(tmpl, OSSL_PKEY_PARAM_FFC_G, bn_g)) {
+        rv = CKR_FUNCTION_FAILED;
         goto done;
+    }
+
+    /* CKA_VALUE_BITS is optional */
+    if (template_attribute_get_ulong(priv_tmpl, CKA_VALUE_BITS,
+                                     &value_bits) == CKR_OK) {
+        if (!OSSL_PARAM_BLD_push_long(tmpl, OSSL_PKEY_PARAM_DH_PRIV_LEN,
+                                      value_bits)) {
+            rv = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
 
     osparams = OSSL_PARAM_BLD_to_param(tmpl);
-    if (osparams == NULL)
+    if (osparams == NULL) {
+        rv = CKR_FUNCTION_FAILED;
         goto done;
+    }
 
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
-    if (pctx == NULL)
+    if (pctx == NULL) {
+        rv = CKR_FUNCTION_FAILED;
         goto done;
+    }
 
     if (!EVP_PKEY_fromdata_init(pctx) ||
-        !EVP_PKEY_fromdata(pctx, &params, EVP_PKEY_PUBLIC_KEY, osparams))
+        !EVP_PKEY_fromdata(pctx, &params, EVP_PKEY_PUBLIC_KEY, osparams)) {
+        rv = CKR_FUNCTION_FAILED;
         goto done;
+    }
 #endif
 
     ctx = EVP_PKEY_CTX_new(params, NULL);
