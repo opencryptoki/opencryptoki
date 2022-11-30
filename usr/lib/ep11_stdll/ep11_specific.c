@@ -6322,7 +6322,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
     CK_ULONG field_len;
     CK_BYTE *data;
     CK_BYTE *y_start, *oid, *parm;
-    CK_ULONG bit_str_len, oid_len, parm_len;
+    CK_ULONG bit_str_len, oid_len, parm_len, value_bits = 0;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) sess->private_data;
@@ -6570,6 +6570,28 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                     __func__, rc);
         free(value_attr);
         goto dh_generate_keypair_end;
+    }
+
+    /* Supply CKA_VALUE_BITS to private key if not present or zero */
+    if (template_attribute_get_ulong(priv_tmpl, CKA_VALUE_BITS,
+                                     &value_bits) != CKR_OK ||
+        value_bits == 0) {
+        value_bits = data_len * 8; /* private key is same length as pub key */
+
+        rc = build_attribute(CKA_VALUE_BITS, (CK_BYTE *)&data_len,
+                             sizeof(value_bits), &value_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n", __func__, rc);
+            goto dh_generate_keypair_end;
+        }
+
+        rc = template_update_attribute(priv_tmpl, value_attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(value_attr);
+            goto dh_generate_keypair_end;
+        }
     }
 
 dh_generate_keypair_end:
