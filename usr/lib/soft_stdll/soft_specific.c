@@ -97,8 +97,8 @@ static const MECH_LIST_ELEMENT soft_mech_list[] = {
 #endif
 /* Begin code contributed by Corrent corp. */
 #if !(NODH)
-    {CKM_DH_PKCS_DERIVE, {512, 2048, CKF_DERIVE}},
-    {CKM_DH_PKCS_KEY_PAIR_GEN, {512, 2048, CKF_GENERATE_KEY_PAIR}},
+    {CKM_DH_PKCS_DERIVE, {512, 8192, CKF_DERIVE}},
+    {CKM_DH_PKCS_KEY_PAIR_GEN, {512, 8192, CKF_GENERATE_KEY_PAIR}},
 #endif
 /* End code contributed by Corrent corp. */
     {CKM_DES_ECB, {8, 8, CKF_ENCRYPT | CKF_DECRYPT | CKF_WRAP | CKF_UNWRAP}},
@@ -791,7 +791,7 @@ CK_RV token_specific_dh_pkcs_key_pair_gen(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    if ((prime_attr->ulValueLen > 256) || (prime_attr->ulValueLen < 64)) {
+    if ((prime_attr->ulValueLen > 1024) || (prime_attr->ulValueLen < 64)) {
         TRACE_ERROR("CKA_PRIME attribute value is invalid.\n");
         rv = CKR_ATTRIBUTE_VALUE_INVALID;
         goto done;
