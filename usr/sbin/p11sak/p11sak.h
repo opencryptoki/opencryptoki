@@ -1,5 +1,5 @@
 /*
- * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2022
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -8,64 +8,115 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-#include <ec_curves.h>
+#ifndef P11SAK_H_
+#define P11SAK_H_
 
-typedef enum {
-    no_cmd, gen_key, list_key, remove_key
-} p11sak_cmd;
+#include "pkcs11types.h"
+#include "ec_curves.h"
 
-/*
- * The first enum items are for SYMMETRIC keys for kt <= 2.
- * The last enum items are for ASYMMETRIC keys for kt >= 3
- */
-typedef enum {
-    kt_DES,
-    kt_3DES,
-    kt_AES,
-    kt_AES_XTS,
-    kt_RSAPKCS,
-    kt_EC,
-    kt_IBM_DILITHIUM,
-    kt_IBM_KYBER,
-    kt_GENERIC,
-    kt_SECRET,
-    kt_PUBLIC,
-    kt_PRIVATE,
-    kt_ALL,
-    no_key_type
-} p11sak_kt;
+#define UNUSED(var)             ((void)(var))
 
-#define  KEY_MAX_BOOL_ATTR_COUNT 15
-#define  SEC_KEY_MAX_BOOL_ATTR_COUNT 15
-#define  PRV_KEY_MAX_BOOL_ATTR_COUNT 12
-#define  PUB_KEY_MAX_BOOL_ATTR_COUNT 8
+#define OPT_FORCE_PIN_PROMPT    256
+#define OPT_DETAILED_URI        257
 
-#define P11SAK_DEFAULT_CONF_FILE OCK_CONFDIR "/p11sak_defined_attrs.conf"
+#define MAX_PRINT_LINE_LENGTH   80
+#define PRINT_INDENT_POS        35
 
-const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
-const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
-const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
-const CK_BYTE brainpoolP192t1[] = OCK_BRAINPOOL_P192T1;
-const CK_BYTE brainpoolP224r1[] = OCK_BRAINPOOL_P224R1;
-const CK_BYTE brainpoolP224t1[] = OCK_BRAINPOOL_P224T1;
-const CK_BYTE brainpoolP256r1[] = OCK_BRAINPOOL_P256R1;
-const CK_BYTE brainpoolP256t1[] = OCK_BRAINPOOL_P256T1;
-const CK_BYTE brainpoolP320r1[] = OCK_BRAINPOOL_P320R1;
-const CK_BYTE brainpoolP320t1[] = OCK_BRAINPOOL_P320T1;
-const CK_BYTE brainpoolP384r1[] = OCK_BRAINPOOL_P384R1;
-const CK_BYTE brainpoolP384t1[] = OCK_BRAINPOOL_P384T1;
-const CK_BYTE brainpoolP512r1[] = OCK_BRAINPOOL_P512R1;
-const CK_BYTE brainpoolP512t1[] = OCK_BRAINPOOL_P512T1;
-const CK_BYTE prime192v1[] = OCK_PRIME192V1;
-const CK_BYTE secp224r1[] = OCK_SECP224R1;
-const CK_BYTE prime256v1[] = OCK_PRIME256V1;
-const CK_BYTE secp384r1[] = OCK_SECP384R1;
-const CK_BYTE secp521r1[] = OCK_SECP521R1;
-const CK_BYTE secp256k1[] = OCK_SECP256K1;
-const CK_BYTE curve25519[] = OCK_CURVE25519;
-const CK_BYTE curve448[] = OCK_CURVE448;
-const CK_BYTE ed25519[] = OCK_ED25519;
-const CK_BYTE ed448[] = OCK_ED448;
+enum p11sak_arg_type {
+    ARG_TYPE_PLAIN = 0, /* no argument */
+    ARG_TYPE_STRING = 1,
+    ARG_TYPE_ENUM = 2,
+    ARG_TYPE_NUMBER = 3,
+};
 
-CK_BBOOL ckb_true = CK_TRUE;
-CK_BBOOL ckb_false = CK_FALSE;
+struct p11sak_enum_value {
+    const char *value;
+    const struct p11sak_arg *args;
+    union {
+        const void *ptr;
+        CK_ULONG num;
+    } private;
+    char **any_value; /* if this is not NULL then this enum value matches to
+                         any string, and the string is set into any_value */
+};
+
+struct p11sak_arg {
+    const char *name;
+    enum p11sak_arg_type type;
+    bool required;
+    bool case_sensitive;
+    const struct p11sak_enum_value *enum_values;
+    union {
+        bool *plain;
+        char **string;
+        struct p11sak_enum_value **enum_value;
+        CK_ULONG *number;
+    } value;
+    bool (*is_set)(const struct p11sak_arg *arg);
+    const char *description;
+};
+
+struct p11sak_opt {
+    char short_opt; /* 0 if no short option is used */
+    const char *long_opt; /* NULL if no long option */
+    int long_opt_val; /* Used only if short_opt is 0 */
+    bool required;
+    struct p11sak_arg arg;
+    const char *description;
+};
+
+struct p11sak_cmd {
+    const char *cmd;
+    const char *cmd_short1;
+    const char *cmd_short2;
+    CK_RV (*func)(void);
+    const struct p11sak_opt *opts;
+    const struct p11sak_arg *args;
+    const char *description;
+    void (*help)(void);
+};
+
+struct p11sak_attr {
+    const char *name;
+    CK_ATTRIBUTE_TYPE type;
+    char letter;
+    bool secret;
+    bool public;
+    bool private;
+    bool settable;
+};
+
+struct curve_info {
+    const CK_BYTE *oid;
+    CK_ULONG oid_len;
+    CK_ULONG bitsize;
+};
+
+#ifdef P11SAK_DECLARE_CURVES
+static const CK_BYTE brainpoolP160r1[] = OCK_BRAINPOOL_P160R1;
+static const CK_BYTE brainpoolP160t1[] = OCK_BRAINPOOL_P160T1;
+static const CK_BYTE brainpoolP192r1[] = OCK_BRAINPOOL_P192R1;
+static const CK_BYTE brainpoolP192t1[] = OCK_BRAINPOOL_P192T1;
+static const CK_BYTE brainpoolP224r1[] = OCK_BRAINPOOL_P224R1;
+static const CK_BYTE brainpoolP224t1[] = OCK_BRAINPOOL_P224T1;
+static const CK_BYTE brainpoolP256r1[] = OCK_BRAINPOOL_P256R1;
+static const CK_BYTE brainpoolP256t1[] = OCK_BRAINPOOL_P256T1;
+static const CK_BYTE brainpoolP320r1[] = OCK_BRAINPOOL_P320R1;
+static const CK_BYTE brainpoolP320t1[] = OCK_BRAINPOOL_P320T1;
+static const CK_BYTE brainpoolP384r1[] = OCK_BRAINPOOL_P384R1;
+static const CK_BYTE brainpoolP384t1[] = OCK_BRAINPOOL_P384T1;
+static const CK_BYTE brainpoolP512r1[] = OCK_BRAINPOOL_P512R1;
+static const CK_BYTE brainpoolP512t1[] = OCK_BRAINPOOL_P512T1;
+static const CK_BYTE prime192v1[] = OCK_PRIME192V1;
+static const CK_BYTE secp224r1[] = OCK_SECP224R1;
+static const CK_BYTE prime256v1[] = OCK_PRIME256V1;
+static const CK_BYTE secp384r1[] = OCK_SECP384R1;
+static const CK_BYTE secp521r1[] = OCK_SECP521R1;
+static const CK_BYTE secp256k1[] = OCK_SECP256K1;
+static const CK_BYTE curve25519[] = OCK_CURVE25519;
+static const CK_BYTE curve448[] = OCK_CURVE448;
+static const CK_BYTE ed25519[] = OCK_ED25519;
+static const CK_BYTE ed448[] = OCK_ED448;
+#endif
+
+#endif
