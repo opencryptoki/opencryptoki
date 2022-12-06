@@ -89,6 +89,30 @@ void (*CSNBDEC)(long *return_code,
                 unsigned char *rule_array,
                 unsigned char *chaining_vector,
                 unsigned char *plaintext);
+void (*CSNDPKT)(long *return_code,
+                long *reason_code,
+                long *exit_data_length,
+                unsigned char *exit_data,
+                long *rule_array_count,
+                unsigned char *rule_array,
+                long *source_key_identifier_length,
+                unsigned char *source_key_identifier,
+                long *source_transport_key_identifier_length,
+                unsigned char *source_transport_key_identifier,
+                long *target_transport_key_identifier_length,
+                unsigned char *target_transport_key_identifier,
+                long *target_key_token_length,
+                unsigned char *target_key_token);
+void (*CSNDPKX)(long *return_code,
+                long *reason_code,
+                long *exit_data_length,
+                unsigned char *exit_data,
+                long *rule_array_count,
+                unsigned char *rule_array,
+                long *source_key_identifier_length,
+                unsigned char *source_key_identifier,
+                long *target_key_token_length,
+                unsigned char *target_key_token);
 void *lib_csulcca;
 
 static struct algo aes = {(CK_BYTE *)"RTCMK   AES     ", (CK_BYTE *)"AES", 2 };
@@ -680,11 +704,13 @@ void p11_fini(CK_FUNCTION_LIST *funcs)
  * 0 CKA_IBM_OPAQUE
  * 1 CKA_KEY_TYPE
  * 2 CKA_LABEL
+ * 3 CKA_CLASS
  */
 int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
 {
     struct key *new_key;
     CK_ULONG key_type = *(CK_ULONG *) attrs[1].pValue;
+    CK_ULONG class = *(CK_ULONG *) attrs[3].pValue;
 
     new_key = malloc(sizeof(struct key));
     if (!new_key) {
@@ -707,6 +733,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
     }
 
     new_key->type = key_type;
+    new_key->class = class;
     new_key->opaque_attr = malloc(attrs[0].ulValueLen);
     if (!new_key->opaque_attr) {
         print_error("Malloc of %lu bytes failed!", attrs[0].ulValueLen);
@@ -765,7 +792,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
 }
 
 int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
-                      CK_KEY_TYPE *key_type, struct key **keys)
+                      CK_KEY_TYPE *key_type, struct key **keys, CK_BBOOL all)
 {
     CK_RV rv;
     void *ptr;
@@ -781,13 +808,14 @@ int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
     CK_ATTRIBUTE attrs[] = {
         {CKA_IBM_OPAQUE, NULL, 0},
         {CKA_KEY_TYPE, NULL, 0},
-        {CKA_LABEL, NULL, 0}
+        {CKA_LABEL, NULL, 0},
+        {CKA_CLASS, NULL, 0},
     };
-    int i, rc, num_attrs = 3;
+    int i, rc, num_attrs = 4;
 
 
     /* Find all objects in the store */
-    rv = funcs->C_FindObjectsInit(sess, key_tmpl, 3);
+    rv = funcs->C_FindObjectsInit(sess, key_tmpl, all ? 2 : 3);
     if (rv != CKR_OK) {
         p11_error("C_FindObjectsInit", rv);
         print_error("Error finding CCA key objects");
@@ -1105,7 +1133,7 @@ int migrate_keytype(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
     struct key *keys = NULL, *tmp, *to_free;
     int rc;
 
-    rc = find_wrapped_keys(funcs, sess, k_type, &keys);
+    rc = find_wrapped_keys(funcs, sess, k_type, &keys, FALSE);
     if (rc) {
         goto done;
     }
@@ -1273,6 +1301,165 @@ finalize:
     return exit_code;
 }
 
+/* @keys: A linked list of data to migrate and the PKCS#11 handle for the
+ * object in the data store.
+ * @count: counter for number of keys migrated
+ * @count_failed: counter for number of keys that failed to migrate
+ */
+int cca_migrate_old_rsa(struct key *keys, unsigned int *count,
+                        unsigned int *count_failed)
+{
+    long return_code, reason_code, exit_data_length = 0;
+    long rule_array_count, source_len, target_len, zero_len = 0;
+    unsigned char target_token[2500] = { 0 };
+    unsigned char rule_array[8];
+    struct key *key;
+
+    for (key = keys; key; key = key->next) {
+        if (key->attr_len < 16 ||
+            key->opaque_attr[0] != 0x1f ||  /* 0x1f: internal PKA token */
+            key->opaque_attr[8] != 0x08) {  /* 0x08: RSA-CRT priv key token */
+            if (v_level)
+                printf("Skipping RSA key, its not an old RSA key. label=%s, handle=%lu\n",
+                       key->label, key->handle);
+            continue;
+        }
+
+        source_len = key->attr_len;
+        target_len = sizeof(target_token);
+        memset(target_token, 0, sizeof(target_token));
+
+        if (key->class == CKO_PUBLIC_KEY) {
+            /* Extract public key only */
+            rule_array_count = 0;
+
+            CSNDPKX(&return_code, &reason_code,
+                    &exit_data_length, NULL,
+                    &rule_array_count, rule_array,
+                    &source_len, key->opaque_attr,
+                    &target_len, target_token);
+
+            if (return_code != CCA_SUCCESS) {
+                cca_error("CSNDPKX (Public Key Token Extract)", return_code, reason_code);
+                print_error("Migrating old RSA key failed. label=%s, handle=%lu",
+                            key->label, key->handle);
+                (*count_failed)++;
+                continue;
+            } else if (v_level) {
+                printf("Successfully migrated old RSA key. label=%s, handle=%lu\n",
+                       key->label, key->handle);
+            }
+        } else {
+            /* Convert to RSA-AESC token type */
+            rule_array_count = 1;
+            memcpy(rule_array, "INTDWAKW", 8);
+
+            CSNDPKT(&return_code, &reason_code,
+                    &exit_data_length, NULL,
+                    &rule_array_count, rule_array,
+                    &source_len, key->opaque_attr,
+                    &zero_len, NULL, &zero_len, NULL,
+                    &target_len, target_token);
+
+            if (return_code != CCA_SUCCESS) {
+                cca_error("CSNDPKT (PKA Key Translate)", return_code, reason_code);
+                print_error("Migrating old RSA key failed. label=%s, handle=%lu",
+                            key->label, key->handle);
+                (*count_failed)++;
+                continue;
+            } else if (v_level) {
+                printf("Successfully migrated old RSA key. label=%s, handle=%lu\n",
+                       key->label, key->handle);
+            }
+        }
+
+        /* replace the original key with the migrated key */
+        free(key->opaque_attr);
+        key->opaque_attr = malloc(target_len);
+        if (key->opaque_attr == NULL) {
+            print_error("Malloc of %ld bytes failed!", target_len);
+            (*count_failed)++;
+            continue;
+        }
+        memcpy(key->opaque_attr, target_token, target_len);
+        key->attr_len = target_len;
+
+        (*count)++;
+    }
+
+    return 0;
+}
+
+int migrate_old_rsa_keys(CK_SLOT_ID slot_id, const char *userpin)
+{
+    CK_FUNCTION_LIST *funcs;
+    CK_SESSION_HANDLE sess;
+    CK_RV rv;
+    unsigned int count = 0;
+    unsigned int count_failed = 0;
+    int exit_code = 0, rc;
+    struct key *keys = NULL, *tmp, *to_free;
+    CK_KEY_TYPE key_type = CKK_RSA;
+
+    funcs = p11_init();
+    if (!funcs) {
+        return 2;
+    }
+
+    rv = funcs->C_OpenSession(slot_id, CKF_RW_SESSION |
+                              CKF_SERIAL_SESSION, NULL_PTR, NULL_PTR, &sess);
+    if (rv != CKR_OK) {
+        p11_error("C_OpenSession", rv);
+        exit_code = 5;
+        goto finalize;
+    }
+
+    rv = funcs->C_Login(sess, CKU_USER, (CK_BYTE *) userpin, strlen(userpin));
+    if (rv != CKR_OK) {
+        p11_error("C_Login (USER)", rv);
+        exit_code = 8;
+        goto finalize;
+    }
+
+    if (v_level)
+        printf("Search for RSA keys\n");
+
+     rc = find_wrapped_keys(funcs, sess, &key_type, &keys, TRUE);
+     if (rc) {
+         exit_code = 8;
+         goto done;
+     }
+
+     rc = cca_migrate_old_rsa(keys, &count, &count_failed);
+     if (rc) {
+         exit_code = 8;
+         goto done;
+     }
+
+     rc = replace_keys(funcs, sess, keys);
+     if (rc) {
+         exit_code = 8;
+         goto done;
+     }
+
+     printf("Successfully migrated: %u", count);
+     if (count_failed)
+         printf("\nFailed to migrate:   %u", count_failed);
+     printf("\n");
+
+
+done:
+    for (to_free = keys; to_free; to_free = tmp) {
+        tmp = to_free->next;
+        free(to_free->opaque_attr);
+        free(to_free);
+    }
+    funcs->C_CloseSession(sess);
+finalize:
+    p11_fini(funcs);
+    return exit_code;
+}
+
 int migrate_version(const char *sopin, const char *userpin, unsigned char *data_store)
 {
     char masterkey[MASTER_KEY_SIZE_CCA];
@@ -1372,6 +1559,13 @@ void usage(char *progname)
     printf(" new CCA master key\n");
     printf(" -s, --slotid SLOTID\t\tPKCS slot number\n");
     printf(" -k aes|apka|asym|sym\t\tMigrate selected keytype\n\n");
+    printf(" Migrate old RSA Keys:\t\t%s -m oldrsakeys -s SLOTID [OPTIONS] \n",
+           progname);
+    printf(" -m oldrsakeys\t\t\tConverts old RSA keys (RSA-CRT) to the new\n "
+           "\t\t\t\tformat (RSA-AESC) and extracts the public key\n"
+           "\t\t\t\tsection only from key objects containing the\n"
+           "\t\t\t\tfull RSA key token\n");
+    printf(" -s, --slotid SLOTID\t\tPKCS slot number\n\n");
     printf(" Options:\n");
     printf(" -d, --datastore DATASTORE\tCCA token datastore location\n");
     printf(" -v, --verbose LEVEL\t\tset verbose level (optional):\n");
@@ -1412,6 +1606,7 @@ int main(int argc, char **argv)
 
     int m_version = 0;
     int m_keys = 0;
+    int m_rsakeys = 0;
 
     memset(&token_specific, 0, sizeof(token_specific));
 
@@ -1433,13 +1628,13 @@ int main(int argc, char **argv)
             return 0;
         case 'k':
             mk_type = strdup(optarg);
-            if (!memcmp(mk_type, "aes", 3)) {
+            if (strcmp(mk_type, "aes") == 0) {
                 masterkey = MK_AES;
-            } else if (!memcmp(mk_type, "apka", 4)) {
+            } else if (strcmp(mk_type, "apka") == 0) {
                 masterkey = MK_APKA;
-            } else if (!memcmp(mk_type, "asym", 4)) {
+            } else if (strcmp(mk_type, "asym") == 0) {
                 masterkey = MK_ASYM;
-            } else if (!memcmp(mk_type, "sym", 3)) {
+            } else if (strcmp(mk_type, "sym") == 0) {
                 masterkey = MK_SYM;
             } else {
                 print_error("unknown key type (%s)\n", mk_type);
@@ -1449,10 +1644,12 @@ int main(int argc, char **argv)
             break;
         case 'm':
             m_type = strdup(optarg);
-            if (!memcmp(m_type, "v2objectsv3", 11)) {
+            if (strcmp(m_type, "v2objectsv3") == 0) {
                 m_version = 1;
-            } else if (!memcmp(m_type, "keys", 4)) {
+            } else if (strcmp(m_type, "keys") == 0) {
                 m_keys = 1;
+            } else if (strcmp(m_type, "oldrsakeys") == 0) {
+                m_rsakeys = 1;
             } else {
                 print_error("unknown migration type (%s)\n", m_type);
                 usage(argv[0]);
@@ -1478,7 +1675,7 @@ int main(int argc, char **argv)
     }
 
     /* check for missing parameters */
-    if (!m_version && !m_keys) {
+    if (!m_version && !m_keys && !m_rsakeys) {
         print_error("missing migration type\n");
         usage(argv[0]);
         return -1;
@@ -1542,6 +1739,17 @@ int main(int argc, char **argv)
         *(void **)(&CSNBKTC) = dlsym(lib_csulcca, "CSNBKTC");
         *(void **)(&CSNBKTC2) = dlsym(lib_csulcca, "CSNBKTC2");
         ret = migrate_wrapped_keys(slot_id, userpin, masterkey);
+    } else if (m_rsakeys) {
+        if (!slot_id) {
+            print_error("missing slot number\n");
+            usage(argv[0]);
+            return -1;
+        }
+
+        *(void **)(&CSNDPKT) = dlsym(lib_csulcca, "CSNDPKT");
+        *(void **)(&CSNDPKX) = dlsym(lib_csulcca, "CSNDPKX");
+
+        ret = migrate_old_rsa_keys(slot_id, userpin);
     }
 
 done:
