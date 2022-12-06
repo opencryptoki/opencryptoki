@@ -4227,7 +4227,7 @@ CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
                      void *cb_data)
 {
     unsigned char partial[AES_BLOCK_SIZE];
-    unsigned char iv_prev[AES_INIT_VECTOR_SIZE];
+    unsigned char iv_prev[AES_INIT_VECTOR_SIZE] = { 0 };
     CK_ULONG len, rest;
     CK_RV rc;
 
