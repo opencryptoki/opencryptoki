@@ -85,6 +85,7 @@ static inline void _print_error(const char *file, int line,
 
 struct key {
     CK_OBJECT_HANDLE handle;
+    CK_ULONG class;
     CK_ULONG type;
     CK_BYTE *opaque_attr;
     CK_ULONG attr_len;

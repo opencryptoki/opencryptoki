@@ -15,6 +15,12 @@ pkcscca \- configuration utility for the CCA token
 [\fB-k aes|apka|asym|sym\fP]
 [\fIOPTIONS\fP]
 
+.SS "OLD RSA KEY MIGRATION"
+\fBpkcscca\fP
+[\fB-m oldrsakeys\fP]
+[\fB-s SLOTID\fP]
+[\fIOPTIONS\fP]
+
 .SH DESCRIPTION
 The \fBpkcscca\fP utility assists in administering the CCA token.
 
@@ -31,6 +37,17 @@ changed, keys wrapped with the old master key need to be re-wrapped with the
 current master key. The \fBkeys\fP migration option migrates these wrapped keys
 by unwrapping them with the old master key and wrapping them with the current
 master key.
+
+Up to opencryptoki version 3.14.0, RSA keys were created using the RSA-CRT
+key token format (private key section X'08'). RSA-CRT keys are encrypted with
+the CCA ASYM master key, and can not be used for certain mechanisms, e.g.
+RSA-PSS or RSA-OAEP. In newer opencryptoki versions, RSA keys are created using
+the RSA-AESC key token format (private key section X'31'). Up to version 3.16.0,
+RSA public keys also contained full CCA secure key tokens, including the private
+key section (which is encrypted by the CCA master key). The \fBoldrsakeys\fP
+migration option migrates old RSA private key tokens to the new format, and also
+extracts the public key sections from RSA public key tokens containing a full
+CCA secure key token.
 
 .SH "GENERAL OPTIONS"
 .IP "\fB-d|--datastore\fP \fIdirectory\fp" 10
@@ -50,6 +67,13 @@ Unwraps private keys with an old CCA master key and wraps them with a new CCA
 master key.
 .IP "\fB-k aes|apka|asym|sym\fP" 5
 Migrate keys wrapped with the selected master key type.
+.IP "\fB-s|--slotid\fP \fISLOTID\fP" 5
+The PKCS slot number.
+
+.SH "OLD RSA KEY MIGRATION"
+.IP "\fB-m oldrsakeys\fP" 5
+Converts old RSA keys (RSA-CRT) to the new format (RSA-AESC) and extracts the
+public key section only from key objects containing the full RSA key token.
 .IP "\fB-s|--slotid\fP \fISLOTID\fP" 5
 The PKCS slot number.
 
