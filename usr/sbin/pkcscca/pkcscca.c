@@ -792,7 +792,7 @@ int add_key(CK_OBJECT_HANDLE handle, CK_ATTRIBUTE *attrs, struct key **keys)
 }
 
 int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
-                      CK_KEY_TYPE *key_type, struct key **keys, CK_BBOOL all)
+                      CK_KEY_TYPE *key_type, struct key **keys)
 {
     CK_RV rv;
     void *ptr;
@@ -802,7 +802,6 @@ int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
     CK_ATTRIBUTE key_tmpl[] = {
         {CKA_KEY_TYPE, key_type, sizeof(*key_type)},
         {CKA_TOKEN, &true, sizeof(true)},
-        {CKA_EXTRACTABLE, &true, sizeof(true)}
     };
 
     CK_ATTRIBUTE attrs[] = {
@@ -815,7 +814,7 @@ int find_wrapped_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
 
 
     /* Find all objects in the store */
-    rv = funcs->C_FindObjectsInit(sess, key_tmpl, all ? 2 : 3);
+    rv = funcs->C_FindObjectsInit(sess, key_tmpl, 2);
     if (rv != CKR_OK) {
         p11_error("C_FindObjectsInit", rv);
         print_error("Error finding CCA key objects");
@@ -930,13 +929,50 @@ int replace_keys(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
     return 0;
 }
 
-int cca_migrate_asymmetric(struct key *key, char **out, struct algo algo)
+int cca_migrate_asymmetric(struct key *key, char **out, struct algo algo,
+                           int masterkey)
 {
     long return_code, reason_code, exit_data_length, key_identifier_length;
     unsigned char *key_identifier;
 
     exit_data_length = 0;
     key_identifier_length = key->attr_len;
+
+    if (key->attr_len < 16 ||
+        key->opaque_attr[0] == 0x1e) { /* 0x1e: external PKA token */
+        printf("Skipping key, its a public key. label=%s, handle=%lu\n",
+               key->label, key->handle);
+        return 0;
+    }
+
+    if (strcmp((char *)algo.name, "RSA") == 0) {
+        /*
+         * RSA keys come in 2 flavors: RSA-CRT (using ASYM-MK) and RSA-AESC
+         * (using APKA-MK)
+         */
+        switch (masterkey) {
+        case MK_ASYM:
+            if (key->attr_len < 16 ||
+                key->opaque_attr[0] != 0x1f ||  /* 0x1f: internal PKA token */
+                key->opaque_attr[8] != 0x08) {  /* 0x08: RSA-CRT priv key token */
+                printf("Skipping key, its not an old RSA key. label=%s, handle=%lu\n",
+                       key->label, key->handle);
+                return 0;
+            }
+            break;
+        case MK_APKA:
+            if (key->attr_len < 16 ||
+                key->opaque_attr[0] != 0x1f ||  /* 0x1f: internal PKA token */
+                key->opaque_attr[8] != 0x08) {  /* 0x1f: RSA-AESC priv key token */
+                printf("Skipping key, its not an new RSA key. label=%s, handle=%lu\n",
+                       key->label, key->handle);
+                return 0;
+            }
+            break;
+        default:
+            return 1;
+        }
+    }
 
     key_identifier = calloc(1, key->attr_len);
     if (!key_identifier) {
@@ -1064,7 +1100,7 @@ int cca_migrate_hmac(struct key *key, char **out, struct algo algo)
  * @count_failed: counter for number of keys that failed to migrate
  */
 int cca_migrate(struct key *keys, struct key_count *count,
-                struct key_count *count_failed)
+                struct key_count *count_failed, int masterkey)
 {
     struct key *key;
     char *migrated_data;
@@ -1091,7 +1127,7 @@ int cca_migrate(struct key *keys, struct key_count *count,
                 count->des++;
             break;
         case CKK_EC:
-            rc = cca_migrate_asymmetric(key, &migrated_data, ecc);
+            rc = cca_migrate_asymmetric(key, &migrated_data, ecc, masterkey);
             if (rc)
                 count_failed->ecc++;
             else
@@ -1105,7 +1141,7 @@ int cca_migrate(struct key *keys, struct key_count *count,
                 count->hmac++;
             break;
         case CKK_RSA:
-            rc = cca_migrate_asymmetric(key, &migrated_data, rsa);
+            rc = cca_migrate_asymmetric(key, &migrated_data, rsa, masterkey);
             if (rc)
                 count_failed->rsa++;
             else
@@ -1128,17 +1164,17 @@ int cca_migrate(struct key *keys, struct key_count *count,
 
 int migrate_keytype(CK_FUNCTION_LIST *funcs, CK_SESSION_HANDLE sess,
                     CK_KEY_TYPE *k_type, struct key_count *count,
-                    struct key_count *count_failed)
+                    struct key_count *count_failed, int masterkey)
 {
     struct key *keys = NULL, *tmp, *to_free;
     int rc;
 
-    rc = find_wrapped_keys(funcs, sess, k_type, &keys, FALSE);
+    rc = find_wrapped_keys(funcs, sess, k_type, &keys);
     if (rc) {
         goto done;
     }
 
-    rc = cca_migrate(keys, count, count_failed);
+    rc = cca_migrate(keys, count, count_failed, masterkey);
     if (rc) {
         goto done;
     }
@@ -1234,14 +1270,16 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for AES keys\n");
         key_type = CKK_AES;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
         if (v_level)
             printf("Search for HMAC keys\n");
         key_type = CKK_GENERIC_SECRET;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
@@ -1250,16 +1288,26 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for ECC keys\n");
         key_type = CKK_EC;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
+        if (rc) {
+            goto done;
+        }
+        if (v_level)
+            printf("Search for RSA keys\n");
+        key_type = CKK_RSA;
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
         break;
     case MK_ASYM:
         if (v_level)
-            printf("Search for RSA keys\n");
+            printf("Search for old RSA keys\n");
         key_type = CKK_RSA;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
@@ -1268,21 +1316,24 @@ int migrate_wrapped_keys(CK_SLOT_ID slot_id, const char *userpin, int masterkey)
         if (v_level)
             printf("Search for DES keys\n");
         key_type = CKK_DES;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
         if (v_level)
             printf("Search for DES2 keys\n");
         key_type = CKK_DES2;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
         if (v_level)
             printf("Search for DES3 keys\n");
         key_type = CKK_DES3;
-        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed);
+        rc = migrate_keytype(funcs, sess, &key_type, &count, &count_failed,
+                             masterkey);
         if (rc) {
             goto done;
         }
@@ -1424,7 +1475,7 @@ int migrate_old_rsa_keys(CK_SLOT_ID slot_id, const char *userpin)
     if (v_level)
         printf("Search for RSA keys\n");
 
-     rc = find_wrapped_keys(funcs, sess, &key_type, &keys, TRUE);
+     rc = find_wrapped_keys(funcs, sess, &key_type, &keys);
      if (rc) {
          exit_code = 8;
          goto done;
