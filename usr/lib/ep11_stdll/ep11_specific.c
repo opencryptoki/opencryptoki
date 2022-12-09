@@ -598,7 +598,8 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
                                       target_t *target, uint64_t flags);
 static void free_ep11_target_for_apqn(target_t target);
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         SESSION * session, TEMPLATE *tmpl);
+                                         SESSION *session, TEMPLATE *tmpl,
+                                         CK_BBOOL aes_xts);
 
 
 /* defined in the makefile, ep11 library can run standalone (without HW card),
@@ -1257,6 +1258,23 @@ CK_BBOOL ep11tok_pkey_usage_ok(STDLL_TokData_t *tokdata, SESSION *session,
     key_obj = NULL;
 
     return success;
+}
+
+CK_RV ep11tok_pkey_check_aes_xts(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                 CK_MECHANISM_TYPE type)
+{
+    if (ep11tok_is_mechanism_supported(tokdata, type) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (object_is_extractable(key_obj) ||
+        !object_is_pkey_extractable(key_obj) ||
+        object_is_attr_bound(key_obj)) {
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    return CKR_OK;
 }
 
 /**
@@ -2078,6 +2096,7 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
     DL_NODE *node;
     CK_ATTRIBUTE_PTR attr;
     CK_RV rc;
+    CK_ULONG value_len = 0;
 
     node = template->attribute_list;
     while (node != NULL) {
@@ -2099,8 +2118,16 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
 
             if (attr_applicable_for_ep11(tokdata, attr, ktype, class,
                                          curve_type, mech)) {
-                rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
-                                            attr->pValue, attr->ulValueLen);
+                if (attr->type == CKA_VALUE_LEN && ktype == CKK_AES_XTS) {
+                    value_len = *(CK_ULONG *)attr->pValue / 2;
+                    rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                                (CK_BYTE *)&value_len,
+                                                sizeof(value_len));
+                } else {
+                    rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
+                                                attr->pValue, attr->ulValueLen);
+                }
+
                 if (rc != CKR_OK) {
                     TRACE_ERROR("Adding attribute failed type=0x%lx rc=0x%lx\n",
                                 attr->type, rc);
@@ -4151,7 +4178,8 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
         }
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, sess, obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, sess, obj->template,
+                                     (keytype == CKK_AES_XTS));
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -4161,13 +4189,13 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     return CKR_OK;
 }
 
-
 CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
                            CK_MECHANISM_PTR mech, CK_ATTRIBUTE_PTR attrs,
                            CK_ULONG attrs_len, CK_OBJECT_HANDLE_PTR handle)
 {
-    CK_BYTE blob[MAX_BLOBSIZE];
+    CK_BYTE blob[MAX_BLOBSIZE], blob2[MAX_BLOBSIZE];
     size_t blobsize = sizeof(blob);
+    size_t blobsize2 = sizeof(blob2);
     CK_BYTE csum[MAX_CSUMSIZE];
     size_t csum_len = sizeof(csum);
     CK_ATTRIBUTE *attr = NULL;
@@ -4178,12 +4206,15 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_ATTRIBUTE_PTR new_attrs2 = NULL;
     CK_ULONG new_attrs_len = 0, new_attrs2_len = 0;
     CK_RV rc;
+    CK_BOOL xts = FALSE;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
+    CK_MECHANISM mech2 = {CKM_AES_KEY_GEN, NULL, 0};
 
     memset(blob, 0, sizeof(blob));
     memset(csum, 0, sizeof(csum));
+    memset(blob2, 0, sizeof(blob2));
 
     /* Get the keytype to use when creating the key object */
     rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
@@ -4216,14 +4247,24 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
+    if (mech->mechanism == CKM_AES_XTS_KEY_GEN) {
+        xts = TRUE;
+        rc = ep11tok_pkey_check_aes_xts(tokdata, key_obj, mech->mechanism);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s EP11 AES XTS is not supported: rc=0x%lx\n",
+                        __func__, rc);
+            goto error;
+        }
+    }
+
     trace_attributes(__func__, "Generate key:", new_attrs2, new_attrs2_len);
 
     ep11_get_pin_blob(ep11_session, ep11_is_session_object(attrs, attrs_len),
                       &ep11_pin_blob, &ep11_pin_blob_len);
 
     RETRY_START(rc, tokdata)
-        rc = dll_m_GenerateKey(mech, new_attrs2, new_attrs2_len, ep11_pin_blob,
-                               ep11_pin_blob_len, blob, &blobsize,
+        rc = dll_m_GenerateKey((xts ? &mech2 : mech), new_attrs2, new_attrs2_len,
+                               ep11_pin_blob, ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, target_info->target);
     RETRY_END(rc, tokdata, session)
     if (rc != CKR_OK) {
@@ -4231,7 +4272,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
                     __func__, rc, ep11_get_ckm(tokdata, mech->mechanism),
                     attrs_len);
-        goto done;
+        goto error;
     }
 
     TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
@@ -4241,6 +4282,40 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
         rc = CKR_DEVICE_ERROR;
         goto error;
+    }
+
+    if (xts) {
+        RETRY_START(rc, tokdata)
+            rc = dll_m_GenerateKey(&mech2, new_attrs2, new_attrs2_len,
+                                   ep11_pin_blob, ep11_pin_blob_len, blob2,
+                                   &blobsize2, csum, &csum_len,
+                                   target_info->target);
+        RETRY_END(rc, tokdata, session)
+        if (rc != CKR_OK) {
+            rc = ep11_error_to_pkcs11_error(rc, session);
+            TRACE_ERROR("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+                        __func__, rc, ep11_get_ckm(tokdata, mech->mechanism),
+                        attrs_len);
+            goto error;
+        }
+
+        TRACE_INFO("%s m_GenerateKey rc=0x%lx mech='%s' attrs_len=0x%lx\n",
+               __func__, rc, ep11_get_ckm(tokdata, mech->mechanism), attrs_len);
+
+        if (check_expected_mkvp(tokdata, blob2, blobsize2) != CKR_OK) {
+            TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+            rc = CKR_DEVICE_ERROR;
+            goto error;
+        }
+
+        if (blobsize + blobsize2 > MAX_BLOBSIZE) {
+            TRACE_ERROR("%s\n", ock_err(CKR_HOST_MEMORY));
+            rc = CKR_HOST_MEMORY;
+            goto error;
+        }
+
+        memcpy(blob + blobsize, blob2, blobsize2);
+        blobsize = blobsize + blobsize2;
     }
 
     rc = build_attribute(CKA_IBM_OPAQUE, blob, blobsize, &attr);
@@ -4257,14 +4332,14 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     }
     attr = NULL;
 
-    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, xts);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
         goto error;
     }
 
-    if (class == CKO_SECRET_KEY && csum_len >= EP11_CSUMSIZE) {
+    if (!xts && class == CKO_SECRET_KEY && csum_len >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
         rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &attr);
         if (rc != CKR_OK) {
@@ -4286,8 +4361,8 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
     rc = build_attribute(CKA_KEY_GEN_MECHANISM, (CK_BYTE *)&mech->mechanism,
                          sizeof(CK_MECHANISM_TYPE), &attr);
     if (rc != CKR_OK) {
-            TRACE_DEVEL("build_attribute failed\n");
-            goto error;
+        TRACE_DEVEL("build_attribute failed\n");
+        goto error;
     }
     rc = template_update_attribute(key_obj->template, attr);
     if (rc != CKR_OK) {
@@ -5816,7 +5891,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     opaque_attr = NULL;
 
     if (class == CKO_SECRET_KEY || class == CKO_PRIVATE_KEY) {
-        rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
+        rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, FALSE);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                         __func__, rc);
@@ -7157,7 +7232,7 @@ CK_RV ep11tok_generate_key_pair(STDLL_TokData_t * tokdata, SESSION * sess,
                    (void *)public_key_obj, (void *)private_key_obj);
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, sess, private_key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, sess, private_key_obj->template, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -9367,7 +9442,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         }
     }
 
-    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template);
+    rc = update_ep11_attrs_from_blob(tokdata, session, key_obj->template, FALSE);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s update_ep11_attrs_from_blob failed with rc=0x%lx\n",
                     __func__, rc);
@@ -13265,7 +13340,8 @@ static void put_target_info(STDLL_TokData_t *tokdata,
  * object_mgr_create_final.
  */
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
-                                         SESSION * session, TEMPLATE *tmpl)
+                                         SESSION *session, TEMPLATE *tmpl,
+                                         CK_BBOOL aes_xts)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_BBOOL restr = CK_FALSE; /*, never_mod = CK_FALSE; */
@@ -13301,8 +13377,9 @@ static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
 
     RETRY_START(rc, tokdata)
         rc = dll_m_GetAttributeValue(blob_attr->pValue,
-                                     blob_attr->ulValueLen, ibm_attrs,
-                                     num_ibm_attrs, target_info->target);
+                                     (aes_xts ? blob_attr->ulValueLen / 2 :
+                                     blob_attr->ulValueLen),
+                                     ibm_attrs, num_ibm_attrs, target_info->target);
     RETRY_END(rc, tokdata, session)
 
     if (rc != CKR_OK) {
