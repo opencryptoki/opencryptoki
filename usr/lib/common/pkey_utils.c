@@ -430,6 +430,10 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
         if (msa_level > 1)
             return CK_TRUE;
         break;
+    case CKM_AES_XTS:
+        if (msa_level > 3)
+            return CK_TRUE;
+        break;
     case CKM_ECDSA:
     case CKM_ECDSA_SHA1:
     case CKM_ECDSA_SHA224:
@@ -746,6 +750,170 @@ CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
     ret = CKR_OK;
 
 done:
+
+    return ret;
+}
+
+/**
+ * Return the KM/KMC/KMAC function code for the given key length and
+ * encrypt/decrypt op.
+ */
+unsigned long get_xts_function_code(CK_ULONG keylen, CK_BYTE encrypt)
+{
+    unsigned long fc;
+
+    switch (keylen) {
+    case 32:
+        fc = ENCRYPTED_AES_XTS_128;
+        break;
+    case 64:
+        fc = ENCRYPTED_AES_XTS_256;
+        break;
+    default:
+        return 0;
+    }
+
+    if (!encrypt)
+        fc |= CPACF_DECRYPT;
+
+    return fc;
+}
+
+/* compute protected key length [bytes] from key-size [bits] */
+#define AES_XTS_PROTKEYLEN(size)    (32 + 16 * (size) / 128 )
+/* compute offsets [bytes] in PCC param structure from key-size [bits] */
+#define AES_XTS_PCC_I(size)        (AES_XTS_PROTKEYLEN(size) + 0 * 16)
+#define AES_XTS_PCC_XTSPARAM(size)    (AES_XTS_PROTKEYLEN(size) + 3 * 16)
+/* compute offsets [bytes] in KM param structure from key-size [bits] */
+#define AES_XTS_KM_XTSPARAM(size)    (AES_XTS_PROTKEYLEN(size) + 0 * 16)
+
+/* parameter block for pcc compute for aes xts 256 */
+struct cpacf_pcc_xts_aes_256_param {
+    uint8_t protkey[64]; /* WKa(K)|WKaVP */
+    uint8_t i[16];
+    uint8_t j[16];
+    uint8_t t[16];
+    uint8_t xtsparams[16];
+};
+
+/* parameter block for aes xts 256 */
+struct cpacf_km_xts_aes_256_param {
+    uint8_t protkey[64]; /* WKa(K)|WKaVP */
+    uint8_t xtsparam[16];
+};
+
+struct aes_xts_param {
+    uint8_t param_km[sizeof(struct cpacf_km_xts_aes_256_param)];
+    uint8_t param_pcc[sizeof(struct cpacf_pcc_xts_aes_256_param)];
+    unsigned int fc;
+    unsigned int keylen;
+};
+
+static CK_RV pkey_aes_xts_iv_from_tweak(CK_BYTE *tweak, CK_BYTE* iv,
+                                        void *cb_data)
+{
+    struct aes_xts_param *param = cb_data;
+    int offset, rc;
+
+    offset = AES_XTS_PCC_I(param->keylen * 8);
+    memcpy(param->param_pcc + offset, tweak, AES_BLOCK_SIZE);
+
+    rc = s390_pcc(param->fc & 0x7f, param->param_pcc);
+    if (rc < 0) {
+        TRACE_ERROR("s390_pcc function failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    offset = AES_XTS_PCC_XTSPARAM(param->keylen * 8);
+    memcpy(iv, param->param_pcc + offset, AES_BLOCK_SIZE);
+
+    return CKR_OK;
+}
+
+static CK_RV pkey_aes_xts_cipher_blocks(CK_BYTE *in, CK_BYTE *out, CK_ULONG len,
+                                        CK_BYTE *iv, void *cb_data)
+{
+    struct aes_xts_param *param = cb_data;
+    int rc;
+
+    int offset = AES_XTS_KM_XTSPARAM(param->keylen * 8);
+    memcpy(param->param_km + offset, iv, AES_BLOCK_SIZE);
+
+    rc = s390_km(param->fc, param->param_km, out, in, len);
+    if (rc < 0) {
+        TRACE_ERROR("s390_km function failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(iv, param->param_km + offset, AES_BLOCK_SIZE);
+    return CKR_OK;
+}
+
+/**
+ * Performs an AES-XTS operation via CPACF using a protected key.
+ */
+CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+                   CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
+                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt,
+                   CK_BBOOL initial, CK_BBOOL final, CK_BYTE *iv)
+{
+    CK_RV ret = CKR_OK;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    struct aes_xts_param param = {0};
+    CK_ULONG keylen = 0;
+    unsigned long fc;
+
+    /* Check parms */
+    if (in_data_len == 0) {
+        ret = CKR_OK;
+        return CKR_OK;
+    }
+
+    /* Handle implicit length_only parm (not passed down) */
+    if (out_data == NULL) {
+        *p_output_data_len = in_data_len;
+        return CKR_OK;
+    }
+
+    if (*p_output_data_len < in_data_len) {
+        TRACE_ERROR("Output buffer too small.\n");
+        return CKR_BUFFER_TOO_SMALL;
+    }
+
+    /* Get protected key from key object */
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE_PKEY,
+                                         &pkey_attr) != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_IBM_OPAQUE_PKEY in key's template.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Determine clear key length */
+    if (template_attribute_get_ulong(key_obj->template, CKA_VALUE_LEN,
+                                     &keylen) != CKR_OK) {
+        TRACE_ERROR("Cannot determine clear key len.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* Set function code */
+    fc = get_xts_function_code(keylen, encrypt);
+    if (fc == 0) {
+        TRACE_ERROR("Could not determine CPACF fc for given keylen %ld\n",
+                    keylen);
+        return CKR_FUNCTION_FAILED;
+    }
+    keylen = keylen / 2;
+
+    memcpy(param.param_km, pkey_attr->pValue, pkey_attr->ulValueLen / 2);
+    memcpy(param.param_pcc, (CK_BYTE *)pkey_attr->pValue + pkey_attr->ulValueLen / 2,
+           pkey_attr->ulValueLen / 2);
+    param.fc = fc;
+    param.keylen = keylen;
+
+    ret = aes_xts_cipher(in_data, in_data_len, out_data, p_output_data_len,
+                        tweak, encrypt, initial, final, iv,
+                        pkey_aes_xts_iv_from_tweak,
+                        pkey_aes_xts_cipher_blocks,
+                        &param);
 
     return ret;
 }

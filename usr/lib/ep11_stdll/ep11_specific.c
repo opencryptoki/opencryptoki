@@ -766,6 +766,12 @@ typedef struct {
     CK_ULONG secure_key_len;
     CK_BYTE *pkey_buf;
     size_t *pkey_buflen_p;
+    /* for AES XTS processing */
+    CK_VOID_PTR secure_key2;
+    CK_ULONG secure_key_len2;
+    CK_BYTE *pkey_buf2;
+    size_t *pkey_buflen_p2;
+    CK_BBOOL aes_xts;
 } pkey_wrap_handler_data_t;
 
 /* A wrapped key can have max 132 bytes for an EC-p521 key */
@@ -831,6 +837,25 @@ repeat:
         }
     }
 
+    if (data->aes_xts && ret == CKR_OK) {
+        /* Create the protected key via CKM_IBM_CPACF_WRAP */
+        retry = FALSE;
+repeat2:
+        ret = dll_m_WrapKey(data->secure_key2, data->secure_key_len2,
+                            NULL, 0, NULL, 0, &mech,
+                            data->pkey_buf2, data->pkey_buflen_p2,
+                            target | XCP_TGTFL_SET_SCMD);
+        if (ret == CKR_SESSION_CLOSED && retry == FALSE &&
+            data->ep11_session != NULL) {
+            /* Re-login the EP11 session and retry once */
+            ret = ep11_login_handler(adapter, domain, data->ep11_session);
+            if (ret == CKR_OK) {
+                retry = TRUE;
+                goto repeat2;
+            }
+        }
+    }
+
     if (ret == CKR_OK)
         data->wrap_was_successful = CK_TRUE;
 
@@ -849,14 +874,18 @@ done:
  */
 static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
                                     CK_ATTRIBUTE *skey_attr,
-                                    CK_ATTRIBUTE **pkey_attr)
+                                    CK_ATTRIBUTE **pkey_attr, CK_BBOOL aes_xts)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *tmp_attr = NULL;
     CK_BYTE ep11_buf[sizeof(wrapped_key_t)];
     size_t ep11_buflen = sizeof(ep11_buf);
+    CK_BYTE ep11_buf2[sizeof(wrapped_key_t)];
+    size_t ep11_buflen2 = sizeof(ep11_buf2);
     pkey_wrap_handler_data_t pkey_wrap_handler_data;
-    wrapped_key_t *wk;
+    wrapped_key_t *wk, *wk2;
+    uint64_t token_size = 0;
+    uint8_t wrapped_key[EP11_MAX_WRAPPED_KEY_SIZE * 2];
     CK_RV ret;
 
     /* Create the protected key via CKM_IBM_CPACF_WRAP */
@@ -868,8 +897,20 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
     pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
     pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&ep11_buf;
     pkey_wrap_handler_data.pkey_buflen_p = &ep11_buflen;
-    ret = handle_all_ep11_cards(&ep11_data->target_list, ep11tok_pkey_wrap_handler,
-                                &pkey_wrap_handler_data);
+    pkey_wrap_handler_data.aes_xts = FALSE;
+
+    if (aes_xts) {
+        pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.secure_key2 = (CK_BYTE *)skey_attr->pValue + skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.secure_key_len2 = skey_attr->ulValueLen / 2;
+        pkey_wrap_handler_data.pkey_buf2 = (CK_BYTE *)&ep11_buf2;
+        pkey_wrap_handler_data.pkey_buflen_p2 = &ep11_buflen2;
+        pkey_wrap_handler_data.aes_xts = TRUE;
+    }
+
+    ret = handle_all_ep11_cards(&ep11_data->target_list,
+                                ep11tok_pkey_wrap_handler, &pkey_wrap_handler_data);
+
     if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
         TRACE_ERROR("handle_all_ep11_cards failed or no APQN could do the wrap.\n");
         ret = CKR_FUNCTION_FAILED;
@@ -902,9 +943,52 @@ static CK_RV ep11tok_pkey_skey2pkey(STDLL_TokData_t *tokdata, SESSION *session,
         goto done;
     }
 
+    if (wk->token_size > sizeof(wrapped_key)) {
+        TRACE_ERROR("Buffer too small\n");
+        ret = CKR_BUFFER_TOO_SMALL;
+        goto done;
+    }
+
+    token_size = wk->token_size;
+    /* copy wrapped key to wrapped_key variable to create CKA_IBM_OPAQUE_PKEY */
+    memcpy(wrapped_key, wk->wrapped_key, wk->token_size);
+
+    if (aes_xts) {
+        /* Check ep11 wrapped key struct version and length. We currently only
+         * support/expect version 0x0001 structs. */
+        wk2 = (wrapped_key_t *) &ep11_buf2;
+        if (ep11_buflen2 != sizeof(wrapped_key_t) ||
+            wk2->version != EP11_WRAPPED_KEY_VERSION_1) {
+            TRACE_ERROR("invalid ep11 wrapped key struct length %ld\n", ep11_buflen2);
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+        /* Check if returned key type is what we expect:
+         *  - 0x1 = AES with bit length 128 and 256
+         */
+        switch (wk2->wrapped_key_type) {
+        case EP11_WRAPPED_KEY_TYPE_AES:
+            break;
+        default:
+            TRACE_ERROR("Got unexpected CPACF key type %d from firmware\n",
+                        wk->wrapped_key_type);
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (wk2->token_size > sizeof(wrapped_key) - wk->token_size) {
+            TRACE_ERROR("Wrapped key size too big\n");
+            ret = CKR_BUFFER_TOO_SMALL;
+            goto done;
+        }
+
+        token_size += wk2->token_size;
+        memcpy(wrapped_key + wk->token_size, wk2->wrapped_key, wk2->token_size);
+    }
+
     /* Build new attribute for protected key */
-    ret = build_attribute(CKA_IBM_OPAQUE_PKEY, wk->wrapped_key,
-                          wk->token_size, &tmp_attr);
+    ret = build_attribute(CKA_IBM_OPAQUE_PKEY, wrapped_key,
+                          token_size, &tmp_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
         ret = CKR_FUNCTION_FAILED;;
@@ -983,7 +1067,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     /* Create a protected key from this blob to obtain the LPAR MK vp. When
      * this function returns ok, we have a 64 byte pkey value: 32 bytes
      * encrypted key + 32 bytes vp. */
-    ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, &pkey_attr);
+    ret = ep11tok_pkey_skey2pkey(tokdata, NULL, blob_attr, &pkey_attr, FALSE);
     if (ret != CKR_OK) {
         TRACE_ERROR("ep11tok_pkey_skey2pkey failed with rc=0x%lx\n", ret);
         goto done;
@@ -1050,7 +1134,7 @@ static CK_BBOOL ep11tok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
  * CKA_IBM_OPAQUE with the new pkey.
  */
 static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
-                                 OBJECT *key_obj)
+                                 OBJECT *key_obj, CK_BBOOL aes_xts)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_ATTRIBUTE *skey_attr = NULL;
@@ -1067,7 +1151,7 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     /* Transform the secure key into a protected key */
-    ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, &pkey_attr);
+    ret = ep11tok_pkey_skey2pkey(tokdata, session, skey_attr, &pkey_attr, aes_xts);
     if (ret != CKR_OK) {
         TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
         goto done;
@@ -1082,6 +1166,21 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("vp of this pkey does not match with the one in ep11_data (should not occur)\n");
         ret = CKR_FUNCTION_FAILED;
         goto done;
+    }
+
+    if (aes_xts) {
+        /* Check if the new pkey's verification pattern matches the one in
+         * ep11_data. This should always be the case, because we just
+         * created the pkey with the current MK.
+         * AES XTS has two keys, two keys are concatenated.
+         * Second key is checked above and the first key is checked here */
+        vp_offset = pkey_attr->ulValueLen / 2 - PKEY_MK_VP_LENGTH;
+        if (memcmp(&ep11_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+                   PKEY_MK_VP_LENGTH) != 0) {
+            TRACE_ERROR("vp of this pkey does not match with the one in ep11_data (should not occur)\n");
+            ret = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
 
     /* Now update the key obj. If it's a token obj, it will be also updated
@@ -1206,9 +1305,12 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
             if (!ep11tok_pkey_session_ok_for_obj(session, key_obj))
                 goto done;
 
-            ret = ep11tok_pkey_update(tokdata, session, key_obj);
+            ret = ep11tok_pkey_update(tokdata, session, key_obj,
+                                      mech->mechanism == CKM_AES_XTS);
             if (ret != CKR_OK) {
-                TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
+                TRACE_ERROR("error updating the %s protected key, rc=0x%lx\n",
+                            mech->mechanism == CKM_AES_XTS ? "AES XTS" : "AES",
+                            ret);
                 if (ret == CKR_FUNCTION_NOT_SUPPORTED)
                     ret = CKR_FUNCTION_FAILED;
                 goto done;
@@ -5469,6 +5571,23 @@ CK_RV token_specific_aes_cmac(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+/**
+ * This routine is currently only used when the operation is performed using
+ * a protected key. Therefore we don't have (and don't need) an ep11
+ * fallback here.
+ */
+CK_RV token_specific_aes_xts(STDLL_TokData_t *tokdata,
+                             CK_BYTE *in_data, CK_ULONG in_data_len,
+                             CK_BYTE *out_data, CK_ULONG *out_data_len,
+                             OBJECT *key_obj, CK_BYTE *init_v,
+                             CK_BBOOL encrypt, CK_BBOOL initial,
+                             CK_BBOOL final, CK_BYTE *iv)
+{
+    UNUSED(tokdata);
+    return pkey_aes_xts(key_obj, init_v, in_data, in_data_len,
+                        out_data, out_data_len, encrypt, initial, final, iv);
+}
+
 struct EP11_KYBER_MECH {
     CK_MECHANISM mech;
     struct XCP_KYBER_KEM_PARAMS params;
@@ -9102,7 +9221,13 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
         free(ep11_state);
         goto done;
     case CKR_FUNCTION_NOT_SUPPORTED:
-        /* fallback into ep11 path */
+        /* if mechanism is AES XTS, return error else fallback to ep11 path */
+        if (mech->mechanism == CKM_AES_XTS) {
+            TRACE_ERROR("EP11 AES XTS mech is supported only for protected keys");
+            rc = CKR_KEY_UNEXTRACTABLE;
+            free(ep11_state);
+            goto done;
+        }
         break;
     default:
         /* internal error or lock problem */
