@@ -2123,6 +2123,11 @@ static CK_RV build_ep11_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
                     rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
                                                 (CK_BYTE *)&value_len,
                                                 sizeof(value_len));
+                } else if (attr->type == CKA_KEY_TYPE &&
+                           *(CK_KEY_TYPE *)attr->pValue == CKK_AES_XTS &&
+                           ktype == CKK_AES) {
+                    rc = add_to_attribute_array(p_attrs, p_attrs_len, CKA_KEY_TYPE,
+                                                (CK_BYTE *)&ktype, sizeof(ktype));
                 } else {
                     rc = add_to_attribute_array(p_attrs, p_attrs_len, attr->type,
                                                 attr->pValue, attr->ulValueLen);
@@ -2895,6 +2900,172 @@ static int get_curve_type_from_template(TEMPLATE *tmpl)
     }
 
     return curve_type;
+}
+
+/* import a AES-XTS key, that is, make a blob for a AES XTS key
+ * that was not created by EP11 hardware, encrypt the key by the wrap key,
+ * unwrap it by the wrap key
+ */
+static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
+                                OBJECT *aes_xts_key_obj,
+                                CK_BYTE *blob, size_t *blob_size)
+{
+    ep11_private_data_t *ep11_data = tokdata->private_data;
+    CK_BYTE cipher[MAX_BLOBSIZE];
+    CK_ULONG clen = sizeof(cipher);
+    CK_BYTE csum[MAX_CSUMSIZE];
+    size_t cslen = sizeof(csum);
+    CK_BYTE iv[AES_BLOCK_SIZE];
+    size_t blob_size2 = *blob_size;
+    CK_MECHANISM mech = { CKM_AES_CBC_PAD, iv, AES_BLOCK_SIZE };
+    CK_RV rc;
+    CK_ATTRIBUTE_PTR p_attrs = NULL;
+    CK_ULONG attrs_len = 0;
+    CK_ATTRIBUTE_PTR new_p_attrs = NULL;
+    CK_ULONG new_attrs_len = 0;
+    CK_ATTRIBUTE *chk_attr = NULL, *attr = NULL;
+    unsigned char *ep11_pin_blob = NULL;
+    CK_ULONG ep11_pin_blob_len = 0;
+    ep11_session_t *ep11_session = (ep11_session_t*) sess->private_data;
+
+    rc = template_attribute_get_non_empty(aes_xts_key_obj->template, CKA_VALUE,
+                                          &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Could not find CKA_VALUE for the key.\n");
+        return rc;
+    }
+
+    /* tell ep11 the attributes the user specified */
+    rc = build_ep11_attrs(tokdata, aes_xts_key_obj->template, &p_attrs,
+                          &attrs_len, CKK_AES, CKO_SECRET_KEY, -1, &mech);
+    if (rc != CKR_OK)
+        goto import_aes_xts_key_end;
+
+    rc = ep11tok_pkey_check_aes_xts(tokdata, aes_xts_key_obj, CKM_AES_XTS);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s EP11 AES XTS is not supported: rc=0x%lx\n", __func__, rc);
+        goto import_aes_xts_key_end;
+    }
+
+    memset(cipher, 0, sizeof(cipher));
+    memcpy(iv, "1234567812345678", AES_BLOCK_SIZE);
+
+    /*
+     * calls the ep11 lib (which in turns sends the request to the card),
+     * all m_ function are ep11 functions
+     */
+    RETRY_START(rc, tokdata)
+        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, &mech,
+                                 attr->pValue, attr->ulValueLen / 2,
+                                 cipher, &clen, target_info->target);
+    RETRY_END(rc, tokdata, sess)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n", __func__,
+                    attr->ulValueLen / 2, clen, rc);
+        goto import_aes_xts_key_end;
+    } else {
+        TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n", __func__,
+                   attr->ulValueLen / 2, clen, rc);
+    }
+
+    rc = check_key_attributes(tokdata, CKK_AES, CKO_SECRET_KEY, p_attrs,
+                              attrs_len, &new_p_attrs, &new_attrs_len, -1);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s AES XTS check private key attributes failed with "
+                    "rc=0x%lx\n", __func__, rc);
+        goto import_aes_xts_key_end;
+    }
+
+    trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
+
+    ep11_get_pin_blob(ep11_session, object_is_session_object(aes_xts_key_obj),
+                      &ep11_pin_blob, &ep11_pin_blob_len);
+
+    /* the encrypted key is decrypted and a blob is built,
+     * card accepts only blobs as keys
+     */
+    RETRY_START(rc, tokdata)
+        rc = dll_m_UnwrapKey(cipher, clen, ep11_data->raw2key_wrap_blob,
+                             ep11_data->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
+                             ep11_pin_blob_len, &mech, new_p_attrs, new_attrs_len,
+                             blob, blob_size, csum, &cslen, target_info->target);
+    RETRY_END(rc, tokdata, sess)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blob_size, rc);
+        goto import_aes_xts_key_end;
+    } else {
+        TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blob_size, rc);
+    }
+
+    memset(cipher, 0, sizeof(cipher));
+
+    /*
+     * calls the ep11 lib (which in turns sends the request to the card),
+     * all m_ function are ep11 functions
+     */
+    RETRY_START(rc, tokdata)
+        rc = dll_m_EncryptSingle(ep11_data->raw2key_wrap_blob,
+                                 ep11_data->raw2key_wrap_blob_l, &mech,
+                                 ((CK_BYTE *)attr->pValue) + attr->ulValueLen / 2,
+                                 attr->ulValueLen / 2, cipher, &clen,
+                                 target_info->target);
+    RETRY_END(rc, tokdata, sess)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n",
+                    __func__, attr->ulValueLen / 2, clen, rc);
+        goto import_aes_xts_key_end;
+    } else {
+        TRACE_INFO("%s encrypt ksize=0x%lx clen=0x%lx rc=0x%lx\n", __func__,
+                   attr->ulValueLen / 2, clen, rc);
+    }
+
+    trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
+
+    /* update the remaining buffer size in blob */
+    blob_size2 = blob_size2 - *blob_size;
+
+    /* the encrypted key is decrypted and a blob is built,
+     * card accepts only blobs as keys
+     */
+    RETRY_START(rc, tokdata)
+        rc = dll_m_UnwrapKey(cipher, clen,
+                             ep11_data->raw2key_wrap_blob,
+                             ep11_data->raw2key_wrap_blob_l, NULL, ~0,
+                             ep11_pin_blob, ep11_pin_blob_len, &mech,
+                             new_p_attrs, new_attrs_len, blob + *blob_size,
+                             &blob_size2, csum, &cslen, target_info->target);
+    RETRY_END(rc, tokdata, sess)
+
+    if (rc != CKR_OK) {
+        rc = ep11_error_to_pkcs11_error(rc, sess);
+        TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, blob_size2, rc);
+        goto import_aes_xts_key_end;
+    } else {
+        TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, blob_size2, rc);
+    }
+
+    /* update the concatenated blobsize */
+    *blob_size = *blob_size + blob_size2;
+
+    cleanse_attribute(aes_xts_key_obj->template, CKA_VALUE);
+
+import_aes_xts_key_end:
+    if (rc != CKR_OK)
+        cleanse_attribute(aes_xts_key_obj->template, CKA_VALUE);
+    if (chk_attr != NULL)
+        free(chk_attr);
+    if (p_attrs != NULL)
+        cleanse_and_free_attribute_array(p_attrs, attrs_len);
+    if (new_p_attrs)
+        cleanse_and_free_attribute_array(new_p_attrs, new_attrs_len);
+    return rc;
 }
 
 /*
@@ -4120,7 +4291,16 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
 
         TRACE_INFO("%s rawkey_2_blob rc=0x%lx blobsize=0x%zx\n",
                    __func__, rc, blobsize);
-
+        break;
+    case CKK_AES_XTS:
+        rc = import_aes_xts_key(tokdata, sess, obj, blob, &blobsize);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s import AES XTS key rc=0x%lx blobsize=0x%zx\n",
+                        __func__, rc, blobsize);
+            return rc;
+        }
+        TRACE_INFO("%s import AES XTS key rc=0x%lx blobsize=0x%zx\n",
+                    __func__, rc, blobsize);
         break;
     default:
         return CKR_KEY_FUNCTION_NOT_PERMITTED;
