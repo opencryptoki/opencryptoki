@@ -33,6 +33,12 @@
 #define ENCRYPTED_AES_256     0x1c
 
 /**
+ * function codes for the KM/KMC/KMAC instruction.
+ */
+#define ENCRYPTED_AES_XTS_128     0x3a
+#define ENCRYPTED_AES_XTS_256     0x3c
+
+/**
  * function codes for the KDSA instruction.
  */
 #define KDSA_ECDSA_VERIFY_P256                0x01
@@ -96,6 +102,11 @@ CK_RV pkey_aes_cbc(OBJECT *key, CK_BYTE *iv,
 
 CK_RV pkey_aes_cmac(OBJECT *key_obj, CK_BYTE *message,
                     CK_ULONG message_len, CK_BYTE *cmac, CK_BYTE *iv);
+
+CK_RV pkey_aes_xts(OBJECT *key_obj, CK_BYTE *tweak,
+                   CK_BYTE *in_data, CK_ULONG in_data_len, CK_BYTE *out_data,
+                   CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt, CK_BBOOL initial,
+                   CK_BBOOL final, CK_BYTE *iv);
 
 CK_RV pkey_ec_sign(OBJECT *privkey, CK_BYTE *hash, CK_ULONG hashlen,
                    CK_BYTE *sig, CK_ULONG *sig_len,
