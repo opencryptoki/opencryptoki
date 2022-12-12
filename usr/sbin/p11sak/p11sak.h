@@ -17,6 +17,9 @@
 #define P11SAK_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
 #define P11SAK_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define PKCS11_USER_PIN_ENV_NAME            "PKCS11_USER_PIN"
+#define P11SAK_DEFAULT_CONF_FILE_ENV_NAME   "P11SAK_DEFAULT_CONF_FILE"
+#define P11SAK_CONFIG_FILE_NAME             "p11sak_defined_attrs.conf"
+#define P11SAK_DEFAULT_CONFIG_FILE          OCK_CONFDIR "/" P11SAK_CONFIG_FILE_NAME
 
 #define UNUSED(var)             ((void)(var))
 
