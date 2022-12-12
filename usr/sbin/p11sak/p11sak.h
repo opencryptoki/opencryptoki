@@ -14,6 +14,10 @@
 #include "pkcs11types.h"
 #include "ec_curves.h"
 
+#define P11SAK_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
+#define P11SAK_PKCSLIB_ENV_NAME             "PKCSLIB"
+#define PKCS11_USER_PIN_ENV_NAME            "PKCS11_USER_PIN"
+
 #define UNUSED(var)             ((void)(var))
 
 #define OPT_FORCE_PIN_PROMPT    256
@@ -74,6 +78,7 @@ struct p11sak_cmd {
     const struct p11sak_arg *args;
     const char *description;
     void (*help)(void);
+    CK_FLAGS session_flags;
 };
 
 struct p11sak_attr {
