@@ -20,18 +20,28 @@
 #include <getopt.h>
 #include <err.h>
 #include <limits.h>
+#include <dlfcn.h>
 
 #include <openssl/obj_mac.h>
 
 #define P11SAK_DECLARE_CURVES
 #include "p11sak.h"
 #include "p11util.h"
+#include "pin_prompt.h"
 
 static CK_RV p11sak_generate_key(void);
 static CK_RV p11sak_list_key(void);
 static CK_RV p11sak_remove_key(void);
 static void print_generate_key_attr_help(void);
 static void print_list_key_attr_help(void);
+
+static void *pkcs11_lib = NULL;
+static bool pkcs11_initialized = false;
+static CK_FUNCTION_LIST *pkcs11_funcs = NULL;
+static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
+static CK_INFO pkcs11_info;
+static CK_TOKEN_INFO pkcs11_tokeninfo;
+static CK_SLOT_INFO pkcs11_slotinfo;
 
 static bool opt_help = false;
 static bool opt_version = false;
@@ -483,16 +493,18 @@ static const struct p11sak_cmd p11sak_commands[] = {
     { .cmd = "generate-key", .cmd_short1 = "gen-key", .cmd_short2 = "gen",
       .func = p11sak_generate_key,
       .opts = p11sak_generate_key_opts, .args = p11sak_generate_key_args,
-      .description = "Generate a key.", .help = print_generate_key_attr_help },
+      .description = "Generate a key.", .help = print_generate_key_attr_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "list-key", .cmd_short1 = "ls-key", .cmd_short2 = "ls",
       .func = p11sak_list_key,
       .opts = p11sak_list_key_opts, .args = p11sak_list_key_args,
       .description = "List keys in the repository.",
-      .help = print_list_key_attr_help, },
+      .help = print_list_key_attr_help, .session_flags = CKF_SERIAL_SESSION, },
     { .cmd = "remove-key", .cmd_short1 = "rm-key", .cmd_short2 = "rm",
       .func = p11sak_remove_key,
       .opts = p11sak_remove_key_opts, .args = p11sak_remove_key_args,
-      .description = "Delete keys in the repository." },
+      .description = "Delete keys in the repository.",
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
 
@@ -1179,6 +1191,155 @@ static CK_RV p11sak_remove_key(void)
     return CKR_OK;
 }
 
+static CK_RV load_pkcs11_lib(void)
+{
+    CK_RV rc;
+    CK_RV (*getfunclist)(CK_FUNCTION_LIST_PTR_PTR ppFunctionList);
+    const char *libname;
+
+    libname = secure_getenv(P11SAK_PKCSLIB_ENV_NAME);
+    if (libname == NULL || strlen(libname) < 1)
+        libname = P11SAK_DEFAULT_PKCS11_LIB;
+
+    pkcs11_lib = dlopen(libname, RTLD_NOW);
+    if (pkcs11_lib == NULL) {
+        warnx("Failed to load PKCS#11 library '%s': %s", libname, dlerror());
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *(void**) (&getfunclist) = dlsym(pkcs11_lib, "C_GetFunctionList");
+    if (getfunclist == NULL) {
+        warnx("Failed to resolve symbol '%s' from PKCS#11 library '%s': %s",
+              "C_GetFunctionList", libname, dlerror());
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = getfunclist(&pkcs11_funcs);
+    if (rc != CKR_OK) {
+        warnx("C_GetFunctionList() on PKCS#11 library '%s' failed with 0x%lX: %s)\n",
+              libname, rc, p11_get_ckr(rc));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV open_pkcs11_session(CK_SLOT_ID slot, CK_FLAGS flags,
+                                 const char *pin)
+{
+    CK_RV rc;
+
+    rc = pkcs11_funcs->C_GetInfo(&pkcs11_info);
+    if (rc != CKR_OK) {
+        warnx("Failed to getPKCS#11 info: C_GetInfo: 0x%lX: %s",
+              rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = pkcs11_funcs->C_GetSlotInfo(slot, &pkcs11_slotinfo);
+    if (rc != CKR_OK) {
+        warnx("Slot %lu is not available: C_GetSlotInfo: 0x%lX: %s", slot,
+              rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = pkcs11_funcs->C_GetTokenInfo(slot, &pkcs11_tokeninfo);
+    if (rc != CKR_OK) {
+        warnx("Token at slot %lu is not available: C_GetTokenInfo: 0x%lX: %s",
+              slot, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = pkcs11_funcs->C_OpenSession(slot, flags, NULL, NULL, &pkcs11_session);
+    if (rc != CKR_OK) {
+        warnx("Opening a session failed: C_OpenSession: 0x%lX: %s)", rc,
+              p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = pkcs11_funcs->C_Login(pkcs11_session, CKU_USER, (CK_CHAR *)pin,
+                               strlen(pin));
+    if (rc != CKR_OK) {
+        warnx("Login failed: C_Login: 0x%lX: %s", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
+static void close_pkcs11_session(void)
+{
+    CK_RV rc;
+
+    rc = pkcs11_funcs->C_Logout(pkcs11_session);
+    if (rc != CKR_OK && rc != CKR_USER_NOT_LOGGED_IN)
+        warnx("C_Logout failed: 0x%lX: %s", rc, p11_get_ckr(rc));
+
+    rc = pkcs11_funcs->C_CloseSession(pkcs11_session);
+    if (rc != CKR_OK)
+        warnx("C_CloseSession failed: 0x%lX: %s", rc, p11_get_ckr(rc));
+
+    pkcs11_session = CK_INVALID_HANDLE;
+}
+
+static CK_RV init_pkcs11(const struct p11sak_cmd *command)
+{
+    CK_RV rc;
+    char *buf_user_pin = NULL;
+    const char *pin = opt_pin;
+
+    if (command == NULL || command->session_flags == 0)
+        return CKR_OK;
+
+    if (pin == NULL)
+        pin = getenv(PKCS11_USER_PIN_ENV_NAME);
+    if (opt_force_pin_prompt || pin == NULL)
+        pin = pin_prompt(&buf_user_pin, "Please enter user PIN: ");
+    if (pin == NULL)
+        return CKR_FUNCTION_FAILED;
+
+    rc = load_pkcs11_lib();
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = pkcs11_funcs->C_Initialize(NULL);
+    if (rc != CKR_OK) {
+        warnx("C_Initialize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    pkcs11_initialized = true;
+
+    rc = open_pkcs11_session(opt_slot, command->session_flags, pin);
+    if (rc != CKR_OK)
+        goto done;
+
+done:
+    pin_free(&buf_user_pin);
+
+    return rc;
+}
+
+static void term_pkcs11(void)
+{
+    CK_RV rc;
+
+    if (pkcs11_session != CK_INVALID_HANDLE)
+        close_pkcs11_session();
+
+    if (pkcs11_funcs != NULL && pkcs11_initialized) {
+        rc = pkcs11_funcs->C_Finalize(NULL);
+        if (rc != CKR_OK)
+            warnx("C_Finalize failed: 0x%lX: %s", rc, p11_get_ckr(rc));
+    }
+
+    if (pkcs11_lib != NULL)
+        dlclose(pkcs11_lib);
+
+    pkcs11_lib = NULL;
+    pkcs11_funcs = NULL;
+}
+
 int main(int argc, char *argv[])
 {
     const struct p11sak_cmd *command = NULL;
@@ -1235,6 +1396,10 @@ int main(int argc, char *argv[])
     if (rc != CKR_OK)
         goto done;
 
+    rc = init_pkcs11(command);
+    if (rc != CKR_OK)
+        goto done;
+
     /* Run the command */
     rc = command->func();
     if (rc != CKR_OK) {
@@ -1244,5 +1409,7 @@ int main(int argc, char *argv[])
     }
 
 done:
+    term_pkcs11();
+
     return rc;
 }
