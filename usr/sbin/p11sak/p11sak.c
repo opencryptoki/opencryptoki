@@ -21,6 +21,7 @@
 #include <err.h>
 #include <limits.h>
 #include <dlfcn.h>
+#include <pwd.h>
 
 #include <openssl/obj_mac.h>
 
@@ -28,6 +29,8 @@
 #include "p11sak.h"
 #include "p11util.h"
 #include "pin_prompt.h"
+#include "cfgparser.h"
+#include "configuration.h"
 
 static CK_RV p11sak_generate_key(void);
 static CK_RV p11sak_list_key(void);
@@ -42,6 +45,8 @@ static CK_SESSION_HANDLE pkcs11_session = CK_INVALID_HANDLE;
 static CK_INFO pkcs11_info;
 static CK_TOKEN_INFO pkcs11_tokeninfo;
 static CK_SLOT_INFO pkcs11_slotinfo;
+
+static struct ConfigBaseNode *p11sak_cfg = NULL;
 
 static bool opt_help = false;
 static bool opt_version = false;
@@ -1340,6 +1345,58 @@ static void term_pkcs11(void)
     pkcs11_funcs = NULL;
 }
 
+static void parse_config_file_error_hook(int line, int col, const char *msg)
+{
+  warnx("Parse error: %d:%d: %s", line, col, msg);
+}
+
+static CK_RV parse_config_file(void)
+{
+    FILE *fp = NULL;
+    char *file_loc = getenv(P11SAK_DEFAULT_CONF_FILE_ENV_NAME);
+    char pathname[PATH_MAX];
+    struct passwd *pw;
+
+    if (file_loc != NULL) {
+        fp = fopen(file_loc, "r");
+        if (fp == NULL) {
+            warnx("Cannot read config file '%s' (specified via env variable %s): %s",
+                  file_loc, P11SAK_DEFAULT_CONF_FILE_ENV_NAME, strerror(errno));
+            warnx("Printing of custom attributes not available.");
+            return CKR_OK;
+        }
+    } else {
+        pw = getpwuid(geteuid());
+        if (pw != NULL) {
+            snprintf(pathname, sizeof(pathname), "%s/.%s", pw->pw_dir,
+                     P11SAK_CONFIG_FILE_NAME);
+            file_loc = pathname;
+            fp = fopen(file_loc, "r");
+        }
+        if (fp == NULL) {
+            file_loc = P11SAK_DEFAULT_CONFIG_FILE;
+            fp = fopen(file_loc, "r");
+            if (fp == NULL) {
+                warnx("Cannot read config file '%s': %s",
+                       file_loc, strerror(errno));
+                warnx("Printing of custom attributes not available.");
+                return CKR_OK;
+            }
+        }
+    }
+
+    if (parse_configlib_file(fp, &p11sak_cfg,
+                             parse_config_file_error_hook, 0)) {
+        warnx("Failed to parse config file '%s'", file_loc);
+        fclose(fp);
+        return CKR_DATA_INVALID;
+    }
+
+    fclose(fp);
+
+    return CKR_OK;
+}
+
 int main(int argc, char *argv[])
 {
     const struct p11sak_cmd *command = NULL;
@@ -1400,6 +1457,10 @@ int main(int argc, char *argv[])
     if (rc != CKR_OK)
         goto done;
 
+    rc = parse_config_file();
+    if (rc != CKR_OK)
+        goto done;
+
     /* Run the command */
     rc = command->func();
     if (rc != CKR_OK) {
@@ -1410,6 +1471,9 @@ int main(int argc, char *argv[])
 
 done:
     term_pkcs11();
+
+    if (p11sak_cfg != NULL)
+        confignode_deepfree(p11sak_cfg);
 
     return rc;
 }
