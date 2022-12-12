@@ -22,8 +22,14 @@
 #include <limits.h>
 #include <dlfcn.h>
 #include <pwd.h>
+#include <ctype.h>
 
 #include <openssl/obj_mac.h>
+#include <openssl/evp.h>
+#include <openssl/dh.h>
+#include <openssl/dsa.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
 
 #define P11SAK_DECLARE_CURVES
 #include "p11sak.h"
@@ -31,6 +37,13 @@
 #include "pin_prompt.h"
 #include "cfgparser.h"
 #include "configuration.h"
+#include "mechtable.h"
+#include "defs.h"
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+#include <openssl/core_names.h>
+#include <openssl/decoder.h>
+#endif
 
 static CK_RV p11sak_generate_key(void);
 static CK_RV p11sak_list_key(void);
@@ -69,6 +82,179 @@ static bool opt_long = false;
 static bool opt_detailed_uri = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
+static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
+                                  void *private, CK_ULONG *keysize);
+static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
+                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                      void *private);
+static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize);
+static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private);
+static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize);
+static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private);
+static CK_RV ec_get_key_size(const struct p11sak_keytype *keytype,
+                             void *private, CK_ULONG *keysize);
+static CK_RV ec_add_public_attrs(const struct p11sak_keytype *keytype,
+                                 CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                 void *private);
+static CK_RV dh_prepare(const struct p11sak_keytype *keytype, void **private);
+static void dh_cleanup(const struct p11sak_keytype *keytype, void *private);
+static CK_RV dh_get_key_size(const struct p11sak_keytype *keytype,
+                             void *private, CK_ULONG *keysize);
+static CK_RV dh_add_public_attrs(const struct p11sak_keytype *keytype,
+                                 CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                 void *private);
+static CK_RV dh_add_private_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private);
+static CK_RV dsa_prepare(const struct p11sak_keytype *keytype, void **private);
+static void dsa_cleanup(const struct p11sak_keytype *keytype, void *private);
+static CK_RV dsa_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize);
+static CK_RV dsa_add_public_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private);
+static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_keytype *keytype,
+                                            CK_ATTRIBUTE **attrs,
+                                            CK_ULONG *num_attrs,
+                                            void *private);
+static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs,
+                                        void *private);
+
+static const struct p11sak_keytype p11sak_des_keytype = {
+    .name = "DES", .type = CKK_DES,
+    .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
+    .is_asymmetric = false,
+    .sign_verify = true, .encrypt_decrypt = true,
+    .wrap_unwrap = true, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_3des_keytype = {
+    .name = "3DES",  .type = CKK_DES3,
+    .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
+    .is_asymmetric = false,
+    .sign_verify = true, .encrypt_decrypt = true,
+    .wrap_unwrap = true, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_generic_keytype = {
+    .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
+    .keygen_mech = { .mechanism = CKM_GENERIC_SECRET_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = generic_get_key_size,
+    .keygen_add_secret_attrs = generic_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_aes_keytype = {
+    .name = "AES",  .type = CKK_AES,
+    .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = aes_get_key_size,
+    .keygen_add_secret_attrs = aes_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = true,
+    .wrap_unwrap = true, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_aes_xts_keytype = {
+    .name = "AES-XTS",  .type = CKK_AES_XTS,
+    .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
+    .is_asymmetric = false,
+    .keygen_get_key_size = aes_get_key_size,
+    .keygen_add_secret_attrs = aes_add_secret_attrs,
+    .sign_verify = true, .encrypt_decrypt = true,
+    .wrap_unwrap = true, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_rsa_keytype = {
+    .name = "RSA",  .type = CKK_RSA,
+    .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_get_key_size = rsa_get_key_size,
+    .keygen_add_public_attrs = rsa_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = true,
+    .wrap_unwrap = true, .derive = false,
+};
+
+static const struct p11sak_keytype p11sak_dh_keytype = {
+    .name = "DH", .type = CKK_DH,
+    .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_prepare = dh_prepare,
+    .keygen_cleanup = dh_cleanup,
+    .keygen_get_key_size = dh_get_key_size,
+    .keygen_add_public_attrs = dh_add_public_attrs,
+    .keygen_add_private_attrs = dh_add_private_attrs,
+    .sign_verify = false, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_dsa_keytype = {
+    .name = "DSA",  .type = CKK_DSA,
+    .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_prepare = dsa_prepare,
+    .keygen_cleanup = dsa_cleanup,
+    .keygen_get_key_size = dsa_get_key_size,
+    .keygen_add_public_attrs = dsa_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+};
+
+static const struct p11sak_keytype p11sak_ec_keytype = {
+    .name = "EC",  .type = CKK_EC,
+    .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
+    .is_asymmetric = true,
+    .keygen_get_key_size = ec_get_key_size,
+    .keygen_add_public_attrs = ec_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
+    .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
+    .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
+    .sign_verify = true, .encrypt_decrypt = false,
+    .wrap_unwrap = false, .derive = false,
+};
+
+static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
+    .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
+    .keygen_mech = { .mechanism = CKM_IBM_KYBER, },
+    .is_asymmetric = true,
+    .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
+    .sign_verify = false, .encrypt_decrypt = true,
+    .wrap_unwrap = false, .derive = true,
+};
+
+static const struct p11sak_keytype p11sak_secret_keytype = {
+    .name = "Secret",
+    .is_asymmetric = false,
+};
+
+static const struct p11sak_keytype p11sak_public_keytype = {
+    .name = "Public",
+    .is_asymmetric = true,
+};
+
+static const struct p11sak_keytype p11sak_private_keytype = {
+    .name = "Private",
+    .is_asymmetric = true,
+};
+
+static const struct p11sak_keytype p11sak_all_keytype = {
+    .name = "All",
+};
 
 static const struct p11sak_opt p11sak_generic_opts[] = {
     { .short_opt = 'h', .long_opt = "help", .required = false,
@@ -130,37 +316,37 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
 
 #define KEYGEN_KEYTYPES(args_prefix)                                           \
     { .value = "des", .args = NULL,                                            \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_des_keytype, }, },                           \
     { .value = "3des", .args = NULL,                                           \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_3des_keytype }, },                           \
     { .value = "generic", .args = args_prefix##_generic_args,                  \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_generic_keytype }, },                        \
     { .value = "aes", .args = args_prefix##_aes_args,                          \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_aes_keytype }, },                            \
     { .value = "aes-xts", .args = args_prefix##_aes_xts_args,                  \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_aes_xts_keytype }, },                        \
     { .value = "rsa", .args = args_prefix##_rsa_args,                          \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_rsa_keytype }, },                            \
     { .value = "dh", .args = args_prefix##_dh_args,                            \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_dh_keytype }, },                             \
     { .value = "dsa", .args = args_prefix##_dsa_args,                          \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_dsa_keytype }, },                            \
     { .value = "ec", .args = args_prefix##_ec_args,                            \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_ec_keytype }, },                             \
     { .value = "ibm-dilithium", .args = args_prefix##_ibm_dilithium_args,      \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
     { .value = "ibm-kyber", .args = args_prefix##_ibm_kyber_args,              \
-      .private = { .ptr = NULL }, }
+      .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
 
 #define GROUP_KEYTYPES                                                         \
     { .value = "public", .args = NULL,                                         \
-       .private = { .ptr = NULL }, },                                          \
+       .private = { .ptr = &p11sak_public_keytype }, },                        \
     { .value = "private", .args = NULL,                                        \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_private_keytype }, },                        \
     { .value = "secret", .args = NULL,                                         \
-      .private = { .ptr = NULL }, },                                           \
+      .private = { .ptr = &p11sak_secret_keytype }, },                         \
     { .value = "all", .args = NULL,                                            \
-      .private = { .ptr = NULL }, }
+      .private = { .ptr = &p11sak_all_keytype }, }
 
 static const struct p11sak_opt p11sak_generate_key_opts[] = {
     PKCS11_OPTS,
@@ -1173,12 +1359,1092 @@ static bool opt_slot_is_set(const struct p11sak_arg *arg)
     return (*arg->value.number != (CK_ULONG)-1);
 }
 
-static CK_RV p11sak_generate_key(void)
+static int openssl_err_cb(const char *str, size_t len, void *u)
 {
+    UNUSED(u);
 
-    // TODO
+    if (str[len - 1] == '\n')
+        len--;
+
+    warnx("OpenSSL error: %.*s", (int)len, str);
+    return 1;
+}
+
+static bool is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
+{
+    CK_SESSION_INFO info;
+    CK_RV rc;
+
+    if (ret_code != CKR_FUNCTION_FAILED)
+        return false;
+
+    rc = pkcs11_funcs->C_GetSessionInfo(session, &info);
+    if (rc != CKR_OK) {
+        warnx("C_GetSessionInfo failed: 0x%lX: %s", rc, p11_get_ckr(rc));
+        return false;
+    }
+
+    return (info.ulDeviceError == CKR_POLICY_VIOLATION);
+}
+
+static CK_RV check_mech_supported(const struct p11sak_keytype *keytype,
+                                  CK_ULONG keysize)
+{
+    CK_MECHANISM_INFO mech_info;
+    CK_RV rc;
+
+    rc = pkcs11_funcs->C_GetMechanismInfo(opt_slot,
+                                          keytype->keygen_mech.mechanism,
+                                          &mech_info);
+    if (rc != CKR_OK) {
+        warnx("Token in slot %lu does not support mechanism %s", opt_slot,
+              p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism));
+        return rc;
+    }
+
+    if ((mech_info.flags & (keytype->is_asymmetric ?
+                                CKF_GENERATE_KEY_PAIR : CKF_GENERATE)) == 0) {
+        warnx("Mechanism %s does not support to generate keys",
+              p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism));
+        return CKR_MECHANISM_INVALID;
+    }
+
+    if (keysize != 0 &&
+        mech_info.ulMinKeySize != 0 && mech_info.ulMaxKeySize != 0) {
+        if (keysize < mech_info.ulMinKeySize ||
+            keysize > mech_info.ulMaxKeySize) {
+            warnx("Mechanism %s does not support to generate keys of size %lu",
+                  p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism),
+                  keysize);
+            return CKR_KEY_SIZE_RANGE;
+        }
+    }
 
     return CKR_OK;
+}
+
+static CK_RV add_attribute(CK_ATTRIBUTE_TYPE type, const void *value,
+                           CK_ULONG value_len, CK_ATTRIBUTE **attrs,
+                           CK_ULONG *num_attrs)
+{
+    CK_ATTRIBUTE *tmp;
+
+    tmp = realloc(*attrs, (*num_attrs + 1) * sizeof(CK_ATTRIBUTE));
+    if (tmp == NULL) {
+        warnx("Failed to allocate memory for attribute list");
+        return CKR_HOST_MEMORY;
+    }
+
+    *attrs = tmp;
+
+    tmp[*num_attrs].type = type;
+    tmp[*num_attrs].ulValueLen = value_len;
+    tmp[*num_attrs].pValue = malloc(value_len);
+    if (tmp[*num_attrs].pValue == NULL) {
+        warnx("Failed to allocate memory attribute to add to list");
+        return CKR_HOST_MEMORY;
+    }
+    memcpy(tmp[*num_attrs].pValue, value, value_len);
+
+    (*num_attrs)++;
+
+    return CKR_OK;
+}
+
+static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
+                                  void *private, CK_ULONG *keysize)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    *keysize = opt_keybits_num;
+
+    return CKR_OK;
+}
+
+static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
+                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                      void *private)
+{
+    CK_ULONG value_len = opt_keybits_num / 8;
+
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
+                         attrs, num_attrs);
+}
+
+static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    *keysize = opt_keybits->private.num / 8;
+
+    return CKR_OK;
+}
+
+static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private)
+{
+    CK_ULONG value_len = opt_keybits->private.num / 8;
+
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
+                         attrs, num_attrs);
+}
+
+static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    *keysize = opt_keybits->private.num;
+
+    return CKR_OK;
+}
+
+static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private)
+{
+    CK_RV rc;
+    CK_BYTE *b;
+    CK_ULONG val;
+    unsigned int i;
+
+    UNUSED(private);
+    UNUSED(keytype);
+
+    rc = add_attribute(CKA_MODULUS_BITS, &opt_keybits->private.num,
+                       sizeof(opt_keybits->private.num), attrs, num_attrs);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (opt_exponent != 0) {
+        /* Convert CK_ULOING to big-endian byte array */
+        val = htobe64(opt_exponent);
+        for (i = 0, b = (CK_BYTE *)&val; i < sizeof(val) && *b == 0; i++, b++)
+            ;
+
+        rc = add_attribute(CKA_PUBLIC_EXPONENT, b, sizeof(val) - i,
+                           attrs, num_attrs);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ec_get_key_size(const struct p11sak_keytype *keytype,
+                             void *private, CK_ULONG *keysize)
+{
+    const struct curve_info *curve = opt_curve->private.ptr;
+
+    UNUSED(private);
+    UNUSED(keytype);
+
+    *keysize = curve->bitsize;
+
+    return CKR_OK;
+}
+
+static CK_RV ec_add_public_attrs(const struct p11sak_keytype *keytype,
+                                 CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                 void *private)
+{
+    const struct curve_info *curve = opt_curve->private.ptr;
+
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return add_attribute(CKA_EC_PARAMS, curve->oid, curve->oid_len,
+                         attrs, num_attrs);
+}
+
+static CK_RV dh_dsa_read_params_pem(const char *pem_file, bool is_dsa,
+                                    EVP_PKEY **pkey)
+{
+    CK_RV rc = CKR_OK;
+    EVP_PKEY *param = NULL;
+    BIO *f;
+
+    f = BIO_new_file(pem_file, "r");
+    if (f == NULL) {
+        warnx("Failed to open PEM file '%s'.", pem_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    param = PEM_read_bio_Parameters(f, NULL);
+    if (param == NULL ||
+        EVP_PKEY_base_id(param) != (is_dsa ? EVP_PKEY_DSA : EVP_PKEY_DH)) {
+        warnx("Failed to read %s PEM file '%s'.", is_dsa ? "DSA" : "DH",
+              pem_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *pkey = param;
+    param = NULL;
+
+done:
+    BIO_free(f);
+    if (param != NULL)
+        EVP_PKEY_free(param);
+
+    return rc;
+}
+
+static CK_RV dh_group_params(int group_nid, EVP_PKEY **pkey)
+{
+    EVP_PKEY_CTX *ctx = NULL;
+    EVP_PKEY *param = NULL;
+    CK_RV rc = CKR_OK;
+
+    ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
+    if (ctx == NULL) {
+        warnx("Failed to set up an EVP context for DH.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (EVP_PKEY_paramgen_init(ctx) <= 0) {
+        warnx("Failed to initialize a DH paramgen context.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (EVP_PKEY_CTX_set_dh_nid(ctx, group_nid) <= 0) {
+        warnx("Failed to set group for DH paramgen context.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (EVP_PKEY_paramgen(ctx, &param) <= 0) {
+        warnx("Failed to generate the DH params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    *pkey = param;
+    param = NULL;
+
+done:
+    if (param != NULL)
+        EVP_PKEY_free(param);
+    EVP_PKEY_CTX_free(ctx);
+
+    return rc;
+}
+
+static CK_RV add_bignum_attr(CK_ATTRIBUTE_TYPE type, const BIGNUM* bn,
+                             CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    int len;
+    CK_BYTE *buff = NULL;
+    CK_RV rc;
+
+    len = BN_num_bytes(bn);
+    buff = calloc(len, 1);
+    if (buff == NULL || len == 0) {
+        warnx("Failed to allocate a buffer for a bignum");
+        if (buff != NULL)
+            free(buff);
+        return CKR_HOST_MEMORY;
+    }
+
+    if (BN_bn2bin(bn, buff) != len) {
+        warnx("Failed to get a bignum.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        free(buff);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = add_attribute(type, buff, len, attrs, num_attrs);
+    free(buff);
+
+    return rc;
+}
+
+static CK_RV dh_dsa_add_public_attrs(CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                     EVP_PKEY *pkey, bool is_dsa)
+{
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_p = NULL, *bn_q = NULL, *bn_g = NULL;
+#else
+    const DH *dh;
+    const DSA *dsa;
+    const BIGNUM *bn_p = NULL, *bn_q = NULL, *bn_g = NULL;
+#endif
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p) ||
+        (is_dsa &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_Q, &bn_q)) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g)) {
+        warnx("Failed to get the %s params.", is_dsa ? "DSA" : "DH");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    if (is_dsa) {
+        dsa = EVP_PKEY_get0_DSA(pkey);
+        if (dsa == NULL) {
+            warnx("Failed to get the DSA params.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        DSA_get0_pqg(dsa, &bn_p, &bn_q, &bn_g);
+        if (bn_p == NULL || (dsa && bn_q == NULL) || bn_g == NULL) {
+            warnx("Failed to get the DSA params.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    } else {
+        dh = EVP_PKEY_get0_DH(pkey);
+        if (dh == NULL) {
+            warnx("Failed to get the DH params.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        DH_get0_pqg(dh, &bn_p, NULL, &bn_g);
+        if (bn_p == NULL || bn_g == NULL) {
+            warnx("Failed to get the DH params.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+#endif
+
+    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    if (is_dsa) {
+        rc = add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    }
+
+    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_p != NULL)
+        BN_free(bn_p);
+    if (bn_q != NULL)
+        BN_free(bn_q);
+    if (bn_g != NULL)
+        BN_free(bn_g);
+#endif
+
+    return rc;
+}
+
+static CK_RV dh_prepare(const struct p11sak_keytype *keytype, void **private)
+{
+    CK_RV rc;
+    EVP_PKEY *pkey = NULL;
+
+    UNUSED(keytype);
+
+    if (opt_pem_file != NULL)
+        rc = dh_dsa_read_params_pem(opt_pem_file, false, &pkey);
+    else
+        rc = dh_group_params(opt_group->private.num, &pkey);
+
+    if (rc != CKR_OK)
+        return rc;
+
+    *private = pkey;
+
+    return CKR_OK;
+}
+
+static void dh_cleanup(const struct p11sak_keytype *keytype, void *private)
+{
+    EVP_PKEY *pkey = private;
+
+    UNUSED(keytype);
+
+    EVP_PKEY_free(pkey);
+}
+
+static CK_RV dh_get_key_size(const struct p11sak_keytype *keytype,
+                             void *private, CK_ULONG *keysize)
+{
+    EVP_PKEY *pkey = private;
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_p = NULL;
+#else
+    const DH *dh;
+    const BIGNUM *bn_p = NULL;
+#endif
+
+    UNUSED(keytype);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p)) {
+        warnx("Failed to get the DH params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    dh = EVP_PKEY_get0_DH(pkey);
+    if (dh == NULL) {
+        warnx("Failed to get the DH params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    DH_get0_pqg(dh, &bn_p, NULL, NULL);
+    if (bn_p == NULL) {
+        warnx("Failed to get the DH params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
+
+    *keysize = BN_num_bits(bn_p);
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_p != NULL)
+        BN_free(bn_p);
+#endif
+
+    return rc;
+}
+
+static CK_RV dh_add_public_attrs(const struct p11sak_keytype *keytype,
+                                 CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                 void *private)
+{
+    EVP_PKEY *pkey = private;
+
+    UNUSED(keytype);
+
+    return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, false);
+}
+
+static CK_RV dh_add_private_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    if (opt_keybits_num == 0)
+        return CKR_OK;
+
+    return add_attribute(CKA_VALUE_BITS, &opt_keybits_num,
+                         sizeof(opt_keybits_num), attrs, num_attrs);
+}
+
+static CK_RV dsa_prepare(const struct p11sak_keytype *keytype, void **private)
+{
+    CK_RV rc;
+    EVP_PKEY *pkey = NULL;
+
+    UNUSED(keytype);
+
+    rc = dh_dsa_read_params_pem(opt_pem_file, true, &pkey);
+    if (rc != CKR_OK)
+        return rc;
+
+    *private = pkey;
+
+    return CKR_OK;
+}
+
+static void dsa_cleanup(const struct p11sak_keytype *keytype, void *private)
+{
+    EVP_PKEY *pkey = private;
+
+    UNUSED(keytype);
+
+    EVP_PKEY_free(pkey);
+}
+
+static CK_RV dsa_get_key_size(const struct p11sak_keytype *keytype,
+                              void *private, CK_ULONG *keysize)
+{
+    EVP_PKEY *pkey = private;
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_p = NULL;
+#else
+    const DSA *dsa;
+    const BIGNUM *bn_p = NULL;
+#endif
+
+    UNUSED(keytype);
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p)) {
+        warnx("Failed to get the DSA params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    dsa = EVP_PKEY_get0_DSA(pkey);
+    if (dsa == NULL) {
+        warnx("Failed to get the DSA params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    DSA_get0_pqg(dsa, &bn_p, NULL, NULL);
+    if (bn_p == NULL) {
+        warnx("Failed to get the DSA params.");
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
+
+    *keysize = BN_num_bits(bn_p);
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_p != NULL)
+        BN_free(bn_p);
+#endif
+
+    return rc;
+}
+
+static CK_RV dsa_add_public_attrs(const struct p11sak_keytype *keytype,
+                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                  void *private)
+{
+    EVP_PKEY *pkey = private;
+
+    UNUSED(keytype);
+
+    return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, true);
+}
+
+static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_keytype *keytype,
+                                            CK_ATTRIBUTE **attrs,
+                                            CK_ULONG *num_attrs,
+                                            void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return add_attribute(CKA_IBM_DILITHIUM_KEYFORM,
+                         &opt_pqc_version->private.num,
+                         sizeof(opt_pqc_version->private.num),
+                         attrs, num_attrs);
+}
+
+static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs,
+                                        void *private)
+{
+    UNUSED(private);
+    UNUSED(keytype);
+
+    return add_attribute(CKA_IBM_KYBER_KEYFORM,
+                         &opt_pqc_version->private.num,
+                         sizeof(opt_pqc_version->private.num),
+                         attrs, num_attrs);
+}
+
+static CK_RV parse_key_pair_label(const char *label, char **pub_label,
+                                  char** priv_label)
+{
+    char *pub = NULL;
+    char *priv = NULL;
+    unsigned int i;
+
+    for (i = 0; i < strlen(label); i++) {
+        if (label[i] == '\\') {
+            i++; /* skip escaped character */
+            continue;
+        }
+
+        if (label[i] == ':') {
+            if (!(pub = strndup(label, i))) {
+                warnx("Failed to allocate memory for pub label");
+                return CKR_HOST_MEMORY;
+            }
+            if (!(priv = strdup(&label[i + 1]))) {
+                warnx("Failed to allocate memory for priv label");
+                free(pub);
+                return CKR_HOST_MEMORY;
+            }
+            break;
+        }
+    }
+
+    if (pub != NULL && priv != NULL) {
+        if (strcmp(priv, "=") == 0) {
+            free(priv);
+            if (!(priv = strdup(pub))) {
+                warnx("Failed to allocate memory for priv label");
+                free(pub);
+                return CKR_HOST_MEMORY;
+            }
+        }
+    } else {
+        if (!(pub = malloc(strlen(label) + 5))) {
+            warnx("Failed to allocate memory for pub label");
+            return CKR_HOST_MEMORY;
+        }
+        pub = strcpy(pub, label);
+        pub = strcat(pub, ":pub");
+
+        if (!(priv = malloc(strlen(label) + 5))) {
+            warnx("Failed to allocate memory for priv label");
+            free(pub);
+            return CKR_HOST_MEMORY;
+        }
+        priv = strcpy(priv, label);
+        priv = strcat(priv, ":prv");
+    }
+
+    for (i = 0; i < strlen(pub); i++) {
+        if (pub[i] == '\\')
+            memmove(&pub[i], &pub[i + 1],
+                    strlen(&pub[i + 1]) + 1);
+    }
+
+    for (i = 0; i < strlen(priv); i++) {
+        if (priv[i] == '\\')
+            memmove(&priv[i], &priv[i + 1],
+                    strlen(&priv[i + 1]) + 1);
+    }
+
+    *pub_label = pub;
+    *priv_label = priv;
+
+    return CKR_OK;
+}
+
+static CK_RV parse_key_pair_attrs(const char *attrs, char **pub_attrs,
+                                  char** priv_attrs)
+{
+    char *ch, *pub, *priv;
+
+    if (attrs == NULL) {
+        *pub_attrs = NULL;
+        *priv_attrs = NULL;
+        return CKR_OK;
+    }
+
+    ch = strchr(attrs, ':');
+
+    if (ch == NULL) {
+        pub = strdup(attrs);
+        priv = strdup(attrs);
+    } else {
+        pub = strndup(attrs, ch - attrs);
+        priv = strdup(ch + 1);
+    }
+
+    if (pub == NULL || priv == NULL) {
+        warnx("Failed to allocate memory for pub/priv labels");
+        free(pub);
+        free(priv);
+        return CKR_HOST_MEMORY;
+    }
+
+    *pub_attrs = pub;
+    *priv_attrs = priv;
+
+    return CKR_OK;
+}
+
+static const struct p11sak_attr *find_attr_by_letter(char letter)
+{
+    const struct p11sak_attr *attr;
+
+    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
+        if (attr->letter == toupper(letter))
+            return attr;
+    }
+
+    return NULL;
+}
+
+static bool attr_applicaple_for_keytype(const struct p11sak_keytype *keytype,
+                                        const struct p11sak_attr *attr)
+{
+    switch (attr->type) {
+    case CKA_SIGN:
+    case CKA_SIGN_RECOVER:
+    case CKA_VERIFY:
+    case CKA_VERIFY_RECOVER:
+        return keytype->sign_verify;
+
+    case CKA_ENCRYPT:
+    case CKA_DECRYPT:
+        return keytype->encrypt_decrypt;
+
+    case CKA_WRAP:
+    case CKA_WRAP_WITH_TRUSTED:
+    case CKA_UNWRAP:
+        return keytype->wrap_unwrap;
+
+    case CKA_DERIVE:
+        return keytype->derive;
+
+    default:
+        return true;
+    }
+}
+
+static bool secret_attr_applicable(const struct p11sak_keytype *keytype,
+                                   const struct p11sak_attr *attr)
+{
+    return attr->secret && attr_applicaple_for_keytype(keytype, attr);
+}
+
+static bool public_attr_applicable(const struct p11sak_keytype *keytype,
+                                   const struct p11sak_attr *attr)
+{
+    UNUSED(keytype);
+
+    return attr->public && attr_applicaple_for_keytype(keytype, attr);
+}
+
+static bool private_attr_applicable(const struct p11sak_keytype *keytype,
+                                    const struct p11sak_attr *attr)
+{
+    UNUSED(keytype);
+
+    return attr->private && attr_applicaple_for_keytype(keytype, attr);
+}
+
+static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
+                                 const char *attr_string, CK_ATTRIBUTE **attrs,
+                                 CK_ULONG *num_attrs, bool check_settable,
+                                 bool (*attr_aplicable)(
+                                         const struct p11sak_keytype *keytype,
+                                         const struct p11sak_attr *attr))
+{
+    const struct p11sak_attr *attr;
+    unsigned int i = 0;
+    CK_BBOOL val;
+    CK_RV rc;
+
+    if (attr_string == NULL)
+        return CKR_OK;
+
+    for (i = 0; attr_string[i] != '\0'; i++) {
+        attr = find_attr_by_letter(attr_string[i]);
+        if (attr == NULL) {
+            warnx("Attribute '%c' is not valid", attr_string[i]);
+            return CKR_ARGUMENTS_BAD;
+        }
+
+        /* silently ignore attributes that are not settable or not applicable */
+        if ((check_settable && !attr->settable) ||
+            (attr_aplicable != NULL && keytype != NULL &&
+             !attr_aplicable(keytype, attr)))
+            continue;
+
+        val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
+
+        rc = add_attribute(attr->type, &val, sizeof(val), attrs, num_attrs);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV parse_id(const char *id_string, CK_ATTRIBUTE **attrs,
+                      CK_ULONG *num_attrs)
+{
+    unsigned char *buf = NULL;
+    BIGNUM *b = NULL;
+    int len;
+    CK_RV rc = CKR_OK;
+
+    len = BN_hex2bn(&b, id_string);
+    if (len < (int)strlen(id_string)) {
+        warnx("Hex string '%s' is not valid", id_string);
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+    len = len / 2 + (len % 2 > 0 ? 1 : 0);
+    buf = calloc(1, len);
+    if (buf == NULL) {
+        warnx("Failed to allocate memory for CKA_ID attribute");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (BN_bn2binpad(b, buf, len) != len) {
+        warnx("Failed to prepare the value for CKA_ID attribute");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = add_attribute(CKA_ID, buf, len, attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add attribute CKA_ID: 0x%lX: %s", rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+done:
+    if (buf != NULL)
+        free(buf);
+    if (b != NULL)
+        BN_free(b);
+
+    return rc;
+}
+
+static CK_RV add_attributes(const struct p11sak_keytype *keytype,
+                            CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                            const char *label, const char *attr_string,
+                            const char *id, bool is_sensitive,
+                            CK_RV (*add_attrs)(
+                                    const struct p11sak_keytype *keytype,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                    void *private),
+                            void *private,
+                            bool (*attr_aplicable)(
+                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_attr *attr))
+{
+    const CK_BBOOL ck_true = TRUE;
+    bool found;
+    CK_ULONG i;
+    CK_RV rc;
+
+    rc = add_attribute(CKA_LABEL, label, strlen(label), attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
+              keytype->name, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to add %s key attribute CKA_TOKEN: 0x%lX: %s",
+              keytype->name, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    rc = parse_boolean_attrs(keytype, attr_string, attrs, num_attrs,
+                             true, attr_aplicable);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (id != NULL) {
+        rc = parse_id(id, attrs, num_attrs);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (add_attrs != NULL) {
+        rc = add_attrs(keytype, attrs, num_attrs, private);
+        if (rc != CKR_OK) {
+            warnx("Failed to add %s key attributes: 0x%lX: %s",
+                  keytype->name, rc, p11_get_ckr(rc));
+            return rc;
+        }
+    }
+
+    if (is_sensitive) {
+        /* Add CKA_SENSITIVE=TRUE if its not already in attribute list */
+        for (i = 0, found = false; i < *num_attrs && !found; i++) {
+            if ((*attrs)[i].type == CKA_SENSITIVE)
+                found = true;
+        }
+
+        if (!found) {
+            rc = add_attribute(CKA_SENSITIVE, &ck_true, sizeof(ck_true),
+                               attrs, num_attrs);
+            if (rc != CKR_OK) {
+                warnx("Failed to add %s key attribute CKA_SENSITIVE: 0x%lX: %s",
+                      keytype->name, rc, p11_get_ckr(rc));
+                return rc;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
+static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
+{
+    CK_ULONG i;
+
+    if (attrs == NULL)
+        return;
+
+    for (i = 0; i < num_attrs; i++) {
+        if (attrs[i].pValue != NULL)
+            free(attrs[i].pValue);
+    }
+
+    free(attrs);
+}
+
+static CK_RV p11sak_generate_key(void)
+{
+    const struct p11sak_keytype *keytype;
+    void *private = NULL;
+    CK_RV rc = CKR_OK;
+    CK_ULONG keysize = 0;
+    char *pub_label = NULL, *priv_label = NULL;
+    char *pub_attrs = NULL, *priv_attrs = NULL;
+    CK_ATTRIBUTE *secret_attrs = NULL;
+    CK_ULONG num_secret_attrs = 0;
+    CK_ATTRIBUTE *public_attrs = NULL;
+    CK_ULONG num_public_attrs = 0;
+    CK_ATTRIBUTE *private_attrs = NULL;
+    CK_ULONG num_private_attrs = 0;
+    CK_OBJECT_HANDLE pub_key, priv_key, secret_key;
+
+    if (opt_keytype == NULL || opt_keytype->private.ptr == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    keytype = opt_keytype->private.ptr;
+
+    if (keytype->keygen_prepare != NULL) {
+        rc = keytype->keygen_prepare(keytype, &private);
+        if (rc != CKR_OK) {
+            warnx("Failed to prepare key type %s: 0x%lX: %s", keytype->name,
+                  rc, p11_get_ckr(rc));
+            return rc;
+        }
+    }
+
+    if (keytype->keygen_get_key_size != NULL) {
+        rc = keytype->keygen_get_key_size(keytype, private, &keysize);
+        if (rc != CKR_OK) {
+            warnx("Failed to get key size for key type %s: 0x%lX: %s",
+                  keytype->name, rc, p11_get_ckr(rc));
+            goto done;
+        }
+    }
+
+    rc = check_mech_supported(keytype, keysize);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (keytype->is_asymmetric) {
+        rc = parse_key_pair_label(opt_label, &pub_label, &priv_label);
+        if (rc != CKR_OK)
+            goto done;
+
+        rc = parse_key_pair_attrs(opt_attr, &pub_attrs, &priv_attrs);
+        if (rc != CKR_OK)
+            goto done;
+
+        rc = add_attributes(keytype, &public_attrs, &num_public_attrs,
+                            pub_label, pub_attrs, opt_id, false,
+                            keytype->keygen_add_public_attrs, private,
+                            public_attr_applicable);
+        if (rc != CKR_OK)
+            goto done;
+
+        rc = add_attributes(keytype, &private_attrs, &num_private_attrs,
+                            priv_label, priv_attrs, opt_id, true,
+                            keytype->keygen_add_private_attrs, private,
+                            private_attr_applicable);
+        if (rc != CKR_OK)
+            goto done;
+    } else {
+        rc = add_attributes(keytype, &secret_attrs, &num_secret_attrs,
+                            opt_label, opt_attr, opt_id, true,
+                            keytype->keygen_add_secret_attrs, private,
+                            secret_attr_applicable);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    if (keytype->is_asymmetric)
+        rc = pkcs11_funcs->C_GenerateKeyPair(pkcs11_session,
+                                             (CK_MECHANISM *)&keytype->keygen_mech,
+                                             public_attrs, num_public_attrs,
+                                             private_attrs, num_private_attrs,
+                                             &pub_key, &priv_key);
+     else
+         rc = pkcs11_funcs->C_GenerateKey(pkcs11_session,
+                                          (CK_MECHANISM *)&keytype->keygen_mech,
+                                          secret_attrs, num_secret_attrs,
+                                          &secret_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, pkcs11_session)) {
+            if (keysize == 0)
+                warnx("Key generation of a %s key is rejected by policy",
+                      keytype->name);
+            else
+                warnx("Key generation of a %s key of size %lu is rejected by policy",
+                      keytype->name, keysize);
+        } else {
+            if (keysize == 0)
+                warnx("Key generation of a %s key failed: 0x%lX: %s",
+                      keytype->name, rc, p11_get_ckr(rc));
+            else
+                warnx("Key generation of a %s key of size %lu failed: 0x%lX: %s",
+                      keytype->name, keysize, rc, p11_get_ckr(rc));
+        }
+        goto done;
+    }
+
+    if (keytype->is_asymmetric)
+        printf("Successfully generated a %s key pair with labels \"%s\":\"%s\".\n",
+               keytype->name, pub_label, priv_label);
+    else
+        printf("Successfully generated a %s key with label \"%s\".\n",
+               keytype->name, opt_label);
+
+done:
+    if (keytype->keygen_cleanup != NULL)
+        keytype->keygen_cleanup(keytype, private);
+
+    if (pub_label != NULL)
+        free(pub_label);
+    if (priv_label != NULL)
+        free(priv_label);
+    if (pub_attrs != NULL)
+        free(pub_attrs);
+    if (priv_attrs != NULL)
+        free(priv_attrs);
+
+    free_attributes(secret_attrs, num_secret_attrs);
+    free_attributes(public_attrs, num_public_attrs);
+    free_attributes(private_attrs, num_private_attrs);
+
+    return rc;
 }
 
 static CK_RV p11sak_list_key(void)
