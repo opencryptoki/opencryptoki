@@ -94,6 +94,31 @@ struct p11sak_attr {
     bool settable;
 };
 
+struct p11sak_keytype {
+    const char *name;
+    CK_KEY_TYPE type;
+    CK_MECHANISM keygen_mech;
+    bool is_asymmetric;
+    bool sign_verify;
+    bool encrypt_decrypt;
+    bool wrap_unwrap;
+    bool derive;
+    CK_RV (*keygen_prepare)(const struct p11sak_keytype *keytype,
+                            void **private);
+    void (*keygen_cleanup)(const struct p11sak_keytype *keytype, void *private);
+    CK_RV (*keygen_get_key_size)(const struct p11sak_keytype *keytype,
+                                 void *private, CK_ULONG *keysize);
+    CK_RV (*keygen_add_secret_attrs)(const struct p11sak_keytype *keytype,
+                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                     void *private);
+    CK_RV (*keygen_add_public_attrs)(const struct p11sak_keytype *keytype,
+                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                     void *private);
+    CK_RV (*keygen_add_private_attrs)(const struct p11sak_keytype *keytype,
+                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
+                                      void *private);
+};
+
 struct curve_info {
     const CK_BYTE *oid;
     CK_ULONG oid_len;
