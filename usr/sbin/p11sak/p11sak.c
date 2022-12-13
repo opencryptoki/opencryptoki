@@ -40,6 +40,7 @@
 #include "configuration.h"
 #include "mechtable.h"
 #include "defs.h"
+#include "uri.h"
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
 #include <openssl/core_names.h>
@@ -81,6 +82,7 @@ static char *opt_attr = NULL;
 static char *opt_id = NULL;
 static bool opt_long = false;
 static bool opt_detailed_uri = false;
+static char *opt_sort = NULL;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
@@ -141,28 +143,363 @@ static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
                                         CK_ULONG *num_attrs,
                                         void *private);
 
+static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable);
+static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive);
+static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive);
+static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive);
+static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
+                             int indent, bool sensitive);
+static void print_date_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive);
+static void print_mech_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive);
+static void print_mech_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive);
+static void print_attr_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive);
+static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
+                             int indent, bool sensitive);
+static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                int indent, bool sensitive);
+static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
+                           int indent, bool sensitive);
+static void print_ibm_dilithium_keyform_attr(const char *attr,
+                                             const CK_ATTRIBUTE *val,
+                                             int indent, bool sensitive);
+static void print_ibm_kyber_keyform_attr(const char *attr,
+                                         const CK_ATTRIBUTE *val,
+                                         int indent, bool sensitive);
+
+#define DECLARE_KEY_ATTRS                                                      \
+    { .name = "CKA_LABEL", .type = CKA_LABEL,                                  \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_utf8_attr, },                                        \
+    { .name = "CKA_CLASS", .type = CKA_CLASS,                                  \
+      .secret = true, .public = true, .private = true, .settable = false,      \
+      .print_long = print_class_attr, },                                       \
+    { .name = "CKA_KEY_TYPE", .type = CKA_KEY_TYPE,                            \
+      .secret = true, .public = true, .private = true, .settable = false,      \
+      .print_long = print_key_type_attr, },                                    \
+    { .name = "CKA_ID", .type = CKA_ID,                                        \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_START_DATE", .type = CKA_START_DATE,                        \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_date_attr, },                                        \
+    { .name = "CKA_END_DATE", .type = CKA_END_DATE,                            \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_date_attr, },                                        \
+    { .name = "CKA_KEY_GEN_MECHANISM", .type = CKA_KEY_GEN_MECHANISM,          \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_mech_attr, },                                        \
+    { .name = "CKA_ALLOWED_MECHANISMS", .type = CKA_ALLOWED_MECHANISMS,        \
+      .secret = true, .public = true, .private = true, .settable = true,       \
+      .print_long = print_mech_array_attr, }
+
+#define DECLARE_SECRET_KEY_ATTRS                                               \
+    { .name = "CKA_CHECK_VALUE", .type = CKA_CHECK_VALUE,                      \
+      .secret = true, .public = false, .private = false, .settable = true,     \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_WRAP_TEMPLATE", .type = CKA_WRAP_TEMPLATE,                  \
+      .secret = true, .public = true, .private = false, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_UNWRAP_TEMPLATE", .type = CKA_UNWRAP_TEMPLATE,              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_DERIVE_TEMPLATE", .type = CKA_DERIVE_TEMPLATE,              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, }
+
+#define DECLARE_PUBLIC_KEY_ATTRS                                               \
+    { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_WRAP_TEMPLATE", .type = CKA_WRAP_TEMPLATE,                  \
+      .secret = true, .public = true, .private = false, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+#define DECLARE_PRIVATE_KEY_ATTRS                                              \
+    { .name = "CKA_SUBJECT", .type = CKA_SUBJECT,                              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_UNWRAP_TEMPLATE", .type = CKA_UNWRAP_TEMPLATE,              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, },                                  \
+    { .name = "CKA_PUBLIC_KEY_INFO", .type = CKA_PUBLIC_KEY_INFO,              \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_DERIVE_TEMPLATE", .type = CKA_DERIVE_TEMPLATE,              \
+      .secret = true, .public = false, .private = true, .settable = true,      \
+      .print_long = print_attr_array_attr, }
+
+static const struct p11sak_attr p11sak_des_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_SECRET_KEY_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_3des_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_SECRET_KEY_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_generic_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_SECRET_KEY_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_VALUE_LEN", .type = CKA_VALUE_LEN,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_ulong_attr, },
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_aes_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_SECRET_KEY_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_VALUE_LEN", .type = CKA_VALUE_LEN,
+      .secret = true, .public = false, .private = false, .settable = true,
+      .print_long = print_ulong_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_PUBLIC_RSA_ATTRS                                               \
+    { .name = "CKA_MODULUS", .type = CKA_MODULUS,                              \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_MODULUS_BITS", .type = CKA_MODULUS_BITS,                    \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_ulong_attr, },                                       \
+    { .name = "CKA_PUBLIC_EXPONENT", .type = CKA_PUBLIC_EXPONENT,              \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_public_rsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_RSA_ATTRS,
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_rsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_RSA_ATTRS,
+    { .name = "CKA_PRIVATE_EXPONENT", .type = CKA_PRIVATE_EXPONENT,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_PRIME_1", .type = CKA_PRIME_1,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_PRIME_2", .type = CKA_PRIME_2,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_EXPONENT_1", .type = CKA_EXPONENT_1,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_EXPONENT_2", .type = CKA_EXPONENT_2,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_COEFFICIENT", .type = CKA_COEFFICIENT,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_DH_ATTRS                                                       \
+    { .name = "CKA_PRIME", .type = CKA_PRIME,                                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_BASE", .type = CKA_BASE,                                    \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_VALUE", .type = CKA_VALUE,                                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_public_dh_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_DH_ATTRS,
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_dh_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_DH_ATTRS,
+    { .name = "CKA_VALUE_BITS", .type = CKA_VALUE_BITS,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_ulong_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_DSA_ATTRS                                                      \
+    { .name = "CKA_PRIME", .type = CKA_PRIME,                                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_SUBPRIME", .type = CKA_SUBPRIME,                            \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_BASE", .type = CKA_BASE,                                    \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_VALUE", .type = CKA_VALUE,                                  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_public_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_DSA_ATTRS,
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_dsa_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_DSA_ATTRS,
+    { .name = NULL },
+};
+
+#define DECLARE_EC_ATTRS                                                       \
+    { .name = "CKA_EC_PARAMS", .type = CKA_EC_PARAMS,                          \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_oid_attr, }
+
+static const struct p11sak_attr p11sak_public_ec_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_EC_ATTRS,
+    { .name = "CKA_EC_POINT", .type = CKA_EC_POINT,
+      .secret = false, .public = true, .private = false, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_ec_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_EC_ATTRS,
+    { .name = "CKA_VALUE", .type = CKA_VALUE,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS                                     \
+    { .name = "CKA_IBM_DILITHIUM_KEYFORM", .type = CKA_IBM_DILITHIUM_KEYFORM,  \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_ibm_dilithium_keyform_attr, },                       \
+    { .name = "CKA_IBM_DILITHIUM_MODE", .type = CKA_IBM_DILITHIUM_MODE,        \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_oid_attr, },                                         \
+    { .name = "CKA_IBM_DILITHIUM_RHO", .type = CKA_IBM_DILITHIUM_RHO,          \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, },                                  \
+    { .name = "CKA_IBM_DILITHIUM_T1", .type = CKA_IBM_DILITHIUM_T1,            \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_public_ibm_dilithium_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_ibm_dilithium_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_IBM_DILITHIUM_ATTRS,
+    { .name = "CKA_IBM_DILITHIUM_SEED", .type = CKA_IBM_DILITHIUM_SEED,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_IBM_DILITHIUM_TR", .type = CKA_IBM_DILITHIUM_TR,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_IBM_DILITHIUM_S1", .type = CKA_IBM_DILITHIUM_S1,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_IBM_DILITHIUM_S2", .type = CKA_IBM_DILITHIUM_S2,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = "CKA_IBM_DILITHIUM_T0", .type = CKA_IBM_DILITHIUM_T0,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
+#define DECLARE_PUBLIC_IBM_KYBER_ATTRS                                         \
+    { .name = "CKA_IBM_KYBER_KEYFORM", .type = CKA_IBM_KYBER_KEYFORM,          \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_ibm_kyber_keyform_attr, },                           \
+    { .name = "CKA_IBM_KYBER_MODE", .type = CKA_IBM_KYBER_MODE,                \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_oid_attr, },                                         \
+    { .name = "CKA_IBM_KYBER_PK", .type = CKA_IBM_KYBER_PK,                    \
+      .secret = false, .public = true, .private = true, .settable = true,      \
+      .print_long = print_byte_array_attr, }
+
+static const struct p11sak_attr p11sak_public_ibm_kyber_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PUBLIC_KEY_ATTRS,
+    DECLARE_PUBLIC_IBM_KYBER_ATTRS,
+    { .name = NULL },
+};
+
+static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
+    DECLARE_KEY_ATTRS,
+    DECLARE_PRIVATE_KEY_ATTRS,
+    DECLARE_PUBLIC_IBM_KYBER_ATTRS,
+    { .name = "CKA_IBM_KYBER_SK", .type = CKA_IBM_KYBER_SK,
+      .secret = false, .public = false, .private = true, .settable = true,
+      .print_long = print_byte_array_attr, },
+    { .name = NULL },
+};
+
 static const struct p11sak_keytype p11sak_des_keytype = {
-    .name = "DES", .type = CKK_DES,
+    .name = "DES", .type = CKK_DES, .ckk_name = "CKK_DES",
     .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .secret_attrs = p11sak_des_attrs,
 };
 
 static const struct p11sak_keytype p11sak_3des_keytype = {
-    .name = "3DES",  .type = CKK_DES3,
+    .name = "3DES",  .type = CKK_DES3, .ckk_name = "CKK_DES3",
     .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES3,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .secret_attrs = p11sak_3des_attrs,
 };
 
 static const struct p11sak_keytype p11sak_generic_keytype = {
     .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
+    .ckk_name = "CKK_GENERIC_SECRET",
     .keygen_mech = { .mechanism = CKM_GENERIC_SECRET_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = generic_get_key_size,
@@ -171,10 +508,11 @@ static const struct p11sak_keytype p11sak_generic_keytype = {
     .wrap_unwrap = false, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_GENERIC_SECRET,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
+    .secret_attrs = p11sak_generic_attrs,
 };
 
 static const struct p11sak_keytype p11sak_aes_keytype = {
-    .name = "AES",  .type = CKK_AES,
+    .name = "AES",  .type = CKK_AES, .ckk_name = "CKK_AES",
     .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = aes_get_key_size,
@@ -183,10 +521,11 @@ static const struct p11sak_keytype p11sak_aes_keytype = {
     .wrap_unwrap = true, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_keysize_adjust,
+    .secret_attrs = p11sak_aes_attrs,
 };
 
 static const struct p11sak_keytype p11sak_aes_xts_keytype = {
-    .name = "AES-XTS",  .type = CKK_AES_XTS,
+    .name = "AES-XTS",  .type = CKK_AES_XTS, .ckk_name = "CKK_AES_XTS",
     .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = aes_get_key_size,
@@ -195,10 +534,11 @@ static const struct p11sak_keytype p11sak_aes_xts_keytype = {
     .wrap_unwrap = true, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES_XTS,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_xts_keysize_adjust,
+    .secret_attrs = p11sak_aes_attrs,
 };
 
 static const struct p11sak_keytype p11sak_rsa_keytype = {
-    .name = "RSA",  .type = CKK_RSA,
+    .name = "RSA",  .type = CKK_RSA, .ckk_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_get_key_size = rsa_get_key_size,
@@ -208,10 +548,12 @@ static const struct p11sak_keytype p11sak_rsa_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
     .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
     .key_keysize_adjust = rsa_keysize_adjust,
+    .public_attrs = p11sak_public_rsa_attrs,
+    .private_attrs = p11sak_private_rsa_attrs,
 };
 
 static const struct p11sak_keytype p11sak_dh_keytype = {
-    .name = "DH", .type = CKK_DH,
+    .name = "DH", .type = CKK_DH, .ckk_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_prepare = dh_prepare,
@@ -224,10 +566,12 @@ static const struct p11sak_keytype p11sak_dh_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DH,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dh_keysize_adjust,
+    .public_attrs = p11sak_public_dh_attrs,
+    .private_attrs = p11sak_private_dh_attrs,
 };
 
 static const struct p11sak_keytype p11sak_dsa_keytype = {
-    .name = "DSA",  .type = CKK_DSA,
+    .name = "DSA",  .type = CKK_DSA, .ckk_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_prepare = dsa_prepare,
@@ -239,10 +583,12 @@ static const struct p11sak_keytype p11sak_dsa_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DSA,
     .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
     .key_keysize_adjust = dsa_keysize_adjust,
+    .public_attrs = p11sak_public_dsa_attrs,
+    .private_attrs = p11sak_private_dsa_attrs,
 };
 
 static const struct p11sak_keytype p11sak_ec_keytype = {
-    .name = "EC",  .type = CKK_EC,
+    .name = "EC",  .type = CKK_EC, .ckk_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_get_key_size = ec_get_key_size,
@@ -251,10 +597,13 @@ static const struct p11sak_keytype p11sak_ec_keytype = {
     .wrap_unwrap = false, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ec_attrs,
+    .private_attrs = p11sak_private_ec_attrs,
 };
 
 static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
+    .ckk_name = "CKK_IBM_PQC_DILITHIUM",
     .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
@@ -262,10 +611,13 @@ static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .wrap_unwrap = false, .derive = false,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_DILITHIUM,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ibm_dilithium_attrs,
+    .private_attrs = p11sak_private_ibm_dilithium_attrs,
 };
 
 static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
+    .ckk_name = "CKK_IBM_PQC_KYBER",
     .keygen_mech = { .mechanism = CKM_IBM_KYBER, },
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
@@ -273,6 +625,8 @@ static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .wrap_unwrap = false, .derive = true,
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_KYBER,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
+    .public_attrs = p11sak_public_ibm_kyber_attrs,
+    .private_attrs = p11sak_private_ibm_kyber_attrs,
 };
 
 static const struct p11sak_keytype p11sak_secret_keytype = {
@@ -311,6 +665,18 @@ static const struct p11sak_keytype *p11sak_keytypes[] = {
     &p11sak_ibm_dilithium_keytype,
     &p11sak_ibm_kyber_keytype,
     NULL,
+};
+
+static const struct p11sak_class p11sak_classes[] = {
+    { .name = "CKO_DATA", .class = CKO_DATA, },
+    { .name = "CKO_CERTIFICATE", .class = CKO_CERTIFICATE, },
+    { .name = "CKO_PUBLIC_KEY", .class = CKO_PUBLIC_KEY, },
+    { .name = "CKO_PRIVATE_KEY", .class = CKO_PRIVATE_KEY, },
+    { .name = "CKO_SECRET_KEY", .class = CKO_SECRET_KEY, },
+    { .name = "CKO_HW_FEATURE", .class = CKO_HW_FEATURE, },
+    { .name = "CKO_DOMAIN_PARAMETERS", .class = CKO_DOMAIN_PARAMETERS, },
+    { .name = "CKO_PROFILE", .class = CKO_PROFILE, },
+    { .name = NULL, .class = 0, }
 };
 
 static const struct p11sak_opt p11sak_generic_opts[] = {
@@ -686,6 +1052,22 @@ static const struct p11sak_opt p11sak_list_key_opts[] = {
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_detailed_uri, },
       .description = "Show detailed PKCS#11 URI.", },
+    { .short_opt = 'S', .long_opt = "sort", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_sort, .name = "SORT-SPEC" },
+      .description = "Sort the keys by label, key type, object class, and/or "
+                     "key size. Specify a sort selection of up to 4 fields, "
+                     "each represented by its corresponding letter, separated "
+                     "by comma (','):\n"
+                     "- label:        'l'\n"
+                     "- key type:     'k'\n"
+                     "- object class: 'c'\n"
+                     "- key size:     's'\n"
+                     " The sort order ('a' = ascending (default), 'd' = "
+                     "descending) can be appended  to the  field designator by "
+                     "a colon (':').\n"
+                     "Example: 'l:a,k:d' will sort by label in ascending order "
+                     "and then by key type in descending order.", },
     { .short_opt = 0, .long_opt = NULL, },
 };
 
@@ -759,7 +1141,8 @@ static const struct p11sak_cmd p11sak_commands[] = {
 #define DECLARE_BOOL_ATTR(attr, ch, sec, pub, priv, set)                       \
     { .name = # attr, .type = attr, .letter = ch,                              \
       .secret = sec, .public = pub, .private = priv,                           \
-      .settable = set, }
+      .settable = set, .print_short = print_bool_attr_short,                   \
+      .print_long = print_bool_attr_long, }
 
 static const struct p11sak_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_PRIVATE,           'P', true,  true,  true,  true),
@@ -787,6 +1170,14 @@ static const struct p11sak_attr p11sak_bool_attrs[] = {
     DECLARE_BOOL_ATTR(CKA_IBM_PROTKEY_NEVER_EXTRACTABLE,
                                              'Z', true,  false, true,  false),
     { .name = NULL, },
+};
+
+static const struct p11sak_custom_attr_type custom_attr_types[] = {
+    { .type = P11SAK_CONFIG_TYPE_BOOL, .print_long = print_bool_attr_long, },
+    { .type = P11SAK_CONFIG_TYPE_ULONG, .print_long = print_ulong_attr, },
+    { .type = P11SAK_CONFIG_TYPE_BYTE, .print_long = print_byte_array_attr, },
+    { .type = P11SAK_CONFIG_TYPE_DATE, .print_long = print_date_attr, },
+    { .type = NULL, },
 };
 
 static const struct p11sak_cmd *find_command(const char *cmd)
@@ -2421,8 +2812,71 @@ static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
     free(attrs);
 }
 
+static bool is_attr_array_attr(CK_ATTRIBUTE *attr)
+{
+    switch (attr->type) {
+    case CKA_WRAP_TEMPLATE:
+    case CKA_UNWRAP_TEMPLATE:
+    case CKA_DERIVE_TEMPLATE:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
+static void free_attr_array_attr(CK_ATTRIBUTE *attr)
+{
+    CK_ULONG i, num;
+    CK_ATTRIBUTE *elem;
+
+    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
+    for (i = 0, elem = attr->pValue; elem != NULL && i < num; i++, elem++) {
+        if (elem->pValue != NULL) {
+            if (is_attr_array_attr(elem))
+                free_attr_array_attr(elem);
+            free(elem->pValue);
+            elem->pValue = NULL;
+        }
+    }
+}
+
+static CK_RV alloc_attr_array_attr(CK_ATTRIBUTE *attr, bool *allocated)
+{
+    CK_ULONG i, num;
+    CK_ATTRIBUTE *elem;
+    CK_RV rc;
+
+    *allocated = false;
+
+    num = attr->ulValueLen / sizeof(CK_ATTRIBUTE);
+    for (i = 0, elem = attr->pValue; i < num; i++, elem++) {
+        if (elem->ulValueLen > 0 && elem->pValue == NULL) {
+            elem->pValue = calloc(elem->ulValueLen, 1);
+            if (elem->pValue == NULL) {
+                free_attr_array_attr(attr);
+                return CKR_HOST_MEMORY;
+            }
+
+            *allocated = true;
+            continue;
+        }
+
+        if (is_attr_array_attr(elem)) {
+            rc = alloc_attr_array_attr(elem, allocated);
+            if (rc != CKR_OK) {
+                free_attr_array_attr(attr);
+                return CKR_HOST_MEMORY;
+            }
+        }
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
 {
+    bool allocated;
     CK_RV rc;
 
     rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
@@ -2435,6 +2889,22 @@ static CK_RV get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
             return CKR_HOST_MEMORY;
 
         rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
+    }
+
+    if (is_attr_array_attr(attr) && rc == CKR_OK &&
+        attr->pValue != NULL && attr->ulValueLen > 0) {
+        do {
+            allocated = false;
+            rc = alloc_attr_array_attr(attr, &allocated);
+            if (rc != CKR_OK)
+                return rc;
+
+            if (!allocated)
+                break;
+
+            rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                                   attr, 1);
+        } while (rc == CKR_OK);
     }
 
     return rc;
@@ -2935,12 +3405,846 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_list_key(void)
-{;
+static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable)
+{
+    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+        val->ulValueLen != sizeof(CK_BBOOL))
+        applicable = false;
+    printf("%c ", applicable ? (*(CK_BBOOL *)(val->pValue) ? '1' : '0') : '-');
+}
 
-    // TODO
+static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
+                                 int indent, bool sensitive)
+{
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)||
+        val->ulValueLen != sizeof(CK_BBOOL))
+        return;
+
+    printf("%*s%s: %s\n", indent, "", attr,
+           sensitive ? "[sensitive]" :
+                   *(CK_BBOOL *)(val->pValue) ? "CK_TRUE" : "CK_FALSE");
+}
+
+static void print_utf8_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive)
+{
+    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        printf("%*s%s: \"%.*s\"\n", indent, "", attr, (int)val->ulValueLen,
+               (char *)val->pValue);
+    }
+}
+
+static void print_dump(CK_BYTE *p, CK_ULONG len, int indent)
+{
+    CK_ULONG i;
+
+    for (i = 0; i < len; i++) {
+        if (i % 16 == 0)
+            printf("\n%*s%02X ", indent, "", p[i]);
+        else
+            printf("%02X ", p[i]);
+    }
+    printf("\n");
+}
+
+static void print_byte_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive)
+{
+    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        printf("%*s%s: len=%lu value:", indent, "", attr,
+               val->ulValueLen);
+        print_dump((CK_BYTE *)val->pValue, val->ulValueLen, indent + 4);
+    }
+}
+
+static void print_ulong_attr(const char *attr, const CK_ATTRIBUTE *val,
+                             int indent, bool sensitive)
+{
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_ULONG))
+        return;
+
+    if (sensitive)
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    else
+        printf("%*s%s: %lu (0x%lX)\n", indent, "", attr,
+               *(CK_ULONG *)(val->pValue), *(CK_ULONG *)(val->pValue));
+}
+
+static void print_date_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive)
+{
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_DATE))
+        return;
+
+    if (sensitive)
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    else
+        printf("%*s%s: %.4s-%.2s-%.2s\n", indent, "", attr,
+               ((CK_DATE *)(val->pValue))->year,
+               ((CK_DATE *)(val->pValue))->month,
+               ((CK_DATE *)(val->pValue))->day);
+}
+
+static void print_mech_attr(const char *attr, const CK_ATTRIBUTE *val,
+                            int indent, bool sensitive)
+{
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_MECHANISM_TYPE))
+        return;
+
+    if (sensitive)
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    else if (*(CK_MECHANISM_TYPE *)(val->pValue) == CK_UNAVAILABLE_INFORMATION)
+        printf("%*s%s: [information unavailable]\n", indent, "", attr);
+    else
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr,
+               p11_get_ckm(&mechtable_funcs,
+                           *(CK_MECHANISM_TYPE *)(val->pValue)),
+               *(CK_MECHANISM_TYPE *)(val->pValue));
+}
+
+static void print_mech_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive)
+{
+    unsigned int i, num;
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        (val->ulValueLen % sizeof(CK_MECHANISM_TYPE)) != 0)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else {
+        num = val->ulValueLen / sizeof(CK_MECHANISM_TYPE);
+        if (num == 0 && val->type == CKA_ALLOWED_MECHANISMS) {
+            printf("%*s%s: [no restriction]\n", indent, "", attr);
+            return;
+        }
+
+        printf("%*s%s: %u mechanisms\n", indent, "", attr, num);
+        for (i = 0; i < num; i++) {
+            printf("%*s- %s (0x%lX)\n", indent + 4, "",
+                   p11_get_ckm(&mechtable_funcs,
+                               ((CK_MECHANISM_TYPE *)(val->pValue))[i]),
+                   ((CK_MECHANISM_TYPE *)(val->pValue))[i]);
+        }
+    }
+}
+
+static void print_oid(const CK_BYTE *oid, CK_ULONG oid_len, bool long_name)
+{
+    ASN1_OBJECT *obj = NULL;
+    char buf[250];
+    int nid;
+
+    if (d2i_ASN1_OBJECT(&obj, &oid, oid_len) == NULL) {
+        printf("[invalid object ID]");
+        return;
+    }
+
+    nid = OBJ_obj2nid(obj);
+
+    if (OBJ_obj2txt(buf, sizeof(buf), obj, 1) <= 0) {
+        printf("[error]");
+        ASN1_OBJECT_free(obj);
+        return;
+    }
+
+    printf("oid=%s", buf);
+    if (long_name && nid != NID_undef)
+        printf(" (%s)", OBJ_nid2ln(nid));
+
+    ASN1_OBJECT_free(obj);
+}
+
+static void print_ibm_dilithium_keyform_attr(const char *attr,
+                                             const CK_ATTRIBUTE *val,
+                                             int indent, bool sensitive)
+{
+    const struct p11sak_enum_value *eval;
+    const char *name = "[unknown]";
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+         val->ulValueLen != sizeof (CK_ULONG)) &&
+        !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        for (eval = p11sak_ibm_dilithium_versions; eval->value != NULL; eval++) {
+            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
+                name = eval->value;
+                break;
+            }
+        }
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_ULONG *)(val->pValue));
+    }
+}
+
+static void print_ibm_kyber_keyform_attr(const char *attr,
+                                         const CK_ATTRIBUTE *val,
+                                         int indent, bool sensitive)
+{
+    const struct p11sak_enum_value *eval;
+    const char *name = "[unknown]";
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+         val->ulValueLen != sizeof (CK_ULONG)) &&
+        !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        for (eval = p11sak_ibm_kyber_versions; eval->value != NULL; eval++) {
+            if (eval->private.num == *(CK_ULONG *)(val->pValue)) {
+                name = eval->value;
+                break;
+            }
+        }
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_ULONG *)(val->pValue));
+    }
+}
+
+static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
+                             int indent, bool sensitive)
+{
+    const struct p11sak_class *cls;
+    const char *name = NULL;
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_OBJECT_CLASS))
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    }
+
+    for (cls = p11sak_classes; cls->name  != NULL; cls++) {
+        if (*(CK_OBJECT_CLASS *)(val->pValue) == cls->class) {
+            name = cls->name;
+            break;
+        }
+    }
+
+    if (name != NULL)
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_OBJECT_CLASS *)(val->pValue));
+    else
+        printf("%*s%s: 0x%lX\n", indent, "", attr,
+               *(CK_OBJECT_CLASS *)(val->pValue));
+}
+
+static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                int indent, bool sensitive)
+{
+    const struct p11sak_keytype *ktype;
+    const char *name = NULL;
+
+    if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
+        val->ulValueLen != sizeof(CK_KEY_TYPE))
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+        return;
+    }
+
+    ktype = find_keytype(*(CK_KEY_TYPE *)(val->pValue));
+    if (ktype != NULL)
+        name = ktype->ckk_name;
+
+    if (name != NULL)
+        printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
+               *(CK_KEY_TYPE *)(val->pValue));
+    else
+        printf("%*s%s: 0x%lX\n", indent, "", attr,
+               *(CK_KEY_TYPE *)(val->pValue));
+}
+
+static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
+                           int indent, bool sensitive)
+{
+    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else if (val->ulValueLen == 0) {
+        printf("%*s%s: [no value]\n", indent, "", attr);
+    } else {
+        printf("%*s%s: ", indent, "", attr);
+        print_oid(val->pValue, val->ulValueLen, true);
+        printf(" len=%lu value:", val->ulValueLen);
+        print_dump((CK_BYTE *)val->pValue,val->ulValueLen, indent + 4);
+    }
+}
+
+static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
+{
+    const struct p11sak_attr *attr;
+    const struct p11sak_keytype **keytype;
+
+    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
+        if (attr->type == type)
+            return attr;
+    }
+
+    for (keytype = p11sak_keytypes; (*keytype)->name != NULL; keytype++) {
+        for (attr = (*keytype)->secret_attrs;
+                                attr != NULL && attr->name != NULL; attr++) {
+            if (attr->type == type)
+                return attr;
+        }
+
+        for (attr = (*keytype)->public_attrs;
+                                attr != NULL && attr->name != NULL; attr++) {
+            if (attr->type == type)
+                return attr;
+        }
+
+        for (attr = (*keytype)->private_attrs;
+                                attr != NULL && attr->name != NULL; attr++) {
+            if (attr->type == type)
+                return attr;
+        }
+    }
+
+    return NULL;
+}
+
+static void print_attr_array_attr(const char *attr, const CK_ATTRIBUTE *val,
+                                  int indent, bool sensitive)
+{
+    const struct p11sak_attr *a;
+    unsigned int i, num;
+
+    if (val->ulValueLen == CK_UNAVAILABLE_INFORMATION ||
+        (val->ulValueLen % sizeof(CK_ATTRIBUTE)) != 0)
+        return;
+
+    if (sensitive) {
+        printf("%*s%s: [sensitive]\n", indent, "", attr);
+    } else {
+        num = val->ulValueLen / sizeof(CK_ATTRIBUTE);
+        printf("%*s%s: %u attributes\n", indent, "", attr, num);
+        for (i = 0; i < num; i++) {
+            a = find_attribute(((CK_ATTRIBUTE *)(val->pValue))[i].type);
+            if (a == NULL || a->print_long == NULL)
+                printf("%*s%s: [attribute not supported]", indent + 4, "",
+                       p11_get_cka(((CK_ATTRIBUTE *)(val->pValue))[i].type));
+            else
+                a->print_long(p11_get_cka(
+                                   ((CK_ATTRIBUTE *)(val->pValue))[i].type),
+                              &((CK_ATTRIBUTE *)(val->pValue))[i],
+                              indent + 4, false);
+        }
+    }
+}
+
+static void print_custom_attrs(CK_OBJECT_HANDLE key,
+                               const struct p11sak_attr *standard_attrs,
+                               int indent)
+{
+    CK_RV rc;
+    int f;
+    struct ConfigBaseNode *c, *name, *id, *type;
+    struct ConfigStructNode *structnode;
+    const struct p11sak_custom_attr_type *atype;
+    const struct p11sak_attr *attr;
+    CK_ATTRIBUTE val;
+    bool skip;
+
+    confignode_foreach(c, p11sak_cfg, f) {
+        if (!confignode_hastype(c, CT_STRUCT) ||
+            strcmp(c->key, P11SAK_CONFIG_KEYWORD_ATTRIBUTE) != 0)
+           continue;
+
+        structnode = confignode_to_struct(c);
+        name = confignode_find(structnode->value,
+                               P11SAK_CONFIG_KEYWORD_NAME);
+        id = confignode_find(structnode->value,
+                             P11SAK_CONFIG_KEYWORD_ID);
+        type = confignode_find(structnode->value,
+                               P11SAK_CONFIG_KEYWORD_TYPE);
+
+        if (name == NULL || !confignode_hastype(name, CT_BAREVAL)) {
+            warnx("Sytax error in config file: Missing '%s' in attribute at line %hu\n",
+                  P11SAK_CONFIG_KEYWORD_NAME, c->line);
+            return;
+        }
+        if (id == NULL || !confignode_hastype(id, CT_INTVAL)) {
+            warnx("Sytax error in config file: Missing '%s' in attribute at line %hu\n",
+                  P11SAK_CONFIG_KEYWORD_ID, c->line);
+            return;
+        }
+        if (type == NULL || !confignode_hastype(type, CT_BAREVAL)) {
+            warnx("Sytax error in config file: Missing '%s' in attribute at line %hu\n",
+                  P11SAK_CONFIG_KEYWORD_TYPE, c->line);
+            return;
+        }
+
+        for (atype = custom_attr_types; atype->type != NULL; atype ++) {
+            if (strcmp(atype->type,
+                       confignode_to_bareval(type)->value) == 0)
+                break;
+        }
+        if (atype->type == NULL) {
+            warnx("Sytax error in config file: Invalid '%s' value in attribute at line %hu\n",
+                   P11SAK_CONFIG_KEYWORD_TYPE, c->line);
+            return;
+        }
+
+        /* Ignore any standard attributes also defined in the config file */
+        for (skip = false, attr = standard_attrs; attr->name != NULL; attr++) {
+            if (attr->type == confignode_to_intval(id)->value) {
+                 skip = true;
+                 break;
+            }
+        }
+        if (skip)
+            continue;
+
+        val.type = confignode_to_intval(id)->value;
+        val.ulValueLen = 0;
+        val.pValue = NULL;
+        rc = get_attribute(key, &val);
+        if (rc != CKR_OK && rc != CKR_ATTRIBUTE_SENSITIVE)
+            continue;
+
+        atype->print_long(p11_get_cka(confignode_to_intval(id)->value),
+                          &val, indent, rc == CKR_ATTRIBUTE_SENSITIVE);
+
+        if (is_attr_array_attr(&val))
+            free_attr_array_attr(&val);
+        if (val.pValue != NULL)
+            free(val.pValue);
+    }
+}
+
+static void print_key_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                            const struct p11sak_keytype *keytype, int indent)
+{
+    const struct p11sak_attr *attrs, *attr;
+    CK_ATTRIBUTE val;
+    CK_RV rc;
+
+    switch (class) {
+    case CKO_SECRET_KEY:
+        attrs = keytype->secret_attrs;
+        break;
+    case CKO_PUBLIC_KEY:
+        attrs = keytype->public_attrs;
+        break;
+    case CKO_PRIVATE_KEY:
+        attrs = keytype->private_attrs;
+        break;
+    default:
+        attrs = NULL;
+        break;
+    }
+
+    for (attr = attrs; attr != NULL && attr->name != NULL; attr++) {
+        val.type = attr->type;
+        val.ulValueLen = 0;
+        val.pValue = NULL;
+
+        rc = get_attribute(key, &val);
+        if (rc != CKR_OK && rc != CKR_ATTRIBUTE_SENSITIVE)
+            continue;
+
+        attr->print_long(attr->name, &val, indent,
+                         rc == CKR_ATTRIBUTE_SENSITIVE);
+
+        if (is_attr_array_attr(&val))
+            free_attr_array_attr(&val);
+        if (val.pValue != NULL)
+            free(val.pValue);
+    }
+
+    print_custom_attrs(key, attrs, indent);
+}
+
+static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                                 const struct p11sak_keytype *keytype,
+                                 const char *typestr, const char* label,
+                                 struct p11sak_list_data *data)
+{
+    const struct p11sak_attr *attr;
+    bool applicable;
+    CK_ULONG i;
+    CK_RV rc;
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                           data->bool_attrs,
+                                           data->num_bool_attrs);
+    if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
+        warnx("Failed to get boolean attributes for %s key \"%s\": 0x%lX: %s",
+              typestr, label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    for (attr = p11sak_bool_attrs, i = 0; attr->name != NULL; attr++, i++) {
+        switch (class) {
+        case CKO_SECRET_KEY:
+            applicable = secret_attr_applicable(keytype, attr);
+            break;
+        case CKO_PUBLIC_KEY:
+            applicable = public_attr_applicable(keytype, attr);
+            break;
+        case CKO_PRIVATE_KEY:
+            applicable = private_attr_applicable(keytype, attr);
+            break;
+        default:
+           applicable = false;
+           break;
+        }
+
+        if (data->bool_attrs[i].ulValueLen == CK_UNAVAILABLE_INFORMATION)
+            applicable = false;
+
+        if (opt_long) {
+            if (!applicable)
+                continue;
+
+            attr->print_long(attr->name, &data->bool_attrs[i], 8, false);
+        } else {
+            attr->print_short(&data->bool_attrs[i], applicable);
+        }
+    }
 
     return CKR_OK;
+}
+
+static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
+                         const char *typestr, const char* label,
+                         struct p11_uri **uri)
+{
+    struct p11_uri *u;
+    CK_RV rc;
+
+    u = p11_uri_new();
+    if (u == NULL) {
+        warnx("Failed to allocate URI for %s key \"%s\"", typestr, label);
+        return CKR_HOST_MEMORY;
+    }
+
+    if (opt_detailed_uri) {
+        /* include library and slot information only in detailed URIs */
+        u->info = &pkcs11_info;
+        u->slot_id = opt_slot;
+        u->slot_info = &pkcs11_slotinfo;
+    }
+    u->token_info = &pkcs11_tokeninfo;
+
+    u->obj_class[0].ulValueLen = sizeof(*class);
+    u->obj_class[0].pValue = class;
+
+    u->obj_label[0].ulValueLen = label != NULL ? strlen(label) : 0;
+    u->obj_label[0].pValue = (char *)label;
+
+    rc = get_attribute(key, &u->obj_id[0]);
+    if (rc != CKR_OK) {
+        warnx("Failed to get CKA_ID for %s key \"%s\": 0x%lX: %s",
+              typestr, label, rc, p11_get_ckr(rc));
+        if (u->obj_id[0].pValue != NULL)
+            free(u->obj_id[0].pValue);
+        p11_uri_free(u);
+        return rc;
+    }
+
+    *uri = u;
+
+    return CKR_OK;
+}
+
+static CK_RV handle_key_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                             const struct p11sak_keytype *keytype,
+                             CK_ULONG keysize, const char *typestr,
+                             const char* label, void *private)
+{
+    struct p11sak_list_data *data = private;
+    struct p11_uri *uri = NULL;
+    CK_RV rc;
+
+    UNUSED(keysize);
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                           data->bool_attrs,
+                                           data->num_bool_attrs);
+    if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID) {
+        warnx("Failed to get boolean attributes for %s key \"%s\": 0x%lX: %s",
+              typestr, label, rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (opt_long) {
+        rc = prepare_uri(key, &class, typestr, label, &uri);
+        if (rc != CKR_OK)
+            goto done;
+
+        printf("Label: \"%s\"\n", label);
+        printf("    URI: %s\n", p11_uri_format(uri));
+        printf("    Key: %s\n", typestr);
+        printf("    Attributes:\n");
+        printf("        CKA_TOKEN: CK_TRUE\n");
+    } else {
+        printf("| ");
+    }
+
+    rc = print_boolean_attrs(key, class, keytype, typestr, label, data);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (opt_long)
+        print_key_attrs(key, class, keytype, 8);
+    else
+        printf("| %*s | \"%s\"\n", LIST_KEYTYPE_CELL_SIZE, typestr, label);
+
+    data->num_displayed++;
+    rc = CKR_OK;
+
+done:
+    if (uri != NULL) {
+        if (uri->obj_id[0].pValue != NULL)
+            free(uri->obj_id[0].pValue);
+        p11_uri_free(uri);
+    }
+
+    return rc;
+}
+
+static CK_RV p11sak_list_key_compare(CK_OBJECT_HANDLE key1,
+                                     CK_OBJECT_HANDLE key2,
+                                     int *result, void *private)
+{
+    struct p11sak_list_data *data = private;
+    CK_OBJECT_CLASS class1, class2;
+    CK_KEY_TYPE ktype1, ktype2;
+    CK_ULONG keysize1, keysize2;
+    char *label1 = NULL, *label2 = NULL;
+    CK_RV rc;
+    int i;
+
+    *result = 0;
+
+    rc = get_key_infos(key1, &class1, &ktype1, &keysize1, &label1, NULL, NULL);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = get_key_infos(key2, &class2, &ktype2, &keysize2, &label2, NULL, NULL);
+    if (rc != CKR_OK)
+        goto done;
+
+    for (i = 0; i < MAX_SORT_FIELDS; i++) {
+        switch (data->sort_info[i].field) {
+        case SORT_LABEL:
+            *result = strcmp(label1, label2);
+            break;
+        case SORT_KEYTYPE:
+            *result = (long)ktype1 - (long)ktype2;
+            break;
+        case SORT_CLASS:
+            *result = (long)class1 - (long)class2;
+            break;
+        case SORT_KEYSIZE:
+            *result = (long)keysize1 - (long)keysize2;
+            break;
+        case SORT_NONE:
+        default:
+            break;
+        }
+
+        if (data->sort_info[i].descending)
+            *result = -*result;
+
+        if (*result != 0)
+            break;
+    }
+
+done:
+    if (label1 != NULL)
+        free(label1);
+    if (label2 != NULL)
+        free(label2);
+
+    return rc;
+}
+
+static CK_RV parse_sort_specification(const char *sort_spec,
+                                      struct p11sak_list_data *data)
+{
+    CK_RV rc = CKR_OK;
+    char *tok;
+    unsigned int i = 0;
+    char *spec;
+
+    spec = strdup(sort_spec);
+    if (spec == NULL) {
+        warnx("Failed to allocate the sort specification string.");
+        return CKR_HOST_MEMORY;
+    }
+
+    tok = strtok(spec, ",");
+    while (tok != NULL) {
+        if (i >= MAX_SORT_FIELDS) {
+            warnx("Too many sort field designators.");
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+
+        switch (tolower(*tok)) {
+        case 'l':
+            data->sort_info[i].field = SORT_LABEL;
+            break;
+        case 'k':
+            data->sort_info[i].field = SORT_KEYTYPE;
+            break;
+        case 'c':
+            data->sort_info[i].field = SORT_CLASS;
+            break;
+        case 's':
+            data->sort_info[i].field = SORT_KEYSIZE;
+            break;
+        default:
+            warnx("Invalid sort field designator: '%c'.", *tok);
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+
+        tok++;
+        if (*tok == ':') {
+            tok++;
+            switch (tolower(*tok)) {
+            case 'a':
+                data->sort_info[i].descending = false;
+                break;
+            case 'd':
+                data->sort_info[i].descending = true;
+                break;
+            default:
+                warnx("Invalid sort order designator: '%c'.", *tok);
+                rc = CKR_ARGUMENTS_BAD;
+                goto done;
+            }
+
+            tok++;
+            if (*tok != '\0') {
+                warnx("Invalid character(s) after sort order designator: '%s'.",
+                      tok);
+                rc = CKR_ARGUMENTS_BAD;
+                goto done;
+            }
+        } else if (*tok == '\0') {
+            data->sort_info[i].descending = false;
+        } else {
+            warnx("Invalid character(s) after sort field designator: '%s'.",
+                  tok);
+            rc = CKR_ARGUMENTS_BAD;
+            goto done;
+        }
+
+        tok = strtok(NULL, ",");
+        i++;
+    }
+
+done:
+    free(spec);
+
+    return rc;
+}
+
+static CK_RV p11sak_list_key(void)
+{
+    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_attr *attr;
+    struct p11sak_list_data data = { 0 };
+    unsigned int i;
+    CK_BYTE *attr_data = NULL;
+    CK_RV rc;
+
+    if (opt_keytype != NULL)
+        keytype = opt_keytype->private.ptr;
+
+    for (attr = p11sak_bool_attrs, data.num_bool_attrs = 0; attr->name != NULL;
+                                        attr++, data.num_bool_attrs++)
+        ;
+    attr_data = calloc(data.num_bool_attrs, sizeof(CK_BBOOL));
+    data.bool_attrs = calloc(data.num_bool_attrs, sizeof(CK_ATTRIBUTE));
+    if (attr_data == NULL || data.bool_attrs == NULL) {
+        warnx("Failed to allocate memory for the attributes");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+    for (attr = p11sak_bool_attrs, i = 0; attr->name != NULL; attr++, i++) {
+        data.bool_attrs[i].type = attr->type;
+        data.bool_attrs[i].ulValueLen = sizeof(CK_BBOOL);
+        data.bool_attrs[i].pValue = &attr_data[i];
+    }
+
+    if (opt_sort) {
+        rc = parse_sort_specification(opt_sort, &data);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    if (!opt_long) {
+        printf("| ");
+        for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
+            printf("%c ", attr->letter);
+        printf("| %*s | LABEL\n", LIST_KEYTYPE_CELL_SIZE, "KEY TYPE");
+        printf("|-");
+        for (attr = p11sak_bool_attrs; attr->name != NULL; attr++)
+            printf("--");
+        printf("+-");
+        for (i = 0; i < LIST_KEYTYPE_CELL_SIZE; i++)
+            printf("-");
+        printf("-+--------------------\n");
+    }
+
+    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr,
+                             opt_sort != NULL ? p11sak_list_key_compare : NULL,
+                             handle_key_list, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
+                keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    printf("\n");
+    printf("%lu key(s) displayed\n", data.num_displayed);
+
+done:
+    if (data.bool_attrs != NULL)
+        free(data.bool_attrs);
+    if (attr_data != NULL)
+        free(attr_data);
+
+    return rc;
 }
 
 static char prompt_user(const char *message, char* allowed_chars)
