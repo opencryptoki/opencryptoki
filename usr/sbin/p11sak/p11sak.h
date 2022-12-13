@@ -29,6 +29,8 @@
 #define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        35
 
+#define FIND_OBJECTS_COUNT      64
+
 enum p11sak_arg_type {
     ARG_TYPE_PLAIN = 0, /* no argument */
     ARG_TYPE_STRING = 1,
@@ -117,6 +119,29 @@ struct p11sak_keytype {
     CK_RV (*keygen_add_private_attrs)(const struct p11sak_keytype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private);
+    CK_ATTRIBUTE_TYPE filter_attr;
+    CK_ULONG filter_value;
+    CK_ATTRIBUTE_TYPE keysize_attr;
+    bool keysize_attr_value_len;
+    CK_ULONG (*key_keysize_adjust)(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize);
+};
+
+struct p11sak_iterate_compare_data {
+    CK_RV (*compare_key)(CK_OBJECT_HANDLE key1,
+                         CK_OBJECT_HANDLE key2,
+                         int *result,
+                         void *private);
+    void *private;
+    CK_RV rc;
+};
+
+struct p11sak_remove_data {
+    unsigned long num_removed;
+    unsigned long num_skipped;
+    unsigned long num_failed;
+    bool remove_all;
+    bool skip_all;
 };
 
 struct curve_info {

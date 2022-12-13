@@ -23,6 +23,7 @@
 #include <dlfcn.h>
 #include <pwd.h>
 #include <ctype.h>
+#include <fnmatch.h>
 
 #include <openssl/obj_mac.h>
 #include <openssl/evp.h>
@@ -87,11 +88,23 @@ static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
 static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private);
+static CK_ULONG generic_keysize_adjust(const struct p11sak_keytype *keytype,
+                                       CK_ULONG keysize);
 static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
                               void *private, CK_ULONG *keysize);
 static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
+static CK_ULONG aes_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize);
+static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_keytype *keytype,
+                                       CK_ULONG keysize);
+static CK_ULONG rsa_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize);
+static CK_ULONG dh_keysize_adjust(const struct p11sak_keytype *keytype,
+                                  CK_ULONG keysize);
+static CK_ULONG dsa_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize);
 static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
                               void *private, CK_ULONG *keysize);
 static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
@@ -134,6 +147,8 @@ static const struct p11sak_keytype p11sak_des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
 static const struct p11sak_keytype p11sak_3des_keytype = {
@@ -142,6 +157,8 @@ static const struct p11sak_keytype p11sak_3des_keytype = {
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES3,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
 static const struct p11sak_keytype p11sak_generic_keytype = {
@@ -152,6 +169,8 @@ static const struct p11sak_keytype p11sak_generic_keytype = {
     .keygen_add_secret_attrs = generic_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_GENERIC_SECRET,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_aes_keytype = {
@@ -162,6 +181,8 @@ static const struct p11sak_keytype p11sak_aes_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_aes_xts_keytype = {
@@ -172,6 +193,8 @@ static const struct p11sak_keytype p11sak_aes_xts_keytype = {
     .keygen_add_secret_attrs = aes_add_secret_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES_XTS,
+    .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_xts_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_rsa_keytype = {
@@ -182,6 +205,9 @@ static const struct p11sak_keytype p11sak_rsa_keytype = {
     .keygen_add_public_attrs = rsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = true,
     .wrap_unwrap = true, .derive = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_RSA,
+    .keysize_attr = CKA_MODULUS, .keysize_attr_value_len = true,
+    .key_keysize_adjust = rsa_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_dh_keytype = {
@@ -195,6 +221,9 @@ static const struct p11sak_keytype p11sak_dh_keytype = {
     .keygen_add_private_attrs = dh_add_private_attrs,
     .sign_verify = false, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DH,
+    .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
+    .key_keysize_adjust = dh_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_dsa_keytype = {
@@ -207,6 +236,9 @@ static const struct p11sak_keytype p11sak_dsa_keytype = {
     .keygen_add_public_attrs = dsa_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DSA,
+    .keysize_attr = CKA_PRIME, .keysize_attr_value_len = true,
+    .key_keysize_adjust = dsa_keysize_adjust,
 };
 
 static const struct p11sak_keytype p11sak_ec_keytype = {
@@ -217,6 +249,8 @@ static const struct p11sak_keytype p11sak_ec_keytype = {
     .keygen_add_public_attrs = ec_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_EC,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
 static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
@@ -226,6 +260,8 @@ static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
     .sign_verify = true, .encrypt_decrypt = false,
     .wrap_unwrap = false, .derive = false,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_DILITHIUM,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
 static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
@@ -235,25 +271,46 @@ static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
     .sign_verify = false, .encrypt_decrypt = true,
     .wrap_unwrap = false, .derive = true,
+    .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_IBM_PQC_KYBER,
+    .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
 static const struct p11sak_keytype p11sak_secret_keytype = {
     .name = "Secret",
     .is_asymmetric = false,
+    .filter_attr = CKA_CLASS, .filter_value = CKO_SECRET_KEY,
 };
 
 static const struct p11sak_keytype p11sak_public_keytype = {
     .name = "Public",
     .is_asymmetric = true,
+    .filter_attr = CKA_CLASS, .filter_value = CKO_PUBLIC_KEY,
 };
 
 static const struct p11sak_keytype p11sak_private_keytype = {
     .name = "Private",
     .is_asymmetric = true,
+    .filter_attr = CKA_CLASS, .filter_value = CKO_PRIVATE_KEY,
 };
 
 static const struct p11sak_keytype p11sak_all_keytype = {
     .name = "All",
+    .filter_attr = (CK_ATTRIBUTE_TYPE)-1,
+};
+
+static const struct p11sak_keytype *p11sak_keytypes[] = {
+    &p11sak_des_keytype,
+    &p11sak_3des_keytype,
+    &p11sak_generic_keytype,
+    &p11sak_aes_keytype,
+    &p11sak_aes_xts_keytype,
+    &p11sak_rsa_keytype,
+    &p11sak_dh_keytype,
+    &p11sak_dsa_keytype,
+    &p11sak_ec_keytype,
+    &p11sak_ibm_dilithium_keytype,
+    &p11sak_ibm_kyber_keytype,
+    NULL,
 };
 
 static const struct p11sak_opt p11sak_generic_opts[] = {
@@ -1475,6 +1532,14 @@ static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
                          attrs, num_attrs);
 }
 
+static CK_ULONG generic_keysize_adjust(const struct p11sak_keytype *keytype,
+                                       CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return keysize * 8;
+}
+
 static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
                               void *private, CK_ULONG *keysize)
 {
@@ -1497,6 +1562,46 @@ static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
 
     return add_attribute(CKA_VALUE_LEN, &value_len, sizeof(value_len),
                          attrs, num_attrs);
+}
+
+static CK_ULONG aes_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return keysize * 8;
+}
+
+static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_keytype *keytype,
+                                       CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return (keysize * 8) / 2;
+}
+
+static CK_ULONG rsa_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return keysize * 8;
+}
+
+static CK_ULONG dh_keysize_adjust(const struct p11sak_keytype *keytype,
+                                  CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return keysize * 8;
+}
+
+static CK_ULONG dsa_keysize_adjust(const struct p11sak_keytype *keytype,
+                                   CK_ULONG keysize)
+{
+    UNUSED(keytype);
+
+    return keysize * 8;
 }
 
 static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
@@ -2316,6 +2421,389 @@ static void free_attributes(CK_ATTRIBUTE *attrs, CK_ULONG num_attrs)
     free(attrs);
 }
 
+static CK_RV get_attribute(CK_OBJECT_HANDLE key, CK_ATTRIBUTE *attr)
+{
+    CK_RV rc;
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (attr->pValue == NULL && attr->ulValueLen > 0) {
+        attr->pValue = calloc(attr->ulValueLen, 1);
+        if (attr->pValue == NULL)
+            return CKR_HOST_MEMORY;
+
+        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key, attr, 1);
+    }
+
+    return rc;
+}
+
+static const struct p11sak_keytype *find_keytype(CK_KEY_TYPE ktype)
+{
+    const struct p11sak_keytype **kt;
+
+    for (kt = p11sak_keytypes; (*kt)->name != NULL; kt++) {
+        if ((*kt)->type == ktype)
+            return *kt;
+    }
+
+    return NULL;
+}
+
+static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
+                           CK_KEY_TYPE *ktype, CK_ULONG *keysize,
+                           char** label, char** typestr,
+                           const struct p11sak_keytype **keytype)
+{
+    CK_RV rc;
+    CK_ULONG i;
+    CK_OBJECT_CLASS class_val = 0;
+    CK_KEY_TYPE ktype_val = 0;
+    CK_ATTRIBUTE attrs[] = {
+        { CKA_LABEL, NULL, 0 }, /* label must be first one */
+        { CKA_CLASS, &class_val, sizeof(class_val) },
+        { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
+    };
+    const CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
+    const struct p11sak_keytype *keytype_val;
+    CK_ULONG keysize_val = 0;
+    CK_ATTRIBUTE keysize_attr;
+    int rv;
+
+    rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                           attrs, num_attrs);
+    if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID &&
+        rc != CKR_ATTRIBUTE_SENSITIVE) {
+        warnx("Failed to get attributes: C_GetAttributeValue: 0x%lX: %s",
+              rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    if (attrs[0].ulValueLen != 0 &&
+        attrs[0].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+        attrs[0].pValue = calloc(attrs[0].ulValueLen + 1, 1);
+        if (attrs[0].pValue == NULL) {
+            warnx("Failed to allocate memory for label attribute");
+            return CKR_HOST_MEMORY;
+        }
+
+        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                               attrs, num_attrs);
+        if (rc != CKR_OK && rc != CKR_ATTRIBUTE_TYPE_INVALID &&
+            rc != CKR_ATTRIBUTE_SENSITIVE) {
+            warnx("Failed to get attributes: C_GetAttributeValue: 0x%lX: %s",
+                  rc, p11_get_ckr(rc));
+            free(attrs[0].pValue);
+            return rc;
+        }
+    } else {
+        attrs[0].pValue = strdup("");
+        if (attrs[0].pValue == NULL) {
+            warnx("Failed to allocate memory for label attribute");
+            return CKR_HOST_MEMORY;
+        }
+    }
+
+    for (i = 0; i < num_attrs; i++) {
+        if (attrs[i].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+            warnx("Attribute %s is not available in key object",
+                  p11_get_cka(attrs[i].type));
+            free(attrs[0].pValue);
+            return CKR_TEMPLATE_INCOMPLETE;
+        }
+    }
+
+    if (class != NULL)
+        *class = class_val;
+    if (ktype != NULL)
+        *ktype = ktype_val;
+
+    keytype_val = find_keytype(ktype_val);
+    if (keytype_val == NULL) {
+        warnx("Key object \"%s\" has an unsupported key type: %lu",
+              (char *)attrs[0].pValue, ktype_val);
+        free(attrs[0].pValue);
+        return CKR_KEY_TYPE_INCONSISTENT;
+    }
+
+    if (keytype != NULL)
+        *keytype = keytype_val;
+
+    if (keytype_val->keysize_attr != (CK_ATTRIBUTE_TYPE)-1) {
+        keysize_attr.type = keytype_val->keysize_attr;
+        if (!keytype_val->keysize_attr_value_len) {
+            keysize_attr.ulValueLen = sizeof(keysize_val);
+            keysize_attr.pValue = &keysize_val;
+        } else {
+            /* Query attribute length only */
+            keysize_attr.ulValueLen = 0;
+            keysize_attr.pValue = NULL;
+        }
+        rc = pkcs11_funcs->C_GetAttributeValue(pkcs11_session, key,
+                                               &keysize_attr, 1);
+        if (rc != CKR_OK) {
+            warnx("Attribute %s is not available in key object",
+                  p11_get_cka( keysize_attr.type));
+            free(attrs[0].pValue);
+            return rc;
+        }
+
+        if (keytype_val->keysize_attr_value_len)
+            keysize_val = keysize_attr.ulValueLen;
+
+        if (keytype_val->key_keysize_adjust != NULL)
+            keysize_val = keytype_val->key_keysize_adjust(keytype_val,
+                                                          keysize_val);
+    }
+
+    if (keysize != NULL)
+        *keysize = keysize_val;
+
+    if (typestr != NULL) {
+        switch (class_val) {
+        case CKO_SECRET_KEY:
+            if (keysize_val != 0)
+                rv = asprintf(typestr, "%s %lu", keytype_val->name, keysize_val);
+            else
+                rv = asprintf(typestr, "%s", keytype_val->name);
+            break;
+        case CKO_PUBLIC_KEY:
+            if (keysize_val != 0)
+                rv = asprintf(typestr, "public %s %lu", keytype_val->name, keysize_val);
+            else
+                rv = asprintf(typestr, "public %s", keytype_val->name);
+            break;
+        case CKO_PRIVATE_KEY:
+            if (keysize_val != 0)
+                rv = asprintf(typestr, "private %s %lu", keytype_val->name, keysize_val);
+            else
+                rv = asprintf(typestr, "private %s", keytype_val->name);
+            break;
+        default:
+            warnx("Key object \"%s\" has an unsupported object class: %lu",
+                  (char *)attrs[0].pValue, class_val);
+            free(attrs[0].pValue);
+            return CKR_KEY_TYPE_INCONSISTENT;
+        }
+        if (*typestr == NULL || rv < 0) {
+            warnx("Failed to allocate type string buffer");
+            free(attrs[0].pValue);
+            return CKR_HOST_MEMORY;
+        }
+    }
+
+    if (label != NULL)
+        *label = attrs[0].pValue;
+    else
+        free(attrs[0].pValue);
+
+    return CKR_OK;
+}
+
+
+static int iterate_compare(const void *a, const void *b, void *private)
+{
+    struct p11sak_iterate_compare_data *data = private;
+    const CK_OBJECT_HANDLE *key1 = a;
+    const CK_OBJECT_HANDLE *key2 = b;
+    int result = 0;
+    CK_RV rc;
+
+    if (data->rc!= CKR_OK)
+        return 0;
+
+    rc = data->compare_key(*key1, *key2, &result, data->private);
+    if (rc != CKR_OK)
+        data->rc = rc;
+
+    return result;
+}
+
+static CK_RV iterate_key_objects(const struct p11sak_keytype *keytype,
+                                 const char *label_filter,
+                                 const char *id_filter,
+                                 const char *attr_filter,
+                                 CK_RV (*compare_key)(CK_OBJECT_HANDLE key1,
+                                                      CK_OBJECT_HANDLE key2,
+                                                      int *result,
+                                                      void *private),
+                                 CK_RV (*handle_key)(CK_OBJECT_HANDLE key,
+                                                     CK_OBJECT_CLASS class,
+                                                     const struct p11sak_keytype *keytype,
+                                                     CK_ULONG keysize,
+                                                     const char *typestr,
+                                                     const char* label,
+                                                     void *private),
+                                 void *private)
+{
+    CK_RV rc, rc2;
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    const CK_BBOOL ck_true = CK_TRUE;
+    CK_OBJECT_HANDLE keys[FIND_OBJECTS_COUNT];
+    CK_ULONG i, num_keys;
+    bool manual_filtering = false;
+    CK_OBJECT_CLASS class;
+    CK_KEY_TYPE ktype;
+    CK_ULONG keysize = 0;
+    char *label = NULL;
+    char *typestr = NULL;
+    const struct p11sak_keytype *type;
+    CK_OBJECT_HANDLE *matched_keys = NULL, *tmp;
+    CK_ULONG num_matched_keys = 0;
+    CK_ULONG alloc_matched_keys = 0;
+    struct p11sak_iterate_compare_data data;
+
+    rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (keytype != NULL && keytype->filter_attr != (CK_ATTRIBUTE_TYPE)-1) {
+        rc = add_attribute(keytype->filter_attr, &keytype->filter_value,
+                           sizeof(keytype->filter_value), &attrs, &num_attrs);
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    if (label_filter != NULL) {
+        manual_filtering = (strpbrk(label_filter, "*?\\") != NULL);
+        if (!manual_filtering) {
+            /* add label filter only if no escapes are used */
+            rc = add_attribute(CKA_LABEL, label_filter, strlen(label_filter),
+                               &attrs, &num_attrs);
+            if (rc != CKR_OK)
+                goto done;
+        }
+    }
+
+    if (id_filter != NULL) {
+        rc = parse_id(id_filter, &attrs, &num_attrs);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (attr_filter != NULL) {
+        rc = parse_boolean_attrs(NULL, opt_attr, &attrs, &num_attrs,
+                                 false, NULL);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    rc = pkcs11_funcs->C_FindObjectsInit(pkcs11_session, attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to initialize the find operation: C_FindObjectsInit: 0x%lX: %s",
+              rc, p11_get_ckr(rc));
+        goto done;
+    }
+
+    while (1) {
+        memset(keys, 0, sizeof(keys));
+        num_keys = 0;
+
+        rc = pkcs11_funcs->C_FindObjects(pkcs11_session, keys,
+                                         FIND_OBJECTS_COUNT, &num_keys);
+        if (rc != CKR_OK) {
+            warnx("Failed to find objects: C_FindObjects: 0x%lX: %s",
+                  rc, p11_get_ckr(rc));
+            goto done_find;
+        }
+
+        if (num_keys == 0)
+            break;
+
+        for (i = 0; i < num_keys; i++) {
+            if (manual_filtering) {
+                rc = get_key_infos(keys[i], NULL, NULL, NULL, &label,
+                                   NULL, NULL);
+                if (rc != CKR_OK)
+                    break;
+
+                if (fnmatch(label_filter, label, 0) != 0)
+                    goto next;
+            }
+
+            if (num_matched_keys >= alloc_matched_keys) {
+                tmp = realloc(matched_keys,
+                              (alloc_matched_keys + FIND_OBJECTS_COUNT) *
+                                                  sizeof(CK_OBJECT_HANDLE));
+                if (tmp == NULL) {
+                    warnx("Failed to allocate a list of matched keys.");
+                    rc = CKR_HOST_MEMORY;
+                    goto done_find;
+                }
+
+                matched_keys = tmp;
+                alloc_matched_keys += FIND_OBJECTS_COUNT;
+            }
+
+            matched_keys[num_matched_keys++] = keys[i];
+
+next:
+            if (label != NULL)
+                free(label);
+            label = NULL;
+        }
+    }
+
+done_find:
+    rc2 = pkcs11_funcs->C_FindObjectsFinal(pkcs11_session);
+    if (rc2 != CKR_OK) {
+        warnx("Failed to finalize the find operation: C_FindObjectsFinal: 0x%lX: %s",
+              rc2, p11_get_ckr(rc2));
+        if (rc == CKR_OK)
+            rc = rc2;
+    }
+
+    if (rc != CKR_OK)
+        goto done;
+
+    if (compare_key != NULL && num_matched_keys > 0) {
+        data.compare_key = compare_key;
+        data.private = private;
+        data.rc = CKR_OK;
+
+        qsort_r(matched_keys, num_matched_keys, sizeof(CK_OBJECT_HANDLE),
+                iterate_compare, &data);
+
+        rc = data.rc;
+        if (rc != CKR_OK)
+            goto done;
+    }
+
+    for (i = 0; i < num_matched_keys; i++) {
+        rc = get_key_infos(matched_keys[i], &class, &ktype, &keysize,
+                           &label, &typestr, &type);
+        if (rc != CKR_OK)
+            break;
+
+        rc = handle_key(matched_keys[i], class, type, keysize, typestr, label,
+                        private);
+        if (rc != CKR_OK)
+            break;
+
+        if (label != NULL)
+            free(label);
+        label = NULL;
+        if (typestr != NULL)
+            free(typestr);
+        typestr = NULL;
+    }
+
+done:
+    free_attributes(attrs, num_attrs);
+
+    if (label != NULL)
+        free(label);
+    if (typestr != NULL)
+        free(typestr);
+    if (matched_keys != NULL)
+        free(matched_keys);
+
+    return rc;
+}
+
 static CK_RV p11sak_generate_key(void)
 {
     const struct p11sak_keytype *keytype;
@@ -2455,11 +2943,119 @@ static CK_RV p11sak_list_key(void)
     return CKR_OK;
 }
 
-static CK_RV p11sak_remove_key(void)
+static char prompt_user(const char *message, char* allowed_chars)
 {
-    // TODO
+    int len;
+    size_t linelen = 0;
+    char *line = NULL;
+    char ch = '\0';
+
+    printf("%s", message);
+
+    while (1) {
+        len = getline(&line, &linelen, stdin);
+        if (len == -1)
+            break;
+
+        if (strlen(line) == 2 && strpbrk(line, allowed_chars) != 0) {
+            ch = line[0];
+            break;
+        }
+
+        warnx("Improper reply, try again");
+    }
+
+    if (line != NULL)
+        free(line);
+
+    return ch;
+}
+
+static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                               const struct p11sak_keytype *keytype,
+                               CK_ULONG keysize, const char *typestr,
+                               const char* label, void *private)
+{
+    struct p11sak_remove_data *data = private;
+    char *msg = NULL;
+    char ch;
+    CK_RV rc;
+
+    UNUSED(class);
+    UNUSED(keysize);
+    UNUSED(keytype);
+
+    if (data->skip_all) {
+        data->num_skipped++;
+        return CKR_OK;
+    }
+
+    if (!data->remove_all) {
+        if (asprintf(&msg, "Are you sure you want to remove %s key object \"%s\" [y/n/a/c]? ",
+                     typestr, label) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return CKR_HOST_MEMORY;
+        }
+        ch = prompt_user(msg, "ynac");
+        free(msg);
+
+        switch (ch) {
+        case 'n':
+            data->num_skipped++;
+            return CKR_OK;
+        case 'c':
+            data->skip_all = true;
+            data->num_skipped++;
+            return CKR_OK;
+        case 'a':
+            data->remove_all = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+    rc = pkcs11_funcs->C_DestroyObject(pkcs11_session, key);
+    if (rc != CKR_OK) {
+        warnx("Failed to remove %s key object \"%s\": C_DestroyObject: 0x%lX: %s",
+                typestr, label, rc, p11_get_ckr(rc));
+        data->num_failed++;
+        return CKR_OK;
+    }
+
+    printf("Successfully removed %s key object \"%s\".\n", typestr, label);
+    data->num_removed++;
 
     return CKR_OK;
+}
+
+static CK_RV p11sak_remove_key(void)
+{
+    const struct p11sak_keytype *keytype = NULL;
+    struct p11sak_remove_data data = { 0 };
+    CK_RV rc;
+
+    if (opt_keytype != NULL)
+        keytype = opt_keytype->private.ptr;
+
+    data.remove_all = opt_force;
+
+    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                             handle_key_remove, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
+                keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    printf("%lu key object(s) removed.\n", data.num_removed);
+    if (data.num_skipped > 0)
+        printf("%lu key object(s) skipped.\n", data.num_skipped);
+    if (data.num_failed > 0)
+        printf("%lu key object(s) failed to remove.\n", data.num_failed);
+
+    return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }
 
 static CK_RV load_pkcs11_lib(void)
