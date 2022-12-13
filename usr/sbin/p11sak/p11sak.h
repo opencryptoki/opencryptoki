@@ -21,6 +21,16 @@
 #define P11SAK_CONFIG_FILE_NAME             "p11sak_defined_attrs.conf"
 #define P11SAK_DEFAULT_CONFIG_FILE          OCK_CONFDIR "/" P11SAK_CONFIG_FILE_NAME
 
+#define P11SAK_CONFIG_KEYWORD_ATTRIBUTE     "attribute"
+#define P11SAK_CONFIG_KEYWORD_NAME          "name"
+#define P11SAK_CONFIG_KEYWORD_ID            "id"
+#define P11SAK_CONFIG_KEYWORD_TYPE          "type"
+
+#define P11SAK_CONFIG_TYPE_BOOL             "CK_BBOOL"
+#define P11SAK_CONFIG_TYPE_ULONG            "CK_ULONG"
+#define P11SAK_CONFIG_TYPE_BYTE             "CK_BYTE"
+#define P11SAK_CONFIG_TYPE_DATE             "CK_DATE"
+
 #define UNUSED(var)             ((void)(var))
 
 #define OPT_FORCE_PIN_PROMPT    256
@@ -30,6 +40,7 @@
 #define PRINT_INDENT_POS        35
 
 #define FIND_OBJECTS_COUNT      64
+#define LIST_KEYTYPE_CELL_SIZE  22
 
 enum p11sak_arg_type {
     ARG_TYPE_PLAIN = 0, /* no argument */
@@ -94,11 +105,15 @@ struct p11sak_attr {
     bool public;
     bool private;
     bool settable;
+    void (*print_short)(const CK_ATTRIBUTE *val, bool applicable);
+    void (*print_long)(const char *attr, const CK_ATTRIBUTE *val,
+                       int indent, bool sensitive);
 };
 
 struct p11sak_keytype {
     const char *name;
     CK_KEY_TYPE type;
+    const char *ckk_name;
     CK_MECHANISM keygen_mech;
     bool is_asymmetric;
     bool sign_verify;
@@ -125,6 +140,20 @@ struct p11sak_keytype {
     bool keysize_attr_value_len;
     CK_ULONG (*key_keysize_adjust)(const struct p11sak_keytype *keytype,
                                    CK_ULONG keysize);
+    const struct p11sak_attr *secret_attrs;
+    const struct p11sak_attr *public_attrs;
+    const struct p11sak_attr *private_attrs;
+};
+
+struct p11sak_class {
+    const char *name;
+    CK_OBJECT_CLASS class;
+};
+
+struct p11sak_custom_attr_type {
+    const char *type;
+    void (*print_long)(const char *attr, const CK_ATTRIBUTE *val,
+                       int indent, bool sensitive);
 };
 
 struct p11sak_iterate_compare_data {
@@ -142,6 +171,28 @@ struct p11sak_remove_data {
     unsigned long num_failed;
     bool remove_all;
     bool skip_all;
+};
+
+enum p11sak_sort_field {
+    SORT_NONE = 0,
+    SORT_LABEL = 1,
+    SORT_KEYTYPE = 2,
+    SORT_CLASS = 3,
+    SORT_KEYSIZE = 4,
+};
+
+#define MAX_SORT_FIELDS     4
+
+struct p11sak_sort_info {
+    enum p11sak_sort_field field;
+    bool descending;
+};
+
+struct p11sak_list_data {
+    unsigned long num_displayed;
+    CK_ATTRIBUTE *bool_attrs;
+    CK_ULONG num_bool_attrs;
+    struct p11sak_sort_info sort_info[MAX_SORT_FIELDS];
 };
 
 struct curve_info {
