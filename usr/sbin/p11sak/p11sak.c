@@ -50,8 +50,10 @@
 static CK_RV p11sak_generate_key(void);
 static CK_RV p11sak_list_key(void);
 static CK_RV p11sak_remove_key(void);
+static CK_RV p11sak_set_key_attr(void);
 static void print_generate_key_attr_help(void);
 static void print_list_key_attr_help(void);
+static void print_set_key_attr_help(void);
 
 static void *pkcs11_lib = NULL;
 static bool pkcs11_initialized = false;
@@ -83,6 +85,9 @@ static char *opt_id = NULL;
 static bool opt_long = false;
 static bool opt_detailed_uri = false;
 static char *opt_sort = NULL;
+static char *opt_new_attr = NULL;
+static char *opt_new_label = NULL;
+static char *opt_new_id = NULL;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
@@ -1081,7 +1086,7 @@ static const struct p11sak_opt p11sak_list_key_opts[] = {
 #define null_ibm_dilithium_args     NULL
 #define null_ibm_kyber_args         NULL
 
-static const struct p11sak_enum_value p11sak_list_remove_key_keytypes[] = {
+static const struct p11sak_enum_value p11sak_list_remove_set_key_keytypes[] = {
     KEYGEN_KEYTYPES(null),
     GROUP_KEYTYPES,
     { .value = NULL, },
@@ -1089,7 +1094,7 @@ static const struct p11sak_enum_value p11sak_list_remove_key_keytypes[] = {
 
 static const struct p11sak_arg p11sak_list_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
-      .enum_values = p11sak_list_remove_key_keytypes,
+      .enum_values = p11sak_list_remove_set_key_keytypes,
       .value.enum_value = &opt_keytype,
       .description = "The type of the keys to list (optional). If no key type "
                      "is specified, all key types are listed.", },
@@ -1110,7 +1115,7 @@ static const struct p11sak_opt p11sak_remove_key_opts[] = {
 
 static const struct p11sak_arg p11sak_remove_key_args[] = {
     { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
-      .enum_values = p11sak_list_remove_key_keytypes,
+      .enum_values = p11sak_list_remove_set_key_keytypes,
       .value.enum_value = &opt_keytype,
       .description = "The type of the keys to select for removal (optional). "
                      "If no key type is specified, all key types are "
@@ -1118,6 +1123,43 @@ static const struct p11sak_arg p11sak_remove_key_args[] = {
     { .name = NULL },
 };
 
+static const struct p11sak_opt p11sak_set_key_attr_opts[] = {
+    PKCS11_OPTS,
+    FILTER_OPTS,
+    { .short_opt = 'f', .long_opt = "force", .required = false,
+      .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
+                .value.plain = &opt_force, },
+      .description = "Do not prompt for a confirmation to set the attributes "
+                     "of a key. Use with care, all keys matching the filter "
+                     "will be changed!", },
+    { .short_opt = 'A', .long_opt = "new-attr", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_attr, .name = "ATTRS", },
+      .description = "The boolean attributes to set for the key (optional):\n"
+                     "P L M B Y R E D G C V O W U S A X N T I. "
+                     "Specify a set of these letters without any blanks in "
+                     "between. See below for the meaning of the attribute "
+                     "letters. Restrictions on attribute values may apply.", },
+    { .short_opt = 'l', .long_opt = "new-label", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_label, .name = "LABEL", },
+      .description = "The new label to set for the key (optional).", },
+    { .short_opt = 'I', .long_opt = "new-id", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_new_id, .name = "ID", },
+      .description = "The new ID to set for the key (optional).", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
+static const struct p11sak_arg p11sak_set_key_attr_args[] = {
+    { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = false,
+      .enum_values = p11sak_list_remove_set_key_keytypes,
+      .value.enum_value = &opt_keytype,
+      .description = "The type of the keys to select for update (optional). "
+                     "If no key type is specified, all key types are "
+                     "selected.", },
+    { .name = NULL },
+};
 
 static const struct p11sak_cmd p11sak_commands[] = {
     { .cmd = "generate-key", .cmd_short1 = "gen-key", .cmd_short2 = "gen",
@@ -1134,6 +1176,12 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .func = p11sak_remove_key,
       .opts = p11sak_remove_key_opts, .args = p11sak_remove_key_args,
       .description = "Delete keys in the repository.",
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
+    { .cmd = "set-key-attr", .cmd_short1 = "set-key", .cmd_short2 = "set",
+      .func = p11sak_set_key_attr,
+      .opts = p11sak_set_key_attr_opts, .args = p11sak_set_key_attr_args,
+      .description = "Set attributes of keys in the repository.",
+      .help = print_set_key_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
@@ -1794,6 +1842,27 @@ static void print_list_key_attr_help(void)
     print_indented("Not all attributes may be defined for all key types.\n"
                    "Attribute CKA_TOKEN is always CK_TRUE for all keys listed.",
                    4);
+    printf("\n");
+}
+
+static void print_set_key_attr_help(void)
+{
+    const struct p11sak_attr *attr;
+
+    printf("ATTRIBUTES:\n");
+    for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
+        if (attr->settable)
+            printf("    '%c':   %s\n", attr->letter, attr->name);
+    }
+    printf("\n");
+
+    printf("    ");
+    print_indented("An uppercase letter sets the corresponding attribute to "
+                   "CK_TRUE, a lower case letter to CK_FALSE.\n"
+                   "If an attribute is not set explicitly, its value is not "
+                   "changed.\n"
+                   "Not all attributes may be allowed to be changed for all "
+                   "key types, or to all values.\n", 4);
     printf("\n");
 }
 
@@ -4358,6 +4427,154 @@ static CK_RV p11sak_remove_key(void)
         printf("%lu key object(s) skipped.\n", data.num_skipped);
     if (data.num_failed > 0)
         printf("%lu key object(s) failed to remove.\n", data.num_failed);
+
+    return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+                                 const struct p11sak_keytype *keytype,
+                                 CK_ULONG keysize, const char *typestr,
+                                 const char* label, void *private)
+{
+    struct p11sak_set_attr_data *data = private;
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    char *msg = NULL;
+    char ch;
+    CK_RV rc;
+    bool (*attr_aplicable)(const struct p11sak_keytype *keytype,
+                           const struct p11sak_attr *attr);
+
+    UNUSED(keysize);
+
+    if (data->skip_all) {
+        data->num_skipped++;
+        return CKR_OK;
+    }
+
+    if (!data->set_all) {
+        if (asprintf(&msg, "Are you sure you want to change %s key object \"%s\" [y/n/a/c]? ",
+                     typestr, label) < 0 ||
+            msg == NULL) {
+            warnx("Failed to allocate memory for a message");
+            return CKR_HOST_MEMORY;
+        }
+        ch = prompt_user(msg, "ynac");
+        free(msg);
+
+        switch (ch) {
+        case 'n':
+            data->num_skipped++;
+            return CKR_OK;
+        case 'c':
+            data->skip_all = true;
+            data->num_skipped++;
+            return CKR_OK;
+        case 'a':
+            data->set_all = true;
+            break;
+        default:
+            break;
+        }
+    }
+
+    switch (class) {
+    case CKO_SECRET_KEY:
+        attr_aplicable = secret_attr_applicable;
+        break;
+    case CKO_PUBLIC_KEY:
+        attr_aplicable = public_attr_applicable;
+        break;
+    case CKO_PRIVATE_KEY:
+        attr_aplicable = private_attr_applicable;
+        break;
+    default:
+        warnx("Key object \"%s\" has an unsupported object class: %lu",
+              label, class);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
+    if (opt_new_attr != NULL) {
+        rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
+                                 true, attr_aplicable);
+        if (rc != CKR_OK) {
+            data->num_failed++;
+            goto done;
+        }
+
+        if (num_attrs == 0) {
+            warnx("None of the specified attributes apply to %s key object \"%s\".",
+                  typestr, label);
+            data->num_skipped++;
+            goto done;
+        }
+    }
+
+    if (opt_new_label != NULL) {
+        rc = add_attribute(CKA_LABEL, opt_new_label, strlen(opt_new_label),
+                           &attrs, &num_attrs);
+        if (rc != CKR_OK) {
+            warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
+                  keytype->name, rc, p11_get_ckr(rc));
+            return rc;
+        }
+    }
+
+    if (opt_new_id != NULL) {
+        rc = parse_id(opt_new_id, &attrs, &num_attrs);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    rc = pkcs11_funcs->C_SetAttributeValue(pkcs11_session, key,
+                                           attrs, num_attrs);
+    if (rc != CKR_OK) {
+        warnx("Failed to change %s key object \"%s\": C_SetAttributeValue: 0x%lX: %s",
+              typestr, label, rc, p11_get_ckr(rc));
+        data->num_failed++;
+        rc = CKR_OK;
+        goto done;
+    }
+
+    printf("Successfully changed %s key object \"%s\".\n", typestr, label);
+    data->num_set++;
+
+done:
+    free_attributes(attrs, num_attrs);
+    return rc;
+}
+
+static CK_RV p11sak_set_key_attr(void)
+{
+    const struct p11sak_keytype *keytype = NULL;
+    struct p11sak_set_attr_data data = { 0 };
+    CK_RV rc;
+
+    if (opt_keytype != NULL)
+        keytype = opt_keytype->private.ptr;
+
+    if (opt_new_attr == NULL && opt_new_label == NULL && opt_new_id == NULL) {
+        warnx("At least one of the following options must be specified:");
+        warnx("'-A'/'--new-attr', '-l'/'--new-label', or '-I'/'--new-id'");
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    data.set_all = opt_force;
+
+    rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
+                             handle_key_set_attr, &data);
+    if (rc != CKR_OK) {
+        warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
+                keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
+        return rc;
+    }
+
+    printf("%lu key object(s) updated.\n", data.num_set);
+    if (data.num_skipped > 0)
+        printf("%lu key object(s) skipped.\n", data.num_skipped);
+    if (data.num_failed > 0)
+        printf("%lu key object(s) failed to update.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
 }

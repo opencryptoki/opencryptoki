@@ -195,6 +195,14 @@ struct p11sak_list_data {
     struct p11sak_sort_info sort_info[MAX_SORT_FIELDS];
 };
 
+struct p11sak_set_attr_data {
+    unsigned long num_set;
+    unsigned long num_skipped;
+    unsigned long num_failed;
+    bool set_all;
+    bool skip_all;
+};
+
 struct curve_info {
     const CK_BYTE *oid;
     CK_ULONG oid_len;
