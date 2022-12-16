@@ -76,7 +76,7 @@ p11sak generate-key aes 128 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-a
 p11sak generate-key aes 192 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-192
 p11sak generate-key aes 256 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-256
 # aes-xts [128 | 256]
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) && -z $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
 	p11sak generate-key aes-xts 128 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-128
 	p11sak generate-key aes-xts 256 --slot $SLOT --pin $PKCS11_USER_PIN --label p11sak-aes-xts-256
 else
@@ -385,7 +385,7 @@ else
 	status=1
 fi
 
-if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) && -z $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
 	# check AES-XTS 128
 	grep -q 'p11sak-aes-xts-128' $P11SAK_AES_XTS_PRE
 	rc=$?
