@@ -9901,7 +9901,9 @@ static const CK_MECHANISM_TYPE ep11_supported_mech_list[] = {
     CKM_AES_CBC_PAD,
     CKM_AES_CMAC,
     CKM_AES_ECB,
+    CKM_AES_XTS,
     CKM_AES_KEY_GEN,
+    CKM_AES_XTS_KEY_GEN,
     CKM_DES2_KEY_GEN,
     CKM_DES3_CBC,
     CKM_DES3_CBC_PAD,
@@ -10081,6 +10083,11 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                 *pulCount -= 1;
             }
         }
+
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_AES_XTS) == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_AES_XTS_KEY_GEN) == CKR_OK) {
+            *pulCount += 2;
+        }
     } else {
         /* 2. call, content request */
         size = *pulCount;
@@ -10146,6 +10153,16 @@ CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                     pMechanismList[*pulCount] = mlist[i];
                 *pulCount = *pulCount + 1;
             }
+        }
+
+        if (ep11tok_is_mechanism_supported(tokdata, CKM_AES_XTS) == CKR_OK &&
+            ep11tok_is_mechanism_supported(tokdata, CKM_AES_XTS_KEY_GEN) == CKR_OK) {
+            if (*pulCount < size)
+                pMechanismList[*pulCount] = CKM_AES_XTS_KEY_GEN;
+            *pulCount = *pulCount + 1;
+            if (*pulCount < size)
+                pMechanismList[*pulCount] = CKM_AES_XTS;
+            *pulCount = *pulCount + 1;
         }
         if (*pulCount > size)
             rc = CKR_BUFFER_TOO_SMALL;
@@ -10387,6 +10404,18 @@ CK_RV ep11tok_is_mechanism_supported(STDLL_TokData_t *tokdata,
             goto out;
         }
         break;
+
+    case CKM_AES_XTS:
+    case CKM_AES_XTS_KEY_GEN:
+        if (ep11tok_pkey_option_disabled(tokdata) || ep11_data->msa_level < 4 ||
+            ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK ||
+            ep11tok_is_mechanism_supported(tokdata, CKM_AES_KEY_GEN) != CKR_OK) {
+            TRACE_INFO("%s Mech '%s' not suppported\n", __func__,
+                       ep11_get_ckm(tokdata, type));
+            rc = CKR_MECHANISM_INVALID;
+            goto out;
+        }
+        break;
     }
 
 out:
@@ -10451,7 +10480,21 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
     if (target_info == NULL)
         return CKR_FUNCTION_FAILED;
 
-    rc = dll_m_GetMechanismInfo(0, type, pInfo, target_info->target);
+    switch (type) {
+        case CKM_AES_XTS:
+            pInfo->ulMinKeySize = 32;
+            pInfo->ulMaxKeySize = 64;
+            pInfo->flags = (CK_FLAGS)(CKF_ENCRYPT|CKF_DECRYPT);
+            break;
+        case CKM_AES_XTS_KEY_GEN:
+            pInfo->ulMinKeySize = 32;
+            pInfo->ulMaxKeySize = 64;
+            pInfo->flags = (CK_FLAGS)(CKF_HW|CKF_GENERATE);
+            break;
+        default:
+            rc = dll_m_GetMechanismInfo(0, type, pInfo, target_info->target);
+            break;
+        }
 
     put_target_info(tokdata, target_info);
 
