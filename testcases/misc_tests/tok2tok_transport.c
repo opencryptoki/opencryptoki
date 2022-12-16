@@ -664,6 +664,12 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
 
     case CKM_AES_KEY_GEN:
     case CKM_AES_XTS_KEY_GEN:
+        if ((is_ep11_token(slot_id1) || is_ep11_token(slot_id2)) &&
+            tsuite->wrapped_key_gen_mech.mechanism == CKM_AES_XTS_KEY_GEN) {
+            testcase_skip("Skipping as AES XTS is supported only with protected keys");
+            rc = CKR_OK;
+            goto testcase_cleanup;
+        }
         rc = generate_AESKey(session1, tsuite->sym_keylen, CK_TRUE,
                              &tsuite->wrapped_key_gen_mech, &sym_key);
         break;

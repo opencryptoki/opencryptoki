@@ -1313,6 +1313,12 @@ CK_RV do_WrapUnwrapRSA(struct GENERATED_TEST_SUITE_INFO * tsuite)
                           (unsigned int)keygen_mech.mechanism);
             continue;
         }
+        if (keygen_mech.mechanism == CKM_AES_XTS_KEY_GEN &&
+            is_ep11_token(slot_id)) {
+            testcase_skip("Skip test as CKM_AES_XTS_KEY_GEN is supported " \
+                          "only for protected keys in EP11 token");
+            continue;
+        }
         // get wrapping mechanism
         wrap_mech = tsuite->mech;
         if (wrap_mech.mechanism == CKM_RSA_PKCS_OAEP) {

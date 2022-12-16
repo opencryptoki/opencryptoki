@@ -173,13 +173,15 @@ CK_RV create_AESKey(CK_SESSION_HANDLE session, CK_BBOOL extractable,
     CK_BBOOL true = TRUE;
     CK_BBOOL false = FALSE;
     CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
+    CK_BBOOL pkeyextractable = !extractable;
     CK_ATTRIBUTE keyTemplate[] = {
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_CLASS, &keyClass, sizeof(keyClass)},
         {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
         {CKA_ENCRYPT, &true, sizeof(true)},
         {CKA_TOKEN, &false, sizeof(false)},
-        {CKA_VALUE, key, key_len}
+        {CKA_VALUE, key, key_len},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
 
@@ -199,9 +201,11 @@ CK_RV generate_AESKey(CK_SESSION_HANDLE session,
                       CK_ULONG key_len, CK_BBOOL extractable,
                       CK_MECHANISM * mechkey, CK_OBJECT_HANDLE * h_key)
 {
+    CK_BBOOL pkeyextractable = !extractable;
     CK_ATTRIBUTE key_gen_tmpl[] = {
         {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
-        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)}
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 

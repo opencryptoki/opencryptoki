@@ -69,6 +69,11 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
         goto testcase_cleanup;
     }
 
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
 
     /** iterate over test key sizes **/
     for (i = 0; i < 3; i++) {
@@ -215,6 +220,12 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
                       (unsigned int) slot_id,
                       mech_to_str(tsuite->mech.mechanism),
                       (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
 
@@ -498,6 +509,12 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Encryption with published test vector %u and pkey=%X.",
@@ -662,6 +679,12 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
                        (unsigned int) slot_id,
                        mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
 
@@ -873,6 +896,12 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         goto testcase_cleanup;
     }
 
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Decryption with published test vector %u and pkey=%X.",
@@ -1036,6 +1065,12 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
                        (unsigned int) slot_id,
                        mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
 
@@ -1263,6 +1298,12 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
                        (unsigned int) slot_id,
                        mech_to_str(tsuite->mech.mechanism),
                        (unsigned int) tsuite->mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
+    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
 
@@ -1499,6 +1540,8 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
     CK_OBJECT_CLASS keyclass = CKO_PRIVATE_KEY;
     CK_KEY_TYPE keytype = CKK_RSA;
     CK_SLOT_ID slot_id = SLOT_ID;
+    CK_BBOOL extractable = !pkey;
+    CK_BBOOL pkeyextractable = pkey;
 
     CK_ATTRIBUTE pub_tmpl[] = {
         {CKA_MODULUS_BITS, &bits, sizeof(bits)},
@@ -1511,7 +1554,9 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         {CKA_KEY_TYPE, &keytype, sizeof(keytype)},
     };
     CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
         {CKA_VALUE_LEN, &key_size, sizeof(CK_ULONG)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
 
@@ -1558,6 +1603,14 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
         testsuite_skip(3,
                        "Slot %u doesn't support CKM_RSA_PKCS_KEY_PAIR_GEN",
                        (unsigned int) slot_id);
+        goto testcase_cleanup;
+    }
+
+    if (!wrap_supported(slot_id, tsuite->mech)) {
+        testsuite_skip(3, "Slot %u doesn't support wrapping with %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(tsuite->mech.mechanism),
+                       (unsigned int) tsuite->mech.mechanism);
         goto testcase_cleanup;
     }
 
