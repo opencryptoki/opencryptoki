@@ -13315,6 +13315,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     CK_OBJECT_CLASS class;
+    CK_KEY_TYPE ktype;
     size_t keyblobsize = 0;
     CK_BYTE *keyblob;
     DL_NODE *node;
@@ -13327,6 +13328,12 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
     rc = template_attribute_get_ulong(obj->template, CKA_CLASS, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s CKA_CLASS is missing\n", __func__);
+        return rc;
+    }
+
+    rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &ktype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s CKA_KEY_TYPE is missing\n", __func__);
         return rc;
     }
 
@@ -13410,8 +13417,11 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
 
         RETRY_START(rc, tokdata)
             rc = dll_m_SetAttributeValue(ibm_opaque_attr->pValue,
-                                         ibm_opaque_attr->ulValueLen, attributes,
-                                         num_attributes, target_info->target);
+                                         (ktype != CKK_AES_XTS ?
+                                         ibm_opaque_attr->ulValueLen :
+                                         ibm_opaque_attr->ulValueLen / 2),
+                                         attributes, num_attributes,
+                                         target_info->target);
         RETRY_END(rc, tokdata, session)
 
         if (rc != CKR_OK) {
@@ -13422,6 +13432,23 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             goto out;
         }
 
+        if (ktype == CKK_AES_XTS) {
+            RETRY_START(rc, tokdata)
+                rc = dll_m_SetAttributeValue((CK_BYTE *)ibm_opaque_attr->pValue +
+                                             (ibm_opaque_attr->ulValueLen / 2),
+                                             ibm_opaque_attr->ulValueLen / 2,
+                                             attributes, num_attributes,
+                                             target_info->target);
+            RETRY_END(rc, tokdata, session)
+
+            if (rc != CKR_OK) {
+                rc = ep11_error_to_pkcs11_error(rc, NULL);
+                TRACE_ERROR("%s m_SetAttributeValue failed rc=0x%lx\n",
+                            __func__, rc);
+                free(ibm_opaque_attr);
+                goto out;
+            }
+        }
         rc = template_update_attribute(new_tmpl, ibm_opaque_attr);
         if (rc != CKR_OK) {
             TRACE_ERROR("%s template_update_attribute failed rc=0x%lx\n",
