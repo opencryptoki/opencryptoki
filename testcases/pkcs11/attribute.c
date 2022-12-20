@@ -476,6 +476,114 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_TestAttributesAESXTS(void)
+{
+    CK_OBJECT_HANDLE obj_handle = CK_INVALID_HANDLE;
+    CK_SESSION_HANDLE session;
+    CK_RV rc = 0, rv = 0;
+    CK_FLAGS flags;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+
+    CK_BYTE key[] = {
+        0xa5, 0x6e, 0x4a, 0x0e, 0x70, 0x10, 0x17, 0x58,
+        0x9a, 0x51, 0x87, 0xdc, 0x7e, 0xa8, 0x41, 0xd1,
+        0x56, 0xf2, 0xec, 0x0e, 0x36, 0xad, 0x52, 0xa4,
+        0x4d, 0xfe, 0xb1, 0xe6, 0x1f, 0x7a, 0xd9, 0x91,
+        0xd8, 0xc5, 0x10, 0x56, 0xff, 0xed, 0xb1, 0x62,
+        0xb4, 0xc0, 0xf2, 0x83, 0xa1, 0x2a, 0x88, 0xa3,
+        0x94, 0xdf, 0xf5, 0x26, 0xab, 0x72, 0x91, 0xcb,
+        0xb3, 0x07, 0xce, 0xab, 0xfc, 0xe0, 0xb1, 0xdf,
+    };
+
+    int keylen = 64;
+
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_KEY_TYPE keyType = CKK_AES_XTS;
+    CK_CHAR label[] = "An AES XTS key object";
+    CK_BBOOL false = FALSE;
+    CK_BBOOL true = TRUE;
+    CK_BBOOL boolval;
+
+    CK_ATTRIBUTE keyTemplate[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &keyType, sizeof(keyType)},
+        {CKA_TOKEN, &false, sizeof(false)},
+        {CKA_LABEL, label, sizeof(label) - 1},
+        {CKA_VALUE, key, keylen},
+        {CKA_EXTRACTABLE, &false, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &true, sizeof(CK_BBOOL)},
+    };
+    CK_ULONG keyTemplate_len = sizeof(keyTemplate) / sizeof(CK_ATTRIBUTE);
+
+    CK_ATTRIBUTE new_attrs[] = {
+        {CKA_ENCRYPT, &false, sizeof(false)},
+    };
+
+    CK_ATTRIBUTE verify_attrs[] = {
+        {CKA_ENCRYPT, &boolval, sizeof(boolval)},
+    };
+
+    testcase_begin("");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /** skip test if the slot doesn't support this mechanism **/
+    if (!mech_supported(SLOT_ID, CKM_AES_XTS)) {
+        testcase_skip("Skip test as CKM_AES_XTS not supported");
+        goto testcase_cleanup;
+    }
+
+    /* create a aes xts key object */
+    rc = funcs->C_CreateObject(session, keyTemplate, keyTemplate_len, &obj_handle);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+        testcase_fail("C_CreateObject() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* Now add new attributes */
+    testcase_new_assertion();
+    rc = funcs->C_SetAttributeValue(session, obj_handle, new_attrs, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_SetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    testcase_pass("Successfully added new attributes.");
+
+    /* Now get the attributes that were updated */
+    testcase_new_assertion();
+    rc = funcs->C_GetAttributeValue(session, obj_handle, verify_attrs, 1);
+    if (rc != CKR_OK) {
+        testcase_fail("C_GetAttributeValue() rc = %s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    /* verify the attribute values retrieved */
+    if (*(CK_BBOOL *) verify_attrs[0].pValue != false) {
+        testcase_fail("CKA_ENCRYPT mismatch");
+        goto testcase_cleanup;
+    }
+
+testcase_cleanup:
+    if (obj_handle != CK_INVALID_HANDLE) {
+        rv = funcs->C_DestroyObject(session, obj_handle);
+        if (rv != CKR_OK)
+            testcase_error("C_DestroyObject rv=%s", p11_get_ckr(rv));
+    }
+
+    testcase_user_logout();
+    rv = funcs->C_CloseSession(session);
+    if (rv != CKR_OK)
+        testcase_error("C_CloseSessions rv=%s", p11_get_ckr(rv));
+
+    return rc;
+}
+
 int main(int argc, char **argv)
 {
     int rc;
@@ -514,6 +622,7 @@ int main(int argc, char **argv)
 
     testcase_setup();
     rc = do_TestAttributes();
+    rc = do_TestAttributesAESXTS();
     testcase_print_result();
 
     funcs->C_Finalize(NULL);
