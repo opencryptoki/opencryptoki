@@ -14,7 +14,7 @@ BuildRequires:		gcc
 BuildRequires:		openssl-devel >= 1.1.1
 BuildRequires:		trousers-devel
 BuildRequires:		openldap-devel
-BuildRequires:		autoconf automake libtool
+BuildRequires:		autoconf automake libtool autoconf-archive
 BuildRequires:		bison flex
 BuildRequires:		systemd-devel
 BuildRequires:		libitm-devel
