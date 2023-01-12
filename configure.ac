@@ -85,6 +85,8 @@ AC_SUBST(lockdir)
 logdir=$localstatedir/log/opencryptoki
 AC_SUBST(logdir)
 
+AM_CONDITIONAL([CROSS], [test "x$cross_compiling" = xyes])
+
 dnl ---
 dnl --- Check all --enable/--disable-features
 dnl ---
@@ -595,6 +597,7 @@ CFLAGS+=" -std=c99 -Werror=implicit-int -Werror=implicit-function-declaration -W
 
 # At this point, CFLAGS is set to something sensible
 AC_PROG_CC
+AX_PROG_CC_FOR_BUILD
 AC_PROG_CXX
 # AC_PROG_CXX will return "g++" even if no c++ compiler is installed.
 # Check for that case, and issue an error if so.
