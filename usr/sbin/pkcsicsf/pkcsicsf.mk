@@ -6,8 +6,8 @@ usr_sbin_pkcsicsf_pkcsicsf_CFLAGS =					\
 	-D_THREAD_SAFE -DDEV -DAPI -DSTDLL_NAME=\"icsf\"		\
 	-I${srcdir}/usr/include -I${srcdir}/usr/lib/icsf_stdll		\
 	-I${srcdir}/usr/lib/common -I${srcdir}/usr/sbin/pkcsicsf	\
-	-I${srcdir}/usr/lib/config					\
-	-I${top_builddir}/usr/lib/config
+	-I${srcdir}/usr/lib/config -I${top_builddir}/usr/lib/config	\
+	-I${top_builddir}/usr/lib/api -I${srcdir}/usr/lib/api
 
 
 usr_sbin_pkcsicsf_pkcsicsf_SOURCES =					\
