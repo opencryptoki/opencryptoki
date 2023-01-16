@@ -1,519 +1,1276 @@
 .TH P11SAK 1 "May 2020" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-p11sak \- generate and list token keys in an openCryptoki token repository.
+p11sak \- Manage token keys in a PKCS\~#11 token repository.
+.
 .
 .
 .SH SYNOPSIS
 .B p11sak
 .I command
-.RI [ ARGS ]
+.RB [ ARGUMENTS ]
 .RB [ OPTIONS ]
-.
 .PP
+.
 .B p11sak
 .BR \-\-help | \-h
 .br
-
+.B p11sak
+.BR \-\-version | \-v
+.
+.
+.
 .SH DESCRIPTION
-.B p11sak can be used to generate, list and delete the token keys in an openCryptoki token repository.
-The utility provides a flexible key management tool in openCryptoki to list and generate symmetric (DES, 3DES, AES, AES-XTS) and asymmetric (RSA, EC, IBM Dilithium, IBM Kyber) keys.
-This tool is especially capable of a well defined listing of keys with their PKCS #11 attributes.
+The \fBp11sak\fP tool can be used to manage token keys in a PKCS\~#11 token
+repository. The utility provides a flexible key management tool to generate,
+list, remove, update, copy, import, and export symmetric (DES, 3DES, generic,
+AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC, IBM Dilithium, IBM Kyber) keys.
+This tool is also capable of listing the keys with their PKCS\~#11 attributes
+and its values (not all attributes may be displayed if a keys is sensitive).
+.PP
+.B Note:
+The
+.B p11sak
+tool only operates on token keys (i.e. \fBCKA_TOKEN=TRUE\fP), but not on
+session keys (\fBCKA_TOKEN=FALSE\fP). Token keys are stored persistently in the
+token's repository, while session keys are not stored persistently, and only
+exist as long as the session is alive. Thus, session keys generated or imported
+by the
+.B p11sak
+tool would not exist anymore when the
+.B p11sak
+tool has exited.
 .
 .
 .
 .SH COMMANDS
-The \fBp11sak\fP tool can operate in three modes: when command
-.I generate-key
-is specified, it operates in the mode to generate a token key in the openCryptoki token repository.
-If command
-.I list-key
-is given, it lists the keys specified in the arguments.
-If command
-.I remove-key
-is given, it removes the keys specified in the arguments.
-.
+The \fBp11sak\fP tool supports various commands to generate, list, remove,
+update, import, and export token keys in a PKCS\~#11 token repository.
 .PP
-.SS "generate-key"
+.SS "Generating symmetric and asymmetric keys"
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.I KEYTYPE
+.RB [ ARGUMENTS ]
+.RB [ OPTIONS ]
 .PP
 Use the
-.B generate-key|gen-key|gen
-command and key argument to generate a token key with the respective
-.RI [ ARGS ]
+.BR generate\-key | gen\-key | gen
+command to generate a token key of the specified
+.I KEYTYPE
+with the respective
+.B ARGUMENTS
 and
-.RB [ OPTIONS ].
-The
+.BR OPTIONS .
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber .
+See below for a detailed description of the arguments and options. The
 .BR \-\-help | \-h
-option will show the arguments and options available.
-.
-.PP
-.SS "list-key"
-.PP
-Use the
-.B list-key|ls-key|ls
-command and key argument to list token keys given the respective
-.RI [ ARGS ]
-and
-.RB [ OPTIONS ].
-The
-.BR \-\-help | \-h
-option will show the arguments and options available.
-.
-.PP
-.SS "remove-key"
-.PP
-Use the
-.B remove-key|rm-key|rm
-command and key argument to delete token keys given the respective
-.RI [ ARGS ]
-and
-.RB [ OPTIONS ].
-The
-.BR \-\-help | \-h
-option will show the arguments and options available.
+option will also show the arguments and options available.
 .
 .PP
 .SS "Generating DES/3DES keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
+.BR generate\-key | gen\-key | gen
 .BR des | 3des
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.BR \-\-attr | \-a
+.I ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
+.BR generate\-key | gen\-key | gen
 command with the
 .B des|3des
-key argument to generate a DES or 3DES key. The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+.I KEYTYPE
+argument to generate a DES or 3DES key (\fBCKK_DES\fP or \fBCKK_DES3\fP). The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.PP
+.SS "Generating generic secret keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR generic
+.I KEYBITS
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.BR \-\-attr | \-a
+.I ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B generic
+.I KEYBITS
+command and
+.I KEYTYPE
+argument to generate a generic secret key (\fBCKK_GENERIC_SECRET\fP) with the
+key size in bits as specified by the
+.I KEYBITS
+argument.The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
 .SS "Generating AES keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
+.BR generate\-key | gen\-key | gen
 .BR aes
 .BR 128 | 192 | 256
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.BR \-\-attr | \-a
+.I ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
+.BR generate\-key | gen\-key | gen
 .B aes
 .B 128|192|256
-command and key argument to generate a AES key with 128, 192 or 256 bit length, respectively. The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+command and
+.I KEYTYPE
+argument to generate a AES key (\fBCKK_AES\fP) with 128-, 192-, or 256-bit
+length, respectively. The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
-.SS "Generating AES-XTS keys"
+.SS "Generating AES\-XTS keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
-.BR aes-xts
+.BR generate\-key | gen\-key | gen
+.BR aes\-xts
 .BR 128 | 256
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.BR \-\-attr | \-a
+.I ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
-.B aes-xts
+.BR generate\-key | gen\-key | gen
+.B aes\-xts
 .B 128|256
-command and key argument to generate a AES-XTS key with 128 or 256 bit length, respectively. The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+command and
+.I KEYTYPE
+argument to generate a AES\-XTS key (\fBCKK_AES_XTS\fP) with 128- or 256-bit
+length, respectively. The
+.BR \-\-label | \-L
+.I LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
 .SS "Generating RSA keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
+.BR generate\-key | gen\-key | gen
 .BR rsa
-.BR 1024 | 2048 | 4096
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-exponent
-.IR EXP
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR 512 | 1024 | 2048 | 4096
+.RI [ PUBL\-EXP ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
+.BR generate\-key | gen\-key | gen
 .B rsa
 .B 1024|2048|4096
-command and key argument to generate a 1024, 2048 or 4096 bit RSA key, respectively. The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes). Furthermore, the
-.B \-\-exponent
-.IR EXP
-options allows the user to specify the exponent used for generating the RSA key. The default is set to 65537 according to the PKCS #11 standard.
+command and
+.I KEYTYPE
+argument to generate an 512-, 1024-, 2048-, or 4096-bit RSA key (\fBCKK_RSA\fP),
+respectively. The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key. Furthermore, the optional
+.I PUBL\-EXP
+argument allows the user to specify the exponent used for generating the RSA
+key. The default is set to 65537 according to the PKCS\~#11 standard.
 .
+.PP
+.SS "Generating DH keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR dh
+.IR GROUP | DH\-PARAM\-PEM\-FILE
+.RI [ PRIV\-BITS ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B dh
+.IR GROUP | DH\-PARAM\-PEM\-FILE
+command and
+.I KEYTYPE
+argument to generate a DH key (\fBCKK_DH\fP), where
+.I GROUP
+specifies the Diffie\-Hellman FFC group name or
+.I DH\-PARAM\-PEM\-FILE
+specifies the name of a DH parameters PEM file.
+The following arguments can be used for respective groups:
+.BR ffdhe2048 | ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192 | modp1536 | \
+modp2048 | modp3072 | modp4096 | modp6144 | modp8192
+.PP
+.B Note:
+Not all groups are supported by all tokens and key generation will fail
+when the specified
+.I GROUP
+is not supported. Also, not all groups are supported by all OpenSSL versions.
+If the
+.B p11sak
+tool is compiled against an OpenSSL version that does not support certain
+groups, then those groups are not accepted for the
+.I GROUP
+argument.
+.PP
+Alternatively, specify a DH parameters PEM file as
+.I DH\-PARAM\-PEM\-FILE
+argument. You can for example generate DH parameters using the
+.B OpenSSL
+command line tool as follows: '\fBopenssl dhparam <numbits> \-out <pem\-file>
+\-outform PEM'\fP. See the OpenSSL man page for details about this command.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key. Furthermore, the optional
+.I PRIV\-BITS
+argument allows the user to specify the size of the private key in bits.
+.
+.PP
+.SS "Generating DSA keys"
+.
+.B p11sak
+.BR generate\-key | gen\-key | gen
+.BR dsa
+.I DSA\-PARAM\-PEM\-FILE
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR generate\-key | gen\-key | gen
+.B dsa
+.I DSA\-PARAM\-PEM\-FILE
+command and
+.I KEYTYPE
+argument to generate a DSA key (\fBCKK_DSA\fP), where
+.I DSA\-PARAM\-PEM\-FILE
+specifies the name of a DSA parameters PEM file. You can for example generate
+DSA parameters using the
+.B OpenSSL
+command line tool as follows: '\fBopenssl dsaparam <numbits> \-out <pem\-file>
+\-outform PEM'\fP. See the OpenSSL man page for details about this command.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .PP
 .SS "Generating EC keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
+.BR generate\-key | gen\-key | gen
 .BR ec
-.BR CURVE
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.I CURVE
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
+.BR generate\-key | gen\-key | gen
 .B ec
-.B CURVE
-command and key argument to generate an EC key, where
 .I CURVE
-specifies the eliptic curve used to create the EC key. The following arguments can be used for respective curves:
-.B prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1
-.B | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1
-.B | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1
-.B | curve25519 | curve448 | ed25519 | ed448
+command and
+.I KEYTYPE
+argument to generate an EC key (\fBCKK_EC\fP), where
+.I CURVE
+specifies the elliptic curve used to create the EC key. The following arguments
+can be used for respective curves:
+.BR prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | \
+brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 |   \
+brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 |   \
+brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 |   \
+brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448
 .PP
 .B Note:
-not all curves will be supported by all tokens and key generation will fail when the specified
+Not all curves will be supported by all tokens and key generation will fail
+when the specified
 .I CURVE
-is not supported. The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [P M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes).
+is not supported.
+.PP
+The
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option can be used to set the boolean attributes of the key (see below for
+detailed description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
 .SS "Generating IBM Dilithium keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
-.BR ibm-dilithium
-.BR VERSION
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.IR [M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR generate\-key | gen\-key | gen
+.BR ibm\-dilithium
+.I VERSION
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
-.B ibm-dilithium
-.B VERSION
-command and key argument to generate an IBM Dilithium key, where
+.BR generate\-key | gen\-key | gen
+.B ibm\-dilithium
 .I VERSION
-specifies the version of the IBM Dilithium keypair. The following arguments can be used for respective keys:
-.B r2_65 | r2_87 | r3_44 | r3_65 | r3_87
+command and
+.I KEYTYPE
+argument to generate an IBM Dilithium key (\fBCKK_IBM_PQC_DILITHIUM\fP), where
+.I VERSION
+specifies the version of the IBM Dilithium keypair. The following arguments can
+be used for respective keys:
+.BR r2_65 | r2_87 | r2_44 | r3_65 | r3_87
+.PP
+.B Note:
+Not all IBM Dilithium versions will be supported by all tokens and key
+generation will fail when the specified
+.I VERSION
+is not supported.
 .PP
 The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.IR [M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the key (see below for detailed
+description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
 .SS "Generating IBM Kyber keys"
 .
 .B p11sak
-.BR generate-key | gen-key | gen
-.BR ibm-kyber
-.BR VERSION
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-attr
-.I [M R L S E D G V W U A X N T]
-.B \-\-help | \-h
+.BR generate\-key | gen\-key | gen
+.BR ibm\-kyber
+.I VERSION
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B generate-key
-.B ibm-kyber
-.B VERSION
-command and key argument to generate an IBM Kyber key, where
+.BR generate\-key | gen\-key | gen
+.B ibm\-kyber
 .I VERSION
-specifies the version of the IBM Kyber keypair. The following arguments can be used for respective keys:
-.B r2_768 | r2_1024
+command and
+.I KEYTYPE
+argument to generate an IBM Kyber key (\fBCKK_IBM_PQC_KYBER\fP), where
+.I VERSION
+specifies the version of the IBM Kyber keypair. The following arguments can
+be used for respective keys:
+.BR r2_768 | r2_1024
+.PP
+.B Note:
+Not all IBM Kyber versions will be supported by all tokens and key
+generation will fail when the specified
+.I VERSION
+is not supported.
 .PP
 The
-.B \-\-slot
-.IR SLOTID
-and
-.B \-\-pin
-.IR PIN
-options are required to set the token to
-.IR SLOTID
-and the token PIN. The
-.B \-\-label
-option allows the user to set the
-.IR LABEL
-attribute of the key and
-.B \-\-attr
-.I [M R L S E D G V W U A X N T]
-can be used to set the binary attributes of the key (see below for detailed description of the attributes). 
+.BR \-\-label | \-L
+.IR LABEL | PUB\-LABEL : PRIV\-LABEL
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the key (see below for detailed
+description of the attributes).
+Optionally, set individual key attributes for public and private key separated
+by a colon (\fB:\fP). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
 .
 .PP
 .SS "Listing symmetric and asymmetric keys"
 .
 .B p11sak
-.BR list-key | ls-key | ls
-.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber | public | private | secret | all
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-long | \-l
-.B \-\-help | \-h
+.BR list\-key | ls\-key | ls
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-long | \-l ]
+.RB [ \-\-detailed\-uri ]
+.RB [ \-\-sort | \-S
+.IR SORT-SPEC ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B list-key | ls-key | ls
-command and key argument to list DES, 3DES, AES, AES-XTS, RSA, EC, IBM Dilithium, or IBM Kyber keys, respectively. Public, private, secret, or all keys can also be listed irrespective of key type.
+.BR list\-key | ls\-key | ls
+command and the optional
+.I KEYTYPE
+argument to list symmetric or asymmetric keys. Public, private, secret, or all
+keys can also be listed irrespective of the key type.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+If
+.I KEYTYPE
+is omitted, then all key types are listed.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to display. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+By default, the keys are listed in a short, tabular format showing only the
+boolean attributes, the key type (\fBCKA_KEY_TYPE\fP) and the key label
+(\fPCKA_LABEL\fP). The attributes are denoted using the same single letters
+as used with the
+.BR \-\-attr | \-a
+.IR ATTRS | PUB\-ATTRS : PRIV\-ATTRS
+option. When option
+.BR \-\-long | \-l
+is specified, the keys are listed in long format, displaying the values of all
+attributes defined for the key type, including non-boolean attributes.
+.PP
+By default, the keys are displayed in the order as they are retrieved from the
+PKCS\~#11 implementation. To display the keys in a certain order, specify the
+.BR \-\-sort | \-S
+.I SORT-SPEC
+option. You can sort the keys by label, key type, object class, and/or key size.
+For details, see the description of the
+.BR \-\-sort | \-S
+.I SORT-SPEC
+option below.
 .
 .PP
 .SS "Deleting symmetric and asymmetric keys"
 .
 .B p11sak
-.BR remove-key | rm-key | rm
-.BR des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber
-.B \-\-slot
-.IR SLOTID
-.B \-\-pin
-.IR PIN
-.B \-\-label
-.IR LABEL
-.B \-\-force | \-f
-.B \-\-help | \-h
+.BR remove\-key | rm\-key | rm
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-long | \-l ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-help | \-h ]
 .PP
 Use the
-.B remove-key | rm-key | rm
-command and key argument to delete DES, 3DES, AES, AES-XTS, RSA, EC, IBM Dilithium, or IBM Kyber keys, respectively. All specified cipher keys will be prompted to be deleted unless 
-a specific key with the 
-.B \-\-label
+.BR remove\-key | rm\-key | rm
+command and the optional
+.I KEYTYPE
+argument to remove symmetric or asymmetric keys. Public, private, secret, or all
+keys can also be selected for removal irrespective of the key type.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+If
+.I KEYTYPE
+is omitted, then all key types are selected for removal.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to display. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The user will be prompted to confirm the removal of the key. To suppress the
+prompt, use the
+.BR \-\-force | \-f
+option.
+.PP
+.
+.SS "Setting or updating boolean attributes of symmetric and asymmetric keys"
+.
+.B p11sak
+.BR set\-key\-attr | set\-key | set
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-new\-attr | \-A
+.IR ATTRS ]
+.RB [ \-\-new\-label | \-l
+.IR LABEL ]
+.RB [ \-\-new\-id | \-I
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.B set\-key\-attrs | set\-key | set
+command and the optional
+.I KEYTYPE
+argument to set or update boolean attributes of symmetric or asymmetric keys.
+Public, private, secret, or all keys can also be selected for updating
+irrespective of the key type.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+If
+.I KEYTYPE
+is omitted, then all key types are selected for updating.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to display. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+Use the
+.BR \-\-new\-attr | \-A
+.I ATTRS
+option to specify the boolean attributes of the key you want to update (see
+below for detailed description of the attributes). Attributes that are not
+specified are not changed. Use the
+.BR \-\-new\-label | \-l
+.I LABEL
+option to specify the new label, or the
+.BR \-\-new\-id | \-I
+.I ID
+option to specify the new ID to set for the key. At least one of the
+.BR \-\-new\-attr | \-A
+.IR ATTRS ,
+.BR \-\-new\-label | \-l
+.IR LABEL ,
+or
+.BR \-\-new\-id | \-I
+.I ID
+options must be specified.
+.PP
+The user will be prompted to confirm the updating of the key. To suppress the
+prompt, use the
+.BR \-\-force | \-f
+option.
+.PP
+.
+.SS "Coyping symmetric and asymmetric keys"
+.
+.B p11sak
+.BR copy\-key | copy | cp
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-new\-attr | \-A
+.IR ATTRS ]
+.RB [ \-\-new\-label | \-l
+.IR LABEL ]
+.RB [ \-\-new\-id | \-I
+.IR ID ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.B copy\-key | copy | cp
+command and the optional
+.I KEYTYPE
+argument to copy symmetric or asymmetric keys and optionally set or change
+boolean attributes, the label, or ID of the copied keys.
+Public, private, secret, or all keys can also be copied irrespective of the key
+type.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+If
+.I KEYTYPE
+is omitted, then all key types are selected for copying.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to display. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+Use the
+.BR \-\-new\-attr | \-A
+.I ATTRS
+option to specify the boolean attributes of the copied key you want to set or
+update (see below for detailed description of the attributes). Attributes that
+are not specified are not changed. Use the
+.BR \-\-new\-label | \-l
+.I LABEL
+option to specify the new label, or the
+.BR \-\-new\-id | \-I
+.I ID
+option to specify the new ID to set for the copied key.
+.PP
+The user will be prompted to confirm the copying of the key. To suppress the
+prompt, use the
+.BR \-\-force | \-f
+option.
+.PP
+.
+.SS "Importing symmetric and asymmetric keys from a file"
+.
+.B p11sak
+.BR import\-key | import | imp
+.I KEYTYPE
+.RI [ KIND ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.BR \-\-label | \-L
+.I LABEL
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-force | \-f ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-pem\-password | \-P
+.IR PASSWORD ]
+.RB [ \-\-force\-pem\-pwd\-prompt ]
+.RB [ \-\-opaque | \-o ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR import\-key | import | imp
+command and
+.I KEYTYPE
+argument to import an symmetric or asymmetric key from a file. When importing
+an asymmetric key, the
+.I KIND
+argument is required and specifies to either import a
+.B private
+or
+.B public
+key.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+.PP
+The
+.BR \-\-label | \-L
 .IR LABEL
-argument is selected. The user will be promted to confirm the deletion of the key. To suppress the promt, use the 
-.B \-\-force | \-f
+option sets the
+.B CKA_LABEL
+attribute of the key and the
+.BR \-\-attr | \-a
+.I ATTRS
+can be used to set the boolean attributes of the key (see below for detailed
+description of the attributes). The
+.BR \-\-id | \-i
+.I ID
+option can be used to set the value of the
+.B CKA_ID
+attribute of the key.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file that contains the key to be imported.
+For symmetric keys, this is a binary file containing the key material in clear.
+For asymmetric keys, this is an OpenSSL PEM file containing a public or private
+key.
+PEM files can optionally be password protected. Specify the PEM password
+with the
+.BR \-\-pem\-password | \-P
+.I PASSWORD
+option or environment variable
+.BR P11SAK_PEM_PASSWORD .
+If the PEM file is password protected, but no PEM password is specified, you
+will be prompted for the PEM password.
+Specify the
+.BR \-\-opaque | \-o
+option to import an opaque secure key blob. Not all tokens support this.
+.
+.SS "Exporting symmetric and asymmetric keys to a file"
+.
+.B p11sak
+.BR export\-key | export | exp
+.RI [ KEYTYPE ]
+.BR \-\-slot | \-s
+.I SLOTID
+.RB [ \-\-pin | \-p
+.IR PIN ]
+.RB [ \-\-force\-pin\-prompt ]
+.RB [ \-\-label | \-L
+.IR LABEL ]
+.RB [ \-\-id | \-i
+.IR ID ]
+.RB [ \-\-attr | \-a
+.IR ATTRS ]
+.RB [ \-\-force | \-f ]
+.BR \-\-file | \-F
+.I FILENAME
+.RB [ \-\-opaque | \-o ]
+.RB [ \-\-spki | \- S ]
+.RB [ \-\-help | \-h ]
+.PP
+Use the
+.BR export\-key | export | exp
+command and the optional
+.I KEYTYPE
+argument to export symmetric or asymmetric keys to a file.
+Public, private, secret, or all keys can also be selected for export
+irrespective of the key type.
+.PP
+Possible values for the
+.I KEYTYPE
+argument are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+If
+.I KEYTYPE
+is omitted, then all key types are selected for export.
+.PP
+Specify the
+.BR \-\-label | \-L
+.IR LABEL ,
+the
+.BR \-\-id | \-i
+.IR ID ,
+and/or the
+.BR \-\-attr | \-a
+.I ATTRS
+options to filter the list of keys to display. You can use wildcards (\fB*\fP
+and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+The
+.B ID
+must be specified as hex string (not prefixed with 0x) of any number of bytes.
+.PP
+The
+.BR \-\-file | \-F
+.I FILENAME
+option specifies the file name of the file to which the keys to be exported are
+written to. For symmetric keys, this is a binary file where the key material in
+clear is written to. For asymmetric keys, this is an OpenSSL PEM file where the
+public or private keys are written to. If multiple asymmetric keys match the
+filter, the keys are appended to the PEM file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option. If multiple symmetric keys or a mixture of asymmetric and symmetric keys
+match the filter, then you are prompted to confirm to overwrite the previously
+created file, unless the
+.RB [ \-\-force | \-f ]
+option is specified.
+.PP
+Specify the
+.BR \-\-opaque | \-o
+option to export the opaque secure key blobs of the key. Not all tokens support
+this.
+.PP
+Specify the
+.BR \-\-spki | \-S
+option to export the Subject Public Key Info (SPKI) from the
+.B CKA_PUBLIC_KEY_INFO
+attribute of an asymmetric private key instead of its private key material.
+This option can only be used with private keys.
+.PP
+.B Note:
+Not all keys can be exported, because its attribute setting may forbid
+to reveal the values of certain attributes. To allow exporting of a secret
+.RB ( CKO_SECRET_KEY )
+or private
+.RB ( CKO_PRIVATE_KEY )
+key, attribute
+.B CKA_SENSITIVE
+must be
+.B CK_FALSE
+and attribute
+.B CKA_EXTRACTABLE
+must be
+.BR CK_TRUE .
+Secret or private keys that contain an opaque secure key blob (attribute
+.BR CKA_IBM_OPAQUE )
+can also not be
+exported in clear, even if the attributes would allow it. For such keys only the
+opaque secure key blob can be exported by using the
+.BR \-\-opaque | \-o
 option.
 .
+.
+.
+.SH ARGUMENTS
+.
+.SS "KEYTYPE"
+.
+Selects the respective symmetric or asymmetric key to be generated, imported or
+selected. Possible values are:
+.BR des | 3des | generic | aes | aes\-xts | rsa | dh | dsa | ec | \
+ibm\-dilithium | ibm-kyber | public | private | secret | all .
+The
+.BR public | private | secret | all
+argument can only be used with commands that use the
+.I KEYTYPE
+argument as filter, such as the
+.B list\-key
+command, the
+.B remove\-key
+command, the
+.B set\-key\-attrs
+command, or the
+.B export\-key
+command.
 .PP
 .
+.SS "KEYBITS"
 .
-.
-.SH ARGS
-.
-.SS "des | 3des | aes | aes-xts | rsa | ec | ibm-dilithium | ibm-kyber | public | private | secret | all"
-
-selects the respective symmetric or asymmetric key to be generated or listed. The
-.B public|private|secret|all
-argument can only be used with the
-.B list-key
-command to list either public, private, secret, or all keys.
-.PP
-.
-.
-.
-.SS "128|192|256"
-the
+Specifies the size of the key in bits. For the
 .B aes
-argument has to be followed by either 128, 192 or 256 to set the respective key bit length of the AES key.
-.PP
-.
-.
-.
-.SS "128|256"
-the
-.B aes-xts
-argument has to be followed by either 128 or 256 to set the respective key bit length of the AES-XTS key.
-.PP
-.
-.
-.
-.SS "1024|2048|4096"
-the
+key type, possible values are
+.BR 128 | 192 | 256 .
+For the
+.B aes\-xts
+key type, possible values are
+.BR 128 | 256 .
+For the
 .B rsa
-argument has to be followed by either 1024, 2048 or 4096 to set the respective key bit length of the RSA key.
+key type, possible values are
+.BR 512 | 1024 | 2048 | 4096 .
 .PP
 .
+.SS "PUBL\-EXP"
 .
-.
-.SS "prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 | brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 | brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 | brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448"
-the
-.B ec
-argument has to be followed by either of these
-.I CURVE
-to select the EC curve used to generate the key.
+Specifies the public exponent for an RSA key. If not specified, the default is
+65537 according to the PKCS\~#11 standard.
 .PP
 .
+.SS "PRIV\-BITS"
 .
-
-.SS "r2_6|r2_87|r3_44|r3_65|r3_875"
-the
-.B ibm-dilithium
-argument has to be followed by either of these
-.I VERSION
-to select the IBM dilithium version used to generate the key.
+Specifies the size of the private key in bits for an DH key.
 .PP
 .
+.SS "GROUP"
 .
+Specifies the Diffie\-Hellman FFC group name for an DH key. Possible values are
+.BR ffdhe2048 | ffdhe3072 | ffdhe4096 | ffdhe6144 | ffdhe8192 | modp1536 | \
+modp2048 | modp3072 | modp4096 | modp6144 | modp8192 .
+.PP
+.B Note:
+Not all groups are supported by all tokens and key generation will fail
+when the specified
+.I GROUP
+is not supported. Also, not all groups are supported by all OpenSSL versions.
+If the
+.B p11sak
+tool is compiled against an OpenSSL version that does not support certain
+groups, then those groups are not accepted for the
+.I GROUP
+argument.
+.PP
 .
-.SS "r2_768|r2_1024"
-the
-.B ibm-kyber
-argument has to be followed by either of these
-.I VERSION
-to select the IBM kyber version used to generate the key.
+.SS "DH\-PARAM\-PEM\-FILE"
+.
+Specifies the DH parameters PEM file name. You can for example generate DH
+parameters using the OpenSSL command line tool as follows: \fB'openssl dhparam
+<numbits>  \-out  <pem\-file> \-outform PEM' \fP. See the OpenSSL man page for
+details about this command.
+.PP
+.
+.SS "DSA\-PARAM\-PEM\-FILE"
+.
+Specifies the DSA parameters PEM file name. You can for example generate DSA
+parameters using the OpenSSL command line tool as follows: \fB'openssl dsaparam
+<numbits>  \-out  <pem\-file> \-outform PEM' \fP. See the OpenSSL man page for
+details about this command.
+.PP
+.
+.SS "CURVE"
+.
+Specifies the curve for an EC key. Possible values are:
+.BR prime256v1 | prime192 | secp224 | secp384r1 | secp521r1 | secp265k1 | \
+brainpoolP160r1 | brainpoolP160t1 | brainpoolP192r1 | brainpoolP192t1 |   \
+brainpoolP224r1 | brainpoolP224t1 | brainpoolP256r1 | brainpoolP256t1 |   \
+brainpoolP320r1 | brainpoolP320t1 | brainpoolP384r1 | brainpoolP384t1 |   \
+brainpoolP512r1 | brainpoolP512t1 | curve25519 | curve448 | ed25519 | ed448 .
+.PP
+.
+.SS "VERSION"
+.
+Specifies the version for an IBM Dilithium or IBM Kyber key.
+For the
+.B ibm\-dilithium
+key type, possible values are
+.BR r2_65 | r2_87 | r2_44 | r3_65 | r3_87 .
+For the
+.B ibm\-kyber
+key type, possible values are
+.BR r2_768 | r2_1024 .
+.PP
+.
+.SS "KIND"
+.
+Specifies the kind of the asymmetric key to import. Possible values are
+.BR public | private .
 .PP
 .
 .
 .
 .SH OPTIONS
 
-.SS "\-\-slot SLOTID"
-sets the token to
-.IR SLOTID
+.TP 8
+.BR \-\-slot | \-s\~\fISLOT\fP
+Specifies the slot number of the token to use.
 .PP
 .
 .
 .
-.SS "\-\-pin PIN"
-sets the token PIN to
-.IR PIN
+.TP 8
+.BR \-\-pin | \-p\~\fIPIN\fP
+Specifies the token user PIN to login with.
 .PP
-Alternatively the PKCS11_USER_PIN environment variable may be used to
-provide the token PIN.
-.PP
-.
-.
-.
-.SS "\-\-force-pin-prompt"
-enforce p11sak to prompt for the token PIN (regardless if it has been
-specified elsewhere)
+.RS 8
+Alternatively, the
+.B PKCS11_USER_PIN
+environment variable may be used to provide the token user PIN.
+If neither this option is specified nor the einvironment variable is set,
+you are prompted for the PIN.
+.RE
 .PP
 .
 .
 .
-.SS "\-\-label LABEL"
-sets the key label attribute to
-.IR LABEL
+.TP 8
+.BR \-\-force\-pin\-prompt
+Enforce the
+.B p11sak
+tool to prompt for the token user PIN (regardless if it has been specified
+elsewhere)
 .PP
-For asymmetric keys, the specified label is appended by \fB:pub\fP and
-\fB.prv\fP for the public and private key objects. Optionally, a user can set
-different labels for the public and private key objects by specifying them
-separated by a colon (\fB:\fP), e.g. \fBpub-label:priv-label\fP. The label
+.
+.
+.
+.TP 8
+.BR \-\-label | \-L\~\fILABEL\fP | \fIPUB\-LABEL\fP : \fIPRIV\-LABEL\fP
+Specifies the key label attribute value (\fBCKA_LABEL\fP).
+.PP
+.RS 8
+For commands such as the
+.B list\-key
+command, the
+.B remove\-key
+command, the
+.B set\-key\-attrs
+command, and the
+.B export\-key
+command, specify the label to filter the list of keys to operate on. You can
+use wildcards (\fB*\fP and \fB?\fP) in the
+.B LABEL
+specification. To specify a wildcard character that should not be treated as a
+wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
+Also, a backslash character that should not be treated as an escape character
+must be escaped (\fB\e\e\fP).
+.PP
+For generation of asymmetric keys, the specified label is appended by \fB:pub\fP
+and \fB:prv\fP for the public and private key objects. Optionally, a user can
+set different labels for the public and private key objects by specifying them
+separated by a colon (\fB:\fP), e.g. \fBpub\-label:priv\-label\fP. The label
 string in front of the colon is used as label for the public key object, the
 label string after the colon is used for the private key object.
-To set the public and private key label the exact same, use \fBpub-label:=\fP.
+To set the public and private key label the exact same, use \fBpub\-label:=\fP.
 The equal sign (\fB=\fP) means to use the same label string for the private
 key objects as for the public key object.
 In case a colon character or a equal sign is supposed to appear within
@@ -521,122 +1278,395 @@ a label string, it must be escaped using a back slash (\fB\\\fP), e.g.
 \fBabc\\:xyz\fP results in \fBabx:xyz\fP where the colon is not treated as
 separator character.
 Note that the shell may interpret escape characters as well, so better quote
-the \fILABEL\fP specification.
+the \fILABEL\fP|\fIPUB\-LABEL\fP:\fIPRIV\-LABEL\fP specification.
+.RE
 .PP
 .
 .
 .
-.SS "\-\-exponent EXP"
-sets the RSA exponent to
-.IR EXP
+.TP 8
+.BR \-\-id | \-i\~\fIID\fP
+Specifies the key ID attribute value (\fBCKA_ID\fP) as hex string (not prefixed
+with 0x) of any number of bytes.
+.PP
+.RS 8
+For commands such as the
+.B list\-key
+command, the
+.B remove\-key
+command, the
+.B set\-key\-attrs
+command, and the
+.B export\-key
+command, specify the key ID to filter the list of keys to operate on.
+.PP
+For generation of asymmetric keys, the same ID is set for both, the public and
+the private key.
+.RE
 .PP
 .
 .
 .
-.SS "\-\-attr [P M R L S E D G V W U A X N T]"
-sets the binary attributes of a key.
+.TP 8
+.BR \-\-attr | \-a\~\fIATTRS\fP | \fIPUB\-ATTRS\fP : \fIPRIV\-ATTRS\fP
+For the
+.B generate\-key
+command the and
+.B import\-key
+commands, specify the boolean attributes that are to be set for the new key(s).
+For commands such as the
+.B list\-key
+command, the
+.B remove\-key
+command, the
+.B set\-key\-attrs
+command, and the
+.B export\-key
+command, specify the attribute values to filter the list of keys to operate on.
+.PP
+.RS 8
+.B Note:
+Not all boolean attributes are applicable to all key types and/or commands and
+will be silently ignored if not applicable.
+.PP
+The respective attributes are set to
+.B TRUE
+when the corresponding letter is specified in uppercase, or
+.B FALSE
+when the corresponding letter is specified in lowercase.
+Attributes (except \fBCKA_TOKEN\fP and \fBCKA_SENSITIVE\fP, see below) that are
+not specified get the default value as defined by the PKCS\~#11 standard or the
+used PKCS\~#11 token implementation when generating keys, or are not updated
+when setting the attributes of an existing key.
+.PP
+Attribute
+.B CKA_TOKEN
+is always set to \fBTRUE\fP when generating a key. The
+.B p11sak
+tool always generates token keys, since session keys are not persistent, and
+thus would no longer exist after the session that the
+.B p11sak
+tool has opened for generating the key is closed when it exists.
+.PP
+When generating or importing a key with the
+.B p11sak
+tool, attribute
+.B CKA_SENSITIVE
+defaults to \fBTRUE\fP for secret keys or the private key of asymmetric
+key pairs. However, this can be overridden by specifying the respective
+uppercase or lowercase letter for the CKA_SENSITIVE attribute in the attribute
+string, as desired.
 .PP
 .B Note:
-not all binary attributes are applicable to all keys and will be omitted if not applicable.
+The default setting for the
+.B CKA_SENSITIVE
+attribute is defined by the
+.B p11sak
+tool, and might be different from the default setting that would be chosen by
+the used PKCS\~#11 implementation.
 .PP
-The attributes are set to
-.B FALSE
-by default and switched to
-.B TRUE
-when the letter that is associated with the given binary attribute is specified. The following letters are associated with the respective
-.B CK_ATTRIBUTE:
+The following letters are associated with the respective
+.BR CK_ATTRIBUTE :
 .IP "\(bu" 2
 .B P
-- CKA_PRIVATE
-.IP "\(bu" 2
-.B M
-- CKA_MODIFIABLE
-.IP "\(bu" 2
-.B R
-- CKA_DERIVE
+\- CKA_PRIVATE
 .IP "\(bu" 2
 .B L
-- CKA_LOCAL
+\- CKA_LOCAL (read only)
 .IP "\(bu" 2
-.B S
-- CKA_SENSITIVE
+.B M
+\- CKA_MODIFIABLE
+.IP "\(bu" 2
+.B B
+\- CKA_COPYABLE
+.IP "\(bu" 2
+.B Y
+\- CKA_DESTROYABLE
+.IP "\(bu" 2
+.B R
+\- CKA_DERIVE
 .IP "\(bu" 2
 .B E
-- CKA_ENCRYPT
+\- CKA_ENCRYPT
 .IP "\(bu" 2
 .B D
-- CKA_DECRYPT
+\- CKA_DECRYPT
 .IP "\(bu" 2
 .B G
-- CKA_SIGN
+\- CKA_SIGN
+.IP "\(bu" 2
+.B C
+\- CKA_SIGN_RECOVER
 .IP "\(bu" 2
 .B V
-- CKA_VERIFY
+\- CKA_VERIFY
+.IP "\(bu" 2
+.B O
+\- CKA_VERIFY_RECOVER
 .IP "\(bu" 2
 .B W
-- CKA_WRAP
+\- CKA_WRAP
 .IP "\(bu" 2
 .B U
-- CKA_UNWRAP
+\- CKA_UNWRAP
+.IP "\(bu" 2
+.B S
+\- CKA_SENSITIVE
 .IP "\(bu" 2
 .B A
-- CKA_ALWAYS_SENSITIVE
+\- CKA_ALWAYS_SENSITIVE (read only)
 .IP "\(bu" 2
 .B X
-- CKA_EXTRACTABLE
+\- CKA_EXTRACTABLE
 .IP "\(bu" 2
 .B N
-- CKA_NEVER_EXTRACTABLE
+\- CKA_NEVER_EXTRACTABLE (read only)
 .IP "\(bu" 2
-.B *
-- if in p11sak_defined_attrs.conf additional attributes are defined.
+.B T
+\- CKA_TRUSTED (can only be set by SO user)
+.IP "\(bu" 2
+.B I
+\- CKA_WRAP_WITH_TRUSTED
+.IP "\(bu" 2
+.B K
+\- CKA_IBM_PROTKEY_EXTRACTABLE (IBM specific, not all tokens support this)
+.IP "\(bu" 2
+.B Z
+\- CKA_IBM_PROTKEY_NEVER_EXTRACTABLE (IBM specific, not all tokens support this,
+read only)
 .PP
-CKA_TOKEN and CKA_PRIVATE are set by default to
-.B TRUE.
-For multiple attributes, combine the letters in a string without white space, e. g. 'MlD'.
-An uppercase letter means true, while an lowercase letter equals false.
-From Example above: CKA_MODIFIABLE=true, CKA_LOCAL=false, CKA_DECRYPT=true
+For multiple attributes, specify a set of these letters without any blanks in
+between, e. g. \fB'MlD'\fP. An uppercase letter means \fBTRUE\fP, while a
+lowercase letter means \fBFALSE\fP.
+From Example above, \fB'MlD'\fP corresponds to: \fBCKA_MODIFIABLE=TRUE,
+CKA_LOCAL=FALSE, CKA_DECRYPT=TRUE\fP.
 .PP
-For asymmetric keys a user can set different custom attributes for the public and the private key.
-The separator is the symbol ":". The defined attributes in front of the separator are set for the
-public key and the attributes defined after the separator are set for the private key. When the 
-separator is not in the string, the defined attribute set is used for public and private key. To set 
-a configuration for only the public key, the string has to end with the separator and respectively, 
-to use a configuration for the private key only, the string has to start with the separator.
+For generating asymmetric keys set individual key attributes for public and
+private key separated by a colon (\fB:\fP). The attributes in front of the colon
+are set for the public key and the attributes after the colon are set for the
+private key. When no colon is used, the same attribute set is used for
+both, the public and private keys. To set a configuration for only the public
+key, the string must end with the colon and respectively, to use a
+configuration for the private key only, the string must start with the
+colon.
+.PP
+.RE
+.
+.
+.
+.TP 8
+.BR \-\-new\-attr | \-A\~\fIATTRS\fP
+Specifies the boolean attributes to set or update for a key with the
+.B set\-key\-attr
+or
+.B copy\-key
+commands. See the description of the
+.BR \-\-attr | \-a
+option above for a list of letters that are associated with the respective
+.BR CK_ATTRIBUTE .
+.
+.
+.
+.TP 8
+.BR \-\-new\-label | \-L\~\fILABEL\fP
+Specifies the new label attribute value (\fBCKA_LABEL\fP) to set for the key.
+.RE
 .PP
 .
 .
 .
-.SS "\-\-long | \-l"
-prints the
-.B list-key
-output in long format. If omitted, the output is in a short, tabular format.
+.TP 8
+.BR \-\-new\-id | \-I\~\fIID\fP
+Specifies the new ID attribute value (\fBCKA_ID\fP) as hex string (not prefixed
+with 0x) of any number of bytes to set for the key.
+.RE
 .PP
 .
 .
 .
-.SS "\-\-force | \-f"
-to be used with the 
-.B remove-key
-command to suppress the promt whether the user wants to delete the specified keys.
+.TP 8
+.BR \-\-long | \-l
+Prints the
+.B list\-key
+output in long format, displaying the values of all attributes defined for the
+key type, including non-boolean attributes. If the
+.BR \-\-long | \-l
+option is omitted, the output is in a
+short, tabular format, showing only the boolean attributes, the key type
+(\fBCKA_KEY_TYPE\fP) and the key label (\fBCKA_LABEL\fP).
+.RE
 .PP
 .
 .
 .
-.SS "\-\-help | \-h"
-prints help for the usage of
+.TP 8
+.B \-\-detailed\-uri
+Displayes a detailed PKCS\~#11 URI.
+.RE
+.PP
+
+.
+.
+.
+.TP 8
+.BR \-\-sort | \-S\~\fISORT-SPEC\fP
+Sort the keys by label, key type, object class, and/or key size. Specify a sort
+selection of up to 4 fields, each field represented by its coresponding letter,
+separated by comma
+.RB ( , ):
+.RS 8
+.IP "\(bu" 2
+.B l
+- sort by label
+.RB ( CKA_LABEL )
+.IP "\(bu" 2
+.B k
+- sort by key type
+.RB ( CKA_KEY_TYPE )
+.IP "\(bu" 2
+.B c
+- sort by object class
+.RB ( CKA_CLASS ,
+secret key, private key, public key)
+.IP "\(bu" 2
+.B s
+- sort by key size
+.RB ( CKA_VALUE_LEN ,
+or derived from other key type spcifi attribute)
+.PP
+The sort order can be appended to the field designator by a colon
+.RB ( : )
+and its coressponding letter:
+.IP "\(bu" 2
+.B a
+- ascending order (default)
+.IP "\(bu" 2
+.B d
+- descending order
+.PP
+Example:
+.B l:a,k:d
+will sort by label in ascending order and then by key type in descending order.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-force | \-f
+Suppress the prompt whether the user wants to remove, update, or export the keys
+matching the specified \fIKEYTYPE\fP, label, and ID filter (if specified).
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-file | \-F\~\fIFILENAME\fP
+For the
+.B import\-key
+command, this option specifies the file name of the file that contains the key
+to be imported. For symmetric keys, this is a binary file containing the key
+material in clear. For asymmetric keys, this is an OpenSSL PEM file containing
+a public or private key. PEM files used for importing keys can be password
+protected. Specify the PEM password with the
+.BR \-\-pem\-password | \-P
+.I PASSWORD
+option or environment variable
+.BR P11SAK_PEM_PASSWORD .
+If the PEM file is password protected, but no PEM password is specified, you
+will be prompted for the PEM password.
+.PP
+.RS 8
+For the
+.B export\-key
+command, this option specifies the file name of the file to which the keys to
+be exported are written to. For symmetric keys, this is a binary file where the
+key material in clear is written to. For asymmetric keys, this is an OpenSSL
+PEM file where the public or private keys are written to. If multiple asymmetric
+keys match the filter, the keys are appended to the PEM file specified with this
+option. If multiple symmetric keys or a mixture of asymmetric and symmetric keys
+match the filter, then you are prompted to confirm to overwrite the previously
+created file, unless the
+.RB [ \-\-force | \-f ]
+option is specified.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-pem\-password | \-P\~\fIPASSWORD\fP
+Specifies the password of the PEM file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option for the
+.B import\-key
+command. If the PEM file is password protected, but this option is not
+specified, nor environment variable
+.B P11SAK_PEM_PASSWORD
+is set, you will be prompted for the PEM password.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-force\-pem\-pwd\-prompt
+Enforce the
+import\-key
+command to prompt for the PEM password (regardless if it has been specified
+elsewhere).
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-opaque
+The key material in the file specified with the
+.BR \-\-file | \-F
+.I FILENAME
+option is an opaque secure key blob. Not all tokens support this.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-help | \-h
+Prints help for the usage of the
 .B p11sak
-and/or the respective command.
+tool and/or the respective command and then exits.
+.RE
+.PP
+.
+.
+.
+.TP 8
+.BR \-\-version | \-v
+Prints the version of the
+.B p11sak
+tool and then exits.
+.RE
 .PP
 .
 .
 .
 .SH "FILES"
-
-.SS "/usr/local/etc/opencryptoki/p11sak_defined_attrs.conf"
-In the output config file a user can define additional attributes, which are not 
-mentioned in the PKCS#11 standard. A custom filepath can be set with an environment 
-variable.
+.
+.SS "/etc/opencryptoki/p11sak_defined_attrs.conf"
+.SS "~/.p11sak_defined_attrs.conf"
+In the output config file a user can define additional attributes, which are not
+mentioned in the PKCS#11 standard or are not known by the
+.B p11sak
+tool. A custom file path can be set with  environment variable
+\fBP11SAK_DEFAULT_CONF_FILE\fP. If the environment variable is not set, then
+\fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
+user's home directory. If this is not available, the global
+\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+If none of these files are available, a warning message is displayed, and
+printing of custom attributes is not available.
 .PP
 .
 .
@@ -644,35 +1674,86 @@ variable.
 .SH "ENVIRONMENT VARIABLES"
 
 .SS "P11SAK_DEFAULT_CONF_FILE"
-A custom path for p11sak_defined_attrs.conf can be set with the environment variable
-P11SAK_DEFAULT_CONF_FILE. If none is set p11sak will first look for the file in the user 
-directory, followed by the standard installation path.
+A custom path for the \fBp11sak_defined_attrs.conf\fP config file can be set
+with the environment variable \fBP11SAK_DEFAULT_CONF_FILE\fP.
+If the environment variable is not set, then
+\fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
+user's home directory. If this is not available, the global
+\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+If none of these files are available, a warning message is displayed, and
+printing of custom attributes is not available.
 .PP
+.
 .SS "PKCS11_USER_PIN"
-The token PIN can be specified via the environment variable PKCS11_USER_PIN.
-If nothing is set and the option
-.B \-\-pin
-is not specified, p11sak will prompt for the token PIN interactively.
+The token user PIN can be specified via the environment variable
+\fBPKCS11_USER_PIN\fP. If this environment variable is not set, and the option
+.BR \-\-pin | \-p
+.I PIN
+is not specified, p11sak will prompt for the token user PIN interactively.
 .PP
+.
+.SS "PKCSLIB"
+An alternative PKCS\~#11 library name can be specified with the \fBPKCSLIB\fP
+environment variable. If this environment variable is not set, then the default
+PKCS\~#11 library \fBlibopencryptoki.so\fP is used.
+.PP
+.
+.SS "P11SAK_PEM_PASSWORD"
+PEM files used for importing keys from can be password protected. The PEM
+password can be specified via the environment variable
+\fBP11SAK_PEM_PASSWORD\fP. If this environment variable is not set, and the
+option
+.BR \-\-pem\-password | \-P
+.I PASSWORD
+is not specified, p11sak will prompt for the PEM password interactively.
 .
 .
 .
 .SH "EXIT STATUS"
-p11sak returns various error codes on fail:
+The
+.B p11sak
+tool returns error codes as defined by the PKCS\~#11 standard, i.e. the
+\fBCKR_nnn\fP errors. On success, \fBCKR_OK\fP (which is zero) is returned.
+.PP
+The PKCS\~#11 error codes may originate from a PKCS\~#11 function called by the
+.B p11sak
+tool, or from the
+.B p11sak
+tool itself, like the following:
+
 .SS CKR_ARGUMENTS_BAD (0x00000007):
-The p11sak_defined_attrs.conf is not found.
+An argument, option or keyword is not valid.
 .PP
 .
 .
 .
 .SS CKR_DATA_INVALID (0x00000020):
-The p11sak_defined_attrs.conf cannot be parsed or syntax is invalid.
+The \fBp11sak_defined_attrs.conf\fP cannot be parsed or its syntax is invalid.
 .PP
 .
 .
 .
-.SS CKR_ATTRIBUTE_TYPE_INVALID (0x00000012):
-A given attribute type cannot be set for this key.
+.SS CKR_MECHANISM_INVALID (0x00000070):
+The token does not support the key generation mechanism for the specified key
+type.
+.PP
+.
+.
+.
+.SS CKR_KEY_SIZE_RANGE (0x00000062):
+The token does not support the key size for the specified key type.
+.PP
+.
+.
+.
+.SS CKR_HOST_MEMORY (0x00000002):
+Allocating memory has failed.
+.PP
+.
+.
+.
+.SS CKR_FUNCTION_FAILED (0x00000006):
+A subfunction or library call has failed.
 .PP
 .
 .
