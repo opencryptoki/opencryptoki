@@ -1,20 +1,35 @@
 .TH P11SAK_DEFINED_ATTRS.CONF 5 "September 2021" "@PACKAGE_VERSION@" "openCryptoki"
 .SH NAME
-p11sak_defined_attrs.conf \- Configuration file for p11sak list-key command.
-
+p11sak_defined_attrs.conf \- Configuration file for \fBp11sak list\-key\fP
+command.
+.
+.
+.
 .SH DESCRIPTION
-p11sak uses a configuration file at /etc/opencryptoki/p11sak_defined_attrs.conf.
-This configuration file path can be overwritten by the user with the environment 
-variable P11SAK_DEFAULT_CONF_FILE.
-
-This is a text file that contains information used to configure
-non standard attributes that shall be printed with the p11sak list-key command. 
-
+The
+.B p11sak
+tool uses the configuration files \fB~/.p11sak_defined_attrs.conf\fP and
+\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP to read information about
+custom attributes that shall be printed with the \fBp11sak list\-key\fP command.
+.PP
+This configuration file path can be overwritten by the user with the environment
+variable \fBP11SAK_DEFAULT_CONF_FILE\fP.
+If the environment variable is not set, then
+\fB.p11sak_defined_attrs.conf\fP is first tried to be read from the current
+user's home directory. If this is not available, the global
+\fB/etc/opencryptoki/p11sak_defined_attrs.conf\fP config file is read.
+If none of these files are available, a warning message is displayed, and
+printing of custom attributes is not available.
+.
+.
+.
 .SH SYNTAX
-
+.
 .P
-Each attribute description is composed of the attribute title, brackets and three key-value pairs.
-e.g.:
+Each attribute description is composed of the attribute title, brackets and
+three key\-value pairs.
+.PP
+Example:
 
  attribute
  {
@@ -23,35 +38,40 @@ e.g.:
      type = CK_BBOOL
  }
 
-All three keywords 
+All three keywords
 .B name
-, 
+,
 .B id
-, 
+,
 .B type
 are required to define an attribute.
 
-The 
+The
 .B name
-has to start with a letter followed by an arbitrary number of letters, numbers, underscores, dots, minuses, or slashes.
-The 
+must start with a letter followed by an arbitrary number of letters, numbers,
+underscores, dots, minuses, or slashes.
+The
 .B id
-is defined in the PKCS#11 standard and can be 
-in decimal as well as in hexadecimal, when started with 0x, format.
-The only valid values for 
+can be in decimal as well as in hexadecimal, when started with 0x, format.
+The only valid values for
 .B type
-are 
+are:
+.IP "\(bu" 2
 .B CK_BBOOL
-, 
-.B CK_ULONG 
-or 
-.B CK_BYTE.
+.IP "\(bu" 2
+.B CK_ULONG
+.IP "\(bu" 2
+.B CK_BYTE
+.IP "\(bu" 2
+.B CK_DATE
+.PP
 
 .SH Notes
-The pound sign ('#') is used to indicate a comment up to and including the end of line.
+The pound sign ('#') is used to indicate a comment up to and including the end
+of line.
 
 .SH "SEE ALSO"
 .PD 0
 .TP
-\fBp11sak\fP(1),
+\fBp11sak\fP(1)
 .PD
