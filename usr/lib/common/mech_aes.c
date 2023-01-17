@@ -4257,6 +4257,7 @@ CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
 
     rest = in_data_len % AES_BLOCK_SIZE;
     len = in_data_len - rest;
+    *out_data_len = 0;
 
     /*
      * It was checked above that we have at least one full block if we are in
@@ -4292,7 +4293,7 @@ CK_RV aes_xts_cipher(CK_BYTE *in_data, CK_ULONG in_data_len,
         in_data += AES_BLOCK_SIZE;
         in_data_len -= AES_BLOCK_SIZE;
         out_data += AES_BLOCK_SIZE;
-        *out_data_len = AES_BLOCK_SIZE;
+        *out_data_len += AES_BLOCK_SIZE;
     }
 
     /* Partial block? Only possible for final call */
