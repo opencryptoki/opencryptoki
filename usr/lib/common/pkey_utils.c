@@ -425,11 +425,11 @@ CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
     case CKM_AES_ECB:
     case CKM_AES_CBC:
     case CKM_AES_CBC_PAD:
-    case CKM_AES_CMAC_GENERAL:
-    case CKM_AES_CMAC:
         if (msa_level > 1)
             return CK_TRUE;
         break;
+    case CKM_AES_CMAC_GENERAL:
+    case CKM_AES_CMAC:
     case CKM_AES_XTS:
         if (msa_level > 3)
             return CK_TRUE;
