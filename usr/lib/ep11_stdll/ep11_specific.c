@@ -4623,7 +4623,7 @@ CK_RV ep11tok_generate_key(STDLL_TokData_t * tokdata, SESSION * session,
         goto error;
     }
 
-    if (!xts && class == CKO_SECRET_KEY && csum_len >= EP11_CSUMSIZE) {
+    if (!xts && csum_len >= EP11_CSUMSIZE) {
         /* First 3 bytes of csum is the check value */
         rc = build_attribute(CKA_CHECK_VALUE, csum, EP11_CSUMSIZE, &attr);
         if (rc != CKR_OK) {
