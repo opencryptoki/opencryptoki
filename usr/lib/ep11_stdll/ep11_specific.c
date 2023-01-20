@@ -1004,15 +1004,28 @@ done:
 
 /**
  * Returns true if the session is ok for creating protected keys, false
- * otherwise. The session must be read/write and not public, because the
- * protected key is a private/secret key attribute.
+ * otherwise. The session must be read/write for token objects, and not public
+ * nor SO for private objects.
  */
-static CK_BBOOL ep11tok_pkey_session_read_write(SESSION *session)
+static CK_BBOOL ep11tok_pkey_session_ok_for_obj(SESSION *session,
+                                                OBJECT *key_obj)
 {
-    if (session->session_info.flags & CKF_RW_SESSION)
-        return CK_TRUE;
+    if (object_is_token_object(key_obj) &&
+        (session->session_info.flags & CKF_RW_SESSION) == 0)
+        return CK_FALSE;
 
-    return CK_FALSE;
+    if (object_is_private(key_obj)) {
+        switch (session->session_info.state) {
+        case CKS_RO_PUBLIC_SESSION:
+        case CKS_RW_PUBLIC_SESSION:
+        case CKS_RW_SO_FUNCTIONS:
+            return CK_FALSE;
+        default:
+            break;
+        }
+    }
+
+    return CK_TRUE;
 }
 
 /**
@@ -1083,16 +1096,19 @@ CK_RV ep11tok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
         if (object_is_extractable(key_obj) ||
             !object_is_pkey_extractable(key_obj) ||
             object_is_attr_bound(key_obj) ||
-            !ep11tok_pkey_session_read_write(session) ||
             !ep11_data->pkey_wrap_supported) {
             goto done;
         }
+
         if (template_attribute_get_non_empty(key_obj->template,
                                              CKA_IBM_OPAQUE_PKEY,
                                              &opaque_attr) != CKR_OK ||
             !ep11tok_pkey_is_valid(tokdata, key_obj)) {
             /* this key has either no pkey attr, or it is not valid,
-             * try to create one */
+             * try to create one, if the session state allows it */
+            if (!ep11tok_pkey_session_ok_for_obj(session, key_obj))
+                goto done;
+
             ret = ep11tok_pkey_update(tokdata, session, key_obj);
             if (ret != CKR_OK) {
                 TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
