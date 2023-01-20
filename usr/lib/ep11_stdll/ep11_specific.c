@@ -5886,6 +5886,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     CK_MECHANISM_PTR mech_orig = mech;
     struct EP11_KYBER_MECH mech_ep11;
     OBJECT *kyber_secret_obj = NULL;
+    CK_KEY_TYPE keytype;
 
     memset(newblob, 0, sizeof(newblob));
 
@@ -6010,6 +6011,19 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("%s failedL hBaseKey=0x%lx\n", __func__, hBaseKey);
         return rc;
     }
+
+    rc = template_attribute_get_ulong(base_key_obj->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        goto error;
+    }
+
+    if (mech->mechanism == CKM_AES_XTS || keytype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Key derive with AES-XTS is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto error;
+    }
+
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech_orig,
                                           &base_key_obj->strength,
                                           POLICY_CHECK_DERIVE,
@@ -6030,6 +6044,12 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
     rc = pkcs_get_keytype(attrs, attrs_len, mech, &ktype, &class);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
+        goto error;
+    }
+
+    if (ktype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Deriving an AES-XTS key is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
         goto error;
     }
 
@@ -9393,6 +9413,7 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     OBJECT *key_obj = NULL, *wrap_key_obj = NULL, *sobj = NULL;
     CK_BYTE *sign_blob = NULL;
     size_t sign_blob_len = ~0;
+    CK_KEY_TYPE ktype;
 
     /* ep11 weakness:
      * it does not set *p_wrapped_key_len if wrapped_key == NULL
@@ -9419,6 +9440,18 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
         return rc;
     }
 
+    rc = template_attribute_get_ulong(wrap_key_obj->template, CKA_KEY_TYPE, &ktype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        goto done;
+    }
+
+    if (mech->mechanism == CKM_AES_XTS || ktype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Key wrap with AES-XTS is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
     if (!key_object_is_mechanism_allowed(wrap_key_obj->template,
                                          mech->mechanism)) {
         TRACE_ERROR("Mechanism not allowed per CKA_ALLOWED_MECHANISMS.\n");
@@ -9432,6 +9465,17 @@ CK_RV ep11tok_wrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s h_opaque_2_blob(key) failed with rc=0x%lx\n", __func__,
                     rc);
+        goto done;
+    }
+    rc = template_attribute_get_ulong(key_obj->template, CKA_KEY_TYPE, &ktype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        goto done;
+    }
+
+    if (ktype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Wrapping an AES-XTS key is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
         goto done;
     }
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
@@ -9553,6 +9597,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *verifyblob = NULL;
     size_t verifyblobsize = ~0;
     OBJECT *vobj = NULL;
+    CK_KEY_TYPE keytype;
 
     /* get wrapping key blob */
     rc = h_opaque_2_blob(tokdata, wrapping_key, &wrapping_blob,
@@ -9562,6 +9607,19 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                     __func__, rc);
         return rc;
     }
+
+    rc = template_attribute_get_ulong(kobj->template, CKA_KEY_TYPE, &keytype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Invalid key type attribute\n");
+        goto done;
+    }
+
+    if (mech->mechanism == CKM_AES_XTS || keytype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Key unwrap with AES-XTS is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
+    }
+
     rc = tokdata->policy->is_mech_allowed(tokdata->policy, mech,
                                           &kobj->strength,
                                           POLICY_CHECK_UNWRAP, session);
@@ -9671,6 +9729,12 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s get_subclass failed with rc=0x%lx\n", __func__, rc);
         goto error;
+    }
+
+    if (ktype == CKK_AES_XTS) {
+        TRACE_ERROR("%s Unwrapping an AES-XTS key is not supported\n", __func__);
+        rc = CKR_KEY_TYPE_INCONSISTENT;
+        goto done;
     }
 
     /* Start creating the key object */
