@@ -5,7 +5,7 @@ language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect libldap2-dev wget libudev-dev
+    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive
     - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
     - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
