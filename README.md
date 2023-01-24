@@ -56,7 +56,7 @@ directory and do the following:
 ** Note: ** This package used the `AX_PROG_CC_FOR_BUILD` autoconf macro
 from the autoconf archive to support cross compiler builds.
 If your system does not provide this macro, you might need to install the
-`autocnof-archive` package or download the macro and place it into the
+`autoconf-archive` package or download the macro and place it into the
 `m4` directory. 
 See [https://www.gnu.org/software/autoconf-archive/ax_prog_cc_for_build.html](https://www.gnu.org/software/autoconf-archive/ax_prog_cc_for_build.html)
 for a link to the latest version of `ax_prog_cc_for_build.m4`.
