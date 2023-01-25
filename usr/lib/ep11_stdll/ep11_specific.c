@@ -11340,8 +11340,8 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
     if (data->first) {
         data->first_adapter = adapter;
         data->first_domain = domain;
-        /* Apply CP bits 0 to max_cp_index-1 only */
-        for (i = 0; i < max_cp_index; i++) {
+        /* Apply CP bits 0 to max_cp_index only */
+        for (i = 0; i <= max_cp_index; i++) {
             data->combined_cp[CP_BYTE_NO(i)] &=
                                     (cp[CP_BYTE_NO(i)] | ~CP_BIT_MASK(i));
         }
@@ -11362,8 +11362,8 @@ static CK_RV control_point_handler(uint_32 adapter, uint_32 domain,
                        data->first_domain);
         }
 
-        for (i = 0; i < max_cp_index; i++) {
-            /* Apply CP bits 0 to max_cp_index-1 only */
+        for (i = 0; i <= max_cp_index; i++) {
+            /* Apply CP bits 0 to max_cp_index only */
             data->combined_cp[CP_BYTE_NO(i)] &=
                                     (cp[CP_BYTE_NO(i)] | ~CP_BIT_MASK(i));
         }
