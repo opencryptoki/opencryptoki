@@ -2308,7 +2308,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     if (rc != CKR_OK) {
         TRACE_ERROR("%s RSA/EC check private key attributes failed with "
                     "rc=0x%lx\n", __func__, rc);
-        return rc;
+        goto rawkey_2_blob_end;
     }
 
     trace_attributes(__func__, "Import sym.:", new_p_attrs, new_attrs_len);
@@ -2330,6 +2330,7 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
     if (rc != CKR_OK) {
         rc = ep11_error_to_pkcs11_error(rc, sess);
         TRACE_ERROR("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
+        goto rawkey_2_blob_end;
     } else {
         TRACE_INFO("%s unwrap blen=%zd rc=0x%lx\n", __func__, *blen, rc);
 
