@@ -4292,6 +4292,13 @@ CK_RV SC_IBM_ReencryptSingle(STDLL_TokData_t *tokdata, ST_SESSION_T *sSession,
     if (rc != CKR_OK)
         goto done;
 
+    if (pDecrMech->mechanism == CKM_AES_XTS ||
+        pEncrMech->mechanism == CKM_AES_XTS) {
+        TRACE_ERROR("IBM_ReencryptSingle with AES-XTS is not supported\n");
+        rc = CKR_MECHANISM_INVALID;
+        goto done;
+    }
+
     if (pin_expired(&sess->session_info,
                     tokdata->nv_token_data->token_info.flags) == TRUE) {
         TRACE_ERROR("%s\n", ock_err(ERR_PIN_EXPIRED));
