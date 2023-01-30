@@ -1441,6 +1441,7 @@ CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
                 ret = template_update_attribute(tmpl, pkey_attr);
                 if (ret != CKR_OK) {
                     TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+                    free(pkey_attr);
                     goto done;
                 }
             }
