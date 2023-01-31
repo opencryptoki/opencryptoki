@@ -13397,12 +13397,6 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
         return rc;
     }
 
-    rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &ktype);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s CKA_KEY_TYPE is missing\n", __func__);
-        return rc;
-    }
-
     switch (class) {
     case CKO_SECRET_KEY:
     case CKO_PRIVATE_KEY:
@@ -13411,6 +13405,12 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
     default:
         /* Not a key, nothing to do */
         return CKR_OK;
+    }
+
+    rc = template_attribute_get_ulong(obj->template, CKA_KEY_TYPE, &ktype);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s CKA_KEY_TYPE is missing\n", __func__);
+        return rc;
     }
 
     rc = obj_opaque_2_blob(tokdata, obj, &keyblob, &keyblobsize);
