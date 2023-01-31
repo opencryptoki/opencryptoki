@@ -1,3 +1,15 @@
++ openCryptoki 3.20
+- Soft/ICA: add support for the AES-XTS key type (PKCS#11 v3.0)
+- ICSF: add support for ECDH and additional SHA variants
+- ICSF: add support for CKM_TLS_PRE_MASTER_KEY_GEN and CKM_TLS_KEY_AND_MAC_DERIVE
+- EP11: add support for the EP11 host library version 4
+- EP11: add support for additional IBM specific Dilithium round 2 and 3 variants
+- EP11: add support for the IBM specific Kyber key type and mechanism
+- EP11: add support for the AES-XTS key type using CPACF protected keys
+- p11sak: add support for the AES-XTS key type
+- p11sak: add support for additional Dilithium variants and the Kyber key type
+- Bug fixes
+
 + openCryptoki 3.19
 - CCA: check for expected master key verification patterns at token init
 - CCA: check master key verification pattern of created keys to be as expected
