@@ -2690,9 +2690,9 @@ const struct pqc_oid *ibm_pqc_get_keyform_mode(TEMPLATE *tmpl,
                                                CK_MECHANISM_TYPE mech)
 {
     CK_ATTRIBUTE *attr = NULL;
-    const struct pqc_oid *oids, *oid;
-    CK_ATTRIBUTE_TYPE keyform_attr;
-    CK_ATTRIBUTE_TYPE mode_attr;
+    const struct pqc_oid *oids = NULL, *oid;
+    CK_ATTRIBUTE_TYPE keyform_attr = 0;
+    CK_ATTRIBUTE_TYPE mode_attr = 0;
 
     if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
                                            &mode_attr, &oids) != CKR_OK)
@@ -2729,8 +2729,8 @@ CK_RV ibm_pqc_add_keyform_mode(TEMPLATE *tmpl, const struct pqc_oid *oid,
     CK_ATTRIBUTE *mode = NULL;
     CK_ATTRIBUTE *keyform = NULL;
     CK_RV rc;
-    CK_ATTRIBUTE_TYPE keyform_attr;
-    CK_ATTRIBUTE_TYPE mode_attr;
+    CK_ATTRIBUTE_TYPE keyform_attr = 0;
+    CK_ATTRIBUTE_TYPE mode_attr = 0;
     const struct pqc_oid *oids;
 
     if (ibm_pqc_keyform_mode_attrs_by_mech(mech, &keyform_attr,
