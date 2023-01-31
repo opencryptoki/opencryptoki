@@ -38,13 +38,14 @@ APQN_ANY
 EOF
 }
 
-# Usage: genlatestep11cfg num
+# Usage: genlatestep11cfg num configline
 # Return: 0 if successful
 function genlatestep11cfg() {
     local res=1
     
     lszcrypt | grep "$LATESTCEXP" | perl -ne '/([0-9a-fA-F]+)\.([0-9a-fA-F]+)\s.*/ && print "0x$1 0x$2\n"' > tmp.apqns
     if test -s tmp.apqns; then
+        echo ${2}
         echo "APQN_WHITELIST" > "${EPCONFDIR}/ep11tok${1}.conf"
         cat tmp.apqns >> "${EPCONFDIR}/ep11tok${1}.conf"
         echo "END" >> "${EPCONFDIR}/ep11tok${1}.conf"
@@ -125,13 +126,8 @@ addslot 43 libpkcs11_ep11.so ep3 ep11tok43.conf
 genep11cfg 44 "DIGEST_LIBICA OFF"
 addslot 44 libpkcs11_ep11.so ep4 ep11tok44.conf
 
-# 5:
+# 5: latest (CEX7 only)
 # PKEY_MODE ENABLE4NONEXTR
-# APQN_ANY
-genep11cfg 45 "PKEY_MODE ENABLE4NONEXTR"
-addslot 45 libpkcs11_ep11.so ep5 ep11tok45.conf
-
-# 6: latest
-if genlatestep11cfg 46; then
-    addslot 46 libpkcs11_ep11.so ep6 ep11tok46.conf
+if genlatestep11cfg 45 "PKEY_MODE ENABLE4NONEXTR"; then
+    addslot 45 libpkcs11_ep11.so ep5 ep11tok45.conf
 fi
