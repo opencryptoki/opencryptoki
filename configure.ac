@@ -486,10 +486,16 @@ if test "x$enable_ep11tok" = "xyes"; then
 	AC_CHECK_HEADER([ica_api.h], [], [
 		AC_MSG_ERROR([ep11 token build requested but Libica headers couldn't be found])
 	])
+	AC_CHECK_HEADER([asm/pkey.h], [], [
+		AC_MSG_ERROR([ep11 token build requested but Kernel's pkey header couldn't be found])
+	])	
 fi
 if test "x$enable_ep11tok" != "xno"; then
 	enable_ep11tok=yes
 	AC_CHECK_HEADER([ica_api.h], [], [
+		enable_ep11tok=no
+	])
+	AC_CHECK_HEADER([asm/pkey.h], [], [
 		enable_ep11tok=no
 	])
 else
