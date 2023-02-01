@@ -4413,9 +4413,17 @@ CK_RV token_specific_object_add(STDLL_TokData_t * tokdata, SESSION * sess,
     switch (class) {
     case CKO_PRIVATE_KEY:
     case CKO_SECRET_KEY:
-        if (check_expected_mkvp(tokdata, blob, blobsize) != CKR_OK) {
+        if (check_expected_mkvp(tokdata, blob, keytype == CKK_AES_XTS ?
+                                blobsize / 2 : blobsize) != CKR_OK) {
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
+        }
+        if (keytype == CKK_AES_XTS) {
+            if (check_expected_mkvp(tokdata, blob + blobsize / 2,
+                                    blobsize / 2) != CKR_OK) {
+                TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+                return CKR_DEVICE_ERROR;
+            }
         }
         break;
     default:
