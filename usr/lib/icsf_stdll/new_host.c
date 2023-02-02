@@ -3090,7 +3090,9 @@ CK_RV SC_DeriveKey(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         rc = CKR_ARGUMENTS_BAD;
         goto done;
     }
-    if (pMechanism->mechanism != CKM_SSL3_KEY_AND_MAC_DERIVE && !phKey) {
+    if (pMechanism->mechanism != CKM_SSL3_KEY_AND_MAC_DERIVE &&
+        pMechanism->mechanism != CKM_TLS_KEY_AND_MAC_DERIVE &&
+        !phKey) {
         TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
         rc = CKR_ARGUMENTS_BAD;
         goto done;
@@ -3137,6 +3139,7 @@ done:
     if (rc == CKR_OK) {
         switch (pMechanism->mechanism) {
         case CKM_SSL3_KEY_AND_MAC_DERIVE:
+        case CKM_TLS_KEY_AND_MAC_DERIVE:
             {
                 CK_SSL3_KEY_MAT_PARAMS *pReq;
                 CK_SSL3_KEY_MAT_OUT *pPtr;
