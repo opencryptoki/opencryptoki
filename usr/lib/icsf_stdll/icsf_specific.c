@@ -126,6 +126,7 @@ static const MECH_LIST_ELEMENT icsf_mech_list[] = {
     {CKM_SSL3_SHA1_MAC, {384, 384, CKF_SIGN | CKF_VERIFY}},
     {CKM_SSL3_MASTER_KEY_DERIVE, {48, 48, CKF_DERIVE}},
     {CKM_SSL3_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
+    {CKM_TLS_PRE_MASTER_KEY_GEN, {48, 48, CKF_HW | CKF_GENERATE}},
     {CKM_TLS_KEY_AND_MAC_DERIVE, {48, 48, CKF_DERIVE}},
     {CKM_GENERIC_SECRET_KEY_GEN, {80, 2048, CKF_HW | CKF_GENERATE}},
 };
@@ -1999,6 +2000,7 @@ static CK_ULONG get_generate_key_type(CK_MECHANISM_PTR mech)
     case CKM_DES3_KEY_GEN:
         return CKK_DES3;
     case CKM_SSL3_PRE_MASTER_KEY_GEN:
+    case CKM_TLS_PRE_MASTER_KEY_GEN:
         return CKK_GENERIC_SECRET;
         /* Asymmetric keys */
     case CKM_RSA_PKCS_KEY_PAIR_GEN:

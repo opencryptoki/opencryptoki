@@ -990,6 +990,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SHA512_KEY_DERIVATION:
         case CKM_SSL3_MASTER_KEY_DERIVE:
         case CKM_SSL3_PRE_MASTER_KEY_GEN:
+        case CKM_TLS_PRE_MASTER_KEY_GEN:
             if (policy_update_symmetric(pp, info, CK_TRUE) != CKR_OK) {
                 row = mechrow_from_numeric(mech);
                 TRACE_DEVEL("Mechanism %s (0x%lx) blocked by policy!\n",
