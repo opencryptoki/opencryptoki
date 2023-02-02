@@ -45,8 +45,8 @@ function genlatestep11cfg() {
     
     lszcrypt | grep "$LATESTCEXP" | perl -ne '/([0-9a-fA-F]+)\.([0-9a-fA-F]+)\s.*/ && print "0x$1 0x$2\n"' > tmp.apqns
     if test -s tmp.apqns; then
-        echo ${2}
-        echo "APQN_WHITELIST" > "${EPCONFDIR}/ep11tok${1}.conf"
+        echo "${2}" > "${EPCONFDIR}/ep11tok${1}.conf"
+        echo "APQN_WHITELIST" >> "${EPCONFDIR}/ep11tok${1}.conf"
         cat tmp.apqns >> "${EPCONFDIR}/ep11tok${1}.conf"
         echo "END" >> "${EPCONFDIR}/ep11tok${1}.conf"
         res=0
