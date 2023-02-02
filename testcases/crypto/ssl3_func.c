@@ -637,6 +637,209 @@ skipped:
     return rc;
 }
 
+CK_RV do_TLS_PreMasterKeyGen(CK_SESSION_HANDLE session)
+{
+    CK_MECHANISM mech;
+    CK_VERSION version;
+    CK_OBJECT_HANDLE h_key;
+    CK_RV rc = CKR_OK;
+    CK_SLOT_ID slot_id = SLOT_ID;
+
+    testcase_begin("starting do_TLS_PreMasterKeyGen...\n");
+
+    version.major = 3;
+    version.minor = 3;
+
+    mech.mechanism = CKM_TLS_PRE_MASTER_KEY_GEN;
+    mech.pParameter = &version;
+    mech.ulParameterLen = sizeof(CK_VERSION);
+
+    /** skip test if the slot doesn't support this mechanism **/
+    if (!mech_supported(slot_id, mech.mechanism)) {
+        testsuite_skip(1, "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(mech.mechanism),
+                       (unsigned int) mech.mechanism);
+        goto done;
+    }
+
+    testcase_new_assertion();
+    rc = funcs->C_GenerateKey(session, &mech, NULL, 0, &h_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key generation is not allowed by policy");
+            return CKR_OK;
+        }
+        testcase_fail("C_GenerateKey() rc = %s", p11_get_ckr(rc));
+    } else {
+        testcase_pass("Successfully generated a generic secret key.");
+    }
+
+    if (funcs->C_DestroyObject(session, h_key) != CKR_OK)
+        testcase_error("C_DestroyObject() failed");
+
+done:
+    return rc;
+}
+
+CK_RV do_TLS_MultipleKeysDerive(CK_SESSION_HANDLE session)
+{
+    CK_MECHANISM mech;
+    CK_OBJECT_HANDLE h_pm_secret;
+    CK_RV rc = CKR_OK;
+    CK_ULONG i;
+
+    CK_VERSION version = { 3, 3 };
+    CK_BBOOL true_value = TRUE;
+    CK_BBOOL false_value = FALSE;
+    CK_ATTRIBUTE pm_tmpl[] = {
+        {CKA_TOKEN, &true_value, sizeof(true_value)},
+    };
+
+    CK_BYTE client_random_data[32];
+    CK_BYTE server_random_data[32];
+    CK_ATTRIBUTE incomplete_tmpl[] = {
+        {CKA_TOKEN, &false_value, sizeof(false_value)},
+        {CKA_SENSITIVE, &false_value, sizeof(false_value)},
+        {CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
+    };
+
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_KEY_TYPE key_type = CKK_AES;
+    CK_ULONG key_len = 16;
+    CK_ATTRIBUTE complete_tmpl[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
+        {CKA_TOKEN, &false_value, sizeof(false_value)},
+        {CKA_SENSITIVE, &false_value, sizeof(false_value)},
+        {CKA_EXTRACTABLE, &true_value, sizeof(true_value)}
+    };
+
+    CK_BYTE iv_client[128 / 8] = { 0, };
+    CK_BYTE iv_server[128 / 8] = { 0, };
+
+    CK_SSL3_KEY_MAT_OUT param_out = {
+        .hClientMacSecret = 0,
+        .hServerMacSecret = 0,
+        .hClientKey = 0,
+        .hServerKey = 0,
+        .pIVClient = iv_client,
+        .pIVServer = iv_server,
+    };
+
+    CK_SSL3_KEY_MAT_PARAMS params = {
+        .ulMacSizeInBits = 128,
+        .ulKeySizeInBits = key_len * 8,
+        .ulIVSizeInBits = 128,
+        .bIsExport = FALSE,
+        .RandomInfo =
+        {
+            .pClientRandom = client_random_data,
+            .ulClientRandomLen = sizeof(client_random_data),
+            .pServerRandom = server_random_data,
+            .ulServerRandomLen = sizeof(server_random_data),
+        },
+        .pReturnedKeyMaterial = &param_out,
+    };
+    CK_SLOT_ID slot_id = SLOT_ID;
+
+    testcase_begin("starting do_TLS_MultipleKeysDerive...\n");
+
+    // generate the pre-master secret key
+    //
+    mech.mechanism = CKM_TLS_PRE_MASTER_KEY_GEN;
+    mech.pParameter = &version;
+    mech.ulParameterLen = sizeof(CK_VERSION);
+
+    /** skip test if the slot doesn't support this mechanism **/
+    if (!mech_supported(slot_id, mech.mechanism)) {
+        testsuite_skip(3, "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(mech.mechanism),
+                       (unsigned int) mech.mechanism);
+        goto skipped;
+    }
+
+    testcase_new_assertion();
+    rc = funcs->C_GenerateKey(session, &mech, pm_tmpl,
+                              sizeof(pm_tmpl) / sizeof(*pm_tmpl), &h_pm_secret);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("Key generation is not allowed by policy");
+            goto done;
+        }
+        testcase_fail("C_GenerateKey() rc= %s", p11_get_ckr(rc));
+        goto done;
+    } else {
+        testcase_pass("Successfully generated a generic secret key.");
+    }
+
+    for (i = 0; i < sizeof(client_random_data); i++) {
+        client_random_data[i] = i;
+        server_random_data[i] = sizeof(client_random_data) - i;
+    }
+
+    mech.mechanism = CKM_TLS_KEY_AND_MAC_DERIVE;
+    mech.pParameter = &params;
+    mech.ulParameterLen = sizeof(params);
+
+    /*
+     * Try deriving the key without required attributes...
+     */
+    testcase_new_assertion();
+    rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, incomplete_tmpl,
+                            sizeof(incomplete_tmpl) / sizeof(*incomplete_tmpl),
+                            NULL);
+    if (is_rejected_by_policy(rc, session)) {
+        testcase_skip("key derivation is not allowed by policy");
+        goto done;
+    }
+    if (rc != CKR_TEMPLATE_INCOMPLETE) {
+        testcase_fail("C_DeriveKey did not recognize missing attributes.");
+        goto done;
+    } else {
+        testcase_pass("Success, could not derive key without required "
+                      "attributes.");
+    }
+
+    /*
+     * Now derive key with required attributes...
+     */
+
+    testcase_new_assertion();
+    rc = funcs->C_DeriveKey(session, &mech, h_pm_secret, complete_tmpl,
+                            sizeof(complete_tmpl) / sizeof(*complete_tmpl),
+                            NULL);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testcase_skip("key derivation is not allowed by policy");
+            goto done;
+        }
+        testcase_fail("C_DeriveKey() rc= %s", p11_get_ckr(rc));
+        goto done;
+    } else {
+        testcase_pass("Successfully derived a keys from pre-master.");
+    }
+
+
+    if (funcs->C_DestroyObject(session, param_out.hClientMacSecret))
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    if (funcs->C_DestroyObject(session, param_out.hServerMacSecret))
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    if (funcs->C_DestroyObject(session, param_out.hClientKey))
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+    if (funcs->C_DestroyObject(session, param_out.hServerKey))
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+done:
+    if (funcs->C_DestroyObject(session, h_pm_secret) != CKR_OK)
+        testcase_error("C_DestroyObject() failed");
+
+skipped:
+    return rc;
+}
+
 CK_RV ssl3_functions(void)
 {
     CK_RV rc;
@@ -682,6 +885,20 @@ CK_RV ssl3_functions(void)
     rc = do_SignVerify_SSL3_MD5_MAC(session);
     if (rc && !no_stop)
         return rc;
+    GetSystemTime(&t2);
+    process_time(t1, t2);
+
+    GetSystemTime(&t1);
+    rc = do_TLS_PreMasterKeyGen(session);
+    if (rc && !no_stop)
+        goto testcase_cleanup;
+    GetSystemTime(&t2);
+    process_time(t1, t2);
+
+    GetSystemTime(&t1);
+    rc = do_TLS_MultipleKeysDerive(session);
+    if (rc && !no_stop)
+        goto testcase_cleanup;
     GetSystemTime(&t2);
     process_time(t1, t2);
 
