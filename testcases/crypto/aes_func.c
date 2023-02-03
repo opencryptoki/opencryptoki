@@ -2799,9 +2799,11 @@ int main(int argc, char **argv)
     pkey = CK_FALSE;
     rv = aes_funcs();
 
-    pkey = CK_TRUE;
-    rv += aes_funcs();
-    rv += aes_funcs_pkey();
+    if (is_ep11_token(SLOT_ID)) {
+        pkey = CK_TRUE;
+        rv += aes_funcs();
+        rv += aes_funcs_pkey();
+    }
 
     testcase_print_result();
 
