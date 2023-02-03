@@ -2099,7 +2099,8 @@ done:
 
 static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
                                               CK_ATTRIBUTE * attrs,
-                                              CK_ULONG attrs_len)
+                                              CK_ULONG attrs_len,
+                                              int *reason)
 {
     int attrtype;
     struct berval attrbval = { 0, NULL };
@@ -2107,7 +2108,7 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
     unsigned int i;
     CK_ULONG found = 0;
     ber_tag_t tag;
-    CK_RV rc = CKR_OK;
+    int rc = 0;
 
     if (ber_scanf(berbuf, "{{") == LBER_ERROR)
         goto decode_error;
@@ -2154,7 +2155,8 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
                 }
                 attrs[i].ulValueLen = attrbval.bv_len;
             } else {
-                rc = CKR_BUFFER_TOO_SMALL;
+                rc = 8;
+                *reason = 3003; /* CKR_BUFFER_TOO_SMALL */
                 attrs[i].ulValueLen = -1;
                 goto decode_error;
             }
@@ -2175,7 +2177,8 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
      */
     if (found < attrs_len) {
         TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_TYPE_INVALID));
-        rc = CKR_ATTRIBUTE_TYPE_INVALID;
+        rc = 8;
+        *reason = 3029; /* CKR_ATTRIBUTE_TYPE_INVALID */
         goto decode_error;
     }
 
@@ -2183,9 +2186,6 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
 
 decode_error:
     TRACE_ERROR("Failed to decode message.\n");
-
-    if (!rc)
-        rc = CKR_FUNCTION_FAILED;
 
     return rc;
 }
@@ -2247,7 +2247,7 @@ int icsf_get_attribute(LDAP * ld, int *reason,
      *
      * asn.1 {{{ito|i} {ito|i} ...}i}
      */
-    rc = icsf_ber_decode_get_attribute_list(result, attrs, attrs_len);
+    rc = icsf_ber_decode_get_attribute_list(result, attrs, attrs_len, reason);
     if (rc < 0) {
         TRACE_ERROR("Failed to decode message.\n");
         goto cleanup;
