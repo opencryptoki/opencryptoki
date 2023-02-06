@@ -31,7 +31,7 @@ if ENABLE_SYSTEMD
 servicedir = $(unitdir)
 service_DATA = misc/pkcsslotd.service
 
-tmpfilesdir = $(DESTDIR)/usr/lib/tmpfiles.d
+tmpfilesdir = /usr/lib/tmpfiles.d
 tmpfiles_DATA = misc/opencryptoki.conf
 
 CLEANFILES += misc/pkcsslotd.service misc/opencryptoki.conf
