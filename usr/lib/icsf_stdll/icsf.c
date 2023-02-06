@@ -2772,6 +2772,8 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
     BerElement *result = NULL;
     struct berval bv_wrapped_key = { 0, NULL };
     ber_int_t wrapped_key_len = 0;
+    ber_int_t iv_len = 0;
+    char *iv = "";
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(mech);
@@ -2796,6 +2798,8 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
                         (unsigned long) mech->mechanism);
             return -1;
         }
+        iv = mech->pParameter;
+        iv_len = mech->ulParameterLen;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -2826,8 +2830,10 @@ int icsf_wrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      * For a size query (wrapped_key is NULL), we set wrappedKeyMaxLen to
      * USHRT_MAX (65535), which is hopefully large enough.
      */
-    rc = ber_printf(msg, "ois", wrapping_handle, sizeof(wrapping_handle),
-            wrapped_key != NULL ? (ber_int_t)*p_wrapped_key_len : USHRT_MAX, "");
+    rc = ber_printf(msg, "oio", wrapping_handle, sizeof(wrapping_handle),
+                    wrapped_key != NULL ?
+                                (ber_int_t)*p_wrapped_key_len : USHRT_MAX,
+                    iv, iv_len);
     if (rc < 0) {
         rc = -1;
         TRACE_ERROR("Failed to encode message: %d.\n", rc);
@@ -2897,6 +2903,8 @@ int icsf_unwrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
     const char *rule_fmt = NULL;
     const char *rule_alg = NULL;
     BerElement *msg = NULL;
+    ber_int_t iv_len = 0;
+    char *iv = "";
 
     CHECK_ARG_NON_NULL(ld);
     CHECK_ARG_NON_NULL(mech);
@@ -2920,6 +2928,8 @@ int icsf_unwrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
                         (unsigned long) mech->mechanism);
             return -1;
         }
+        iv = mech->pParameter;
+        iv_len = mech->ulParameterLen;
         break;
     default:
         TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_INVALID));
@@ -2948,7 +2958,7 @@ int icsf_unwrap_key(LDAP * ld, int *p_reason, CK_MECHANISM_PTR mech,
      *      attrList        Attributes
      * }
      */
-    if (ber_printf(msg, "os", wrapped_key, wrapped_key_len, "") < 0 ||
+    if (ber_printf(msg, "oo", wrapped_key, wrapped_key_len, iv, iv_len) < 0 ||
         ber_printf(msg, "{") < 0 ||
         icsf_ber_put_attribute_list(msg, attrs, attrs_len) ||
         ber_printf(msg, "}") < 0) {
