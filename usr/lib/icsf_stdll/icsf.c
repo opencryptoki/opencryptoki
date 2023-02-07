@@ -2165,6 +2165,10 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
             found++;
         }
 
+        if (attrbval.bv_val != NULL)
+            ber_memfree(attrbval.bv_val);
+        attrbval.bv_val = NULL;
+
         /* if we have found all the values for our list, then
          * we are done.
          */
@@ -2186,6 +2190,9 @@ static int icsf_ber_decode_get_attribute_list(BerElement * berbuf,
 
 decode_error:
     TRACE_ERROR("Failed to decode message.\n");
+
+    if (attrbval.bv_val != NULL)
+        ber_memfree(attrbval.bv_val);
 
     return rc;
 }
