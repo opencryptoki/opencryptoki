@@ -16,20 +16,13 @@
 #include "pqc_oids.h"
 
 extern const CK_BYTE dilithium_r2_65[];
-extern const CK_ULONG dilithium_r2_65_len;
 extern const CK_BYTE dilithium_r2_87[];
-extern const CK_ULONG dilithium_r2_87_len;
 extern const CK_BYTE dilithium_r3_44[];
-extern const CK_ULONG dilithium_r3_44_len;
 extern const CK_BYTE dilithium_r3_56[];
-extern const CK_ULONG dilithium_r3_56_len;
 extern const CK_BYTE dilithium_r3_87[];
-extern const CK_ULONG dilithium_r3_87_len;
 
 extern const CK_BYTE kyber_r2_768[];
-extern const CK_ULONG kyber_r2_768_len;
 extern const CK_BYTE kyber_r2_1024[];
-extern const CK_ULONG kyber_r2_1024_len;
 
 struct pqc_oid {
     const CK_BYTE *oid;

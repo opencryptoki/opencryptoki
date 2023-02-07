@@ -30,9 +30,7 @@
  */
 
 const CK_BYTE kyber_r2_768[] = OCK_KYBER_R2_768;
-const CK_ULONG kyber_r2_768_len = sizeof(kyber_r2_768);
 const CK_BYTE kyber_r2_1024[] = OCK_KYBER_R2_1024;
-const CK_ULONG kyber_r2_1024_len = sizeof(kyber_r2_1024);
 
 const CK_BYTE prime256v1[] = OCK_PRIME256V1;
 
@@ -46,9 +44,9 @@ typedef struct variant_info {
 const _variant_info variants[] = {
     { "DEFAULT (KYBER_R2_1024)", 0, NULL, 0 },
     { "KYBER_R2_768", CK_IBM_KYBER_KEYFORM_ROUND2_768,
-      kyber_r2_768, kyber_r2_768_len },
+      kyber_r2_768, sizeof(kyber_r2_768) },
     { "KYBER_R2_1024", CK_IBM_KYBER_KEYFORM_ROUND2_1024,
-      kyber_r2_1024, kyber_r2_1024_len },
+      kyber_r2_1024, sizeof(kyber_r2_1024) },
 };
 
 const CK_ULONG num_variants = sizeof(variants) / sizeof(_variant_info);

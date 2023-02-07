@@ -44,15 +44,10 @@ const _signVerifyParam signVerifyInput[] = {
 };
 
 const CK_BYTE dilithium_r2_65[] = OCK_DILITHIUM_R2_65;
-const CK_ULONG dilithium_r2_65_len = sizeof(dilithium_r2_65);
 const CK_BYTE dilithium_r2_87[] = OCK_DILITHIUM_R2_87;
-const CK_ULONG dilithium_r2_87_len = sizeof(dilithium_r2_87);
 const CK_BYTE dilithium_r3_44[] = OCK_DILITHIUM_R3_44;
-const CK_ULONG dilithium_r3_44_len = sizeof(dilithium_r3_44);
 const CK_BYTE dilithium_r3_65[] = OCK_DILITHIUM_R3_65;
-const CK_ULONG dilithium_r3_65_len = sizeof(dilithium_r3_65);
 const CK_BYTE dilithium_r3_87[] = OCK_DILITHIUM_R3_87;
-const CK_ULONG dilithium_r3_87_len = sizeof(dilithium_r3_87);
 
 typedef struct variant_info {
     const char *name;
@@ -64,15 +59,15 @@ typedef struct variant_info {
 const _variant_info variants[] = {
     { "DEFAULT (DILITHIUM_R2_65)", 0, NULL, 0 },
     { "DILITHIUM_R2_65", CK_IBM_DILITHIUM_KEYFORM_ROUND2_65,
-      dilithium_r2_65, dilithium_r2_65_len },
+      dilithium_r2_65, sizeof(dilithium_r2_65) },
     { "DILITHIUM_R2_87", CK_IBM_DILITHIUM_KEYFORM_ROUND2_87,
-      dilithium_r2_87, dilithium_r2_87_len },
+      dilithium_r2_87, sizeof(dilithium_r2_87) },
     { "DILITHIUM_R3_44", CK_IBM_DILITHIUM_KEYFORM_ROUND3_44,
-      dilithium_r3_44, dilithium_r3_44_len },
+      dilithium_r3_44, sizeof(dilithium_r3_44) },
     { "DILITHIUM_R3_65", CK_IBM_DILITHIUM_KEYFORM_ROUND3_65,
-      dilithium_r3_65, dilithium_r3_65_len },
+      dilithium_r3_65, sizeof(dilithium_r3_65) },
     { "DILITHIUM_R3_87", CK_IBM_DILITHIUM_KEYFORM_ROUND3_87,
-      dilithium_r3_87, dilithium_r3_87_len },
+      dilithium_r3_87, sizeof(dilithium_r3_87) },
 };
 
 const CK_ULONG num_variants = sizeof(variants) / sizeof(_variant_info);
