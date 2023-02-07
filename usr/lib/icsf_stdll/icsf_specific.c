@@ -2711,8 +2711,9 @@ CK_RV icsftok_encrypt_update(STDLL_TokData_t * tokdata,
         goto done;
     }
     memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
-    memcpy(buffer + multi_part_ctx->used_data_len, input_part,
-           input_part_len - remaining);
+    if (input_part_len - remaining > 0)
+        memcpy(buffer + multi_part_ctx->used_data_len, input_part,
+               input_part_len - remaining);
 
     /* Encrypt data using remote token. */
     rc = icsf_secret_key_encrypt(session_state->ld, &reason,
@@ -2769,8 +2770,10 @@ keep_remaining_data:
     if (!is_length_only) {
         /* Copy remaining part of input_part into context */
         if (total < multi_part_ctx->data_len) {
-            memcpy(multi_part_ctx->data +
-                   multi_part_ctx->used_data_len, input_part, input_part_len);
+            if (input_part_len > 0)
+                memcpy(multi_part_ctx->data +
+                       multi_part_ctx->used_data_len, input_part,
+                       input_part_len);
         } else {
             memcpy(multi_part_ctx->data,
                    input_part + input_part_len - remaining, remaining);
@@ -3245,8 +3248,9 @@ CK_RV icsftok_decrypt_update(STDLL_TokData_t * tokdata,
         goto done;
     }
     memcpy(buffer, multi_part_ctx->data, multi_part_ctx->used_data_len);
-    memcpy(buffer + multi_part_ctx->used_data_len, input_part,
-           input_part_len - remaining);
+    if (input_part_len - remaining > 0)
+        memcpy(buffer + multi_part_ctx->used_data_len, input_part,
+               input_part_len - remaining);
 
     /* Decrypt data using remote token. */
     rc = icsf_secret_key_decrypt(session_state->ld, &reason,
@@ -3302,8 +3306,10 @@ keep_remaining_data:
         /* Copy remaining part of input_part into context */
         if (total < multi_part_ctx->data_len ||
             (padding && total == multi_part_ctx->data_len)) {
-            memcpy(multi_part_ctx->data +
-                   multi_part_ctx->used_data_len, input_part, input_part_len);
+            if (input_part_len > 0)
+                memcpy(multi_part_ctx->data +
+                       multi_part_ctx->used_data_len, input_part,
+                       input_part_len);
         } else {
             memcpy(multi_part_ctx->data,
                    input_part + input_part_len - remaining, remaining);
@@ -4321,8 +4327,9 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
 
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
-                memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
-                       (char *)in_data, in_data_len);
+                if (in_data_len > 0)
+                    memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
+                           (char *)in_data, in_data_len);
                 multi_part_ctx->used_data_len += in_data_len;
 
                 rc = CKR_OK;
@@ -4340,9 +4347,10 @@ CK_RV icsftok_sign_update(STDLL_TokData_t * tokdata,
                 }
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
-                memcpy(buffer + multi_part_ctx->used_data_len,
-                       (char *)in_data,
-                       out_len - multi_part_ctx->used_data_len);
+                if (out_len - multi_part_ctx->used_data_len > 0)
+                    memcpy(buffer + multi_part_ctx->used_data_len,
+                           (char *)in_data,
+                           out_len - multi_part_ctx->used_data_len);
 
                 /* copy remainder of data to ctx
                  * for next time. caching.
@@ -4915,8 +4923,9 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
 
             /* if not enough to meet blocksize, cache and exit. */
             if (total < multi_part_ctx->data_len) {
-                memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
-                       (char *)in_data, in_data_len);
+                if (in_data_len > 0)
+                    memcpy(multi_part_ctx->data + multi_part_ctx->used_data_len,
+                           (char *)in_data, in_data_len);
                 multi_part_ctx->used_data_len += in_data_len;
 
                 rc = CKR_OK;
@@ -4934,9 +4943,10 @@ CK_RV icsftok_verify_update(STDLL_TokData_t * tokdata,
                 }
                 memcpy(buffer, multi_part_ctx->data,
                        multi_part_ctx->used_data_len);
-                memcpy(buffer + multi_part_ctx->used_data_len,
-                       (char *)in_data,
-                       out_len - multi_part_ctx->used_data_len);
+                if (out_len - multi_part_ctx->used_data_len > 0)
+                    memcpy(buffer + multi_part_ctx->used_data_len,
+                           (char *)in_data,
+                           out_len - multi_part_ctx->used_data_len);
 
                 /* copy remainder of data to ctx
                  * for next time. caching.
