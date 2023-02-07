@@ -3269,6 +3269,7 @@ int icsf_derive_key(LDAP * ld, int *reason, CK_MECHANISM_PTR mech,
             version = (CK_VERSION_PTR) (&params->pVersion);
             version->major = bvParam.bv_val[0];
             version->minor = bvParam.bv_val[1];
+            ber_memfree(bvParam.bv_val);
         }
     }
 
