@@ -553,7 +553,7 @@ CK_RV do_TestAttributesAESXTS(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("Successfully added new attributes.");
+    testcase_pass("Successfully added new attribute.");
 
     /* Now get the attributes that were updated */
     testcase_new_assertion();
@@ -568,6 +568,7 @@ CK_RV do_TestAttributesAESXTS(void)
         testcase_fail("CKA_ENCRYPT mismatch");
         goto testcase_cleanup;
     }
+    testcase_pass("Successfully verified newly added attribute.");
 
 testcase_cleanup:
     if (obj_handle != CK_INVALID_HANDLE) {
