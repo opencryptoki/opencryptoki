@@ -3027,7 +3027,7 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
     CK_ULONG attrs_len = 0;
     CK_ATTRIBUTE_PTR new_p_attrs = NULL;
     CK_ULONG new_attrs_len = 0;
-    CK_ATTRIBUTE *chk_attr = NULL, *attr = NULL;
+    CK_ATTRIBUTE *attr = NULL;
     unsigned char *ep11_pin_blob = NULL;
     CK_ULONG ep11_pin_blob_len = 0;
     ep11_session_t *ep11_session = (ep11_session_t*) sess->private_data;
@@ -3163,8 +3163,6 @@ static CK_RV import_aes_xts_key(STDLL_TokData_t *tokdata, SESSION *sess,
 import_aes_xts_key_end:
     if (rc != CKR_OK)
         cleanse_attribute(aes_xts_key_obj->template, CKA_VALUE);
-    if (chk_attr != NULL)
-        free(chk_attr);
     if (p_attrs != NULL)
         cleanse_and_free_attribute_array(p_attrs, attrs_len);
     if (new_p_attrs)
