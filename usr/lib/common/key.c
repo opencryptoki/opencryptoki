@@ -2897,7 +2897,7 @@ CK_RV ibm_dilithium_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
     rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
     if (rc != CKR_OK) {
         TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
-        return rc;
+        goto error;
     }
 
     rc = template_update_attribute(tmpl, rho);
@@ -2957,7 +2957,7 @@ CK_RV ibm_dilithium_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
     rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_DILITHIUM);
     if (rc != CKR_OK) {
         TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
-        return rc;
+        goto error;
     }
 
     rc = template_update_attribute(tmpl, rho);
@@ -3121,7 +3121,7 @@ CK_RV ibm_kyber_priv_unwrap_get_data(TEMPLATE *tmpl, CK_BYTE *data,
     rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_KYBER);
     if (rc != CKR_OK) {
         TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
-        return rc;
+        goto error;
     }
 
     rc = template_update_attribute(tmpl, pk);
@@ -3171,7 +3171,7 @@ CK_RV ibm_kyber_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data,
     rc = ibm_pqc_add_keyform_mode(tmpl, oid, CKM_IBM_KYBER);
     if (rc != CKR_OK) {
         TRACE_ERROR("ibm_pqc_add_keyform_mode failed\n");
-        return rc;
+        goto error;
     }
 
     rc = template_update_attribute(tmpl, sk);
