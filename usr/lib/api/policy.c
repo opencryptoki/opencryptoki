@@ -558,7 +558,7 @@ static CK_RV policy_update_modexp(struct policy_private *pp,
 
 static CK_RV policy_update_symmetric(struct policy_private *pp,
                                      CK_MECHANISM_INFO_PTR info,
-                                     CK_BBOOL isbytes)
+                                     CK_BBOOL isbytes, CK_BBOOL isaesxts)
 {
     CK_ULONG minsize;
 
@@ -567,6 +567,8 @@ static CK_RV policy_update_symmetric(struct policy_private *pp,
         minsize = pp->strengths[pp->minstrengthidx].strength.details.symmetric;
         if (isbytes == CK_TRUE)
             minsize /= 8;
+        if (isaesxts == CK_TRUE)
+            minsize *= 2;
         if (minsize > info->ulMaxKeySize)
             return CKR_MECHANISM_INVALID;
         if (minsize > info->ulMinKeySize)
@@ -960,6 +962,7 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
     /* Silence spurious maybe-uninitialized warning. */
     struct objstrength tmp = { 0, 0, CK_TRUE };
     const struct mechrow *row;
+    CK_BBOOL isaesxts = CK_FALSE;
 
     if (pp) {
         if (hashmap_find(pp->allowedmechs, mech, NULL) == 0)
@@ -991,7 +994,9 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_SSL3_MASTER_KEY_DERIVE:
         case CKM_SSL3_PRE_MASTER_KEY_GEN:
         case CKM_TLS_PRE_MASTER_KEY_GEN:
-            if (policy_update_symmetric(pp, info, CK_TRUE) != CKR_OK) {
+            isaesxts = (mech == CKM_AES_XTS_KEY_GEN || mech == CKM_AES_XTS);
+            if (policy_update_symmetric(pp, info, CK_TRUE,
+                                        isaesxts) != CKR_OK) {
                 row = mechrow_from_numeric(mech);
                 TRACE_DEVEL("Mechanism %s (0x%lx) blocked by policy!\n",
                             row ? row->string : "UNKNOWN", mech);
@@ -1083,7 +1088,8 @@ static CK_RV policy_update_mech_info(policy_t p, CK_MECHANISM_TYPE mech,
         case CKM_IBM_SHA3_512_HMAC:
         case CKM_SSL3_MD5_MAC:
         case CKM_SSL3_SHA1_MAC:
-            if (policy_update_symmetric(pp, info, CK_FALSE) != CKR_OK) {
+            if (policy_update_symmetric(pp, info, CK_FALSE,
+                                        CK_FALSE) != CKR_OK) {
                 TRACE_DEVEL("Mechanism 0x%lx blocked by policy!\n", mech);
                 return CKR_MECHANISM_INVALID;
             }
