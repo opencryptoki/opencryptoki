@@ -493,6 +493,8 @@ CK_RV print_mech_info(int slot_id)
     /* For each slot find out how many mechanisms are supported */
     rc = FunctionPtr->C_GetMechanismList(slot_id, NULL_PTR, &MechanismCount);
     if (rc != CKR_OK) {
+        if (rc == CKR_TOKEN_NOT_PRESENT)
+            return CKR_OK;
         warnx("Error getting number of mechanisms: 0x%lX (%s)",
               rc, p11_get_ckr(rc));
         return rc;
@@ -622,6 +624,8 @@ CK_RV display_slot_info(int slot_id)
         /* Get the info for the slot we are examining and store in SlotInfo */
         rc = FunctionPtr->C_GetSlotInfo(SlotList[lcv], &SlotInfo);
         if (rc != CKR_OK) {
+            if (rc == CKR_TOKEN_NOT_PRESENT)
+                return CKR_OK;
             warnx("Error getting slot info: 0x%lX (%s)", rc,
                   p11_get_ckr(rc));
             return rc;
@@ -802,6 +806,8 @@ CK_RV display_token_info(int slot_id)
         /* Get the Token info for each slot in the system */
         rc = FunctionPtr->C_GetTokenInfo(SlotList[lcv], &TokenInfo);
         if (rc != CKR_OK) {
+            if (rc == CKR_TOKEN_NOT_PRESENT)
+                return CKR_OK;
             warnx("Error getting token info: 0x%lX (%s)", rc,
                   p11_get_ckr(rc));
             return rc;
