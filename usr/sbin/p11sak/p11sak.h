@@ -17,6 +17,7 @@
 #define P11SAK_DEFAULT_PKCS11_LIB           "libopencryptoki.so";
 #define P11SAK_PKCSLIB_ENV_NAME             "PKCSLIB"
 #define PKCS11_USER_PIN_ENV_NAME            "PKCS11_USER_PIN"
+#define PKCS11_PEM_PASSWORD_ENV_NAME        "PKCS11_PEM_PASSWORD"
 #define P11SAK_DEFAULT_CONF_FILE_ENV_NAME   "P11SAK_DEFAULT_CONF_FILE"
 #define P11SAK_CONFIG_FILE_NAME             "p11sak_defined_attrs.conf"
 #define P11SAK_DEFAULT_CONFIG_FILE          OCK_CONFDIR "/" P11SAK_CONFIG_FILE_NAME
@@ -35,12 +36,15 @@
 
 #define OPT_FORCE_PIN_PROMPT    256
 #define OPT_DETAILED_URI        257
+#define OPT_FORCE_PEM_PWD_PROMPT 258
 
 #define MAX_PRINT_LINE_LENGTH   80
 #define PRINT_INDENT_POS        35
 
 #define FIND_OBJECTS_COUNT      64
 #define LIST_KEYTYPE_CELL_SIZE  22
+
+#define MAX_SYM_CLEAR_KEY_SIZE  64
 
 enum p11sak_arg_type {
     ARG_TYPE_PLAIN = 0, /* no argument */
@@ -143,6 +147,20 @@ struct p11sak_keytype {
     const struct p11sak_attr *secret_attrs;
     const struct p11sak_attr *public_attrs;
     const struct p11sak_attr *private_attrs;
+    CK_RV (*import_check_sym_keysize)(const struct p11sak_keytype *keytype,
+                                      CK_ULONG keysize);
+    CK_RV (*import_sym_clear)(const struct p11sak_keytype *keytype,
+                              CK_BYTE *data, CK_ULONG data_len,
+                              CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+    CK_RV (*import_asym_pkey)(const struct p11sak_keytype *keytype,
+                              EVP_PKEY *pkey, bool private,
+                              CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+    CK_RV (*import_asym_pem_data)(const struct p11sak_keytype *keytype,
+                                  unsigned char *data, size_t data_len,
+                                  bool private, CK_ATTRIBUTE **attrs,
+                                  CK_ULONG *num_attrs);
+    const char *pem_name_private;
+    const char *pem_name_public;
 };
 
 struct p11sak_class {

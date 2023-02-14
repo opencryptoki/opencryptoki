@@ -24,11 +24,15 @@
 #include <pwd.h>
 #include <ctype.h>
 #include <fnmatch.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <openssl/obj_mac.h>
 #include <openssl/evp.h>
 #include <openssl/dh.h>
 #include <openssl/dsa.h>
+#include <openssl/rsa.h>
+#include <openssl/ec.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
@@ -52,7 +56,8 @@ static CK_RV p11sak_list_key(void);
 static CK_RV p11sak_remove_key(void);
 static CK_RV p11sak_set_key_attr(void);
 static CK_RV p11sak_copy_key(void);
-static void print_generate_key_attr_help(void);
+static CK_RV p11sak_import_key(void);
+static void print_generate_import_key_attr_help(void);
 static void print_list_key_attr_help(void);
 static void print_set_copy_key_attr_help(void);
 
@@ -89,6 +94,11 @@ static char *opt_sort = NULL;
 static char *opt_new_attr = NULL;
 static char *opt_new_label = NULL;
 static char *opt_new_id = NULL;
+static char *opt_file = NULL;
+static char *opt_pem_password = NULL;
+static bool opt_force_pem_pwd_prompt = false;
+static bool opt_opaque = false;
+static struct p11sak_enum_value *opt_asym_kind = NULL;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
 static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
@@ -148,6 +158,44 @@ static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private);
+
+static CK_RV p11sak_import_check_des_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize);
+static CK_RV p11sak_import_check_3des_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize);
+static CK_RV p11sak_import_check_generic_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize);
+static CK_RV p11sak_import_check_aes_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize);
+static CK_RV p11sak_import_check_aes_xts_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize);
+static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
+                                    const struct p11sak_keytype *keytype,
+                                    CK_BYTE *data, CK_ULONG data_len,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_rsa_pkey(const struct p11sak_keytype *keytype,
+                                    EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_dh_pkey(const struct p11sak_keytype *keytype,
+                                    EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_dsa_pkey(const struct p11sak_keytype *keytype,
+                                    EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
+                                   EVP_PKEY *pkey, bool private,
+                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
+static CK_RV p11sak_import_dilithium_kyber_pem_data(
+                                        const struct p11sak_keytype *keytype,
+                                        unsigned char *data, size_t data_len,
+                                        bool private,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs);
 
 static void print_bool_attr_short(const CK_ATTRIBUTE *val, bool applicable);
 static void print_bool_attr_long(const char *attr, const CK_ATTRIBUTE *val,
@@ -490,6 +538,8 @@ static const struct p11sak_keytype p11sak_des_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_des_attrs,
+    .import_check_sym_keysize = p11sak_import_check_des_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
 };
 
 static const struct p11sak_keytype p11sak_3des_keytype = {
@@ -501,6 +551,8 @@ static const struct p11sak_keytype p11sak_3des_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_DES3,
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .secret_attrs = p11sak_3des_attrs,
+    .import_check_sym_keysize = p11sak_import_check_3des_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
 };
 
 static const struct p11sak_keytype p11sak_generic_keytype = {
@@ -515,6 +567,8 @@ static const struct p11sak_keytype p11sak_generic_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_GENERIC_SECRET,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = generic_keysize_adjust,
     .secret_attrs = p11sak_generic_attrs,
+    .import_check_sym_keysize = p11sak_import_check_generic_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
 };
 
 static const struct p11sak_keytype p11sak_aes_keytype = {
@@ -528,6 +582,8 @@ static const struct p11sak_keytype p11sak_aes_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
+    .import_check_sym_keysize = p11sak_import_check_aes_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
 };
 
 static const struct p11sak_keytype p11sak_aes_xts_keytype = {
@@ -541,6 +597,8 @@ static const struct p11sak_keytype p11sak_aes_xts_keytype = {
     .filter_attr = CKA_KEY_TYPE, .filter_value = CKK_AES_XTS,
     .keysize_attr = CKA_VALUE_LEN, .key_keysize_adjust = aes_xts_keysize_adjust,
     .secret_attrs = p11sak_aes_attrs,
+    .import_check_sym_keysize = p11sak_import_check_aes_xts_keysize,
+    .import_sym_clear = p11sak_import_sym_clear_des_3des_aes_generic,
 };
 
 static const struct p11sak_keytype p11sak_rsa_keytype = {
@@ -556,6 +614,7 @@ static const struct p11sak_keytype p11sak_rsa_keytype = {
     .key_keysize_adjust = rsa_keysize_adjust,
     .public_attrs = p11sak_public_rsa_attrs,
     .private_attrs = p11sak_private_rsa_attrs,
+    .import_asym_pkey = p11sak_import_rsa_pkey,
 };
 
 static const struct p11sak_keytype p11sak_dh_keytype = {
@@ -574,6 +633,7 @@ static const struct p11sak_keytype p11sak_dh_keytype = {
     .key_keysize_adjust = dh_keysize_adjust,
     .public_attrs = p11sak_public_dh_attrs,
     .private_attrs = p11sak_private_dh_attrs,
+    .import_asym_pkey = p11sak_import_dh_pkey,
 };
 
 static const struct p11sak_keytype p11sak_dsa_keytype = {
@@ -591,6 +651,7 @@ static const struct p11sak_keytype p11sak_dsa_keytype = {
     .key_keysize_adjust = dsa_keysize_adjust,
     .public_attrs = p11sak_public_dsa_attrs,
     .private_attrs = p11sak_private_dsa_attrs,
+    .import_asym_pkey = p11sak_import_dsa_pkey,
 };
 
 static const struct p11sak_keytype p11sak_ec_keytype = {
@@ -605,6 +666,7 @@ static const struct p11sak_keytype p11sak_ec_keytype = {
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ec_attrs,
     .private_attrs = p11sak_private_ec_attrs,
+    .import_asym_pkey = p11sak_import_ec_pkey,
 };
 
 static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
@@ -619,6 +681,9 @@ static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_dilithium_attrs,
     .private_attrs = p11sak_private_ibm_dilithium_attrs,
+    .import_asym_pem_data = p11sak_import_dilithium_kyber_pem_data,
+    .pem_name_private = "IBM-DILITHIUM PRIVATE KEY",
+    .pem_name_public = "IBM-DILITHIUM PUBLIC KEY",
 };
 
 static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
@@ -633,6 +698,9 @@ static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .keysize_attr = (CK_ATTRIBUTE_TYPE)-1,
     .public_attrs = p11sak_public_ibm_kyber_attrs,
     .private_attrs = p11sak_private_ibm_kyber_attrs,
+    .import_asym_pem_data = p11sak_import_dilithium_kyber_pem_data,
+    .pem_name_private = "IBM-KYBER PRIVATE KEY",
+    .pem_name_public = "IBM-KYBER PUBLIC KEY",
 };
 
 static const struct p11sak_keytype p11sak_secret_keytype = {
@@ -1200,11 +1268,119 @@ static const struct p11sak_arg p11sak_copy_key_args[] = {
     { .name = NULL },
 };
 
+static const struct p11sak_opt p11sak_import_key_opts[] = {
+    PKCS11_OPTS,
+    { .short_opt = 'L', .long_opt = "label", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_label, .name = "LABEL", },
+      .description = "The label of the key to be imported.", },
+    { .short_opt = 'a', .long_opt = "attr", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_attr, .name = "ATTRS", },
+      .description = "The boolean attributes to set for the key:\n"
+                     "P L M B Y R E D G C V O W U S A X N T I (optional). "
+                     "Specify a set of these letters without any blanks in "
+                     "between. See below for the meaning of the attribute "
+                     "letters.", },
+    { .short_opt = 'i', .long_opt = "id", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_id, .name = "ID", },
+      .description = "The ID of the key to be imported. Specify a hex string "
+                     "(not prefixed with 0x) of any number of bytes.", },
+    { .short_opt = 'F', .long_opt = "file", .required = true,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_file, .name = "FILENAME", },
+      .description = "The file name of the file that contains the key to be "
+                     "imported. For symmetric keys, this is a binary file "
+                     "containing the key material in clear. For asymmetric "
+                     "keys, this is an OpenSSL PEM file containing a "
+                     "public or private key. PEM files can optionally be "
+                     "password protected. Specify the PEM password with the "
+                     "'-P'/'--pem-password' option or environment variable "
+                     "P11SAK_PEM_PASSWORD. If the PEM file is password "
+                     "protected, but no PEM password is specified, you will be "
+                     "prompted for the PEM password.", },
+    { .short_opt = 'P', .long_opt = "pem-password", .required = false,
+      .arg =  { .type = ARG_TYPE_STRING, .required = true,
+                .value.string = &opt_pem_password, .name = "PASSWORD", },
+      .description = "The password of the PEM file specified with the "
+                     "'-F'/'--file' option. If the PEM file is password "
+                     "protected, but this option is not specified, nor "
+                     "environment variable P11SAK_PEM_PASSWORD is set, you "
+                     "will be prompted for the PEM password.", },
+    { .short_opt = 0, .long_opt = "force-pem-pwd-prompt", .required = false,
+      .long_opt_val = OPT_FORCE_PEM_PWD_PROMPT,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_force_pem_pwd_prompt, },
+      .description = "Enforce PEM password prompt, even if environment "
+                     "variable P11SAK_PEM_PASSWORD is set, or the "
+                     "'-P'/'--pem-password' option is specified.", },
+    { .short_opt = 'o', .long_opt = "opaque", .required = false,
+      .arg = { .type = ARG_TYPE_PLAIN, .required = false,
+               .value.plain = &opt_opaque, },
+      .description = "The key material in the file specified with the "
+                     "'-F'/'--file' option is an opaque secure key blob. "
+                     "Not all tokens support this.", },
+    { .short_opt = 0, .long_opt = NULL, },
+};
+
+static const struct p11sak_enum_value p11sak_import_asym_types[] = {
+    { .value = "public", .args = NULL, .private = { .num = false }, },
+    { .value = "private", .args = NULL, .private = { .num = true }, },
+    { .value = NULL, },
+};
+
+static const struct p11sak_arg p11sak_import_asym_args[] = {
+    { .name = "KIND", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_import_asym_types,
+      .value.enum_value = &opt_asym_kind,
+      .description = "The kind of the asymmetric key to import.", },
+    { .name = NULL, },
+};
+
+#define IMPORT_KEYTYPES                                                        \
+    { .value = "des", .args = NULL,                                            \
+      .private = { .ptr = &p11sak_des_keytype, }, },                           \
+    { .value = "3des", .args = NULL,                                           \
+      .private = { .ptr = &p11sak_3des_keytype }, },                           \
+    { .value = "generic", .args = NULL,                                        \
+      .private = { .ptr = &p11sak_generic_keytype }, },                        \
+    { .value = "aes", .args = NULL,                                            \
+      .private = { .ptr = &p11sak_aes_keytype }, },                            \
+    { .value = "aes-xts", .args = NULL,                                        \
+      .private = { .ptr = &p11sak_aes_xts_keytype }, },                        \
+    { .value = "rsa", .args = p11sak_import_asym_args,                         \
+      .private = { .ptr = &p11sak_rsa_keytype }, },                            \
+    { .value = "dh", .args = p11sak_import_asym_args,                          \
+      .private = { .ptr = &p11sak_dh_keytype }, },                             \
+    { .value = "dsa", .args = p11sak_import_asym_args,                         \
+      .private = { .ptr = &p11sak_dsa_keytype }, },                            \
+    { .value = "ec", .args = p11sak_import_asym_args,                          \
+      .private = { .ptr = &p11sak_ec_keytype }, },                             \
+    { .value = "ibm-dilithium", .args = p11sak_import_asym_args,               \
+      .private = { .ptr = &p11sak_ibm_dilithium_keytype }, },                  \
+    { .value = "ibm-kyber", .args = p11sak_import_asym_args,                   \
+      .private = { .ptr = &p11sak_ibm_kyber_keytype }, }
+
+static const struct p11sak_enum_value p11sak_import_key_keytypes[] = {
+    IMPORT_KEYTYPES,
+    { .value = NULL, },
+};
+
+static const struct p11sak_arg p11sak_import_key_args[] = {
+    { .name = "KEYTYPE", .type = ARG_TYPE_ENUM, .required = true,
+      .enum_values = p11sak_import_key_keytypes,
+      .value.enum_value = &opt_keytype,
+      .description = "The type of the key. One of the following:", },
+    { .name = NULL },
+};
+
 static const struct p11sak_cmd p11sak_commands[] = {
     { .cmd = "generate-key", .cmd_short1 = "gen-key", .cmd_short2 = "gen",
       .func = p11sak_generate_key,
       .opts = p11sak_generate_key_opts, .args = p11sak_generate_key_args,
-      .description = "Generate a key.", .help = print_generate_key_attr_help,
+      .description = "Generate a key.",
+      .help = print_generate_import_key_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = "list-key", .cmd_short1 = "ls-key", .cmd_short2 = "ls",
       .func = p11sak_list_key,
@@ -1227,6 +1403,12 @@ static const struct p11sak_cmd p11sak_commands[] = {
       .opts = p11sak_copy_key_opts, .args = p11sak_copy_key_args,
       .description = "Copy keys in the repository.",
       .help = print_set_copy_key_attr_help,
+      .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
+    { .cmd = "import-key", .cmd_short1 = "import", .cmd_short2 = "imp",
+      .func = p11sak_import_key,
+      .opts = p11sak_import_key_opts, .args = p11sak_import_key_args,
+      .description = "Import a key from a binary file or PEM file.",
+      .help = print_generate_import_key_attr_help,
       .session_flags = CKF_SERIAL_SESSION | CKF_RW_SESSION, },
     { .cmd = NULL, .func = NULL },
 };
@@ -1853,7 +2035,7 @@ static void print_command_help(const struct p11sak_cmd *cmd)
         cmd->help();
 }
 
-static void print_generate_key_attr_help(void)
+static void print_generate_import_key_attr_help(void)
 {
     const struct p11sak_attr *attr;
 
@@ -4759,6 +4941,830 @@ static CK_RV p11sak_copy_key(void)
         printf("%lu key object(s) failed to copy.\n", data.num_failed);
 
     return data.num_failed == 0 ? CKR_OK : CKR_FUNCTION_FAILED;
+}
+
+static CK_RV p11sak_import_check_des_keysize(
+                                          const struct p11sak_keytype *keytype,
+                                          CK_ULONG keysize)
+{
+    if (keysize != 8) {
+        warnx("Size of %s key is invalid, expected 8 bytes", keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_check_3des_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize)
+{
+    if (keysize != 24) {
+        warnx("Size of %s key is invalid, expected 24 bytes", keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_check_generic_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize)
+{
+    if (keysize == 0) {
+        warnx("Size of %s key is invalid, expected at least one byte",
+              keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_check_aes_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize)
+{
+    if (keysize != 16 && keysize != 24 && keysize != 32) {
+        warnx("Size of %s key is invalid, expected 16, 24, or 32 bytes",
+              keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_check_aes_xts_keysize(
+                                        const struct p11sak_keytype *keytype,
+                                        CK_ULONG keysize)
+{
+    if (keysize != 32 && keysize != 64) {
+        warnx("Size of %s key is invalid, expected 32 or 64 bytes",
+              keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
+                                    const struct p11sak_keytype *keytype,
+                                    CK_BYTE *data, CK_ULONG data_len,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    UNUSED(keytype);
+
+    return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
+}
+
+static CK_RV p11sak_import_rsa_pkey(const struct p11sak_keytype *keytype,
+                                    EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_n = NULL, *bn_e = NULL, *bn_d = NULL;
+    BIGNUM *bn_p = NULL, *bn_q = NULL;
+    BIGNUM *bn_dmp1 = NULL, *bn_dmq1 = NULL, *bn_iqmp = NULL;
+#else
+    const RSA *rsa;
+    const BIGNUM *bn_n = NULL, *bn_e = NULL, *bn_d = NULL;
+    const BIGNUM *bn_p = NULL, *bn_q = NULL;
+    const BIGNUM *bn_dmp1 = NULL, *bn_dmq1 = NULL, *bn_iqmp = NULL;
+#endif
+
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA) {
+        warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
+              keytype->name, private ? "private" : "public");
+        return CKR_FUNCTION_FAILED;
+    }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_e) ||
+        (private &&
+         (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_D, &bn_d) ||
+          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR1, &bn_p) ||
+          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_FACTOR2, &bn_q) ||
+          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT1,
+                                 &bn_dmp1) ||
+          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_EXPONENT2,
+                                 &bn_dmq1) ||
+          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_COEFFICIENT1,
+                                 &bn_iqmp)))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    rsa = EVP_PKEY_get0_RSA(pkey);
+    if (rsa == NULL) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    RSA_get0_key(rsa, &bn_n, &bn_e, private ? &bn_d : NULL);
+    if (private) {
+        RSA_get0_factors(rsa, &bn_p, &bn_q);
+        RSA_get0_crt_params(rsa, &bn_dmp1, &bn_dmq1, &bn_iqmp);
+    }
+    if (bn_n == NULL || bn_e == NULL ||
+        (private && (bn_d == NULL || bn_p == NULL || bn_q == NULL ||
+                     bn_dmp1 == NULL || bn_dmq1 == NULL || bn_iqmp == NULL))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
+
+    rc = add_bignum_attr(CKA_MODULUS, bn_n, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_PUBLIC_EXPONENT, bn_e, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    if (private) {
+        rc = add_bignum_attr(CKA_PRIVATE_EXPONENT, bn_d, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+
+        rc = add_bignum_attr(CKA_PRIME_1, bn_p, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+
+        rc = add_bignum_attr(CKA_PRIME_2, bn_q, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+
+        rc = add_bignum_attr(CKA_EXPONENT_1, bn_dmp1, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+
+        rc = add_bignum_attr(CKA_EXPONENT_2, bn_dmq1, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+
+        rc = add_bignum_attr(CKA_COEFFICIENT, bn_iqmp, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    }
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_n != NULL)
+        BN_free(bn_n);
+    if (bn_e != NULL)
+        BN_free(bn_e);
+    if (bn_d != NULL)
+        BN_free(bn_d);
+    if (bn_p != NULL)
+        BN_free(bn_p);
+    if (bn_q != NULL)
+        BN_free(bn_q);
+    if (bn_dmp1 != NULL)
+        BN_free(bn_dmp1);
+    if (bn_dmq1 != NULL)
+        BN_free(bn_dmq1);
+    if (bn_iqmp != NULL)
+        BN_free(bn_iqmp);
+#endif
+
+    return rc;
+}
+
+static CK_RV p11sak_import_dh_pkey(const struct p11sak_keytype *keytype,
+                                   EVP_PKEY *pkey, bool private,
+                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_p = NULL, *bn_g = NULL, *bn_pub = NULL, *bn_priv = NULL;
+#else
+    const DH *dh;
+    const BIGNUM *bn_p = NULL, *bn_g = NULL, *bn_pub = NULL, *bn_priv = NULL;
+#endif
+
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_DH) {
+        warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
+              keytype->name, private ? "private" : "public");
+        return CKR_FUNCTION_FAILED;
+    }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g) ||
+        (!private &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, &bn_pub)) ||
+        (private &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    dh = EVP_PKEY_get0_DH(pkey);
+    if (dh == NULL) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    DH_get0_pqg(dh, &bn_p, NULL, &bn_g);
+    DH_get0_key(dh, !private ? &bn_pub : NULL, private ? &bn_priv : NULL);
+    if (bn_p == NULL || bn_g == NULL ||
+        (!private && bn_pub == NULL) || (private && bn_priv == NULL)) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
+
+    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
+                         attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_p != NULL)
+        BN_free(bn_p);
+    if (bn_g != NULL)
+        BN_free(bn_g);
+    if (bn_pub != NULL)
+        BN_free(bn_pub);
+    if (bn_priv != NULL)
+        BN_free(bn_priv);
+#endif
+
+    return rc;
+}
+
+static CK_RV p11sak_import_dsa_pkey(const struct p11sak_keytype *keytype,
+                                    EVP_PKEY *pkey, bool private,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_p = NULL, *bn_q = NULL, *bn_g = NULL;
+    BIGNUM *bn_pub = NULL, *bn_priv = NULL;
+#else
+    const DSA *dsa;
+    const BIGNUM *bn_p = NULL, *bn_q = NULL, *bn_g = NULL;
+    const BIGNUM *bn_pub = NULL, *bn_priv = NULL;
+#endif
+
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_DSA) {
+        warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
+              keytype->name, private ? "private" : "public");
+        return CKR_FUNCTION_FAILED;
+    }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_P, &bn_p) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_Q, &bn_q) ||
+        !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_FFC_G, &bn_g) ||
+        (!private &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PUB_KEY, &bn_pub)) ||
+        (private &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+     }
+#else
+    dsa = EVP_PKEY_get0_DSA(pkey);
+    if (dsa == NULL) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    DSA_get0_pqg(dsa, &bn_p, &bn_q, &bn_g);
+    DSA_get0_key(dsa, !private ? &bn_pub : NULL, private ? &bn_priv : NULL);
+    if (bn_p == NULL || bn_q == NULL || bn_g == NULL ||
+        (!private && bn_pub == NULL) || (private && bn_priv == NULL)) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#endif
+
+    rc = add_bignum_attr(CKA_PRIME, bn_p, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_SUBPRIME, bn_q, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_BASE, bn_g, attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    rc = add_bignum_attr(CKA_VALUE, private ? bn_priv : bn_pub,
+                         attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_p != NULL)
+        BN_free(bn_p);
+    if (bn_q != NULL)
+        BN_free(bn_q);
+    if (bn_g != NULL)
+        BN_free(bn_g);
+    if (bn_pub != NULL)
+        BN_free(bn_pub);
+    if (bn_priv != NULL)
+        BN_free(bn_priv);
+#endif
+
+    return rc;
+}
+
+static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
+                                   EVP_PKEY *pkey, bool private,
+                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_RV rc = CKR_OK;
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    BIGNUM *bn_priv = NULL;
+    char group[200] = { 0 };
+    EC_GROUP *ec_group = NULL;
+    unsigned char point[200] = { 0 };
+    const OSSL_PARAM params[2] = {
+        OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME,
+                               group, sizeof(group) -1),
+        OSSL_PARAM_END,
+    };
+#else
+    const EC_KEY *ec;
+    const EC_GROUP *ec_group = NULL;
+    const BIGNUM *bn_priv = NULL;
+    const EC_POINT *ec_point = NULL;
+    unsigned char *point = NULL;
+#endif
+    size_t point_len = 0;
+    ASN1_OBJECT *obj = NULL;
+    unsigned char *ec_params = NULL;
+    int ec_params_len;
+
+    if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
+        warnx("PEM file '%s' does not contain an %s %s key.", opt_file,
+              keytype->name, private ? "private" : "public");
+        return CKR_FUNCTION_FAILED;
+    }
+
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME,
+                                        group, sizeof(group), NULL) ||
+        (!private &&          /* leave 2 bytes space for DER encoding */
+         !EVP_PKEY_get_octet_string_param(pkey,
+                                          OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
+                                          point + 2, sizeof(point) - 2,
+                                          &point_len)) ||
+        (private &&
+         !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    ec_group = EC_GROUP_new_from_params(params, NULL, NULL);
+    if (ec_group == NULL) {
+        warnx("EC_GROUP_new_from_params failed for curve '%s'.", group);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+#else
+    ec = EVP_PKEY_get0_EC_KEY(pkey);
+    if (ec == NULL) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+    ec_group = EC_KEY_get0_group(ec);
+    if (private)
+        bn_priv = EC_KEY_get0_private_key(ec);
+    else
+        ec_point = EC_KEY_get0_public_key(ec);
+    if (ec_group == NULL ||
+        (!private && ec_point == NULL) ||
+        (private && bn_priv == NULL)) {
+        warnx("Failed to get the %s params.", keytype->name);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (!private) {
+        point_len = EC_POINT_point2oct(ec_group, ec_point,
+                                       POINT_CONVERSION_UNCOMPRESSED,
+                                       NULL, 0, NULL);
+        if (point_len == 0) {
+            warnx("EC_POINT_point2oct failed.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        /* Leave 2 bytes space for DER encoding of OCTET-STRING */
+        point = calloc(2 + point_len, 1);
+        if (point == NULL) {
+            warnx("Failed to allocate buffer for EC point.");
+            rc = CKR_HOST_MEMORY;
+            goto done;
+        }
+
+        if (EC_POINT_point2oct(ec_group, ec_point,
+                               POINT_CONVERSION_UNCOMPRESSED,
+                               point + 2, point_len, NULL) != point_len) {
+            warnx("EC_POINT_point2oct failed.");
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+#endif
+
+    obj = OBJ_nid2obj(EC_GROUP_get_curve_name(ec_group));
+    if (obj == NULL) {
+        warnx("OBJ_nid2obj failed for curve nid %d.",
+              EC_GROUP_get_curve_name(ec_group));
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    ec_params_len = i2d_ASN1_OBJECT(obj, &ec_params);
+    if (ec_params_len <= 0 || ec_params == NULL) {
+        warnx("i2d_ASN1_OBJECT failed for curve nid %d.",
+              EC_GROUP_get_curve_name(ec_group));
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = add_attribute(CKA_EC_PARAMS, ec_params, ec_params_len,
+                       attrs, num_attrs);
+    if (rc != CKR_OK)
+       goto done;
+
+    if (private) {
+        rc = add_bignum_attr(CKA_VALUE, bn_priv, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    } else {
+        /* CKA_EC_POINT needs DER encoded EC point */
+        if (!private) {
+            if (point_len >= 0x80) {
+                warnx("EC point is too long.");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+
+            point[0] = 0x04; /* OCTET-STRING */
+            point[1] = point_len & 0x7f;
+        }
+        point_len += 2;
+
+        rc = add_attribute(CKA_EC_POINT, point, point_len, attrs, num_attrs);
+        if (rc != CKR_OK)
+           goto done;
+    }
+
+done:
+#if OPENSSL_VERSION_PREREQ(3, 0)
+    if (bn_priv != NULL)
+        BN_free(bn_priv);
+#else
+    if (point != NULL)
+        free(point);
+#endif
+    if (obj != NULL)
+        ASN1_OBJECT_free(obj);
+    if (ec_params != NULL)
+        OPENSSL_free(ec_params);
+
+    return rc;
+}
+
+static CK_RV p11sak_import_dilithium_kyber_pem_data(
+                                        const struct p11sak_keytype *keytype,
+                                        unsigned char *data, size_t data_len,
+                                        bool private,
+                                        CK_ATTRIBUTE **attrs,
+                                        CK_ULONG *num_attrs)
+{
+    UNUSED(keytype);
+    UNUSED(private);
+
+    return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
+}
+
+static int p11sak_pem_password_cb(char *buf, int size, int rwflag,
+                                  void *userdata)
+{
+    const char *pem_password = opt_pem_password;
+    char *buf_pem_password = NULL;
+    char *msg = NULL;
+    int len;
+
+    UNUSED(rwflag);
+    UNUSED(userdata);
+
+    if (pem_password == NULL)
+        pem_password = getenv(PKCS11_PEM_PASSWORD_ENV_NAME);
+
+    if (opt_force_pem_pwd_prompt || pem_password == NULL) {
+        if (asprintf(&msg, "Please enter PEM password for '%s': ",
+                     opt_file) <= 0) {
+            warnx("Failed to allocate memory for message");
+            return -1;
+        }
+        pem_password = pin_prompt(&buf_pem_password, msg);
+        free(msg);
+        if (pem_password == NULL) {
+            warnx("Failed to prompt for PEM password");
+            return -1;
+        }
+    }
+
+    len = strlen(pem_password);
+    if (len > size) {
+        warnx("PEM password is too long");
+        return -1;
+    }
+
+    strncpy(buf, pem_password, size);
+
+    pin_free(&buf_pem_password);
+
+    return len;
+}
+
+static CK_RV p11sak_import_opaque_key(const struct p11sak_keytype *keytype,
+                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_BYTE *value;
+    CK_ULONG value_len;
+    struct stat sb;
+    FILE *fp;
+    CK_RV rc = CKR_OK;
+
+    UNUSED(keytype);
+
+    if (stat(opt_file, &sb) != 0) {
+        warnx("Failed to access file '%s': %s", opt_file, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+    value_len = sb.st_size;
+
+    value = malloc(value_len);
+    if (value == NULL) {
+        warnx("Failed to allocate a buffer for the opaque key");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    fp = fopen(opt_file, "r");
+    if (fp == NULL) {
+        warnx("Failed to open file '%s': %s", opt_file, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (fread(value, value_len, 1, fp) != 1) {
+        warnx("Failed to read from file '%s': %s", opt_file, strerror(errno));
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = add_attribute(CKA_IBM_OPAQUE, value, value_len, attrs, num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+done:
+    if (value != NULL)
+        free(value);
+    if (fp != NULL)
+        fclose(fp);
+
+    return rc;
+}
+
+static CK_RV p11sak_import_asym_key(const struct p11sak_keytype *keytype,
+                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    EVP_PKEY *pkey = NULL;
+    CK_RV rc = CKR_OK;
+    unsigned char *data = NULL;
+    long data_len = 0;
+    char *header = NULL;
+    BIO *bio;
+    int ret;
+
+    bio = BIO_new_file(opt_file, "r");
+    if (bio == NULL) {
+        warnx("Failed to open PEM file '%s'.", opt_file);
+        ERR_print_errors_cb(openssl_err_cb, NULL);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (keytype->import_asym_pkey != NULL) {
+        if (opt_asym_kind->private.num)
+            pkey = PEM_read_bio_PrivateKey(bio, NULL, p11sak_pem_password_cb,
+                                           NULL);
+        else
+            pkey = PEM_read_bio_PUBKEY(bio, NULL, p11sak_pem_password_cb, NULL);
+
+        if (pkey == NULL) {
+            warnx("Failed to read PEM file '%s'.", opt_file);
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        rc = keytype->import_asym_pkey(keytype, pkey,
+                                       opt_asym_kind->private.num,
+                                       attrs, num_attrs);
+        if (rc != CKR_OK)
+            goto done;
+    } else if (keytype->import_asym_pem_data != NULL) {
+        ret = PEM_bytes_read_bio(&data, &data_len, &header,
+                                 opt_asym_kind->private.num ?
+                                     keytype->pem_name_private :
+                                     keytype->pem_name_public,
+                                 bio, p11sak_pem_password_cb, NULL);
+        if (ret != 1) {
+            warnx("Failed to read PEM file '%s'.", opt_file);
+            ERR_print_errors_cb(openssl_err_cb, NULL);
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        rc = keytype->import_asym_pem_data(keytype, data, data_len,
+                                           opt_asym_kind->private.num,
+                                           attrs, num_attrs);
+        if (rc != CKR_OK)
+            goto done;
+    } else {
+        warnx("No support for importing %s key from PEM file '%s'",
+              keytype->name, opt_file);
+        rc = CKR_ARGUMENTS_BAD;
+        goto done;
+    }
+
+done:
+    BIO_free(bio);
+    if (pkey != NULL)
+        EVP_PKEY_free(pkey);
+    if (data != NULL)
+        OPENSSL_free(data);
+    if (header != NULL)
+        OPENSSL_free(header);
+
+    return rc;
+}
+
+static CK_RV p11sak_import_sym_key(const struct p11sak_keytype *keytype,
+                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
+{
+    CK_BYTE data[MAX_SYM_CLEAR_KEY_SIZE];
+    CK_ULONG data_len;
+    struct stat sb;
+    FILE *fp;
+    CK_RV rc;
+
+    if (keytype->import_sym_clear == NULL) {
+        warnx("No support for importing %s key from file '%s'",
+              keytype->name, opt_file);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    if (stat(opt_file, &sb) != 0) {
+        warnx("Failed to access file '%s': %s", opt_file, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+    data_len = sb.st_size;
+
+    if (keytype->import_check_sym_keysize != NULL) {
+        rc = keytype->import_check_sym_keysize(keytype, data_len);
+        if (rc != CKR_OK)
+            return rc;
+    }
+
+    if (data_len > (CK_ULONG)sizeof(data)) {
+        warnx("Size of %s key is too large", keytype->name);
+        return CKR_ARGUMENTS_BAD;
+    }
+
+    fp = fopen(opt_file, "r");
+    if (fp == NULL) {
+        warnx("Failed to open file '%s': %s", opt_file, strerror(errno));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (fread(data, data_len, 1, fp) != 1) {
+        warnx("Failed to read from file '%s': %s", opt_file, strerror(errno));
+        fclose(fp);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    fclose(fp);
+
+    rc = keytype->import_sym_clear(keytype, data, data_len,
+                                   attrs, num_attrs);
+    if (rc != CKR_OK)
+        return rc;
+
+    return CKR_OK;
+}
+
+static CK_RV p11sak_import_key(void)
+{
+    const struct p11sak_keytype *keytype;
+    CK_ATTRIBUTE *attrs = NULL;
+    CK_ULONG num_attrs = 0;
+    CK_OBJECT_CLASS class;
+    CK_OBJECT_HANDLE key;
+    CK_RV rc;
+
+    if (opt_keytype == NULL || opt_keytype->private.ptr == NULL)
+        return CKR_ARGUMENTS_BAD;
+
+    keytype = opt_keytype->private.ptr;
+
+    class = keytype->is_asymmetric ?
+            (opt_asym_kind->private.num ? CKO_PRIVATE_KEY : CKO_PUBLIC_KEY) :
+            CKO_SECRET_KEY;
+    rc = add_attribute(CKA_CLASS, &class, sizeof(class), &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = add_attribute(CKA_KEY_TYPE, &keytype->type, sizeof(keytype->type),
+                       &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = add_attributes(keytype, &attrs, &num_attrs,
+                        opt_label, opt_attr, opt_id,
+                        !keytype->is_asymmetric ||
+                        (keytype->is_asymmetric && opt_asym_kind->private.num),
+                        NULL, NULL,
+                        keytype->is_asymmetric ?
+                                (opt_asym_kind->private.num ?
+                                        private_attr_applicable :
+                                        public_attr_applicable) :
+                                secret_attr_applicable);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (opt_opaque)
+        rc = p11sak_import_opaque_key(keytype, &attrs, &num_attrs);
+    else if (keytype->is_asymmetric)
+        rc = p11sak_import_asym_key(keytype, &attrs, &num_attrs);
+    else
+        rc = p11sak_import_sym_key(keytype, &attrs, &num_attrs);
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = pkcs11_funcs->C_CreateObject(pkcs11_session, attrs, num_attrs, &key);
+    if (rc != CKR_OK) {
+       if (is_rejected_by_policy(rc, pkcs11_session))
+           warnx("Key import of a %s key is rejected by policy", keytype->name);
+       else
+           warnx("Key import of a %s key failed: 0x%lX: %s", keytype->name,
+                 rc, p11_get_ckr(rc));
+       goto done;
+    }
+
+    printf("Successfully imported a %s key with label \"%s\".\n",
+           keytype->name, opt_label);
+
+done:
+    free_attributes(attrs, num_attrs);
+
+    return rc;
 }
 
 static CK_RV load_pkcs11_lib(void)
