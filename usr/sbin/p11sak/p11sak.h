@@ -159,6 +159,16 @@ struct p11sak_keytype {
                                   unsigned char *data, size_t data_len,
                                   bool private, CK_ATTRIBUTE **attrs,
                                   CK_ULONG *num_attrs);
+    CK_RV (*export_sym_clear)(const struct p11sak_keytype *keytype,
+                              CK_BYTE **data, CK_ULONG* data_len,
+                              CK_OBJECT_HANDLE key, const char *label);
+    CK_RV (*export_asym_pkey)(const struct p11sak_keytype *keytype,
+                              EVP_PKEY **pkey, bool private,
+                              CK_OBJECT_HANDLE key, const char *label);
+    CK_RV (*export_asym_pem_data)(const struct p11sak_keytype *keytype,
+                                  unsigned char **data, size_t *data_len,
+                                  bool private, CK_OBJECT_HANDLE key,
+                                  const char *label);
     const char *pem_name_private;
     const char *pem_name_public;
 };
@@ -227,6 +237,16 @@ struct p11sak_copy_data {
     unsigned long num_failed;
     bool copy_all;
     bool skip_all;
+};
+
+struct p11sak_export_data {
+    unsigned long num_exported;
+    unsigned long num_skipped;
+    unsigned long num_failed;
+    bool export_all;
+    bool skip_all;
+    bool last_was_pem;
+    bool last_was_binary;
 };
 
 struct curve_info {
