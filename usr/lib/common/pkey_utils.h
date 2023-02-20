@@ -86,7 +86,7 @@ int get_msa_level(void);
 CK_BBOOL pkey_is_ec_public_key(TEMPLATE *tmpl);
 
 CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
-                           CK_ATTRIBUTE *attr);
+                           CK_ATTRIBUTE **attr);
 
 CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
                                     TEMPLATE *tmpl);

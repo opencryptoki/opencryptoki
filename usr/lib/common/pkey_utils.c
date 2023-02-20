@@ -328,7 +328,7 @@ CK_BBOOL pkey_is_ec_public_key(TEMPLATE *tmpl)
  *       because it tries to obtain a write lock on the key object.
  */
 CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
-                           CK_ATTRIBUTE *pkey_attr)
+                           CK_ATTRIBUTE **pkey_attr)
 {
     CK_RV ret1, ret2;
 
@@ -349,11 +349,12 @@ CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
     }
 
     /* Update attribute */
-    ret1 = template_update_attribute(key_obj->template, pkey_attr);
+    ret1 = template_update_attribute(key_obj->template, *pkey_attr);
     if (ret1 != CKR_OK) {
         TRACE_ERROR("template_update_attribute failed with rc=0x%lx\n", ret1);
         goto done;
     }
+    *pkey_attr = NULL;
 
     /* Save to repository if it's a token object */
     if (object_is_token_object(key_obj)) {

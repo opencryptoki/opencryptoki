@@ -1184,8 +1184,8 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     /* Now update the key obj. If it's a token obj, it will be also updated
-     * in the repository. */
-    ret = pkey_update_and_save(tokdata, key_obj, pkey_attr);
+     * in the repository. pkey_attr is set to NULL if added to the object.*/
+    ret = pkey_update_and_save(tokdata, key_obj, &pkey_attr);
     if (ret != CKR_OK) {
         TRACE_ERROR("pkey_update_and_save failed with rc=0x%lx\n", ret);
         goto done;
@@ -1194,6 +1194,8 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
     ret = CKR_OK;
 
 done:
+    if (pkey_attr != NULL)
+        free(pkey_attr);
 
     return ret;
 }
