@@ -1848,6 +1848,81 @@ err_crtkey:
     return NULL;
 }
 
+static CK_RV rsa_calc_private_exponent(ica_rsa_key_mod_expo_t *publKey,
+                                       ica_rsa_key_crt_t *privKey,
+                                       TEMPLATE *priv_tmpl)
+{
+    BIGNUM *d, *e = NULL, *p = NULL, *q = NULL;
+    CK_ATTRIBUTE *attr = NULL;
+    int len;
+    CK_BYTE *buff = NULL;
+    CK_RV rc = CKR_OK;
+
+    /*
+     * Calculate ϕ(n) = (p − 1) * (q − 1) = n − p − q + 1.
+     * Then d = e ^−1 mod ϕ(n)
+     */
+    d = BN_bin2bn(publKey->modulus, publKey->key_length, NULL);
+    e = BN_bin2bn(publKey->exponent, publKey->key_length, NULL);
+    p = BN_bin2bn(privKey->p, privKey->key_length / 2, NULL);
+    q = BN_bin2bn(privKey->q, privKey->key_length / 2, NULL);
+    if (d == NULL || e == NULL || p == NULL || q == NULL) {
+        TRACE_DEVEL("BN_bin2bn failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (BN_sub(d, d, p) != 1 ||
+        BN_sub(d, d, q) != 1 ||
+        BN_add_word(d, 1) != 1 ||
+        BN_mod_inverse(d, e, d, NULL) == NULL) {
+        TRACE_DEVEL("BN_sub/BN_add_word/BN_mod_inverse failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    len = BN_num_bytes(d);
+    buff = calloc(len, 1);
+    if (buff == NULL) {
+        TRACE_DEVEL("calloc failed\n");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    if (BN_bn2bin(d, buff) != len) {
+        TRACE_DEVEL("BN_bn2bin failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    rc = build_attribute(CKA_PRIVATE_EXPONENT, buff, len, &attr);
+    if (rc != CKR_OK) {
+        TRACE_DEVEL("build_attribute failed\n");
+        goto done;
+    }
+    rc = template_update_attribute(priv_tmpl, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("template_update_attribute failed\n");
+        goto done;
+    }
+    attr = NULL;
+
+done:
+    if (d != NULL)
+        BN_free(d);
+    if (e != NULL)
+        BN_free(e);
+    if (p != NULL)
+        BN_free(p);
+    if (q != NULL)
+        BN_free(q);
+    if (buff != NULL)
+        free(buff);
+    if (attr != NULL)
+        free(attr);
+
+    return rc;
+}
 
 //
 static CK_RV ica_specific_rsa_keygen(STDLL_TokData_t *tokdata,
@@ -2118,6 +2193,13 @@ retry:
         goto privkey_cleanup;
     }
     attr = NULL;
+
+    /* Calculate the private exponent and add it */
+    rc = rsa_calc_private_exponent(publKey, privKey, priv_tmpl);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("rsa_calc_private_exponent failed\n");
+        goto privkey_cleanup;
+    }
 
     // exponent 1: d mod(p-1)
     //
