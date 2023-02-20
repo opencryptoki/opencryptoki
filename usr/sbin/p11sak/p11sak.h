@@ -203,6 +203,14 @@ struct p11sak_set_attr_data {
     bool skip_all;
 };
 
+struct p11sak_copy_data {
+    unsigned long num_copied;
+    unsigned long num_skipped;
+    unsigned long num_failed;
+    bool copy_all;
+    bool skip_all;
+};
+
 struct curve_info {
     const CK_BYTE *oid;
     CK_ULONG oid_len;
