@@ -46,6 +46,7 @@
 #include "configuration.h"
 #include "events.h"
 #include <openssl/crypto.h>
+#include <openssl/ec.h>
 
 /**
  * EC definitions
@@ -3242,7 +3243,8 @@ CK_BBOOL is_curve_error(long return_code, long reason_code)
     return FALSE;
 }
 
-static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *curve_bitlen)
+static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type,
+                             uint16_t *curve_bitlen, int *curve_nid)
 {
     CK_ATTRIBUTE *attr = NULL;
     unsigned int i;
@@ -3264,6 +3266,7 @@ static CK_RV curve_supported(TEMPLATE *templ, uint8_t *curve_type, uint16_t *cur
              der_ec_supported[i].twisted == CK_FALSE) {
             *curve_type = der_ec_supported[i].curve_type;
             *curve_bitlen = der_ec_supported[i].len_bits;
+            *curve_nid = der_ec_supported[i].nid;
             return CKR_OK;
         }
     }
@@ -3412,6 +3415,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     unsigned char *param2 = NULL;
     uint8_t curve_type;
     uint16_t curve_bitlen;
+    int curve_nid;
     enum cca_token_type keytype;
     unsigned int keybitsize;
     const CK_BYTE *mkvp;
@@ -3421,7 +3425,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         return CKR_DEVICE_ERROR;
     }
 
-    rv = curve_supported(publ_tmpl, &curve_type, &curve_bitlen);
+    rv = curve_supported(publ_tmpl, &curve_type, &curve_bitlen, &curve_nid);
     if (rv != CKR_OK) {
         TRACE_ERROR("Curve not supported\n");
         return rv;
@@ -5457,10 +5461,16 @@ static unsigned int bitlen2bytelen(uint16_t bitlen)
 }
 
 static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG publen,
-        uint8_t curve_type, uint16_t curve_bitlen,
+        uint8_t curve_type, uint16_t curve_bitlen, int curve_nid,
         unsigned char *key_value_structure, long *key_value_structure_length)
 {
     ECC_PUBL ecc_publ;
+    CK_RV rc = CKR_OK;
+    BN_CTX *ctx = NULL;
+    EC_GROUP *group = NULL;
+    EC_POINT *point = NULL;
+    BIGNUM *bn_x = NULL, *bn_y = NULL;
+    int y_bit;
 
     ecc_publ.curve_type = curve_type;
     ecc_publ.reserved = 0x00;
@@ -5486,13 +5496,97 @@ static CK_RV build_public_EC_key_value_structure(CK_BYTE *pubkey, CK_ULONG puble
         memset(key_value_structure + sizeof(ECC_PUBL), POINT_CONVERSION_UNCOMPRESSED, 1);
         memcpy(key_value_structure + sizeof(ECC_PUBL) + 1, pubkey, publen);
         *key_value_structure_length = sizeof(ECC_PUBL) + publen + 1;
+    } else if (publen == bitlen2bytelen(curve_bitlen) + 1) {
+        if (pubkey[0] != POINT_CONVERSION_COMPRESSED &&
+            pubkey[0] != POINT_CONVERSION_COMPRESSED + 1) {
+             TRACE_ERROR("Unsupported public key format\n");
+             return CKR_TEMPLATE_INCONSISTENT;
+        }
+
+        /* Uncompress the EC point, CCA needs it uncompressed */
+
+        ctx = BN_CTX_new();
+        if (ctx == NULL) {
+            TRACE_ERROR("BN_CTX_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        group = EC_GROUP_new_by_curve_name(curve_nid);
+        if (group == NULL) {
+            TRACE_ERROR("Curve %d is not supported by openssl. Cannot decompress "
+                        "public key\n", curve_nid);
+            return CKR_CURVE_NOT_SUPPORTED;
+        }
+
+        point = EC_POINT_new(group);
+        if (point == NULL) {
+            TRACE_ERROR("EC_POINT_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        bn_x = BN_bin2bn(pubkey + 1, bitlen2bytelen(curve_bitlen), NULL);
+        bn_y = BN_new();
+        if (bn_x == NULL || bn_y == NULL) {
+            TRACE_ERROR("BN_bin2bn/BN_new failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        y_bit = (pubkey[0] == POINT_CONVERSION_COMPRESSED ? 0 : 1);
+        if (!EC_POINT_set_compressed_coordinates(group, point, bn_x,
+                                                 y_bit, ctx)) {
+            TRACE_ERROR("EC_POINT_set_compressed_coordinates failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (!EC_POINT_is_on_curve(group, point, ctx)) {
+            TRACE_ERROR("EC_POINT_is_on_curve failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, ctx)) {
+            TRACE_ERROR("EC_POINT_is_on_curve failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        if (BN_bn2binpad(bn_x, key_value_structure + sizeof(ECC_PUBL) + 1,
+                         bitlen2bytelen(curve_bitlen)) <= 0 ||
+            BN_bn2binpad(bn_y, key_value_structure + sizeof(ECC_PUBL) + 1 +
+                               bitlen2bytelen(curve_bitlen),
+                         bitlen2bytelen(curve_bitlen)) <= 0) {
+            TRACE_ERROR("BN_bn2binpad failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+
+        ecc_publ.q_length = publen + bitlen2bytelen(curve_bitlen);
+        memcpy(key_value_structure, &ecc_publ, sizeof(ECC_PUBL));
+        memset(key_value_structure + sizeof(ECC_PUBL),
+               POINT_CONVERSION_UNCOMPRESSED, 1);
+        *key_value_structure_length = sizeof(ECC_PUBL) + ecc_publ.q_length;
     } else {
         TRACE_ERROR("Unsupported public key length %ld\n",publen);
-        TRACE_ERROR("Compressed public keys are not supported by this token.\n");
         return CKR_TEMPLATE_INCONSISTENT;
     }
 
-    return CKR_OK;
+done:
+    if (ctx)
+        BN_CTX_free(ctx);
+    if (group)
+        EC_GROUP_free(group);
+    if (point)
+        EC_POINT_free(point);
+    if (bn_x)
+        BN_free(bn_x);
+    if (bn_y)
+        BN_free(bn_y);
+
+    return rc;
 }
 
 /* helper function, check cca ec type, keybits and add the CKA_EC_PARAMS attribute */
@@ -5688,9 +5782,10 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         CK_ULONG privlen = 0, publen = 0;
         uint8_t curve_type;
         uint16_t curve_bitlen;
+        int curve_nid;
 
         /* Check if curve supported and determine curve type and bitlen */
-        rc = curve_supported(priv_templ, &curve_type, &curve_bitlen);
+        rc = curve_supported(priv_templ, &curve_type, &curve_bitlen, &curve_nid);
         if (rc != CKR_OK) {
             TRACE_ERROR("Curve not supported by this token.\n");
             return rc;
@@ -5879,13 +5974,14 @@ static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
         unsigned char *param2=NULL;
         uint8_t curve_type;
         uint16_t curve_bitlen;
+        int curve_nid;
         CK_BYTE *pubkey = NULL;
         CK_ULONG publen = 0;
         CK_ATTRIBUTE *attr = NULL;
         CK_ULONG field_len;
 
         /* Check if curve supported and determine curve type and bitlen */
-        rc = curve_supported(pub_templ, &curve_type, &curve_bitlen);
+        rc = curve_supported(pub_templ, &curve_type, &curve_bitlen, &curve_nid);
         if (rc != CKR_OK) {
             TRACE_ERROR("Curve not supported by this token.\n");
             return rc;
@@ -5910,6 +6006,7 @@ static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
 
         rc = build_public_EC_key_value_structure(pubkey, publen,
                                                  curve_type, curve_bitlen,
+                                                 curve_nid,
                                                  (unsigned char *)&key_value_structure,
                                                  &key_value_structure_length);
         if (rc != CKR_OK)
