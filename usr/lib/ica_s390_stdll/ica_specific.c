@@ -1864,7 +1864,7 @@ static CK_RV rsa_calc_private_exponent(ica_rsa_key_mod_expo_t *publKey,
      */
     d = BN_bin2bn(publKey->modulus, publKey->key_length, NULL);
     e = BN_bin2bn(publKey->exponent, publKey->key_length, NULL);
-    p = BN_bin2bn(privKey->p, privKey->key_length / 2, NULL);
+    p = BN_bin2bn(privKey->p + 8, privKey->key_length / 2, NULL);
     q = BN_bin2bn(privKey->q, privKey->key_length / 2, NULL);
     if (d == NULL || e == NULL || p == NULL || q == NULL) {
         TRACE_DEVEL("BN_bin2bn failed\n");
