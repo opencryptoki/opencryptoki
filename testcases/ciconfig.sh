@@ -4,7 +4,7 @@ OCKCONFDIR="$1"
 EPCONFDIR="$2"
 CCACONFDIR="$3"
 
-LATESTCEXP="CEX7P"
+LATESTCEXP="CEX8P"
 
 CCA_SYM_MKVP="5776993D2741EB4A"
 CCA_AES_MKVP="E9A49A58CD039BED"
@@ -126,7 +126,7 @@ addslot 43 libpkcs11_ep11.so ep3 ep11tok43.conf
 genep11cfg 44 "DIGEST_LIBICA OFF"
 addslot 44 libpkcs11_ep11.so ep4 ep11tok44.conf
 
-# 5: latest (CEX7 only)
+# 5: latest (CEX8 only)
 # PKEY_MODE ENABLE4NONEXTR
 if genlatestep11cfg 45 "PKEY_MODE ENABLE4NONEXTR"; then
     addslot 45 libpkcs11_ep11.so ep5 ep11tok45.conf
