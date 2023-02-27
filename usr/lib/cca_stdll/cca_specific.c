@@ -183,6 +183,20 @@ static CSNBHMV_t dll_CSNBHMV;
 static CSNBCTT2_t dll_CSNBCTT2;
 static CSUACFV_t dll_CSUACFV;
 
+/*
+ * The CCA adapter lock is shared between all CCA token instances within the
+ * same process. Users of the CCA adapter(s) should obtain a READ lock, to
+ * be sure that no CCA adapter and/or domain selection is done concurrently.
+ * Whenever a CCA adapter and/or domain selection is performed, a WRITE lock
+ * must be obtained. This blocks all users until the selection processing is
+ * finished.
+ * While CCA device selection has thread scope, domain selection seems to have
+ * process scope. Thus, domain selection influences not only the current thread,
+ * but all threads of the process.
+ */
+static pthread_rwlock_t cca_adapter_rwlock;
+static unsigned long cca_adapter_rwlock_ref_count = 0;
+
 /* mechanisms provided by this token */
 static const MECH_LIST_ELEMENT cca_mech_list[] = {
     {CKM_DES_KEY_GEN, {8, 8, CKF_HW | CKF_GENERATE}},
@@ -360,6 +374,40 @@ struct cca_private_data {
                     } while (1);                                             \
                 } while (0);
 
+/*
+ * Macros to enclose any usage of CCA verbs.
+ * Obtains a READ lock on the CCA adapter lock, if a DOM-ANY configuration is
+ * used. This prevents CCA adapter usage concurrent to another thread performing
+ * Domain selection processing. Domain selection works on process scope, so
+ * it would influence all threads that currently use CCA verbs.
+ */
+#define USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)             \
+                do {                                                         \
+                    if (((struct cca_private_data *)                         \
+                                      (tokdata)->private_data)->dom_any) {  \
+                        if (pthread_rwlock_rdlock(&cca_adapter_rwlock)       \
+                                                                    != 0) {  \
+                            TRACE_ERROR("CCA adapter RD-Lock failed.\n");    \
+                            (return_code) = 16;                              \
+                            (reason_code) = 336;                             \
+                            break;                                           \
+                        }                                                    \
+                    }
+
+#define USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)               \
+                    if (((struct cca_private_data *)                         \
+                                       (tokdata)->private_data)->dom_any) {  \
+                        if (pthread_rwlock_unlock(&cca_adapter_rwlock)       \
+                                                                    != 0) {  \
+                            TRACE_ERROR("CCA adapter Unlock failed.\n");     \
+                            (return_code) = 16;                              \
+                            (reason_code) = 336;                             \
+                            break;                                           \
+                        }                                                    \
+                    }                                                        \
+                } while (0);
+
+
 const unsigned char cca_zero_mkvp[CCA_MKVP_LENGTH] = { 0 };
 
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen);
@@ -371,6 +419,70 @@ static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
                                     struct cca_mk_change_op *mk_change_op,
                                     CK_BYTE *sec_key, CK_BYTE *reenc_sec_key,
                                     CK_ULONG sec_key_len, CK_BBOOL from_old);
+
+static CK_RV init_cca_adapter_lock(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    pthread_rwlockattr_t attr;
+    unsigned long cnt;
+
+    /*
+     * Only for DOM-ANY, we will perform domain selections. Thus, we only need
+     * to use the CCA adapter lock for for DOM-ANY configurations.
+     */
+    if (!cca_private->dom_any)
+        return CKR_OK;
+
+    cnt = __sync_add_and_fetch(&cca_adapter_rwlock_ref_count, 1);
+    if (cnt > 1)
+        return CKR_OK;
+
+    if (pthread_rwlockattr_init(&attr) != 0) {
+        TRACE_ERROR("pthread_rwlockattr_init failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the CCA adapter lock\n",
+                   __func__);
+        return CKR_CANT_LOCK;
+    }
+
+    if (pthread_rwlockattr_setkind_np(&attr,
+                  PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP) != 0) {
+        TRACE_ERROR("pthread_rwlockattr_setkind_np failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the CCA adapter lock\n",
+                   __func__);
+        pthread_rwlockattr_destroy(&attr);
+        return CKR_CANT_LOCK;
+    }
+
+    if (pthread_rwlock_init(&cca_adapter_rwlock, &attr) != 0) {
+        TRACE_ERROR("pthread_rwlock_init failed\n");
+        OCK_SYSLOG(LOG_ERR, "%s: Failed to initialize the CCA adapter lock\n",
+                   __func__);
+        pthread_rwlockattr_destroy(&attr);
+        return CKR_CANT_LOCK;
+    }
+
+    pthread_rwlockattr_destroy(&attr);
+
+    return CKR_OK;
+}
+
+static void destroy_cca_adapter_lock(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    unsigned long cnt;
+
+    /*
+     * Only for DOM-ANY, we will perform domain selections. Thus, we only need
+     * to use the CCA adapter lock for for DOM-ANY configurations.
+     */
+    if (!cca_private->dom_any)
+        return;
+
+    cnt = __sync_sub_and_fetch(&cca_adapter_rwlock_ref_count, 1);
+
+    if (cnt == 0)
+        pthread_rwlock_destroy(&cca_adapter_rwlock);
+}
 
 /*
  * Helper function: Analyse given CCA token.
@@ -636,12 +748,14 @@ CK_RV token_specific_rng(STDLL_TokData_t * tokdata, CK_BYTE * output,
         if (num_bytes > 8192)
             num_bytes = 8192;
 
-        dll_CSNBRNGL(&return_code,
-                     &reason_code,
-                     NULL, NULL,
-                     &rule_array_count, rule_array,
-                     &zero, NULL,
-                     (long *)&num_bytes, output + bytes_so_far);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBRNGL(&return_code,
+                         &reason_code,
+                         NULL, NULL,
+                         &rule_array_count, rule_array,
+                         &zero, NULL,
+                         (long *)&num_bytes, output + bytes_so_far);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBRNGL failed. return:%ld, reason:%ld\n",
@@ -769,6 +883,7 @@ static CK_RV cca_resolve_lib_sym(void *hdl)
     return CKR_OK;
 }
 
+/* Called during token_specific_init() , no need to obtain CCA adapter lock */
 static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
@@ -818,6 +933,10 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     return CKR_OK;
 }
 
+/*
+ * Called from within cca_iterate_adapters() handler function, thus no need to
+ * obtain  CCA adapter lock
+ */
 static CK_RV cca_get_adapter_serial_number(char *serialno)
 {
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
@@ -844,6 +963,10 @@ static CK_RV cca_get_adapter_serial_number(char *serialno)
     return CKR_OK;
 }
 
+/*
+ * Called from within cca_iterate_adapters() handler function, thus no need to
+ * obtain  CCA adapter lock
+ */
 static CK_RV cca_get_mk_state(enum cca_mk_type mk_type,
                               enum cca_cmk_state *cur,
                               enum cca_nmk_state *new)
@@ -918,6 +1041,10 @@ static CK_RV cca_get_mk_state(enum cca_mk_type mk_type,
     return CKR_OK;
 }
 
+/*
+ * Called from within cca_iterate_adapters() handler function, thus no need to
+ * obtain  CCA adapter lock
+ */
 static CK_RV cca_get_mkvps(unsigned char *cur_sym, unsigned char *new_sym,
                            unsigned char *cur_aes, unsigned char *new_aes,
                            unsigned char *cur_apka, unsigned char *new_apka)
@@ -1388,6 +1515,14 @@ static CK_RV cca_get_current_card(STDLL_TokData_t *tokdata,
     return found ? CKR_OK : CKR_DEVICE_ERROR;
 }
 
+/*
+ * Must NOT hold the CCA adapter lock when called !
+ * May obtain the WRITE lock during iteration processing, but returns without
+ * holding a lock.
+ * The handler function is called when a single adapter/domain is selected,
+ * and the WRITE lock may be held, thus the handler function must not obtain
+ * an CCA adapter lock.
+ */
 static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
                                  CK_RV (*cb)(STDLL_TokData_t *tokdata,
                                              const char *adapter,
@@ -1414,6 +1549,17 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         rc = cca_get_current_card(tokdata, &card);
         if (rc != CKR_OK)
             return rc;
+    }
+
+    /*
+     * Obtain the CCA adapter WRITE lock if DOM-ANY and release it only after
+     * domain selection has been turned back to default.
+     */
+    if (cca_private->dom_any) {
+        if (pthread_rwlock_wrlock(&cca_adapter_rwlock) != 0) {
+            TRACE_DEVEL("CCA adapter WR-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
     }
 
     for (i = 0; i < cca_private->num_usagedoms; i++) {
@@ -1446,7 +1592,8 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSUACRA failed for %s domain %x. return:%ld, reason:%ld\n",
                         device_name, domain, return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            break;
         }
 
         if (cca_private->dev_any) {
@@ -1479,11 +1626,20 @@ deallocate:
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSUACRD failed for %s domain %x. return:%ld, reason:%ld\n",
                         device_name, domain, return_code, reason_code);
-            return CKR_FUNCTION_FAILED;
+            rc = CKR_FUNCTION_FAILED;
+            break;
         }
 
         if (cca_private->dom_any == FALSE)
             break;
+    }
+
+    /* Release the CCA adapter WRITE lock now if DOM-ANY */
+    if (cca_private->dom_any) {
+        if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
+            TRACE_DEVEL("CCA adapter Unlock failed.\n");
+            return CKR_CANT_LOCK;
+        }
     }
 
     if (rc != CKR_OK)
@@ -1493,6 +1649,14 @@ deallocate:
     return CKR_OK;
 }
 
+/*
+ * Must NOT hold the CCA adapter lock when called !
+ * May obtain the WRITE lock during iteration processing, but returns without
+ * holding a lock.
+ * The handler function is called when a single adapter/domain is selected,
+ * and the WRITE lock may be held, thus the handler function must not obtain
+ * an CCA adapter lock.
+ */
 static CK_RV cca_iterate_adapters(STDLL_TokData_t *tokdata,
                                   CK_RV (*cb)(STDLL_TokData_t *tokdata,
                                               const char *adapter,
@@ -1684,6 +1848,13 @@ static struct cca_mk_change_op *cca_mk_change_find_op_by_keytype(
     return &cca_private->mk_change_ops[idx];
 }
 
+/*
+ * Must NOT hold the CCA adapter lock when called !
+ * When a single APQN was selected (rc = CKR_OK), it holds the WRITE lock on
+ * return. The lock must be released by the caller, once selection has been
+ * turned back to default by using cca_deselect_single_apqn().
+ * No lock is held in case of an error.
+ */
 static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
                                     struct cca_mk_change_op *mk_change_op,
                                     struct cca_mk_change_op *mk_change_op2,
@@ -1752,6 +1923,11 @@ retry:
     if (cca_private->dom_any) {
         sprintf((char *)(rule_array + CCA_KEYWORD_SIZE), "DOMN%04u", ssd.domain);
         rule_array_count = 2;
+
+        if (pthread_rwlock_wrlock(&cca_adapter_rwlock) != 0) {
+            TRACE_DEVEL("CCA adapter WR-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
     }
 
     dll_CSUACRA(&return_code, &reason_code,
@@ -1762,6 +1938,12 @@ retry:
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSUACRA failed. return:%ld, reason:%ld\n",
                     return_code, reason_code);
+
+        if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
+            TRACE_DEVEL("CCA adapter Unlock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+
         return CKR_FUNCTION_FAILED;
     }
 
@@ -1772,6 +1954,7 @@ done:
     return CKR_OK;
 }
 
+/* Does NOT unlock the CCA adapter lock ! */
 static CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
@@ -1811,11 +1994,13 @@ static CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno)
     return CKR_OK;
 }
 
+/* Must NOT hold the CCA adapter lock when called ! */
 static CK_RV cca_reencipher_created_key(STDLL_TokData_t *tokdata,
                                         TEMPLATE* tmpl,  CK_BYTE *sec_key,
                                         CK_ULONG sec_key_len, CK_BBOOL new_mk,
                                         enum cca_token_type keytype)
 {
+    struct cca_private_data *cca_private = tokdata->private_data;
     struct cca_mk_change_op *mk_change_op;
     char serialno[CCA_SERIALNO_LENGTH + 1];
     CK_BBOOL new_selected = FALSE;
@@ -1869,6 +2054,15 @@ retry:
                     rc);
 
     rc2 = cca_deselect_single_apqn(tokdata, serialno);
+
+    /* cca_select_single_apqn() got the WRITE lock, unlock it now */
+    if (cca_private->dom_any) {
+        if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
+            TRACE_ERROR("CCA adapter Unlock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+    }
+
     if (rc2 != CKR_OK) {
         TRACE_ERROR("%s cca_deselect_single_apqn failed: 0x%lx\n", __func__,
                     rc2);
@@ -1902,6 +2096,7 @@ add_attr:
     return CKR_OK;
 }
 
+/* Called with CCA adapter READ lock held (if DOM-ANY) */
 static CK_BBOOL cca_check_blob_select_single_apqn(STDLL_TokData_t *tokdata,
                                                   const CK_BYTE *sec_key1,
                                                   CK_ULONG sec_key1_len,
@@ -1909,6 +2104,7 @@ static CK_BBOOL cca_check_blob_select_single_apqn(STDLL_TokData_t *tokdata,
                                                   CK_ULONG sec_key2_len,
                                                   char *serialno)
 {
+    struct cca_private_data *cca_private = tokdata->private_data;
     enum cca_token_type keytype1, keytype2 = -1;
     unsigned int keybitsize1, keybitsize2;
     const CK_BYTE *mkvp1, *mkvp2;
@@ -1945,13 +2141,32 @@ static CK_BBOOL cca_check_blob_select_single_apqn(STDLL_TokData_t *tokdata,
     if (mk_change_op1 == NULL && mk_change_op2 == NULL)
         return FALSE;
 
+    /*
+     * Unlock CCA adapter lock (if DOM-ANY), cca_select_single_apqn() will
+     * get WRITE lock.
+     */
+    if (cca_private->dom_any) {
+        if (pthread_rwlock_unlock(&cca_adapter_rwlock) != 0) {
+            TRACE_ERROR("CCA adapter Unlock failed.\n");
+            return FALSE;
+        }
+    }
+
     /* Select a single APQN with new MK(s) set, wait if required */
     TRACE_DEVEL("%s select single APQN with new MK set, wait if needed\n",
                 __func__);
     if (cca_select_single_apqn(tokdata, mk_change_op1, mk_change_op2, TRUE,
                                keytype1, keytype2, serialno,
                                &new_selected, TRUE) != CKR_OK)
-        return FALSE;
+        new_selected = FALSE;
+
+    /* Need to get RD-lock again in case no new APQN was selected */
+    if (!new_selected && cca_private->dom_any) {
+        if (pthread_rwlock_rdlock(&cca_adapter_rwlock) != 0) {
+            TRACE_ERROR("CCA adapter RD-Lock failed.\n");
+            return FALSE;
+        }
+    }
 
     return new_selected;
 }
@@ -2391,6 +2606,10 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    rc = init_cca_adapter_lock(tokdata);
+    if (rc != CKR_OK)
+        goto error;
+
     rc = cca_mk_change_check_pending_ops(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("%s Failed to check for pending HSM MK change operations "
@@ -2418,6 +2637,8 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     CK_ULONG i;
 
     TRACE_INFO("cca %s running\n", __func__);
+
+    destroy_cca_adapter_lock(tokdata);
 
     if (tokdata->mech_list != NULL)
         free(tokdata->mech_list);
@@ -2490,16 +2711,18 @@ static CK_RV cca_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         return CKR_FUNCTION_FAILED;
     }
 
-    dll_CSNBKGN(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                key_form,
-                key_length,
-                key_type_1,
-                key_type_2,
-                kek_key_identifier_1,
-                kek_key_identifier_2, key, generated_key_identifier_2);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBKGN(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    key_form,
+                    key_length,
+                    key_type_1,
+                    key_type_2,
+                    kek_key_identifier_1,
+                    kek_key_identifier_2, key, generated_key_identifier_2);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBKGN(KEYGEN) failed. return:%ld, reason:%ld\n",
@@ -2625,6 +2848,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "CBC     ", (size_t) CCA_KEYWORD_SIZE);
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         if (encrypt) {
             dll_CSNBENC(&return_code, &reason_code, NULL, NULL, attr->pValue,
@@ -2640,6 +2864,7 @@ CK_RV token_specific_des_cbc(STDLL_TokData_t * tokdata,
         }
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt)
@@ -3029,13 +3254,15 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     private_key_name_length = 0;
     key_token_length = CCA_KEY_TOKEN_SIZE;
 
-    dll_CSNDPKB(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &key_value_structure_length, key_value_structure,
-                &private_key_name_length, private_key_name,
-                0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL,
-                &key_token_length, key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKB(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &key_value_structure_length, key_value_structure,
+                    &private_key_name_length, private_key_name,
+                    0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL,
+                    &key_token_length, key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD) failed. return:%ld,"
@@ -3049,13 +3276,15 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     priv_key_token_length = CCA_KEY_TOKEN_SIZE;
     regeneration_data_length = 0;
 
-    dll_CSNDPKG(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &regeneration_data_length, regeneration_data,
-                &key_token_length, key_token,
-                transport_key_identifier,
-                &priv_key_token_length, priv_key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKG(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &regeneration_data_length, regeneration_data,
+                    &key_token_length, key_token,
+                    transport_key_identifier,
+                    &priv_key_token_length, priv_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (RSA KEY GENERATE) failed. return:%ld,"
@@ -3088,11 +3317,13 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t * tokdata,
     rule_array_count = 0;
     publ_key_token_length = CCA_KEY_TOKEN_SIZE;
 
-    dll_CSNDPKX(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &priv_key_token_length, priv_key_token,
-                &publ_key_token_length, publ_key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKX(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &priv_key_token_length, priv_key_token,
+                    &publ_key_token_length, publ_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKX (PUBLIC KEY TOKEN EXTRACT) failed. return:%ld,"
@@ -3175,6 +3406,7 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
 
     data_structure_length = 0;
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDPKE(&return_code,
                     &reason_code,
@@ -3191,6 +3423,7 @@ CK_RV token_specific_rsa_encrypt(STDLL_TokData_t * tokdata,
                     out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
@@ -3239,6 +3472,7 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
 
     data_structure_length = 0;
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDPKD(&return_code,
                     &reason_code,
@@ -3256,6 +3490,7 @@ CK_RV token_specific_rsa_decrypt(STDLL_TokData_t * tokdata,
                     out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld, reason:%ld\n",
@@ -3355,6 +3590,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
 
     data_structure_length = 0;
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDPKE(&return_code,
                     &reason_code,
@@ -3371,6 +3607,7 @@ CK_RV token_specific_rsa_oaep_encrypt(STDLL_TokData_t *tokdata,
                     out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKE (RSA ENCRYPT) failed. return:%ld, reason:%ld\n",
@@ -3475,6 +3712,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
 
     data_structure_length = 0;
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDPKD(&return_code,
                     &reason_code,
@@ -3492,6 +3730,7 @@ CK_RV token_specific_rsa_oaep_decrypt(STDLL_TokData_t *tokdata,
                     out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKD (RSA DECRYPT) failed. return:%ld, reason:%ld\n",
@@ -3547,6 +3786,7 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSG(&return_code,
                     &reason_code,
@@ -3561,6 +3801,7 @@ CK_RV token_specific_rsa_sign(STDLL_TokData_t * tokdata,
                     (long *) out_data_len, &signature_bit_length, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA SIGN) failed. return :%ld, reason: %ld\n",
@@ -3610,6 +3851,7 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "PKCS-1.1", CCA_KEYWORD_SIZE);
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSV(&return_code,
                     &reason_code,
@@ -3623,6 +3865,7 @@ CK_RV token_specific_rsa_verify(STDLL_TokData_t * tokdata,
                     in_data, (long *) &out_data_len, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -3755,6 +3998,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
         break;
     }
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSG(&return_code,
                     &reason_code,
@@ -3769,6 +4013,7 @@ CK_RV token_specific_rsa_pss_sign(STDLL_TokData_t *tokdata,
                     (long *)out_data_len, &signature_bit_length, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (RSA PSS SIGN) failed. return :%ld, reason: %ld\n",
@@ -3896,6 +4141,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
         break;
     }
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSV(&return_code,
                     &reason_code,
@@ -3910,6 +4156,7 @@ CK_RV token_specific_rsa_pss_verify(STDLL_TokData_t *tokdata,
                     (long *)&out_data_len, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code == 4 && reason_code == 429) {
         rc = CKR_SIGNATURE_INVALID;
@@ -3994,17 +4241,20 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     }
 
     rule_array_count = 4;
-    dll_CSNBKTB(&return_code,
-                &reason_code,
-                &exit_data_len,
-                exit_data,
-                key_token,
-                key_type,
-                &rule_array_count,
-                rule_array,
-                NULL,
-                reserved_1,
-                NULL, &point_to_array_of_zeros, NULL, NULL, NULL, NULL, mkvp);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBKTB(&return_code,
+                    &reason_code,
+                    &exit_data_len,
+                    exit_data,
+                    key_token,
+                    key_type,
+                    &rule_array_count,
+                    rule_array,
+                    NULL,
+                    reserved_1,
+                    NULL, &point_to_array_of_zeros,
+                    NULL, NULL, NULL, NULL, mkvp);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBTKB (TOKEN BUILD) failed. return:%ld,"
@@ -4053,6 +4303,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ",
            rule_array_count * (size_t) CCA_KEYWORD_SIZE);
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         if (encrypt) {
             dll_CSNBSAE(&return_code,
@@ -4100,6 +4351,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
         }
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt) {
@@ -4175,6 +4427,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     }
 
     length = in_data_len;
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         if (encrypt) {
             dll_CSNBSAE(&return_code,
@@ -4223,6 +4476,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
         }
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         if (encrypt) {
@@ -4514,23 +4768,26 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
     key_token_length = CCA_KEY_TOKEN_SIZE;
 
-    dll_CSNDPKB(&return_code,
-                &reason_code,
-                &exit_data_len,
-                exit_data,
-                &rule_array_count,
-                rule_array,
-                &key_value_structure_length,
-                key_value_structure,
-                &private_key_name_length,
-                private_key_name,
-                &param1,
-                param2,
-                &param1,
-                param2,
-                &param1,
-                param2,
-                &param1, param2, &param1, param2, &key_token_length, key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKB(&return_code,
+                    &reason_code,
+                    &exit_data_len,
+                    exit_data,
+                    &rule_array_count,
+                    rule_array,
+                    &key_value_structure_length,
+                    key_value_structure,
+                    &private_key_name_length,
+                    private_key_name,
+                    &param1,
+                    param2,
+                    &param1,
+                    param2,
+                    &param1,
+                    param2,
+                    &param1, param2,
+                    &param1, param2, &key_token_length, key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
@@ -4548,18 +4805,20 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
     regeneration_data_length = 0;
 
-    dll_CSNDPKG(&return_code,
-                &reason_code,
-                NULL,
-                NULL,
-                &rule_array_count,
-                rule_array,
-                &regeneration_data_length,
-                regeneration_data,
-                &key_token_length,
-                key_token,
-                transport_key_identifier,
-                &priv_key_token_length, priv_key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKG(&return_code,
+                    &reason_code,
+                    NULL,
+                    NULL,
+                    &rule_array_count,
+                    rule_array,
+                    &regeneration_data_length,
+                    regeneration_data,
+                    &key_token_length,
+                    key_token,
+                    transport_key_identifier,
+                    &priv_key_token_length, priv_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKG (EC KEY GENERATE) failed."
@@ -4594,11 +4853,13 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rule_array_count = 0;
     publ_key_token_length = CCA_KEY_TOKEN_SIZE;
 
-    dll_CSNDPKX(&return_code, &reason_code,
-                NULL, NULL,
-                &rule_array_count, rule_array,
-                &priv_key_token_length, priv_key_token,
-                &publ_key_token_length, publ_key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNDPKX(&return_code, &reason_code,
+                    NULL, NULL,
+                    &rule_array_count, rule_array,
+                    &priv_key_token_length, priv_key_token,
+                    &publ_key_token_length, publ_key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDPKX (PUBLIC KEY TOKEN EXTRACT) failed. return:%ld,"
@@ -4658,6 +4919,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
     *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSG(&return_code,
                     &reason_code,
@@ -4672,6 +4934,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
                     (long *) out_data_len, &signature_bit_length, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDDSG (EC SIGN) failed. return:%ld,"
@@ -4718,6 +4981,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDDSV(&return_code,
                     &reason_code,
@@ -4731,6 +4995,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
                     in_data, (long *) &out_data_len, out_data);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           attr->pValue, attr->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code == 4 && reason_code == 429) {
         return CKR_SIGNATURE_INVALID;
@@ -4845,11 +5110,12 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
         return CKR_MECHANISM_INVALID;
     }
 
-
-    dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, (long int *)&in_data_len, in_data,
-                &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, (long int *)&in_data_len, in_data,
+                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                    &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH failed. return:%ld, reason:%ld\n",
@@ -5001,10 +5267,12 @@ send:
         break;
     }
 
-    dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, use_buffer ? &buffer_len : (long *) &in_data_len,
-                use_buffer ? buffer : in_data, &cca_ctx->chain_vector_len,
-                cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, use_buffer ? &buffer_len : (long *) &in_data_len,
+                    use_buffer ? buffer : in_data, &cca_ctx->chain_vector_len,
+                    cca_ctx->chain_vector, &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH (SHA UPDATE) failed. return:%ld,"
@@ -5098,10 +5366,12 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
                 cca_ctx->tail_len, (void *)cca_ctx->tail,
                 cca_ctx->chain_vector_len, cca_ctx->hash_len);
 
-    dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                rule_array, &cca_ctx->tail_len, cca_ctx->tail,
-                &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
-                &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBOWH(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                    rule_array, &cca_ctx->tail_len, cca_ctx->tail,
+                    &cca_ctx->chain_vector_len, cca_ctx->chain_vector,
+                    &cca_ctx->hash_len, cca_ctx->hash);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBOWH (SHA FINAL) failed. return:%ld,"
@@ -5255,6 +5525,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5264,6 +5535,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                         &cca_ctx->hash_len, cca_ctx->hash);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC GENERATE) failed. "
@@ -5280,6 +5552,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         memcpy(signature, cca_ctx->hash, cca_ctx->hash_len);
         *sig_len = cca_ctx->hash_len;
     } else {                    // verify
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5289,6 +5562,7 @@ CK_RV ccatok_hmac(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                         &cca_ctx->hash_len, signature);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
@@ -5489,6 +5763,7 @@ send:
     TRACE_INFO("CSNBHMG: key length is %lu\n", attr->ulValueLen);
 
     if (sign) {
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5499,6 +5774,7 @@ send:
                         &hsize, cca_ctx->hash);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC SIGN UPDATE) failed. "
@@ -5506,6 +5782,7 @@ send:
             rc = CKR_FUNCTION_FAILED;
         }
     } else {                    // verify
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5516,6 +5793,8 @@ send:
                         &hsize, cca_ctx->hash);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC VERIFY UPDATE) failed. "
                         "return:%ld, reason:%ld\n", return_code, reason_code);
@@ -5623,6 +5902,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
     TRACE_INFO("The mac length is %ld\n", cca_ctx->hash_len);
 
     if (sign) {
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMG(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5632,6 +5912,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                         &cca_ctx->hash_len, cca_ctx->hash);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBHMG (HMAC SIGN FINAL) failed. "
@@ -5648,6 +5929,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
         *sig_len = cca_ctx->hash_len;
 
     } else {                    // verify
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
         RETRY_NEW_MK_BLOB_START()
             dll_CSNBHMV(&return_code, &reason_code, NULL, NULL,
                         &rule_array_count, rule_array,
@@ -5657,6 +5939,7 @@ CK_RV ccatok_hmac_final(STDLL_TokData_t * tokdata, SIGN_VERIFY_CONTEXT * ctx,
                         &cca_ctx->hash_len, signature);
         RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                               attr->pValue, attr->ulValueLen)
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code == 4 && (reason_code == 429 || reason_code == 1)) {
             TRACE_ERROR("%s\n", ock_err(ERR_SIGNATURE_INVALID));
@@ -5957,10 +6240,15 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 
         key_token_length = CCA_KEY_TOKEN_SIZE;
 
-        dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                    rule_array, &key_value_structure_length, key_value_structure,
-                    &private_key_name_length, private_key_name, 0, NULL, 0, NULL,
-                    0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKB(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        &key_value_structure_length, key_value_structure,
+                        &private_key_name_length, private_key_name,
+                        0, NULL, 0, NULL,
+                        0, NULL, 0, NULL, 0, NULL,
+                        &key_token_length, key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA CRT) failed."
@@ -5977,10 +6265,13 @@ static CK_RV import_rsa_privkey(STDLL_TokData_t *tokdata, TEMPLATE * priv_tmpl)
 
         key_token_length = CCA_KEY_TOKEN_SIZE;
 
-        dll_CSNDPKI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                    rule_array, &key_token_length, key_token,
-                    transport_key_identifier, &target_key_token_length,
-                    target_key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        &key_token_length, key_token,
+                        transport_key_identifier, &target_key_token_length,
+                        target_key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKI (RSA KEY TOKEN IMPORT) failed."
@@ -6042,7 +6333,7 @@ err:
     return rc;
 }
 
-static CK_RV import_rsa_pubkey(TEMPLATE * publ_tmpl)
+static CK_RV import_rsa_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *publ_tmpl)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
@@ -6191,10 +6482,14 @@ static CK_RV import_rsa_pubkey(TEMPLATE * publ_tmpl)
 
         // Create a key token for the public key.
         // Public keys do not need to be wrapped, so just call PKB.
-        dll_CSNDPKB(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                    rule_array, &key_value_structure_length, key_value_structure,
-                    &private_key_name_length, private_key_name, 0, NULL, 0,
-                    NULL, 0, NULL, 0, NULL, 0, NULL, &key_token_length, key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKB(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        &key_value_structure_length, key_value_structure,
+                        &private_key_name_length, private_key_name,
+                        0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL,
+                        &key_token_length, key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (RSA KEY TOKEN BUILD RSA-PUBL) failed."
@@ -6339,10 +6634,12 @@ static CK_RV import_symmetric_key(STDLL_TokData_t *tokdata,
 
         rule_array_count = 1;
 
-        dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    (long int *)&value_attr->ulValueLen, value_attr->pValue,
-                    target_key_id);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBCKM(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        (long int *)&value_attr->ulValueLen, value_attr->pValue,
+                        target_key_id);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBCKM failed. return:%ld, reason:%ld\n",
@@ -6484,10 +6781,14 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
                5 * CCA_KEYWORD_SIZE);
         rule_array_count = 5;
 
-        dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                     rule_array, &clr_key_len, NULL, &key_name_len, NULL,
-                     &user_data_len, NULL, &token_data_len, NULL, &verb_data_len,
-                     NULL, &key_token_len, key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL,
+                         &rule_array_count, rule_array,
+                         &clr_key_len, NULL, &key_name_len, NULL,
+                         &user_data_len, NULL, &token_data_len, NULL,
+                         &verb_data_len, NULL, &key_token_len, key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
@@ -6499,9 +6800,13 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
         key_part_len = keylen * 8;
         key_token_len = sizeof(key_token);
 
-        dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                     rule_array, &key_part_len, value_attr->pValue,
-                     &key_token_len, key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                         &rule_array_count, rule_array,
+                         &key_part_len, value_attr->pValue,
+                         &key_token_len, key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT FIRST) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
@@ -6513,8 +6818,12 @@ static CK_RV import_generic_secret_key(STDLL_TokData_t *tokdata,
         key_part_len = 0;
         key_token_len = sizeof(key_token);
 
-        dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                     rule_array, &key_part_len, NULL, &key_token_len, key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBKPI2(&return_code, &reason_code, NULL, NULL,
+                         &rule_array_count, rule_array,
+                         &key_part_len, NULL, &key_token_len, key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
+
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNBKPI2 (HMAC KEY IMPORT COMPLETE) failed."
                         " return:%ld, reason:%ld\n", return_code, reason_code);
@@ -6995,15 +7304,17 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         key_token_length = CCA_KEY_TOKEN_SIZE;
         key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 
-        dll_CSNDPKB(&return_code, &reason_code,
-                    &exit_data_len, exit_data,
-                    &rule_array_count, rule_array,
-                    &key_value_structure_length, key_value_structure,
-                    &private_key_name_length, private_key_name,
-                    &param1, param2, &param1, param2, &param1, param2,
-                    &param1, param2, &param1, param2,
-                    &key_token_length,
-                    key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKB(&return_code, &reason_code,
+                        &exit_data_len, exit_data,
+                        &rule_array_count, rule_array,
+                        &key_value_structure_length, key_value_structure,
+                        &private_key_name_length, private_key_name,
+                        &param1, param2, &param1, param2, &param1, param2,
+                        &param1, param2, &param1, param2,
+                        &key_token_length,
+                        key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
@@ -7019,11 +7330,13 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         key_token_length = CCA_KEY_TOKEN_SIZE;
         target_key_token_length = CCA_KEY_TOKEN_SIZE;
 
-        dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
-                    &rule_array_count, rule_array,
-                    &key_token_length, key_token,
-                    transport_key_identifier,
-                    &target_key_token_length, target_key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKI(&return_code, &reason_code, NULL, NULL,
+                        &rule_array_count, rule_array,
+                        &key_token_length, key_token,
+                        transport_key_identifier,
+                        &target_key_token_length, target_key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKI (EC KEY TOKEN IMPORT) failed." " return:%ld, reason:%ld\n",
@@ -7071,7 +7384,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
     return CKR_OK;
 }
 
-static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
+static CK_RV import_ec_pubkey(STDLL_TokData_t *tokdata, TEMPLATE *pub_templ)
 {
     CK_RV rc;
     CK_ATTRIBUTE *opaque_attr = NULL;
@@ -7188,15 +7501,17 @@ static CK_RV import_ec_pubkey(TEMPLATE *pub_templ)
         key_token_length = CCA_KEY_TOKEN_SIZE;
         key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 
-        dll_CSNDPKB(&return_code, &reason_code,
-                    &exit_data_len, exit_data,
-                    &rule_array_count, rule_array,
-                    &key_value_structure_length, key_value_structure,
-                    &private_key_name_length, private_key_name,
-                    &param1, param2, &param1, param2, &param1, param2,
-                    &param1, param2, &param1, param2,
-                    &key_token_length,
-                    key_token);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDPKB(&return_code, &reason_code,
+                        &exit_data_len, exit_data,
+                        &rule_array_count, rule_array,
+                        &key_value_structure_length, key_value_structure,
+                        &private_key_name_length, private_key_name,
+                        &param1, param2, &param1, param2, &param1, param2,
+                        &param1, param2, &param1, param2,
+                        &key_token_length,
+                        key_token);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
         if (return_code != CCA_SUCCESS) {
             TRACE_ERROR("CSNDPKB (EC KEY TOKEN BUILD) failed. return:%ld,"
@@ -7260,7 +7575,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
         switch(keyclass) {
         case CKO_PUBLIC_KEY:
             // do import public key and create opaque object
-            rc = import_rsa_pubkey(object->template);
+            rc = import_rsa_pubkey(tokdata, object->template);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("RSA public key import failed, rc=0x%lx\n", rc);
                 return rc;
@@ -7308,7 +7623,7 @@ CK_RV token_specific_object_add(STDLL_TokData_t *tokdata, SESSION *sess, OBJECT 
         switch(keyclass) {
         case CKO_PUBLIC_KEY:
             // do import public key and create opaque object
-            rc = import_ec_pubkey(object->template);
+            rc = import_ec_pubkey(tokdata, object->template);
             if (rc != CKR_OK) {
                 TRACE_DEVEL("ECpublic key import failed, rc=0x%lx\n", rc);
                 return rc;
@@ -7379,10 +7694,12 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
     memcpy(rule_array, "INTERNALHMAC    MAC     GENERATE",
            4 * CCA_KEYWORD_SIZE);
 
-    dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
-                 rule_array, &clear_key_length, NULL, &key_name_length,
-                 NULL, &user_data_length, NULL, &zero_length, NULL,
-                 &zero_length, NULL, &key_token_length, key_token);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBKTB2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                     rule_array, &clear_key_length, NULL, &key_name_length,
+                     NULL, &user_data_length, NULL, &zero_length, NULL,
+                     &zero_length, NULL, &key_token_length, key_token);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBKTB2 (HMAC KEY TOKEN BUILD) failed."
@@ -7411,12 +7728,16 @@ CK_RV token_specific_generic_secret_key_gen(STDLL_TokData_t * tokdata,
      */
     memcpy(key_type2, "        ", CCA_KEYWORD_SIZE);
 
-    dll_CSNBKGN2(&return_code, &reason_code, &zero_length, NULL,
-                 &rule_array_count, rule_array, &clear_key_length, key_type1,
-                 key_type2, &key_name_length, NULL, &key_name_length, NULL,
-                 &user_data_length, NULL, &user_data_length, NULL, &zero_length,
-                 NULL, &zero_length, NULL, &key_token_length, key_token,
-                 &zero_length, NULL);
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+        dll_CSNBKGN2(&return_code, &reason_code, &zero_length, NULL,
+                     &rule_array_count, rule_array,
+                     &clear_key_length, key_type1,
+                     key_type2, &key_name_length, NULL, &key_name_length, NULL,
+                     &user_data_length, NULL, &user_data_length, NULL,
+                     &zero_length, NULL, &zero_length, NULL,
+                     &key_token_length, key_token,
+                     &zero_length, NULL);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBKGN2 (HMAC KEY GENERATE) failed."
@@ -7597,6 +7918,7 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         return rc;
     }
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDSYX(&return_code, &reason_code, NULL, NULL, &rule_array_count,
                     rule_array, (long *)&key_opaque->ulValueLen,
@@ -7605,6 +7927,7 @@ static CK_RV ccatok_wrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
     RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,
                            key_opaque->pValue, key_opaque->ulValueLen,
                            wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYX (SYMMETRIC KEY EXPORT) failed."
@@ -7763,6 +8086,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
         return rc;
     }
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNDSYI(&return_code, &reason_code, NULL, NULL, &rule_array_count,
                     rule_array, (long *)&wrapped_key_len, wrapped_key,
@@ -7770,6 +8094,7 @@ static CK_RV ccatok_unwrap_key_rsa_pkcs(STDLL_TokData_t *tokdata,
                     &buffer_len, buffer);
     RETRY_NEW_MK_BLOB_END(tokdata, return_code, reason_code,
                           wrap_key_opaque->pValue, wrap_key_opaque->ulValueLen)
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNDSYI (SYMMETRIC KEY IMPORT) failed."
@@ -8239,6 +8564,7 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
         return CKR_BUFFER_TOO_SMALL;
     }
 
+    USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
     RETRY_NEW_MK_BLOB_START()
         dll_CSNBCTT2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
                      rule_array, (long *)&decr_key_opaque->ulValueLen,
@@ -8250,6 +8576,7 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
     RETRY_NEW_MK_BLOB2_END(tokdata, return_code, reason_code,
                            encr_key_opaque->pValue, encr_key_opaque->ulValueLen,
                            decr_key_opaque->pValue, decr_key_opaque->ulValueLen);
+    USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
 
     if (return_code != CCA_SUCCESS) {
         TRACE_ERROR("CSNBCTT2 (CIPHER TEXT TRANSLATE) failed."
@@ -9326,24 +9653,30 @@ static CK_RV cca_reencipher_sec_key(STDLL_TokData_t *tokdata,
     switch (ktc_type) {
     case CCA_KTC_DATA:
         verb = "CSNBKTC";
-        dll_CSNBKTC(&return_code, &reason_code,
-                    &exit_data_len, NULL,
-                    &rule_array_count, rule_array,
-                    reenc_sec_key);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBKTC(&return_code, &reason_code,
+                        &exit_data_len, NULL,
+                        &rule_array_count, rule_array,
+                        reenc_sec_key);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
         break;
     case CCA_KTC_CIPHER:
         verb = "CSNBKTC2";
-        dll_CSNBKTC2(&return_code, &reason_code,
-                     &exit_data_len, NULL,
-                     &rule_array_count, rule_array,
-                     &token_length, reenc_sec_key);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNBKTC2(&return_code, &reason_code,
+                         &exit_data_len, NULL,
+                         &rule_array_count, rule_array,
+                         &token_length, reenc_sec_key);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
         break;
     case CCA_KTC_PKA:
         verb = "CSNDKTC";
-        dll_CSNDKTC(&return_code, &reason_code,
-                    &exit_data_len, NULL,
-                    &rule_array_count, rule_array,
-                    &token_length, reenc_sec_key);
+        USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
+            dll_CSNDKTC(&return_code, &reason_code,
+                        &exit_data_len, NULL,
+                        &rule_array_count, rule_array,
+                        &token_length, reenc_sec_key);
+        USE_CCA_ADAPTER_END(tokdata, return_code, reason_code)
         break;
     default:
         return CKR_FUNCTION_FAILED;
