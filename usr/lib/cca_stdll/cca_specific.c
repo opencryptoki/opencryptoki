@@ -1861,7 +1861,7 @@ static CK_RV cca_select_single_apqn(STDLL_TokData_t *tokdata,
                                     CK_BBOOL prefer_new_mk,
                                     enum cca_token_type keytype,
                                     enum cca_token_type keytype2,
-                                    char *serialno, CK_BBOOL *prefered_selected,
+                                    char *serialno, CK_BBOOL *preferred_selected,
                                     CK_BBOOL wait_for_new_wk)
 {
     struct cca_private_data *cca_private = tokdata->private_data;
@@ -1890,10 +1890,10 @@ retry:
 
     TRACE_DEVEL("single APQN %02X.%04X (Serialno %s) selected\n",
                 ssd.card, ssd.domain, ssd.serialno);
-    TRACE_DEVEL("APQN with prefered MK found: %d\n", ssd.preferred_found);
+    TRACE_DEVEL("APQN with preferred MK found: %d\n", ssd.preferred_found);
 
-    if (prefered_selected != NULL)
-        *prefered_selected = ssd.preferred_found;
+    if (preferred_selected != NULL)
+        *preferred_selected = ssd.preferred_found;
 
     if (prefer_new_mk && wait_for_new_wk && !ssd.preferred_found) {
         TRACE_DEVEL("%s no APQN with new MK set found, retry in 1 second\n",
@@ -1909,7 +1909,7 @@ retry:
 
     /*
      * If neither DEV-ANY, nor DOM-ANY is specified, no need to allocate the
-     * adapter, it a single adapter/domain configuration anyway.
+     * adapter, it's a single adapter/domain configuration anyway.
      */
     if (!cca_private->dev_any && !cca_private->dom_any)
         goto done;
@@ -1964,7 +1964,7 @@ static CK_RV cca_deselect_single_apqn(STDLL_TokData_t *tokdata, char *serialno)
 
     /*
      * If neither DEV-ANY, nor DOM-ANY is specified, no need to deallocate the
-     * adapter, it a single adapter/domain configuration anyway.
+     * adapter, it's a single adapter/domain configuration anyway.
      */
     if (!cca_private->dev_any && !cca_private->dom_any)
         return CKR_OK;
