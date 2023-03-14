@@ -262,6 +262,7 @@ exit 0
 %{_libdir}/opencryptoki/methods
 %{_libdir}/pkcs11/methods
 %dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}
+%dir %attr(770,root,pkcs11) %{_sharedstatedir}/%{name}/HSM_MK_CHANGE/
 %dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}
 %dir %attr(770,root,pkcs11) %{_localstatedir}/lock/%{name}/*
 
