@@ -48,6 +48,9 @@ CK_RV hsm_mk_change_lock_create(void)
     struct group *grp;
     mode_t mode = (S_IRUSR | S_IRGRP);
 
+    if (hsm_mk_change_lock_fd == -1)
+        hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE, O_RDONLY);
+
     if (hsm_mk_change_lock_fd == -1) {
         hsm_mk_change_lock_fd = open(OCK_HSM_MK_CHANGE_LOCK_FILE,
                                      O_CREAT | O_RDONLY, mode);
