@@ -215,10 +215,10 @@ struct token_specific_struct {
     CK_RV(*t_aes_xts_key_gen) (STDLL_TokData_t *, TEMPLATE *, CK_BYTE **,
                                CK_ULONG *, CK_ULONG, CK_BBOOL *);
 
-    CK_RV(*t_aes_ecb) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+    CK_RV(*t_aes_ecb) (STDLL_TokData_t *tokdata, SESSION *, CK_BYTE *, CK_ULONG,
                        CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
 
-    CK_RV(*t_aes_cbc) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,
+    CK_RV(*t_aes_cbc) (STDLL_TokData_t *tokdata, SESSION *, CK_BYTE *, CK_ULONG,
                        CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE *, CK_BYTE);
 
     CK_RV(*t_aes_ctr) (STDLL_TokData_t *tokdata, CK_BYTE *, CK_ULONG,

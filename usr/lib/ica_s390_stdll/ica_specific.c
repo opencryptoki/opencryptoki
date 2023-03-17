@@ -2765,7 +2765,8 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     return rng_generate(tokdata, *key, keysize);
 }
 
-CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
+CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
+                             SESSION *sess, CK_BYTE *in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
@@ -2773,6 +2774,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     int rc = CKR_OK;
     CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(sess);
 
     if (!ica_data->ica_aes_available)
         return openssl_specific_aes_ecb(tokdata, in_data, in_data_len,
@@ -2809,6 +2812,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
                              CK_BYTE *in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE *out_data,
@@ -2818,6 +2822,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
     CK_RV rc;
     CK_ATTRIBUTE *attr = NULL;
+
+    UNUSED(sess);
 
     if (!ica_data->ica_aes_available)
         return openssl_specific_aes_cbc(tokdata, in_data, in_data_len,

@@ -1447,20 +1447,20 @@ CK_RV aes_cmac_verify_final(STDLL_TokData_t *tokdata, SESSION *sess,
 //
 CK_RV ckm_aes_key_gen(STDLL_TokData_t *, TEMPLATE *tmpl, CK_BBOOL xts);
 
-CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *, SESSION *sess, CK_BYTE *in_data,
                           CK_ULONG in_data_len, CK_BYTE *out_data,
                           CK_ULONG *out_data_len, OBJECT *key);
 
-CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *, SESSION *sess, CK_BYTE *in_data,
                           CK_ULONG in_data_len, CK_BYTE *out_data,
                           CK_ULONG *out_data_len, OBJECT *key);
 
-CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *, SESSION *sess, CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data, CK_ULONG *out_data_len,
                           CK_BYTE *init_v, OBJECT *key);
 
-CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *, CK_BYTE *in_data,
+CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *, SESSION *sess, CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data, CK_ULONG *out_data_len,
                           CK_BYTE *init_v, OBJECT *key);

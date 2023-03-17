@@ -6867,11 +6867,13 @@ CK_RV token_specific_reencrypt_single(STDLL_TokData_t *tokdata,
  * fallback here.
  */
 CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
                              CK_BYTE *in_data, CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE encrypt)
 {
     UNUSED(tokdata);
+    UNUSED(sess);
 
     return pkey_aes_ecb(key_obj, in_data, in_data_len,
                         out_data, out_data_len, encrypt);
@@ -6883,12 +6885,14 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
  * fallback here.
  */
 CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+                             SESSION *sess,
                              CK_BYTE *in_data, CK_ULONG in_data_len,
                              CK_BYTE *out_data, CK_ULONG *out_data_len,
                              OBJECT *key_obj, CK_BYTE *init_v,
                              CK_BYTE encrypt)
 {
     UNUSED(tokdata);
+    UNUSED(sess);
 
     return pkey_aes_cbc(key_obj, init_v, in_data, in_data_len,
                         out_data, out_data_len, encrypt);
