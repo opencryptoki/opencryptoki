@@ -2994,6 +2994,220 @@ static CK_BBOOL ccatok_pkey_option_disabled(STDLL_TokData_t *tokdata)
     return CK_FALSE;
 }
 
+/**
+ * Return true, if the given key obj has a valid protected key, i.e. its
+ * verification pattern matches the one of the current master key.
+ */
+static CK_BBOOL ccatok_pkey_is_valid(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    int vp_offset;
+
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE_PKEY,
+                                         &pkey_attr) == CKR_OK) {
+        if (pkey_attr->ulValueLen >= AES_KEY_SIZE_128 + PKEY_MK_VP_LENGTH) {
+            vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+            if (memcmp((CK_BYTE *)pkey_attr->pValue + vp_offset,
+                       &cca_data->pkey_mk_vp,
+                       PKEY_MK_VP_LENGTH) == 0) {
+                return CK_TRUE;
+            }
+        }
+    }
+
+    return CK_FALSE;
+}
+
+/**
+ * Create a new protected key for the given key obj and update attribute
+ * CKA_IBM_OPAQUE with the new pkey.
+ */
+static CK_RV ccatok_pkey_update(STDLL_TokData_t *tokdata, OBJECT *key_obj)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *skey_attr = NULL;
+    CK_ATTRIBUTE *pkey_attr = NULL;
+    CK_RV ret;
+    int vp_offset;
+
+    /* Get secure key from obj */
+    if (template_attribute_get_non_empty(key_obj->template, CKA_IBM_OPAQUE,
+                                         &skey_attr) != CKR_OK) {
+        TRACE_ERROR("This key has no blob: should not occur!\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Transform the secure key into a protected key */
+    ret = ccatok_pkey_skey2pkey(tokdata, skey_attr, &pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("protected key creation failed with rc=0x%lx\n",ret);
+        goto done;
+    }
+
+    /* Check if the new pkey's verification pattern matches the one in
+     * cca_data. This should always be the case, because we just
+     * created the pkey with the current MK. */
+    vp_offset = pkey_attr->ulValueLen - PKEY_MK_VP_LENGTH;
+    if (memcmp(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + vp_offset,
+               PKEY_MK_VP_LENGTH) != 0) {
+        TRACE_ERROR("vp of this pkey does not match with the one in cca_data (should not occur)\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Now update the key obj. If it's a token obj, it will be also updated
+     * in the repository. */
+    ret = pkey_update_and_save(tokdata, key_obj, &pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("pkey_update_and_save failed with rc=0x%lx\n", ret);
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    if (pkey_attr != NULL)
+        free(pkey_attr);
+
+    return ret;
+}
+
+/**
+ * Returns true if the session is ok for creating protected keys, false
+ * otherwise. The session must be read/write for token objects, and not public
+ * nor SO for private objects.
+ */
+static CK_BBOOL ccatok_pkey_session_ok_for_obj(SESSION *session,
+                                               OBJECT *key_obj)
+{
+    if (object_is_token_object(key_obj) &&
+        (session->session_info.flags & CKF_RW_SESSION) == 0)
+        return CK_FALSE;
+
+    if (object_is_private(key_obj)) {
+        switch (session->session_info.state) {
+        case CKS_RO_PUBLIC_SESSION:
+        case CKS_RW_PUBLIC_SESSION:
+        case CKS_RW_SO_FUNCTIONS:
+            return CK_FALSE;
+        default:
+            break;
+        }
+    }
+
+    return CK_TRUE;
+}
+
+/**
+ * Checks if the preconditions for using the related protected key of
+ * the given secure key object are met. The caller of this routine must
+ * have a READ_LOCK on the key object.
+ *
+ * The routine internally creates a protected key and adds it to the key_obj,
+ * if the machine supports pkeys, the key is eligible for pkey support, does
+ * not already have a valid pkey, and other conditions, like r/w session, are
+ * fulfilled. As adding a protected key to the key_obj involves unlocking and
+ * re-locking, the key blob, or any other attribute of the key, that was
+ * retrieved via h_opaque_2_blob before calling this function might be no more
+ * valid in a parallel environment.
+ *
+ * Therefore, the following return codes tell the calling function how to
+ * proceed:
+ *
+ * @return CKR_OK:
+ *            a protected key was possibly created successfully and everything
+ *            is fine to use pkey support. In this case the protected key
+ *            shall be used, but a previously obtained key blob or other attr
+ *            might be invalid, because of a possible unlock/re-lock of the
+ *            key_obj.
+ *
+ *         CKR_FUNCTION_NOT_SUPPORTED:
+ *            The system, session or key do not allow to use pkey support, but
+ *            no attempt was made to create a protected key. So the key blob,
+ *            or any other attr, is still valid and a fallback into the ep11
+ *            path is ok.
+ *
+ *         all others:
+ *            An internal error occurred and it was possibly attempted to create
+ *            a protected key for the object. In this case, the key blob, or
+ *            any other attr, might be no longer valid in a parallel environment
+ *            and the ep11 fallback is not possible anymore. The calling
+ *            function shall return with an error in this case.
+ */
+static CK_RV ccatok_pkey_check(STDLL_TokData_t *tokdata, SESSION *session,
+                               OBJECT *key_obj, CK_MECHANISM *mech)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *opaque_attr = NULL;
+    CK_RV ret = CKR_FUNCTION_NOT_SUPPORTED;
+
+    /* Check if CPACF supports the operation implied by this key and mech */
+    if (!pkey_op_supported_by_cpacf(cca_data->msa_level, mech->mechanism,
+                                    key_obj->template)) {
+        goto done;
+    }
+
+    /* Check config option */
+    switch (cca_data->pkey_mode) {
+    case PKEY_MODE_DISABLED:
+        goto done;
+        break;
+    case PKEY_MODE_DEFAULT:
+    case PKEY_MODE_ENABLED:
+        /*
+         * Use existing pkeys, re-create invalid pkeys, and also create new
+         * pkeys for secret/private keys that do not already have one. EC
+         * public keys that are pkey-extractable, can always be used via CPACF
+         * as there is no protected key involved.
+         */
+        if (pkey_is_ec_public_key(key_obj->template) &&
+            object_is_pkey_extractable(key_obj)) {
+            ret = CKR_OK;
+            goto done;
+        }
+
+        if (!object_is_pkey_extractable(key_obj) ||
+            !cca_data->pkey_wrap_supported) {
+            goto done;
+        }
+        if (template_attribute_get_non_empty(key_obj->template,
+                                             CKA_IBM_OPAQUE_PKEY,
+                                             &opaque_attr) != CKR_OK ||
+            !ccatok_pkey_is_valid(tokdata, key_obj)) {
+            /*
+             * this key has either no pkey attr, or it is not valid,
+             * try to create one, if the session state allows it.
+             */
+            if (!ccatok_pkey_session_ok_for_obj(session, key_obj))
+                goto done;
+
+            ret = ccatok_pkey_update(tokdata, key_obj);
+            if (ret != CKR_OK) {
+                TRACE_ERROR("error updating the protected key, rc=0x%lx\n", ret);
+                if (ret == CKR_FUNCTION_NOT_SUPPORTED)
+                    ret = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+        }
+        break;
+    default:
+        /* should not occur */
+        TRACE_ERROR("PKEY_MODE %i unsupported.\n", cca_data->pkey_mode);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
 /*
  * This function is called whenever a new object is created. It currently sets
  * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
@@ -4848,10 +5062,9 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     unsigned char exit_data[1];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
+    CK_MECHANISM mech = { CKM_AES_ECB, NULL, 0 };
     long int key_len;
     CK_RV rc;
-
-    UNUSED(session);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -4865,6 +5078,21 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     }
     key_len = attr->ulValueLen;
 
+    /* CCA token protected key option */
+    rc = ccatok_pkey_check(tokdata, session, key, &mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_aes_ecb(key, in_data, in_data_len,
+                          out_data, out_data_len, encrypt);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* fallback */
+        break;
+    default:
+        goto done;
+    }
+
+    /* Fallback: Perform the function via the CCA card ... */
     rule_array_count = 4;
     memcpy(rule_array, "AES     ECB     KEYIDENTINITIAL ",
            rule_array_count * (size_t) CCA_KEYWORD_SIZE);
@@ -4939,7 +5167,11 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
         }
     }
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+
+    return rc;
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
@@ -4959,10 +5191,9 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     CK_BYTE *local_out = out_data;
     unsigned char exit_data[1];
     CK_ATTRIBUTE *attr = NULL;
+    CK_MECHANISM mech = { CKM_AES_CBC, init_v, IV_len };
     long int key_len;
     CK_RV rc;
-
-    UNUSED(session);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -4976,7 +5207,22 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
         return rc;
     }
     key_len = attr->ulValueLen;
-    
+
+    /* CCA token protected key option */
+    rc = ccatok_pkey_check(tokdata, session, key, &mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_aes_cbc(key, init_v, in_data, in_data_len,
+                          out_data, out_data_len, encrypt);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* fallback */
+        break;
+    default:
+        goto done;
+    }
+
+    /* Fallback: Perform the function via the CCA card ... */
     if (in_data_len % 16 == 0) {
         rule_array_count = 3;
         memcpy(rule_array, "AES     KEYIDENTINITIAL ",
@@ -5086,7 +5332,11 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
 
     *out_data_len = length;
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+
+    return rc;
 }
 
 /* See the top of this file for the declarations of mech_list and
@@ -5474,10 +5724,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
     CK_ATTRIBUTE *attr;
     CK_RV rc;
-
-    UNUSED(sess);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5492,7 +5741,21 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* CCA doc: page 113 */
+    /* CCA token protected key option: perform the function via CPACF */
+    rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ec_sign(key_obj, in_data, in_data_len,
+                          out_data, out_data_len, NULL);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* fallback */
+        break;
+    default:
+        goto done;
+    }
+
+    /* Fallback: Perform the function via the CCA card */
     rule_array_count = 1;
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
     *out_data_len = *out_data_len > 132 ? 132 : *out_data_len;
@@ -5525,7 +5788,11 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+
+    return rc;
 }
 
 CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
@@ -5537,10 +5804,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
     CK_ATTRIBUTE *attr;
     CK_RV rc;
-
-    UNUSED(sess);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5555,7 +5821,21 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
         return rc;
     }
 
-    /* CCA doc: page 118 */
+    /* CCA token protected key option: perform the function via CPACF */
+    rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
+    switch (rc) {
+    case CKR_OK:
+        rc = pkey_ec_verify(key_obj, in_data, in_data_len,
+                            out_data, out_data_len);
+        goto done;
+    case CKR_FUNCTION_NOT_SUPPORTED:
+        /* fallback */
+        break;
+    default:
+        goto done;
+    }
+
+    /* Fallback: Perform the function via the CCA card */
     rule_array_count = 1;
     memcpy(rule_array, "ECDSA   ", CCA_KEYWORD_SIZE);
 
@@ -5590,7 +5870,11 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
                       " returned reason:%ld\n", reason_code);
     }
 
-    return CKR_OK;
+    rc = CKR_OK;
+
+done:
+
+    return rc;
 }
 
 CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * ctx,
