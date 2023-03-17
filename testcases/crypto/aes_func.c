@@ -53,7 +53,7 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -208,7 +208,7 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -493,7 +493,7 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -666,7 +666,7 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -880,7 +880,7 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -1052,7 +1052,7 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(tsuite->tvcount, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -1277,7 +1277,7 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -1565,7 +1565,7 @@ CK_RV do_WrapUnwrapRSA(struct generated_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -1833,7 +1833,7 @@ CK_RV do_WrapRSA_Err(struct generated_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -2026,7 +2026,7 @@ CK_RV do_UnwrapRSA_Err(struct generated_test_suite_info * tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -2204,7 +2204,7 @@ CK_RV do_SignVerifyMAC(struct published_mac_test_suite_info *tsuite)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(slot_id)) {
+    if (pkey && !is_ep11_token(slot_id) && !is_cca_token(SLOT_ID)) {
         testsuite_skip(3, "pkey test option is true, but slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -2406,7 +2406,7 @@ CK_RV do_SetAttributeValuesPkey(void)
     testcase_user_login();
 
     /* Skip tests if the slot doesn't support protected keys*/
-    if (!is_ep11_token(slot_id)) {
+    if (!is_ep11_token(slot_id) && !is_cca_token(slot_id)) {
         testsuite_skip(1, "Slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -2521,7 +2521,7 @@ CK_RV do_EncryptDecryptAESPkey(void)
     testcase_user_login();
 
     /* Skip tests if the slot doesn't support protected keys*/
-    if (!is_ep11_token(slot_id)) {
+    if (!is_ep11_token(slot_id) && !is_cca_token(slot_id)) {
         testsuite_skip(6, "Slot %u doesn't support protected keys",
                        (unsigned int) slot_id);
         goto testcase_cleanup;
@@ -2799,7 +2799,7 @@ int main(int argc, char **argv)
     pkey = CK_FALSE;
     rv = aes_funcs();
 
-    if (is_ep11_token(SLOT_ID)) {
+    if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
         pkey = CK_TRUE;
         rv += aes_funcs();
         rv += aes_funcs_pkey();
