@@ -392,7 +392,7 @@ CK_RV run_DeriveECDHKey(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -926,7 +926,7 @@ CK_RV run_DeriveECDHKeyKAT(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -1536,7 +1536,7 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -1690,7 +1690,7 @@ CK_RV run_ImportECCKeyPairSignVerify(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -1860,7 +1860,7 @@ CK_RV run_TransferECCKeyPairSignVerify(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -2207,7 +2207,11 @@ CK_RV run_ImportSignVerify_Pkey(void)
     CK_MECHANISM ec_mech = {CKM_ECDSA, NULL, 0};
     CK_MECHANISM ed25519_mech = {CKM_IBM_ED25519_SHA512, NULL, 0};
     CK_MECHANISM ed448_mech = {CKM_IBM_ED448_SHA3, NULL, 0};
-    CK_BYTE data[] = "abcdefghijklmnopqrstuvwxyz";
+    CK_BYTE data[] = {
+        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
+        0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18,
+        0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20,
+    };
     CK_BYTE *sig = NULL;
     CK_ULONG sig_len;
     unsigned int i, j;
@@ -2216,7 +2220,7 @@ CK_RV run_ImportSignVerify_Pkey(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -2247,13 +2251,13 @@ CK_RV run_ImportSignVerify_Pkey(void)
         for (j = 0; j < 2; j++) {
 
             if (j == 0)
-                testcase_begin("Starting Import EC private key (%s) index=%u sign via CPACF / verify via ep11 card",
+                testcase_begin("Starting Import EC private key (%s) index=%u sign via CPACF / verify via card",
                                ec_tv[i].name, i);
             else
-                testcase_begin("Starting Import EC private key (%s) index=%u sign via ep11 card / verify via CPACF",
+                testcase_begin("Starting Import EC private key (%s) index=%u sign via card / verify via CPACF",
                                ec_tv[i].name, i);
 
-            /* j toggles between sign via protected key / verify via ep11 card
+            /* j toggles between sign via protected key / verify via card
              * and vice versa. */
             if (j == 0) {
                 extr_priv = FALSE;
@@ -2359,10 +2363,10 @@ CK_RV run_ImportSignVerify_Pkey(void)
             }
 
             if (j == 0)
-                testcase_pass("*Import EC private key (%s) index=%u sign via CPACF / verify via ep11 card passed.",
+                testcase_pass("*Import EC private key (%s) index=%u sign via CPACF / verify via card passed.",
                               ec_tv[i].name, i);
             else
-                testcase_pass("*Import EC private key (%s) index=%u sign via ep11 card / verify via CPACF passed.",
+                testcase_pass("*Import EC private key (%s) index=%u sign via card / verify via CPACF passed.",
                               ec_tv[i].name, i);
         }
     }
@@ -2494,7 +2498,7 @@ CK_RV run_DeriveBTC(void)
     testcase_user_login();
 
     /* Skip tests if pkey = true, but the slot doesn't support protected keys*/
-    if (pkey && !is_ep11_token(SLOT_ID)) {
+    if (pkey && !is_ep11_token(SLOT_ID) && !is_cca_token(SLOT_ID)) {
         testcase_skip("pkey test option is true, but slot %u doesn't support protected keys",
                       (unsigned int) SLOT_ID);
         goto testcase_cleanup;
@@ -2786,7 +2790,7 @@ int main(int argc, char **argv)
     rv += run_DeriveECDHKeyKAT();
     rv += run_DeriveBTC();
 
-    if (is_ep11_token(SLOT_ID)) {
+    if (is_ep11_token(SLOT_ID) || is_cca_token(SLOT_ID)) {
         pkey = CK_TRUE;
         rv = run_GenerateECCKeyPairSignVerify();
         rv += run_ImportECCKeyPairSignVerify();
