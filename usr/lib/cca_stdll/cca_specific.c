@@ -292,6 +292,10 @@ struct cca_mk_change_op {
 };
 
 /* CCA token private data */
+#define PKEY_MODE_DISABLED          0
+#define PKEY_MODE_DEFAULT           1
+#define PKEY_MODE_ENABLED           2
+
 struct cca_private_data {
     void *lib_csulcca;
     struct {
@@ -315,6 +319,7 @@ struct cca_private_data {
     char serialno[CCA_SERIALNO_LENGTH + 1];
     struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
     char token_config_filename[PATH_MAX];
+    int pkey_mode;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -2351,6 +2356,25 @@ static CK_RV cca_parse_hex(const char *str, unsigned char *bin, size_t size)
     return CKR_OK;
 }
 
+static CK_RV cca_config_set_pkey_mode(struct cca_private_data *cca_data,
+                                      const char *fname, const char *strval)
+{
+    if (strcmp(strval, "DISABLED") == 0)
+        cca_data->pkey_mode = PKEY_MODE_DISABLED;
+    else if (strcmp(strval, "DEFAULT") == 0)
+        cca_data->pkey_mode = PKEY_MODE_DEFAULT;
+    else if (strcmp(strval, "ENABLED") == 0)
+        cca_data->pkey_mode = PKEY_MODE_ENABLED;
+    else {
+        TRACE_ERROR("%s unsupported PKEY mode : '%s'\n", __func__, strval);
+        OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported PKEY mode '%s' "
+                   "in config file '%s'\n", __func__, strval, fname);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
 static CK_RV cca_config_parse_exp_mkvps(char *fname,
                                         struct ConfigStructNode *exp_mkvp_node,
                                         unsigned char *expected_sym_mkvp,
@@ -2467,6 +2491,7 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
     struct ConfigStructNode *struct_node;
     CK_RV rc = CKR_OK;
     int ret, i;
+    const char *strval;
 
     if (conf_name == NULL || strlen(conf_name) == 0)
         return CKR_OK;
@@ -2500,6 +2525,8 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
     cca_private->token_config_filename[
                     sizeof(cca_private->token_config_filename) - 1] = '\0';
 
+    cca_private->pkey_mode = PKEY_MODE_DEFAULT;
+
     confignode_foreach(c, config, i) {
         TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
                     c->key, c->type, c->line);
@@ -2508,6 +2535,18 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
             TRACE_DEBUG("Config file version: '%s'\n",
                         confignode_to_fileversion(c)->base.key);
             continue;
+        }
+
+        if (confignode_hastype(c, CT_BAREVAL)) {
+            /* New style (key = value) tokens */
+            strval = confignode_getstr(c);
+
+            if (strcmp(c->key, "PKEY_MODE") == 0) {
+                rc = cca_config_set_pkey_mode(cca_private, fname, strval);
+                if (rc != CKR_OK)
+                    break;
+                continue;
+            }
         }
 
         if (confignode_hastype(c, CT_STRUCT)) {
