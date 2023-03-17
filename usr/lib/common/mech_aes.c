@@ -66,7 +66,7 @@ CK_RV aes_ecb_encrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = ckm_aes_ecb_encrypt(tokdata, in_data, in_data_len,
+    rc = ckm_aes_ecb_encrypt(tokdata, sess, in_data, in_data_len,
                              out_data, out_data_len, key);
 
 done:
@@ -121,7 +121,7 @@ CK_RV aes_ecb_decrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = ckm_aes_ecb_decrypt(tokdata, in_data, in_data_len,
+    rc = ckm_aes_ecb_decrypt(tokdata, sess, in_data, in_data_len,
                              out_data, out_data_len, key);
 
 done:
@@ -176,7 +176,7 @@ CK_RV aes_cbc_encrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = ckm_aes_cbc_encrypt(tokdata, in_data, in_data_len, out_data,
+    rc = ckm_aes_cbc_encrypt(tokdata, sess, in_data, in_data_len, out_data,
                              out_data_len, ctx->mech.pParameter, key);
 
 done:
@@ -229,7 +229,7 @@ CK_RV aes_cbc_decrypt(STDLL_TokData_t *tokdata,
         goto done;
     }
 
-    rc = ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, out_data,
+    rc = ckm_aes_cbc_decrypt(tokdata, sess, in_data, in_data_len, out_data,
                              out_data_len, ctx->mech.pParameter, key);
 
 done:
@@ -296,7 +296,7 @@ CK_RV aes_cbc_pad_encrypt(STDLL_TokData_t *tokdata,
     add_pkcs_padding(clear + in_data_len,
                      AES_BLOCK_SIZE, in_data_len, padded_len);
 
-    rc = ckm_aes_cbc_encrypt(tokdata, clear, padded_len, out_data, out_data_len,
+    rc = ckm_aes_cbc_encrypt(tokdata, sess, clear, padded_len, out_data, out_data_len,
                              ctx->mech.pParameter, key);
 
     free(clear);
@@ -363,7 +363,7 @@ CK_RV aes_cbc_pad_decrypt(STDLL_TokData_t *tokdata,
         rc = CKR_HOST_MEMORY;
         goto done;
     }
-    rc = ckm_aes_cbc_decrypt(tokdata, in_data, in_data_len, clear, &padded_len,
+    rc = ckm_aes_cbc_decrypt(tokdata, sess, in_data, in_data_len, clear, &padded_len,
                              ctx->mech.pParameter, key);
 
     if (rc == CKR_OK) {
@@ -627,7 +627,7 @@ CK_RV aes_ecb_encrypt_update(STDLL_TokData_t *tokdata,
         memcpy(clear, context->data, context->len);
         memcpy(clear + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_ecb_encrypt(tokdata, clear, out_len, out_data,
+        rc = ckm_aes_ecb_encrypt(tokdata, sess, clear, out_len, out_data,
                                  out_data_len, key);
         if (rc == CKR_OK) {
             *out_data_len = out_len;
@@ -712,7 +712,7 @@ CK_RV aes_ecb_decrypt_update(STDLL_TokData_t *tokdata,
         memcpy(cipher, context->data, context->len);
         memcpy(cipher + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_ecb_decrypt(tokdata, cipher, out_len, out_data,
+        rc = ckm_aes_ecb_decrypt(tokdata, sess, cipher, out_len, out_data,
                                  out_data_len, key);
         if (rc == CKR_OK) {
             *out_data_len = out_len;
@@ -797,7 +797,7 @@ CK_RV aes_cbc_encrypt_update(STDLL_TokData_t *tokdata,
         memcpy(clear, context->data, context->len);
         memcpy(clear + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data,
+        rc = ckm_aes_cbc_encrypt(tokdata, sess, clear, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
 
         if (rc == CKR_OK) {
@@ -889,7 +889,7 @@ CK_RV aes_cbc_decrypt_update(STDLL_TokData_t *tokdata,
         memcpy(cipher, context->data, context->len);
         memcpy(cipher + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_cbc_decrypt(tokdata, cipher, out_len, out_data,
+        rc = ckm_aes_cbc_decrypt(tokdata, sess, cipher, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
 
         if (rc == CKR_OK) {
@@ -993,7 +993,7 @@ CK_RV aes_cbc_pad_encrypt_update(STDLL_TokData_t *tokdata,
         //
         // we don't do padding during the update
         //
-        rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data,
+        rc = ckm_aes_cbc_encrypt(tokdata, sess, clear, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
 
         if (rc == CKR_OK) {
@@ -1093,7 +1093,7 @@ CK_RV aes_cbc_pad_decrypt_update(STDLL_TokData_t *tokdata,
         memcpy(cipher, context->data, context->len);
         memcpy(cipher + context->len, in_data, out_len - context->len);
 
-        rc = ckm_aes_cbc_decrypt(tokdata, cipher, out_len, out_data,
+        rc = ckm_aes_cbc_decrypt(tokdata, sess, cipher, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
 
         if (rc == CKR_OK) {
@@ -1598,7 +1598,7 @@ CK_RV aes_cbc_pad_encrypt_final(STDLL_TokData_t *tokdata,
         add_pkcs_padding(clear + context->len,
                          AES_BLOCK_SIZE, context->len, out_len);
 
-        rc = ckm_aes_cbc_encrypt(tokdata, clear, out_len, out_data,
+        rc = ckm_aes_cbc_encrypt(tokdata, sess, clear, out_len, out_data,
                                  out_data_len, ctx->mech.pParameter, key);
     }
 
@@ -1652,7 +1652,7 @@ CK_RV aes_cbc_pad_decrypt_final(STDLL_TokData_t *tokdata,
         *out_data_len = out_len;
         rc = CKR_OK;
     } else {
-        rc = ckm_aes_cbc_decrypt(tokdata, context->data, AES_BLOCK_SIZE, clear,
+        rc = ckm_aes_cbc_decrypt(tokdata, sess, context->data, AES_BLOCK_SIZE, clear,
                                  &out_len, ctx->mech.pParameter, key);
 
         if (rc == CKR_OK) {
@@ -3919,6 +3919,7 @@ err:
 //
 //
 CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *tokdata,
+                          SESSION *sess,
                           CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data,
@@ -3940,7 +3941,7 @@ CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_ecb(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_ecb(tokdata, sess, in_data, in_data_len,
                                   out_data, out_data_len, key, 1);
 
     if (rc != CKR_OK)
@@ -3952,6 +3953,7 @@ CK_RV ckm_aes_ecb_encrypt(STDLL_TokData_t *tokdata,
 //
 //
 CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *tokdata,
+                          SESSION *sess,
                           CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data,
@@ -3974,7 +3976,7 @@ CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_ecb(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_ecb(tokdata, sess, in_data, in_data_len,
                                   out_data, out_data_len, key, 0);
 
     if (rc != CKR_OK)
@@ -3987,6 +3989,7 @@ CK_RV ckm_aes_ecb_decrypt(STDLL_TokData_t *tokdata,
 //
 //
 CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *tokdata,
+                          SESSION *sess,
                           CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data,
@@ -4010,7 +4013,7 @@ CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_cbc(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_cbc(tokdata, sess, in_data, in_data_len,
                                   out_data, out_data_len, key, init_v, 1);
 
     if (rc != CKR_OK)
@@ -4023,6 +4026,7 @@ CK_RV ckm_aes_cbc_encrypt(STDLL_TokData_t *tokdata,
 //
 //
 CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *tokdata,
+                          SESSION *sess,
                           CK_BYTE *in_data,
                           CK_ULONG in_data_len,
                           CK_BYTE *out_data,
@@ -4045,7 +4049,7 @@ CK_RV ckm_aes_cbc_decrypt(STDLL_TokData_t *tokdata,
         return CKR_MECHANISM_INVALID;
     }
 
-    rc = token_specific.t_aes_cbc(tokdata, in_data, in_data_len,
+    rc = token_specific.t_aes_cbc(tokdata, sess, in_data, in_data_len,
                                   out_data, out_data_len, key, init_v, 0);
 
     if (rc != CKR_OK)

@@ -4273,6 +4273,7 @@ CK_RV token_specific_aes_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
 }
 
 CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
+                             SESSION  *session,
                              CK_BYTE * in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE * out_data,
@@ -4289,6 +4290,8 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
     CK_RV rc;
+
+    UNUSED(session);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -4380,6 +4383,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
 }
 
 CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
+                             SESSION  *session,
                              CK_BYTE * in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE * out_data,
@@ -4397,6 +4401,8 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     CK_ATTRIBUTE *attr = NULL;
     long int key_len;
     CK_RV rc;
+
+    UNUSED(session);
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));

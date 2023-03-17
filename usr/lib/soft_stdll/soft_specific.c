@@ -551,24 +551,28 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
     return rng_generate(tokdata, *key, keysize);
 }
 
-CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_ecb(STDLL_TokData_t *tokdata, SESSION *sess,
                              CK_BYTE *in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE *out_data,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE encrypt)
 {
+    UNUSED(sess);
+
     return openssl_specific_aes_ecb(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key, encrypt);
 }
 
-CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata,
+CK_RV token_specific_aes_cbc(STDLL_TokData_t *tokdata, SESSION *sess,
                              CK_BYTE *in_data,
                              CK_ULONG in_data_len,
                              CK_BYTE *out_data,
                              CK_ULONG *out_data_len,
                              OBJECT *key, CK_BYTE *init_v, CK_BYTE encrypt)
 {
+    UNUSED(sess);
+
     return openssl_specific_aes_cbc(tokdata, in_data, in_data_len,
                                     out_data, out_data_len, key,
                                     init_v, encrypt);

@@ -239,12 +239,12 @@ CK_RV token_specific_aes_xts_key_gen(STDLL_TokData_t *, TEMPLATE *tmpl,
                                      CK_BYTE **, CK_ULONG *, CK_ULONG,
                                      CK_BBOOL *);
 
-CK_RV token_specific_aes_ecb(STDLL_TokData_t *,
+CK_RV token_specific_aes_ecb(STDLL_TokData_t *, SESSION *,
                              CK_BYTE *,
                              CK_ULONG,
                              CK_BYTE *, CK_ULONG *, OBJECT *, CK_BYTE);
 
-CK_RV token_specific_aes_cbc(STDLL_TokData_t *,
+CK_RV token_specific_aes_cbc(STDLL_TokData_t *, SESSION *,
                              CK_BYTE *,
                              CK_ULONG,
                              CK_BYTE *,
