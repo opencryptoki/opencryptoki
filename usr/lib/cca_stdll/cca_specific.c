@@ -33,6 +33,8 @@
 #include <err.h>
 #include <regex.h>
 #include <dirent.h>
+#include <sys/ioctl.h>
+#include <asm/pkey.h>
 #include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -52,6 +54,7 @@
 #include "hsm_mk_change.h"
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
+#include "pkey_utils.h"
 
 /**
  * EC definitions
@@ -292,6 +295,8 @@ struct cca_mk_change_op {
 };
 
 /* CCA token private data */
+#define PKEY_MK_VP_LENGTH           32
+
 #define PKEY_MODE_DISABLED          0
 #define PKEY_MODE_DEFAULT           1
 #define PKEY_MODE_ENABLED           2
@@ -321,6 +326,9 @@ struct cca_private_data {
     char token_config_filename[PATH_MAX];
     int pkey_mode;
     int pkey_wrap_supported;
+    char pkey_mk_vp[PKEY_MK_VP_LENGTH];
+    int pkeyfd;
+    int msa_level;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -2707,6 +2715,288 @@ static CK_RV ccatok_pkey_add_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template
     return CKR_OK;
 }
 
+#define MAXECPROTKEYSIZE           112 /* max 80 + 32 bytes for p521 */
+#define PKEYDEVICE                 "/dev/pkey"
+
+typedef struct {
+    STDLL_TokData_t *tokdata;
+    CK_BBOOL wrap_was_successful;
+    CK_RV wrap_error;
+    CK_VOID_PTR secure_key;
+    CK_ULONG secure_key_len;
+    CK_BYTE *pkey_buf;
+    size_t *pkey_buflen_p;
+    enum cca_token_type keytype;
+} pkey_wrap_handler_data_t;
+
+static enum pkey_key_type ccatok_pkey_type_from_keytype(enum cca_token_type keytype)
+{
+    switch (keytype) {
+    case sec_aes_data_key:
+        return PKEY_TYPE_CCA_DATA;
+    case sec_aes_cipher_key:
+        return PKEY_TYPE_CCA_CIPHER;
+    case sec_ecc_priv_key:
+        return PKEY_TYPE_CCA_ECC;
+    default:
+        break;
+    }
+
+    return 0;
+}
+
+/*
+ * Callback function used by ccatok_pkey_skey2pkey() for creating a protected
+ * key using (card,domain) via the PKEY_KBLOB2PROTK3 ioctl.
+ * Note that the PKEY_KBLOB2PROTK3 ioctl requires kernel 5.10 or later.
+ * On older kernels this function fails when called at token init, trying to
+ * determine the wkvp from the firmware wrapping key. In this case, protected
+ * key support for CCA is just not available (indicated in cca_private_data).
+ */
+static CK_RV ccatok_pkey_sec2prot(STDLL_TokData_t *tokdata, const char *adapter,
+                                  unsigned short card, unsigned short domain,
+                                  void *handler_data)
+{
+    pkey_wrap_handler_data_t *data = (pkey_wrap_handler_data_t *) handler_data;
+    struct cca_private_data *cca_data = data->tokdata->private_data;
+    struct pkey_kblob2pkey3 io;
+    struct pkey_apqn apqn;
+    int rc;
+
+    UNUSED(tokdata);
+    UNUSED(adapter);
+
+    if (data->wrap_was_successful)
+        goto done;
+
+    apqn.card = card;
+    apqn.domain = domain;
+
+    memset(&io, 0, sizeof(io));
+    io.key = data->secure_key;
+    io.keylen = data->secure_key_len;
+    io.apqns = &apqn;
+    io.apqn_entries = 1;
+    io.pkeytype = ccatok_pkey_type_from_keytype(data->keytype);
+    io.pkeylen = *(data->pkey_buflen_p);
+    io.pkey = data->pkey_buf;
+
+    rc = ioctl(cca_data->pkeyfd, PKEY_KBLOB2PROTK3, &io);
+    if (rc != 0) {
+        data->wrap_error = CKR_FUNCTION_FAILED;
+        data->wrap_was_successful = CK_FALSE;
+        goto done;
+    }
+
+    data->wrap_error = CKR_OK;
+    data->wrap_was_successful = CK_TRUE;
+    *(data->pkey_buflen_p) = io.pkeylen;
+
+done:
+
+    /*
+     * Always return ok, calling function loops over this handler until
+     * data->wrap_was_successful = true, or no more APQN left.
+     * Pass back error in handler data anyway.
+     */
+    return CKR_OK;
+}
+
+/*
+ * Creates a protected key from the given secure key object by iterating
+ * over all APQNs.
+ */
+static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
+                                   CK_ATTRIBUTE *skey_attr,
+                                   CK_ATTRIBUTE **pkey_attr)
+{
+    CK_ATTRIBUTE *tmp_attr = NULL;
+    CK_BYTE pkey_buf[MAXECPROTKEYSIZE];
+    CK_ULONG pkey_buflen = sizeof(pkey_buf);
+    pkey_wrap_handler_data_t pkey_wrap_handler_data;
+    CK_RV ret;
+    enum cca_token_type key_type;
+    unsigned int token_keybitsize;
+    const CK_BYTE *mkvp;
+
+    /* Determine CCA key type */
+    if (analyse_cca_key_token(skey_attr->pValue, skey_attr->ulValueLen,
+                              &key_type, &token_keybitsize, &mkvp) != TRUE) {
+        TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Create the protected key by iterating over all APQNs */
+    memset(&pkey_wrap_handler_data, 0, sizeof(pkey_wrap_handler_data_t));
+    pkey_wrap_handler_data.tokdata = tokdata;
+    pkey_wrap_handler_data.secure_key = skey_attr->pValue;
+    pkey_wrap_handler_data.secure_key_len = skey_attr->ulValueLen;
+    pkey_wrap_handler_data.pkey_buf = (CK_BYTE *)&pkey_buf;
+    pkey_wrap_handler_data.pkey_buflen_p = &pkey_buflen;
+    pkey_wrap_handler_data.keytype = key_type;
+
+    ret = cca_iterate_adapters(tokdata, ccatok_pkey_sec2prot,
+                               &pkey_wrap_handler_data);
+
+    if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
+        TRACE_ERROR("cca_iterate_adapters failed or no APQN could create the pkey.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Build new attribute for protected key */
+    ret = build_attribute(CKA_IBM_OPAQUE_PKEY, pkey_buf, pkey_buflen, &tmp_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("build_attribute failed with rc=0x%lx\n", ret);
+        ret = CKR_FUNCTION_FAILED;;
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    *pkey_attr = tmp_attr;
+
+    return ret;
+}
+
+/*
+ * Save the current firmware wrapping key verification pattern in the tokdata:
+ * create a dummy test key, transform it into a protected key, and store the wk
+ * verification pattern in the tokdata.
+ */
+static CK_RV ccatok_pkey_get_firmware_wkvp(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *pkey_attr = NULL, *sec_attr = NULL;
+    CK_RV ret;
+    long return_code = 0, reason_code = 0;
+    long exit_data_len = 0, clear_key_bit_length = 0;
+    unsigned char exit_data[4];
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE];
+    long rule_array_count;
+    unsigned char *clear_key_value = NULL;
+    long key_name_length = 0;
+    unsigned char key_name[CCA_KEY_ID_SIZE] = { 0, };
+    long user_data_length = 0;
+    unsigned char user_data[64] = { 0, };
+    long token_data_length = 0;
+    long verb_data_length = 0;
+    unsigned char verb_data[64] = { 0, };
+    unsigned char the_key_token[CCA_KEY_TOKEN_SIZE] = { 0, };
+    long the_key_token_length = sizeof(the_key_token);
+    unsigned char key_type_1[8] = { ' ', };
+    unsigned char key_type_2[8] = { ' ', };
+    long key_name_1_length = 0;
+    long key_name_2_length = 0;
+    long user_data_1_length = 0;
+    long user_data_2_length = 0;
+    long kek_identifier_1_length = 0;
+    long kek_identifier_2_length = 0;
+    long the_2nd_key_token_length = 0;
+
+    /* Check CCA host library version: XPRTCPAC requires min 7.0.0 */
+    if (cca_data->version.ver < 7) {
+        TRACE_ERROR("CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
+                    cca_data->version.ver,cca_data->version.rel,
+                    cca_data->version.mod);
+        OCK_SYSLOG(LOG_ERR, "CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
+                   cca_data->version.ver,cca_data->version.rel,
+                   cca_data->version.mod);
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Build CPACF-exportable AES internal cipher key token */
+    rule_array_count = 5;
+    memcpy(rule_array, "INTERNAL" "NO-KEY  " "AES     " "CIPHER  " "XPRTCPAC",
+           rule_array_count * CCA_KEYWORD_SIZE);
+
+    dll_CSNBKTB2(&return_code, &reason_code, &exit_data_len, exit_data,
+                 &rule_array_count, rule_array, &clear_key_bit_length,
+                 clear_key_value, &key_name_length, key_name, &user_data_length,
+                 user_data, &token_data_length, NULL, &verb_data_length,
+                 verb_data, &the_key_token_length, the_key_token);
+
+    if (return_code != 0) {
+        TRACE_ERROR("CSNBTKB2 (TOKEN BUILD2) failed with %ld/%ld\n",
+            return_code, reason_code);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Generate the key */
+    memset(rule_array, 0, sizeof(rule_array));
+    memcpy(rule_array, "AES     " "OP      ", 2 * CCA_KEYWORD_SIZE);
+    rule_array_count = 2;
+    clear_key_bit_length = 256;
+    memcpy(key_type_1, "TOKEN   ", CCA_KEYWORD_SIZE);
+    the_key_token_length = sizeof(the_key_token);
+
+    dll_CSNBKGN2(&return_code, &reason_code, NULL, NULL, &rule_array_count,
+                 rule_array, &clear_key_bit_length, key_type_1, key_type_2,
+                 &key_name_1_length, NULL, &key_name_2_length, NULL,
+                 &user_data_1_length, NULL, &user_data_2_length, NULL,
+                 &kek_identifier_1_length, NULL, &kek_identifier_2_length,
+                 NULL, &the_key_token_length, the_key_token,
+                 &the_2nd_key_token_length, NULL);
+
+    if (return_code != 0) {
+        TRACE_ERROR("CSNBKGN2(KEYGEN2) failed with %ld/%ld\n",
+            return_code, reason_code);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Build attribute for secure key token */
+    ret = build_attribute(CKA_IBM_OPAQUE, (CK_BYTE *)&the_key_token,
+                          the_key_token_length, &sec_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("build_attribute CKA_IBM_OPAQUE failed with ret=0x%lx\n", ret);
+        goto done;
+    }
+
+    /*
+     * Create a protected key from this token to obtain the firmware wkvp. When
+     * this function returns ok, we have a 64 byte pkey value: 32 bytes
+     * encrypted key + 32 bytes vp.
+     */
+    ret = ccatok_pkey_skey2pkey(tokdata, sec_attr, &pkey_attr);
+    if (ret != CKR_OK) {
+        TRACE_ERROR("ccatok_pkey_skey2pkey failed with ret=0x%lx\n", ret);
+        goto done;
+    }
+
+    /* Save WKVP in token data */
+    memcpy(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + AES_KEY_SIZE_256,
+           PKEY_MK_VP_LENGTH);
+    cca_data->pkey_wrap_supported = 1;
+
+done:
+
+    if (sec_attr)
+        free(sec_attr);
+    if (pkey_attr)
+        free(pkey_attr);
+
+    return ret;
+}
+
+/*
+ * Return true if PKEY_MODE DISABLED is set in the token specific
+ * config file, false otherwise.
+ */
+static CK_BBOOL ccatok_pkey_option_disabled(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+
+    if (cca_data->pkey_mode == PKEY_MODE_DISABLED)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -2732,6 +3022,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     }
 
     tokdata->private_data = cca_private;
+    cca_private->pkeyfd = -1;
 
     rc = cca_load_config_file(tokdata, conf_name);
     if (rc != CKR_OK)
@@ -2785,6 +3076,32 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    cca_private->msa_level = get_msa_level();
+    TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
+
+    if (!ccatok_pkey_option_disabled(tokdata)) {
+        cca_private->pkeyfd = open(PKEYDEVICE, O_RDWR);
+        if (cca_private->pkeyfd >= 0) {
+            TRACE_INFO("Opened /dev/pkey: file descriptor %d", cca_private->pkeyfd);
+            rc = ccatok_pkey_get_firmware_wkvp(tokdata);
+            if (rc != CKR_OK) {
+                /*
+                 * Could not save mk_vp in cca_data, pkey support not available.
+                 * But the token should initialize ok, even if this happens.
+                 * We are just running without protected key support, i.e. the
+                 * pkey_wrap_supported flag in tokdata remains off.
+                 */
+                OCK_SYSLOG(LOG_WARNING,
+                    "%s: Warning: Could not get mk_vp, protected key support not available.\n",
+                        __func__);
+                TRACE_WARNING(
+                    "Could not get mk_vp, protected key support not available.\n");
+            }
+        } else {
+            TRACE_WARNING("Could not open /dev/pkey, protected key support not available.\n");
+        }
+    }
+
     return CKR_OK;
 
 error:
@@ -2815,6 +3132,9 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                 cca_private->mk_change_ops[i].apqns != NULL)
                 free(cca_private->mk_change_ops[i].apqns);
         }
+
+        if (cca_private->pkeyfd >= 0)
+            close(cca_private->pkeyfd);
 
         free(cca_private);
     }
