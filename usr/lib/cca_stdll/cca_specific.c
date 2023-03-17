@@ -320,6 +320,7 @@ struct cca_private_data {
     struct cca_mk_change_op mk_change_ops[CCA_NUM_MK_TYPES];
     char token_config_filename[PATH_MAX];
     int pkey_mode;
+    int pkey_wrap_supported;
 };
 
 #define CCA_CFG_EXPECTED_MKVPS  "EXPECTED_MKVPS"
@@ -2587,6 +2588,125 @@ done:
     return rc;
 }
 
+static CK_RV ccatok_pkey_add_attr_to_rule_array(CK_ATTRIBUTE_TYPE type,
+                                                CK_BYTE *rule_array,
+                                                CK_ULONG rule_array_size,
+                                                CK_ULONG *rule_array_count)
+{
+    if ((*rule_array_count + 1) * CCA_KEYWORD_SIZE > rule_array_size)
+        return CKR_BUFFER_TOO_SMALL;
+
+    switch (type) {
+    case CKA_IBM_PROTKEY_EXTRACTABLE:
+        memcpy(rule_array + (*rule_array_count * CCA_KEYWORD_SIZE),
+               "XPRTCPAC", CCA_KEYWORD_SIZE);
+        (*rule_array_count)++;
+        break;
+    default:
+        break;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * This routine checks if a given attr is applicable to pass it to the CCA
+ * host lib via its corresponding rule_array keyword.
+ */
+static CK_BBOOL ccatok_pkey_attr_applicable(STDLL_TokData_t *tokdata,
+                                        CK_ATTRIBUTE *attr, CK_KEY_TYPE ktype,
+                                        int curve_type, int curve_bitlen)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+
+    /*
+     * On older cards, CKA_IBM_PROTKEY_EXTRACTABLE might cause errors, so
+     * filter it out when the PKEY option is not supported on this system.
+     */
+    if (attr->type == CKA_IBM_PROTKEY_EXTRACTABLE &&
+        cca_data->pkey_wrap_supported == 0)
+        return CK_FALSE;
+
+    switch (ktype) {
+    case CKK_AES:
+        /*
+         * The CCA token currently only supports AES internal fixed-length
+         * key tokens. There are no attributes that would need a rule_array
+         * keyword. Also, they are CPACF exportable anyway, so even when the
+         * template contains CKA_IBM_PROTKEY_EXTRACTABLE=true, there is no
+         * need to add XPRTCPAC to the rule array.
+         */
+        break;
+    case CKK_EC:
+        /*
+         * There is currently only one attribute with a corresponding rule
+         * array keyword.
+         */
+        switch (attr->type) {
+        case CKA_IBM_PROTKEY_EXTRACTABLE:
+            if ((*(CK_BBOOL *)attr->pValue) == CK_TRUE) {
+                /*
+                 * From CCA 7.3 Application Programmer's Guide, table 282:
+                 * Allow export to CPACF protected key format. Valid for ECC
+                 * curves P256, P384, P521, Ed25519, and Ed448.
+                 */
+                switch (curve_type) {
+                case PRIME_CURVE:
+                    if (curve_bitlen == 256 || curve_bitlen == 384 ||
+                        curve_bitlen == 521)
+                        return CK_TRUE;
+                    break;
+                case EDWARDS_CURVE:
+                    if (curve_bitlen == 255 || curve_bitlen == 448)
+                        return CK_TRUE;
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
+        break;
+    default:
+        /*
+         * Any other key types (RSA, ...) are currently not handled. No
+         * additional rule array keywords here.
+         */
+        break;
+    }
+
+    return CK_FALSE;
+}
+
+/*
+ * Add protected key related attributes to be passed to CCA via the rule_array.
+ */
+static CK_RV ccatok_pkey_add_attrs(STDLL_TokData_t * tokdata, TEMPLATE *template,
+                            CK_KEY_TYPE ktype, int curve_type, int curve_bitlen,
+                            CK_BYTE *rule_array, CK_ULONG rule_array_size,
+                            CK_ULONG *rule_array_count)
+{
+    DL_NODE *node;
+    CK_ATTRIBUTE_PTR attr;
+    CK_RV ret;
+
+    node = template->attribute_list;
+    while (node != NULL) {
+        attr = node->data;
+
+        if (ccatok_pkey_attr_applicable(tokdata, attr, ktype,
+                                        curve_type, curve_bitlen)) {
+            ret = ccatok_pkey_add_attr_to_rule_array(attr->type, rule_array,
+                                         rule_array_size, rule_array_count);
+            if (ret != CKR_OK)
+                return ret;
+        }
+
+        node = node->next;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -4811,6 +4931,15 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
 
     rule_array_count = 1;
     memcpy(rule_array, "ECC-PAIR", (size_t) (CCA_KEYWORD_SIZE));
+
+    /* Add protected key related attributes to the rule array */
+    rv = ccatok_pkey_add_attrs(tokdata, priv_tmpl, CKK_EC, curve_type,
+                               curve_bitlen, rule_array, sizeof(rule_array),
+                               (CK_ULONG *)&rule_array_count);
+    if (rv != CKR_OK) {
+        TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rv);
+        return rv;
+    }
 
     private_key_name_length = 0;
 
@@ -7351,6 +7480,15 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         private_key_name_length = 0;
         key_token_length = CCA_KEY_TOKEN_SIZE;
         key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
+
+        /* Add protected key related attributes to the rule array */
+        rc = ccatok_pkey_add_attrs(tokdata, priv_templ, CKK_EC, curve_type,
+                                   curve_bitlen, rule_array, sizeof(rule_array),
+                                   (CK_ULONG *)&rule_array_count);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
 
         USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
             dll_CSNDPKB(&return_code, &reason_code,
