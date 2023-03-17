@@ -2994,6 +2994,90 @@ static CK_BBOOL ccatok_pkey_option_disabled(STDLL_TokData_t *tokdata)
     return CK_FALSE;
 }
 
+/*
+ * This function is called whenever a new object is created. It currently sets
+ * attribute CKA_IBM_PROTKEY_EXTRACTABLE according to the PKEY_MODE token
+ * option, but may also be used for other token options and attrs in future.
+ */
+CK_RV token_specific_set_attrs_for_new_object(STDLL_TokData_t *tokdata,
+                                              CK_OBJECT_CLASS class,
+                                              CK_ULONG mode, TEMPLATE *tmpl)
+{
+    struct cca_private_data *cca_data = tokdata->private_data;
+    CK_ATTRIBUTE *pkey_attr = NULL, *ecp_attr = NULL;
+    CK_BBOOL add_pkey_extractable = CK_FALSE;
+    CK_BBOOL btrue = CK_TRUE;
+    CK_RV ret;
+
+    UNUSED(mode);
+
+    if (class != CKO_SECRET_KEY && class != CKO_PRIVATE_KEY &&
+        class != CKO_PUBLIC_KEY)
+        return CKR_OK;
+
+    switch (cca_data->pkey_mode) {
+    case PKEY_MODE_DISABLED:
+        /* Nothing to do */
+        break;
+    case PKEY_MODE_DEFAULT:
+        /*
+         * If the application did not specify pkey-extractable, all keys get
+         * pkey-extractable=false. This was already set by default, so
+         * nothing to do here.
+         */
+        break;
+    case PKEY_MODE_ENABLED:
+        /*
+         * All secret/private keys and all EC public keys where CPACF supports
+         * the related curve, get pkey-extractable=true
+         */
+        switch (class) {
+        case CKO_PUBLIC_KEY:
+            if (template_attribute_get_non_empty(tmpl, CKA_EC_PARAMS, &ecp_attr) == CKR_OK &&
+                pkey_op_supported_by_cpacf(cca_data->msa_level, CKM_ECDSA, tmpl))
+                add_pkey_extractable = CK_TRUE;
+                /*
+                 * Note that the explicit parm CKM_ECDSA just tells the
+                 * function that it's not AES here. It covers all EC mechs
+                 */
+            break;
+        default:
+            add_pkey_extractable = CK_TRUE;
+            break;
+        }
+
+        if (add_pkey_extractable) {
+            if (!template_attribute_find(tmpl, CKA_IBM_PROTKEY_EXTRACTABLE, &pkey_attr)) {
+                ret = build_attribute(CKA_IBM_PROTKEY_EXTRACTABLE,
+                                      (CK_BBOOL *)&btrue, sizeof(CK_BBOOL),
+                                      &pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("build_attribute failed with ret=0x%lx\n", ret);
+                    goto done;
+                }
+                ret = template_update_attribute(tmpl, pkey_attr);
+                if (ret != CKR_OK) {
+                    TRACE_ERROR("update_attribute failed with ret=0x%lx\n", ret);
+                    free(pkey_attr);
+                    goto done;
+                }
+            }
+        }
+        break;
+    default:
+        TRACE_ERROR("PKEY_MODE %i unsupported.\n", cca_data->pkey_mode);
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+        break;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
