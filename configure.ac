@@ -471,6 +471,19 @@ fi
 AM_CONDITIONAL([ENABLE_ICATOK], [test "x$enable_icatok" = "xyes"])
 
 dnl --- enable_ccatok
+if test "x$enable_ccatok" = "xyes"; then
+	AC_CHECK_HEADER([asm/pkey.h], [], [
+		AC_MSG_ERROR([cca token build requested but Kernel's pkey header couldn't be found])
+	])	
+fi
+if test "x$enable_ccatok" != "xno"; then
+	enable_ccatok=yes
+	AC_CHECK_HEADER([asm/pkey.h], [], [
+		enable_ccatok=no
+	])
+else
+	enable_ccatok=no
+fi
 AM_CONDITIONAL([ENABLE_CCATOK], [test "x$enable_ccatok" = "xyes"])
 
 dnl --- enable_swtok
