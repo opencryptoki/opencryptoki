@@ -2016,13 +2016,10 @@ static CK_RV ep11tok_pkey_update(STDLL_TokData_t *tokdata, SESSION *session,
     }
 
     if (ep11_data->mk_change_active) {
-        if (template_attribute_get_non_empty(key_obj->template,
-                                             CKA_IBM_OPAQUE_REENC,
-                                             &skey_reenc_attr) != CKR_OK) {
-            TRACE_ERROR("This key has no reenc-blob: should not occur!\n");
-            ret = CKR_FUNCTION_FAILED;
-            goto done;
-        }
+        /* Try to get CKA_IBM_OPAQUE_REENC, ignore if it fails */
+        template_attribute_get_non_empty(key_obj->template,
+                                         CKA_IBM_OPAQUE_REENC,
+                                         &skey_reenc_attr);
     }
 
     /* Transform the secure key into a protected key */
