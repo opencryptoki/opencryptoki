@@ -9655,6 +9655,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
     CK_BYTE *useblob, *usestate;
     size_t useblobsize, usestate_len;
+    CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
 
     UNUSED(recover_mode);
 
@@ -9690,6 +9691,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        strength_index = key_obj->strength.strength;
         /*
          * Release obj lock, sign_mgr_init or ep11tok_sign_verify_init_ibm_ed
          * may re-acquire the lock
@@ -9809,7 +9811,7 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
 
 done:
     if (rc == CKR_OK)
-        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+        INC_COUNTER(tokdata, session, mech, key_obj, strength_index);
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
@@ -10079,6 +10081,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     struct ECDSA_OTHER_MECH_PARAM mech_ep11;
     CK_BYTE *useblob, *usestate;
     size_t useblob_len, usestate_len;
+    CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
 
     if (!ep11_sign_state) {
         TRACE_ERROR("%s Memory allocation failed\n", __func__);
@@ -10124,6 +10127,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        strength_index = key_obj->strength.strength;
         /*
          * Release obj lock, verify_mgr_init or ep11tok_sign_verify_init_ibm_ed
          * may re-acquire the lock
@@ -10241,7 +10245,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
 
 done:
     if (rc == CKR_OK)
-        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+        INC_COUNTER(tokdata, session, mech, key_obj, strength_index);
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
@@ -11004,6 +11008,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     CK_BYTE *ep11_state;
     CK_BYTE *useblob, *usestate;
     size_t useblob_len, usestate_len;
+    CK_ULONG strength_index = POLICY_STRENGTH_IDX_0;
 
     ep11_state = calloc(ep11_state_l, 1); /* freed by encr/decr_mgr.c */
     if (!ep11_state) {
@@ -11035,6 +11040,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
     rc = ep11tok_pkey_check(tokdata, session, key_obj, mech);
     switch (rc) {
     case CKR_OK:
+        strength_index = key_obj->strength.strength;
         /* Release obj lock, encr/decr_mgr_init may re-acquire the lock */
         object_put(tokdata, key_obj, TRUE);
         key_obj = NULL;
@@ -11212,7 +11218,7 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
 
 done:
     if (rc == CKR_OK)
-        INC_COUNTER(tokdata, session, mech, key_obj, POLICY_STRENGTH_IDX_0);
+        INC_COUNTER(tokdata, session, mech, key_obj, strength_index);
 
     object_put(tokdata, key_obj, TRUE);
     key_obj = NULL;
