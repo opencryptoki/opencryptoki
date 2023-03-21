@@ -33,8 +33,10 @@
 #include <err.h>
 #include <regex.h>
 #include <dirent.h>
+#ifndef NO_PKEY
 #include <sys/ioctl.h>
 #include <asm/pkey.h>
+#endif
 #include "cca_stdll.h"
 #include "pkcs11types.h"
 #include "p11util.h"
@@ -54,7 +56,9 @@
 #include "hsm_mk_change.h"
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
+#ifndef NO_PKEY
 #include "pkey_utils.h"
+#endif
 
 /**
  * EC definitions
@@ -2367,10 +2371,12 @@ static CK_RV cca_config_set_pkey_mode(struct cca_private_data *cca_data,
 {
     if (strcmp(strval, "DISABLED") == 0)
         cca_data->pkey_mode = PKEY_MODE_DISABLED;
+#ifndef NO_PKEY
     else if (strcmp(strval, "DEFAULT") == 0)
         cca_data->pkey_mode = PKEY_MODE_DEFAULT;
     else if (strcmp(strval, "ENABLED") == 0)
         cca_data->pkey_mode = PKEY_MODE_ENABLED;
+#endif
     else {
         TRACE_ERROR("%s unsupported PKEY mode : '%s'\n", __func__, strval);
         OCK_SYSLOG(LOG_ERR,"%s: Error: unsupported PKEY mode '%s' "
@@ -2531,7 +2537,11 @@ CK_RV cca_load_config_file(STDLL_TokData_t *tokdata, char *conf_name)
     cca_private->token_config_filename[
                     sizeof(cca_private->token_config_filename) - 1] = '\0';
 
+#ifndef NO_PKEY
     cca_private->pkey_mode = PKEY_MODE_DEFAULT;
+#else
+    cca_private->pkey_mode = PKEY_MODE_DISABLED;
+#endif
 
     confignode_foreach(c, config, i) {
         TRACE_DEBUG("Config node: '%s' type: %u line: %u\n",
@@ -2593,6 +2603,7 @@ done:
     return rc;
 }
 
+#ifndef NO_PKEY
 static CK_RV ccatok_pkey_add_attr_to_rule_array(CK_ATTRIBUTE_TYPE type,
                                                 CK_BYTE *rule_array,
                                                 CK_ULONG rule_array_size,
@@ -3291,6 +3302,7 @@ done:
 
     return ret;
 }
+#endif /* NO_PKEY */
 
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
@@ -3371,6 +3383,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+#ifndef NO_PKEY
     cca_private->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
 
@@ -3396,6 +3409,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
             TRACE_WARNING("Could not open /dev/pkey, protected key support not available.\n");
         }
     }
+#endif
 
     return CKR_OK;
 
@@ -3428,8 +3442,10 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
                 free(cca_private->mk_change_ops[i].apqns);
         }
 
+#ifndef NO_PKEY
         if (cca_private->pkeyfd >= 0)
             close(cca_private->pkeyfd);
+#endif
 
         free(cca_private);
     }
@@ -5062,9 +5078,15 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     unsigned char exit_data[1];
     CK_BYTE *local_out = out_data;
     CK_ATTRIBUTE *attr = NULL;
-    CK_MECHANISM mech = { CKM_AES_ECB, NULL, 0 };
     long int key_len;
     CK_RV rc;
+#ifndef NO_PKEY
+    CK_MECHANISM mech = { CKM_AES_ECB, NULL, 0 };
+#endif
+
+#ifdef NO_PKEY
+    UNUSED(session);
+#endif
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5078,6 +5100,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     }
     key_len = attr->ulValueLen;
 
+#ifndef NO_PKEY
     /* CCA token protected key option */
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
@@ -5091,6 +5114,7 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card ... */
     rule_array_count = 4;
@@ -5169,7 +5193,9 @@ CK_RV token_specific_aes_ecb(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -5191,9 +5217,15 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     CK_BYTE *local_out = out_data;
     unsigned char exit_data[1];
     CK_ATTRIBUTE *attr = NULL;
-    CK_MECHANISM mech = { CKM_AES_CBC, init_v, IV_len };
     long int key_len;
     CK_RV rc;
+#ifndef NO_PKEY
+    CK_MECHANISM mech = { CKM_AES_CBC, init_v, IV_len };
+#endif
+
+#ifdef NO_PKEY
+    UNUSED(session);
+#endif
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5208,6 +5240,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     }
     key_len = attr->ulValueLen;
 
+#ifndef NO_PKEY
     /* CCA token protected key option */
     rc = ccatok_pkey_check(tokdata, session, key, &mech);
     switch (rc) {
@@ -5221,6 +5254,7 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card ... */
     if (in_data_len % 16 == 0) {
@@ -5334,7 +5368,9 @@ CK_RV token_specific_aes_cbc(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -5583,6 +5619,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
     rule_array_count = 1;
     memcpy(rule_array, "ECC-PAIR", (size_t) (CCA_KEYWORD_SIZE));
 
+#ifndef NO_PKEY
     /* Add protected key related attributes to the rule array */
     rv = ccatok_pkey_add_attrs(tokdata, priv_tmpl, CKK_EC, curve_type,
                                curve_bitlen, rule_array, sizeof(rule_array),
@@ -5591,6 +5628,7 @@ CK_RV token_specific_ec_generate_keypair(STDLL_TokData_t * tokdata,
         TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rv);
         return rv;
     }
+#endif /* NO_PKEY */
 
     private_key_name_length = 0;
 
@@ -5724,9 +5762,15 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
     long signature_bit_length;
-    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
     CK_ATTRIBUTE *attr;
     CK_RV rc;
+#ifndef NO_PKEY
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
+#endif
+
+#ifdef NO_PKEY
+    UNUSED(sess);
+#endif
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5741,6 +5785,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
         return rc;
     }
 
+#ifndef NO_PKEY
     /* CCA token protected key option: perform the function via CPACF */
     rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
     switch (rc) {
@@ -5754,6 +5799,7 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card */
     rule_array_count = 1;
@@ -5790,7 +5836,9 @@ CK_RV token_specific_ec_sign(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -5804,9 +5852,15 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 {
     long return_code, reason_code, rule_array_count;
     unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
-    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
     CK_ATTRIBUTE *attr;
     CK_RV rc;
+#ifndef NO_PKEY
+    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
+#endif
+
+#ifdef NO_PKEY
+    UNUSED(sess);
+#endif
 
     if (((struct cca_private_data *)tokdata->private_data)->inconsistent) {
         TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
@@ -5821,6 +5875,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
         return rc;
     }
 
+#ifndef NO_PKEY
     /* CCA token protected key option: perform the function via CPACF */
     rc = ccatok_pkey_check(tokdata, sess, key_obj, &mech);
     switch (rc) {
@@ -5834,6 +5889,7 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
     default:
         goto done;
     }
+#endif /* NO_PKEY */
 
     /* Fallback: Perform the function via the CCA card */
     rule_array_count = 1;
@@ -5872,7 +5928,9 @@ CK_RV token_specific_ec_verify(STDLL_TokData_t * tokdata,
 
     rc = CKR_OK;
 
+#ifndef NO_PKEY
 done:
+#endif
 
     return rc;
 }
@@ -8166,6 +8224,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
         key_token_length = CCA_KEY_TOKEN_SIZE;
         key_value_structure_length = CCA_KEY_VALUE_STRUCT_SIZE;
 
+#ifndef NO_PKEY
         /* Add protected key related attributes to the rule array */
         rc = ccatok_pkey_add_attrs(tokdata, priv_templ, CKK_EC, curve_type,
                                    curve_bitlen, rule_array, sizeof(rule_array),
@@ -8174,6 +8233,7 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             TRACE_ERROR("%s ccatok_pkey_add_attrs failed with rc=0x%lx\n", __func__, rc);
             return rc;
         }
+#endif /* NO_PKEY */
 
         USE_CCA_ADAPTER_START(tokdata, return_code, reason_code)
             dll_CSNDPKB(&return_code, &reason_code,

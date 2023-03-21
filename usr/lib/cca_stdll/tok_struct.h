@@ -130,7 +130,11 @@ token_spec_t token_specific = {
     &token_specific_key_unwrap,
     &token_specific_reencrypt_single,
     NULL,                       // set_attribute_values
+#ifndef NO_PKEY
     &token_specific_set_attrs_for_new_object,
+#else
+    NULL,
+#endif
     &token_specific_handle_event,
 };
 
