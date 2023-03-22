@@ -2737,6 +2737,29 @@ typedef struct {
     enum cca_token_type keytype;
 } pkey_wrap_handler_data_t;
 
+/*
+ * On older kernels, the PKEY_KBLOB2PROTK3 ioctl is not yet available, which is
+ * no problem at runtime: protected key support is then just not available.
+ * But we want that the CCA token still builds on such systems, so let's copy
+ * the missing #defines and structs from kernel asm/pkey.h
+ */
+#ifndef PKEY_KBLOB2PROTK3
+
+struct pkey_kblob2pkey3 {
+    __u8 *key;       /* in: pointer to key blob        */
+    __u32 keylen;            /* in: key blob size          */
+    struct pkey_apqn *apqns; /* in: ptr to list of apqn targets */
+    __u32 apqn_entries;      /* in: # of apqn target list entries  */
+    __u32 pkeytype;     /* out: prot key type (enum pkey_key_type) */
+    __u32 pkeylen;   /* in/out: size of pkey buffer/actual len of pkey */
+    __u8 *pkey;      /* in: pkey blob buffer space ptr */
+};
+#define PKEY_KBLOB2PROTK3 _IOWR(PKEY_IOCTL_MAGIC, 0x1D, struct pkey_kblob2pkey3)
+
+#define PKEY_TYPE_CCA_ECC    (__u32)0x1f
+
+#endif /* PKEY_KBLOB2PROTK3 */
+
 static enum pkey_key_type ccatok_pkey_type_from_keytype(enum cca_token_type keytype)
 {
     switch (keytype) {
