@@ -3578,7 +3578,7 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     rc = init_hsm_mk_change_lock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("init_hsm_mk_change_lock failed.\n");
-        goto error;
+        return rc;
     }
 
     cca_private = calloc(1, sizeof(*cca_private));
