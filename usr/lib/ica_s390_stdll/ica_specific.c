@@ -420,6 +420,86 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
+typedef struct {
+    struct openssl_ex_data openssl_ex_data; /* This must be the first field ! */
+    ica_rsa_key_mod_expo_t *modexpoKey;
+    ica_rsa_key_crt_t *crtKey;
+    ICA_EC_KEY *eckey;
+    unsigned int ec_privlen;
+} ica_ex_data_t;
+
+void ica_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
+{
+    ica_ex_data_t *data = ex_data;
+
+    if (ex_data == NULL || ex_data_len < sizeof(ica_ex_data_t))
+        return;
+
+    if (data->modexpoKey != NULL) {
+        free(data->modexpoKey->modulus);
+        free(data->modexpoKey->exponent);
+        free(data->modexpoKey);
+        data->modexpoKey = NULL;
+    }
+
+    if (data->crtKey != NULL) {
+        free(data->crtKey->p);
+        free(data->crtKey->q);
+        free(data->crtKey->dp);
+        free(data->crtKey->dq);
+        free(data->crtKey->qInverse);
+        free(data->crtKey);
+        data->crtKey = NULL;
+    }
+
+    if (data->eckey != NULL) {
+        p_ica_ec_key_free(data->eckey);
+        data->eckey = NULL;
+        data->ec_privlen = 0;
+    }
+
+    openssl_free_ex_data(obj, ex_data, ex_data_len);
+}
+
+static CK_BBOOL ica_need_wr_lock_rsa_pubkey(OBJECT *obj, void *ex_data,
+                                            size_t ex_data_len)
+{
+    ica_ex_data_t *data = ex_data;
+
+    UNUSED(obj);
+
+    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+        return FALSE;
+
+    return data->modexpoKey == NULL;
+}
+
+static CK_BBOOL ica_need_wr_lock_rsa_privkey(OBJECT *obj, void *ex_data,
+                                             size_t ex_data_len)
+{
+    ica_ex_data_t *data = ex_data;
+
+    UNUSED(obj);
+
+    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+        return FALSE;
+
+    return data->modexpoKey == NULL && data->crtKey == NULL;
+}
+
+static CK_BBOOL ica_need_wr_lock_ec_key(OBJECT *obj, void *ex_data,
+                                        size_t ex_data_len)
+{
+    ica_ex_data_t *data = ex_data;
+
+    UNUSED(obj);
+
+    if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
+        return FALSE;
+
+    return data->eckey == NULL;
+}
+
 // count_ones_in_byte: for use in adjust_des_key_parity_bits below
 static CK_BYTE count_ones_in_byte(CK_BYTE byte)
 {
@@ -1836,6 +1916,12 @@ static ica_rsa_key_crt_t *rsa_convert_crt_key(CK_ATTRIBUTE *modulus,
             crtkey->qInverse + (crtkey->key_length / 2) + 8 - coeff->ulValueLen;
         memcpy(ptr, coeff->pValue, coeff->ulValueLen);
 
+        /* If p < q, swap and recalculate now */
+        if (ica_rsa_crt_key_check(crtkey) > 1) {
+            TRACE_ERROR("ica_rsa_crt_key_check failed\n");
+            goto err_crtkey;
+        }
+
         return crtkey;
     }
 
@@ -2333,25 +2419,37 @@ static CK_RV ica_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
                                       CK_BYTE *out_data, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *pub_exp = NULL;
     CK_ATTRIBUTE *mod_bits = NULL;
     ica_rsa_key_mod_expo_t *publKey = NULL;
     CK_RV rc;
 
-    /* mech_sra.c:ckm_rsa_encrypt accepts only CKO_PUBLIC_KEY */
-    template_attribute_get_non_empty(key_obj->template, CKA_MODULUS, &modulus);
-    template_attribute_get_non_empty(key_obj->template, CKA_MODULUS_BITS,
-                                     &mod_bits);
-    template_attribute_get_non_empty(key_obj->template, CKA_PUBLIC_EXPONENT,
-                                     &pub_exp);
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_rsa_pubkey, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
 
-    publKey = rsa_convert_mod_expo_key(modulus, mod_bits, pub_exp);
-    if (publKey == NULL) {
-        TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
-        rc = CKR_FUNCTION_FAILED;
-        goto done;
+    if (ex_data->modexpoKey == NULL) {
+        /* mech_sra.c:ckm_rsa_encrypt accepts only CKO_PUBLIC_KEY */
+        template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                         &modulus);
+        template_attribute_get_non_empty(key_obj->template, CKA_MODULUS_BITS,
+                                         &mod_bits);
+        template_attribute_get_non_empty(key_obj->template, CKA_PUBLIC_EXPONENT,
+                                         &pub_exp);
+
+        ex_data->modexpoKey = rsa_convert_mod_expo_key(modulus, mod_bits,
+                                                       pub_exp);
+        if (ex_data->modexpoKey == NULL) {
+            TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
     }
+    publKey = ex_data->modexpoKey;
 
     /* in_data must be in big endian format. 'in_data' size in bits must not
      * exceed the bit length of the key, and size in bytes must
@@ -2360,7 +2458,7 @@ static CK_RV ica_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
     if (publKey->key_length != in_data_len) {
         TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
         rc = CKR_DATA_LEN_RANGE;
-        goto cleanup_pubkey;
+        goto done;
     }
     rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, publKey, out_data);
     switch (rc) {
@@ -2385,12 +2483,9 @@ static CK_RV ica_specific_rsa_encrypt(STDLL_TokData_t *tokdata,
         break;
     }
 
-cleanup_pubkey:
-    free(publKey->modulus);
-    free(publKey->exponent);
-    free(publKey);
-
 done:
+    object_ex_data_unlock(key_obj);
+
     return rc;
 }
 
@@ -2402,6 +2497,7 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
                                       CK_BYTE *out_data, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
     CK_ATTRIBUTE *modulus = NULL;
     CK_ATTRIBUTE *prime1 = NULL;
     CK_ATTRIBUTE *prime2 = NULL;
@@ -2413,132 +2509,114 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
     ica_rsa_key_mod_expo_t *modexpoKey = NULL;
     CK_RV rc;
 
-    /* mech_rsa.c:ckm_rsa_decrypt accepts only CKO_PRIVATE_KEY,
-     * but Private Key can have 2 representations (see PKCS#1):
-     *  - Modulus + private exponent
-     *  - p, q, dp, dq and qInv (CRT format)
-     * The former should use ica_rsa_key_mod_expo_t and the latter
-     * ica_rsa_key_crt_t. Detect what representation this
-     * key_obj has and use the proper convert function */
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_rsa_privkey, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
 
-    template_attribute_get_non_empty(key_obj->template, CKA_MODULUS, &modulus);
-    template_attribute_get_non_empty(key_obj->template, CKA_PRIVATE_EXPONENT,
-                                     &priv_exp);
-    template_attribute_get_non_empty(key_obj->template, CKA_PRIME_1, &prime1);
-    template_attribute_get_non_empty(key_obj->template, CKA_PRIME_2, &prime2);
-    template_attribute_get_non_empty(key_obj->template, CKA_EXPONENT_1, &exp1);
-    template_attribute_get_non_empty(key_obj->template, CKA_EXPONENT_2, &exp2);
-    template_attribute_get_non_empty(key_obj->template, CKA_COEFFICIENT,
-                                     &coeff);
+    if (ex_data->modexpoKey == NULL && ex_data->crtKey == NULL) {
+        /* mech_rsa.c:ckm_rsa_decrypt accepts only CKO_PRIVATE_KEY,
+         * but Private Key can have 2 representations (see PKCS#1):
+         *  - Modulus + private exponent
+         *  - p, q, dp, dq and qInv (CRT format)
+         * The former should use ica_rsa_key_mod_expo_t and the latter
+         * ica_rsa_key_crt_t. Detect what representation this
+         * key_obj has and use the proper convert function */
 
-    /* Need to check for CRT Key format *BEFORE* check for mod_expo key,
-     * that's because opencryptoki *HAS* a CKA_PRIVATE_EXPONENT attribute
-     * even in CRT keys (but with zero length) */
+        template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                         &modulus);
+        template_attribute_get_non_empty(key_obj->template,
+                                         CKA_PRIVATE_EXPONENT, &priv_exp);
+        template_attribute_get_non_empty(key_obj->template, CKA_PRIME_1,
+                                         &prime1);
+        template_attribute_get_non_empty(key_obj->template, CKA_PRIME_2,
+                                         &prime2);
+        template_attribute_get_non_empty(key_obj->template, CKA_EXPONENT_1,
+                                         &exp1);
+        template_attribute_get_non_empty(key_obj->template, CKA_EXPONENT_2,
+                                         &exp2);
+        template_attribute_get_non_empty(key_obj->template, CKA_COEFFICIENT,
+                                         &coeff);
 
-    if (modulus && prime1 && prime2 && exp1 && exp2 &&  coeff ) {
-        /* ica_rsa_key_crt_t representation */
-        crtKey =
-            rsa_convert_crt_key(modulus, prime1, prime2, exp1, exp2, coeff);
-        if (crtKey == NULL) {
-            TRACE_ERROR("rsa_convert_crt_key failed\n");
-            rc = CKR_FUNCTION_FAILED;
+        /* Need to check for CRT Key format *BEFORE* check for mod_expo key,
+         * that's because opencryptoki *HAS* a CKA_PRIVATE_EXPONENT attribute
+         * even in CRT keys (but with zero length) */
+
+        if (modulus && prime1 && prime2 && exp1 && exp2 && coeff) {
+            /* ica_rsa_key_crt_t representation */
+            ex_data->crtKey = rsa_convert_crt_key(modulus, prime1, prime2,
+                                                  exp1, exp2, coeff);
+            if (ex_data->crtKey == NULL) {
+                TRACE_ERROR("rsa_convert_crt_key failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            /* same check as above */
+            if (ex_data->crtKey->key_length != in_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+                rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+                goto done;
+            }
+        } else if (modulus && priv_exp) {
+            /* ica_rsa_key_mod_expo_t representation */
+            ex_data->modexpoKey = rsa_convert_mod_expo_key(modulus, NULL,
+                                                           priv_exp);
+            if (ex_data->modexpoKey == NULL) {
+                TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
+                rc = CKR_FUNCTION_FAILED;
+                goto done;
+            }
+            /* in_data must be in big endian format. Size in bits must not
+             * exceed the bit length of the key, and size in bytes must
+             * be the same */
+            if (ex_data->modexpoKey->key_length != in_data_len) {
+                TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
+                rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
+                goto done;
+            }
+        } else {
+            /* should never happen */
+            TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
+            rc = CKR_MECHANISM_PARAM_INVALID;
             goto done;
         }
-        /* same check as above */
-        if (crtKey->key_length != in_data_len) {
-            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-            goto crt_cleanup;
-        }
-
-        rc = ica_rsa_crt(ica_data->adapter_handle, in_data, crtKey, out_data);
-        switch (rc) {
-        case 0:
-            rc = CKR_OK;
-            break;
-        case EINVAL:
-            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-            rc = CKR_ARGUMENTS_BAD;
-            break;
-        case ENODEV:
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-            rc = CKR_FUNCTION_NOT_SUPPORTED;
-            break;
-        case EPERM:
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
-            rc = CKR_KEY_SIZE_RANGE;
-            break;
-        default:
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rc = CKR_FUNCTION_FAILED;
-            break;
-        }
-        goto crt_cleanup;
-    } else if (modulus && priv_exp) {
-        /* ica_rsa_key_mod_expo_t representation */
-        modexpoKey = rsa_convert_mod_expo_key(modulus, NULL, priv_exp);
-        if (modexpoKey == NULL) {
-            TRACE_ERROR("rsa_convert_mod_expo_key failed\n");
-            rc = CKR_FUNCTION_FAILED;
-            goto done;
-        }
-        /* in_data must be in big endian format. Size in bits must not
-         * exceed the bit length of the key, and size in bytes must
-         * be the same */
-        // FIXME: we're not cheking the size in bits of in_data
-        // - but how could we?
-        if (modexpoKey->key_length != in_data_len) {
-            TRACE_ERROR("%s\n", ock_err(ERR_DATA_LEN_RANGE));
-            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-            goto modexpo_cleanup;
-        }
-
-        rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, modexpoKey,
-                              out_data);
-        switch (rc) {
-        case 0:
-            rc = CKR_OK;
-            break;
-        case EINVAL:
-            TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
-            rc = CKR_ARGUMENTS_BAD;
-            break;
-        case ENODEV:
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
-            rc = CKR_FUNCTION_NOT_SUPPORTED;
-            break;
-        case EPERM:
-            TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
-            rc = CKR_KEY_SIZE_RANGE;
-            break;
-        default:
-            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
-            rc = CKR_FUNCTION_FAILED;
-            break;
-        }
-        goto modexpo_cleanup;
-    } else {
-        /* should never happen */
-        TRACE_ERROR("%s\n", ock_err(ERR_MECHANISM_PARAM_INVALID));
-        rc = CKR_MECHANISM_PARAM_INVALID;
-        goto done;
     }
 
-crt_cleanup:
-    free(crtKey->p);
-    free(crtKey->q);
-    free(crtKey->dp);
-    free(crtKey->dq);
-    free(crtKey->qInverse);
-    free(crtKey);
-    goto done;
+    crtKey = ex_data->crtKey;
+    modexpoKey = ex_data->modexpoKey;
 
-modexpo_cleanup:
-    free(modexpoKey->modulus);
-    free(modexpoKey->exponent);
-    free(modexpoKey);
+    if (crtKey != NULL) {
+        rc = ica_rsa_crt(ica_data->adapter_handle, in_data, crtKey, out_data);
+    } else {
+        rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, modexpoKey,
+                              out_data);
+    }
+    switch (rc) {
+    case 0:
+        rc = CKR_OK;
+        break;
+    case EINVAL:
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        rc = CKR_ARGUMENTS_BAD;
+        break;
+    case ENODEV:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_NOT_SUPPORTED));
+        rc = CKR_FUNCTION_NOT_SUPPORTED;
+        break;
+    case EPERM:
+        TRACE_ERROR("%s\n", ock_err(ERR_KEY_SIZE_RANGE));
+        rc = CKR_KEY_SIZE_RANGE;
+        break;
+    default:
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        break;
+    }
 
 done:
+    object_ex_data_unlock(key_obj);
+
     return rc;
 }
 
@@ -4926,6 +5004,7 @@ static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                                   OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
     CK_RV ret = CKR_OK;
     ICA_EC_KEY *eckey;
     unsigned int privlen;
@@ -4940,12 +5019,25 @@ static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    /* Get the private key */
-    ret = ica_build_ec_priv_key(key_obj, &eckey, &privlen);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("ica_build_ec_priv_key() failed with rc = 0x%lx. \n", ret);
-        return ret;
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_ec_key, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->eckey == NULL) {
+        /* Get the private key */
+        ret = ica_build_ec_priv_key(key_obj, &ex_data->eckey,
+                                             &ex_data->ec_privlen);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ica_build_ec_priv_key() failed with rc = 0x%lx. \n",
+                        ret);
+            goto end;
+        }
     }
+
+    eckey = ex_data->eckey;
+    privlen = ex_data->ec_privlen;
 
     /* Create signature */
     rc = p_ica_ecdsa_sign(ica_data->adapter_handle, eckey,
@@ -4970,7 +5062,7 @@ static CK_RV ica_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
     ret = CKR_OK;
 
 end:
-    p_ica_ec_key_free(eckey);
+    object_ex_data_unlock(key_obj);
 
     return ret;
 }
@@ -5005,6 +5097,7 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
                                     CK_ULONG signature_len, OBJECT *key_obj)
 {
     ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    ica_ex_data_t *ex_data = NULL;
     CK_RV ret = CKR_OK;
     ICA_EC_KEY *eckey;
     unsigned int privlen;
@@ -5017,12 +5110,25 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
-    /* Get the public key */
-    ret = ica_build_ec_pub_key(key_obj, &eckey, &privlen);
-    if (ret != CKR_OK) {
-        TRACE_ERROR("ica_build_ec_pub_key() failed with rc = 0x%lx. \n", ret);
-        return ret;
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(ica_ex_data_t),
+                             ica_need_wr_lock_ec_key, ica_free_ex_data);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->eckey == NULL) {
+        /* Get the public key */
+        ret = ica_build_ec_pub_key(key_obj, &ex_data->eckey,
+                                   &ex_data->ec_privlen);
+        if (ret != CKR_OK) {
+            TRACE_ERROR("ica_build_ec_pub_key() failed with rc = 0x%lx. \n",
+                        ret);
+            goto end;
+        }
     }
+
+    eckey = ex_data->eckey;
+    privlen = ex_data->ec_privlen;
 
     /* Signature length ok? */
     if (signature_len != 2 * privlen) {
@@ -5060,7 +5166,7 @@ static CK_RV ica_specific_ec_verify(STDLL_TokData_t *tokdata,
     }
 
 end:
-    p_ica_ec_key_free(eckey);
+    object_ex_data_unlock(key_obj);
 
     return ret;
 }
