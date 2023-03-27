@@ -46,6 +46,7 @@
 #include <openssl/ec.h>
 #endif
 #include <openssl/crypto.h>
+#include <openssl/bn.h>
 
 #define ICA_MAX_MECH_LIST_ENTRIES       120
 
@@ -243,6 +244,14 @@ typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
 static ica_sha3_512_t                  p_ica_sha3_512;
 #endif
 
+#ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
+int ossl_bn_rsa_do_unblind(const unsigned char *intermediate,
+                           const BIGNUM *unblind,
+                           const unsigned char *to_mod,
+                           unsigned char *buf, int num,
+                           BN_MONT_CTX *m_ctx, BN_ULONG n0);
+#endif
+
 struct phdr_cb_data {
     void *handle;
 };
@@ -426,6 +435,11 @@ typedef struct {
     ica_rsa_key_crt_t *crtKey;
     ICA_EC_KEY *eckey;
     unsigned int ec_privlen;
+    BN_BLINDING *blinding;
+    BN_MONT_CTX *blinding_mont_ctx;
+#ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
+    BN_ULONG blinding_mont_ctx_n0;
+#endif
 } ica_ex_data_t;
 
 void ica_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
@@ -458,6 +472,18 @@ void ica_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
         data->ec_privlen = 0;
     }
 
+    if (data->blinding != NULL) {
+        BN_BLINDING_free(data->blinding);
+        data->blinding = NULL;
+    }
+    if (data->blinding_mont_ctx != NULL) {
+        BN_MONT_CTX_free(data->blinding_mont_ctx);
+        data->blinding_mont_ctx = NULL;
+    }
+#ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
+    data->blinding_mont_ctx_n0 = 0;
+#endif
+
     openssl_free_ex_data(obj, ex_data, ex_data_len);
 }
 
@@ -483,6 +509,9 @@ static CK_BBOOL ica_need_wr_lock_rsa_privkey(OBJECT *obj, void *ex_data,
 
     if (ex_data == NULL || ex_data_len < sizeof(ica_private_data_t))
         return FALSE;
+
+    if (data->blinding == NULL || data->blinding_mont_ctx == NULL)
+        return TRUE;
 
     return data->modexpoKey == NULL && data->crtKey == NULL;
 }
@@ -2410,6 +2439,364 @@ CK_RV token_specific_rsa_generate_keypair(STDLL_TokData_t *tokdata,
     return rc;
 }
 
+/*
+ * ICA token private data used by mod-expo callback function for generating the
+ * blinding factor by BN_BLINDING_create_param() or within BN_BLINDING_update()
+ * when a new blinding factor is generated after 32 requests.
+ * This variable must be thread local!
+ */
+static __thread ica_private_data_t *ica_blinding_private_data = NULL;
+
+static int ica_blinding_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
+                                   const BIGNUM *m, BN_CTX *ctx,
+                                   BN_MONT_CTX *m_ctx)
+{
+    ica_private_data_t *ica_data = ica_blinding_private_data;
+    ica_rsa_key_mod_expo_t ica_mode_expo;
+    unsigned char *buffer, *in, *out;
+    size_t size;
+    int rc = 0;
+
+    if (ica_data == NULL)
+        return 0;
+
+    size = BN_num_bytes(m);
+    buffer = calloc(1, 4 * size);
+    if (buffer == NULL) {
+        TRACE_ERROR("Failed to allocate a buffer for libica mod-expo\n");
+        goto out;
+    }
+
+    ica_mode_expo.key_length = size;
+    ica_mode_expo.modulus = buffer;
+    ica_mode_expo.exponent = buffer + size;
+
+    in = buffer + 2 * size;
+    out = buffer + 3 * size;
+
+    if (BN_bn2binpad(a, in, size) == -1 ||
+        BN_bn2binpad(p, ica_mode_expo.exponent, size) == -1 ||
+        BN_bn2binpad(m, ica_mode_expo.modulus, size) == -1) {
+        TRACE_ERROR("BN_bn2binpad failed\n");
+        goto out;
+    }
+
+    rc = ica_rsa_mod_expo(ica_data->adapter_handle, in, &ica_mode_expo, out);
+    if (rc != 0) {
+        TRACE_ERROR("ica_rsa_mod_expo failed with: %s\n", strerror(rc));
+        rc = 0;
+        goto out;
+    }
+
+    if (BN_bin2bn(out, size, r) == NULL) {
+        TRACE_ERROR("BN_bin2bn failed\n");
+        goto out;
+    }
+
+    rc = 1;
+
+out:
+    if (buffer != NULL) {
+        OPENSSL_cleanse(buffer, 4 * size);
+        free(buffer);
+    }
+
+    /* Use software fallback if libica operation failed */
+    return rc != 1 ? BN_mod_exp_mont(r, a, p, m, ctx, m_ctx) : 1;
+}
+
+#ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
+
+#ifdef SIXTY_FOUR_BIT_LONG
+    #define BN_MASK2        (0xffffffffffffffffL)
+#endif
+#ifdef SIXTY_FOUR_BIT
+    #define BN_MASK2        (0xffffffffffffffffLL)
+#endif
+#ifdef THIRTY_TWO_BIT
+    #error "Not supported"
+#endif
+
+static CK_RV ica_calc_blinding_mont_ctx_n0(STDLL_TokData_t *tokdata,
+                                           ica_ex_data_t *ex_data,
+                                           BN_CTX *bn_ctx,
+                                           CK_ATTRIBUTE *modulus)
+{
+    BIGNUM *R = NULL, *Ri = NULL, *tmod = NULL;
+    BN_ULONG word;
+
+    UNUSED(tokdata);
+
+    /* Calculate blinding_mont_ctx_n0, BN_MONT_CTX is opaque */
+    R = BN_CTX_get(bn_ctx);
+    Ri = BN_CTX_get(bn_ctx);
+    tmod = BN_CTX_get(bn_ctx);
+    if (R == NULL || Ri == NULL || tmod == NULL) {
+        TRACE_ERROR("BN_CTX_get failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    BN_zero(R);
+    if (!BN_set_bit(R, BN_BITS2)) {
+        TRACE_ERROR("BN_set_bit failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    memcpy(&word, ((CK_BYTE *)modulus->pValue) + modulus->ulValueLen -
+                  sizeof(BN_ULONG), sizeof(word));
+    if (!BN_set_word(tmod, word)) {
+        TRACE_ERROR("BN_set_word failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (BN_is_one(tmod))
+        BN_zero(Ri);
+    else if ((BN_mod_inverse(Ri, R, tmod, bn_ctx)) == NULL) {
+        TRACE_ERROR("BN_mod_inverse failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    if (!BN_lshift(Ri, Ri, BN_BITS2)) {
+        TRACE_ERROR("BN_lshift failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (!BN_is_zero(Ri)) {
+        if (!BN_sub_word(Ri, 1)) {
+            TRACE_ERROR("BN_sub_word failed\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    } else {
+        if (!BN_set_word(Ri, BN_MASK2)) {
+            TRACE_ERROR("BN_set_word failed\n");
+            return CKR_FUNCTION_FAILED;
+        }
+    }
+
+    if (!BN_div(Ri, NULL, Ri, tmod, bn_ctx)) {
+        TRACE_ERROR("BN_div failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ex_data->blinding_mont_ctx_n0 = BN_get_word(Ri);
+
+    return CKR_OK;
+}
+#endif
+
+static CK_RV ica_blinding_setup(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                ica_ex_data_t *ex_data, BN_CTX *bn_ctx)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    CK_ATTRIBUTE *modulus = NULL, *pub_exp = NULL;
+    CK_RV rc = CKR_OK;
+    BIGNUM *n, *e;
+
+    /* Get modulus a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                          &modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_MODULUS\n");
+        goto done;
+    }
+
+    n = BN_CTX_get(bn_ctx);
+    if (n == NULL ||
+        BN_bin2bn(modulus->pValue, modulus->ulValueLen, n) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for modulus\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Get public exponent a BIGNUM */
+    rc = template_attribute_get_non_empty(key_obj->template,
+                                          CKA_PUBLIC_EXPONENT, &pub_exp);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_PUBLIC_EXPONENT\n");
+        goto done;
+    }
+
+    e = BN_CTX_get(bn_ctx);
+    if (e == NULL ||
+        BN_bin2bn(pub_exp->pValue, pub_exp->ulValueLen, e) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed for publ-exponent\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    BN_set_flags(n, BN_FLG_CONSTTIME);
+
+    /* Create Montgomery context */
+    ex_data->blinding_mont_ctx = BN_MONT_CTX_new();
+    if (ex_data->blinding_mont_ctx == NULL) {
+        TRACE_ERROR("BN_MONT_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (BN_MONT_CTX_set(ex_data->blinding_mont_ctx, n, bn_ctx) != 1) {
+        TRACE_ERROR("BN_MONT_CTX_set failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        BN_MONT_CTX_free(ex_data->blinding_mont_ctx);
+        ex_data->blinding_mont_ctx = NULL;
+        goto done;
+    }
+
+#ifndef HAVE_ALT_FIX_FOR_CVE2022_4304
+    rc = ica_calc_blinding_mont_ctx_n0(tokdata, ex_data, bn_ctx, modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ica_calc_blinding_mont_ctx_n0 failed\n");
+        goto done;
+    }
+#endif
+
+    /*
+     * BN_BLINDING_create_param() calls the ica_blinding_bn_mod_exp()
+     * callback which needs to know the ICA token private data.
+     */
+    ica_blinding_private_data = ica_data;
+
+    ex_data->blinding = BN_BLINDING_create_param(NULL, e, n, bn_ctx,
+                                                 ica_blinding_bn_mod_exp,
+                                                 ex_data->blinding_mont_ctx);
+    if (ex_data->blinding == NULL) {
+        TRACE_ERROR("BN_BLINDING_create_param failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        BN_MONT_CTX_free(ex_data->blinding_mont_ctx);
+        ex_data->blinding_mont_ctx = NULL;
+        goto done;
+    }
+
+done:
+    return rc;
+}
+
+static CK_RV ica_blinding_convert(STDLL_TokData_t *tokdata,
+                                  ica_ex_data_t *ex_data, BN_CTX *bn_ctx,
+                                  CK_BYTE *in_data, CK_BYTE *out_data,
+                                  CK_ULONG data_len, BIGNUM **unblind)
+{
+    ica_private_data_t *ica_data = (ica_private_data_t *)tokdata->private_data;
+    BIGNUM *bn_data = NULL;
+    int ret;
+
+    bn_data = BN_CTX_get(bn_ctx);
+    if (bn_data == NULL ||
+        BN_bin2bn(in_data, data_len, bn_data) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *unblind = BN_CTX_get(bn_ctx);
+    if (*unblind == NULL) {
+        TRACE_ERROR("BN_CTX_get failed for unblind factor\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    BN_set_flags(*unblind, BN_FLG_CONSTTIME);
+
+    if (!BN_BLINDING_lock(ex_data->blinding)) {
+        TRACE_ERROR("BN_BLINDING_lock failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    /* BN_BLINDING_convert_ex() calls BN_BLINDING_update() which may call
+     * BN_BLINDING_create_param() to generate a new blinding factor. This
+     * calls the ica_blinding_bn_mod_exp() callback which needs to know
+     * the ICA token private data.
+     */
+    ica_blinding_private_data = ica_data;
+
+    ret = BN_BLINDING_convert_ex(bn_data, *unblind, ex_data->blinding, bn_ctx);
+    BN_BLINDING_unlock(ex_data->blinding);
+    if(ret != 1) {
+        TRACE_ERROR("BN_BLINDING_convert_ex failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (BN_bn2binpad(bn_data, out_data, data_len) != (int)data_len) {
+        TRACE_ERROR("BN_bn2binpad failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
+static CK_RV ica_blinding_invert(STDLL_TokData_t *tokdata, OBJECT *key_obj,
+                                 ica_ex_data_t *ex_data, BN_CTX *bn_ctx,
+                                 CK_BYTE *in_data, CK_BYTE *out_data,
+                                 CK_ULONG data_len, BIGNUM *unblind)
+{
+#ifdef HAVE_ALT_FIX_FOR_CVE2022_4304
+    int rc;
+    BIGNUM *bn_data = NULL;
+
+    UNUSED(tokdata);
+    UNUSED(key_obj);
+
+    bn_data = BN_CTX_get(bn_ctx);
+    if (bn_data == NULL ||
+        BN_bin2bn(in_data, data_len, bn_data) == NULL) {
+        TRACE_ERROR("BN_CTX_get/BN_bin2bn failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+    BN_set_flags(bn_data, BN_FLG_CONSTTIME);
+
+    /*
+     * BN_BLINDING_invert_ex is constant-time since OpenSSL commit
+     * https://github.com/openssl/openssl/commit/f06ef1657a3d4322153b26231a7afa3d55724e52
+     * "Alternative fix for CVE-2022-4304". Care must be taken that bn_data
+     * has flag BN_FLG_CONSTTIME set.
+     *
+     * Commits for OpenSSL releases:
+     * - OpenSSL 1.1.1u:
+     *   https://github.com/openssl/openssl/commit/3f499b24f3bcd66db022074f7e8b4f6ee266a3ae
+     * - OpenSSL 3.0.9:
+     *   https://github.com/openssl/openssl/commit/a00d757d9ca212994625d1a02c81cc5edd27e13b
+     * - OpenSSl 3.1.1:
+     *   https://github.com/openssl/openssl/commit/550a16247e899363ef973aa08623f9b19bb636fb
+     */
+    rc = BN_BLINDING_invert_ex(bn_data, unblind, ex_data->blinding, bn_ctx);
+    if (rc != 1) {
+        TRACE_ERROR("BN_BLINDING_invert_ex failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (BN_bn2binpad(bn_data, out_data, data_len) != (int)data_len) {
+        TRACE_ERROR("BN_bn2binpad failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+#else
+    CK_ATTRIBUTE *modulus = NULL;
+    int rc;
+
+    UNUSED(tokdata);
+    UNUSED(bn_ctx);
+
+    /* Get modulus */
+    rc = template_attribute_get_non_empty(key_obj->template, CKA_MODULUS,
+                                          &modulus);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Failed to get CKA_MODULUS\n");
+        return rc;
+    }
+
+    if (modulus->ulValueLen != data_len) {
+        TRACE_ERROR("Size of data is not size of modulus\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    rc = ossl_bn_rsa_do_unblind(in_data, unblind, modulus->pValue,
+                                out_data, data_len, ex_data->blinding_mont_ctx,
+                                ex_data->blinding_mont_ctx_n0);
+    if (rc <= 0) {
+        TRACE_ERROR("ossl_bn_rsa_do_unblind failed\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+#endif
+}
 
 //
 //
@@ -2507,6 +2894,9 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
     CK_ATTRIBUTE *priv_exp = NULL;
     ica_rsa_key_crt_t *crtKey = NULL;
     ica_rsa_key_mod_expo_t *modexpoKey = NULL;
+    BN_CTX *bn_ctx = NULL;
+    BIGNUM *unblind = NULL;
+    unsigned char *buff = NULL;
     CK_RV rc;
 
     rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
@@ -2586,11 +2976,42 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
     crtKey = ex_data->crtKey;
     modexpoKey = ex_data->modexpoKey;
 
+    bn_ctx = BN_CTX_new();
+    if (bn_ctx == NULL) {
+        TRACE_ERROR("BN_CTX_new failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (ex_data->blinding == NULL || ex_data->blinding_mont_ctx == NULL) {
+        rc = ica_blinding_setup(tokdata, key_obj, ex_data, bn_ctx);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ica_blinding_setup failed\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+    buff = malloc(in_data_len * 2);
+    if (buff == NULL) {
+        TRACE_ERROR("Failed to allocate blinding buffer\n");
+        rc = CKR_HOST_MEMORY;
+        goto done;
+    }
+
+    rc = ica_blinding_convert(tokdata, ex_data, bn_ctx, in_data, buff,
+                              in_data_len, &unblind);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ica_blinding_convert\n");
+        goto done;
+    }
+
     if (crtKey != NULL) {
-        rc = ica_rsa_crt(ica_data->adapter_handle, in_data, crtKey, out_data);
+        rc = ica_rsa_crt(ica_data->adapter_handle, buff, crtKey,
+                         buff + in_data_len);
     } else {
-        rc = ica_rsa_mod_expo(ica_data->adapter_handle, in_data, modexpoKey,
-                              out_data);
+        rc = ica_rsa_mod_expo(ica_data->adapter_handle, buff, modexpoKey,
+                              buff + in_data_len);
     }
     switch (rc) {
     case 0:
@@ -2613,9 +3034,26 @@ static CK_RV ica_specific_rsa_decrypt(STDLL_TokData_t *tokdata,
         rc = CKR_FUNCTION_FAILED;
         break;
     }
+    if (rc != CKR_OK)
+        goto done;
+
+    rc = ica_blinding_invert(tokdata, key_obj, ex_data, bn_ctx,
+                             buff + in_data_len, out_data, in_data_len,
+                             unblind);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("ica_blinding_invert\n");
+        goto done;
+    }
 
 done:
     object_ex_data_unlock(key_obj);
+
+    if (bn_ctx != NULL)
+        BN_CTX_free(bn_ctx);
+    if (buff != NULL) {
+        OPENSSL_cleanse(buff, in_data_len * 2);
+        free(buff);
+    }
 
     return rc;
 }

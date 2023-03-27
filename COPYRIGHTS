@@ -1,9 +1,22 @@
 Base openCryptoki Code and IBM submissions
 
-(C) COPYRIGHT International Business Machines Corp. 2001, 2022
+(C) COPYRIGHT International Business Machines Corp. 2001, 2023
 
 
 
+For code originating from OpenSSL:
+
+ * - usr/lib/ica_s390_stdll/rsa_sup_mul.c: Copied from OpenSSL from 
+ *   crypto/bn/rsa_sup_mul.c and modified to fit to the OpenCrptoki environment.
+ *   See comment in usr/lib/ica_s390_stdll/rsa_sup_mul.c for a list of changes.
+ *   Note that in OpenSSL the file crypto/bn/rsa_sup_mul.c does no longer
+ *   exist, it was removed with commit https://github.com/openssl/openssl/commit/4209ce68d8fe8b1506494efa03d378d05baf9ff8
+ *
+ * Copyright 1999-2023 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * The OpenSSL code is licensed under the Apache License 2.0 (the "License"). 
+ * You can obtain a copy in the file LICENSE in the OpenSSL source distribution
+ * or at https://www.openssl.org/source/license.html
 
 
 
