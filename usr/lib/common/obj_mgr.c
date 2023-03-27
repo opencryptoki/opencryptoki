@@ -1945,6 +1945,23 @@ retry:
     if (rc != CKR_OK)
         goto done;
 
+    rc = object_ex_data_lock(obj, WRITE_LOCK);
+    if (rc != CKR_OK)
+        goto done;
+
+    if (obj->ex_data != NULL && obj->ex_data_reload != NULL) {
+        rc = obj->ex_data_reload(obj, obj->ex_data, obj->ex_data_len);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("ex_data_reload failed 0x%lx\n", rc);
+            object_ex_data_unlock(obj);
+            goto done;
+        }
+    }
+
+    rc = object_ex_data_unlock(obj);
+    if (rc != CKR_OK)
+        goto done;
+
     if (lock_type == READ_LOCK) {
         rc = object_unlock(obj);
         if (rc != CKR_OK)
@@ -2116,6 +2133,13 @@ CK_RV object_mgr_update_publ_tok_obj_from_shm(STDLL_TokData_t *tokdata)
                 continue;
             }
 
+            rc = object_init_ex_data_lock(new_obj);
+            if (rc != CKR_OK) {
+                object_destroy_lock(new_obj);
+                free(new_obj);
+                continue;
+            }
+
             memcpy(new_obj->name, shm_te->name, 8);
             rc = reload_token_object(tokdata, new_obj);
             if (rc == CKR_OK)
@@ -2169,6 +2193,13 @@ CK_RV object_mgr_update_priv_tok_obj_from_shm(STDLL_TokData_t *tokdata)
 
             rc = object_init_lock(new_obj);
             if (rc != CKR_OK) {
+                free(new_obj);
+                continue;
+            }
+
+            rc = object_init_ex_data_lock(new_obj);
+            if (rc != CKR_OK) {
+                object_destroy_lock(new_obj);
                 free(new_obj);
                 continue;
             }

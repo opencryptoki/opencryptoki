@@ -212,6 +212,15 @@ typedef struct _OBJECT {
 
     // policy support (set via store_object_strength_f pointer)
     struct objstrength strength;
+
+    /* Allow to attach external data to an object */
+    void *ex_data;
+    size_t ex_data_len;
+    pthread_rwlock_t ex_data_rwlock;
+    void (*ex_data_free)(struct _OBJECT *obj, void *ex_data,
+                         size_t ex_data_len);
+    CK_RV (*ex_data_reload)(struct _OBJECT *obj, void *ex_data,
+                            size_t ex_data_len);
 } OBJECT;
 
 

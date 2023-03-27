@@ -181,6 +181,10 @@ CK_RV object_copy(STDLL_TokData_t * tokdata, SESSION *sess,
     if (rc != CKR_OK)
         goto error;
 
+    rc = object_init_ex_data_lock(o);
+    if (rc != CKR_OK)
+        goto error;
+
     // copy the original object's attribute template
     //
     rc = template_copy(o->template, old_obj->template);
@@ -330,6 +334,13 @@ void object_free(OBJECT * obj)
 {
     /* refactorization here to do actual free - fix from coverity scan */
     if (obj) {
+        if (obj->ex_data != NULL) {
+            if (obj->ex_data_free != NULL)
+                obj->ex_data_free(obj, obj->ex_data, obj->ex_data_len);
+            else
+                free(obj->ex_data);
+        }
+        object_destroy_ex_data_lock(obj);
         if (obj->template)
             template_free(obj->template);
         object_destroy_lock(obj);
@@ -786,6 +797,12 @@ CK_RV object_restore_withSize(struct policy *policy,
         if (rc != CKR_OK)
             goto error;
 
+        rc = object_init_ex_data_lock(obj);
+        if (rc != CKR_OK) {
+            object_destroy_lock(obj);
+            goto error;
+        }
+
         *new_obj = obj;
     } else {
         /* Reload of existing object only changes the template */
@@ -893,6 +910,12 @@ CK_RV object_create_skel(STDLL_TokData_t * tokdata,
     if (rc != CKR_OK)
         goto done;
 
+    rc = object_init_ex_data_lock(o);
+    if (rc != CKR_OK) {
+        object_destroy_lock(o);
+        goto done;
+    }
+
     *obj = o;
 
     return CKR_OK;
@@ -959,6 +982,58 @@ CK_RV object_unlock(OBJECT *obj)
 {
     if (pthread_rwlock_unlock(&obj->template_rwlock) != 0) {
         TRACE_DEVEL("Object Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_init_ex_data_lock(OBJECT *obj)
+{
+    if (pthread_rwlock_init(&obj->ex_data_rwlock, NULL) != 0) {
+        TRACE_DEVEL("Ex_data Lock init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_destroy_ex_data_lock(OBJECT *obj)
+{
+    if (pthread_rwlock_destroy(&obj->ex_data_rwlock) != 0) {
+        TRACE_DEVEL("Ex_data Lock destroy failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_ex_data_lock(OBJECT *obj, OBJ_LOCK_TYPE type)
+{
+    switch (type) {
+    case NO_LOCK:
+        break;
+    case READ_LOCK:
+        if (pthread_rwlock_rdlock(&obj->ex_data_rwlock) != 0) {
+            TRACE_DEVEL("Ex_data Read-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+        break;
+    case WRITE_LOCK:
+        if (pthread_rwlock_wrlock(&obj->ex_data_rwlock) != 0) {
+            TRACE_DEVEL("Ex_data Write-Lock failed.\n");
+            return CKR_CANT_LOCK;
+        }
+        break;
+    }
+
+    return CKR_OK;
+}
+
+CK_RV object_ex_data_unlock(OBJECT *obj)
+{
+    if (pthread_rwlock_unlock(&obj->ex_data_rwlock) != 0) {
+        TRACE_DEVEL("Ex_data Unlock failed.\n");
         return CKR_CANT_LOCK;
     }
 
