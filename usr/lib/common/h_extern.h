@@ -2962,6 +2962,19 @@ typedef CK_RV (*t_rsa_decrypt)(STDLL_TokData_t *, CK_BYTE *in_data,
                                CK_ULONG in_data_len, CK_BYTE *out_data,
                                OBJECT *key_obj);
 
+struct openssl_ex_data {
+    EVP_PKEY *pkey;
+};
+
+void openssl_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len);
+CK_RV openssl_get_ex_data(OBJECT *obj, void **ex_data, size_t ex_data_len,
+                          CK_BBOOL (*need_wr_lock)(OBJECT *obj,
+                                                   void *ex_data,
+                                                   size_t ex_data_len),
+                          void (*ex_data_free)(struct _OBJECT *obj,
+                                               void *ex_data,
+                                               size_t ex_data_len));
+
 CK_RV openssl_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl);
 CK_RV openssl_specific_rsa_encrypt(STDLL_TokData_t *, CK_BYTE *in_data,
                                    CK_ULONG in_data_len,

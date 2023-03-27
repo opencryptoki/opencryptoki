@@ -37,6 +37,101 @@
 #include <openssl/param_build.h>
 #endif
 
+void openssl_free_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
+{
+    struct openssl_ex_data *data = ex_data;
+
+    if (ex_data == NULL || ex_data_len < sizeof(struct openssl_ex_data))
+        return;
+
+    if (data->pkey != NULL) {
+        EVP_PKEY_free(data->pkey);
+        data->pkey = NULL;
+    }
+
+    free(data);
+    obj->ex_data = NULL;
+    obj->ex_data_len = 0;
+}
+
+CK_RV openssl_reload_ex_data(OBJECT *obj, void *ex_data, size_t ex_data_len)
+{
+    if (obj->ex_data_free != NULL)
+        obj->ex_data_free(obj, ex_data, ex_data_len);
+    return CKR_OK;
+}
+
+/*
+ * Gets the attached OpenSSL ex_data from the key object. If no ex_data is
+ * attached yet, then a WRITE lock is obtained, the ex_data is allocated in the
+ * specified size, and the ex_data is returned. If the ex_data is already
+ * attached, the need_wr_lock routine is called to determine if a WRTE lock is
+ * needed. If the need_wr_lock routine returns TRUE, a WRITE lock is obtained,
+ * else, or if no need_wr_lock routine is specified, a READ lock is obtained
+ * and the ex_data is returned. The caller must release ex-data lock when
+ * finished working with it.
+ */
+CK_RV openssl_get_ex_data(OBJECT *obj, void **ex_data, size_t ex_data_len,
+                          CK_BBOOL (*need_wr_lock)(OBJECT *obj,
+                                                   void *ex_data,
+                                                   size_t ex_data_len),
+                          void (*ex_data_free)(struct _OBJECT *obj,
+                                               void *ex_data,
+                                               size_t ex_data_len))
+{
+    CK_RV rc;
+
+    rc = object_ex_data_lock(obj, READ_LOCK);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (obj->ex_data != NULL &&
+        obj->ex_data_len >= ex_data_len &&
+        (need_wr_lock == NULL ||
+         need_wr_lock(obj, obj->ex_data, obj->ex_data_len) == FALSE)) {
+        *ex_data = obj->ex_data;
+        return CKR_OK;
+    }
+
+    rc = object_ex_data_unlock(obj);
+    if (rc != CKR_OK)
+        return rc;
+
+    rc = object_ex_data_lock(obj, WRITE_LOCK);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (obj->ex_data == NULL) {
+        obj->ex_data = calloc(1, ex_data_len);
+        if (obj->ex_data == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
+            object_ex_data_unlock(obj);
+            return CKR_HOST_MEMORY;
+        }
+
+        obj->ex_data_len = ex_data_len;
+        obj->ex_data_free = ex_data_free != NULL ? ex_data_free :
+                                                   openssl_free_ex_data;
+        obj->ex_data_reload = openssl_reload_ex_data;
+    }
+
+    *ex_data = obj->ex_data;
+    return CKR_OK;
+}
+
+static CK_BBOOL openssl_need_wr_lock(OBJECT *obj, void *ex_data,
+                                     size_t ex_data_len)
+{
+    struct openssl_ex_data *data = ex_data;
+
+    UNUSED(obj);
+
+    if (ex_data == NULL || ex_data_len < sizeof(struct openssl_ex_data))
+        return FALSE;
+
+    return data->pkey == NULL;
+}
+
 CK_RV openssl_specific_rsa_keygen(TEMPLATE *publ_tmpl, TEMPLATE *priv_tmpl)
 {
     CK_ATTRIBUTE *publ_exp = NULL;
@@ -876,6 +971,7 @@ CK_RV openssl_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                    CK_ULONG in_data_len, CK_BYTE *out_data,
                                    OBJECT *key_obj)
 {
+    struct openssl_ex_data *ex_data = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
     CK_RV rc;
@@ -883,11 +979,26 @@ CK_RV openssl_specific_rsa_encrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 
     UNUSED(tokdata);
 
-    pkey = rsa_convert_public_key(key_obj);
-    if (pkey == NULL) {
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        ex_data->pkey = rsa_convert_public_key(key_obj);
+        if (ex_data->pkey == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+    pkey = ex_data->pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
-        return rc;
+        goto done;
     }
 
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
@@ -920,6 +1031,7 @@ done:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
     return rc;
 }
 
@@ -927,6 +1039,7 @@ CK_RV openssl_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
                                    CK_ULONG in_data_len, CK_BYTE *out_data,
                                    OBJECT *key_obj)
 {
+    struct openssl_ex_data *ex_data = NULL;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_PKEY *pkey = NULL;
     size_t outlen = in_data_len;
@@ -934,11 +1047,26 @@ CK_RV openssl_specific_rsa_decrypt(STDLL_TokData_t *tokdata, CK_BYTE *in_data,
 
     UNUSED(tokdata);
 
-    pkey = rsa_convert_private_key(key_obj);
-    if (pkey == NULL) {
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
+    if (rc != CKR_OK)
+        return rc;
+
+    if (ex_data->pkey == NULL) {
+        ex_data->pkey = rsa_convert_private_key(key_obj);
+        if (ex_data->pkey == NULL) {
+            TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
+        }
+    }
+
+    pkey = ex_data->pkey;
+    if (EVP_PKEY_up_ref(pkey) != 1) {
         TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
         rc = CKR_FUNCTION_FAILED;
-        return rc;
+        goto done;
     }
 
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
@@ -971,6 +1099,7 @@ done:
         EVP_PKEY_free(pkey);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
     return rc;
 }
 
@@ -2436,7 +2565,8 @@ CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
                                CK_BYTE *out_data, CK_ULONG *out_data_len,
                                OBJECT *key_obj)
 {
-    EVP_PKEY *ec_key;
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *ec_key = NULL;
     ECDSA_SIG *sig = NULL;
     const BIGNUM *r, *s;
     CK_ULONG privlen, n;
@@ -2452,9 +2582,25 @@ CK_RV openssl_specific_ec_sign(STDLL_TokData_t *tokdata,  SESSION *sess,
 
     *out_data_len = 0;
 
-    rc = openssl_make_ec_key_from_template(key_obj->template, &ec_key);
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
     if (rc != CKR_OK)
         return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ec_key_from_template(key_obj->template,
+                                               &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    ec_key = ex_data->pkey;
+    if (EVP_PKEY_up_ref(ec_key) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
 
     ctx = EVP_PKEY_CTX_new(ec_key, NULL);
     if (ctx == NULL) {
@@ -2526,6 +2672,7 @@ out:
         free(sigbuf);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
 
     return rc;
 }
@@ -2537,7 +2684,8 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
                                  CK_BYTE *signature,
                                  CK_ULONG signature_len, OBJECT *key_obj)
 {
-    EVP_PKEY *ec_key;
+    struct openssl_ex_data *ex_data = NULL;
+    EVP_PKEY *ec_key = NULL;
     CK_ULONG privlen;
     ECDSA_SIG *sig = NULL;
     BIGNUM *r = NULL, *s = NULL;
@@ -2550,9 +2698,25 @@ CK_RV openssl_specific_ec_verify(STDLL_TokData_t *tokdata,
     UNUSED(tokdata);
     UNUSED(sess);
 
-    rc = openssl_make_ec_key_from_template(key_obj->template, &ec_key);
+    rc = openssl_get_ex_data(key_obj, (void **)&ex_data,
+                             sizeof(struct openssl_ex_data),
+                             openssl_need_wr_lock, NULL);
     if (rc != CKR_OK)
         return rc;
+
+    if (ex_data->pkey == NULL) {
+        rc = openssl_make_ec_key_from_template(key_obj->template,
+                                               &ex_data->pkey);
+        if (rc != CKR_OK)
+            goto out;
+    }
+
+    ec_key = ex_data->pkey;
+    if (EVP_PKEY_up_ref(ec_key) != 1) {
+        TRACE_ERROR("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
 
     len = ec_prime_len_from_pkey(ec_key);
     if (len <= 0) {
@@ -2631,6 +2795,7 @@ out:
         OPENSSL_free(sigbuf);
     if (ctx != NULL)
         EVP_PKEY_CTX_free(ctx);
+    object_ex_data_unlock(key_obj);
 
     return rc;
 }
