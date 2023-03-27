@@ -2379,6 +2379,11 @@ CK_RV object_destroy_lock(OBJECT *obj);
 CK_RV object_lock(OBJECT *obj, OBJ_LOCK_TYPE type);
 CK_RV object_unlock(OBJECT *obj);
 
+CK_RV object_init_ex_data_lock(OBJECT *obj);
+CK_RV object_destroy_ex_data_lock(OBJECT *obj);
+CK_RV object_ex_data_lock(OBJECT *obj, OBJ_LOCK_TYPE type);
+CK_RV object_ex_data_unlock(OBJECT *obj);
+
 // object attribute template routines
 //
 
