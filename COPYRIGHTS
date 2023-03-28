@@ -18,6 +18,11 @@ For code originating from OpenSSL:
  *   ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
  *   and is slightly modified to fit to the OpenCryptoki environment.
  *   See comment in function rsa_parse_block_type_2() for a list of changes.
+ * - The implementation of function decode_eme_oaep() in
+ *   usr/lib/common/mech_rsa.c is copied from OpenSSL's function
+ *   RSA_padding_check_PKCS1_OAEP_mgf1() in crypto/rsa/rsa_oaep.c and is
+ *   slightly modified to fit to the OpenCryptoki environment. See comment in
+ *   function decode_eme_oaep() for a list of changes.
  *
  * Copyright 1999-2023 The OpenSSL Project Authors. All Rights Reserved.
  *

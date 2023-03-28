@@ -2434,7 +2434,7 @@ CK_RV ckm_rsa_key_pair_gen(STDLL_TokData_t *tokdata,
     return rc;
 }
 
-CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
+CK_RV mgf1(STDLL_TokData_t *tokdata, const CK_BYTE *seed, CK_ULONG seedlen,
            CK_BYTE *mask, CK_ULONG maskLen, CK_RSA_PKCS_MGF_TYPE mgf)
 {
 
@@ -2592,96 +2592,136 @@ CK_RV decode_eme_oaep(STDLL_TokData_t *tokdata, CK_BYTE *emData,
                       CK_ULONG *out_data_len, CK_RSA_PKCS_MGF_TYPE mgf,
                       CK_BYTE *hash, CK_ULONG hlen)
 {
-    int error = 0;;
-    CK_RV rc = CKR_OK;
-    CK_ULONG dbMask_len, ps_len, i;
-    CK_BYTE *maskedSeed, *maskedDB, *dbMask, *seedMask;
+    size_t i, dblen = 0, mlen = -1, one_index = 0, msg_index;
+    unsigned int ok = 0, found_one_byte, mask;
+    const unsigned char *maskedseed, *maskeddb;
+    unsigned char *db = NULL;
+    unsigned char seed[EVP_MAX_MD_SIZE];
 
-    UNUSED(emLen);
+    /*
+     * The implementation of this function is copied from OpenSSL's function
+     * RSA_padding_check_PKCS1_OAEP_mgf1() in crypto/rsa/rsa_oaep.c
+     * and is slightly modified to fit to the OpenCryptoki environment.
+     *
+     * The OpenSSL code is licensed under the Apache License 2.0.
+     * You can obtain a copy in the file LICENSE in the OpenSSL source
+     * distribution or at https://www.openssl.org/source/license.html
+     *
+     * Changes include:
+     * - Different variable and define names.
+     * - Usage of TRACE_ERROR to report errors and issue debug messages.
+     * - Different return codes.
+     * - No need for copying the input to an allocated 'em' buffer. The caller
+     *   guarantees that the size of the input is already the size of the
+     *   modulus.
+     */
 
-    if (!emData || !out_data) {
-        TRACE_ERROR("%s received bad argument(s)\n", __func__);
-        return CKR_FUNCTION_FAILED;
+    /*
+     * |emLen| is guaranteed by the caller to be the modulus size.
+     * |emLen| >= 2 * |hlen| + 2 must hold for the modulus
+     * irrespective of the ciphertext, see PKCS #1 v2.2, section 7.1.2.
+     * This does not leak any side-channel information.
+     */
+    if (emLen < 2 * hlen + 2) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ARGUMENTS_BAD));
+        return CKR_ARGUMENTS_BAD;
     }
 
-    /* allocate memory now for later use */
-    dbMask_len = *out_data_len - hlen - 1;
-    dbMask = malloc(sizeof(CK_BYTE) * dbMask_len);
-    seedMask = malloc(sizeof(CK_BYTE) * hlen);
-    if ((seedMask == NULL) || (dbMask == NULL)) {
+    dblen = emLen - hlen - 1;
+    db = calloc(1, dblen);
+    if (db == NULL) {
         TRACE_ERROR("%s\n", ock_err(ERR_HOST_MEMORY));
-        rc = CKR_HOST_MEMORY;
-        goto done;
+        return CKR_HOST_MEMORY;
     }
 
-    /* pkcs1v2.2, section 7.1.2, Step 3b:
-     * Separate the encoded message EM and process the decrypted message.
-     *
-     * To mitigate fault and timing attacks, just flag errors and
-     * keep going.
+    /*
+     * The first byte must be zero, however we must not leak if this is
+     * true. See James H. Manger, "A Chosen Ciphertext  Attack on RSA
+     * Optimal Asymmetric Encryption Padding (OAEP) [...]", CRYPTO 2001).
      */
-    maskedSeed = emData + 1;
-    maskedDB = emData + hlen + 1;
+    ok = constant_time_is_zero(emData[0]);
 
-    /* pkcs1v2.2, section 7.1.2, Step 3c:
-     * Compute seedMask using MGF1.
-     */
-    if (mgf1(tokdata, maskedDB, dbMask_len, seedMask, hlen, mgf))
-        error++;
+    maskedseed = emData + 1;
+    maskeddb = emData + 1 + hlen;
 
-    /* pkcs1v2.2, section 7.1.2, Step 3d:
-     * Compute seed using MGF1.
-     */
-    for (i = 0; i < hlen; i++)
-        seedMask[i] ^= maskedSeed[i];
-
-    /* pkcs1v2.2, section 7.1.2, Step 3e:
-     * Compute dbMask using MGF1.
-     */
-    if (mgf1(tokdata, seedMask, hlen, dbMask, dbMask_len, mgf))
-        error++;
-
-    /* pkcs1v2.2, section 7.1.2, Step 3f:
-     * Compute db using MGF1.
-     */
-    for (i = 0; i < dbMask_len; i++)
-        dbMask[i] ^= maskedDB[i];
-
-    /* pkcs1v2.2, section 7.1.2, Step 3g:
-     * DB = lHash’ || PS || 0x01 || M .
-     *
-     * If there is no octet with hexadecimal value 0x01 to separate
-     * PS from M, if lHash does not equal lHash’, output “decryption
-     * error” and stop.
-     */
-    if (memcmp(dbMask, hash, hlen))
-        error++;
-
-    ps_len = hlen;
-    while ((ps_len < dbMask_len) && (dbMask[ps_len] == 0x00))
-        ps_len++;
-
-    if ((ps_len >= dbMask_len) ||
-        (ps_len < dbMask_len && dbMask[ps_len] != 0x01) ||
-        emData[0])
-        error++;
-
-    if (error) {
-        rc = CKR_FUNCTION_FAILED;
+    if (mgf1(tokdata, maskeddb, dblen, seed, hlen, mgf) != CKR_OK)
         goto done;
-    } else {
-        ps_len++;
-        *out_data_len = dbMask_len - ps_len;
-        memcpy(out_data, dbMask + ps_len, dbMask_len - ps_len);
+
+    for (i = 0; i < hlen; i++)
+        seed[i] ^= maskedseed[i];
+
+    if (mgf1(tokdata, seed, hlen, db, dblen, mgf) != CKR_OK)
+        goto done;
+
+    for (i = 0; i < dblen; i++)
+        db[i] ^= maskeddb[i];
+
+    ok &= constant_time_is_zero(CRYPTO_memcmp(db, hash, hlen));
+
+    found_one_byte = 0;
+    for (i = hlen; i < dblen; i++) {
+        /*
+         * Padding consists of a number of 0-bytes, followed by a 1.
+         */
+        unsigned int equals1 = constant_time_eq(db[i], 1);
+        unsigned int equals0 = constant_time_is_zero(db[i]);
+        one_index = constant_time_select_int(~found_one_byte & equals1,
+                                             i, one_index);
+        found_one_byte |= equals1;
+        ok &= (found_one_byte | equals0);
+    }
+
+    ok &= found_one_byte;
+
+    /*
+     * At this point |good| is zero unless the plaintext was valid,
+     * so plaintext-awareness ensures timing side-channels are no longer a
+     * concern.
+     */
+    msg_index = one_index + 1;
+    mlen = dblen - msg_index;
+
+    /*
+     * For good measure, do this check in constant time as well.
+     */
+    ok &= constant_time_ge(*out_data_len, mlen);
+
+    /*
+     * Move the result in-place by |dblen| - |hlen| - 1 - |mlen| bytes
+     * to the left.
+     * Then if |good| move |mlen| bytes from |db| + |hlen| + 1 to |out|.
+     * Otherwise leave |out| unchanged.
+     * Copy the memory back in a way that does not reveal the size of
+     * the data being copied via a timing side channel. This requires copying
+     * parts of the buffer multiple times based on the bits set in the real
+     * length. Clear bits do a non-copy with identical access pattern.
+     * The loop below has overall complexity of O(N*log(N)).
+     */
+    *out_data_len = constant_time_select_int(constant_time_lt(dblen - hlen - 1,
+                                                              *out_data_len),
+                                             dblen - hlen - 1, *out_data_len);
+    for (msg_index = 1; msg_index < dblen - hlen - 1; msg_index <<= 1) {
+        mask = ~constant_time_eq(msg_index & (dblen - hlen - 1 - mlen),
+                                 0);
+        for (i = hlen + 1; i < dblen - msg_index; i++)
+            db[i] = constant_time_select_8(mask, db[i + msg_index], db[i]);
+    }
+    for (i = 0; i < *out_data_len; i++) {
+        mask = ok & constant_time_lt(i, mlen);
+        out_data[i] = constant_time_select_8(mask, db[i + hlen + 1],
+                                             out_data[i]);
     }
 
 done:
-    if (seedMask)
-        free(seedMask);
-    if (dbMask)
-        free(dbMask);
+    OPENSSL_cleanse(seed, sizeof(seed));
+    if (db) {
+        OPENSSL_cleanse(db, dblen);
+        free(db);
+    }
 
-    return rc;
+    *out_data_len = constant_time_select_int(ok, mlen, 0);
+
+    return constant_time_select_int(ok, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
 }
 
 CK_RV emsa_pss_encode(STDLL_TokData_t *tokdata,

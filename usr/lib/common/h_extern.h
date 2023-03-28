@@ -469,7 +469,7 @@ CK_RV get_sha_block_size(CK_ULONG mech, CK_ULONG *bsize);
 
 CK_RV get_hmac_digest(CK_ULONG mech, CK_ULONG *digest_mech, CK_BBOOL *general);
 
-CK_RV mgf1(STDLL_TokData_t *tokdata, CK_BYTE *seed, CK_ULONG seedlen,
+CK_RV mgf1(STDLL_TokData_t *tokdata, const CK_BYTE *seed, CK_ULONG seedlen,
            CK_BYTE *mask, CK_ULONG maskLen, CK_RSA_PKCS_MGF_TYPE mgf);
 
 CK_RV get_ecsiglen(OBJECT *key_obj, CK_ULONG *size);
