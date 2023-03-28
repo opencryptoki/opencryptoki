@@ -26,6 +26,7 @@
 #include "h_extern.h"
 #include "tok_spec_struct.h"
 #include "trace.h"
+#include "constant_time.h"
 
 #include <openssl/crypto.h>
 
@@ -170,10 +171,10 @@ CK_RV rsa_format_block(STDLL_TokData_t *tokdata,
  * 1.5.
  */
 
-CK_RV rsa_parse_block(CK_BYTE *in_data,
-                      CK_ULONG in_data_len,
-                      CK_BYTE *out_data,
-                      CK_ULONG *out_data_len, CK_ULONG type)
+static CK_RV rsa_parse_block_type_1(CK_BYTE *in_data,
+                                    CK_ULONG in_data_len,
+                                    CK_BYTE *out_data,
+                                    CK_ULONG *out_data_len)
 {
     CK_ULONG i;
     CK_RV rc = CKR_OK;
@@ -200,93 +201,45 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
     /*
      * Check the block type.
      */
-    if (in_data[1] != (CK_BYTE) type) {
+    if (in_data[1] != (CK_BYTE) PKCS_BT_1) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         return CKR_ENCRYPTED_DATA_INVALID;
     }
 
     /*
      * The block type shall be a single octet indicating the structure of the
-     * encryption block. It shall have value 00, 01, or 02. For a private-key
-     * operation, the block type shall be 00 or 01. For a public-key
-     * operation, it shall be 02.
+     * encryption block. It shall have value 01. For a private-key
+     * operation, the block type shall be 01.
      *
-     * For block type 00, the octets shall have value 00; for block type 01,
-     * they shall have value FF; and for block type 02, they shall be
-     * pseudorandomly generated and nonzero.
+     * For block type 01, they shall have value FF.
      *
-     * For block type 00, the data must begin with a nonzero octet or have
-     * known length so that the encryption block can be parsed unambiguously.
-     * For block types 01 and 02, the encryption block can be parsed
+     * For block type 01, the encryption block can be parsed
      * unambiguously since the padding string contains no octets with value 00
      * and the padding string is separated from the data by an octet with
      * value 00.
      */
-    switch (type) {
-    /*
-     * For block type 00, the octets shall have value 00.
-     * EB = 00 || 00 || 00 * i || D
-     * Where D must begin with a nonzero octet.
-     */
-    case 0:
-        for (i = 2; i <= (in_data_len - 2); i++) {
-            if (in_data[i] != (CK_BYTE) 0) {
-                found = 1;
-                break;
-            }
-        }
-        if (!found)
-            i++;
-        break;
-    /*
-     * For block type 01, they shall have value FF.
-     * EB = 00 || 01 || FF * i || 00 || D
-     */
-    case 1:
-        for (i = 2; i <= (in_data_len - 2); i++) {
-            if (in_data[i] != (CK_BYTE) 0xff) {
-                if (in_data[i] == (CK_BYTE) 0) {
-                    i++;
-                    found = 1;
-                    break;
-                }
-
-                TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
-                return CKR_ENCRYPTED_DATA_INVALID;
-            }
-        }
-        if (!found)
-            i++;
-        break;
-    /*
-     * For block type 02, they shall be pseudorandomly generated and
-     * nonzero.
-     * EB = 00 || 02 || ?? * i || 00 || D
-     * Where ?? is nonzero.
-     */
-    case 2:
-        for (i = 2; i <= (in_data_len - 2); i++) {
+    for (i = 2; i <= (in_data_len - 2); i++) {
+        if (in_data[i] != (CK_BYTE) 0xff) {
             if (in_data[i] == (CK_BYTE) 0) {
                 i++;
                 found = 1;
                 break;
             }
+
+            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
+            return CKR_ENCRYPTED_DATA_INVALID;
         }
-        if (!found)
-            i++;
-        break;
-    default:
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
-        return CKR_ENCRYPTED_DATA_INVALID;
     }
+    if (!found)
+        i++;
 
     /*
-     * For block types 01 and 02, the padding string is at least eight octets
+     * For block type 01, the padding string is at least eight octets
      * long, which is a security condition for public-key operations that
      * prevents an attacker from recoving data by trying all possible
      * encryption blocks.
      */
-    if ((type == 1 || type == 2) && ((i - 3) < 8)) {
+    if ((i - 3) < 8) {
         TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_INVALID));
         return CKR_ENCRYPTED_DATA_INVALID;
     }
@@ -305,6 +258,110 @@ CK_RV rsa_parse_block(CK_BYTE *in_data,
     *out_data_len = in_data_len - i;
 
     return rc;
+}
+
+static CK_RV rsa_parse_block_type_2(CK_BYTE *in_data,
+                                    CK_ULONG in_data_len,
+                                    CK_BYTE *out_data,
+                                    CK_ULONG *out_data_len)
+{
+    unsigned int ok = 0, found, zero;
+    size_t zero_index = 0, msg_index, mlen;
+    size_t i, j;
+
+    /*
+     * The implementation of this function is copied from OpenSSL's function
+     * ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
+     * and is slightly modified to fit to the OpenCryptoki environment.
+     *
+     * The OpenSSL code is licensed under the Apache License 2.0.
+     * You can obtain a copy in the file LICENSE in the OpenSSL source
+     * distribution or at https://www.openssl.org/source/license.html
+     *
+     * Changes include:
+     * - Different variable, function and define names.
+     * - Usage of TRACE_ERROR to report errors and issue debug messages.
+     * - Different return codes.
+     */
+
+    /*
+     * The format is
+     * 00 || BT || PS || 00 || D
+     * BT - block type
+     * PS - padding string, at least 8 bytes of random non-zero data for BT = 2
+     * D  - data.
+     */
+
+    /*
+     * PKCS#1 v1.5 decryption. See "PKCS #1 v2.2: RSA Cryptography Standard",
+     * section 7.2.2.
+     */
+    if (in_data_len < 11) {
+        TRACE_DEVEL("%s\n", ock_err(ERR_FUNCTION_FAILED));
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ok = constant_time_is_zero(in_data[0]);
+    ok &= constant_time_eq(in_data[1], 2);
+
+    /* scan over padding data */
+    found = 0;
+    for (i = 2; i < in_data_len; i++) {
+        zero = constant_time_is_zero(in_data[i]);
+
+        zero_index = constant_time_select_int(~found & zero, i, zero_index);
+        found |= zero;
+    }
+
+    /*
+     * PS must be at least 8 bytes long, and it starts two bytes into |enc_msg|.
+     * If we never found a 0-byte, then |zero_index| is 0 and the check
+     * also fails.
+     */
+    ok &= constant_time_ge(zero_index, 2 + 8);
+
+    /*
+     * Skip the zero byte. This is incorrect if we never found a zero-byte
+     * but in this case we also do not copy the message out.
+     */
+    msg_index = zero_index + 1;
+    mlen = in_data_len - msg_index;
+
+    /*
+     * For good measure, do this check in constant time as well.
+     */
+    ok &= constant_time_ge(*out_data_len, mlen);
+
+    /*
+     * since at this point the |msg_index| does not provide the signal
+     * indicating if the padding check failed or not, we don't have to worry
+     * about leaking the length of returned message, we still need to ensure
+     * that we read contents of both buffers so that cache accesses don't leak
+     * the value of |good|
+     */
+    for (i = msg_index, j = 0; i < in_data_len && j < *out_data_len; i++, j++)
+        out_data[j] = constant_time_select_8(ok, in_data[i], out_data[j]);
+
+    *out_data_len = j;
+
+   return constant_time_select_int(ok, CKR_OK, CKR_ENCRYPTED_DATA_INVALID);
+}
+
+CK_RV rsa_parse_block(CK_BYTE *in_data,
+                      CK_ULONG in_data_len,
+                      CK_BYTE *out_data,
+                      CK_ULONG *out_data_len, CK_ULONG type)
+{
+    switch (type) {
+    case PKCS_BT_1:
+        return rsa_parse_block_type_1(in_data, in_data_len,
+                                        out_data, out_data_len);
+    case PKCS_BT_2:
+        return rsa_parse_block_type_2(in_data, in_data_len,
+                                       out_data, out_data_len);
+    }
+
+    return CKR_ARGUMENTS_BAD;
 }
 
 //
