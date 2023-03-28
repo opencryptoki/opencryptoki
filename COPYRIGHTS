@@ -11,6 +11,13 @@ For code originating from OpenSSL:
  *   See comment in usr/lib/ica_s390_stdll/rsa_sup_mul.c for a list of changes.
  *   Note that in OpenSSL the file crypto/bn/rsa_sup_mul.c does no longer
  *   exist, it was removed with commit https://github.com/openssl/openssl/commit/4209ce68d8fe8b1506494efa03d378d05baf9ff8
+ * - usr/lib/common/constant_time.h: Copied unchanged from OpenSSL from
+     include/internal/constant_time.h
+ * - The implementation of function rsa_parse_block_type_2() in 
+ *   usr/lib/common/mech_rsa.c is copied from OpenSSL's function
+ *   ossl_rsa_padding_check_PKCS1_type_2() in crypto/rsa/rsa_pk1.c
+ *   and is slightly modified to fit to the OpenCryptoki environment.
+ *   See comment in function rsa_parse_block_type_2() for a list of changes.
  *
  * Copyright 1999-2023 The OpenSSL Project Authors. All Rights Reserved.
  *
