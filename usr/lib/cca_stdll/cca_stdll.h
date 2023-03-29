@@ -79,6 +79,10 @@
 #define CCA_RSA_INTTOK_PUBKEY_E_LENGTH_OFFSET 6
 /* Offset into an RSA public key area of the value of e, the public exponent */
 #define CCA_RSA_INTTOK_PUBKEY_E_OFFSET  12
+/* Offset into the rule array returned by STATCCA and length of the returned
+ * CCA version field. */
+#define CCA_STATCCA_CCA_VERSION_OFFSET         24
+#define CCA_STATCCA_CCA_VERSION_LENGTH          8
 /* Offset into the rule_array returned by the STATCCAE command for the
  * New and Current Symmetric Master Key register status */
 #define CCA_STATCCAE_SYM_NMK_OFFSET   0
