@@ -305,13 +305,17 @@ struct cca_mk_change_op {
 #define PKEY_MODE_DEFAULT           1
 #define PKEY_MODE_ENABLED           2
 
+struct cca_version {
+    unsigned int ver;
+    unsigned int rel;
+    unsigned int mod;
+};
+
 struct cca_private_data {
     void *lib_csulcca;
-    struct {
-        unsigned int ver;
-        unsigned int rel;
-        unsigned int mod;
-    } version;
+    struct cca_version cca_lib_version;
+    struct cca_version min_card_version;
+    pthread_rwlock_t min_card_version_rwlock;
     unsigned char expected_sym_mkvp[CCA_MKVP_LENGTH];
     unsigned char expected_aes_mkvp[CCA_MKVP_LENGTH];
     unsigned char expected_apka_mkvp[CCA_MKVP_LENGTH];
@@ -927,24 +931,24 @@ static CK_RV cca_get_version(STDLL_TokData_t *tokdata)
     TRACE_DEVEL("CCA Version string: %s\n", version_data);
 
     if (sscanf((char *)version_data, "%u.%u.%uz%s",
-               &cca_private->version.ver,
-               &cca_private->version.rel,
-               &cca_private->version.mod, date) != 4) {
+               &cca_private->cca_lib_version.ver,
+               &cca_private->cca_lib_version.rel,
+               &cca_private->cca_lib_version.mod, date) != 4) {
         TRACE_ERROR("CCA library version is invalid: %s\n", version_data);
         return CKR_FUNCTION_FAILED;
     }
 
-    if (cca_private->version.ver < CCA_MIN_VERSION ||
-        (cca_private->version.ver == CCA_MIN_VERSION &&
-         cca_private->version.rel < CCA_MIN_RELEASE)) {
+    if (cca_private->cca_lib_version.ver < CCA_MIN_VERSION ||
+        (cca_private->cca_lib_version.ver == CCA_MIN_VERSION &&
+         cca_private->cca_lib_version.rel < CCA_MIN_RELEASE)) {
         TRACE_ERROR("The CCA host library version is too old: %u.%u.%u, "
                     "required: %u.%u or later\n",
-                    cca_private->version.ver, cca_private->version.rel,
-                    cca_private->version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
+                    cca_private->cca_lib_version.ver, cca_private->cca_lib_version.rel,
+                    cca_private->cca_lib_version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
         OCK_SYSLOG(LOG_ERR,"The CCA host library version is too old: %u.%u.%u, "
                    "required: %u.%u or later\n",
-                   cca_private->version.ver, cca_private->version.rel,
-                   cca_private->version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
+                   cca_private->cca_lib_version.ver, cca_private->cca_lib_version.rel,
+                   cca_private->cca_lib_version.mod, CCA_MIN_VERSION, CCA_MIN_RELEASE);
         return CKR_DEVICE_ERROR;
     }
 
@@ -2927,15 +2931,38 @@ static CK_RV ccatok_pkey_get_firmware_wkvp(STDLL_TokData_t *tokdata)
     long kek_identifier_1_length = 0;
     long kek_identifier_2_length = 0;
     long the_2nd_key_token_length = 0;
+    unsigned int min_card_version;
 
     /* Check CCA host library version: XPRTCPAC requires min 7.0.0 */
-    if (cca_data->version.ver < 7) {
-        TRACE_ERROR("CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
-                    cca_data->version.ver,cca_data->version.rel,
-                    cca_data->version.mod);
-        OCK_SYSLOG(LOG_ERR, "CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
-                   cca_data->version.ver,cca_data->version.rel,
-                   cca_data->version.mod);
+    if (cca_data->cca_lib_version.ver < 7) {
+        TRACE_WARNING("CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
+                    cca_data->cca_lib_version.ver,cca_data->cca_lib_version.rel,
+                    cca_data->cca_lib_version.mod);
+        OCK_SYSLOG(LOG_WARNING, "CCA host lib is %d.%d.%d, but pkey support requires min 7.0.0\n",
+                   cca_data->cca_lib_version.ver,cca_data->cca_lib_version.rel,
+                   cca_data->cca_lib_version.mod);
+        return CKR_FUNCTION_NOT_SUPPORTED;
+    }
+
+    /* Read min card version from CCA private data. Needs a read lock. */
+    if (pthread_rwlock_rdlock(&cca_data->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    min_card_version = cca_data->min_card_version.ver;
+    if (pthread_rwlock_unlock(&cca_data->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    /* Check minimum card version, XPRTCPAC requires min CEX7C */
+    if (min_card_version < 7) {
+        TRACE_WARNING("Minimum card version must be CEX7C, but we only have %d.%d.%d\n",
+                    cca_data->min_card_version.ver,cca_data->min_card_version.rel,
+                    cca_data->min_card_version.mod);
+        OCK_SYSLOG(LOG_WARNING, "Minimum card version must be CEX7C, but we only have %d.%d.%d\n",
+                   cca_data->min_card_version.ver,cca_data->min_card_version.rel,
+                   cca_data->min_card_version.mod);
         return CKR_FUNCTION_NOT_SUPPORTED;
     }
 
@@ -3002,7 +3029,8 @@ static CK_RV ccatok_pkey_get_firmware_wkvp(STDLL_TokData_t *tokdata)
     /* Save WKVP in token data */
     memcpy(&cca_data->pkey_mk_vp, (CK_BYTE *)pkey_attr->pValue + AES_KEY_SIZE_256,
            PKEY_MK_VP_LENGTH);
-    cca_data->pkey_wrap_supported = 1;
+
+    __sync_or_and_fetch(&cca_data->pkey_wrap_supported, 1);
 
 done:
 
@@ -3327,6 +3355,134 @@ done:
 }
 #endif /* NO_PKEY */
 
+typedef struct {
+    CK_BBOOL card_level_set;
+    struct cca_version min_card_version;
+} cca_min_card_version_t;
+
+/* return -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2 */
+static int compare_cca_version(const struct cca_version *v1,
+                               const struct cca_version *v2)
+{
+    if (v1->ver < v2->ver)
+        return -1;
+    if (v1->ver > v2->ver)
+        return 1;
+    if (v1->rel < v2->rel)
+        return -1;
+    if (v1->rel > v2->rel)
+        return 1;
+    if (v1->mod < v2->mod)
+        return -1;
+    if (v1->mod > v2->mod)
+        return 1;
+    return 0;
+}
+
+/*
+ * Called from within cca_iterate_adapters() handler function, thus no need to
+ * obtain  CCA adapter lock
+ */
+static CK_RV cca_get_adapter_version(cca_min_card_version_t *data)
+{
+    unsigned char rule_array[CCA_RULE_ARRAY_SIZE] = { 0, };
+    long return_code, reason_code, rule_array_count, verb_data_length;
+    struct cca_version adapter_version;
+    char ccaversion[CCA_STATCCA_CCA_VERSION_LENGTH + 1];
+
+    memcpy(rule_array, "STATCCA ", CCA_KEYWORD_SIZE);
+    rule_array_count = 1;
+    verb_data_length = 0;
+    dll_CSUACFQ(&return_code, &reason_code,
+                NULL, NULL,
+                &rule_array_count, rule_array,
+                &verb_data_length, NULL);
+
+    if (return_code != CCA_SUCCESS) {
+        TRACE_ERROR("CSUACFQ (STATCCA) failed. return:%ld, reason:%ld\n",
+                    return_code, reason_code);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    ccaversion[CCA_STATCCA_CCA_VERSION_LENGTH] = '\0';
+    memcpy(ccaversion, &rule_array[CCA_STATCCA_CCA_VERSION_OFFSET],
+           CCA_STATCCA_CCA_VERSION_LENGTH);
+
+    if (sscanf(ccaversion, "%d.%d.%02d*", (int *)&adapter_version.ver,
+               (int *)&adapter_version.rel, (int *)&adapter_version.mod) != 3) {
+        TRACE_ERROR("sscanf of string %s failed, cannot determine CCA card version\n",
+                    ccaversion);
+        return CKR_FUNCTION_FAILED;
+    }
+
+    if (compare_cca_version(&adapter_version, &data->min_card_version) < 0) {
+        data->min_card_version = adapter_version;
+        data->card_level_set = 1;
+    }
+
+    return CKR_OK;
+}
+
+/*
+ * Callback function used by cca_get_min_card_level() to determine the
+ * minimum CCA card level among all available APQNs.
+ */
+static CK_RV cca_get_card_level_handler(STDLL_TokData_t *tokdata, const char *adapter,
+                                unsigned short card, unsigned short domain,
+                                void *handler_data)
+{
+    cca_min_card_version_t *data = (cca_min_card_version_t *) handler_data;
+
+    UNUSED(tokdata);
+    UNUSED(adapter);
+    UNUSED(card);
+    UNUSED(domain);
+
+    return cca_get_adapter_version(data);
+}
+
+/* Called during token_specific_init() , no need to obtain CCA adapter lock */
+static CK_RV cca_get_min_card_level(STDLL_TokData_t *tokdata)
+{
+    struct cca_private_data *cca_private = tokdata->private_data;
+    cca_min_card_version_t card_level_data;
+    CK_RV ret;
+
+    /* Determine min card level by iterating over all APQNs */
+    memset(&card_level_data, 0, sizeof(cca_min_card_version_t));
+    card_level_data.min_card_version.ver = UINT_MAX;
+    card_level_data.min_card_version.rel = UINT_MAX;
+    card_level_data.min_card_version.mod = UINT_MAX;
+
+    ret = cca_iterate_adapters(tokdata, cca_get_card_level_handler,
+                               &card_level_data);
+
+    if (ret != CKR_OK || card_level_data.card_level_set == 0) {
+        TRACE_ERROR("cca_iterate_adapters failed, could not determine min card level.\n");
+        ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    /* Update min card level in cca_private_data, needs write-lock. */
+    if (pthread_rwlock_wrlock(&cca_private->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RW-lock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+    cca_private->min_card_version = card_level_data.min_card_version;
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RW-unlock failed.\n");
+        ret = CKR_CANT_LOCK;
+        goto done;
+    }
+
+    ret = CKR_OK;
+
+done:
+
+    return ret;
+}
+
 CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
                           char *conf_name)
 {
@@ -3406,9 +3562,19 @@ CK_RV token_specific_init(STDLL_TokData_t * tokdata, CK_SLOT_ID SlotNumber,
     if (rc != CKR_OK)
         goto error;
 
+    rc = cca_get_min_card_level(tokdata);
+    if (rc != CKR_OK)
+        goto error;
+
 #ifndef NO_PKEY
     cca_private->msa_level = get_msa_level();
     TRACE_INFO("MSA level = %i\n", cca_private->msa_level);
+
+    if (pthread_rwlock_init(&cca_private->min_card_version_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing the min_card_version RW-Lock failed\n");
+        rc = CKR_CANT_LOCK;
+        goto error;
+    }
 
     if (!ccatok_pkey_option_disabled(tokdata)) {
         cca_private->pkeyfd = open(PKEYDEVICE, O_RDWR);
@@ -3468,6 +3634,8 @@ CK_RV token_specific_final(STDLL_TokData_t *tokdata,
 #ifndef NO_PKEY
         if (cca_private->pkeyfd >= 0)
             close(cca_private->pkeyfd);
+
+        pthread_rwlock_destroy(&cca_private->min_card_version_rwlock);
 #endif
 
         free(cca_private);
@@ -9590,6 +9758,9 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
     char buf[250];
     CK_RV rc;
     unsigned long val;
+#ifndef NO_PKEY
+    unsigned int min_card_version;
+#endif
 
     UNUSED(event_type);
 
@@ -9610,9 +9781,48 @@ static CK_RV cca_handle_apqn_event(STDLL_TokData_t *tokdata,
         __sync_or_and_fetch(&cca_private->inconsistent, TRUE);
         TRACE_ERROR("CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
         OCK_SYSLOG(LOG_ERR, "CCA master key setup is inconsistent, all crypto operations will fail from now on\n");
-    } else {
-        __sync_and_and_fetch(&cca_private->inconsistent, FALSE);
+        return CKR_OK;
     }
+
+    __sync_and_and_fetch(&cca_private->inconsistent, FALSE);
+
+    /* Re-check after APQN set change if protected key support is available */
+    rc = cca_get_min_card_level(tokdata);
+    if (rc != CKR_OK) {
+        TRACE_WARNING("Could not re-determine min card level, protected key support not available.\n");
+        return rc;
+    }
+
+#ifndef NO_PKEY
+    /* Read min card version from CCA private data. Needs a read lock.*/
+    if (pthread_rwlock_rdlock(&cca_private->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    min_card_version = cca_private->min_card_version.ver;
+    if (pthread_rwlock_unlock(&cca_private->min_card_version_rwlock) != 0) {
+        TRACE_ERROR("CCA min_card_version RD-Unlock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    /* Check minimum card version, XPRTCPAC requires min CEX7C */
+    if (min_card_version < 7) {
+        TRACE_WARNING("Min card version now is %d, protected key support not available on this system.\n",
+                   cca_private->min_card_version.ver);
+        /* Disable pkey */
+        __sync_and_and_fetch(&cca_private->pkey_wrap_supported, 0);
+    } else if (cca_private->pkey_wrap_supported == 0 &&
+               !ccatok_pkey_option_disabled(tokdata)) {
+        /* get firmware WKVP, this will enable PKEY on success */
+        rc = ccatok_pkey_get_firmware_wkvp(tokdata);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_WARNING,
+                "%s: Warning: Could not get wkvp, protected key support not available.\n",
+                __func__);
+            TRACE_WARNING("Could not get wkvp, protected key support not available.\n");
+        }
+    }
+#endif /* NO_PKEY */
 
     return CKR_OK;
 }
