@@ -91,6 +91,8 @@ CK_RV pkey_update_and_save(STDLL_TokData_t *tokdata, OBJECT *key_obj,
 CK_BBOOL pkey_op_supported_by_cpacf(int msa_level, CK_MECHANISM_TYPE type,
                                     TEMPLATE *tmpl);
 
+CK_BBOOL pkey_op_ec_curve_supported_by_cpacf(TEMPLATE *tmpl);
+
 CK_RV pkey_aes_ecb(OBJECT *key, CK_BYTE * in_data,
                    CK_ULONG in_data_len, CK_BYTE * out_data,
                    CK_ULONG_PTR p_output_data_len, CK_BYTE encrypt);
