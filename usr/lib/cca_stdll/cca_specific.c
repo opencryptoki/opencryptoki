@@ -3356,6 +3356,64 @@ done:
 
     return ret;
 }
+
+static CK_BBOOL ccatok_token_is_cpacf_exportable(const CK_BYTE *token,
+                                                 CK_ULONG token_len)
+{
+    CK_BYTE keyusage = token[CCA_ECC_TOKEN_KEYUSAGE_OFFSET];
+
+    if (token_len < CCA_ECC_TOKEN_KEYUSAGE_OFFSET)
+        return CK_FALSE;
+
+    if (keyusage & CCA_XPRTCPAC)
+        return CK_TRUE;
+
+    return CK_FALSE;
+}
+
+static CK_RV ccatok_pkey_check_attrs(STDLL_TokData_t *tokdata,
+                                     TEMPLATE * templ, CK_BYTE *sec_key,
+                                     CK_ULONG sec_len,
+                                     enum cca_token_type token_type)
+{
+    CK_BBOOL pkey_attr_value;
+    CK_RV ret;
+
+    UNUSED(tokdata);
+
+    ret = template_attribute_get_bool(templ, CKA_IBM_PROTKEY_EXTRACTABLE,
+                                      &pkey_attr_value);
+    if (ret != CKR_OK || pkey_attr_value == CK_FALSE)
+        return CKR_OK;
+
+    /*
+     * At this point, the key has CKA_IBM_PROKEY_EXTRACTABLE = true and it has
+     * a secure key token, so let's check if the secure key token is
+     * CPACF-exportable.
+     */
+    switch (token_type) {
+    case sec_aes_data_key:
+        /* Nothing to do: AES data keys are always CPACF-exportable */
+        break;
+    case sec_ecc_priv_key:
+        /*
+         * From CCA 7.3 Application Programmer's Guide, table 282:
+         * Allow export to CPACF protected key format. Valid for ECC
+         * curves P256, P384, P521, Ed25519, and Ed448.
+         */
+        if (pkey_op_ec_curve_supported_by_cpacf(templ) &&
+            !ccatok_token_is_cpacf_exportable(sec_key, sec_len)) {
+            TRACE_ERROR("ECC secure key is CKA_IBM_PROTKEY_EXTRACTABLE, but token is not CPACF-exportable.\n");
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return CKR_OK;
+
+}
 #endif /* NO_PKEY */
 
 typedef struct {
@@ -8321,6 +8379,16 @@ static CK_RV import_ec_privkey(STDLL_TokData_t *tokdata, TEMPLATE *priv_templ)
             TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
             return CKR_DEVICE_ERROR;
         }
+
+#ifndef NO_PKEY
+        /* Check protected key related attributes in the secure key token */
+        rc = ccatok_pkey_check_attrs(tokdata, priv_templ, opaque_attr->pValue,
+                                     opaque_attr->ulValueLen, token_type);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s ccatok_pkey_check_attrs failed with rc=0x%lx\n", __func__, rc);
+            return rc;
+        }
+#endif /* NO_PKEY */
 
         rc = cca_reencipher_created_key(tokdata, priv_templ,
                                         opaque_attr->pValue,
