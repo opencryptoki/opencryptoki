@@ -1938,7 +1938,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
     memcpy(&ep11_data->pkey_mk_vp,
            (CK_BYTE *)pkey_attr->pValue + AES_KEY_SIZE_256,
            PKEY_MK_VP_LENGTH);
-    ep11_data->pkey_wrap_supported = 1;
+    __sync_or_and_fetch(&ep11_data->pkey_wrap_supported, 1);
 
 done:
 
@@ -15836,6 +15836,23 @@ static CK_RV ep11tok_handle_apqn_event(STDLL_TokData_t *tokdata,
     }
 
     __sync_and_and_fetch(&ep11_data->inconsistent, 0);
+
+    /* Re-check after APQN set change if CPACF_WRAP mech is supported */
+    if (ep11tok_is_mechanism_supported(tokdata, CKM_IBM_CPACF_WRAP) != CKR_OK) {
+        TRACE_INFO("CKM_IBM_CPACF_WRAP not supported on this system.\n");
+        /* Disable pkey */
+        __sync_and_and_fetch(&ep11_data->pkey_wrap_supported, 0);
+    } else if (ep11_data->pkey_wrap_supported == 0 &&
+               !ep11tok_pkey_option_disabled(tokdata)) {
+        /* get firmware MKVP, this will enable PKEY on success */
+        rc = ep11tok_pkey_get_firmware_mk_vp(tokdata);
+        if (rc != CKR_OK) {
+            OCK_SYSLOG(LOG_WARNING,
+                "%s: Warning: Could not get mk_vp, protected key support not available.\n",
+                __func__);
+            TRACE_WARNING("Could not get mk_vp, protected key support not available.\n");
+        }
+    }
 
     return CKR_OK;
 }
