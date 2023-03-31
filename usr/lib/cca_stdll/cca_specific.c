@@ -2856,12 +2856,20 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     enum cca_token_type key_type;
     unsigned int token_keybitsize;
     const CK_BYTE *mkvp;
+    CK_BBOOL new_mk;
+    unsigned int num_retries = 0;
 
     /* Determine CCA key type */
     if (analyse_cca_key_token(skey_attr->pValue, skey_attr->ulValueLen,
                               &key_type, &token_keybitsize, &mkvp) != TRUE) {
         TRACE_ERROR("Invalid/unknown cca token, cannot get key type\n");
         ret = CKR_FUNCTION_FAILED;
+        goto done;
+    }
+
+    if (check_expected_mkvp(tokdata, key_type, mkvp, &new_mk) != CKR_OK) {
+        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));
+        ret = CKR_DEVICE_ERROR;
         goto done;
     }
 
@@ -2874,8 +2882,19 @@ static CK_RV ccatok_pkey_skey2pkey(STDLL_TokData_t *tokdata,
     pkey_wrap_handler_data.pkey_buflen_p = &pkey_buflen;
     pkey_wrap_handler_data.keytype = key_type;
 
-    ret = cca_iterate_adapters(tokdata, ccatok_pkey_sec2prot,
-                               &pkey_wrap_handler_data);
+    while (num_retries < 3600) {
+        ret = cca_iterate_adapters(tokdata, ccatok_pkey_sec2prot,
+                                   &pkey_wrap_handler_data);
+        if (ret == CKR_OK && pkey_wrap_handler_data.wrap_was_successful)
+            break;
+
+        /* Retry the op if key encrypted with new MK and an MK change is active */
+        if (new_mk == CK_TRUE &&
+            cca_mk_change_find_op_by_keytype(tokdata, key_type) != NULL) {
+            sleep(1);
+            num_retries++;
+        }
+    }
 
     if (ret != CKR_OK || !pkey_wrap_handler_data.wrap_was_successful) {
         TRACE_ERROR("cca_iterate_adapters failed or no APQN could create the pkey.\n");
