@@ -207,7 +207,7 @@ CK_RV ecdh_derive_secret(CK_SESSION_HANDLE session, CK_ULONG secret_key_len,
     }
 
     rc = generate_EC_KeyPair(session, (CK_BYTE *)prime256v1, sizeof(prime256v1),
-                             &publ_key, &priv_key);
+                             &publ_key, &priv_key, CK_FALSE);
     if (rc != CKR_OK) {
         testcase_notice("generate_EC_KeyPair rc=%s", p11_get_ckr(rc));
         goto error;

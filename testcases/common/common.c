@@ -496,10 +496,12 @@ CK_RV generate_RSA_PKCS_KeyPair(CK_SESSION_HANDLE session,
 CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
                           CK_BYTE* ec_params, CK_ULONG ec_params_len,
                           CK_OBJECT_HANDLE * publ_key,
-                          CK_OBJECT_HANDLE * priv_key)
+                          CK_OBJECT_HANDLE * priv_key,
+                          CK_BBOOL extractable)
 {
     CK_RV rc;
     CK_MECHANISM mech = { CKM_EC_KEY_PAIR_GEN, NULL, 0 };
+    CK_BBOOL pkeyextractable = !extractable;
     CK_BYTE subject[] = {0};
     CK_BYTE id[] = { 123 };
     CK_BBOOL true = TRUE;
@@ -515,6 +517,8 @@ CK_RV generate_EC_KeyPair(CK_SESSION_HANDLE session,
         {CKA_SENSITIVE, &true, sizeof(true)},
         {CKA_SIGN, &true, sizeof(true)},
         {CKA_DERIVE, &true, sizeof(true)},
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
     CK_ULONG num_publ_attrs = sizeof(publicKeyTemplate)/sizeof(CK_ATTRIBUTE);
     CK_ULONG num_priv_attrs = sizeof(privateKeyTemplate)/sizeof(CK_ATTRIBUTE);
@@ -544,6 +548,7 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
 {
 
     CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+    CK_BBOOL pkeyextractable = !extractable;
     CK_KEY_TYPE keyType = CKK_EC;
     CK_UTF8CHAR label[] = "An EC private key object";
     CK_BYTE subject[] = {0};
@@ -564,7 +569,8 @@ CK_RV create_ECPrivateKey(CK_SESSION_HANDLE session,
         {CKA_DERIVE, &true, sizeof(true)},
         {CKA_EC_PARAMS, params, params_len},
         {CKA_VALUE, privatekey, privatekey_len},
-        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)}
+        {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+        {CKA_IBM_PROTKEY_EXTRACTABLE, &pkeyextractable, sizeof(CK_BBOOL)},
     };
 
     // create key

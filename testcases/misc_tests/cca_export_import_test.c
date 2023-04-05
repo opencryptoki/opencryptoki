@@ -1218,11 +1218,12 @@ static CK_RV cca_ecc_export_import_tests(void)
 	    goto out;
 	}
 
-	// create ock ecc keypair
-
+	// create ock ecc keypair. Last parm CK_FALSE makes the key eligible for
+    // protected key support, i.e. depending on the PKEY_MODE token option
+    // the sign may be performed via CPACF.
 	rc = generate_EC_KeyPair(session,
 				 ec_curves[i].curve, ec_curves[i].size,
-				 &publ_key, &priv_key);
+				 &publ_key, &priv_key, CK_FALSE);
 	if (rc == CKR_CURVE_NOT_SUPPORTED) {
 	    testcase_skip("ECC curve %s not supported yet by CCA token", ec_curves[i].name);
 	    goto error;
