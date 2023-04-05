@@ -1076,11 +1076,14 @@ CK_RV run_DeriveECDHKeyKAT(void)
         };
         CK_ULONG secretB_tmpl_len = sizeof(secretB_tmpl) / sizeof(CK_ATTRIBUTE);
 
+        CK_BBOOL extractable = !pkey;
         CK_ATTRIBUTE  derive_tmpl[] = {
             {CKA_CLASS, &class, sizeof(class)},
             {CKA_KEY_TYPE, &secret_key_type, sizeof(secret_key_type)},
             {CKA_VALUE_LEN, &(ecdh_tv[i].derived_key_len), sizeof(CK_ULONG)},
             {CKA_SENSITIVE, &false, sizeof(false)},
+            {CKA_EXTRACTABLE, &extractable, sizeof(CK_BBOOL)},
+            {CKA_IBM_PROTKEY_EXTRACTABLE, &pkey, sizeof(CK_BBOOL)},
         };
         CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
 
@@ -1587,21 +1590,10 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
             }
         }
 
-        CK_BBOOL bextr = !pkey;
-        CK_ATTRIBUTE ec_priv_attr[] = {
-            {CKA_EXTRACTABLE, &bextr, sizeof(CK_BBOOL)},
-        };
-        CK_ULONG ec_priv_attr_len = sizeof(ec_priv_attr) / sizeof(CK_ATTRIBUTE);
-        CK_ATTRIBUTE ec_publ_attr[] = {
-            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_supported[i].curve,
-             der_ec_supported[i].size}
-        };
-        CK_ULONG ec_publ_attr_len = sizeof(ec_publ_attr) / sizeof(CK_ATTRIBUTE);
+        rc = generate_EC_KeyPair(session, (CK_BYTE *)der_ec_supported[i].curve,
+                                 der_ec_supported[i].size,
+                                 &publ_key, &priv_key, !pkey);
 
-        rc = funcs->C_GenerateKeyPair(session, &mech,
-                                      ec_publ_attr, ec_publ_attr_len,
-                                      ec_priv_attr, ec_priv_attr_len,
-                                      &publ_key, &priv_key);
         if (rc != CKR_OK) {
             if (is_rejected_by_policy(rc, session)) {
                 testcase_skip("EC key generation is not allowed by policy");
@@ -1615,7 +1607,7 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
                 continue;
             }
             testcase_fail
-                ("C_GenerateKeyPair with valid input failed at i=%lu (%s), "
+                ("generate_EC_KeyPair with valid input failed at i=%lu (%s), "
                  "rc=%s", i, der_ec_supported[i].name, p11_get_ckr(rc));
             goto testcase_cleanup;
         }
@@ -1642,17 +1634,13 @@ CK_RV run_GenerateECCKeyPairSignVerify(void)
     }
 
     for (i = 0; i < NUMECINVAL; i++) {
-        CK_ATTRIBUTE ec_attr[] = {
-            {CKA_ECDSA_PARAMS, (CK_VOID_PTR)der_ec_notsupported[i].curve,
-             der_ec_notsupported[i].size}
-        };
-
-        rc = funcs->C_GenerateKeyPair(session, &mech, ec_attr, 1, NULL, 0,
-                                      &publ_key, &priv_key);
+        rc = generate_EC_KeyPair(session, (CK_BYTE *)der_ec_notsupported[i].curve,
+                                 der_ec_notsupported[i].size,
+                                 &publ_key, &priv_key, !pkey);
         testcase_new_assertion();
         if (rc == CKR_OK) {
             testcase_fail
-                ("C_GenerateKeyPair with invalid input failed at i=%lu (%s)",
+                ("generate_EC_KeyPair with invalid input failed at i=%lu (%s)",
                  i, der_ec_supported[i].name);
             goto testcase_cleanup;
         }

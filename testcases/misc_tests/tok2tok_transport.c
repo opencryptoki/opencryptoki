@@ -688,7 +688,8 @@ CK_RV do_wrap_key_test(struct wrapped_mech_info *tsuite,
 
     case CKM_EC_KEY_PAIR_GEN:
         rc = generate_EC_KeyPair(session1, tsuite->ec_params,
-                                 tsuite->ec_params_len, &publ_key, &priv_key);
+                                 tsuite->ec_params_len, &publ_key, &priv_key,
+                                 CK_TRUE); // must be extractable for Wrap/Unwrap
         break;
 
     default:
