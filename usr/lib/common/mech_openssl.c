@@ -1164,19 +1164,6 @@ CK_RV openssl_specific_rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     }
 
     rc = rsa_parse_block(out, modulus_bytes, out_data, out_data_len, PKCS_BT_2);
-    if (rc != CKR_OK) {
-        TRACE_DEVEL("rsa_parse_block failed\n");
-        goto done;
-    }
-
-    /*
-     * For PKCS #1 v1.5 padding, out_data_len must be less than
-     * modulus_bytes - 11.
-     */
-    if (*out_data_len > (modulus_bytes - 11)) {
-        TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-        rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-    }
 
 done:
     OPENSSL_cleanse(out, sizeof(out));

@@ -2512,12 +2512,12 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
                                     length_only, sess->decr_ctx.key,
                                     pEncryptedData, ulEncryptedDataLen,
                                     pData, pulDataLen);
-        if (rc != CKR_OK)
+        if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
             TRACE_DEVEL("ep11tok_decrypt_single() failed.\n");
     } else {
         rc = ep11tok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
                              pData, pulDataLen);
-        if (rc != CKR_OK)
+        if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
             TRACE_DEVEL("ep11tok_decrypt() failed.\n");
     }
 
@@ -2595,7 +2595,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = ep11tok_decrypt_update(tokdata, sess, pEncryptedPart,
                                 ulEncryptedPartLen, pPart, pulPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("ep11tok_decrypt_update() failed.\n");
 
 done:
@@ -2669,7 +2669,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     }
 
     rc = ep11tok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("ep11tok_decrypt_final() failed.\n");
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {

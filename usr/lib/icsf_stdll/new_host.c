@@ -1801,7 +1801,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = icsftok_decrypt(tokdata, sess, pEncryptedData, ulEncryptedDataLen,
                          pData, pulDataLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt() failed.\n");
 
 done:
@@ -1857,7 +1857,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = icsftok_decrypt_update(tokdata, sess, pEncryptedPart,
                                 ulEncryptedPartLen, pPart, pulPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_update() failed.\n");
 
 done:
@@ -1915,7 +1915,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
         length_only = TRUE;
 
     rc = icsftok_decrypt_final(tokdata, sess, pLastPart, pulLastPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("icsftok_decrypt_final() failed.\n");
 done:
     if (rc != CKR_BUFFER_TOO_SMALL && (rc != CKR_OK || length_only != TRUE)) {

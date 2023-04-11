@@ -30,6 +30,34 @@
 
 #include <openssl/crypto.h>
 
+CK_BBOOL is_rsa_mechanism(CK_MECHANISM_TYPE mech)
+{
+    switch (mech) {
+    case CKM_RSA_9796:
+    case CKM_RSA_PKCS:
+    case CKM_MD2_RSA_PKCS:
+    case CKM_MD5_RSA_PKCS:
+    case CKM_SHA1_RSA_PKCS:
+    case CKM_SHA224_RSA_PKCS:
+    case CKM_SHA256_RSA_PKCS:
+    case CKM_SHA384_RSA_PKCS:
+    case CKM_SHA512_RSA_PKCS:
+    case CKM_RSA_PKCS_PSS:
+    case CKM_SHA1_RSA_PKCS_PSS:
+    case CKM_SHA224_RSA_PKCS_PSS:
+    case CKM_SHA256_RSA_PKCS_PSS:
+    case CKM_SHA384_RSA_PKCS_PSS:
+    case CKM_SHA512_RSA_PKCS_PSS:
+    case CKM_RSA_PKCS_OAEP:
+    case CKM_RSA_X_509:
+    case CKM_RSA_X9_31:
+    case CKM_SHA1_RSA_X9_31:
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 CK_RV rsa_get_key_info(OBJECT *key_obj, CK_ULONG *mod_bytes,
                        CK_OBJECT_CLASS *keyclass)
 {
@@ -511,14 +539,8 @@ CK_RV rsa_pkcs_decrypt(STDLL_TokData_t *tokdata,
     rc = token_specific.t_rsa_decrypt(tokdata, in_data, in_data_len, out_data,
                                       out_data_len, key_obj);
 
-    if (rc != CKR_OK) {
-        if (rc == CKR_DATA_LEN_RANGE) {
-            TRACE_ERROR("%s\n", ock_err(ERR_ENCRYPTED_DATA_LEN_RANGE));
-            rc = CKR_ENCRYPTED_DATA_LEN_RANGE;
-            goto done;
-        }
-        TRACE_DEVEL("Token Specific rsa decrypt failed.\n");
-    }
+    rc = constant_time_select_int(constant_time_eq(rc, CKR_DATA_LEN_RANGE),
+                                  CKR_ENCRYPTED_DATA_INVALID, rc);
 
 done:
     object_put(tokdata, key_obj, TRUE);
