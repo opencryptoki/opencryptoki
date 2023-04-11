@@ -55,8 +55,8 @@ function genlatestep11cfg() {
     return $res
 }
 
-# Usage: genccamkvpcfg num
-function genccamkvpcfg() {
+# Usage: genccacfg num
+function genccacfg() {
     cat <<EOF > "${CCACONFDIR}/ccatok${1}.conf"
 version cca-0
 EXPECTED_MKVPS {
@@ -64,6 +64,7 @@ EXPECTED_MKVPS {
   AES = "$CCA_AES_MKVP"
   APKA = "$CCA_APKA_MKVP"
 }
+PKEY_MODE = ENABLED
 EOF
 }
 
@@ -85,7 +86,7 @@ addslot 10 libpkcs11_ica.so ica0
 addslot 11 libpkcs11_ica.so ica1
 
 # CCA token
-genccamkvpcfg 20
+genccacfg 20
 addslot 20 libpkcs11_cca.so cca0 ccatok20.conf
 addslot 21 libpkcs11_cca.so cca1
 
