@@ -1191,7 +1191,7 @@ static CK_RV cca_get_and_check_mkvps(STDLL_TokData_t *tokdata,
     unsigned char apka_mkvp[CCA_MKVP_LENGTH];
     unsigned char apka_new_mkvp[CCA_MKVP_LENGTH];
     unsigned char *op_sym_mkvp, *op_aes_mkvp, *op_apka_mkvp;
-    unsigned int sym_op_idx, aes_op_idx, apka_op_idx;
+    unsigned int sym_op_idx = 0, aes_op_idx = 0, apka_op_idx = 0;
     enum cca_cmk_state mk_state;
     enum cca_nmk_state sym_new_state, aes_new_state, apka_new_state;
     CK_RV rc, rc2 = CKR_OK;
