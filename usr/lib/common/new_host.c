@@ -2377,7 +2377,7 @@ CK_RV SC_Decrypt(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     rc = decr_mgr_decrypt(tokdata, sess, length_only, &sess->decr_ctx,
                           pEncryptedData, ulEncryptedDataLen, pData,
                           pulDataLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("decr_mgr_decrypt() failed.\n");
 
 done:
@@ -2436,7 +2436,7 @@ CK_RV SC_DecryptUpdate(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
     rc = decr_mgr_decrypt_update(tokdata, sess, length_only,
                                  &sess->decr_ctx, pEncryptedPart,
                                  ulEncryptedPartLen, pPart, pulPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("decr_mgr_decrypt_update() failed.\n");
 
 done:
@@ -2493,7 +2493,7 @@ CK_RV SC_DecryptFinal(STDLL_TokData_t *tokdata, ST_SESSION_HANDLE *sSession,
 
     rc = decr_mgr_decrypt_final(tokdata, sess, length_only, &sess->decr_ctx,
                                 pLastPart, pulLastPartLen);
-    if (rc != CKR_OK)
+    if (!is_rsa_mechanism(sess->decr_ctx.mech.mechanism) && rc != CKR_OK)
         TRACE_DEVEL("decr_mgr_decrypt_final() failed.\n");
 
 done:

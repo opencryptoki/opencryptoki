@@ -565,6 +565,8 @@ CK_RV ckm_ssl3_pre_master_key_gen(STDLL_TokData_t *tokdata,
 
 // RSA routines
 //
+CK_BBOOL is_rsa_mechanism(CK_MECHANISM_TYPE mech);
+
 CK_RV rsa_pkcs_encrypt(STDLL_TokData_t *tokdata,
                        SESSION *sess,
                        CK_BBOOL length_only,
