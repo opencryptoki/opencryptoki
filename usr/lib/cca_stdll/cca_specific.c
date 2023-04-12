@@ -1599,7 +1599,10 @@ static CK_RV cca_iterate_domains(STDLL_TokData_t *tokdata, const char *device,
         if (cca_private->dev_any) {
             rc2 = cca_get_current_card(tokdata, &card);
             if (rc2 != CKR_OK) {
-                rc |= rc2;
+                if (rc2 == CKR_FUNCTION_FAILED) /* device not avail., ignore */
+                    rc2 = CKR_OK;
+                else
+                    rc |= rc2;
                 goto deallocate;
             }
         }
