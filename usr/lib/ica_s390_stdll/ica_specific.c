@@ -1776,7 +1776,7 @@ static ica_rsa_key_crt_t *rsa_convert_crt_key(CK_ATTRIBUTE *modulus,
         crtkey->key_length = modulus->ulValueLen;
 
         /* buffers pointed by p, q, dp, dq and qInverse in struct
-         * ica_rsa_key_crt_t must be of size key_legth/2 or larger.
+         * ica_rsa_key_crt_t must be of size key_length/2 or larger.
          * p, dp and qInverse have an additional 8-byte padding. */
 
         /* need to allocate the buffers. Also, all fields are
