@@ -456,11 +456,13 @@ void bt_destroy(struct btree *t)
  * Initialize a btree with a delete callback function that is used to delete
  * values during bt_node_free() and bt_destroy().
  */
-void bt_init(struct btree *t, void (*delete_func)(void *))
+CK_RV bt_init(struct btree *t, void (*delete_func)(void *))
 {
     t->free_list = NULL;
     t->top = NULL;
     t->size = 0;
     t->free_nodes = 0;
     t->delete_func = delete_func;
+
+    return CKR_OK;
 }

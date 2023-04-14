@@ -3085,7 +3085,11 @@ CK_RV C_Initialize(CK_VOID_PTR pVoid)
     //if ( Shared Memory Mapped not Successful )
     //                Free allocated Memory
     //                Return CKR_HOST_MEMORY
-    bt_init(&Anchor->sess_btree, free);
+    if (bt_init(&Anchor->sess_btree, free) != CKR_OK) {
+        TRACE_ERROR("Btree init Failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto error;
+    }
 
 #if OPENSSL_VERSION_PREREQ(3, 0)
     /*

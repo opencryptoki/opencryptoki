@@ -88,11 +88,16 @@ CK_RV ST_Initialize(API_Slot_t *sltp, CK_SLOT_ID SlotNumber,
     /* set trace info */
     set_trace(t);
 
-    bt_init(&sltp->TokData->sess_btree, free);
-    bt_init(&sltp->TokData->object_map_btree, free);
-    bt_init(&sltp->TokData->sess_obj_btree, call_object_free);
-    bt_init(&sltp->TokData->priv_token_obj_btree, call_object_free);
-    bt_init(&sltp->TokData->publ_token_obj_btree, call_object_free);
+    rc = bt_init(&sltp->TokData->sess_btree, free);
+    rc |= bt_init(&sltp->TokData->object_map_btree, free);
+    rc |= bt_init(&sltp->TokData->sess_obj_btree, call_object_free);
+    rc |= bt_init(&sltp->TokData->priv_token_obj_btree, call_object_free);
+    rc |= bt_init(&sltp->TokData->publ_token_obj_btree, call_object_free);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("Btree init failed\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto done;
+    }
 
     if (strlen(sinfp->tokname)) {
         if (ock_snprintf(abs_tokdir_name, PATH_MAX, "%s/%s",
@@ -203,6 +208,11 @@ done:
         } else {
             CloseXProcLock(sltp->TokData);
             final_data_store(sltp->TokData);
+            bt_destroy(&sltp->TokData->sess_btree);
+            bt_destroy(&sltp->TokData->object_map_btree);
+            bt_destroy(&sltp->TokData->sess_obj_btree);
+            bt_destroy(&sltp->TokData->priv_token_obj_btree);
+            bt_destroy(&sltp->TokData->publ_token_obj_btree);
         }
     }
 

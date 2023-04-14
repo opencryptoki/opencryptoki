@@ -375,8 +375,17 @@ CK_RV icsftok_init(STDLL_TokData_t * tokdata, CK_SLOT_ID slot_id,
     if (icsf_data == NULL)
         return CKR_HOST_MEMORY;
     list_init(&icsf_data->sessions);
-    pthread_mutex_init(&icsf_data->sess_list_mutex, NULL);
-    bt_init(&icsf_data->objects, free);
+    if (pthread_mutex_init(&icsf_data->sess_list_mutex, NULL) != 0) {
+        TRACE_ERROR("Initializing session list lock failed.\n");
+        free(icsf_data);
+        return CKR_CANT_LOCK;
+    }
+    if (bt_init(&icsf_data->objects, free) != CKR_OK) {
+        TRACE_ERROR("BTree init failed.\n");
+        pthread_mutex_destroy(&icsf_data->sess_list_mutex);
+        free(icsf_data);
+        return CKR_FUNCTION_FAILED;
+    }
     tokdata->private_data = icsf_data;
 
     rc = XProcLock(tokdata);
