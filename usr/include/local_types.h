@@ -73,6 +73,6 @@ unsigned long bt_node_add(struct btree *t, void *value);
 void *bt_node_free(struct btree *t, unsigned long node_num,
                    int call_delete_func);
 void bt_destroy(struct btree *t);
-void bt_init(struct btree *t, void (*delete_func)(void *));
+CK_RV bt_init(struct btree *t, void (*delete_func)(void *));
 
 #endif

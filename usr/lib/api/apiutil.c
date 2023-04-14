@@ -613,10 +613,22 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
     sltp->TokData->real_gid = Anchor->ClientCred.real_gid;
     sltp->TokData->ro_session_count = 0;
     sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
+    sltp->TokData->spinxplfd = -1;
+    sltp->TokData->spinxplfd_count = 0;
 #ifdef ENABLE_LOCKS
-    pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL);
+    if (pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL) != 0) {
+        TRACE_ERROR("Initializing session list lock failed.\n");
+        free(sltp->TokData);
+        sltp->TokData = NULL;
+        return FALSE;
+    }
 #endif
-    pthread_mutex_init(&sltp->TokData->login_mutex, NULL);
+    if (pthread_mutex_init(&sltp->TokData->login_mutex, NULL) != 0) {
+        TRACE_ERROR("Initializing login mutex failed.\n");
+        free(sltp->TokData);
+        sltp->TokData = NULL;
+        return FALSE;
+    }
     sltp->TokData->policy = policy;
     sltp->TokData->mechtable_funcs = &mechtable_funcs;
     sltp->TokData->statistics = statistics;
@@ -635,6 +647,8 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
             DL_Load(sinfp, sltp, dllload);
         }
     } else {
+        free(sltp->TokData);
+        sltp->TokData = NULL;
         return FALSE;
     }
 

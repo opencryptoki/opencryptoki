@@ -488,7 +488,7 @@ void bt_destroy(struct btree *t)
  * Initialize a btree with a delete callback function that is used to delete
  * values during bt_node_free() and bt_destroy().
  */
-void bt_init(struct btree *t, void (*delete_func)(void *))
+CK_RV bt_init(struct btree *t, void (*delete_func)(void *))
 {
     pthread_mutexattr_t attr;
 
@@ -502,7 +502,18 @@ void bt_init(struct btree *t, void (*delete_func)(void *))
      * Need a recursive mutex, because btree callback functions may call
      * btree functions again
      */
-    pthread_mutexattr_init(&attr);
-    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(&t->mutex, &attr);
+    if (pthread_mutexattr_init(&attr) != 0) {
+        TRACE_ERROR("pthread_mutexattr_init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0) {
+        TRACE_ERROR("pthread_mutexattr_settype failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutex_init(&t->mutex, &attr) != 0) {
+        TRACE_ERROR("pthread_mutex_init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    return CKR_OK;
 }
