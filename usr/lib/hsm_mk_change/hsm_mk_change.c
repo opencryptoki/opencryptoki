@@ -596,14 +596,14 @@ static FILE* hsm_mk_change_op_open(const char *id, CK_SLOT_ID slot_id,
     FILE *fp;
 
     if (slot_id != (CK_SLOT_ID)-1) {
-        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/HSM_MK_CHANGE/%s-%lu",
-                         CONFIG_PATH, id, slot_id) != 0) {
+        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/%s-%lu",
+                         OCK_HSM_MK_CHANGE_PATH, id, slot_id) != 0) {
             TRACE_ERROR("HSM_MK_CHANGE directory path buffer overflow\n");
             return NULL;
         }
     } else {
-        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/HSM_MK_CHANGE/%s",
-                         CONFIG_PATH, id) != 0) {
+        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/%s",
+                         OCK_HSM_MK_CHANGE_PATH, id) != 0) {
             TRACE_ERROR("HSM_MK_CHANGE directory path buffer overflow\n");
             return NULL;
         }
@@ -760,8 +760,8 @@ CK_RV hsm_mk_change_op_create(struct hsm_mk_change_op *op)
     int fd;
     CK_RV rc;
 
-    if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/HSM_MK_CHANGE/XXXXXX",
-                     CONFIG_PATH) != 0) {
+    if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/XXXXXX",
+                     OCK_HSM_MK_CHANGE_PATH) != 0) {
         TRACE_ERROR("HSM_MK_CHANGE directory path buffer overflow\n");
         return CKR_FUNCTION_FAILED;
     }
@@ -884,21 +884,14 @@ out:
 
 CK_RV hsm_mk_change_op_remove(const char *id)
 {
-    char hsm_mk_change_dir[PATH_MAX];
     char hsm_mk_change_file[PATH_MAX];
     struct dirent **namelist;
     CK_RV rc = CKR_OK;
     int n, i;
 
-    if (ock_snprintf(hsm_mk_change_dir, PATH_MAX, "%s/HSM_MK_CHANGE",
-                     CONFIG_PATH) != 0) {
-        TRACE_ERROR("HSM_MK_CHANGE directory path buffer overflow\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
-    n = scandir(hsm_mk_change_dir, &namelist, NULL, alphasort);
+    n = scandir(OCK_HSM_MK_CHANGE_PATH, &namelist, NULL, alphasort);
     if (n == -1) {
-        TRACE_ERROR("scandir(%s) failed with: %s\n", hsm_mk_change_dir,
+        TRACE_ERROR("scandir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
                     strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
@@ -909,8 +902,8 @@ CK_RV hsm_mk_change_op_remove(const char *id)
         if (strncmp(namelist[i]->d_name, id, strlen(id)) != 0)
             continue;
 
-        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/HSM_MK_CHANGE/%s",
-                         CONFIG_PATH, namelist[i]->d_name) != 0) {
+        if (ock_snprintf(hsm_mk_change_file, PATH_MAX, "%s/%s",
+                         OCK_HSM_MK_CHANGE_PATH, namelist[i]->d_name) != 0) {
             TRACE_ERROR("HSM_MK_CHANGE file path buffer overflow\n");
             rc = CKR_FUNCTION_FAILED;
             break;
@@ -937,22 +930,15 @@ CK_RV hsm_mk_change_op_iterate(CK_RV (*cb)(struct hsm_mk_change_op *op,
                                            void *private), void *private)
 {
     struct hsm_mk_change_op op;
-    char hsm_mk_change_dir[PATH_MAX];
     struct dirent **namelist;
     CK_RV rc = CKR_OK;
     int n, i;
 
-    if (ock_snprintf(hsm_mk_change_dir, PATH_MAX, "%s/HSM_MK_CHANGE",
-                     CONFIG_PATH) != 0) {
-        TRACE_ERROR("HSM_MK_CHANGE directory path buffer overflow\n");
-        return CKR_FUNCTION_FAILED;
-    }
-
     memset(&op, 0, sizeof(op));
 
-    n = scandir(hsm_mk_change_dir, &namelist, NULL, alphasort);
+    n = scandir(OCK_HSM_MK_CHANGE_PATH, &namelist, NULL, alphasort);
     if (n == -1) {
-        TRACE_ERROR("scandir(%s) failed with: %s\n", hsm_mk_change_dir,
+        TRACE_ERROR("scandir(%s) failed with: %s\n", OCK_HSM_MK_CHANGE_PATH,
                     strerror(errno));
         return CKR_FUNCTION_FAILED;
     }
