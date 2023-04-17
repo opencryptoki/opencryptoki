@@ -1,20 +1,16 @@
-sudo: required
+os: linux
 dist: focal
 
 language: c
 
 before_install:
     - sudo apt-get -qq update
-    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive
+    - sudo apt-get install -y expect libldap2-dev wget libudev-dev autoconf-archive libcap-dev
     - if [ "$TRAVIS_CPU_ARCH" != "amd64" ]; then sudo apt-get install -y trousers libtspi-dev; fi
-    - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica3_3.4.0-0ubuntu1_s390x.deb
-    - sudo wget https://launchpad.net/ubuntu/+archive/primary/+files/libica-dev_3.4.0-0ubuntu1_s390x.deb
-    - sudo dpkg -i libica3_3.4.0-0ubuntu1_s390x.deb || true    # icatok needs libica >= 3.3
-    - sudo dpkg -i libica-dev_3.4.0-0ubuntu1_s390x.deb || true #  but install otherwise fails for non-s390x
+    - if [ "$TRAVIS_CPU_ARCH" = "s390x" ]; then sudo apt-get install -y libica3 libica-dev; fi
 
-matrix:
+jobs:
     include:
-          # TODO: Appease -Wclobbered in tm builds.
         - name: "linux-x86-clang-locks"
           os: linux
           compiler: clang
@@ -55,7 +51,6 @@ matrix:
           env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-tpmtok --enable-testcases --disable-locks --with-systemd" CFLAGS="-O3 -Wno-clobbered -Werror -DDEBUG"
 
 before_script:
-    - sudo groupadd pkcs11
     - ./bootstrap.sh
 
 script:
