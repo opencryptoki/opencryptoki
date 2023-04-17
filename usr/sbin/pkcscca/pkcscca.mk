@@ -7,7 +7,7 @@ noinst_HEADERS += usr/lib/common/h_extern.h
 noinst_HEADERS += usr/lib/common/pkcs_utils.h
 noinst_HEADERS += usr/lib/common/pin_prompt.h
 
-usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber
+usr_sbin_pkcscca_pkcscca_LDFLAGS = -lcrypto -ldl -lrt -llber -lpthread
 
 usr_sbin_pkcscca_pkcscca_CFLAGS  =					\
 	-DSTDLL_NAME=\"pkcscca\"					\
@@ -41,16 +41,7 @@ usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/common/asn1.c		\
 	usr/lib/common/dlist.c usr/sbin/pkcscca/pkcscca.c		\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/common/pin_prompt.c usr/lib/common/mech_openssl.c	\
-	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c
+	usr/lib/api/policyhelper.c usr/lib/common/pqc_supported.c	\
+	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
 
 nodist_usr_sbin_pkcscca_pkcscca_SOURCES = usr/lib/api/mechtable.c
-
-if ENABLE_LOCKS
-usr_sbin_pkcscca_pkcscca_SOURCES +=				\
-	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c
-usr_sbin_pkcscca_pkcscca_LDFLAGS += -lpthread
-else
-usr_sbin_pkcscca_pkcscca_SOURCES +=				\
-	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
-usr_sbin_pkcscca_pkcscca_LDFLAGS += -litm
-endif

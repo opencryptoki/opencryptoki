@@ -14,6 +14,7 @@
 //
 #include <stdlib.h>
 #include <string.h>             // for memcmp() et al
+#include <pthread.h>
 
 #include "pkcs11types.h"
 #include "local_types.h"
@@ -23,11 +24,10 @@
 #include "tok_spec_struct.h"
 #include "trace.h"
 
-
 // session_mgr_find()
 //
 // search for the specified session. returning a pointer to the session
-// might be dangerous, but performs well
+// might be dangerous, but performs well.
 //
 // The returned session must be put back (using bt_put_node_value()) by the
 // caller to decrease the reference count!
@@ -115,28 +115,34 @@ CK_RV session_mgr_new(STDLL_TokData_t *tokdata, CK_ULONG flags,
     so_session = session_mgr_so_session_exists(tokdata);
     user_session = session_mgr_user_session_exists(tokdata);
 
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        rc = CKR_CANT_LOCK;
+        goto done;
+    }
+
     // we don't have to worry about having a user and SO session at the same
     // time. that is prevented in the login routine
     //
-    __transaction_atomic {      /* start transaction */
-        if (user_session) {
-            if (new_session->session_info.flags & CKF_RW_SESSION) {
-                new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
-            } else {
-                new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
-                tokdata->ro_session_count++;
-            }
-        } else if (so_session) {
-            new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
+    if (user_session) {
+        if (new_session->session_info.flags & CKF_RW_SESSION) {
+            new_session->session_info.state = CKS_RW_USER_FUNCTIONS;
         } else {
-            if (new_session->session_info.flags & CKF_RW_SESSION) {
-                new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
-            } else {
-                new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
-                tokdata->ro_session_count++;
-            }
+            new_session->session_info.state = CKS_RO_USER_FUNCTIONS;
+            tokdata->ro_session_count++;
+        }
+    } else if (so_session) {
+        new_session->session_info.state = CKS_RW_SO_FUNCTIONS;
+    } else {
+        if (new_session->session_info.flags & CKF_RW_SESSION) {
+            new_session->session_info.state = CKS_RW_PUBLIC_SESSION;
+        } else {
+            new_session->session_info.state = CKS_RO_PUBLIC_SESSION;
+            tokdata->ro_session_count++;
         }
     }
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
 
     *phSession = bt_node_add(&tokdata->sess_btree, new_session);
     if (*phSession == 0) {
@@ -162,13 +168,18 @@ done:
 //
 CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata)
 {
-    __transaction_atomic {      /* start transaction */
-        CK_BBOOL result;
+    CK_BBOOL result;
 
-        result = (tokdata->global_login_state == CKS_RW_SO_FUNCTIONS);
+    /* we must acquire sess_list_rwlock in order to inspect
+     * global_login_state */
+    if (pthread_rwlock_rdlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Read Lock failed.\n");
+        return FALSE;
+    }
+    result = (tokdata->global_login_state == CKS_RW_SO_FUNCTIONS);
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
 
-        return result;
-    }                           /* end transaction */
+    return result;
 }
 
 
@@ -180,14 +191,20 @@ CK_BBOOL session_mgr_so_session_exists(STDLL_TokData_t *tokdata)
 //
 CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata)
 {
-    __transaction_atomic {      /* start transaction */
-        CK_BBOOL result;
+    CK_BBOOL result;
 
-        result = ((tokdata->global_login_state == CKS_RO_USER_FUNCTIONS) ||
-                  (tokdata->global_login_state == CKS_RW_USER_FUNCTIONS));
+    /* we must acquire sess_list_rwlock in order to inspect
+     * glogal_login_state */
+    if (pthread_rwlock_rdlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Read Lock failed.\n");
+        return FALSE;
+    }
+    result = ((tokdata->global_login_state == CKS_RO_USER_FUNCTIONS) ||
+              (tokdata->global_login_state == CKS_RW_USER_FUNCTIONS));
 
-        return result;
-    }                           /* end transaction */
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
+
+    return result;
 }
 
 
@@ -199,14 +216,20 @@ CK_BBOOL session_mgr_user_session_exists(STDLL_TokData_t *tokdata)
 //
 CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata)
 {
-    __transaction_atomic {      /* start transaction */
-        CK_BBOOL result;
+    CK_BBOOL result;
 
-        result = ((tokdata->global_login_state == CKS_RO_PUBLIC_SESSION) ||
-                  (tokdata->global_login_state == CKS_RW_PUBLIC_SESSION));
+    /* we must acquire sess_list_rwlock in order to inspect
+     * global_login_state */
+    if (pthread_rwlock_rdlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Read Lock failed.\n");
+        return FALSE;
+    }
+    result = ((tokdata->global_login_state == CKS_RO_PUBLIC_SESSION) ||
+              (tokdata->global_login_state == CKS_RW_PUBLIC_SESSION));
 
-        return result;
-    }                           /* end transaction */
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
+
+    return result;
 }
 
 
@@ -217,13 +240,19 @@ CK_BBOOL session_mgr_public_session_exists(STDLL_TokData_t *tokdata)
 //
 CK_BBOOL session_mgr_readonly_session_exists(STDLL_TokData_t *tokdata)
 {
-    __transaction_atomic {      /* start transaction */
-        CK_BBOOL result;
+    CK_BBOOL result;
 
-        result = (tokdata->ro_session_count > 0);
+    /* we must acquire sess_list_rwlock in order to inspect ro_session_count */
+    if (pthread_rwlock_rdlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Read Lock failed.\n");
+        return FALSE;
+    }
 
-        return result;
-    }                           /* end transaction */
+    result = (tokdata->ro_session_count > 0);
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
+
+    return result;
 }
 
 
@@ -245,18 +274,22 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
     sess = bt_get_node_value(&tokdata->sess_btree, handle);
     if (!sess) {
         TRACE_ERROR("%s\n", ock_err(ERR_SESSION_HANDLE_INVALID));
-        rc = CKR_SESSION_HANDLE_INVALID;
-        goto done;
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        bt_put_node_value(&tokdata->sess_btree, sess);
+        sess = NULL;
+        return CKR_CANT_LOCK;
     }
 
     object_mgr_purge_session_objects(tokdata, sess, ALL);
 
-    __transaction_atomic {      /* start transaction */
-        if ((sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
-            (sess->session_info.state == CKS_RO_USER_FUNCTIONS)) {
-            tokdata->ro_session_count--;
-        }
-    }                           /* end transaction */
+    if ((sess->session_info.state == CKS_RO_PUBLIC_SESSION) ||
+        (sess->session_info.state == CKS_RO_USER_FUNCTIONS)) {
+        tokdata->ro_session_count--;
+    }
 
     // Make sure this address is now invalid
     sess->handle = CK_INVALID_HANDLE;
@@ -344,16 +377,14 @@ CK_RV session_mgr_close_session(STDLL_TokData_t *tokdata,
         }
         object_mgr_purge_private_token_objects(tokdata);
 
-        __transaction_atomic {  /* start transaction */
-            tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
-        }                       /* end transaction */
+        tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
         // The objects really need to be purged .. but this impacts the
         // performance under linux.   So we need to make sure that the
         // login state is valid.    I don't really like this.
         object_mgr_purge_map(tokdata, (SESSION *) 0xFFFF, PRIVATE);
     }
 
-done:
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
     return rc;
 }
 
@@ -440,16 +471,23 @@ void session_free(STDLL_TokData_t *tokdata, void *node_value,
 
 // session_mgr_close_all_sessions()
 //
-// removes all sessions from the specified process
+// removes all sessions from the specified process.
+// If tokdata is not NULL, then only sessions for that token instance are
+// removed.
 //
 CK_RV session_mgr_close_all_sessions(STDLL_TokData_t *tokdata)
 {
     bt_for_each_node(tokdata, &tokdata->sess_btree, session_free, NULL);
 
-    __transaction_atomic {      /* start transaction */
-        tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
-        tokdata->ro_session_count = 0;
-    }                           /* end transaction */
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    tokdata->global_login_state = CKS_RO_PUBLIC_SESSION;
+    tokdata->ro_session_count = 0;
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
 
     return CKR_OK;
 }
@@ -478,9 +516,7 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
             s->session_info.state = CKS_RO_USER_FUNCTIONS;
     }
 
-    __transaction_atomic {      /* start transaction */
-        tokdata->global_login_state = s->session_info.state; // SAB
-    }                           /* end transaction */
+    tokdata->global_login_state = s->session_info.state; // SAB
 }
 
 // session_mgr_login_all()
@@ -491,8 +527,15 @@ void session_login(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_login_all(STDLL_TokData_t *tokdata, CK_USER_TYPE user_type)
 {
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
     bt_for_each_node(tokdata, &tokdata->sess_btree, session_login,
                      (void *)&user_type);
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
 
     return CKR_OK;
 }
@@ -519,9 +562,7 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
     else
         s->session_info.state = CKS_RO_PUBLIC_SESSION;
 
-    __transaction_atomic {      /* start transaction */
-        tokdata->global_login_state = s->session_info.state; // SAB
-    }                           /* end transaction */
+    tokdata->global_login_state = s->session_info.state; // SAB
 }
 
 // session_mgr_logout_all()
@@ -530,7 +571,14 @@ void session_logout(STDLL_TokData_t *tokdata, void *node_value,
 //
 CK_RV session_mgr_logout_all(STDLL_TokData_t *tokdata)
 {
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
     bt_for_each_node(tokdata, &tokdata->sess_btree, session_logout, NULL);
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
 
     return CKR_OK;
 }

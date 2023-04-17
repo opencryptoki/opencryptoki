@@ -393,9 +393,7 @@ struct _STDLL_TokData_t {
     unsigned char user_wrap_key[32];
     pthread_mutex_t login_mutex;
     struct btree sess_btree;
-#ifdef ENABLE_LOCKS
     pthread_rwlock_t sess_list_rwlock;
-#endif
     struct btree object_map_btree;
     struct btree sess_obj_btree;
     struct btree publ_token_obj_btree;

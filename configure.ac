@@ -70,8 +70,6 @@ if test "x$YACC" = "xno"; then
     AC_MSG_ERROR(['bison' program is missing on your system. Please install 'bison'.])
 fi
 
-AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
-
 LIBCAP_LIBS=
 AC_CHECK_LIB([cap], [cap_get_proc], [LIBCAP_LIBS="-lcap"],
 		[AC_MSG_ERROR(['libcap' library is missing on your system. Please install 'libcap-devel'.])])
@@ -183,7 +181,7 @@ AC_ARG_ENABLE([pkcsep11_session],
 
 dnl --- locking support
 AC_ARG_ENABLE([locks],
-	AS_HELP_STRING([--disable-locks],[build opencryptoki with transactional memory instead of locks]))
+	AS_HELP_STRING([--disable-locks],[This option is no longer supported, ignored if specified.]))
 
 dnl --- p11sak tool
 AC_ARG_ENABLE([p11sak],
@@ -625,20 +623,9 @@ dnl --- enable_pkcshsm_mk_change
 AM_CONDITIONAL([ENABLE_PKCSHSM_MK_CHANGE], [test "x$enable_pkcshsm_mk_change" = "xyes"])
 
 dnl --- enable_locks
-if test "x$enable_locks" != "xno"; then
-	enable_locks=yes
-	CFLAGS="$CFLAGS -DENABLE_LOCKS"
-else
-	enable_locks=no
-	CFLAGS="$CFLAGS -fgnu-tm"
-fi
 if test "x$enable_locks" = "xno"; then
-	if test "x$itm" != "xyes"; then
-		AC_MSG_ERROR([in order to build opencryptoki with transactional memory,
-libitm and gcc>=4.7 is required])
-    fi
+	AC_MSG_WARN([The --disable-locks option is no longer supported, it is ignored.])
 fi
-AM_CONDITIONAL([ENABLE_LOCKS], [test "x$enable_locks" = "xyes"])
 
 dnl --- enable_md2
 if test "x$enable_md2" = "xyes"; then
@@ -701,7 +688,6 @@ echo "	Testcases:		$enable_testcases"
 echo "	Daemon build:		$enable_daemon"
 echo "	Library build:		$enable_library"
 echo "	Systemd service:	$enable_systemd"
-echo "	Build with locks:	$enable_locks"
 echo "	Build with libudev:	$with_libudev"
 echo "	Build p11sak tool:	$enable_p11sak"
 echo "	token migrate tool:	$enable_pkcstok_migrate"

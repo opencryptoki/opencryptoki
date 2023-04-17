@@ -31,19 +31,11 @@ opencryptoki_libopencryptoki_la_SOURCES = usr/lib/api/api_interface.c	\
 	usr/lib/common/mgf_translation.c				\
 	usr/lib/api/supportedstrengths.c				\
 	usr/lib/common/pqc_supported.c					\
-	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l
+	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
+	usr/lib/common/btree.c
 
 nodist_opencryptoki_libopencryptoki_la_SOURCES =			\
 	usr/lib/api/mechtable.c
-
-if ENABLE_LOCKS
-opencryptoki_libopencryptoki_la_SOURCES +=				\
-	usr/lib/common/lock_btree.c
-else
-opencryptoki_libopencryptoki_la_SOURCES +=				\
-	usr/lib/common/btree.c
-opencryptoki_libopencryptoki_la_LDFLAGS += -litm
-endif
 
 usr/lib/api/mechtable.c usr/lib/api/mechtable-gen.h: tools/tableidxgen
 	$(AM_V_GEN)$(MKDIR_P) usr/lib/api && ${abs_builddir}/tools/tableidxgen -c usr/lib/api/mechtable.c -d usr/lib/api/mechtable-gen.h -l usr/lib/api/mechtable.log

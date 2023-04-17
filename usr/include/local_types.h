@@ -24,11 +24,7 @@ typedef unsigned int uint32;
 
 /* Each node value must start with struct bt_ref_hdr */
 struct bt_ref_hdr {
-#ifdef ENABLE_LOCKS
     volatile unsigned long ref;
-#else
-    unsigned long ref;
-#endif
 };
 
 #define BT_FLAG_FREE 1
@@ -51,9 +47,7 @@ struct btree {
     struct btnode *top;
     unsigned long size;
     unsigned long free_nodes;
-#ifdef ENABLE_LOCKS
     pthread_mutex_t mutex;
-#endif
     void (*delete_func)(void *);
 };
 

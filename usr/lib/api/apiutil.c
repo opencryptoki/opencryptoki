@@ -464,9 +464,7 @@ void DL_UnLoad(API_Slot_t *sltp, CK_SLOT_ID slotID, CK_BBOOL inchildforkinit)
 #endif
 
     if (sltp->TokData) {
-#ifdef ENABLE_LOCKS
         pthread_rwlock_destroy(&sltp->TokData->sess_list_rwlock);
-#endif
         pthread_mutex_destroy(&sltp->TokData->login_mutex);
         if (sltp->TokData->hsm_mk_change_supported)
             pthread_rwlock_destroy(&sltp->TokData->hsm_mk_change_rwlock);
@@ -615,14 +613,12 @@ int DL_Load_and_Init(API_Slot_t *sltp, CK_SLOT_ID slotID, policy_t policy,
     sltp->TokData->global_login_state = CKS_RO_PUBLIC_SESSION;
     sltp->TokData->spinxplfd = -1;
     sltp->TokData->spinxplfd_count = 0;
-#ifdef ENABLE_LOCKS
     if (pthread_rwlock_init(&sltp->TokData->sess_list_rwlock, NULL) != 0) {
         TRACE_ERROR("Initializing session list lock failed.\n");
         free(sltp->TokData);
         sltp->TokData = NULL;
         return FALSE;
     }
-#endif
     if (pthread_mutex_init(&sltp->TokData->login_mutex, NULL) != 0) {
         TRACE_ERROR("Initializing login mutex failed.\n");
         free(sltp->TokData);
