@@ -45,15 +45,7 @@ opencryptoki_stdll_libpkcs11_icsf_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/ec_supported.c usr/lib/api/policyhelper.c	\
 	usr/lib/config/configuration.c usr/lib/common/pqc_supported.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
-	usr/lib/common/mech_openssl.c
-
-if ENABLE_LOCKS
-opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
-	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c
-else
-opencryptoki_stdll_libpkcs11_icsf_la_LDFLAGS += -litm
-opencryptoki_stdll_libpkcs11_icsf_la_SOURCES +=				\
+	usr/lib/common/mech_openssl.c					\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
-endif
 
 usr/lib/icsf_stdll/icsf_specific.$(OBJEXT): usr/lib/config/cfgparse.h

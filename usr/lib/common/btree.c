@@ -19,6 +19,7 @@
 
 #include <stdio.h>
 #include <malloc.h>
+#include <pthread.h>
 
 #include "pkcs11types.h"
 #include "local_types.h"
@@ -42,7 +43,7 @@ static struct btnode *__bt_get_node(struct btree *t, unsigned long node_num)
 
     if (node_num == 1) {
         temp = t->top;
-    return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
+        return (temp->flags & BT_FLAG_FREE) ? NULL : temp;
     }
 
     i = node_num;
@@ -68,9 +69,18 @@ static struct btnode *__bt_get_node(struct btree *t, unsigned long node_num)
  */
 struct btnode *bt_get_node(struct btree *t, unsigned long node_num)
 {
-    __transaction_atomic {      /* start transaction */
-        return __bt_get_node(t, node_num);
-    }                           /* end transaction */
+    struct btnode *temp;
+
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
+    }
+
+    temp = __bt_get_node(t, node_num);
+
+    pthread_mutex_unlock(&t->mutex);
+
+    return temp;
 }
 
 /*
@@ -83,26 +93,34 @@ void *bt_get_node_value(struct btree *t, unsigned long node_num)
 {
     struct btnode *n;
     void *v;
+    unsigned long ref;
 
-    __transaction_atomic {      /* start transaction */
-        /*
-         * Get the value within the transaction block, to ensure that the node
-         * is not deleted after it was obtained via bt_get_node, but before the
-         * value is obtained from the node. For a deleted node, the node->value
-         * points to another node in the free list.
-         */
-        n = __bt_get_node(t, node_num);
-        v = ((n) ? n->value : NULL);
+#ifndef DEBUG
+    UNUSED(ref);
+#endif
 
-        if (v != NULL)
-            ((struct bt_ref_hdr *)v)->ref++;
-    }                           /* end transaction */
-
-    if (v != NULL) {
-        TRACE_DEBUG("bt_get_node_value: Btree: %p Value: %p Ref: %lu\n",
-                    (void *)t, v, ((struct bt_ref_hdr *)v)->ref);
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
     }
 
+    /*
+     * Get the value within the locked block, to ensure that the node
+     * is not deleted after it was obtained via bt_get_node, but before the
+     * value is obtained from the node. For a deleted node, the node->value
+     * points to another node in the free list.
+     */
+    n = __bt_get_node(t, node_num);
+    v = ((n) ? n->value : NULL);
+
+    if (v != NULL) {
+        ref = __sync_add_and_fetch(&((struct bt_ref_hdr *)v)->ref, 1);
+
+        TRACE_DEBUG("bt_get_node_value: Btree: %p Value: %p Ref: %lu\n",
+                    (void *)t, v, ref);
+    }
+
+    pthread_mutex_unlock(&t->mutex);
     return v;
 }
 
@@ -116,30 +134,23 @@ int bt_put_node_value(struct btree *t, void *value)
 {
     int rc = 0;
     unsigned long ref;
-    int warn = 0;
 
     if (value == NULL)
         return 0;
 
-    __transaction_atomic {      /* start transaction */
-        if (((struct bt_ref_hdr *)value)->ref > 0) {
-            ref = --((struct bt_ref_hdr *)value)->ref;
-        } else {
-            warn = 1;
-            ref = 0;
-        }
-    }                           /* end transaction */
+    if (((struct bt_ref_hdr *)value)->ref > 0) {
+        ref = __sync_sub_and_fetch(&((struct bt_ref_hdr *)value)->ref, 1);
 
-    if (warn) {
+        TRACE_DEBUG("bt_put_node_value: Btree: %p Value: %p Ref: %lu\n",
+                    (void *)t, value, ((struct bt_ref_hdr *)value)->ref);
+    } else {
         TRACE_WARNING("bt_put_node_value: BTree: %p Value %p Ref already 0.\n",
                       (void *)t, value);
-    } else {
-        TRACE_DEBUG("bt_put_node_value: Btree: %p Value: %p Ref: %lu\n",
-                    (void *)t, value, ref);
+        ref = 0;
     }
 
     if (ref == 0 && t->delete_func) {
-        TRACE_DEBUG("delete_func: Btree: %p Value: %p\n", (void *)t, value);
+         TRACE_DEBUG("delete_func: Btree: %p Value: %p\n", (void *)t, value);
 
          t->delete_func(value);
          rc = 1;
@@ -190,66 +201,79 @@ static unsigned long get_node_handle(struct btnode *node,
  */
 unsigned long bt_node_add(struct btree *t, void *value)
 {
-    TRACE_DEBUG("bt_node_add: Btree: %p Value: %p Ref: 1\n", (void *)t, value);
+    struct btnode *temp;
+    unsigned long new_node_index;
 
-    __transaction_atomic {      /*start transaction */
-        struct btnode *temp = t->top;
-        unsigned long new_node_index;
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return 0;
+    }
 
-        ((struct bt_ref_hdr *)value)->ref = 1;
+    ((struct bt_ref_hdr *)value)->ref = 1;
 
-        if (!temp) {            /* no root node yet exists, create it */
-            t->size = 1;
-            if (!node_create(&t->top, NULL, value)) {
-                return 0;
-            }
+    TRACE_DEBUG("bt_node_add: Btree: %p Value: %p Ref: %lu\n", (void *)t, value,
+                ((struct bt_ref_hdr *)value)->ref);
 
-            return 1;
-        } else if (t->free_list) {
-            /* there's a node on the free list,
-             * use it instead of mallocing new
-             */
-            temp = t->free_list;
-            t->free_list = temp->value;
-            temp->value = value;
-            temp->flags &= (~BT_FLAG_FREE);
-            t->free_nodes--;
-            new_node_index = GET_NODE_HANDLE(temp);
-            return new_node_index;
+    temp = t->top;
+
+    if (!temp) {                /* no root node yet exists, create it */
+        t->size = 1;
+        if (!node_create(&t->top, NULL, value)) {
+            pthread_mutex_unlock(&t->mutex);
+            return 0;
         }
 
-        new_node_index = t->size + 1;
+        pthread_mutex_unlock(&t->mutex);
+        return 1;
+    } else if (t->free_list) {
+        /* there's a node on the free list,
+         * use it instead of mallocing new
+         */
+        temp = t->free_list;
+        t->free_list = temp->value;
+        temp->value = value;
+        temp->flags &= (~BT_FLAG_FREE);
+        t->free_nodes--;
+        new_node_index = GET_NODE_HANDLE(temp);
+        pthread_mutex_unlock(&t->mutex);
+        return new_node_index;
+    }
 
-        while (new_node_index != 1) {
-            if (new_node_index & 1) {
-                if (!temp->right) {
-                    if (!(node_create(&temp->right, temp, value))) {
-                        return 0;
-                    }
-                    break;
-                } else {
-                    /* If the bit is 1, traverse right */
-                    temp = temp->right;
+    new_node_index = t->size + 1;
+
+    while (new_node_index != 1) {
+        if (new_node_index & 1) {
+            if (!temp->right) {
+                if (!(node_create(&temp->right, temp, value))) {
+                    pthread_mutex_unlock(&t->mutex);
+                    return 0;
                 }
+                break;
             } else {
-                if (!temp->left) {
-                    if (!(node_create(&temp->left, temp, value))) {
-                        return 0;
-                    }
-                    break;
-                } else {
-                    /* If the bit is 0, traverse left */
-                    temp = temp->left;
-                }
+                /* If the bit is 1, traverse right */
+                temp = temp->right;
             }
-
-            new_node_index >>= 1;
+        } else {
+            if (!temp->left) {
+                if (!(node_create(&temp->left, temp, value))) {
+                    pthread_mutex_unlock(&t->mutex);
+                    return 0;
+                }
+                break;
+            } else {
+                /* If the bit is 0, traverse left */
+                temp = temp->left;
+            }
         }
 
-        t->size++;
+        new_node_index >>= 1;
+    }
 
-        return t->size;
-    }                           /* end transaction */
+    t->size++;
+    new_node_index = t->size;
+
+    pthread_mutex_unlock(&t->mutex);
+    return new_node_index;
 }
 
 void tree_dump(struct btnode *n, int depth)
@@ -290,41 +314,37 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
 {
     struct btnode *node;
     void *value = NULL;
-#ifdef DEBUG
-    unsigned long int ref;
-#endif
 
-    __transaction_atomic {  /* start transaction */
-        node = __bt_get_node(t, node_num);
-
-        if (node) {
-            /*
-             * Need to get the node value within the transaction block,
-             * otherwise the node might be deleted concurrently before the
-             * value was obtained from the node.
-             */
-            value = node->value;
-
-            node->flags |= BT_FLAG_FREE;
-
-            /* add node to the free list,
-             * which is chained by using
-             * the value pointer
-             */
-            node->value = t->free_list;
-            t->free_list = node;
-            t->free_nodes++;
-
-#ifdef DEBUG
-            ref = ((struct bt_ref_hdr *)value)->ref;
-#endif
-        }
-    }                       /* end transaction */
-
-    if (value != NULL) {
-        TRACE_DEBUG("bt_node_free: Btree: %p Value: %p Ref: %lu\n", (void *)t,
-                    value, ref);
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return NULL;
     }
+
+    node = __bt_get_node(t, node_num);
+
+    if (node) {
+        /*
+         * Need to get the node value within the locked block,
+         * otherwise the node might be deleted concurrently before the
+         * value was obtained from the node.
+         */
+        value = node->value;
+
+        node->flags |= BT_FLAG_FREE;
+
+        /* add node to the free list,
+         * which is chained by using
+         * the value pointer
+         */
+        node->value = t->free_list;
+        t->free_list = node;
+        t->free_nodes++;
+
+        TRACE_DEBUG("bt_node_free: Btree: %p Value: %p Ref: %lu\n", (void *)t,
+                    value, ((struct bt_ref_hdr *)value)->ref);
+    }
+
+    pthread_mutex_unlock(&t->mutex);
 
     if (value && put_value)
         bt_put_node_value(t, value);
@@ -338,9 +358,16 @@ void *bt_node_free(struct btree *t, unsigned long node_num,
  */
 int bt_is_empty(struct btree *t)
 {
-    __transaction_atomic {      /* start transaction */
-        return (t->free_nodes == t->size);
-    }                           /* end transaction */
+    CK_RV rc;
+
+    if (pthread_mutex_lock(&t->mutex))
+        return 0;
+
+    rc = (t->free_nodes == t->size);
+
+    pthread_mutex_unlock(&t->mutex);
+
+    return rc;
 }
 
 /* bt_nodes_in_use
@@ -349,9 +376,18 @@ int bt_is_empty(struct btree *t)
  */
 unsigned long bt_nodes_in_use(struct btree *t)
 {
-    __transaction_atomic {      /* start transaction */
-        return (t->size - t->free_nodes);
-    }                           /* end transaction */
+    CK_RV rc;
+
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return -1;
+    }
+
+    rc = (t->size - t->free_nodes);
+
+    pthread_mutex_unlock(&t->mutex);
+
+    return rc;
 }
 
 /* bt_for_each_node
@@ -364,8 +400,8 @@ unsigned long bt_nodes_in_use(struct btree *t)
  *  p3 is passed through this function for the caller
  */
 void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
-                       (STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
-                        void *p3), void *p3)
+                      (STDLL_TokData_t *tokdata, void *p1, unsigned long p2,
+                      void *p3), void *p3)
 {
     unsigned int i;
     void *value;
@@ -375,7 +411,7 @@ void bt_for_each_node(STDLL_TokData_t *tokdata, struct btree *t, void (*func)
          * Get the node value, not the node itself. This ensures that we either
          * get the value from a valid node, or NULL in case of a deleted node.
          * If we would get the node and then get the value from it without
-         * being in the transaction block, the node could have been deleted after
+         * being in the locked block, the node could have been deleted after
          * the node was obtained, but before the value was obtained.
          */
         value = bt_get_node_value(t, i);
@@ -400,33 +436,30 @@ void bt_destroy(struct btree *t)
     unsigned long i;
     struct btnode *temp;
 
+    if (pthread_mutex_lock(&t->mutex)) {
+        TRACE_ERROR("BTree Lock failed.\n");
+        return;
+    }
+
     while (t->size) {
-        __transaction_atomic {  /* start transaction */
-            temp = t->top;
-            i = t->size;
-            while (i != 1) {
-                if (i & 1) {
-                    /* If the bit is 1, traverse right */
-                    temp = temp->right;
-                } else {
-                    /* If the bit is 0, traverse left */
-                    temp = temp->left;
-                }
-                i >>= 1;
+        temp = t->top;
+        i = t->size;
+        while (i != 1) {
+            if (i & 1) {
+                /* If the bit is 1, traverse right */
+                temp = temp->right;
+            } else {
+                /* If the bit is 0, traverse left */
+                temp = temp->left;
             }
-        }                       /* end transaction */
+            i >>= 1;
+        }
 
         /*
          * The value pointed by value in a node marked as freed points
          * to the next node element in free_list and it shouldn't be
          * freed here because the loop will iterate through each node,
          * freed or not.
-         * ATTENTION:
-         * This might not be 100% thread save when using __transaction_atomic,
-         * since the node might get deleted concurrently while we are outside
-         * of the transaction block. It is assumed that bt_destroy is called
-         * during final cleanup, and thus is not used concurrently with
-         * bt_node_free() or bt_destroy() in other threads.
          */
         if (t->delete_func && !(temp->flags & BT_FLAG_FREE)) {
 
@@ -436,19 +469,18 @@ void bt_destroy(struct btree *t)
             t->delete_func(temp->value);
         }
 
-        __transaction_atomic {  /* start transaction */
-            free(temp);
-            t->size--;
-        }                       /* end transaction */
+        free(temp);
+        t->size--;
     }
 
-    __transaction_atomic {      /* start transaction */
-        /* the tree is gone now, clear all the other variables */
-        t->top = NULL;
-        t->free_list = NULL;
-        t->free_nodes = 0;
-        t->delete_func = NULL;
-    }                           /* end transaction */
+    /* the tree is gone now, clear all the other variables */
+    t->top = NULL;
+    t->free_list = NULL;
+    t->free_nodes = 0;
+    t->delete_func = NULL;
+
+    pthread_mutex_unlock(&t->mutex);
+    pthread_mutex_destroy(&t->mutex);
 }
 
 /* bt_init
@@ -458,11 +490,30 @@ void bt_destroy(struct btree *t)
  */
 CK_RV bt_init(struct btree *t, void (*delete_func)(void *))
 {
+    pthread_mutexattr_t attr;
+
     t->free_list = NULL;
     t->top = NULL;
     t->size = 0;
     t->free_nodes = 0;
     t->delete_func = delete_func;
+
+    /*
+     * Need a recursive mutex, because btree callback functions may call
+     * btree functions again
+     */
+    if (pthread_mutexattr_init(&attr) != 0) {
+        TRACE_ERROR("pthread_mutexattr_init failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0) {
+        TRACE_ERROR("pthread_mutexattr_settype failed.\n");
+        return CKR_CANT_LOCK;
+    }
+    if (pthread_mutex_init(&t->mutex, &attr) != 0) {
+        TRACE_ERROR("pthread_mutex_init failed.\n");
+        return CKR_CANT_LOCK;
+    }
 
     return CKR_OK;
 }

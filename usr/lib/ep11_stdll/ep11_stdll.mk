@@ -46,13 +46,5 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/api/policyhelper.c usr/lib/config/configuration.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
 	usr/lib/common/pqc_supported.c					\
-	usr/lib/hsm_mk_change/hsm_mk_change.c
-
-if ENABLE_LOCKS
-opencryptoki_stdll_libpkcs11_ep11_la_SOURCES +=				\
-	usr/lib/common/lock_btree.c usr/lib/common/lock_sess_mgr.c
-else
-opencryptoki_stdll_libpkcs11_ep11_la_LDFLAGS += -litm
-opencryptoki_stdll_libpkcs11_ep11_la_SOURCES +=				\
+	usr/lib/hsm_mk_change/hsm_mk_change.c				\
 	usr/lib/common/btree.c usr/lib/common/sess_mgr.c
-endif
