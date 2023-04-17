@@ -126,7 +126,7 @@ void run_sanity_checks(void)
         {LOCKDIR_PATH, S_IRWXU | S_IRWXG},
         {OCK_LOGDIR, S_IRWXU | S_IRWXG},
         {CONFIG_PATH, S_IRWXU | S_IRWXG},
-        {CONFIG_PATH "/HSM_MK_CHANGE", S_IRWXU | S_IRWXG},
+        {OCK_HSM_MK_CHANGE_PATH, S_IRWXU | S_IRWXG},
         {NULL, 0},
     };
 

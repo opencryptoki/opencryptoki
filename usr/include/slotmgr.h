@@ -30,6 +30,7 @@
 
 #define TOK_PATH  SBIN_PATH "/pkcsslotd"
 #define OCK_API_LOCK_FILE LOCKDIR_PATH "/LCK..APIlock"
+#define OCK_HSM_MK_CHANGE_PATH CONFIG_PATH "/HSM_MK_CHANGE"
 #define OCK_HSM_MK_CHANGE_LOCK_FILE LOCKDIR_PATH "/LCK..HSM_MK_CHANGElock"
 
 #define PROC_SOCKET_FILE_PATH "/run/pkcsslotd.socket"
