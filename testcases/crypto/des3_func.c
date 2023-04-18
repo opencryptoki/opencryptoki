@@ -1328,6 +1328,95 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_PBE(void)
+{
+    CK_SESSION_HANDLE session;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_FLAGS flags;
+    CK_RV rc = CKR_OK;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_ULONG user_pin_len;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_BYTE iv[DES3_IV_SIZE];
+    CK_BYTE clear[BIG_REQUEST];
+    CK_BYTE encrypted[BIG_REQUEST];
+    CK_ULONG clear_len, encrypted_len;
+    CK_PBE_PARAMS pbe_param;
+    CK_MECHANISM mech = { CKM_PBE_SHA1_DES3_EDE_CBC,
+                          &pbe_param, sizeof(pbe_param) };
+    CK_MECHANISM enc_mech = { CKM_DES3_CBC, iv, sizeof(iv) };
+
+    testsuite_begin("PBE.");
+    testcase_rw_session();
+    testcase_user_login();
+
+    /** skip tests if the slot doesn't support this mechanism **/
+    if (!mech_supported(slot_id, mech.mechanism)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(mech.mechanism),
+                       (unsigned int) mech.mechanism);
+        goto testcase_cleanup;
+    }
+    if (!mech_supported(slot_id, enc_mech.mechanism)) {
+        testsuite_skip(3,
+                       "Slot %u doesn't support %s (0x%x)",
+                       (unsigned int) slot_id,
+                       mech_to_str(enc_mech.mechanism),
+                       (unsigned int) enc_mech.mechanism);
+        goto testcase_cleanup;
+    }
+
+    testcase_begin("PBE with %s", mech_to_str(mech.mechanism));
+    testcase_new_assertion();
+
+    pbe_param.pInitVector = iv;
+    pbe_param.pPassword = (CK_BYTE *)"Password";
+    pbe_param.ulPasswordLen = 4;
+    pbe_param.pSalt = (CK_BYTE *)"Salt";
+    pbe_param.ulSaltLen = 4;
+    pbe_param.ulIteration = 1000;
+
+    rc = funcs->C_GenerateKey(session, &mech, NULL, 0, &h_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_GenerateKey rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    rc = funcs->C_EncryptInit(session, &enc_mech, h_key);
+    if (rc != CKR_OK) {
+        testcase_error("C_EncryptInit rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    memset(clear, 0x55, sizeof(clear));
+    clear_len = sizeof(clear);
+    memset(encrypted, 0x00, sizeof(encrypted));
+    encrypted_len = sizeof(encrypted);
+
+    rc = funcs->C_Encrypt(session, clear, clear_len, encrypted, &encrypted_len);
+    if (rc != CKR_OK) {
+        testcase_error("C_Encrypt rc=%s", p11_get_ckr(rc));
+        goto error;
+    }
+
+    testcase_pass("PBE with %s" ,mech_to_str(mech.mechanism));
+
+    goto testcase_cleanup;
+
+error:
+    if (h_key != CK_INVALID_HANDLE)
+        rc = funcs->C_DestroyObject(session, h_key);
+    if (rc != CKR_OK)
+        testcase_error("C_DestroyObject rc=%s", p11_get_ckr(rc));
+
+testcase_cleanup:
+    testcase_close_session();
+
+    return rc;
+}
+
 CK_RV des3_funcs(void)
 {
     int i;
@@ -1372,6 +1461,9 @@ CK_RV des3_funcs(void)
         if (rv != CKR_OK && (!no_stop))
             break;
     }
+
+    /* CKM_PBE_SHA1_DES3_EDE_CBC */
+    rv = do_PBE();
 
     return rv;
 }
