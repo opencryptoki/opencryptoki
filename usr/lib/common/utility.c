@@ -818,6 +818,76 @@ CK_RV get_keytype(STDLL_TokData_t *tokdata, CK_OBJECT_HANDLE hkey,
     return rc;
 }
 
+CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
+                       CK_MECHANISM_PTR mech, CK_ULONG *type, CK_ULONG *class)
+{
+    CK_RV rc;
+
+    *type = 0;
+    *class = 0;
+
+    rc = get_ulong_attribute_by_type(attrs, attrs_len, CKA_CLASS, class);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    rc = get_ulong_attribute_by_type(attrs, attrs_len, CKA_KEY_TYPE, type);
+    if (rc == CKR_ATTRIBUTE_VALUE_INVALID) {
+        TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
+        return CKR_ATTRIBUTE_VALUE_INVALID;
+    }
+
+    if (rc == CKR_OK)
+        return CKR_OK;
+
+    /* no CKA_KEY_TYPE found, derive from mech */
+    switch (mech->mechanism) {
+    case CKM_DES_KEY_GEN:
+        *type = CKK_DES;
+        break;
+    case CKM_DES2_KEY_GEN:
+    case CKM_PBE_SHA1_DES2_EDE_CBC:
+        *type = CKK_DES2;
+        break;
+    case CKM_DES3_KEY_GEN:
+    case CKM_PBE_SHA1_DES3_EDE_CBC:
+        *type = CKK_DES3;
+        break;
+    case CKM_AES_KEY_GEN:
+        *type = CKK_AES;
+        break;
+    case CKM_AES_XTS_KEY_GEN:
+        *type = CKK_AES_XTS;
+        break;
+    case CKM_GENERIC_SECRET_KEY_GEN:
+        *type = CKK_GENERIC_SECRET;
+        break;
+    case CKM_RSA_PKCS_KEY_PAIR_GEN:
+        *type = CKK_RSA;
+        break;
+    case CKM_EC_KEY_PAIR_GEN:
+        *type = CKK_EC;
+        break;
+    case CKM_DSA_KEY_PAIR_GEN:
+        *type = CKK_DSA;
+        break;
+    case CKM_DH_PKCS_KEY_PAIR_GEN:
+        *type = CKK_DH;
+        break;
+    case CKM_IBM_DILITHIUM:
+        *type = CKK_IBM_PQC_DILITHIUM;
+        break;
+    case CKM_IBM_KYBER:
+        *type = CKK_IBM_PQC_KYBER;
+        break;
+    default:
+        return CKR_MECHANISM_INVALID;
+    }
+
+    return CKR_OK;
+}
+
 void copy_token_contents_sensibly(CK_TOKEN_INFO_PTR pInfo,
                                   TOKEN_DATA *nv_token_data)
 {
