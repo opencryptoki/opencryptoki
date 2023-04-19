@@ -862,6 +862,11 @@ CK_RV pkcs_get_keytype(CK_ATTRIBUTE *attrs, CK_ULONG attrs_len,
         *type = CKK_AES_XTS;
         break;
     case CKM_GENERIC_SECRET_KEY_GEN:
+    case CKM_SHA1_KEY_DERIVATION:
+    case CKM_SHA224_KEY_DERIVATION:
+    case CKM_SHA256_KEY_DERIVATION:
+    case CKM_SHA384_KEY_DERIVATION:
+    case CKM_SHA512_KEY_DERIVATION:
         *type = CKK_GENERIC_SECRET;
         break;
     case CKM_RSA_PKCS_KEY_PAIR_GEN:
