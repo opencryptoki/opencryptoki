@@ -7204,6 +7204,209 @@ out:
     return rc;
 }
 
+static CK_RV ep11tok_sha_key_derive_mech_pre_process(STDLL_TokData_t *tokdata,
+                                                     OBJECT *base_key_obj,
+                                                     OBJECT *derived_key_obj,
+                                                     CK_MECHANISM *mech,
+                                                     CK_ULONG keytype)
+{
+    CK_RV rc;
+    CK_ULONG hsize, value_len = 0;
+    CK_ATTRIBUTE *attr;
+    CK_BBOOL battr;
+
+    UNUSED(tokdata);
+
+    /*
+     * As per PKCS#11 standard:
+     * - If no length or key type is provided in the template, then the key
+     *   produced by this mechanism will be a generic secret key. Its length
+     *   will be the output size of the used digest.
+     * - If no key type is provided in the template, but a length is, then the
+     *   key produced by this mechanism will be a generic secret key of the
+     *   specified length.
+     * - If no length was provided in the template, but a key type is, then
+     *   that key type must have a well-defined length. If it does, then the
+     *   key produced by this mechanism will be of the type specified in the
+     *   template. If it doesn’t, an error will be returned.
+     * - If both a key type and a length are provided in the template, the
+     *   length must be compatible with that key type. The key produced by
+     *   this mechanism will be of the specified type and length.
+     */
+    switch (mech->mechanism) {
+        case CKM_SHA1_KEY_DERIVATION:
+            hsize = SHA1_HASH_SIZE;
+            break;
+        case CKM_SHA224_KEY_DERIVATION:
+            hsize = SHA224_HASH_SIZE;
+            break;
+        case CKM_SHA256_KEY_DERIVATION:
+            hsize = SHA256_HASH_SIZE;
+            break;
+        case CKM_SHA384_KEY_DERIVATION:
+            hsize = SHA384_HASH_SIZE;
+            break;
+        case CKM_SHA512_KEY_DERIVATION:
+            hsize = SHA512_HASH_SIZE;
+            break;
+        default:
+            TRACE_ERROR("%s invalid mechanism 0x%lx\n", __func__,
+                        mech->mechanism);
+            return CKR_MECHANISM_INVALID;
+    }
+
+    rc = template_attribute_get_ulong(derived_key_obj->template, CKA_VALUE_LEN,
+                                      &value_len);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("%s error getting CKA_VALUE_LEN rc=0x%lx\n", __func__, rc);
+        return rc;
+    }
+
+    if (value_len == 0) {
+        value_len = hsize;
+    } else if (value_len > hsize) {
+        TRACE_ERROR("%s CKA_VALUE_LEN is too large\n", __func__);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    switch (keytype) {
+    case CKK_GENERIC_SECRET:
+        break;
+    case CKK_DES:
+    case CKK_DES2:
+    case CKK_DES3:
+        value_len = 0;
+        break;
+    case CKK_AES:
+        switch (value_len) {
+        case 16:
+        case 24:
+        case 32:
+            break;
+        default:
+            TRACE_ERROR("%s CKA_VALUE_LEN improper for AES\n", __func__);
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    case CKK_AES_XTS:
+        switch (value_len) {
+        case 32:
+        case 64:
+            break;
+        default:
+            TRACE_ERROR("%s CKA_VALUE_LEN improper for AES-XTS\n", __func__);
+            return CKR_TEMPLATE_INCONSISTENT;
+        }
+        break;
+    default:
+        TRACE_ERROR("%s invalid key type 0x%lx\n", __func__, keytype);
+        return CKR_TEMPLATE_INCONSISTENT;
+    }
+
+    if (value_len > 0) {
+        rc = build_attribute(CKA_VALUE_LEN, (CK_BYTE *)&value_len,
+                             sizeof(value_len), &attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+
+        rc = template_update_attribute(derived_key_obj->template, attr);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                        __func__, rc);
+            free(attr);
+            return rc;
+        }
+    }
+
+    /*
+     * As per PKCS#11 standard:
+     * - If the base key has its CKA_ALWAYS_SENSITIVE attribute set to CK_FALSE,
+     *   then the derived key will as well. If the base key has its
+     *   CKA_ALWAYS_SENSITIVE attribute set to CK_TRUE, then the derived key
+     *   has its CKA_ALWAYS_SENSITIVE attribute set to the same value as its
+     *   CKA_SENSITIVE attribute.
+     * - Similarly, if the base key has its CKA_NEVER_EXTRACTABLE attribute
+     *   set to CK_FALSE, then the derived key will, too. If the base key has
+     *   its CKA_NEVER_EXTRACTABLE attribute set to CK_TRUE, then the derived
+     *   key has its CKA_NEVER_EXTRACTABLE attribute set to the opposite value
+     *   from its CKA_EXTRACTABLE attribute.
+     */
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                     CKA_ALWAYS_SENSITIVE, &battr);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("%s error getting CKA_ALWAYS_SENSITIVE rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    if (battr == CK_TRUE) {
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_SENSITIVE, &battr);
+        if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+            TRACE_ERROR("%s error getting CKA_SENSITIVE rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+    }
+
+    rc = build_attribute(CKA_ALWAYS_SENSITIVE, (CK_BYTE *)&battr,
+                         sizeof(battr), &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    rc = template_update_attribute(derived_key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        free(attr);
+        return rc;
+    }
+
+    rc = template_attribute_get_bool(base_key_obj->template,
+                                     CKA_NEVER_EXTRACTABLE, &battr);
+    if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+        TRACE_ERROR("%s error getting CKA_NEVER_EXTRACTABLE rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    if (battr == CK_TRUE) {
+        rc = template_attribute_get_bool(derived_key_obj->template,
+                                         CKA_EXTRACTABLE, &battr);
+        if (rc != CKR_OK && rc != CKR_TEMPLATE_INCOMPLETE) {
+            TRACE_ERROR("%s error getting CKA_EXTRACTABLE rc=0x%lx\n",
+                        __func__, rc);
+            return rc;
+        }
+
+        battr = !battr;
+    }
+
+    rc = build_attribute(CKA_NEVER_EXTRACTABLE, (CK_BYTE *)&battr,
+                         sizeof(battr), &attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s build_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        return rc;
+    }
+
+    rc = template_update_attribute(derived_key_obj->template, attr);
+    if (rc != CKR_OK) {
+        TRACE_ERROR("%s template_update_attribute failed with rc=0x%lx\n",
+                    __func__, rc);
+        free(attr);
+        return rc;
+    }
+
+    return CKR_OK;
+}
+
 CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                          CK_MECHANISM_PTR mech, CK_OBJECT_HANDLE hBaseKey,
                          CK_OBJECT_HANDLE_PTR handle, CK_ATTRIBUTE_PTR attrs,
@@ -7490,6 +7693,21 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
         TRACE_ERROR("%s object_mgr_create_skel failed with rc=0x%lx\n",
                     __func__, rc);
         goto error;
+    }
+
+    switch (mech->mechanism) {
+    case CKM_SHA1_KEY_DERIVATION:
+    case CKM_SHA224_KEY_DERIVATION:
+    case CKM_SHA256_KEY_DERIVATION:
+    case CKM_SHA384_KEY_DERIVATION:
+    case CKM_SHA512_KEY_DERIVATION:
+        rc = ep11tok_sha_key_derive_mech_pre_process(tokdata, base_key_obj,
+                                                     key_obj, mech, ktype);
+        if (rc != CKR_OK)
+            goto error;
+        break;
+    default:
+        break;
     }
 
     curve_type = get_curve_type_from_template(key_obj->template);
@@ -12581,6 +12799,27 @@ CK_RV ep11tok_get_mechanism_info(STDLL_TokData_t * tokdata,
          */
         if (pInfo->ulMinKeySize == 8)
             pInfo->ulMinKeySize = 16;
+        break;
+
+    case CKM_SHA1_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA1_HASH_SIZE * 8;
+        break;
+    case CKM_SHA224_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA224_HASH_SIZE * 8;
+        break;
+    case CKM_SHA256_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA256_HASH_SIZE * 8;
+        break;
+    case CKM_SHA384_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA384_HASH_SIZE * 8;
+        break;
+    case CKM_SHA512_KEY_DERIVATION:
+        pInfo->ulMinKeySize = 8;
+        pInfo->ulMaxKeySize = SHA512_HASH_SIZE * 8;
         break;
 
     default:
