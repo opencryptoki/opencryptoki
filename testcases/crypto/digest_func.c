@@ -1607,6 +1607,145 @@ testcase_cleanup:
     return rc;
 }
 
+CK_RV do_SHA_derive_key(void)
+{
+    CK_MECHANISM secret_mech = { CKM_AES_KEY_GEN, 0, 0 };
+    CK_ULONG key_len;
+    CK_SESSION_HANDLE session;
+    CK_SLOT_ID slot_id = SLOT_ID;
+    CK_ULONG flags;
+    CK_RV rc;
+    CK_OBJECT_HANDLE h_key = CK_INVALID_HANDLE;
+    CK_OBJECT_HANDLE h_derived_key = CK_INVALID_HANDLE;
+    CK_BYTE user_pin[PKCS11_MAX_PIN_LEN];
+    CK_ULONG user_pin_len;
+    CK_OBJECT_CLASS class = CKO_SECRET_KEY;
+    CK_KEY_TYPE key_type = CKK_GENERIC_SECRET;
+    unsigned int i, k;
+    CK_BBOOL true = CK_TRUE;
+    CK_ATTRIBUTE key_gen_tmpl[] = {
+        {CKA_EXTRACTABLE, &true, sizeof(CK_BBOOL)},
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
+        {CKA_IBM_USE_AS_DATA, &true, sizeof(CK_BBOOL)},
+    };
+    CK_ULONG key_gen_tmpl_len = sizeof(key_gen_tmpl) / sizeof(CK_ATTRIBUTE);
+    CK_ATTRIBUTE  derive_tmpl[] = {
+        {CKA_CLASS, &class, sizeof(class)},
+        {CKA_KEY_TYPE, &key_type, sizeof(key_type)},
+        {CKA_VALUE_LEN, &key_len, sizeof(CK_ULONG)},
+    };
+    CK_ULONG derive_tmpl_len = sizeof(derive_tmpl) / sizeof(CK_ATTRIBUTE);
+
+    CK_MECHANISM derive_mechs[5] = {
+        { CKM_SHA1_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA224_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA256_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA384_KEY_DERIVATION, 0, 0 },
+        { CKM_SHA512_KEY_DERIVATION, 0, 0 }
+    };
+
+    struct {
+        CK_KEY_TYPE keytype;
+        CK_ULONG key_len;
+    } attributes[5] = {
+        { -1, 0 },
+        { CKK_GENERIC_SECRET, 0 },
+        { CKK_GENERIC_SECRET, 20 },
+        { CKK_DES3, 0 },
+        { CKK_AES, 16 },
+    };
+
+    testsuite_begin("do_SHA_derive_key");
+
+    testcase_rw_session();
+    testcase_user_login();
+
+    if (!mech_supported(SLOT_ID, secret_mech.mechanism)) {
+        testsuite_skip(1, "mechanism %lu not supported with slot %lu",
+                       secret_mech.mechanism, slot_id);
+        goto testcase_cleanup;
+    }
+
+    key_len = 32;
+    rc = funcs->C_GenerateKey(session, &secret_mech, key_gen_tmpl,
+                              key_gen_tmpl_len, &h_key);
+    if (rc != CKR_OK) {
+        if (is_rejected_by_policy(rc, session)) {
+            testsuite_skip(1, "AES key generation is not allowed by policy");
+            goto testcase_cleanup;
+        }
+
+        testcase_error("generate_SecretKey rc=%s", p11_get_ckr(rc));
+        goto testcase_cleanup;
+    }
+
+    for (i = 0; i < sizeof(derive_mechs) / sizeof(CK_MECHANISM); i++) {
+        for (k = 0; k < sizeof(attributes) / sizeof(attributes[0]); k++) {
+            key_type = attributes[k].keytype;
+            key_len = attributes[k].key_len;
+
+            /* SHA-1 can produce only 20 bytes, not sufficient for a 3DES key */
+            if (key_type == CKK_DES3 &&
+                derive_mechs[i].mechanism == CKM_SHA1_KEY_DERIVATION)
+                continue;
+
+            testcase_begin("Derive key with %s keytype=0x%lx, value_len=%lu",
+                           mech_to_str(derive_mechs[i].mechanism),
+                           key_type, key_len);
+
+            if (!mech_supported(SLOT_ID, derive_mechs[i].mechanism)) {
+                 testcase_skip("mechanism %lu not supported with slot %lu",
+                               derive_mechs[i].mechanism, slot_id);
+                 continue;
+             }
+
+            if (key_type == (CK_ULONG)-1)
+                derive_tmpl_len = 1;
+            else if (key_len == 0)
+                derive_tmpl_len = 2;
+            else
+                derive_tmpl_len = 3;
+
+            rc = funcs->C_DeriveKey(session, &derive_mechs[i],
+                                    h_key, derive_tmpl,
+                                    derive_tmpl_len, &h_derived_key);
+            if (rc != CKR_OK) {
+                if (rc == CKR_POLICY_VIOLATION) {
+                    testcase_skip("key derivation is not allowed by policy");
+                    continue;
+                }
+
+                testcase_fail("Derive key with %s keytype=0x%lx, value_len=%lu: rc: %s",
+                              mech_to_str(derive_mechs[i].mechanism),
+                              key_type, key_len, p11_get_ckr(rc));
+            } else {
+                testcase_pass("Derive key with %s keytype=0x%lx, value_len=%lu",
+                              mech_to_str(derive_mechs[i].mechanism),
+                              key_type, key_len);
+            }
+
+            if (h_derived_key != CK_INVALID_HANDLE &&
+                (rc = funcs->C_DestroyObject(session, h_derived_key)) != CKR_OK)
+                testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+            h_derived_key = CK_INVALID_HANDLE;
+        }
+    }
+
+    if (h_key != CK_INVALID_HANDLE &&
+        (rc = funcs->C_DestroyObject(session, h_key)) != CKR_OK)
+        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+    if (h_derived_key != CK_INVALID_HANDLE &&
+        (rc = funcs->C_DestroyObject(session, h_derived_key)) != CKR_OK)
+        testcase_error("C_DestroyObject rc=%s.", p11_get_ckr(rc));
+
+testcase_cleanup:
+    testcase_user_logout();
+    if ((rc = funcs->C_CloseAllSessions(slot_id)) != CKR_OK)
+        testcase_error("C_CloseAllSessions rc=%s", p11_get_ckr(rc));
+
+    return rc;
+}
+
 CK_RV digest_funcs(void)
 {
     CK_RV rc;
@@ -1668,6 +1807,8 @@ CK_RV digest_funcs(void)
 
     /* HMAC test with a generated generic secret key */
     rc = do_HMAC_SignVerify_WithGenKey();
+
+    rc = do_SHA_derive_key();
 
     return rc;
 }
