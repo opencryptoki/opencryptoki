@@ -72,8 +72,10 @@ fi
 
 AC_CHECK_LIB([itm], [_ITM_commitTransaction], [itm=yes], [itm=no])
 
-AC_CHECK_LIB([cap], [cap_get_proc], [],
+LIBCAP_LIBS=
+AC_CHECK_LIB([cap], [cap_get_proc], [LIBCAP_LIBS="-lcap"],
 		[AC_MSG_ERROR(['libcap' library is missing on your system. Please install 'libcap-devel'.])])
+AC_SUBST([LIBCAP_LIBS])
 
 OPENLDAP_LIBS=
 AC_CHECK_HEADERS([lber.h ldap.h],
