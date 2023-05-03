@@ -1456,7 +1456,8 @@ CK_RV object_mgr_restore_obj_withSize(STDLL_TokData_t *tokdata, CK_BYTE *data,
     rc = XProcLock(tokdata);
     if (rc != CKR_OK) {
         TRACE_ERROR("Failed to get Process Lock.\n");
-        object_free(obj);
+        if (oldObj == NULL)
+            object_free(obj);
         return rc;
     }
 
