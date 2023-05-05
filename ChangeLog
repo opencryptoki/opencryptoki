@@ -1,3 +1,17 @@
++ openCryptoki 3.21
+- EP11 and CCA: Support concurrent HSM master key changes
+- CCA: protected-key option
+- pkcsslotd: no longer run as root user and further hardening
+- p11sak: Add support for additional key types (DH, DSA, generic secret)
+- p11sak: Allow wildcards in label filter
+- p11sak: Allow to specify hex value for CKA_ID attribute
+- p11sak: Support sorting when listing keys
+- p11sak: New commands: set-key-attr, copy-key to modify and copy keys
+- p11sak: New commands: import-key, export-key to import and export keys
+- Remove support for --disable-locks (transactional memory)
+- Updates to harden against RSA timing attacks
+- Bug fixes
+
 + openCryptoki 3.20
 - Soft/ICA: add support for the AES-XTS key type (PKCS#11 v3.0)
 - ICSF: add support for ECDH and additional SHA variants
