@@ -17,7 +17,7 @@ BuildRequires:		openldap-devel
 BuildRequires:		autoconf automake libtool autoconf-archive
 BuildRequires:		bison flex
 BuildRequires:		systemd-devel
-BuildRequires:		libitm-devel
+BuildRequires:		libcap-devel
 BuildRequires:		make
 %ifarch s390 s390x
 BuildRequires:		libica-devel >= 3.3
