@@ -76,7 +76,7 @@ else
 fi
 
 # initialize opencryptoki.conf
-echo "version opencryptoki-3.20" > "${OCKCONFDIR}/opencryptoki.conf"
+echo "version opencryptoki-3.21" > "${OCKCONFDIR}/opencryptoki.conf"
 
 # enable full statistics
 echo "statistics (on,implicit,internal)" >> "${OCKCONFDIR}/opencryptoki.conf"
