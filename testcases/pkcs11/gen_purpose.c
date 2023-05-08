@@ -385,7 +385,7 @@ CK_RV do_InitToken(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("C_InitToken correctly return CKR_ARGUMENS_BAD.");
+    testcase_pass("C_InitToken correctly returned CKR_ARGUMENS_BAD.");
 
     /* test with invalid slot id */
     testcase_new_assertion();
@@ -537,7 +537,7 @@ CK_RV do_SetPIN(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("C_SetPIN successful in pubic session.");
+    testcase_pass("C_SetPIN successful in public session.");
 
     rc = funcs->C_CloseSession(session);
     if (rc != CKR_OK) {
@@ -562,7 +562,7 @@ CK_RV do_SetPIN(void)
         goto testcase_cleanup;
     }
 
-    testcase_pass("C_SetPIN successful in r/w pubic session.");
+    testcase_pass("C_SetPIN successful in r/w public session.");
 
     rc = funcs->C_CloseSession(session);
     if (rc != CKR_OK) {
@@ -603,7 +603,7 @@ CK_RV do_SetPIN(void)
 
     rc = funcs->C_Logout(session);
     if (rc != CKR_OK) {
-        testcase_error("C_Logout #1 falied: rc=%s", p11_get_ckr(rc));
+        testcase_error("C_Logout #1 failed: rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 
@@ -619,7 +619,7 @@ CK_RV do_SetPIN(void)
 
     rc = funcs->C_Login(session, CKU_SO, old_pin, old_len);
     if (rc != CKR_OK) {
-        testcase_error("C_Login #3failed: rc=%s", p11_get_ckr(rc));
+        testcase_error("C_Login #3 failed: rc=%s", p11_get_ckr(rc));
         goto testcase_cleanup;
     }
 

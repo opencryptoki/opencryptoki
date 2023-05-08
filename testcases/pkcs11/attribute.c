@@ -237,7 +237,7 @@ CK_RV do_TestAttributes(void)
                                     update_label, 1);
     if (rc == CKR_ACTION_PROHIBITED)
         testcase_pass("C_SetAttributeValue() did not update the object rc = %s "
-                      "(as ecpected)", p11_get_ckr(rc));
+                      "(as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
                       "have failed with CKR_ACTION_PROHIBITED, but got "
@@ -254,7 +254,7 @@ CK_RV do_TestAttributes(void)
                                     update_modifiable_false, 1);
     if (rc == CKR_ATTRIBUTE_READ_ONLY)
         testcase_pass("C_SetAttributeValue() did not update CKA_MODIFIABLE to "
-                      "FALSE rc = %s (as ecpected)", p11_get_ckr(rc));
+                      "FALSE rc = %s (as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
                       "have failed with CKR_ATTRIBUTE_READ_ONLY, but got "
@@ -266,7 +266,7 @@ CK_RV do_TestAttributes(void)
                                     update_modifiable_true, 1);
     if (rc == CKR_ATTRIBUTE_READ_ONLY)
         testcase_pass("C_SetAttributeValue() did not update CKA_MODIFIABLE to "
-                      "TRUE rc = %s (as ecpected)", p11_get_ckr(rc));
+                      "TRUE rc = %s (as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_MODIFIABLE should "
                       "have failed with CKR_ATTRIBUTE_READ_ONLY, but got"
@@ -292,7 +292,7 @@ CK_RV do_TestAttributes(void)
                                     update_copyable_true, 1);
     if (rc == CKR_ATTRIBUTE_READ_ONLY)
         testcase_pass("C_SetAttributeValue() did not update CKA_COPYABLE to "
-                      "TRUE rc = %s (as ecpected)", p11_get_ckr(rc));
+                      "TRUE rc = %s (as expected)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_COPYABLE back to "
                       "TRUE should have failed with CKR_ATTRIBUTE_READ_ONLY, "
@@ -333,7 +333,7 @@ CK_RV do_TestAttributes(void)
                                     update_trusted_true, 1);
     if (rc == CKR_USER_NOT_LOGGED_IN)
         testcase_pass("C_SetAttributeValue() did not update CKA_TRUSTED to "
-                      "TRUE rc = %s (as ecpected, because only SO can set "
+                      "TRUE rc = %s (as expected, because only SO can set "
                       "CKA_TRUSTED to TRUE)", p11_get_ckr(rc));
     else
         testcase_fail("C_SetAttributeValue() to update CKA_TRUSTED should "
