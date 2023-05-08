@@ -4379,6 +4379,12 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
 
         /* imported private RSA key goes here */
 
+        rc = rsa_priv_check_and_swap_pq(rsa_key_obj->template);
+        if (rc != CKR_OK) {
+            TRACE_DEVEL("%s RSA check and swap failed\n", __func__);
+            goto import_RSA_key_end;
+        }
+
         /* extract the secret data to be wrapped
          * since this is AES_CBC_PAD, padding is done in mechanism.
          */

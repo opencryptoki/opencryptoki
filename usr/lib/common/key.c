@@ -2662,6 +2662,135 @@ error:
     return rc;
 }
 
+CK_RV rsa_priv_check_and_swap_pq(TEMPLATE *tmpl)
+{
+    CK_ATTRIBUTE *prime1 = NULL, *prime2 = NULL;
+    CK_ATTRIBUTE *exponent1 = NULL, *exponent2 = NULL;
+    CK_ATTRIBUTE *coeff = NULL;
+    BIGNUM *bn_tmp = NULL;
+    BIGNUM *bn_p = NULL;
+    BIGNUM *bn_q = NULL;
+    BIGNUM *bn_invq = NULL;
+    BN_CTX *ctx = NULL;
+    CK_RV rc = CKR_OK;
+    CK_ULONG len;
+    CK_BYTE *buf = NULL;
+
+    if (template_attribute_find(tmpl, CKA_PRIME_1, &prime1) == FALSE ||
+        prime1->ulValueLen == 0 || prime1->pValue == NULL) {
+        TRACE_DEVEL("Could not find CKA_PRIME_1 for the key, not CRT format.\n");
+        return CKR_OK;
+    }
+
+    if (template_attribute_find(tmpl, CKA_PRIME_2, &prime2) == FALSE ||
+        prime2->ulValueLen == 0 || prime2->pValue == NULL) {
+        TRACE_DEVEL("Could not find CKA_PRIME_2 for the key, not CRT format.\n");
+        return CKR_OK;
+    }
+
+    if (template_attribute_find(tmpl, CKA_EXPONENT_1, &exponent1) == FALSE ||
+        exponent1->ulValueLen == 0 || exponent1->pValue == NULL) {
+        TRACE_DEVEL("Could not find CKA_EXPONENT_1 for the key, not CRT format.\n");
+        return CKR_OK;
+    }
+
+    if (template_attribute_find(tmpl, CKA_EXPONENT_2, &exponent2) == FALSE ||
+        exponent2->ulValueLen == 0 || exponent2->pValue == NULL) {
+        TRACE_DEVEL("Could not find CKA_EXPONENT_2 for the key, not CRT format.\n");
+        return CKR_OK;
+    }
+
+    if (template_attribute_find(tmpl, CKA_COEFFICIENT, &coeff) == FALSE ||
+        coeff->ulValueLen == 0 || coeff->pValue == NULL) {
+        TRACE_DEVEL("Could not find CKA_COEFFICIENT for the key, not CRT format.\n");
+        return CKR_OK;
+    }
+
+    ctx = BN_CTX_secure_new();
+    if (ctx == NULL) {
+        TRACE_ERROR("BN_CTX_secure_new failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    bn_p = BN_CTX_get(ctx);
+    bn_q = BN_CTX_get(ctx);
+    bn_invq = BN_CTX_get(ctx);
+
+    if (bn_p == NULL || bn_q == NULL || bn_invq== NULL) {
+        TRACE_ERROR("BN_CTX_get failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    if (BN_bin2bn(prime1->pValue, prime1->ulValueLen, bn_p) == NULL ||
+        BN_bin2bn(prime2->pValue, prime2->ulValueLen, bn_q) == NULL){
+        TRACE_ERROR("BN_bin2bn failed.\n");
+        rc = CKR_FUNCTION_FAILED;
+        goto out;
+    }
+
+    /* check if p > q  */
+    if (BN_ucmp(bn_p, bn_q) != 1) {
+        /* Unprivileged key format, swap p and q, swap dp and dq, recalc qinv */
+        bn_tmp = bn_p;
+        bn_p = bn_q;
+        bn_q = bn_tmp;
+
+        /* qInv = (1/q) mod p */
+        if (BN_mod_inverse(bn_invq, bn_q, bn_p, ctx) == NULL) {
+            TRACE_ERROR("BN_mod_inverse failed.\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        len = BN_num_bytes(bn_invq);
+        buf = OPENSSL_secure_zalloc(len);
+        if (buf == NULL) {
+            TRACE_ERROR("OPENSSL_secure_zalloc failed.\n");
+            rc = CKR_HOST_MEMORY;
+            goto out;
+        }
+
+        if (BN_bn2binpad(bn_invq, buf, len) <= 0) {
+            TRACE_ERROR("BN_bn2binpad failed.\n");
+            rc = CKR_FUNCTION_FAILED;
+            goto out;
+        }
+
+        prime1->type = CKA_PRIME_2;
+        prime2->type = CKA_PRIME_1;
+
+        exponent1->type = CKA_EXPONENT_2;
+        exponent2->type = CKA_EXPONENT_1;
+
+        rc = build_attribute(CKA_COEFFICIENT, buf, len, &coeff);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("build_attribute for CKA_COEFFICIENT failed.\n");
+            goto out;
+        }
+
+        rc = template_update_attribute(tmpl, coeff);
+        if (rc != CKR_OK) {
+            TRACE_ERROR("template_update_attribute for CKA_COEFFICIENT failed.\n");
+            free(coeff);
+            goto out;
+        }
+    }
+
+out:
+    if (bn_p != NULL)
+        BN_clear(bn_p);
+    if (bn_q != NULL)
+        BN_clear(bn_q);
+    if (ctx != NULL)
+        BN_CTX_free(ctx);
+    if (buf != NULL)
+        OPENSSL_clear_free(buf, len);
+
+    return rc;
+}
+
 static CK_RV ibm_pqc_keyform_mode_attrs_by_mech(CK_MECHANISM_TYPE mech,
                                                 CK_ATTRIBUTE_TYPE *keyform_attr,
                                                 CK_ATTRIBUTE_TYPE *mode_attr,
