@@ -131,34 +131,37 @@ int do_HW_Feature_Search(void)
         {CKA_CLASS, &counter1_class, sizeof(counter1_class)}
     };
 
+    testcase_begin("do_HW_Feature_Search");
+    testcase_new_assertion();
+
     /* Create the 5 test objects */
     rc = funcs->C_CreateObject(sess, obj1_template, 4, &h_obj1);
     if (rc != CKR_OK) {
-        show_error("C_CreateObject #1", rc);
+        testcase_fail("C_CreateObject #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return rc;
     }
 
     rc = funcs->C_CreateObject(sess, obj2_template, 5, &h_obj2);
     if (rc != CKR_OK) {
-        show_error("C_CreateObject #2", rc);
+        testcase_fail("C_CreateObject #2, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto destroy_1;
     }
 
     rc = funcs->C_CreateObject(sess, counter1_template, 6, &h_counter1);
     if (rc != CKR_ATTRIBUTE_READ_ONLY) {
-        show_error("C_CreateObject #3", rc);
+        testcase_fail("C_CreateObject #3, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto destroy_2;
     }
 
     rc = funcs->C_CreateObject(sess, counter2_template, 6, &h_counter2);
     if (rc != CKR_ATTRIBUTE_READ_ONLY) {
-        show_error("C_CreateObject #4", rc);
+        testcase_fail("C_CreateObject #4, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto destroy_3;
     }
 
     rc = funcs->C_CreateObject(sess, clock_template, 4, &h_clock);
     if (rc != CKR_OK) {
-        show_error("C_CreateObject #5", rc);
+        testcase_fail("C_CreateObject #5, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto destroy_4;
     }
 
@@ -170,13 +173,13 @@ int do_HW_Feature_Search(void)
      */
     rc = funcs->C_FindObjectsInit(sess, NULL, 0);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjectsInit #1", rc);
+        testcase_fail("C_FindObjectsInit #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_FindObjects(sess, obj_list, 10, &find_count);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjects #1", rc);
+        testcase_fail("C_FindObjects #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
@@ -185,22 +188,22 @@ int do_HW_Feature_Search(void)
      * feature object.
      */
     if (find_count != 2) {
-        printf("%s:%d ERROR:  C_FindObjects #1 should have found 2 objects!\n"
-               "           It found %lu objects\n", __FILE__, __LINE__,
+        testcase_error("%s:%d ERROR: C_FindObjects #1 should have found 2 objects!\n"
+               "           It found %lu objects", __FILE__, __LINE__,
                find_count);
         rc = -1;
         goto done;
     }
 
     if (obj_list[0] != h_obj1 && obj_list[0] != h_obj2) {
-        printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
+        testcase_error("%s:%d ERROR: C_FindObjects #1 found the wrong objects!",
                __FILE__, __LINE__);
         rc = -1;
         goto done;
     }
 
     if (obj_list[1] != h_obj1 && obj_list[1] != h_obj2) {
-        printf("%s:%d ERROR:  C_FindObjects #1 found the wrong objects!\n",
+        testcase_error("%s:%d ERROR: C_FindObjects #1 found the wrong objects!",
                __FILE__, __LINE__);
         rc = -1;
         goto done;
@@ -208,7 +211,7 @@ int do_HW_Feature_Search(void)
 
     rc = funcs->C_FindObjectsFinal(sess);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjectsFinal #1", rc);
+        testcase_fail("C_FindObjectsFinal #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
@@ -218,18 +221,18 @@ int do_HW_Feature_Search(void)
      */
     rc = funcs->C_FindObjectsInit(sess, find_tmpl, 1);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjectsInit #2", rc);
+        testcase_fail("C_FindObjectsInit #2, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
     rc = funcs->C_FindObjects(sess, obj_list, 10, &find_count);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjects #2", rc);
+        testcase_fail("C_FindObjects #2, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
     if (find_count != 1) {
-        printf("%s:%d ERROR:  C_FindObjects #2 should have found 1 object!\n"
+        testcase_error("%s:%d ERROR: C_FindObjects #2 should have found 1 object!"
                "           It found %lu objects\n", __FILE__, __LINE__,
                find_count);
         funcs->C_FindObjectsFinal(sess);
@@ -242,7 +245,7 @@ int do_HW_Feature_Search(void)
         if (obj_list[i] != h_counter1 &&
             obj_list[i] != h_counter2 && obj_list[i] != h_clock) {
 
-            printf("%s:%d ERROR:  C_FindObjects #2 found the wrong\n"
+            testcase_error("%s:%d ERROR: C_FindObjects #2 found the wrong\n"
                    " objects!", __FILE__, __LINE__);
             rc = -1;
         }
@@ -250,7 +253,7 @@ int do_HW_Feature_Search(void)
 
     rc = funcs->C_FindObjectsFinal(sess);
     if (rc != CKR_OK) {
-        show_error("   C_FindObjectsFinal #2", rc);
+        testcase_fail("C_FindObjectsFinal #2, rc=%lx, %s", rc, p11_get_ckr(rc));
     }
 
 done:
@@ -264,6 +267,11 @@ destroy_2:
     funcs->C_DestroyObject(sess, h_obj2);
 destroy_1:
     funcs->C_DestroyObject(sess, h_obj1);
+
+    if (t_errors > 0)
+        testcase_notice("do_HW_Feature_Search ended with %ld error(s)", t_errors);
+    else
+        testcase_pass("do_HW_Feature_Search passed");
 
     return rc;
 }
@@ -302,7 +310,7 @@ int main(int argc, char **argv)
 
     rc = funcs->C_Initialize(&initialize_args);
     if (rc != CKR_OK) {
-        show_error("C_Initialize", rc);
+        testcase_fail("C_Initialize, rc=%lx, %s", rc, p11_get_ckr(rc));
         return -1;
     }
 
@@ -311,7 +319,7 @@ int main(int argc, char **argv)
                               NULL_PTR, NULL_PTR, &sess);
     /* Open a session with the token */
     if (rc != CKR_OK) {
-        show_error("C_OpenSession #1", rc);
+        testcase_fail("C_OpenSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto done;
     }
 
@@ -323,30 +331,29 @@ int main(int argc, char **argv)
     // Login correctly
     rc = funcs->C_Login(sess, CKU_USER, user_pin, user_pin_len);
     if (rc != CKR_OK) {
-        show_error("C_Login #1", rc);
+        testcase_fail("C_Login #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         goto session_close;
     }
 
-    printf("do_HW_Feature_Search...\n");
+    testcase_setup();
     rc = do_HW_Feature_Search();
     if (rc)
         goto logout;
 
-    printf("Hardware Feature tests succeeded.\n");
-
 logout:
     rc = funcs->C_Logout(sess);
     if (rc != CKR_OK)
-        show_error("C_Logout #1", rc);
+        testcase_fail("C_Logout #1, rc=%lx, %s", rc, p11_get_ckr(rc));
 
 session_close:
     rc = funcs->C_CloseSession(sess);
     /* Close the session */
     if (rc != CKR_OK)
-        show_error("C_CloseSession", rc);
+        testcase_fail("C_CloseSession, rc=%lx, %s", rc, p11_get_ckr(rc));
 
 done:
     /* Call C_Finalize and dlclose the library */
+    testcase_print_result();
     return clean_up();
 }
 
@@ -356,7 +363,7 @@ int clean_up(void)
 
     rc = funcs->C_Finalize(NULL);
     if (rc != CKR_OK)
-        show_error("C_Finalize", rc);
+        testcase_fail("C_Finalize, rc=%lx, %s", rc, p11_get_ckr(rc));
 
     return rc;
 }

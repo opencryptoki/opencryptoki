@@ -56,7 +56,7 @@ void dump_session_info(CK_SESSION_INFO * info)
     printf("      ulDeviceError:  %lu\n", info->ulDeviceError);
 }
 
-int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess,
+int create_aes_encrypt_context(CK_SESSION_HANDLE_PTR hsess,
                                CK_OBJECT_HANDLE_PTR hkey)
 {
     CK_SLOT_ID slot_id;
@@ -72,7 +72,7 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess,
 
     rc = funcs->C_OpenSession(slot_id, flags, NULL, NULL, hsess);
     if (rc != CKR_OK) {
-        show_error("   C_OpenSession #1", rc);
+        testcase_error("C_OpenSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
@@ -83,7 +83,7 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess,
 
     rc = funcs->C_GenerateKey(*hsess, &mech, &tkey, 1, hkey);
     if (rc != CKR_OK) {
-        show_error("   C_GenerateKey #1", rc);
+        testcase_error("C_GenerateKey #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
@@ -95,7 +95,7 @@ int create_des_encrypt_context(CK_SESSION_HANDLE_PTR hsess,
     /* Create encryption context using this session and key */
     rc = funcs->C_EncryptInit(*hsess, &mech, *hkey);
     if (rc != CKR_OK) {
-        show_error("   C_EncryptInit #1", rc);
+        testcase_error("C_EncryptInit #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
@@ -115,7 +115,7 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey,
         rc = funcs->C_EncryptUpdate(hsess, (CK_BYTE_PTR) (DATA + i), blocklen,
                                     (CK_BYTE_PTR) (DUMP + i), &outlen);
         if (rc != CKR_OK) {
-            show_error("C_Encrypt #1", rc);
+            testcase_error("C_Encrypt #1, rc=%lx, %s", rc, p11_get_ckr(rc));
             return FALSE;
         }
     }
@@ -124,20 +124,20 @@ int encrypt_DATA(CK_SESSION_HANDLE hsess, CK_OBJECT_HANDLE hkey,
 }
 
 
-int finalize_des_encrypt_context(CK_SESSION_HANDLE hsess)
+int finalize_aes_encrypt_context(CK_SESSION_HANDLE hsess)
 {
     CK_RV rc;
     CK_ULONG outlen = DATALEN;
 
     rc = funcs->C_EncryptFinal(hsess, DUMP, &outlen);
     if (rc != CKR_OK) {
-        show_error("C_EncryptFinal#1", rc);
+        testcase_error("C_EncryptFinal#1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
     rc = funcs->C_CloseSession(hsess);
     if (rc != CKR_OK) {
-        show_error("C_CloseSession #1", rc);
+        testcase_error("C_CloseSession #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
@@ -153,7 +153,7 @@ int close_all_sess(void)
 
     rc = funcs->C_CloseAllSessions(slot_id);
     if (rc != CKR_OK) {
-        show_error("C_CloseAllSessions #1", rc);
+        testcase_error("C_CloseAllSessions #1, rc=%lx, %s", rc, p11_get_ckr(rc));
         return FALSE;
     }
 
@@ -168,21 +168,21 @@ int do_SessionPerformance(unsigned int count)
     context_table_t *t = NULL;
 
     if (count == 0) {
-        show_error("do_SessionPerformance: zero session count", (CK_RV) 0);
+        testcase_error("do_SessionPerformance: zero session count");
         return FALSE;
     }
 
     t = (context_table_t *) calloc(count, sizeof(context_table_t));
     if (t == NULL) {
-        show_error("do_SessionPerformance: insuficient memory", (CK_RV) 0);
+        testcase_error("do_SessionPerformance: insufficient memory");
         return FALSE;
     }
 
     /* create encryption contexts */
     for (i = 0; i < count; i++) {
-        rc = create_des_encrypt_context(&(t[i].hsess), &(t[i].hkey));
+        rc = create_aes_encrypt_context(&(t[i].hsess), &(t[i].hkey));
         if (rc == FALSE) {
-            show_error("create_aes_encrypt_context", (CK_RV) 0);
+            testcase_error("create_aes_encrypt_context");
             goto ret;
         }
     }
@@ -191,22 +191,22 @@ int do_SessionPerformance(unsigned int count)
     GetSystemTime(&t1);
     rc = encrypt_DATA(t[0].hsess, t[0].hkey, 16);
     if (rc == FALSE) {
-        show_error("encrypt_DATA #1", (CK_RV) 0);
+        testcase_error("encrypt_DATA #1");
         goto ret;
     }
 
     rc = encrypt_DATA(t[count - 1].hsess, t[count - 1].hkey, 16);
     if (rc == FALSE) {
-        show_error("encrypt_DATA #2", (CK_RV) 0);
+        testcase_error("encrypt_DATA #2");
         goto ret;
     }
     GetSystemTime(&t2);
     process_time(t1, t2);
 
     for (i = 0; i < count; i++) {
-        rc = finalize_des_encrypt_context(t[i].hsess);
+        rc = finalize_aes_encrypt_context(t[i].hsess);
         if (rc == FALSE) {
-            show_error("finalize_aes_encrypt_context", (CK_RV) 0);
+            testcase_error("finalize_aes_encrypt_context");
             goto ret;
         }
     }
@@ -254,13 +254,23 @@ int main(int argc, char **argv)
         rc = funcs->C_CancelFunction(hsess);
         if (rc != CKR_FUNCTION_NOT_PARALLEL)
             return rc;
-
     }
+
+    testcase_setup();
+    testcase_begin("do_SessionPerformance");
+    testcase_new_assertion();
 
     for (i = 100; i < 50000; i = 1.2 * i) {
         printf("timing do_SessionPerformance(%d)\n", i);
         do_SessionPerformance(i);
     }
+
+    if (t_errors > 0)
+        testcase_notice("do_SessionPerformance ran with %ld error(s)", t_errors);
+    else
+        testcase_pass("do_SessionPerformance passed");
+
+    testcase_print_result();
 
     return 0;
 }
