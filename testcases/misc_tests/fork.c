@@ -161,8 +161,8 @@ CK_RV do_fork(CK_SESSION_HANDLE parent_session, CK_OBJECT_HANDLE parent_object)
     }
 
     // generate a key pair
-    rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-1024-CLIENT",
-                                    1024, &hPubKey, &hPrivKey);
+    rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-2048-CLIENT",
+                                    2048, &hPubKey, &hPrivKey);
     if (rv != CKR_OK) {
         if (rv == CKR_POLICY_VIOLATION) {
             rv = 0;
@@ -293,8 +293,8 @@ int main(int argc, char **argv)
     testcase_pass("do_fork() after C_OpenSession");
 
     // generate a key pair
-    rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-1024-PARENT",
-                                    1024, &hPubKey, &hPrivKey);
+    rv = do_GenerateTokenRSAKeyPair(session, (CK_BYTE *)"RSA-2048-PARENT",
+                                    2048, &hPubKey, &hPrivKey);
     if (rv != CKR_OK) {
         if (rv == CKR_POLICY_VIOLATION) {
             ret = 0;
