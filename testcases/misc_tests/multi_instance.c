@@ -183,8 +183,8 @@ int main(int argc, char **argv)
     // generate a key pair for slot 1
     testcase_new_assertion();
     rv = do_GenerateTokenRSAKeyPair(slot_id1, session1,
-                                    (CK_BYTE *)"RSA-1024-SLOT1",
-                                    1024, &hPubKey1, &hPrivKey1);
+                                    (CK_BYTE *)"RSA-2048-SLOT1",
+                                    2048, &hPubKey1, &hPrivKey1);
     if (rv != CKR_OK) {
         testcase_fail("do_GenerateTokenRSAKeyPair() on slot %lu rc = %s", slot_id1, p11_get_ckr(rv));
         goto close_session;
@@ -194,8 +194,8 @@ int main(int argc, char **argv)
     // generate a key pair for slot 2
     testcase_new_assertion();
     rv = do_GenerateTokenRSAKeyPair(slot_id2, session2,
-                                    (CK_BYTE *)"RSA-1024-SLOT2",
-                                    1024, &hPubKey2, &hPrivKey2);
+                                    (CK_BYTE *)"RSA-2048-SLOT2",
+                                    2048, &hPubKey2, &hPrivKey2);
     if (rv != CKR_OK) {
         testcase_fail("do_GenerateTokenRSAKeyPair() on slot %lu rc = %s", slot_id1, p11_get_ckr(rv));
         goto close_session;
@@ -213,9 +213,9 @@ int main(int argc, char **argv)
         // check if it is our object (expected), or the one from the other
         // session
         label[attrs[0].ulValueLen] = '\0';
-        if (strcmp((char *)label, "RSA-1024-SLOT1") == 0) {
+        if (strcmp((char *)label, "RSA-2048-SLOT1") == 0) {
             testcase_pass("C_GetAttributeValue for hPubKey2 on slot %lu got our object", slot_id1);
-        } else if (strcmp((char *)label, "RSA-1024-SLOT2") == 0) {
+        } else if (strcmp((char *)label, "RSA-2048-SLOT2") == 0) {
             testcase_fail("C_GetAttributeValue for hPubKey2 on slot %lu got foreign object: %s\n", slot_id1, label);
         } else {
             testcase_pass("C_GetAttributeValue for hPubKey2 on slot %lu got a totaly different object", slot_id1);
@@ -238,9 +238,9 @@ int main(int argc, char **argv)
         // check if it is our object (expected), or the one from the other
         // session
         label[attrs[0].ulValueLen] = '\0';
-        if (strcmp((char *)label, "RSA-1024-SLOT2") == 0) {
+        if (strcmp((char *)label, "RSA-2048-SLOT2") == 0) {
             testcase_pass("C_GetAttributeValue for hPubKey2 on slot %lu got our object", slot_id2);
-        } else if (strcmp((char *)label, "RSA-1024-SLOT1") == 0) {
+        } else if (strcmp((char *)label, "RSA-2048-SLOT1") == 0) {
             testcase_fail("C_GetAttributeValue for hPubKey2 on slot %lu got foreign object: %s\n", slot_id2, label);
         } else {
             testcase_pass("C_GetAttributeValue for hPubKey2 on slot %lu got a totaly different object", slot_id2);
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
         memset(label, 0, sizeof(label));
         rv = funcs->C_GetAttributeValue(session1, obj_list[i], attrs, 1);
         if (rv != CKR_OK ||
-            strcmp((char *)label, "RSA-1024-SLOT1") != 0) {
+            strcmp((char *)label, "RSA-2048-SLOT1") != 0) {
             num_wrong++;
             testcase_fail("C_FindObjects() on slot %lu found foreign object: %s\n", slot_id1, label);
         }
@@ -329,7 +329,7 @@ int main(int argc, char **argv)
         memset(label, 0, sizeof(label));
         rv = funcs->C_GetAttributeValue(session2, obj_list[i], attrs, 1);
         if (rv != CKR_OK ||
-            strcmp((char *)label, "RSA-1024-SLOT2") != 0) {
+            strcmp((char *)label, "RSA-2048-SLOT2") != 0) {
             num_wrong++;
             testcase_fail("C_FindObjects() on slot %lu found foreign object: %s\n", slot_id2, label);
             //goto close_session;
