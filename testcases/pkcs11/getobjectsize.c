@@ -58,6 +58,8 @@ CK_RV do_GetObjectSize(void)
     testcase_rw_session();
     testcase_user_login();
 
+    testcase_new_assertion();
+
     // Create an AES Key Object.
     rc = funcs->C_CreateObject(session, aes_tmpl, 4, &keyobj);
     if (rc != CKR_OK) {
@@ -93,7 +95,7 @@ CK_RV do_GetObjectSize(void)
         return rc;
     }
 
-    printf("C_GetObjectSize test passed\n");
+    testcase_pass("C_GetObjectSize test passed");
 
 testcase_cleanup:
     funcs->C_DestroyObject(session, keyobj);
@@ -142,7 +144,9 @@ int main(int argc, char **argv)
             return rv;
     }
 
+    testcase_setup();
     rv = do_GetObjectSize();
+    testcase_print_result();
 
     funcs->C_Finalize(NULL);
 
