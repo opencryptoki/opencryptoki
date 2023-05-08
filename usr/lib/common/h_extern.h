@@ -2562,6 +2562,7 @@ CK_RV rsa_priv_wrap_get_data(TEMPLATE *tmpl, CK_BBOOL length_only,
 CK_RV rsa_priv_unwrap(TEMPLATE *tmpl, CK_BYTE *data, CK_ULONG data_len);
 CK_RV rsa_priv_unwrap_get_data(TEMPLATE *tmpl,
                               CK_BYTE *data, CK_ULONG total_length);
+CK_RV rsa_priv_check_and_swap_pq(TEMPLATE *tmpl);
 
 // dsa routines
 //
