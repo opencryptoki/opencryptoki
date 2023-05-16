@@ -105,7 +105,7 @@ CK_RV cert_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     *(CK_BBOOL *) trusted_attr->pValue = FALSE;
 
     category_attr->type = CKA_CERTIFICATE_CATEGORY;
-    category_attr->ulValueLen = sizeof(CK_BBOOL);
+    category_attr->ulValueLen = sizeof(CK_CERTIFICATE_CATEGORY);
     category_attr->pValue = (CK_BYTE *)category_attr + sizeof(CK_ATTRIBUTE);
     *(CK_CERTIFICATE_CATEGORY *) category_attr->pValue =
                                         CK_CERTIFICATE_CATEGORY_UNSPECIFIED;
@@ -363,14 +363,14 @@ CK_RV cert_x509_set_default_attributes(TEMPLATE *tmpl, CK_ULONG mode)
     issuer_hash_attr->ulValueLen = 0;        // empty byte array
     issuer_hash_attr->pValue = NULL;
 
-    sec_domain_attr->type = CKA_TRUSTED;
-    sec_domain_attr->ulValueLen = sizeof(CK_BBOOL);
+    sec_domain_attr->type = CKA_JAVA_MIDP_SECURITY_DOMAIN;
+    sec_domain_attr->ulValueLen = sizeof(CK_JAVA_MIDP_SECURITY_DOMAIN);
     sec_domain_attr->pValue = (CK_BYTE *)sec_domain_attr + sizeof(CK_ATTRIBUTE);
     *(CK_JAVA_MIDP_SECURITY_DOMAIN *) sec_domain_attr->pValue =
                                             CK_SECURITY_DOMAIN_UNSPECIFIED;
 
-    hash_mech_attr->type = CKA_CERTIFICATE_CATEGORY;
-    hash_mech_attr->ulValueLen = sizeof(CK_BBOOL);
+    hash_mech_attr->type = CKA_NAME_HASH_ALGORITHM;
+    hash_mech_attr->ulValueLen = sizeof(CK_MECHANISM_TYPE);
     hash_mech_attr->pValue = (CK_BYTE *)hash_mech_attr + sizeof(CK_ATTRIBUTE);
     *(CK_MECHANISM_TYPE *) hash_mech_attr->pValue = CKM_SHA_1;
 
