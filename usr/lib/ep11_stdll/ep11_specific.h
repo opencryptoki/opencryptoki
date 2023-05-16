@@ -17,6 +17,7 @@
 #define EP11_SPECIFIC_H
 
 #include "ep11_func.h"
+#include "configuration.h"
 
 #include <ica_api.h>
 
@@ -333,6 +334,10 @@ typedef struct {
 extern m_DigestSingle_t dll_m_DigestSingle;
 extern m_Login_t dll_m_Login;
 extern m_Logout_t dll_m_Logout;
+extern m_get_xcp_info_t dll_m_get_xcp_info;
+extern m_admin_t dll_m_admin;
+extern xcpa_cmdblock_t dll_xcpa_cmdblock;
+extern xcpa_internal_rv_t dll_xcpa_internal_rv;
 
 typedef CK_RV(*adapter_handler_t) (uint_32 adapter, uint_32 domain,
                                    void *handler_data);
@@ -366,6 +371,25 @@ CK_RV ep11tok_libica_digest(STDLL_TokData_t *tokdata,
                             CK_BYTE *in_data, CK_ULONG in_data_len,
                             CK_BYTE *out_data, CK_ULONG *out_data_len,
                             unsigned int message_part);
+
+CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
+                                     unsigned int event_type,
+                                     unsigned int event_flags,
+                                     const char *payload,
+                                     unsigned int payload_len);
+CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
+CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
+                                   CK_BYTE *blob, CK_ULONG blob_len);
+CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
+                              ep11_target_info_t **target_info,
+                              CK_BYTE *blob, CK_ULONG blob_len,
+                              CK_BYTE *new_blob);
+
+void ep11_config_parse_error(int line, int col, const char *msg);
+void ep11_config_error_token(const char *fname, const char *key,
+                             int line, const char *expected);
+CK_RV ep11_config_next(struct ConfigBaseNode **c, unsigned typemask,
+                       const char *fname, const char *expected);
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR pMechanismList,
