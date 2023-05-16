@@ -1,5 +1,5 @@
 /*
- * COPYRIGHT (c) International Business Machines Corp. 2001-2017
+ * COPYRIGHT (c) International Business Machines Corp. 2001-2023
  *
  * This program is provided under the terms of the Common Public License,
  * version 1.0 (CPL-1.0). Any use, reproduction or distribution for this
@@ -8,10 +8,6 @@
  * https://opensource.org/licenses/cpl1.0.php
  */
 
-/***************************************************************************
-     Change Log
-     ==========
-****************************************************************************/
 
 /* Declaration of secure_getenv requires _GNU_SOURCE */
 #define _GNU_SOURCE
@@ -60,22 +56,11 @@
 #include <ctype.h>
 #endif
 
-#include <ica_api.h>
 #include <openssl/crypto.h>
 #include <openssl/ec.h>
 
-#include "ep11_func.h"
 #include "ep11_specific.h"
 #include "pkey_utils.h"
-
-#define EP11SHAREDLIB_NAME "OCK_EP11_LIBRARY"
-#define EP11SHAREDLIB_V4 "libep11.so.4"
-#define EP11SHAREDLIB_V3 "libep11.so.3"
-#define EP11SHAREDLIB_V2 "libep11.so.2"
-#define EP11SHAREDLIB_V1 "libep11.so.1"
-#define EP11SHAREDLIB "libep11.so"
-#define ICASHAREDLIB_V4  "libica.so.4"
-#define ICASHAREDLIB_V3  "libica.so.3"
 
 CK_RV ep11tok_get_mechanism_list(STDLL_TokData_t * tokdata,
                                  CK_MECHANISM_TYPE_PTR mlist,
@@ -96,7 +81,7 @@ static m_DigestInit_t dll_m_DigestInit;
 static m_DigestUpdate_t dll_m_DigestUpdate;
 static m_DigestKey_t dll_m_DigestKey;
 static m_DigestFinal_t dll_m_DigestFinal;
-static m_DigestSingle_t dll_m_DigestSingle;
+m_DigestSingle_t dll_m_DigestSingle;
 
 static m_Encrypt_t dll_m_Encrypt;
 static m_EncryptInit_t dll_m_EncryptInit;
@@ -135,8 +120,8 @@ static m_GetMechanismInfo_t dll_m_GetMechanismInfo;
 static m_GetAttributeValue_t dll_m_GetAttributeValue;
 static m_SetAttributeValue_t dll_m_SetAttributeValue;
 
-static m_Login_t dll_m_Login;
-static m_Logout_t dll_m_Logout;
+m_Login_t dll_m_Login;
+m_Logout_t dll_m_Logout;
 static m_admin_t dll_m_admin;
 static m_add_backend_t dll_m_add_backend;
 static m_init_t dll_m_init;
@@ -155,844 +140,8 @@ const char model[] = "EP11";
 const char descr[] = "IBM EP11 token";
 const char label[] = "ep11tok";
 
-/* largest blobsize ever seen is about 5k (for 4096 mod bits RSA keys) */
-/* Attribute bound keys can be larger */
-#define MAX_BLOBSIZE (8192 * 2)
-#define MAX_CSUMSIZE 64
-#define EP11_CSUMSIZE 3
-#define MAX_DIGEST_STATE_BYTES 1024
-#define MAX_CRYPT_STATE_BYTES 12288
-#define MAX_SIGN_STATE_BYTES 12288
-#define MAX_APQN 256
-#define EP11_BLOB_WKID_OFFSET 32
-
 /* wrap_key is used for importing keys */
 static const char wrap_key_name[] = "EP11_wrapkey";
-
-typedef struct cp_mech_config {
-    CK_MECHANISM_TYPE mech;     // the mechanism ID
-    struct cp_mech_config *next;        // next mechanism, or NULL
-} cp_mech_config_t;
-
-
-typedef struct cp_config {
-    unsigned long int cp;       // control point number
-    cp_mech_config_t *mech;     // list of mechanisms affected by this CP
-    struct cp_config *next;     // next control point, or NULL
-} cp_config_t;
-
-typedef struct {
-    SESSION *session;
-    CK_BYTE session_id[SHA256_HASH_SIZE];
-    CK_BYTE vhsm_pin[XCP_MAX_PINBYTES];
-    CK_BYTE flags;
-    CK_BYTE session_pin_blob[XCP_PINBLOB_BYTES];
-    CK_OBJECT_HANDLE session_object;
-    CK_BYTE vhsm_pin_blob[XCP_PINBLOB_BYTES];
-    CK_OBJECT_HANDLE vhsm_object;
-} ep11_session_t;
-
-#define EP11_SESS_PINBLOB_VALID  0x01
-#define EP11_VHSM_PINBLOB_VALID  0x02
-#define EP11_VHSMPIN_VALID       0x10
-#define EP11_STRICT_MODE         0x40
-#define EP11_VHSM_MODE           0x80
-
-#define DEFAULT_EP11_PIN         "        "
-
-#define CKH_IBM_EP11_SESSION     CKH_VENDOR_DEFINED + 1
-#define CKH_IBM_EP11_VHSMPIN     CKH_VENDOR_DEFINED + 2
-
-#define PUBLIC_SESSION_ID_LENGTH    16
-
-#define MAX_RETRY_COUNT 100
-
-/*
- * Macros to enclose EP11 library calls involving session bound blobs.
- * If the EP11 token is in an inconsistent state, fail with CKR_DEVICE_ERROR.
- * Obtain a target_info to be used with the EP11 library call.
- * If in single-APQN mode, and that APQN went offline, select another APQN and
- * retry the library call.
- * In case of EP11 library function failed with CKR_SESSION_CLOSED, relogin
- * all APQNs and retry the library call.
- */
-#define RETRY_SESSION_SINGLE_APQN_START(rc, tokdata)                     \
-                do {                                                     \
-                    ep11_target_info_t* target_info;                     \
-                    int retry_count;                                     \
-                    CK_RV rc2;                                           \
-                    if (((ep11_private_data_t *)                         \
-                              (tokdata)->private_data)->inconsistent) {  \
-                        (rc) = CKR_DEVICE_ERROR;                         \
-                        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));  \
-                        break;                                           \
-                    }                                                    \
-                    target_info = get_target_info((tokdata));            \
-                    if (target_info == NULL) {                           \
-                        (rc) = CKR_FUNCTION_FAILED;                      \
-                        break;                                           \
-                    }                                                    \
-                    for (retry_count = 0;                                \
-                         target_info != NULL &&                          \
-                         retry_count < MAX_RETRY_COUNT;                  \
-                         retry_count ++) {
-
-#define RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)              \
-                         if (target_info->single_apqn &&                 \
-                             ((rc) == CKR_IBM_TARGET_INVALID ||          \
-                              ((rc) == CKR_FUNCTION_FAILED &&            \
-                               !is_apqn_online(target_info->adapter,     \
-                                               target_info->domain)))) { \
-                             /* Single APQN went offline, select other */\
-                             TRACE_DEVEL("%s single APQN went offline\n",\
-                                         __func__);                      \
-                             put_target_info((tokdata), target_info);    \
-                             target_info = NULL;                         \
-                             (rc) = refresh_target_info((tokdata),       \
-                                                        FALSE);          \
-                             if ((rc) != CKR_OK)                         \
-                                 break;                                  \
-                             target_info = get_target_info((tokdata));   \
-                             if (target_info == NULL) {                  \
-                                 (rc) = CKR_FUNCTION_FAILED;             \
-                                 break;                                  \
-                             }                                           \
-                             continue;                                   \
-                         }                                               \
-                         if ((rc) != CKR_SESSION_CLOSED)                 \
-                             break;                                      \
-                         rc2 = ep11tok_relogin_session((tokdata),        \
-                                                       (session));       \
-                         if (rc2 != CKR_OK) {                            \
-                             (rc) = rc2;                                 \
-                             break;                                      \
-                         }                                               \
-                    }                                                    \
-                    put_target_info((tokdata), target_info);             \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls not involving session bound blobs, and
- * with given target_info.
- * If the EP11 token is in an inconsistent state, fail with CKR_DEVICE_ERROR.
- * If in single-APQN mode, and that APQN went offline, select another APQN and
- * retry the library call.
- */
-#define RETRY_SINGLE_APQN_START(tokdata, rc)                             \
-                do {                                                     \
-                    int retry_count;                                     \
-                    if (((ep11_private_data_t *)                         \
-                              (tokdata)->private_data)->inconsistent) {  \
-                        (rc) = CKR_DEVICE_ERROR;                         \
-                        TRACE_ERROR("%s\n", ock_err(ERR_DEVICE_ERROR));  \
-                        break;                                           \
-                    }                                                    \
-                    for (retry_count = 0;                                \
-                         retry_count < MAX_RETRY_COUNT;                  \
-                         retry_count ++) {
-
-#define RETRY_SINGLE_APQN_END(rc, tokdata, target_info)                  \
-                         if ((target_info) == NULL)                      \
-                             break;                                      \
-                         if ((target_info)->single_apqn &&               \
-                             ((rc) == CKR_IBM_TARGET_INVALID ||          \
-                              ((rc) == CKR_FUNCTION_FAILED &&            \
-                               !is_apqn_online((target_info)->adapter,   \
-                                            (target_info)->domain)))) {  \
-                             /* Single APQN went offline, select other */\
-                             TRACE_DEVEL("%s single APQN went offline\n",\
-                                         __func__);                      \
-                             put_target_info((tokdata), (target_info));  \
-                             target_info = NULL;                         \
-                             (rc) = refresh_target_info((tokdata),       \
-                                                        FALSE);          \
-                             if ((rc) != CKR_OK)                         \
-                                 break;                                  \
-                             (target_info) = get_target_info((tokdata)); \
-                             if ((target_info) == NULL) {                \
-                                 (rc) = CKR_FUNCTION_FAILED;             \
-                                 break;                                  \
-                             }                                           \
-                             continue;                                   \
-                         }                                               \
-                         break;                                          \
-                    }                                                    \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls with 1, 2 or 3 key blobs as argument.
- * If a master key change is active, and the single APQN has the new WK,
- * obtain and use the re-enciphered blob(s) from CKA_IBM_OPAQUE_REENC from
- * the key object(s).
- * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH and the used blob(s) are enciphered with the new WK,
- * then select a new single APQN that has the new WK. If no available APQN has
- * the new WK, wait until on at least one the new WK gets activated.
- * In case the blob(s) are enciphered with the old WK, then obtain the
- * re-enciphered blob(s) from CKA_IBM_OPAQUE_REENC from the key object(s)
- * and retry the library call.
- * If the retry was successful, indicate that the single APQN has the new WK.
- */
-#define RETRY_REENC_BLOB_START(tokdata, target_info, obj, blob, blobsize,\
-                               useblob, useblobsize, rc) \
-                RETRY_REENC_BLOB3_START(tokdata, target_info, obj, blob, \
-                                        blobsize, useblob, useblobsize,  \
-                                        NULL, blob, blobsize, blob,      \
-                                        blobsize,  NULL, blob, blobsize, \
-                                        blob, blobsize, rc)
-
-#define RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, \
-                             rc)                                         \
-                RETRY_REENC_BLOB3_END(tokdata, target_info, useblob,     \
-                                      useblobsize, NULL, 0, NULL, 0, rc)
-
-#define RETRY_REENC_BLOB2_START(tokdata, target_info, obj1, blob1,       \
-                                blobsize1, useblob1, useblobsize1,       \
-                                obj2, blob2, blobsize2, useblob2,        \
-                                useblobsize2, rc)                        \
-                RETRY_REENC_BLOB3_START(tokdata, target_info, obj1,      \
-                                        blob1, blobsize1, useblob1,      \
-                                        useblobsize1, obj2, blob2,       \
-                                        blobsize2, useblob2,             \
-                                        useblobsize2, NULL, blob1,       \
-                                        blobsize1, blob1, blobsize1, rc)
-
-#define RETRY_REENC_BLOB2_END(tokdata, target_info, useblob1,            \
-                              useblobsize1, useblob2, useblobsize2, rc)  \
-                RETRY_REENC_BLOB3_END(tokdata, target_info, useblob1,    \
-                                      useblobsize1, useblob2,            \
-                                      useblobsize2, NULL, 0, rc)
-
-#define RETRY_REENC_BLOB3_START(tokdata, target_info, obj1, blob1,       \
-                                blobsize1, useblob1, useblobsize1,       \
-                                obj2, blob2, blobsize2, useblob2,        \
-                                useblobsize2, obj3, blob3, blobsize3,    \
-                                useblob3, useblobsize3, rc)              \
-                do {                                                     \
-                    int retry = 0;                                       \
-                    do {                                                 \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            ((target_info)->single_apqn_has_new_wk ||    \
-                             retry == 1)) {                              \
-                            /* New WK is set on single APQN */           \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            (rc) = obj_opaque_2_reenc_blob((tokdata),    \
-                                                   (obj1), &(useblob1),  \
-                                                   &(useblobsize1));     \
-                            if ((rc) == CKR_TEMPLATE_INCOMPLETE) {       \
-                                (useblob1) = (blob1);                    \
-                                (useblobsize1) = (blobsize1);            \
-                            } else if ((rc) != CKR_OK) {                 \
-                                TRACE_ERROR("%s reenc blob1 invalid\n",  \
-                                            __func__);                   \
-                                break;                                   \
-                            }                                            \
-                            if (obj2 != NULL) {                          \
-                                (rc) = obj_opaque_2_reenc_blob((tokdata),\
-                                                     (obj2), &(useblob2),\
-                                                     &(useblobsize2));   \
-                                if ((rc) == CKR_TEMPLATE_INCOMPLETE) {   \
-                                    (useblob2) = (blob2);                \
-                                    (useblobsize2) = (blobsize2);        \
-                                } else if ((rc) != CKR_OK) {             \
-                                    TRACE_ERROR(                         \
-                                            "%s reenc blob2 invalid\n",  \
-                                            __func__);                   \
-                                    break;                               \
-                                }                                        \
-                            }                                            \
-                            if (obj3 != NULL) {                          \
-                                (rc) = obj_opaque_2_reenc_blob((tokdata),\
-                                                     (obj3), &(useblob3),\
-                                                     &(useblobsize3));   \
-                                if ((rc) == CKR_TEMPLATE_INCOMPLETE) {   \
-                                    (useblob3) = (blob3);                \
-                                    (useblobsize3) = (blobsize3);        \
-                                } else if ((rc) != CKR_OK) {             \
-                                    TRACE_ERROR(                         \
-                                            "%s reenc blob3 invalid\n",  \
-                                            __func__);                   \
-                                    break;                               \
-                                }                                        \
-                            }                                            \
-                            retry = 1;                                   \
-                        }  else {                                        \
-                            (useblob1) = (blob1);                        \
-                            (useblobsize1) = (blobsize1);                \
-                            if (obj2 != NULL) {                          \
-                                (useblob2) = (blob2);                    \
-                                (useblobsize2) = (blobsize2);            \
-                            }                                            \
-                            if (obj3 != NULL) {                          \
-                                (useblob3) = (blob3);                    \
-                                (useblobsize3) = (blobsize3);            \
-                            }                                            \
-                        }
-
-#define RETRY_REENC_BLOB3_END(tokdata, target_info, useblob1,            \
-                              useblobsize1, useblob2, useblobsize2,      \
-                              useblob3, useblobsize3, rc)                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                          (useblob1), (useblobsize1)) || \
-                                (useblob2 != NULL &&                     \
-                                 ep11tok_is_blob_new_wkid((tokdata),     \
-                                         (useblob2), (useblobsize2))) || \
-                                (useblob3 != NULL &&                     \
-                                 ep11tok_is_blob_new_wkid((tokdata),     \
-                                         (useblob3), (useblobsize3)))) { \
-                                /* blob has new WK, but single APQN not.
-                                   Wait until other single APQN with
-                                   new WK set is available */            \
-                                TRACE_DEVEL("%s WKID mismatch, blob has "\
-                                            "new WK, retry with new "    \
-                                            "single APQN with new WK, "  \
-                                            "wait if required\n",        \
-                                            __func__);                   \
-                                put_target_info((tokdata),               \
-                                                 (target_info));         \
-                                (target_info) = NULL;                    \
-                                (rc) = refresh_target_info((tokdata),    \
-                                                           TRUE);        \
-                                if ((rc) != CKR_OK)                      \
-                                    break;                               \
-                                (target_info) =                          \
-                                             get_target_info((tokdata)); \
-                                if ((target_info) == NULL) {             \
-                                    (rc) = CKR_FUNCTION_FAILED;          \
-                                    break;                               \
-                                }                                        \
-                                continue;                                \
-                            }                                            \
-                            /* Single APQN seems to now have new WK */   \
-                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
-                                        "reenc-blob(s)\n", __func__);    \
-                            retry = 1;                                   \
-                            continue;                                    \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 1 &&                                \
-                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
-                            (rc) != CKR_IBM_TARGET_INVALID &&            \
-                            (rc) != CKR_FUNCTION_FAILED) {               \
-                            /* retry with re-enciphered blob worked */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            __sync_or_and_fetch(                         \
-                                 &(target_info)->single_apqn_has_new_wk, \
-                                 1);                                     \
-                        }                                                \
-                        break;                                           \
-                    } while (1);                                         \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls with the wrap-blob as argument.
- * If a master key change is active, and the single APQN has the new WK,
- * obtain and use the re-enciphered wrap-blob.
- * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH and the used wrap blob is enciphered with the new WK,
- * then select a new single APQN that has the new WK. If no available APQN has
- * the new WK, wait until on at least one the new WK gets activated.
- * In case the used wrap blob is enciphered with the old WK, then obtain the
- * re-enciphered wrap-blob and retry the library call.
- * If the retry was successful, indicate that the single APQN has the new WK.
- */
-#define RETRY_REENC_WRAPBLOB_START(tokdata, target_info, useblob)        \
-                do {                                                     \
-                    int retry = 0;                                       \
-                    do {                                                 \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            (target_info)->single_apqn_has_new_wk &&     \
-                            retry == 0) {                                \
-                            /* New WK is already set on single APQN */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            (useblob) = ((ep11_private_data_t *)         \
-                                           (tokdata)->private_data)->    \
-                                                raw2key_wrap_blob_reenc; \
-                            retry = 1;                                   \
-                        } else {                                         \
-                            (useblob) = ((ep11_private_data_t *)         \
-                                           (tokdata)->private_data)->    \
-                                                raw2key_wrap_blob;       \
-                        }
-
-#define RETRY_REENC_WRAPBLOB_END(tokdata, target_info, useblob, rc)      \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                   (useblob),                            \
-                                   ((ep11_private_data_t *)              \
-                                           (tokdata)->private_data)->    \
-                                                 raw2key_wrap_blob_l)) { \
-                                /* blob has new WK, but single APQN not.
-                                   Wait until other single APQN with
-                                   new WK set is available */            \
-                                TRACE_DEVEL("%s WKID mismatch, blob has "\
-                                            "new WK, retry with new "    \
-                                            "single APQN with new WK, "  \
-                                            "wait if required\n",        \
-                                            __func__);                   \
-                                put_target_info((tokdata),               \
-                                                 (target_info));         \
-                                (target_info) = NULL;                    \
-                                (rc) = refresh_target_info((tokdata),    \
-                                                           TRUE);        \
-                                if ((rc) != CKR_OK)                      \
-                                    break;                               \
-                                (target_info) =                          \
-                                             get_target_info((tokdata)); \
-                                if ((target_info) == NULL) {             \
-                                    (rc) = CKR_FUNCTION_FAILED;          \
-                                    break;                               \
-                                }                                        \
-                                continue;                                \
-                            }                                            \
-                            /* Single APQN seems to now have new WK */   \
-                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
-                                        "reenc-wrap-blob\n", __func__);  \
-                            (useblob) = ((ep11_private_data_t *)         \
-                                           (tokdata)->private_data)->    \
-                                                raw2key_wrap_blob_reenc; \
-                            retry = 1;                                   \
-                            continue;                                    \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 1 &&                                \
-                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
-                            (rc) != CKR_IBM_TARGET_INVALID &&            \
-                            (rc) != CKR_FUNCTION_FAILED) {               \
-                            /* retry with re-enciphered blob worked */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            __sync_or_and_fetch(                         \
-                                 &(target_info)->single_apqn_has_new_wk, \
-                                 1);                                     \
-                        }                                                \
-                        break;                                           \
-                    } while (1);                                         \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls with a blob as argument that gets
- * updated by the EP11 library call.
- * If a master key change is active, and the single APQN has the new WK,
- * use the re-enciphered blob for the EP11 library call.
- * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH use the re-enciphered blob and retry the library call.
- * Also indicate that the single APQN has the new WK.
- * If a master key change is active, and the EP11 library call was successful
- * when using the old blob, re-encipher the (potentially updated) blob.
- * When re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the
- * new WK was just activated on the single APQN, indicate that the single APQN
- * has the new WK, and retry the EP11 library call with the (still unchanged)
- * re-enciphered blob (which then will be potentially updated by the EP11
- * library call).
- */
-#define RETRY_UPDATE_BLOB_START(tokdata, target_info, blob, blobsize,    \
-                                reencblob, reencblobsize,                \
-                                useblob, useblobsize)                    \
-                do {                                                     \
-                    CK_RV rc2;                                           \
-                    int retry = 0;                                       \
-                    do {                                                 \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            ((target_info)->single_apqn_has_new_wk ||    \
-                             retry == 1)) {                              \
-                            /* New WK is set on single APQN */           \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            (useblob) = (reencblob);                     \
-                            (useblobsize) = (reencblobsize);             \
-                            retry = 1;                                   \
-                        } else {                                         \
-                            (useblob) = (blob);                          \
-                            (useblobsize) = (blobsize);                  \
-                        }
-
-#define RETRY_UPDATE_BLOB_END(tokdata, target_info, blob, blobsize,      \
-                              reencblob, reencblobsize,                  \
-                              useblob, useblobsize, rc)                  \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                            (useblob), (useblobsize))) { \
-                                /* blob has new WK, but single APQN not.
-                                   Wait until other single APQN with
-                                   new WK set is available */            \
-                                TRACE_DEVEL("%s WKID mismatch, blob has "\
-                                            "new WK, retry with new "    \
-                                            "single APQN with new WK, "  \
-                                            "wait if required\n",        \
-                                            __func__);                   \
-                                put_target_info((tokdata),               \
-                                                 (target_info));         \
-                                (target_info) = NULL;                    \
-                                (rc) = refresh_target_info((tokdata),    \
-                                                           TRUE);        \
-                                if ((rc) != CKR_OK)                      \
-                                    break;                               \
-                                (target_info) =                          \
-                                             get_target_info((tokdata)); \
-                                if ((target_info) == NULL) {             \
-                                    (rc) = CKR_FUNCTION_FAILED;          \
-                                    break;                               \
-                                }                                        \
-                                continue;                                \
-                            }                                            \
-                            /* Single APQN seems to now have new WK */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            retry = 1;                                   \
-                            continue;                                    \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
-                            (rc) != CKR_IBM_TARGET_INVALID &&            \
-                            (rc) != CKR_FUNCTION_FAILED) {               \
-                            /* Op worked, re-encipher updated blob */    \
-                            TRACE_DEVEL("%s reencipher updated blob\n",  \
-                                        __func__);                       \
-                            if ((blobsize) != (reencblobsize)) {         \
-                                TRACE_ERROR("%s reencblobsize wrong \n", \
-                                            __func__);                   \
-                                (rc) = CKR_ARGUMENTS_BAD;                \
-                                break;                                   \
-                            }                                            \
-                            rc2 = ep11tok_reencipher_blob((tokdata),     \
-                                                          &(target_info),\
-                                                          (blob),        \
-                                                          (blobsize),    \
-                                                          (reencblob));  \
-                            if (rc2 == CKR_IBM_WK_NOT_INITIALIZED) {     \
-                                /* Single APQN now has new WK */         \
-                                TRACE_DEVEL("%s WKID mismatch on "       \
-                                      "reencipher, retry\n", __func__);  \
-                                retry = 1;                               \
-                                continue;                                \
-                            }                                            \
-                            if (rc2 != CKR_OK) {                         \
-                                (rc) = CKR_DEVICE_ERROR;                 \
-                                TRACE_ERROR("%s\n",                      \
-                                            ock_err(ERR_DEVICE_ERROR));  \
-                                break;                                   \
-                            }                                            \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 1 &&                                \
-                            (rc) != CKR_IBM_WKID_MISMATCH &&             \
-                            (rc) != CKR_IBM_TARGET_INVALID &&            \
-                            (rc) != CKR_FUNCTION_FAILED) {               \
-                            /* retry with re-enciphered blob worked */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            __sync_or_and_fetch(                         \
-                                 &(target_info)->single_apqn_has_new_wk, \
-                                 1);                                     \
-                            /* old blob is no longer valid, replace with
-                             * re-enciphered blob */                     \
-                            if ((blobsize) != (useblobsize)) {           \
-                                TRACE_ERROR("%s useblobsize wrong \n",   \
-                                            __func__);                   \
-                                (rc) = CKR_ARGUMENTS_BAD;                \
-                                break;                                   \
-                            }                                            \
-                            memcpy((blob), (useblob), (blobsize));       \
-                        }                                                \
-                        break;                                           \
-                    } while (1);                                         \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls with a key blob and a state blob as
- * arguments where the state blob gets updated by the EP11 library call.
- * If a master key change is active, and the single APQN has the new WK,
- * obtain and use the re-enciphered key blob CKA_IBM_OPAQUE_REENC from
- * the key object, and also use the re-enciphered state blob(s) for the EP11
- * library call.
- * If a master key change is active, and the EP11 library call fails with
- * CKR_IBM_WKID_MISMATCH use the re-enciphered blobs and retry the library
- * call.
- * If the retry was successful, indicate that the single APQN has the new WK.
- * If a master key change is active, and the EP11 library call was successful
- * when using the old blobs, re-encipher the (potentially updated) state blob.
- * When re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the
- * new WK was just activated on the single APQN, indicate that the single APQN
- * has the new WK, and retry the EP11 library call with the (still unchanged)
- * re-enciphered state blob (which then will be potentially updated by the EP11
- * library call).
- */
-#define RETRY_REENC_BLOB_STATE_START(tokdata, target_info, obj, blob,    \
-                                     blobsize, useblob, useblobsize,     \
-                                     stateblob, reencstate,              \
-                                     stateblobsize, usestate,            \
-                                     usestatesize, rc)                   \
-                do {                                                     \
-                    int retry = 0;                                       \
-                    do {                                                 \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            ((target_info)->single_apqn_has_new_wk ||    \
-                             retry == 1)) {                              \
-                            /* New WK is set on single APQN */           \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            (rc) = obj_opaque_2_reenc_blob((tokdata),    \
-                                      (obj), &(useblob), &(useblobsize));\
-                            if ((rc) == CKR_TEMPLATE_INCOMPLETE) {       \
-                                (useblob) = (blob);                      \
-                                (useblobsize) = (blobsize);              \
-                            } else if ((rc) != CKR_OK) {                 \
-                                TRACE_ERROR("%s reenc blob invalid\n",   \
-                                            __func__);                   \
-                                break;                                   \
-                            }                                            \
-                            (usestate) = (reencstate);                   \
-                            retry = 1;                                   \
-                        } else {                                         \
-                            (useblob) = (blob);                          \
-                            (useblobsize) = (blobsize);                  \
-                            (usestate) = (stateblob);                    \
-                        }                                                \
-                        (usestatesize) = (stateblobsize);
-
-#define RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blobsize, \
-                                   useblob,  useblobsize, stateblob,     \
-                                   reencstate, stateblobsize, usestate,  \
-                                   usestatesize, newstate, rc)           \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (rc) == CKR_IBM_WKID_MISMATCH) {             \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                            (useblob), (useblobsize)) || \
-                                ep11tok_is_blob_new_wkid((tokdata),      \
-                                         (usestate), (usestatesize))) {  \
-                                /* blob has new WK, but single APQN not.
-                                   Wait until other single APQN with
-                                   new WK set is available */            \
-                                TRACE_DEVEL("%s WKID mismatch, blob has "\
-                                            "new WK, retry with new "    \
-                                            "single APQN with new WK, "  \
-                                            "wait if required\n",        \
-                                            __func__);                   \
-                                put_target_info((tokdata),               \
-                                                 (target_info));         \
-                                (target_info) = NULL;                    \
-                                (rc) = refresh_target_info((tokdata),    \
-                                                           TRUE);        \
-                                if ((rc) != CKR_OK)                      \
-                                    break;                               \
-                                (target_info) =                          \
-                                             get_target_info((tokdata)); \
-                                if ((target_info) == NULL) {             \
-                                    (rc) = CKR_FUNCTION_FAILED;          \
-                                    break;                               \
-                                }                                        \
-                                continue;                                \
-                            }                                            \
-                            /* Single APQN seems to now have new WK */   \
-                            TRACE_DEVEL("%s WKID mismatch, retry with "  \
-                                        "reenc-blob\n", __func__);       \
-                            retry = 1;                                   \
-                            continue;                                    \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 1 &&                                \
-                            (((newstate) && (rc) == CKR_OK) ||           \
-                             (!(newstate) &&                             \
-                              (rc) != CKR_IBM_WKID_MISMATCH &&           \
-                              (rc) != CKR_IBM_TARGET_INVALID &&          \
-                              (rc) != CKR_FUNCTION_FAILED))) {           \
-                            /* retry with re-enciphered blob worked */   \
-                            TRACE_DEVEL("%s single APQN has new WK\n",   \
-                                        __func__);                       \
-                            __sync_or_and_fetch(                         \
-                                 &(target_info)->single_apqn_has_new_wk, \
-                                 1);                                     \
-                            /* old blobs are no longer valid, replace with
-                             * re-enciphered blobs */                    \
-                            if ((blobsize) != (useblobsize)) {           \
-                                TRACE_ERROR("%s useblobsize wrong \n",   \
-                                            __func__);                   \
-                                (rc) = CKR_ARGUMENTS_BAD;                \
-                                break;                                   \
-                            }                                            \
-                            memcpy((blob), (useblob), (blobsize));       \
-                            if ((stateblobsize) != (usestatesize)) {     \
-                                TRACE_ERROR("%s usestatesize wrong \n",  \
-                                            __func__);                   \
-                                (rc) = CKR_ARGUMENTS_BAD;                \
-                                break;                                   \
-                            }                                            \
-                            memcpy((stateblob), (usestate),              \
-                                   (stateblobsize));                     \
-                        }                                                \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                      private_data)->mk_change_active && \
-                            retry == 0 &&                                \
-                            (((newstate) && (rc) == CKR_OK) ||           \
-                             (!(newstate) &&                             \
-                              (rc) != CKR_IBM_WKID_MISMATCH &&           \
-                              (rc) != CKR_IBM_TARGET_INVALID &&          \
-                              (rc) != CKR_FUNCTION_FAILED))) {           \
-                            /* worked, re-encipher updated state blob */ \
-                            TRACE_DEVEL("%s reencipher updated state "   \
-                                       "blob\n",  __func__);             \
-                            rc2 = ep11tok_reencipher_blob((tokdata),     \
-                                                        &(target_info),  \
-                                                        (stateblob),     \
-                                                        (stateblobsize), \
-                                                        (reencstate));   \
-                            if (rc2 == CKR_IBM_WK_NOT_INITIALIZED) {     \
-                                /* Single APQN now has new WK */         \
-                                TRACE_DEVEL("%s WKID mismatch on "       \
-                                            "reencipher, retry\n",       \
-                                            __func__);                   \
-                                __sync_or_and_fetch(&(target_info)->     \
-                                                  single_apqn_has_new_wk,\
-                                                  1);                    \
-                                continue;                                \
-                            }                                            \
-                            if (rc2 != CKR_OK) {                         \
-                                (rc) = CKR_DEVICE_ERROR;                 \
-                                TRACE_ERROR("%s\n",                      \
-                                         ock_err(ERR_DEVICE_ERROR));     \
-                                break;                                   \
-                            }                                            \
-                        }                                                \
-                        break;                                           \
-                    } while (1);                                         \
-                } while (0);
-
-/*
- * Macros to enclose EP11 library calls that create 1 or 2 key blobs as output.
- * If a master key change is active, and the key blob(s) were created with the
- * new WK, copy them to the re-enciphered blob(s) and indicate that the
- * single APQN has the new WK.
- * If a master key change is active, and the key blob(s) were created with the
- * old WK, re-encipher the key blob(s).
- * If re-enciphering fails with CKR_IBM_WK_NOT_INITIALIZED, because the new WK
- * was just activated on the single APQN, indicate that the single APQN has
- * the new WK, and retry the EP11 library call. This creates new key blob(s)
- * that are then enciphered with the new WK.
- */
-#define RETRY_REENC_CREATE_KEY_START()                                   \
-                RETRY_REENC_CREATE_KEY2_START()
-
-#define RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob,           \
-                                   reencblob, blobsize, rc)              \
-                RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob,  \
-                                            reencblob, blobsize, blob,   \
-                                            reencblob, 0, rc)
-
-#define RETRY_REENC_CREATE_KEY2_START()                                  \
-                do {                                                     \
-                    do {                                                 \
-
-#define RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob1,         \
-                                    reencblob1, blobsize1, blob2,        \
-                                    reencblob2, blobsize2, rc)           \
-                        if (((ep11_private_data_t *)(tokdata)->          \
-                                private_data)->mk_change_active &&       \
-                            (rc) == CKR_OK) {                            \
-                            /* Key creation successful */                \
-                            if (ep11tok_is_blob_new_wkid((tokdata),      \
-                                              (blob1), (blobsize1)) ||   \
-                                ((blobsize2) > 0 &&                      \
-                                 ep11tok_is_blob_new_wkid((tokdata),     \
-                                               (blob2), (blobsize2)))) { \
-                                /* Key created with new WK already:
-                                   supply it in reencblob as well */     \
-                                TRACE_DEVEL("%s new key has new WK\n",   \
-                                            __func__);                   \
-                                memcpy((reencblob1), (blob1),            \
-                                       (blobsize1));                     \
-                                if ((blobsize2) > 0)                     \
-                                    memcpy((reencblob2), (blob2),        \
-                                           (blobsize2));                 \
-                                __sync_or_and_fetch(&(target_info)->     \
-                                                 single_apqn_has_new_wk, \
-                                                 1);                     \
-                            } else {                                     \
-                                /* created with old WK, re-encipher it */\
-                                TRACE_DEVEL("%s new key has old WK, "    \
-                                            "reencipher it\n", __func__);\
-                                (rc) = ep11tok_reencipher_blob((tokdata),\
-                                             &(target_info), (blob1),    \
-                                             (blobsize1), (reencblob1)); \
-                                if ((rc) == CKR_IBM_WK_NOT_INITIALIZED) {\
-                                    /* Single APQN now has new WK,
-                                       repeat key creation. */           \
-                                    TRACE_DEVEL("%s WKID mismatch on "   \
-                                                "reencipher, retry\n",   \
-                                                __func__);               \
-                                    continue;                            \
-                                }                                        \
-                                if ((rc) != CKR_OK) {                    \
-                                    (rc) = CKR_DEVICE_ERROR;             \
-                                    TRACE_ERROR("%s\n",                  \
-                                             ock_err(ERR_DEVICE_ERROR)); \
-                                    break;                               \
-                                }                                        \
-                                if ((blobsize2) > 0) {                   \
-                                    (rc) = ep11tok_reencipher_blob(      \
-                                               (tokdata), &(target_info),\
-                                               (blob2),  (blobsize2),    \
-                                               (reencblob2));            \
-                                    if ((rc) ==                          \
-                                            CKR_IBM_WK_NOT_INITIALIZED) {\
-                                        /* Single APQN now has new WK,
-                                           repeat key creation. */       \
-                                        TRACE_DEVEL("%s WKID mismatch "  \
-                                                "on reencipher, retry\n",\
-                                                __func__);               \
-                                        continue;                        \
-                                    }                                    \
-                                    if ((rc) != CKR_OK) {                \
-                                        (rc) = CKR_DEVICE_ERROR;         \
-                                        TRACE_ERROR("%s\n",              \
-                                             ock_err(ERR_DEVICE_ERROR)); \
-                                        break;                           \
-                                    }                                    \
-                                }                                        \
-                            }                                            \
-                        }                                                \
-                        break;                                           \
-                    } while (1);                                         \
-                } while (0);
-
-#define CKF_EP11_HELPER_SESSION      0x80000000
-
-static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len);
-static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata, SESSION * session);
-static void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
-                              CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len);
-static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
-                                      CK_SESSION_HANDLE_PTR phSession);
-static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                       ST_SESSION_HANDLE * sSession,
-                                       CK_BBOOL in_fork_initializer);
-static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
-                                void *handler_data);
 
 static CK_BBOOL ep11tok_ec_curve_supported2(STDLL_TokData_t *tokdata,
                                             TEMPLATE *template,
@@ -1012,13 +161,6 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
                                 unsigned char *cp, size_t * cp_len,
                                 size_t *max_cp_index);
 
-typedef struct ep11_card_version {
-    struct ep11_card_version *next;
-    CK_ULONG card_type;
-    CK_VERSION firmware_version;
-    CK_ULONG firmware_API_version;
-} ep11_card_version_t;
-
 static CK_RV ep11tok_get_ep11_library_version(CK_VERSION *lib_version);
 static void free_card_versions(ep11_card_version_t *card_version);
 static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
@@ -1027,19 +169,9 @@ static int check_card_version(STDLL_TokData_t *tokdata, CK_ULONG card_type,
                               const CK_ULONG *firmware_API_version);
 static int compare_ck_version(const CK_VERSION *v1, const CK_VERSION *v2);
 
-typedef struct {
-    const CK_VERSION *min_lib_version;
-    const CK_VERSION *min_firmware_version;
-    const CK_ULONG *min_firmware_API_version;
-    CK_ULONG card_type;
-} version_req_t;
-
 static int check_required_versions(STDLL_TokData_t *tokdata,
                                    const version_req_t req[],
                                    CK_ULONG num_req);
-
-typedef CK_RV(*adapter_handler_t) (uint_32 adapter, uint_32 domain,
-                                   void *handler_data);
 
 static CK_RV h_opaque_2_blob(STDLL_TokData_t * tokdata, CK_OBJECT_HANDLE handle,
                              CK_BYTE ** blob, size_t * blob_len,
@@ -1160,202 +292,9 @@ static const version_req_t ibm_ecdsa_other_req_versions[] = {
 #define NUM_ECDSA_OTHER_REQ (sizeof(ibm_ecdsa_other_req_versions) / \
                                             sizeof(version_req_t))
 
-/* Definitions for loading libica dynamically */
-
-typedef unsigned int (*ica_sha1_t)(unsigned int message_part,
-                                   unsigned int input_length,
-                                   unsigned char *input_data,
-                                   sha_context_t *sha_context,
-                                   unsigned char *output_data);
-
-typedef unsigned int (*ica_sha224_t)(unsigned int message_part,
-                                     unsigned int input_length,
-                                     unsigned char *input_data,
-                                     sha256_context_t *sha_context,
-                                     unsigned char *output_data);
-
-typedef unsigned int (*ica_sha256_t)(unsigned int message_part,
-                                     unsigned int input_length,
-                                     unsigned char *input_data,
-                                     sha256_context_t *sha_context,
-                                     unsigned char *output_data);
-
-typedef unsigned int (*ica_sha384_t)(unsigned int message_part,
-                                     unsigned int input_length,
-                                     unsigned char *input_data,
-                                     sha512_context_t *sha_context,
-                                     unsigned char *output_data);
-
-typedef unsigned int (*ica_sha512_t)(unsigned int message_part,
-                                     unsigned int input_length,
-                                     unsigned char *input_data,
-                                     sha512_context_t *sha_context,
-                                     unsigned char *output_data);
-
-typedef unsigned int (*ica_sha512_224_t)(unsigned int message_part,
-                                         unsigned int input_length,
-                                         unsigned char *input_data,
-                                         sha512_context_t *sha_context,
-                                         unsigned char *output_data);
-
-typedef unsigned int (*ica_sha512_256_t)(unsigned int message_part,
-                                         unsigned int input_length,
-                                         unsigned char *input_data,
-                                         sha512_context_t *sha_context,
-                                         unsigned char *output_data);
-
-#ifdef SHA3_224
-typedef unsigned int (*ica_sha3_224_t)(unsigned int message_part,
-                                       unsigned int input_length,
-                                       unsigned char *input_data,
-                                       sha3_224_context_t *sha3_224_context,
-                                       unsigned char *output_data);
-
-typedef unsigned int (*ica_sha3_256_t)(unsigned int message_part,
-                                       unsigned int input_length,
-                                       unsigned char *input_data,
-                                       sha3_256_context_t *sha3_256_context,
-                                       unsigned char *output_data);
-
-typedef unsigned int (*ica_sha3_384_t)(unsigned int message_part,
-                                       uint64_t input_length,
-                                       unsigned char *input_data,
-                                       sha3_384_context_t *sha3_384_context,
-                                       unsigned char *output_data);
-
-typedef unsigned int (*ica_sha3_512_t)(unsigned int message_part,
-                                       uint64_t input_length,
-                                       unsigned char *input_data,
-                                       sha3_512_context_t *sha3_512_context,
-                                       unsigned char *output_data);
-#endif
-typedef void (*ica_cleanup_t) (void);
-typedef int (*ica_fips_status_t) (void);
-
-typedef struct {
-    CK_BYTE buffer[MAX_SHA_BLOCK_SIZE];
-    CK_ULONG block_size;
-    CK_ULONG offset;
-    CK_BBOOL first;
-    union {
-        sha_context_t sha1;
-        sha256_context_t sha256;
-        sha512_context_t sha512;
-#ifdef SHA3_224
-        sha3_224_context_t sha3_224;
-        sha3_256_context_t sha3_256;
-        sha3_384_context_t sha3_384;
-        sha3_512_context_t sha3_512;
-#endif
-    } ctx;
-} libica_sha_context_t;
-
-typedef struct {
-    void *library;
-    ica_sha1_t ica_sha1;
-    ica_sha224_t ica_sha224;
-    ica_sha256_t ica_sha256;
-    ica_sha384_t ica_sha384;
-    ica_sha512_t ica_sha512;
-    ica_sha512_224_t ica_sha512_224;
-    ica_sha512_256_t ica_sha512_256;
-#ifdef SHA3_224
-    ica_sha3_224_t ica_sha3_224;
-    ica_sha3_256_t ica_sha3_256;
-    ica_sha3_384_t ica_sha3_384;
-    ica_sha3_512_t ica_sha3_512;
-#endif
-    ica_cleanup_t ica_cleanup;
-    ica_fips_status_t ica_fips_status;
-} libica_t;
-
-/* target list of adapters/domains, specified in a config file by user,
-   tells the device driver which adapter/domain pairs should be used,
-   they must have the same master key */
-typedef struct {
-    short format;
-    short length;
-    short apqns[2 * MAX_APQN];
-} __attribute__ ((packed)) ep11_target_t;
-
-static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
-                                   adapter_handler_t handler,
-                                   void *handler_data);
-
-/* EP11 token private data */
-#define PKEY_MK_VP_LENGTH           32
-
-#define PKEY_MODE_DISABLED          0
-#define PKEY_MODE_DEFAULT           1
-#define PKEY_MODE_ENABLE4NONEXTR    2
-
-#define PQC_BYTE_NO(idx)      (((idx) - 1) / 8)
-#define PQC_BIT_IN_BYTE(idx)  (((idx - 1)) % 8)
-#define PQC_BIT_MASK(idx)     (0x80 >> PQC_BIT_IN_BYTE(idx))
-#define PQC_BYTES             ((((XCP_PQC_MAX / 32) * 32) + 32) / 8)
-
-typedef struct {
-    volatile unsigned long ref_count;
-    target_t target;
-    ep11_card_version_t *card_versions;
-    CK_ULONG used_firmware_API_version;
-    unsigned char control_points[XCP_CP_BYTES];
-    size_t control_points_len;
-    size_t max_control_point_index;
-    CK_CHAR serialNumber[16];
-    CK_BYTE pqc_strength[PQC_BYTES];
-    int single_apqn;
-    uint_32 adapter; /* set if single_apqn = 1 */
-    uint_32 domain; /* set if single_apqn = 1 */
-    volatile int single_apqn_has_new_wk;
-} ep11_target_info_t;
-
-typedef struct {
-    char token_config_filename[PATH_MAX];
-    ep11_target_t target_list;
-    CK_BYTE raw2key_wrap_blob[MAX_BLOBSIZE];
-    CK_BYTE raw2key_wrap_blob_reenc[MAX_BLOBSIZE];
-    size_t raw2key_wrap_blob_l;
-    int cka_sensitive_default_true;
-    char cp_filter_config_filename[PATH_MAX];
-    cp_config_t *cp_config;
-    int strict_mode;
-    int vhsm_mode;
-    int optimize_single_ops;
-    int pkey_mode;
-    int pkey_wrap_supported;
-    char pkey_mk_vp[PKEY_MK_VP_LENGTH];
-    int msa_level;
-    int digest_libica;
-    char digest_libica_path[PATH_MAX];
-    unsigned char expected_wkvp[XCP_WKID_BYTES];
-    int expected_wkvp_set;
-    volatile int mk_change_active;
-    char mk_change_op[8]; /* set if mk_change_active = 1 */
-    unsigned char new_wkvp[XCP_WKID_BYTES]; /* set if mk_change_active = 1 */
-    struct apqn *mk_change_apqns; /* set if mk_change_active = 1 */
-    unsigned int num_mk_change_apqns; /* set if mk_change_active = 1 */
-    int inconsistent;
-    libica_t libica;
-    void *lib_ep11;
-    CK_VERSION ep11_lib_version;
-    volatile ep11_target_info_t *target_info;
-    pthread_rwlock_t target_rwlock;
-} ep11_private_data_t;
-
-static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata);
-static void put_target_info(STDLL_TokData_t *tokdata,
-                            ep11_target_info_t *target_info);
-static CK_RV refresh_target_info(STDLL_TokData_t *tokdata,
-                                 CK_BBOOL wait_for_new_wk);
-
-static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
-                                      target_t *target, uint64_t flags);
-static void free_ep11_target_for_apqn(target_t target);
 static CK_RV update_ep11_attrs_from_blob(STDLL_TokData_t *tokdata,
                                          SESSION *session, OBJECT *key_obj,
                                          CK_BBOOL aes_xts);
-static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain);
 static CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 static CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
                                      ep11_target_info_t **target_info,
@@ -1529,50 +468,6 @@ static CK_BBOOL ep11_pqc_obj_strength_supported(ep11_target_info_t *target_info,
 
     return ep11_pqc_strength_supported(target_info, mech, oid);
 }
-
-/*******************************************************************************
- *
- *                    Begin EP11 protected key option
- */
-
-typedef struct {
-    STDLL_TokData_t *tokdata;
-    ep11_session_t *ep11_session;
-    CK_BBOOL wrap_was_successful;
-    CK_RV wrap_error;
-    CK_VOID_PTR secure_key;
-    CK_ULONG secure_key_len;
-    CK_VOID_PTR secure_key_reenc;
-    CK_ULONG secure_key_reenc_len;
-    CK_BYTE *pkey_buf;
-    size_t *pkey_buflen_p;
-    /* for AES XTS processing */
-    CK_VOID_PTR secure_key2;
-    CK_ULONG secure_key_len2;
-    CK_VOID_PTR secure_key_reenc2;
-    CK_ULONG secure_key_reenc_len2;
-    CK_BYTE *pkey_buf2;
-    size_t *pkey_buflen_p2;
-    CK_BBOOL aes_xts;
-} pkey_wrap_handler_data_t;
-
-/* A wrapped key can have max 132 bytes for an EC-p521 key */
-#define EP11_MAX_WRAPPED_KEY_SIZE      (2 * (521 / 8 + 1))
-#define EP11_WRAPPED_KEY_VERSION_1     0x0001
-#define EP11_WRAPPED_KEY_TYPE_AES      0x1
-#define EP11_WRAPPED_KEY_TYPE_DES      0x2
-#define EP11_WRAPPED_KEY_TYPE_EC       0x3
-#define EP11_WRAPPED_KEY_TYPE_ED       0x4
-typedef struct {
-    uint16_t version;
-    uint8_t res0[16];
-    uint32_t wrapped_key_type;
-    uint32_t bit_length;
-    uint64_t token_size;
-    uint8_t res1[8];
-    uint8_t wrapped_key[EP11_MAX_WRAPPED_KEY_SIZE];
-    uint8_t res2[50];
-} __attribute__((packed)) wrapped_key_t;
 
 /**
  * Callback function used by handle_all_ep11_cards() for creating a protected
@@ -2337,11 +1232,6 @@ done:
     return ret;
 }
 
-/*
- *                     End of EP11 protected key option
- *
- ******************************************************************************/
-
 static CK_RV check_ab_supported(CK_KEY_TYPE type) {
     switch(type) {
     case CKK_AES:
@@ -2938,18 +1828,13 @@ static CK_ULONG ep11_get_mechanisms_by_name(STDLL_TokData_t *tokdata,
     return UNKNOWN_MECHANISM;
 }
 
-#define EP11_DEFAULT_CFG_FILE "ep11tok.conf"
-#define EP11_CFG_FILE_SIZE 4096
-
-#define EP11_DEFAULT_CPFILTER_FILE "ep11cpfilter.conf"
-
 static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
                                       const char *conf_name);
 static CK_RV read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                                         const char *conf_name,
                                         cp_config_t ** cp_config);
 
-static CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
+CK_RV ep11_error_to_pkcs11_error(CK_RV rc, SESSION *session)
 {
     if (rc < CKR_VENDOR_DEFINED)
         return rc;
@@ -5923,9 +4808,9 @@ done:
     return rc;
 }
 
-static CK_BBOOL ep11tok_libica_digest_available(STDLL_TokData_t * tokdata,
-                                                ep11_private_data_t *ep11_data,
-                                                CK_MECHANISM_TYPE mech)
+CK_BBOOL ep11tok_libica_digest_available(STDLL_TokData_t *tokdata,
+                                         ep11_private_data_t *ep11_data,
+                                         CK_MECHANISM_TYPE mech)
 {
     int use_libica;
 
@@ -6158,12 +5043,12 @@ CK_BBOOL ep11tok_libica_mech_available(STDLL_TokData_t *tokdata,
     return ep11tok_libica_digest_available(tokdata, ep11_data, digest_mech);
 }
 
-static CK_RV ep11tok_libica_digest(STDLL_TokData_t * tokdata,
-                                   ep11_private_data_t *ep11_data,
-                                   CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
-                                   CK_BYTE *in_data, CK_ULONG in_data_len,
-                                   CK_BYTE *out_data, CK_ULONG *out_data_len,
-                                   unsigned int message_part)
+CK_RV ep11tok_libica_digest(STDLL_TokData_t *tokdata,
+                            ep11_private_data_t *ep11_data,
+                            CK_MECHANISM_TYPE mech, libica_sha_context_t *ctx,
+                            CK_BYTE *in_data, CK_ULONG in_data_len,
+                            CK_BYTE *out_data, CK_ULONG *out_data_len,
+                            unsigned int message_part)
 {
     CK_ULONG hsize;
     CK_RV rc;
@@ -13419,12 +12304,6 @@ static CK_RV read_adapter_config_file(STDLL_TokData_t * tokdata,
     return rc;
 }
 
-#define UNKNOWN_CP          0xFFFFFFFF
-
-#define CP_BYTE_NO(cp)      ((cp) / 8)
-#define CP_BIT_IN_BYTE(cp)  ((cp) % 8)
-#define CP_BIT_MASK(cp)     (0x80 >> CP_BIT_IN_BYTE(cp))
-
 static CK_RV read_cp_filter_config_file(STDLL_TokData_t *tokdata,
                                         const char *conf_name,
                                         cp_config_t ** cp_config)
@@ -13713,11 +12592,6 @@ static CK_RV check_cps_for_mechanism(STDLL_TokData_t *tokdata,
     return CKR_OK;
 }
 
-#define SYSFS_DEVICES_AP        "/sys/devices/ap/"
-#define REGEX_CARD_PATTERN      "card[0-9a-fA-F]+"
-#define REGEX_SUB_CARD_PATTERN  "[0-9a-fA-F]+\\.[0-9a-fA-F]+"
-#define MASK_EP11               0x04000000
-
 static CK_RV file_fgets(const char *fname, char *buf, size_t buflen)
 {
     FILE *fp;
@@ -13753,7 +12627,7 @@ out_fclose:
     return rc;
 }
 
-static CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain)
+CK_BBOOL is_apqn_online(uint_32 card, uint_32 domain)
 {
     char fname[290];
     char buf[250];
@@ -13906,9 +12780,8 @@ static CK_RV scan_for_ep11_cards(adapter_handler_t handler, void *handler_data)
     return CKR_OK;
 }
 
-static CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
-                                   adapter_handler_t handler,
-                                   void *handler_data)
+CK_RV handle_all_ep11_cards(ep11_target_t * ep11_targets,
+                            adapter_handler_t handler, void *handler_data)
 {
     int i;
     CK_RV rc;
@@ -14135,688 +13008,6 @@ static CK_RV get_control_points(STDLL_TokData_t * tokdata,
 #endif
 
     return CKR_OK;
-}
-
-
-CK_RV SC_CreateObject(STDLL_TokData_t * tokdata,
-                      ST_SESSION_HANDLE * sSession, CK_ATTRIBUTE_PTR pTemplate,
-                      CK_ULONG ulCount, CK_OBJECT_HANDLE_PTR phObject);
-CK_RV SC_DestroyObject(STDLL_TokData_t * tokdata,
-                       ST_SESSION_HANDLE * sSession, CK_OBJECT_HANDLE hObject);
-CK_RV SC_FindObjectsInit(STDLL_TokData_t * tokdata,
-                         ST_SESSION_HANDLE * sSession,
-                         CK_ATTRIBUTE_PTR pTemplate, CK_ULONG ulCount);
-CK_RV SC_FindObjects(STDLL_TokData_t * tokdata,
-                     ST_SESSION_HANDLE * sSession,
-                     CK_OBJECT_HANDLE_PTR phObject, CK_ULONG ulMaxObjectCount,
-                     CK_ULONG_PTR pulObjectCount);
-CK_RV SC_FindObjectsFinal(STDLL_TokData_t * tokdata,
-                          ST_SESSION_HANDLE * sSession);
-CK_RV SC_GetAttributeValue(STDLL_TokData_t * tokdata,
-                           ST_SESSION_HANDLE * sSession,
-                           CK_OBJECT_HANDLE hObject, CK_ATTRIBUTE_PTR pTemplate,
-                           CK_ULONG ulCount);
-CK_RV SC_OpenSession(STDLL_TokData_t * tokdata, CK_SLOT_ID sid, CK_FLAGS flags,
-                     CK_SESSION_HANDLE_PTR phSession);
-CK_RV SC_CloseSession(STDLL_TokData_t * tokdata, ST_SESSION_HANDLE * sSession,
-                      CK_BBOOL in_fork_initializer);
-
-static CK_RV generate_ep11_session_id(STDLL_TokData_t * tokdata,
-                                      SESSION * session,
-                                      ep11_session_t * ep11_session)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_RV rc;
-    struct {
-        CK_SESSION_HANDLE handle;
-        struct timeval timeofday;
-        clock_t clock;
-        pid_t pid;
-    } session_id_data;
-    CK_MECHANISM mech;
-    CK_ULONG len;
-    libica_sha_context_t ctx;
-    ep11_target_info_t* target_info;
-
-    target_info = get_target_info(tokdata);
-    if (target_info == NULL)
-        return CKR_FUNCTION_FAILED;
-
-    session_id_data.handle = session->handle;
-    gettimeofday(&session_id_data.timeofday, NULL);
-    session_id_data.clock = clock();
-    session_id_data.pid = tokdata->real_pid;
-
-    mech.mechanism = CKM_SHA256;
-    mech.pParameter = NULL;
-    mech.ulParameterLen = 0;
-
-    len = sizeof(ep11_session->session_id);
-    if (ep11tok_libica_digest_available(tokdata, ep11_data, mech.mechanism)) {
-        rc = ep11tok_libica_digest(tokdata, ep11_data, mech.mechanism, &ctx,
-                                   (CK_BYTE_PTR)&session_id_data,
-                                   sizeof(session_id_data),
-                                   ep11_session->session_id, &len,
-                                   SHA_MSG_PART_ONLY);
-    } else {
-        RETRY_SINGLE_APQN_START(tokdata, rc)
-            rc = dll_m_DigestSingle(&mech, (CK_BYTE_PTR)&session_id_data,
-                                    sizeof(session_id_data),
-                                    ep11_session->session_id, &len,
-                                    target_info->target);
-        RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
-    }
-
-    put_target_info(tokdata, target_info);
-
-    if (rc != CKR_OK) {
-        rc = ep11_error_to_pkcs11_error(rc, session);
-        TRACE_ERROR("%s Digest failed: 0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV create_ep11_object(STDLL_TokData_t * tokdata,
-                                ST_SESSION_HANDLE * handle,
-                                ep11_session_t * ep11_session,
-                                CK_BYTE * pin_blob, CK_ULONG pin_blob_len,
-                                CK_OBJECT_HANDLE * obj)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    CK_RV rc;
-    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_SESSION;
-    CK_BYTE subject[] = "EP11 Session Object";
-    pid_t pid;
-    CK_DATE date;
-    CK_BYTE cktrue = TRUE;
-    time_t t;
-    struct tm *tm;
-    char tmp[40];
-
-    CK_ATTRIBUTE attrs[] = {
-        {CKA_CLASS, &class, sizeof(class)}
-        ,
-        {CKA_TOKEN, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_PRIVATE, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_HIDDEN, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
-        ,
-        {CKA_SUBJECT, &subject, sizeof(subject)}
-        ,
-        {CKA_VALUE, pin_blob, pin_blob_len}
-        ,
-        {CKA_ID, ep11_session->session_id, PUBLIC_SESSION_ID_LENGTH}
-        ,
-        {CKA_APPLICATION, &ep11_data->target_list, sizeof(ep11_target_t)}
-        ,
-        {CKA_OWNER, &pid, sizeof(pid)}
-        ,
-        {CKA_START_DATE, &date, sizeof(date)}
-    };
-
-    pid = tokdata->real_pid;
-    time(&t);
-    tm = localtime(&t);
-    sprintf(tmp, "%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
-    memcpy(date.year, tmp, 4);
-    memcpy(date.month, tmp + 4, 2);
-    memcpy(date.day, tmp + 4 + 2, 2);
-
-    rc = SC_CreateObject(tokdata, handle,
-                         attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE), obj);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_CreateObject failed: 0x%lx\n", __func__, rc);
-        return rc;
-    }
-
-    return CKR_OK;
-}
-
-static CK_RV get_vhsmpin(STDLL_TokData_t * tokdata,
-                         SESSION * session, ep11_session_t * ep11_session)
-{
-    CK_RV rc;
-    ST_SESSION_HANDLE handle = {.slotID =
-            session->session_info.slotID,.sessionh = session->handle
-    };
-    CK_OBJECT_HANDLE obj_store[16];
-    CK_ULONG objs_found = 0;
-    CK_OBJECT_CLASS class = CKO_HW_FEATURE;
-    CK_HW_FEATURE_TYPE type = CKH_IBM_EP11_VHSMPIN;
-    CK_BYTE cktrue = TRUE;
-    CK_ATTRIBUTE vhsmpin_template[] = {
-        {CKA_CLASS, &class, sizeof(class)}
-        ,
-        {CKA_TOKEN, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_PRIVATE, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_HIDDEN, &cktrue, sizeof(cktrue)}
-        ,
-        {CKA_HW_FEATURE_TYPE, &type, sizeof(type)}
-        ,
-    };
-    CK_ATTRIBUTE attrs[] = {
-        {CKA_VALUE, ep11_session->vhsm_pin, sizeof(ep11_session->vhsm_pin)}
-        ,
-    };
-
-    rc = SC_FindObjectsInit(tokdata, &handle,
-                            vhsmpin_template,
-                            sizeof(vhsmpin_template) / sizeof(CK_ATTRIBUTE));
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_FindObjectsInit failed: 0x%lx\n", __func__, rc);
-        goto out;
-    }
-
-    rc = SC_FindObjects(tokdata, &handle, obj_store, 16, &objs_found);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_FindObjects failed: 0x%lx\n", __func__, rc);
-        goto out;
-    }
-
-    if (objs_found == 0) {
-        rc = CKR_FUNCTION_FAILED;
-        TRACE_ERROR("%s No VHSMPIN object found\n", __func__);
-        goto out;
-    }
-
-    rc = SC_GetAttributeValue(tokdata, &handle, obj_store[0],
-                              attrs, sizeof(attrs) / sizeof(CK_ATTRIBUTE));
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s SC_GetAttributeValue failed: 0x%lx\n", __func__, rc);
-        goto out;
-    }
-
-    ep11_session->flags |= EP11_VHSMPIN_VALID;
-
-out:
-    SC_FindObjectsFinal(tokdata, &handle);
-    return rc;
-}
-
-static CK_RV ep11_login_handler(uint_32 adapter, uint_32 domain,
-                                void *handler_data)
-{
-    ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
-    target_t target;
-    CK_RV rc;
-    CK_BYTE pin_blob[XCP_PINBLOB_BYTES];
-    CK_ULONG pin_blob_len = XCP_PINBLOB_BYTES;
-    CK_BYTE *pin = (CK_BYTE *)DEFAULT_EP11_PIN;
-    CK_ULONG pin_len = strlen(DEFAULT_EP11_PIN);
-    CK_BYTE *nonce = NULL;
-    CK_ULONG nonce_len = 0;
-
-    TRACE_INFO("Logging in adapter %02X.%04X\n", adapter, domain);
-
-    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (ep11_session->flags & EP11_VHSM_MODE) {
-        pin = ep11_session->vhsm_pin;
-        pin_len = sizeof(ep11_session->vhsm_pin);
-
-        rc = dll_m_Login(pin, pin_len, nonce, nonce_len,
-                         pin_blob, &pin_blob_len, target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
-            /* ignore the error here, the adapter may not be able to perform
-             * m_Login at this moment */
-            rc = CKR_OK;
-            goto strict_mode;
-        }
-#ifdef DEBUG
-        TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP("    ", pin_blob, XCP_PINBLOB_BYTES);
-#endif
-
-        if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
-            /* First part of pin-blob (keypart and session) must be equal */
-            if (memcmp(ep11_session->vhsm_pin_blob, pin_blob, XCP_WK_BYTES) !=
-                0) {
-                TRACE_ERROR("%s VHSM-Pin blob not equal to previous one\n",
-                            __func__);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: VHSM-Pin blob of adapter %02X.%04X is "
-                           "not equal to other adapters for same session\n",
-                           __func__, adapter, domain);
-                rc = CKR_DEVICE_ERROR;
-                goto out;
-            }
-        } else {
-            memcpy(ep11_session->vhsm_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
-            ep11_session->flags |= EP11_VHSM_PINBLOB_VALID;
-        }
-    }
-
-strict_mode:
-    if (ep11_session->flags & EP11_STRICT_MODE) {
-        nonce = ep11_session->session_id;
-        nonce_len = sizeof(ep11_session->session_id);
-        /* pin is already set to default pin or vhsm pin (if VHSM mode) */
-
-        rc = dll_m_Login(pin, pin_len, nonce, nonce_len,
-                         pin_blob, &pin_blob_len, target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Login failed: 0x%lx\n", __func__, rc);
-            /* ignore the error here, the adapter may not be able to perform
-             * m_Login at this moment */
-            rc = CKR_OK;
-            goto out;
-        }
-#ifdef DEBUG
-        TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP("    ", pin_blob, XCP_PINBLOB_BYTES);
-#endif
-
-        if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
-            /* First part of pin-blob (keypart and session) must be equal */
-            if (memcmp(ep11_session->session_pin_blob, pin_blob, XCP_WK_BYTES)
-                != 0) {
-                TRACE_ERROR("%s Pin blob not equal to previous one\n",
-                            __func__);
-                OCK_SYSLOG(LOG_ERR,
-                           "%s: Error: Pin blob of adapter %02X.%04X is not "
-                           "equal to other adapters for same session\n",
-                           __func__, adapter, domain);
-                rc = CKR_DEVICE_ERROR;
-                goto out;
-            }
-        } else {
-            memcpy(ep11_session->session_pin_blob, pin_blob, XCP_PINBLOB_BYTES);
-            ep11_session->flags |= EP11_SESS_PINBLOB_VALID;
-        }
-    }
-
-out:
-    free_ep11_target_for_apqn(target);
-    return rc;
-}
-
-static CK_RV ep11_logout_handler(uint_32 adapter, uint_32 domain,
-                                 void *handler_data)
-{
-    ep11_session_t *ep11_session = (ep11_session_t *) handler_data;
-    target_t target;
-    CK_RV rc;
-
-    TRACE_INFO("Logging out adapter %02X.%04X\n", adapter, domain);
-
-    rc = get_ep11_target_for_apqn(adapter, domain, &target, 0);
-    if (rc != CKR_OK)
-        return rc;
-
-    if (ep11_session->flags & EP11_SESS_PINBLOB_VALID) {
-#ifdef DEBUG
-        TRACE_DEBUG("EP11 Session Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP("    ", ep11_session->session_pin_blob, XCP_PINBLOB_BYTES);
-#endif
-
-        rc = dll_m_Logout(ep11_session->session_pin_blob, XCP_PINBLOB_BYTES,
-                          target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
-          /* ignore any errors during m_logout */
-        }
-    }
-
-    if (ep11_session->flags & EP11_VHSM_PINBLOB_VALID) {
-#ifdef DEBUG
-        TRACE_DEBUG("EP11 VHSM Pin blob (size: %lu):\n", XCP_PINBLOB_BYTES);
-        TRACE_DEBUG_DUMP("    ", ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES);
-#endif
-
-        rc = dll_m_Logout(ep11_session->vhsm_pin_blob, XCP_PINBLOB_BYTES,
-                          target);
-        if (rc != CKR_OK) {
-            rc = ep11_error_to_pkcs11_error(rc, NULL);
-            TRACE_ERROR("%s dll_m_Logout failed: 0x%lx\n", __func__, rc);
-            /* ignore any errors during m_logout */
-        }
-    }
-
-    free_ep11_target_for_apqn(target);
-    return CKR_OK;
-}
-
-CK_RV ep11tok_login_session(STDLL_TokData_t * tokdata, SESSION * session)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_session_t *ep11_session;
-    CK_RV rc;
-    CK_RV rc2;
-    ST_SESSION_HANDLE handle = {.slotID =
-            session->session_info.slotID,.sessionh = session->handle
-    };
-    CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
-
-    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
-
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
-        return CKR_OK;
-
-    if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
-        return CKR_OK;
-
-    switch (session->session_info.state) {
-    case CKS_RW_SO_FUNCTIONS:
-    case CKS_RO_PUBLIC_SESSION:
-    case CKS_RW_PUBLIC_SESSION:
-        TRACE_INFO("%s Public or SO session\n", __func__);
-        return CKR_OK;
-    case CKS_RO_USER_FUNCTIONS:
-        rc = ep11_open_helper_session(tokdata, session, &helper_session);
-        if (rc != CKR_OK)
-            return rc;
-        handle.sessionh = helper_session;
-        break;
-    default:
-        break;
-    }
-
-    if (session->private_data != NULL) {
-        TRACE_INFO("%s Session already logged in\n", __func__);
-        return CKR_USER_ALREADY_LOGGED_IN;
-    }
-
-    ep11_session = (ep11_session_t *) calloc(1, sizeof(ep11_session_t));
-    if (ep11_session == NULL) {
-        TRACE_ERROR("%s Memory allocation failed\n", __func__);
-        return CKR_HOST_MEMORY;
-    }
-    ep11_session->session = session;
-    ep11_session->session_object = CK_INVALID_HANDLE;
-    ep11_session->vhsm_object = CK_INVALID_HANDLE;
-    if (ep11_data->strict_mode)
-        ep11_session->flags |= EP11_STRICT_MODE;
-    if (ep11_data->vhsm_mode)
-        ep11_session->flags |= EP11_VHSM_MODE;
-    session->private_data = ep11_session;
-
-    rc = generate_ep11_session_id(tokdata, session, ep11_session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s _generate_ep11_session_id failed: 0x%lx\n", __func__,
-                    rc);
-        goto done;
-    }
-#ifdef DEBUG
-    TRACE_DEBUG("EP11 Session-ID for PKCS#11 session %lu:\n", session->handle);
-    TRACE_DEBUG_DUMP("    ", ep11_session->session_id,
-                     sizeof(ep11_session->session_id));
-#endif
-
-    if (ep11_data->vhsm_mode) {
-        rc = get_vhsmpin(tokdata, session, ep11_session);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s get_vhsmpin failed: 0x%lx\n", __func__, rc);
-            OCK_SYSLOG(LOG_ERR,
-                       "%s: Error: A VHSM-PIN is required for VHSM_MODE.\n",
-                       __func__);
-            goto done;
-        }
-    }
-
-    rc = handle_all_ep11_cards(&ep11_data->target_list, ep11_login_handler,
-                               ep11_session);
-    if (rc != CKR_OK) {
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
-        goto done;
-    }
-
-    if (ep11_data->strict_mode) {
-        if ((ep11_session->flags & EP11_SESS_PINBLOB_VALID) == 0) {
-            rc = CKR_DEVICE_ERROR;
-            TRACE_ERROR("%s no pinblob available\n", __func__);
-            goto done;
-        }
-
-        rc = create_ep11_object(tokdata, &handle, ep11_session,
-                                ep11_session->session_pin_blob,
-                                sizeof(ep11_session->session_pin_blob),
-                                &ep11_session->session_object);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s _create_ep11_object failed: 0x%lx\n", __func__, rc);
-            goto done;
-        }
-    }
-
-    if (ep11_data->vhsm_mode) {
-        if ((ep11_session->flags & EP11_VHSM_PINBLOB_VALID) == 0) {
-            rc = CKR_DEVICE_ERROR;
-            TRACE_ERROR("%s no VHSM pinblob available\n", __func__);
-            goto done;
-        }
-
-        rc = create_ep11_object(tokdata, &handle, ep11_session,
-                                ep11_session->vhsm_pin_blob,
-                                sizeof(ep11_session->vhsm_pin_blob),
-                                &ep11_session->vhsm_object);
-        if (rc != CKR_OK) {
-            TRACE_ERROR("%s _create_ep11_object failed: 0x%lx\n", __func__, rc);
-            goto done;
-        }
-    }
-
-done:
-    if (rc != CKR_OK) {
-        if (ep11_session->flags &
-            (EP11_SESS_PINBLOB_VALID | EP11_VHSM_PINBLOB_VALID)) {
-            rc2 =
-                handle_all_ep11_cards(&ep11_data->target_list,
-                                      ep11_logout_handler, ep11_session);
-            if (rc2 != CKR_OK)
-                TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n",
-                            __func__, rc2);
-        }
-
-        if (ep11_session->session_object != CK_INVALID_HANDLE) {
-            rc2 =
-                SC_DestroyObject(tokdata, &handle,
-                                 ep11_session->session_object);
-            if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__,
-                            rc2);
-        }
-
-        if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
-            rc2 = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
-            if (rc2 != CKR_OK)
-                TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__,
-                            rc2);
-        }
-
-        free(ep11_session);
-        session->private_data = NULL;
-
-        TRACE_ERROR("%s: failed: 0x%lx\n", __func__, rc);
-    }
-
-    if (helper_session != CK_INVALID_HANDLE) {
-        rc2 = ep11_close_helper_session(tokdata, &handle, FALSE);
-        if (rc2 != CKR_OK)
-            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
-                        __func__, rc2);
-    }
-
-    return rc;
-}
-
-static CK_RV ep11tok_relogin_session(STDLL_TokData_t * tokdata,
-                                     SESSION * session)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
-    CK_RV rc;
-
-    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
-
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
-        return CKR_OK;
-
-    if (ep11_session == NULL) {
-        TRACE_INFO("%s Session not yet logged in\n", __func__);
-        return CKR_USER_NOT_LOGGED_IN;
-    }
-
-    rc = handle_all_ep11_cards(&ep11_data->target_list, ep11_login_handler,
-                               ep11_session);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
-
-    return CKR_OK;
-}
-
-CK_RV ep11tok_logout_session(STDLL_TokData_t * tokdata, SESSION * session,
-                             CK_BBOOL in_fork_initializer)
-{
-    ep11_private_data_t *ep11_data = tokdata->private_data;
-    ep11_session_t *ep11_session = (ep11_session_t *) session->private_data;
-    CK_RV rc = CKR_OK, rc2;
-    ST_SESSION_HANDLE handle = {.slotID =
-            session->session_info.slotID,.sessionh = session->handle
-    };
-    CK_SESSION_HANDLE helper_session = CK_INVALID_HANDLE;
-
-    TRACE_INFO("%s session=%lu\n", __func__, session->handle);
-
-    if (!ep11_data->strict_mode && !ep11_data->vhsm_mode)
-        return CKR_OK;
-
-    if (session->session_info.flags & CKF_EP11_HELPER_SESSION)
-        return CKR_OK;
-
-    if (in_fork_initializer)
-        goto free_session;
-
-    switch (session->session_info.state) {
-    case CKS_RW_SO_FUNCTIONS:
-    case CKS_RO_PUBLIC_SESSION:
-    case CKS_RW_PUBLIC_SESSION:
-        TRACE_INFO("%s Public or SO session\n", __func__);
-        return CKR_OK;
-    case CKS_RO_USER_FUNCTIONS:
-        rc = ep11_open_helper_session(tokdata, session, &helper_session);
-        if (rc != CKR_OK)
-            return rc;
-        handle.sessionh = helper_session;
-        break;
-    default:
-        break;
-    }
-
-    if (ep11_session == NULL) {
-        TRACE_INFO("%s CKR_USER_NOT_LOGGED_IN\n", __func__);
-        return CKR_USER_NOT_LOGGED_IN;
-    }
-
-    rc = handle_all_ep11_cards(&ep11_data->target_list, ep11_logout_handler,
-                               ep11_session);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s handle_all_ep11_cards failed: 0x%lx\n", __func__, rc);
-
-    if (ep11_session->session_object != CK_INVALID_HANDLE) {
-        rc = SC_DestroyObject(tokdata, &handle, ep11_session->session_object);
-        if (rc != CKR_OK)
-            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
-    }
-    if (ep11_session->vhsm_object != CK_INVALID_HANDLE) {
-        rc = SC_DestroyObject(tokdata, &handle, ep11_session->vhsm_object);
-        if (rc != CKR_OK)
-            TRACE_ERROR("%s SC_DestroyObject failed: 0x%lx\n", __func__, rc);
-    }
-
-free_session:
-    free(ep11_session);
-    session->private_data = NULL;
-
-    if (helper_session != CK_INVALID_HANDLE) {
-        rc2 = ep11_close_helper_session(tokdata, &handle, in_fork_initializer);
-        if (rc2 != CKR_OK)
-            TRACE_ERROR("%s ep11_close_helper_session failed: 0x%lx\n",
-                        __func__, rc2);
-    }
-
-    return rc;
-}
-
-
-static CK_BOOL ep11_is_session_object(CK_ATTRIBUTE_PTR attrs, CK_ULONG attrs_len)
-{
-    CK_ATTRIBUTE_PTR attr;
-
-    attr = get_attribute_by_type(attrs, attrs_len, CKA_TOKEN);
-    if (attr == NULL)
-        return TRUE;
-
-    if (attr->pValue == NULL)
-        return TRUE;
-
-    if (*((CK_BBOOL *) attr->pValue) == FALSE)
-        return TRUE;
-
-    return FALSE;
-}
-
-static void ep11_get_pin_blob(ep11_session_t * ep11_session, CK_BOOL is_session_obj,
-                              CK_BYTE ** pin_blob, CK_ULONG * pin_blob_len)
-{
-    if (ep11_session != NULL &&
-        (ep11_session->flags & EP11_STRICT_MODE) && is_session_obj) {
-        *pin_blob = ep11_session->session_pin_blob;
-        *pin_blob_len = sizeof(ep11_session->session_pin_blob);
-        TRACE_DEVEL
-            ("%s Strict mode and CKA_TOKEN=FALSE -> pass session pin_blob\n",
-             __func__);
-    } else if (ep11_session != NULL && (ep11_session->flags & EP11_VHSM_MODE)) {
-        *pin_blob = ep11_session->vhsm_pin_blob;
-        *pin_blob_len = sizeof(ep11_session->vhsm_pin_blob);
-        TRACE_DEVEL("%s vHSM mode -> pass VHSM pin_blob\n", __func__);
-    } else {
-        *pin_blob = NULL;
-        *pin_blob_len = 0;
-    }
-}
-
-static CK_RV ep11_open_helper_session(STDLL_TokData_t * tokdata, SESSION * sess,
-                                      CK_SESSION_HANDLE_PTR phSession)
-{
-    CK_RV rc;
-
-    TRACE_INFO("%s\n", __func__);
-
-    rc = SC_OpenSession(tokdata, sess->session_info.slotID,
-                        CKF_RW_SESSION | CKF_SERIAL_SESSION |
-                        CKF_EP11_HELPER_SESSION, phSession);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s SC_OpenSession failed: 0x%lx\n", __func__, rc);
-
-    return rc;
-}
-
-static CK_RV ep11_close_helper_session(STDLL_TokData_t * tokdata,
-                                       ST_SESSION_HANDLE * sSession,
-                                       CK_BBOOL in_fork_initializer)
-{
-    CK_RV rc;
-
-    TRACE_INFO("%s\n", __func__);
-
-    rc = SC_CloseSession(tokdata, sSession, in_fork_initializer);
-    if (rc != CKR_OK)
-        TRACE_ERROR("%s SC_CloseSession failed: 0x%lx\n", __func__, rc);
-
-    return rc;
 }
 
 CK_BBOOL ep11tok_optimize_single_ops(STDLL_TokData_t *tokdata)
@@ -15628,8 +13819,9 @@ static CK_RV ep11tok_setup_target(STDLL_TokData_t *tokdata,
 
     return CKR_OK;
 }
-static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
-                                      target_t *target, uint64_t flags)
+
+CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
+                               target_t *target, uint64_t flags)
 {
     ep11_target_t *target_list;
     struct XCP_Module module;
@@ -15669,7 +13861,7 @@ static CK_RV get_ep11_target_for_apqn(uint_32 adapter, uint_32 domain,
     return CKR_OK;
 }
 
-static void free_ep11_target_for_apqn(target_t target)
+void free_ep11_target_for_apqn(target_t target)
 {
     CK_RV rc;
 
@@ -17410,8 +15602,7 @@ CK_RV token_specific_handle_event(STDLL_TokData_t *tokdata,
  * thread save way and gives back the previous one so that it is release when
  * no longer used (i.e. by a concurrently running thread).
  */
-static CK_RV refresh_target_info(STDLL_TokData_t *tokdata,
-                                 CK_BBOOL wait_for_new_wk)
+CK_RV refresh_target_info(STDLL_TokData_t *tokdata, CK_BBOOL wait_for_new_wk)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     volatile ep11_target_info_t *prev_info;
@@ -17490,7 +15681,7 @@ error:
  * and return the current target info in a thread save way.
  * When no longer needed, put it back using put_target_info().
  */
-static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata)
+ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     volatile ep11_target_info_t *target_info;
@@ -17536,8 +15727,7 @@ static ep11_target_info_t *get_target_info(STDLL_TokData_t *tokdata)
  * Give back an EP11 target info. This will decrement the reference count,
  * and will free it if the reference count reaches zero.
  */
-static void put_target_info(STDLL_TokData_t *tokdata,
-                            ep11_target_info_t *target_info)
+void put_target_info(STDLL_TokData_t *tokdata, ep11_target_info_t *target_info)
 {
     ep11_private_data_t *ep11_data = tokdata->private_data;
     unsigned long ref_count;

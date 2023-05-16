@@ -41,7 +41,8 @@ opencryptoki_stdll_libpkcs11_ep11_la_SOURCES = usr/lib/common/asn1.c	\
 	usr/lib/common/sw_crypt.c usr/lib/common/profile_obj.c		\
 	usr/lib/common/dlist.c usr/lib/common/pkey_utils.c		\
 	usr/lib/ep11_stdll/new_host.c usr/lib/common/mech_openssl.c	\
-	usr/lib/ep11_stdll/ep11_specific.c				\
+	usr/lib/ep11_stdll/ep11_specific.c 				\
+	usr/lib/ep11_stdll/ep11_session.c				\
 	usr/lib/common/utility_common.c usr/lib/common/ec_supported.c	\
 	usr/lib/api/policyhelper.c usr/lib/config/configuration.c	\
 	usr/lib/config/cfgparse.y usr/lib/config/cfglex.l		\
