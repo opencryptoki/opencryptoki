@@ -25,6 +25,7 @@
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 
+#define OCK_NO_EP11_DEFINES
 #include "pkcs11types.h"
 #include "stdll.h"
 
