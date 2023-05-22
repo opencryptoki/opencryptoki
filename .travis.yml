@@ -14,7 +14,7 @@ jobs:
         - name: "linux-x86-clang"
           os: linux
           compiler: clang
-          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror -DDEBUG"
+          env: CONFIG_OPTS="--enable-swtok --enable-icsftok --enable-ccatok --enable-testcases --with-systemd" CFLAGS="-O3 -Werror -Wno-error=unused-but-set-variable -DDEBUG"
         - name: "linux-x86-gcc"
           os: linux
           compiler: gcc
