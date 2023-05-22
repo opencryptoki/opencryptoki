@@ -783,6 +783,7 @@ int main(int argc, char **argv)
     int opt = 0;
     struct passwd *pswd = NULL;
     int user_id = -1;
+    char *user_name = NULL;
     bool summary = false, all_users = false, all_mechs = false;
     bool reset = false, reset_all = false;
     bool delete = false, delete_all = false;
@@ -903,19 +904,27 @@ int main(int argc, char **argv)
         }
     }
 
+    user_name = strdup(pswd->pw_name);
+    if (user_name == NULL) {
+        warnx("Failed to get current user name");
+        exit(EXIT_FAILURE);
+    }
+
     if (delete) {
         if (slot_id_specified) {
             warnx("Options -s/--slot and -d/--delete can not be specified together");
+            free(user_name);
             exit(EXIT_FAILURE);
         }
 
-        rc = delete_shm(user_id, pswd->pw_name);
+        rc = delete_shm(user_id, user_name);
         goto done;
     }
 
     if (delete_all) {
         if (slot_id_specified) {
             warnx("Options -s/--slot and -D/--delete-all can not be specified together");
+            free(user_name);
             exit(EXIT_FAILURE);
         }
 
@@ -932,7 +941,7 @@ int main(int argc, char **argv)
         goto done;
 
     if (reset) {
-        rc = reset_shm(user_id, pswd->pw_name, num_slots, slots,
+        rc = reset_shm(user_id, user_name, num_slots, slots,
                        slot_id_specified, slot_id);
         goto done;
     }
@@ -968,7 +977,7 @@ int main(int argc, char **argv)
         rc = display_summary(&dd);
         goto done;
     } else {
-        rc = display_stats(user_id, pswd->pw_name, &dd);
+        rc = display_stats(user_id, user_name, &dd);
         goto done;
     }
 
@@ -983,6 +992,8 @@ done:
         func_list->C_Finalize(NULL);
         dlclose(dll);
     }
+
+    free(user_name);
 
     return rc == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
