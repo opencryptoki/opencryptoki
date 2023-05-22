@@ -4736,6 +4736,7 @@ static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             data->num_skipped++;
             return CKR_OK;
         case 'c':
+        case '\0':
             data->skip_all = true;
             data->num_skipped++;
             return CKR_OK;
@@ -4825,6 +4826,7 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             data->num_skipped++;
             return CKR_OK;
         case 'c':
+        case '\0':
             data->skip_all = true;
             data->num_skipped++;
             return CKR_OK;
@@ -4974,6 +4976,7 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             data->num_skipped++;
             return CKR_OK;
         case 'c':
+        case '\0':
             data->skip_all = true;
             data->num_skipped++;
             return CKR_OK;
@@ -6983,6 +6986,7 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
             data->num_skipped++;
             return CKR_OK;
         case 'c':
+        case '\0':
             data->skip_all = true;
             data->num_skipped++;
             return CKR_OK;
