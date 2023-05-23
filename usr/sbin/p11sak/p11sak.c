@@ -6794,7 +6794,7 @@ static CK_RV p11sak_export_spki(const struct p11sak_keytype *keytype,
         return rc;
     }
 
-    ret = PEM_write_bio(bio, PEM_STRING_PUBLIC, NULL,
+    ret = PEM_write_bio(bio, PEM_STRING_PUBLIC, "",
                         attr.pValue, attr.ulValueLen);
     if (ret <= 0) {
         warnx("Failed to write SPKI of %s key object \"%s\" to PEM file '%s'.",
@@ -6888,7 +6888,7 @@ static CK_RV p11sak_export_asym_key(const struct p11sak_keytype *keytype,
         ret = PEM_write_bio(bio, private ?
                                     keytype->pem_name_private :
                                     keytype->pem_name_public,
-                            NULL, data, data_len);
+                            "", data, data_len);
         if (ret <= 0) {
             warnx("Failed to write %s key object \"%s\" to PEM file '%s'.",
                   typestr, label, opt_file);
