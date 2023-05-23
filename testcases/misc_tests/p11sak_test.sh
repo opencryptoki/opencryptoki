@@ -124,7 +124,7 @@ else
 fi
 # dsa dsa-param.pem
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA_KEY_PAIR_GEN) ]]; then
-	p11sak generate-key dsa dsa-param.pem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa"
+	p11sak generate-key dsa $DIR/dsa-param.pem --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-dsa"
 	RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 else
 	echo "Skip generating dsa keys, slot does not support CKM_DSA_KEY_PAIR_GEN"
