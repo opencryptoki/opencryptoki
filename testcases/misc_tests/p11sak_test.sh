@@ -258,9 +258,13 @@ else
 	echo "Skip importing dh keys, slot does not support CKM_DH_PKCS_DERIVE"
 fi
 # ec
-p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-private" --file $DIR/ec-key.pem --attr sX
+p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file $DIR/ec-key-prime256v1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
-p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-public" --file $DIR/ec-key.pem --attr sX
+p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file $DIR/ec-key-prime256v1.pem --attr sX
+RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+p11sak import-key ec private --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file $DIR/ec-key-secp521r1.pem --attr sX
+RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
+p11sak import-key ec public --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file $DIR/ec-key-secp521r1.pem --attr sX
 RC_P11SAK_IMPORT=$((RC_P11SAK_IMPORT + $?))
 # ibm-dilithium
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
@@ -347,17 +351,27 @@ else
 fi
 # ec
 if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-public" --file export-ec-key.pem --force
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-public" --file export-ec-prime256v1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-private" --file export-ec-key.opaque --force --opaque
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-private" --file export-ec-prime256v1-key.opaque --force --opaque
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-public" --file export-ec-secp521r1-key.pem --force
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-private" --file export-ec-secp521r1-key.opaque --force --opaque
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 else
-	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-*" --file export-ec-key.pem --force
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-prime256v1-*" --file export-ec-prime256v1-key.pem --force
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
-	openssl pkey -in export-ec-key.pem -check -text > /dev/null
+	openssl pkey -in export-ec-prime256v1-key.pem -check -text > /dev/null
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	p11sak export-key ec --slot $SLOT --pin $PKCS11_USER_PIN --label "import-ec-secp521r1-*" --file export-ec-secp521r1-key.pem --force
+	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+	openssl pkey -in export-ec-secp521r1-key.pem -check -text > /dev/null
 	RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 fi
-openssl pkey -in export-ec-key.pem -pubin -text > /dev/null
+openssl pkey -in export-ec-prime256v1-key.pem -pubin -text > /dev/null
+RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
+openssl pkey -in export-ec-secp521r1-key.pem -pubin -text > /dev/null
 RC_P11SAK_EXPORT=$((RC_P11SAK_EXPORT + $?))
 # ibm-dilithium
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_IBM_DILITHIUM) ]]; then
