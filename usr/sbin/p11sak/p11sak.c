@@ -5455,6 +5455,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
     const EC_POINT *ec_point = NULL;
     unsigned char *point = NULL;
 #endif
+    unsigned char *point_ptr;
     size_t point_len = 0;
     ASN1_OBJECT *obj = NULL;
     unsigned char *ec_params = NULL;
@@ -5469,10 +5470,10 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
 #if OPENSSL_VERSION_PREREQ(3, 0)
     if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME,
                                         group, sizeof(group), NULL) ||
-        (!private &&          /* leave 2 bytes space for DER encoding */
+        (!private &&          /* leave 3 bytes space for DER encoding */
          !EVP_PKEY_get_octet_string_param(pkey,
                                           OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY,
-                                          point + 2, sizeof(point) - 2,
+                                          point + 3, sizeof(point) - 3,
                                           &point_len)) ||
         (private &&
          !EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_PRIV_KEY, &bn_priv))) {
@@ -5522,8 +5523,8 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
             goto done;
         }
 
-        /* Leave 2 bytes space for DER encoding of OCTET-STRING */
-        point = calloc(2 + point_len, 1);
+        /* Leave 3 bytes space for DER encoding of OCTET-STRING */
+        point = calloc(3 + point_len, 1);
         if (point == NULL) {
             warnx("Failed to allocate buffer for EC point.");
             rc = CKR_HOST_MEMORY;
@@ -5532,7 +5533,7 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
 
         if (EC_POINT_point2oct(ec_group, ec_point,
                                POINT_CONVERSION_UNCOMPRESSED,
-                               point + 2, point_len, NULL) != point_len) {
+                               point + 3, point_len, NULL) != point_len) {
             warnx("EC_POINT_point2oct failed.");
             ERR_print_errors_cb(openssl_err_cb, NULL);
             rc = CKR_FUNCTION_FAILED;
@@ -5570,19 +5571,24 @@ static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
            goto done;
     } else {
         /* CKA_EC_POINT needs DER encoded EC point */
-        if (!private) {
-            if (point_len >= 0x80) {
-                warnx("EC point is too long.");
-                rc = CKR_FUNCTION_FAILED;
-                goto done;
-            }
-
+        if (point_len < 0x80) {
+            point[1] = 0x04; /* OCTET-STRING */
+            point[2] = point_len & 0x7f;
+            point_len += 2;
+            point_ptr = &point[1];
+        } else if (point_len < 0x0100) {
             point[0] = 0x04; /* OCTET-STRING */
-            point[1] = point_len & 0x7f;
+            point[1] = 0x81; /* 1 byte length field */
+            point[2] = point_len & 0xff;
+            point_len += 3;
+            point_ptr = &point[0];
+        } else {
+            warnx("EC point is too long.");
+            rc = CKR_FUNCTION_FAILED;
+            goto done;
         }
-        point_len += 2;
 
-        rc = add_attribute(CKA_EC_POINT, point, point_len, attrs, num_attrs);
+        rc = add_attribute(CKA_EC_POINT, point_ptr, point_len, attrs, num_attrs);
         if (rc != CKR_OK)
            goto done;
     }
@@ -6536,8 +6542,15 @@ static CK_RV p11sak_export_ec_pkey(const struct p11sak_keytype *keytype,
         }
 
         /* remove octet string BER encoding */
-        ecpoint = (CK_BYTE*)ecpoint_attr.pValue + 2;
-        ecpoint_len = ecpoint_attr.ulValueLen - 2;
+        ecpoint = (CK_BYTE*)ecpoint_attr.pValue;
+        ecpoint_len = ecpoint_attr.ulValueLen;
+        if ((ecpoint[1] & 0x80) == 0) {
+            ecpoint += 2;
+            ecpoint_len -= 2;
+        } else {
+            ecpoint += 2 + (ecpoint[1] & 0x7f);
+            ecpoint_len -= 3 + (ecpoint[1] & 0x7f);
+        }
     }
 
     oid = ecparams_attr.pValue;
