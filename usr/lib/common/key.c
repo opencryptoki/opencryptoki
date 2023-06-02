@@ -3561,7 +3561,7 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
             // must be between [512, 1024] bits, and a multiple of 64 bits
             //
             size = attr->ulValueLen;
-            if (size < 64 || size > 128 || (size % 8 != 0)) {
+            if (size < 64 || (size % 8 != 0)) {
                 TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
                 return CKR_ATTRIBUTE_VALUE_INVALID;
             }
@@ -3575,7 +3575,7 @@ CK_RV dsa_publ_validate_attribute(STDLL_TokData_t *tokdata, TEMPLATE *tmpl,
         }
         // subprime must be 160 bits
         //
-        if (attr->ulValueLen != 20) {
+        if (attr->ulValueLen < 20) {
             TRACE_ERROR("%s\n", ock_err(ERR_ATTRIBUTE_VALUE_INVALID));
             return CKR_ATTRIBUTE_VALUE_INVALID;
         }
