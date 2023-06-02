@@ -3034,7 +3034,7 @@ static bool private_attr_applicable(const struct p11sak_keytype *keytype,
 static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
                                  const char *attr_string, CK_ATTRIBUTE **attrs,
                                  CK_ULONG *num_attrs, bool check_settable,
-                                 bool (*attr_aplicable)(
+                                 bool (*attr_applicable)(
                                          const struct p11sak_keytype *keytype,
                                          const struct p11sak_attr *attr))
 {
@@ -3055,8 +3055,8 @@ static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
 
         /* silently ignore attributes that are not settable or not applicable */
         if ((check_settable && !attr->settable) ||
-            (attr_aplicable != NULL && keytype != NULL &&
-             !attr_aplicable(keytype, attr)))
+            (attr_applicable != NULL && keytype != NULL &&
+             !attr_applicable(keytype, attr)))
             continue;
 
         val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
@@ -3122,7 +3122,7 @@ static CK_RV add_attributes(const struct p11sak_keytype *keytype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     void *private),
                             void *private,
-                            bool (*attr_aplicable)(
+                            bool (*attr_applicable)(
                                     const struct p11sak_keytype *keytype,
                                     const struct p11sak_attr *attr))
 {
@@ -3146,7 +3146,7 @@ static CK_RV add_attributes(const struct p11sak_keytype *keytype,
     }
 
     rc = parse_boolean_attrs(keytype, attr_string, attrs, num_attrs,
-                             true, attr_aplicable);
+                             true, attr_applicable);
     if (rc != CKR_OK)
         return rc;
 
@@ -4831,8 +4831,8 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_aplicable)(const struct p11sak_keytype *keytype,
-                           const struct p11sak_attr *attr);
+    bool (*attr_applicable)(const struct p11sak_keytype *keytype,
+                            const struct p11sak_attr *attr);
 
     UNUSED(keysize);
 
@@ -4870,13 +4870,13 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     switch (class) {
     case CKO_SECRET_KEY:
-        attr_aplicable = secret_attr_applicable;
+        attr_applicable = secret_attr_applicable;
         break;
     case CKO_PUBLIC_KEY:
-        attr_aplicable = public_attr_applicable;
+        attr_applicable = public_attr_applicable;
         break;
     case CKO_PRIVATE_KEY:
-        attr_aplicable = private_attr_applicable;
+        attr_applicable = private_attr_applicable;
         break;
     default:
         warnx("Key object \"%s\" has an unsupported object class: %lu",
@@ -4887,7 +4887,7 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     if (opt_new_attr != NULL) {
         rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
-                                 true, attr_aplicable);
+                                 true, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
             goto done;
@@ -4981,8 +4981,8 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_aplicable)(const struct p11sak_keytype *keytype,
-                           const struct p11sak_attr *attr);
+    bool (*attr_applicable)(const struct p11sak_keytype *keytype,
+                            const struct p11sak_attr *attr);
 
     UNUSED(keysize);
 
@@ -5020,13 +5020,13 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     switch (class) {
     case CKO_SECRET_KEY:
-        attr_aplicable = secret_attr_applicable;
+        attr_applicable = secret_attr_applicable;
         break;
     case CKO_PUBLIC_KEY:
-        attr_aplicable = public_attr_applicable;
+        attr_applicable = public_attr_applicable;
         break;
     case CKO_PRIVATE_KEY:
-        attr_aplicable = private_attr_applicable;
+        attr_applicable = private_attr_applicable;
         break;
     default:
         warnx("Key object \"%s\" has an unsupported object class: %lu",
@@ -5037,7 +5037,7 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     if (opt_new_attr != NULL) {
         rc = parse_boolean_attrs(keytype, opt_new_attr, &attrs, &num_attrs,
-                                 true, attr_aplicable);
+                                 true, attr_applicable);
         if (rc != CKR_OK) {
             data->num_failed++;
             goto done;
