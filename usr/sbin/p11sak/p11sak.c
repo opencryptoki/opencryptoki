@@ -820,7 +820,7 @@ static const struct p11sak_opt p11sak_generic_opts[] = {
                      "PKCS11_USER_PIN is set, or the '-p'/'--pin' option is "  \
                      "specified.", }
 
-#define FILTER_OPTS                                                            \
+#define KEY_FILTER_OPTS                                                        \
     { .short_opt = 'L', .long_opt = "label", .required = false,                \
       .arg =  { .type = ARG_TYPE_STRING, .required = true,                     \
                 .value.string = &opt_label, .name = "LABEL", },                \
@@ -1151,7 +1151,7 @@ static const struct p11sak_arg p11sak_generate_key_args[] = {
 
 static const struct p11sak_opt p11sak_list_key_opts[] = {
     PKCS11_OPTS,
-    FILTER_OPTS,
+    KEY_FILTER_OPTS,
     { .short_opt = 'l', .long_opt = "long", .required = false,
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_long, },
@@ -1208,7 +1208,7 @@ static const struct p11sak_arg p11sak_list_key_args[] = {
 
 static const struct p11sak_opt p11sak_remove_key_opts[] = {
     PKCS11_OPTS,
-    FILTER_OPTS,
+    KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
@@ -1230,7 +1230,7 @@ static const struct p11sak_arg p11sak_remove_key_args[] = {
 
 static const struct p11sak_opt p11sak_set_key_attr_opts[] = {
     PKCS11_OPTS,
-    FILTER_OPTS,
+    KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
@@ -1268,7 +1268,7 @@ static const struct p11sak_arg p11sak_set_key_attr_args[] = {
 
 static const struct p11sak_opt p11sak_copy_key_opts[] = {
     PKCS11_OPTS,
-    FILTER_OPTS,
+    KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
@@ -1412,7 +1412,7 @@ static const struct p11sak_arg p11sak_import_key_args[] = {
 
 static const struct p11sak_opt p11sak_export_key_opts[] = {
     PKCS11_OPTS,
-    FILTER_OPTS,
+    KEY_FILTER_OPTS,
     { .short_opt = 'f', .long_opt = "force", .required = false,
       .arg =  { .type = ARG_TYPE_PLAIN, .required = false,
                 .value.plain = &opt_force, },
