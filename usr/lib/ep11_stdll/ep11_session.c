@@ -232,7 +232,7 @@ static CK_RV create_ep11_object(STDLL_TokData_t *tokdata,
     pid = tokdata->real_pid;
     time(&t);
     tm = localtime(&t);
-    sprintf(tmp, "%4d%2d%2d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+    sprintf(tmp, "%04d%02d%02d", tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
     memcpy(date.year, tmp, 4);
     memcpy(date.month, tmp + 4, 2);
     memcpy(date.day, tmp + 4 + 2, 2);
