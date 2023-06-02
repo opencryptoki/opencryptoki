@@ -20,12 +20,16 @@ p11sak \- Manage token keys in a PKCS\~#11 token repository.
 .
 .
 .SH DESCRIPTION
-The \fBp11sak\fP tool can be used to manage token keys in a PKCS\~#11 token
-repository. The utility provides a flexible key management tool to generate,
-list, remove, update, copy, import, and export symmetric (DES, 3DES, generic,
-AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC, IBM Dilithium, IBM Kyber) keys.
-This tool is also capable of listing the keys with their PKCS\~#11 attributes
-and its values (not all attributes may be displayed if a keys is sensitive).
+The \fBp11sak\fP tool can be used to manage token keys and certificates in a
+PKCS\~#11 token repository. The utility provides a flexible key management tool 
+to generate, list, remove, update, copy, import, and export symmetric (DES, 
+3DES, generic, AES, AES\-XTS) and asymmetric (RSA, DH, DSA, EC, IBM Dilithium, 
+IBM Kyber) keys. This tool is also capable of listing the keys with their 
+PKCS\~#11 attributes and their values (not all attributes may be displayed if 
+a keys is sensitive). It also supports the import, export, copy, and listing 
+of certificates. Public keys inside certificates can be extracted and added 
+to the token repository as new public key objects.
+
 .PP
 .B Note:
 The
@@ -44,7 +48,8 @@ tool has exited.
 .
 .SH COMMANDS
 The \fBp11sak\fP tool supports various commands to generate, list, remove,
-update, import, and export token keys in a PKCS\~#11 token repository.
+update, import, and export token keys and certificates in a PKCS\~#11 token 
+repository.
 .PP
 .SS "Generating symmetric and asymmetric keys"
 .B p11sak
