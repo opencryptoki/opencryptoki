@@ -554,7 +554,7 @@ static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
 };
 
 static const struct p11sak_keytype p11sak_des_keytype = {
-    .name = "DES", .type = CKK_DES, .ckk_name = "CKK_DES",
+    .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
     .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
@@ -568,7 +568,7 @@ static const struct p11sak_keytype p11sak_des_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_3des_keytype = {
-    .name = "3DES",  .type = CKK_DES3, .ckk_name = "CKK_DES3",
+    .name = "3DES",  .type = CKK_DES3, .ck_name = "CKK_DES3",
     .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
     .is_asymmetric = false,
     .sign_verify = true, .encrypt_decrypt = true,
@@ -583,7 +583,7 @@ static const struct p11sak_keytype p11sak_3des_keytype = {
 
 static const struct p11sak_keytype p11sak_generic_keytype = {
     .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
-    .ckk_name = "CKK_GENERIC_SECRET",
+    .ck_name = "CKK_GENERIC_SECRET",
     .keygen_mech = { .mechanism = CKM_GENERIC_SECRET_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = generic_get_key_size,
@@ -599,7 +599,7 @@ static const struct p11sak_keytype p11sak_generic_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_aes_keytype = {
-    .name = "AES",  .type = CKK_AES, .ckk_name = "CKK_AES",
+    .name = "AES",  .type = CKK_AES, .ck_name = "CKK_AES",
     .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = aes_get_key_size,
@@ -615,7 +615,7 @@ static const struct p11sak_keytype p11sak_aes_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_aes_xts_keytype = {
-    .name = "AES-XTS",  .type = CKK_AES_XTS, .ckk_name = "CKK_AES_XTS",
+    .name = "AES-XTS",  .type = CKK_AES_XTS, .ck_name = "CKK_AES_XTS",
     .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
     .is_asymmetric = false,
     .keygen_get_key_size = aes_get_key_size,
@@ -631,7 +631,7 @@ static const struct p11sak_keytype p11sak_aes_xts_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_rsa_keytype = {
-    .name = "RSA",  .type = CKK_RSA, .ckk_name = "CKK_RSA",
+    .name = "RSA",  .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_get_key_size = rsa_get_key_size,
@@ -648,7 +648,7 @@ static const struct p11sak_keytype p11sak_rsa_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_dh_keytype = {
-    .name = "DH", .type = CKK_DH, .ckk_name = "CKK_DH",
+    .name = "DH", .type = CKK_DH, .ck_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_prepare = dh_prepare,
@@ -668,7 +668,7 @@ static const struct p11sak_keytype p11sak_dh_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_dsa_keytype = {
-    .name = "DSA",  .type = CKK_DSA, .ckk_name = "CKK_DSA",
+    .name = "DSA",  .type = CKK_DSA, .ck_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_prepare = dsa_prepare,
@@ -687,7 +687,7 @@ static const struct p11sak_keytype p11sak_dsa_keytype = {
 };
 
 static const struct p11sak_keytype p11sak_ec_keytype = {
-    .name = "EC",  .type = CKK_EC, .ckk_name = "CKK_EC",
+    .name = "EC",  .type = CKK_EC, .ck_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
     .is_asymmetric = true,
     .keygen_get_key_size = ec_get_key_size,
@@ -704,7 +704,7 @@ static const struct p11sak_keytype p11sak_ec_keytype = {
 
 static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
-    .ckk_name = "CKK_IBM_PQC_DILITHIUM",
+    .ck_name = "CKK_IBM_PQC_DILITHIUM",
     .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_dilithium_add_public_attrs,
@@ -722,7 +722,7 @@ static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
 
 static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
-    .ckk_name = "CKK_IBM_PQC_KYBER",
+    .ck_name = "CKK_IBM_PQC_KYBER",
     .keygen_mech = { .mechanism = CKM_IBM_KYBER, },
     .is_asymmetric = true,
     .keygen_add_public_attrs = ibm_kyber_add_public_attrs,
@@ -4123,7 +4123,7 @@ static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
 
     ktype = find_keytype(*(CK_KEY_TYPE *)(val->pValue));
     if (ktype != NULL)
-        name = ktype->ckk_name;
+        name = ktype->ck_name;
 
     if (name != NULL)
         printf("%*s%s: %s (0x%lX)\n", indent, "", attr, name,
