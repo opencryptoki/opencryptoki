@@ -2413,7 +2413,7 @@ static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
         return rc;
 
     if (opt_exponent != 0) {
-        /* Convert CK_ULOING to big-endian byte array */
+        /* Convert CK_ULONG to big-endian byte array */
         val = htobe64(opt_exponent);
         for (i = 0, b = (CK_BYTE *)&val; i < sizeof(val) && *b == 0; i++, b++)
             ;
