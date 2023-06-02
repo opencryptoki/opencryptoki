@@ -713,7 +713,7 @@ the
 and/or the
 .BR \-\-attr | \-a
 .I ATTRS
-options to filter the list of keys to display. You can use wildcards (\fB*\fP
+options to filter the list of keys to remove. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
 .B LABEL
 specification. To specify a wildcard character that should not be treated as a
@@ -781,8 +781,8 @@ the
 and/or the
 .BR \-\-attr | \-a
 .I ATTRS
-options to filter the list of keys to display. You can use wildcards (\fB*\fP
-and \fB?\fP) in the
+options to filter the list of keys to set or update. You can use wildcards
+(\fB*\fP and \fB?\fP) in the
 .B LABEL
 specification. To specify a wildcard character that should not be treated as a
 wildcard, it must be escaped using a backslash (\fB\e*\fP or \fB\e?\fP).
@@ -871,7 +871,7 @@ the
 and/or the
 .BR \-\-attr | \-a
 .I ATTRS
-options to filter the list of keys to display. You can use wildcards (\fB*\fP
+options to filter the list of keys to copy. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
 .B LABEL
 specification. To specify a wildcard character that should not be treated as a
@@ -1030,7 +1030,7 @@ the
 and/or the
 .BR \-\-attr | \-a
 .I ATTRS
-options to filter the list of keys to display. You can use wildcards (\fB*\fP
+options to filter the list of keys to export. You can use wildcards (\fB*\fP
 and \fB?\fP) in the
 .B LABEL
 specification. To specify a wildcard character that should not be treated as a
@@ -1226,7 +1226,7 @@ Specifies the token user PIN to login with.
 Alternatively, the
 .B PKCS11_USER_PIN
 environment variable may be used to provide the token user PIN.
-If neither this option is specified nor the einvironment variable is set,
+If neither this option is specified nor the environment variable is set,
 you are prompted for the PIN.
 .RE
 .PP
@@ -1511,7 +1511,7 @@ Displayes a detailed PKCS\~#11 URI.
 .TP 8
 .BR \-\-sort | \-S\~\fISORT-SPEC\fP
 Sort the keys by label, key type, object class, and/or key size. Specify a sort
-selection of up to 4 fields, each field represented by its coresponding letter,
+selection of up to 4 fields, each field represented by its corresponding letter,
 separated by comma
 .RB ( , ):
 .RS 8
@@ -1532,11 +1532,11 @@ secret key, private key, public key)
 .B s
 - sort by key size
 .RB ( CKA_VALUE_LEN ,
-or derived from other key type spcifi attribute)
+or derived from other key type specific attribute)
 .PP
 The sort order can be appended to the field designator by a colon
 .RB ( : )
-and its coressponding letter:
+and its corresponding letter:
 .IP "\(bu" 2
 .B a
 - ascending order (default)
