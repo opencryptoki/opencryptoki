@@ -117,7 +117,7 @@ struct p11sak_attr {
 struct p11sak_keytype {
     const char *name;
     CK_KEY_TYPE type;
-    const char *ckk_name;
+    const char *ck_name;
     CK_MECHANISM keygen_mech;
     bool is_asymmetric;
     bool sign_verify;
