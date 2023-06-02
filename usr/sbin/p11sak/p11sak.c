@@ -2982,7 +2982,7 @@ static const struct p11sak_attr *find_attr_by_letter(char letter)
     return NULL;
 }
 
-static bool attr_applicaple_for_keytype(const struct p11sak_keytype *keytype,
+static bool attr_applicable_for_keytype(const struct p11sak_keytype *keytype,
                                         const struct p11sak_attr *attr)
 {
     switch (attr->type) {
@@ -3012,7 +3012,7 @@ static bool attr_applicaple_for_keytype(const struct p11sak_keytype *keytype,
 static bool secret_attr_applicable(const struct p11sak_keytype *keytype,
                                    const struct p11sak_attr *attr)
 {
-    return attr->secret && attr_applicaple_for_keytype(keytype, attr);
+    return attr->secret && attr_applicable_for_keytype(keytype, attr);
 }
 
 static bool public_attr_applicable(const struct p11sak_keytype *keytype,
@@ -3020,7 +3020,7 @@ static bool public_attr_applicable(const struct p11sak_keytype *keytype,
 {
     UNUSED(keytype);
 
-    return attr->public && attr_applicaple_for_keytype(keytype, attr);
+    return attr->public && attr_applicable_for_keytype(keytype, attr);
 }
 
 static bool private_attr_applicable(const struct p11sak_keytype *keytype,
@@ -3028,7 +3028,7 @@ static bool private_attr_applicable(const struct p11sak_keytype *keytype,
 {
     UNUSED(keytype);
 
-    return attr->private && attr_applicaple_for_keytype(keytype, attr);
+    return attr->private && attr_applicable_for_keytype(keytype, attr);
 }
 
 static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
