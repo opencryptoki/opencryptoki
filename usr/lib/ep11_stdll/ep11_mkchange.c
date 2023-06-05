@@ -78,7 +78,7 @@ CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
     return CK_FALSE;
 }
 
-CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
+CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata, SESSION *session,
                               ep11_target_info_t **target_info,
                               CK_BYTE *blob, CK_ULONG blob_len,
                               CK_BYTE *new_blob)
@@ -89,6 +89,7 @@ CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
     size_t resp_len = 0;
     struct XCPadmresp rb;
     struct XCPadmresp lrb;
+    CK_ULONG retry_count = 0;
     CK_RV rc;
 
     UNUSED(tokdata);
@@ -101,6 +102,7 @@ CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
         return CKR_FUNCTION_FAILED;
     }
 
+retry:
     memset(&rb, 0, sizeof(rb));
     memset(&lrb, 0, sizeof(lrb));
 
@@ -122,6 +124,13 @@ CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
 
         rc = dll_m_admin(resp, &resp_len, NULL, 0, req, req_len, NULL, 0,
                          (*target_info)->target);
+
+        if (session != NULL && rc == CKR_SESSION_CLOSED) {
+            rc = ep11tok_relogin_session(tokdata, session);
+            if (rc != CKR_OK)
+                break;
+            continue;
+        }
     RETRY_SINGLE_APQN_END(rc, tokdata, *target_info)
     if (rc != CKR_OK || resp_len == 0) {
         TRACE_ERROR("%s reencryption failed: 0x%lx %ld\n", __func__, rc, req_len);
@@ -131,6 +140,15 @@ CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
     if (dll_xcpa_internal_rv(resp, resp_len, &lrb, &rc) < 0) {
         TRACE_ERROR("%s reencryption response malformed: 0x%lx\n", __func__, rc);
         return CKR_FUNCTION_FAILED;
+    }
+
+    if (session != NULL && rc == CKR_SESSION_CLOSED &&
+        retry_count < MAX_RETRY_COUNT) {
+        rc = ep11tok_relogin_session(tokdata, session);
+        if (rc == CKR_OK) {
+            retry_count++;
+            goto retry;
+        }
     }
 
     if (rc != 0) {
@@ -466,6 +484,7 @@ out:
 
 struct reencipher_data {
     STDLL_TokData_t *tokdata;
+    SESSION *session;
     ep11_target_info_t *target_info;
 };
 
@@ -476,7 +495,7 @@ static CK_RV ep11tok_reencipher_objects_reenc(CK_BYTE *sec_key,
 {
     struct reencipher_data *rd = private;
 
-    return ep11tok_reencipher_blob(rd->tokdata, &rd->target_info,
+    return ep11tok_reencipher_blob(rd->tokdata, rd->session, &rd->target_info,
                                    sec_key, sec_key_len, reenc_sec_key);
 }
 
@@ -484,12 +503,17 @@ static CK_RV ep11tok_reencipher_objects_cb(STDLL_TokData_t *tokdata,
                                            OBJECT *obj, void *cb_data)
 {
     struct reencipher_data *rd = cb_data;
+    SESSION *session_save;
     CK_RV rc;
 
+    session_save = rd->session;
+    if (obj->session != NULL) /* session is NULL for token objects */
+        rd->session = obj->session;
     rc = obj_mgr_reencipher_secure_key(tokdata, obj,
                                        ep11tok_reencipher_objects_reenc, rd);
     if (rc == CKR_OBJECT_HANDLE_INVALID) /* Obj was deleted by other proc */
         rc = CKR_OK;
+    rd->session = session_save;
 
     return rc;
 }
@@ -570,7 +594,7 @@ static CK_RV ep11tok_reencipher_session_op_ctx(STDLL_TokData_t *tokdata,
 
     /* The context is allocated at least twice as large as needed */
     if (finalize == FALSE) {
-        rc = ep11tok_reencipher_blob(tokdata, target_info,
+        rc = ep11tok_reencipher_blob(tokdata, session, target_info,
                                      context, context_len / 2,
                                      context + (context_len / 2));
         if (rc != CKR_OK) {
@@ -743,6 +767,54 @@ out:
     return rc;
 }
 
+static void ep11tok_mk_change_find_rw_session_cb(STDLL_TokData_t *tokdata,
+                                                 void *node_value,
+                                                 unsigned long node_idx,
+                                                 void *p3)
+{
+    SESSION *s = (SESSION *)node_value;
+    CK_SESSION_HANDLE *ret = (CK_SESSION_HANDLE *)p3;
+
+    UNUSED(tokdata);
+    UNUSED(node_idx);
+
+    if (*ret != CK_INVALID_HANDLE)
+        return;
+
+    if ((s->session_info.flags & CKF_RW_SESSION) != 0 &&
+        s->session_info.state == CKS_RW_USER_FUNCTIONS)
+        *ret = s->handle;
+}
+
+static CK_RV ep11tok_mk_change_find_rw_session(STDLL_TokData_t *tokdata,
+                                               SESSION **session)
+{
+    CK_SESSION_HANDLE handle = CK_INVALID_HANDLE;
+
+    if (pthread_rwlock_wrlock(&tokdata->sess_list_rwlock)) {
+        TRACE_ERROR("Write Lock failed.\n");
+        return CKR_CANT_LOCK;
+    }
+
+    bt_for_each_node(tokdata, &tokdata->sess_btree,
+                     ep11tok_mk_change_find_rw_session_cb, &handle);
+
+    pthread_rwlock_unlock(&tokdata->sess_list_rwlock);
+
+    if (handle == CK_INVALID_HANDLE) {
+        TRACE_ERROR("No R/W session found.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    *session = session_mgr_find(tokdata, handle);
+    if (*session == NULL) {
+        TRACE_ERROR("No R/W session found.\n");
+        return CKR_FUNCTION_FAILED;
+    }
+
+    return CKR_OK;
+}
+
 /*
  * ATTENTION: This function is called in a separate thread. All actions
  * performed by this function must be thread save and use locks to lock
@@ -762,7 +834,8 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
     if ((op->flags & EVENT_MK_CHANGE_FLAGS_TOK_OBJS) != 0) {
         token_objs = TRUE;
         /* The tool should have logged in a R/W USER session */
-        if (!session_mgr_user_session_exists(tokdata)) {
+        rc = ep11tok_mk_change_find_rw_session(tokdata, &rd.session);
+        if (rc != CKR_OK) {
             TRACE_ERROR("%s No user session exists\n", __func__);
             OCK_SYSLOG(LOG_ERR, "Slot %lu: No user session exists\n",
                        tokdata->slot_id);
@@ -864,7 +937,7 @@ static CK_RV ep11tok_mk_change_reencipher(STDLL_TokData_t *tokdata,
 
         /* Re-enciper the wrap blob */
         TRACE_INFO("Re-encipher the wrap blob\n");
-        rc = ep11tok_reencipher_blob(tokdata, &rd.target_info,
+        rc = ep11tok_reencipher_blob(tokdata, NULL, &rd.target_info,
                                      ep11_data->raw2key_wrap_blob,
                                      ep11_data->raw2key_wrap_blob_l,
                                      ep11_data->raw2key_wrap_blob_reenc);
@@ -890,6 +963,9 @@ out:
     }
 
     put_target_info(tokdata, rd.target_info);
+
+    if (rd.session != NULL)
+        session_mgr_put(tokdata, rd.session);
 
     if (pthread_rwlock_unlock(&tokdata->hsm_mk_change_rwlock) != 0) {
         TRACE_DEVEL("HSM-MK-change Unlock failed.\n");

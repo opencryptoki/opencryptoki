@@ -380,7 +380,7 @@ CK_RV ep11tok_handle_mk_change_event(STDLL_TokData_t *tokdata,
 CK_RV ep11tok_mk_change_check_pending_ops(STDLL_TokData_t *tokdata);
 CK_BBOOL ep11tok_is_blob_new_wkid(STDLL_TokData_t *tokdata,
                                    CK_BYTE *blob, CK_ULONG blob_len);
-CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata,
+CK_RV ep11tok_reencipher_blob(STDLL_TokData_t *tokdata, SESSION *session,
                               ep11_target_info_t **target_info,
                               CK_BYTE *blob, CK_ULONG blob_len,
                               CK_BYTE *new_blob);
@@ -965,8 +965,8 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                             (useblobsize) = (blobsize);                  \
                         }
 
-#define RETRY_UPDATE_BLOB_END(tokdata, target_info, blob, blobsize,      \
-                              reencblob, reencblobsize,                  \
+#define RETRY_UPDATE_BLOB_END(tokdata, session, target_info, blob,       \
+                              blobsize, reencblob, reencblobsize,        \
                               useblob, useblobsize, rc)                  \
                         if (((ep11_private_data_t *)(tokdata)->          \
                                       private_data)->mk_change_active && \
@@ -1019,6 +1019,7 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                                 break;                                   \
                             }                                            \
                             rc2 = ep11tok_reencipher_blob((tokdata),     \
+                                                          (session),     \
                                                           &(target_info),\
                                                           (blob),        \
                                                           (blobsize),    \
@@ -1116,7 +1117,8 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                         }                                                \
                         (usestatesize) = (stateblobsize);
 
-#define RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blobsize, \
+#define RETRY_REENC_BLOB_STATE_END(tokdata, session, target_info,        \
+                                   blob, blobsize,                       \
                                    useblob,  useblobsize, stateblob,     \
                                    reencstate, stateblobsize, usestate,  \
                                    usestatesize, newstate, rc)           \
@@ -1201,6 +1203,7 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                             TRACE_DEVEL("%s reencipher updated state "   \
                                        "blob\n",  __func__);             \
                             rc2 = ep11tok_reencipher_blob((tokdata),     \
+                                                        (session),       \
                                                         &(target_info),  \
                                                         (stateblob),     \
                                                         (stateblobsize), \
@@ -1241,9 +1244,10 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
 #define RETRY_REENC_CREATE_KEY_START()                                   \
                 RETRY_REENC_CREATE_KEY2_START()
 
-#define RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob,           \
+#define RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info, blob,  \
                                    reencblob, blobsize, rc)              \
-                RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob,  \
+                RETRY_REENC_CREATE_KEY2_END(tokdata, session,            \
+                                            target_info, blob,           \
                                             reencblob, blobsize, blob,   \
                                             reencblob, 0, rc)
 
@@ -1251,7 +1255,7 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                 do {                                                     \
                     do {                                                 \
 
-#define RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, blob1,         \
+#define RETRY_REENC_CREATE_KEY2_END(tokdata, session, target_info, blob1,\
                                     reencblob1, blobsize1, blob2,        \
                                     reencblob2, blobsize2, rc)           \
                         if (((ep11_private_data_t *)(tokdata)->          \
@@ -1280,6 +1284,7 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                                 TRACE_DEVEL("%s new key has old WK, "    \
                                             "reencipher it\n", __func__);\
                                 (rc) = ep11tok_reencipher_blob((tokdata),\
+                                             (session),                  \
                                              &(target_info), (blob1),    \
                                              (blobsize1), (reencblob1)); \
                                 if ((rc) == CKR_IBM_WK_NOT_INITIALIZED) {\
@@ -1298,7 +1303,8 @@ CK_RV ep11tok_set_operation_state(STDLL_TokData_t *tokdata, SESSION *session);
                                 }                                        \
                                 if ((blobsize2) > 0) {                   \
                                     (rc) = ep11tok_reencipher_blob(      \
-                                               (tokdata), &(target_info),\
+                                               (tokdata), (session),     \
+                                               &(target_info),           \
                                                (blob2),  (blobsize2),    \
                                                (reencblob2));            \
                                     if ((rc) ==                          \

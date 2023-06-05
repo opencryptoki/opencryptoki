@@ -784,7 +784,7 @@ static CK_RV ep11tok_pkey_get_firmware_mk_vp(STDLL_TokData_t *tokdata)
         ret = dll_m_GenerateKey(&mech, tmpl, tmpl_len, NULL, 0,
                                 blob, &blobsize, csum, &csum_l,
                                 target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY_END(tokdata, NULL, target_info,
                                blob, blob_reenc, blobsize, ret)
     RETRY_SINGLE_APQN_END(ret, tokdata, target_info)
     if (ret != CKR_OK) {
@@ -2091,7 +2091,8 @@ static CK_RV rawkey_2_blob(STDLL_TokData_t * tokdata, SESSION * sess,
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob, blen, csum,
                              &cslen, target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob, blobreenc, *blen, rc)
+    RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info, blob, blobreenc,
+                               *blen, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -2191,7 +2192,7 @@ static CK_RV make_wrapblob(STDLL_TokData_t * tokdata, CK_ATTRIBUTE * tmpl_in,
                                ep11_data->raw2key_wrap_blob,
                                &ep11_data->raw2key_wrap_blob_l, csum, &csum_l,
                                target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY_END(tokdata, NULL, target_info,
                                ep11_data->raw2key_wrap_blob,
                                ep11_data->raw2key_wrap_blob_reenc,
                                ep11_data->raw2key_wrap_blob_l, rc)
@@ -2757,7 +2758,7 @@ make_maced_spki_next:
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              p_attrs, attrs_len, maced_spki, maced_spki_len,
                              csum, &cslen, target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, maced_spki,
+    RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info, maced_spki,
                                maced_spki_reenc, *maced_spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
 
@@ -2905,7 +2906,7 @@ retry:
                              ep11_data->raw2key_wrap_blob_l, NULL, ~0, ep11_pin_blob,
                              ep11_pin_blob_len, &mech, new_p_attrs, new_attrs_len,
                              blob, blob_size, csum, &cslen, target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob, blobreenc,
+    RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info, blob, blobreenc,
                                *blob_size, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -2964,7 +2965,7 @@ retry:
                              ep11_pin_blob, ep11_pin_blob_len, &mech,
                              new_p_attrs, new_attrs_len, blob + *blob_size,
                              &blob_size2, csum, &cslen, target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info, blob + *blob_size,
+    RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info, blob + *blob_size,
                                blobreenc + *blob_size, blob_size2, rc)
     RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -3179,7 +3180,7 @@ static CK_RV import_RSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  ep11_pin_blob, ep11_pin_blob_len, &mech_w,
                                  new_p_attrs, new_attrs_len, blob, blob_size,
                                  spki, spki_size, target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info,
                                    blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -3420,7 +3421,7 @@ static CK_RV import_EC_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info,
                                    blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -3622,7 +3623,7 @@ static CK_RV import_DSA_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info,
                                    blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -3825,7 +3826,7 @@ static CK_RV import_DH_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info,
                                    blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -4120,7 +4121,7 @@ static CK_RV import_IBM_pqc_key(STDLL_TokData_t *tokdata, SESSION *sess,
                                  new_p_attrs, new_attrs_len, blob,
                                  blob_size, spki, spki_size,
                                  target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, sess, target_info,
                                    blob, blobreenc, *blob_size, rc)
         RETRY_REENC_WRAPBLOB_END(tokdata, target_info, wrap_blob, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -4480,7 +4481,7 @@ retry:
         rc = dll_m_GenerateKey(xts ? &mech2 : mech, new_attrs2, new_attrs2_len, 
                                ep11_pin_blob, ep11_pin_blob_len, blob, &blobsize,
                                csum, &csum_len, target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                blob, reenc_blob, blobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
     if (rc != CKR_OK) {
@@ -4507,7 +4508,7 @@ retry:
                                    ep11_pin_blob, ep11_pin_blob_len, blob2,
                                    &blobsize2, csum, &csum_len,
                                    target_info->target);
-        RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+        RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                    blob2, reenc_blob2, blobsize2, rc)
         RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
         if (rc != CKR_OK) {
@@ -5044,7 +5045,7 @@ CK_RV token_specific_sha_init(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                 memmove(state + usestate_len, state + state_len, usestate_len);
             }
             state_len = usestate_len;
-        RETRY_UPDATE_BLOB_END(tokdata, target_info, state, state_len,
+        RETRY_UPDATE_BLOB_END(tokdata, NULL, target_info, state, state_len,
                               state + state_len, state_len,
                               usestate, usestate_len, rc)
         RETRY_SINGLE_APQN_END(rc, tokdata, target_info)
@@ -5104,7 +5105,7 @@ CK_RV token_specific_sha(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
             rc = dll_m_Digest(state, state_len,
                               in_data, in_data_len,
                               out_data, out_data_len, target_info->target);
-        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+        RETRY_UPDATE_BLOB_END(tokdata, NULL, target_info,
                               c->context, c->context_len / 2,
                               c->context + (c->context_len / 2),
                               c->context_len / 2, state, state_len, rc)
@@ -5195,7 +5196,7 @@ CK_RV token_specific_sha_update(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                 c->context_len / 2, state, state_len)
             rc = dll_m_DigestUpdate(state, state_len,
                                     in_data, in_data_len, target_info->target);
-        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+        RETRY_UPDATE_BLOB_END(tokdata, NULL, target_info,
                               c->context, c->context_len / 2,
                               c->context + (c->context_len / 2),
                               c->context_len / 2, state, state_len, rc)
@@ -5245,7 +5246,7 @@ CK_RV token_specific_sha_final(STDLL_TokData_t * tokdata, DIGEST_CONTEXT * c,
                                 c->context_len / 2, state, state_len)
             rc = dll_m_DigestFinal(state, state_len,
                                    out_data, out_data_len, target_info->target);
-        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+        RETRY_UPDATE_BLOB_END(tokdata, NULL, target_info,
                               c->context, c->context_len / 2,
                               c->context + (c->context_len / 2),
                               c->context_len / 2, state, state_len, rc)
@@ -6505,7 +6506,7 @@ CK_RV ep11tok_derive_key(STDLL_TokData_t *tokdata, SESSION *session,
                                  target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                newblob, newblobreenc, newblobsize, rc)
     RETRY_REENC_BLOB_END(tokdata, target_info, useblob, useblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, session)
@@ -6829,7 +6830,7 @@ static CK_RV dh_generate_keypair(STDLL_TokData_t *tokdata,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privblob, &privblobsize,
                                    publblob, &publblobsize, target_info->target);
-    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info,
                                 privblob, privblobreenc, privblobsize,
                                 publblob, publblobreenc, publblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -7213,7 +7214,7 @@ static CK_RV dsa_generate_keypair(STDLL_TokData_t *tokdata,
                                    ep11_pin_blob, ep11_pin_blob_len, privblob,
                                    &privblobsize, publblob, &publblobsize,
                                    target_info->target);
-    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info,
                                 privblob, privblobreenc, privblobsize,
                                 publblob, publblobreenc, publblobsize, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -7454,7 +7455,7 @@ static CK_RV rsa_ec_generate_keypair(STDLL_TokData_t *tokdata,
                                    ep11_pin_blob, ep11_pin_blob_len,
                                    privkey_blob, &privkey_blob_len, spki,
                                    &spki_len, target_info->target);
-    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, privkey_blob,
+    RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info, privkey_blob,
                                 privkey_blobreenc, privkey_blob_len,
                                 spki, spkireenc, spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -7875,7 +7876,7 @@ static CK_RV ibm_pqc_generate_keypair(STDLL_TokData_t *tokdata,
                                        &spki_len, target_info->target);
         else
             rc = CKR_KEY_SIZE_RANGE;
-    RETRY_REENC_CREATE_KEY2_END(tokdata, target_info, privkey_blob,
+    RETRY_REENC_CREATE_KEY2_END(tokdata, sess, target_info, privkey_blob,
                                 privkey_blobreenc, privkey_blob_len,
                                 spki, spkireenc, spki_len, rc)
     RETRY_SESSION_SINGLE_APQN_END(rc, tokdata, sess)
@@ -8740,7 +8741,8 @@ CK_RV ep11tok_sign_init(STDLL_TokData_t * tokdata, SESSION * session,
                     ep11_sign_state + ep11_sign_state_l, usestate_len);
         }
         ep11_sign_state_l = usestate_len;
-    RETRY_REENC_BLOB_STATE_END(tokdata, target_info, keyblob, keyblobsize,
+    RETRY_REENC_BLOB_STATE_END(tokdata, session, target_info,
+                               keyblob, keyblobsize,
                                useblob, useblobsize, ep11_sign_state,
                                ep11_sign_state + ep11_sign_state_l,
                                ep11_sign_state_l, usestate, usestate_len,
@@ -8838,7 +8840,7 @@ CK_RV ep11tok_sign(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_Sign(state, state_len,
                         in_data, in_data_len,
                         signature, sig_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -8893,7 +8895,7 @@ CK_RV ep11tok_sign_update(STDLL_TokData_t * tokdata, SESSION * session,
                             ctx->context_len / 2, state, state_len)
         rc = dll_m_SignUpdate(state, state_len, in_data,
                               in_data_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -8946,7 +8948,7 @@ CK_RV ep11tok_sign_final(STDLL_TokData_t * tokdata, SESSION * session,
                             ctx->context_len / 2, state, state_len)
         rc = dll_m_SignFinal(state, state_len, signature, sig_len,
                              target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9174,7 +9176,7 @@ CK_RV ep11tok_verify_init(STDLL_TokData_t * tokdata, SESSION * session,
                     ep11_sign_state + ep11_sign_state_l, usestate_len);
         }
         ep11_sign_state_l = usestate_len;
-    RETRY_REENC_BLOB_STATE_END(tokdata, target_info, spki, spki_len,
+    RETRY_REENC_BLOB_STATE_END(tokdata, session, target_info, spki, spki_len,
                                useblob, useblob_len, ep11_sign_state,
                                ep11_sign_state + ep11_sign_state_l,
                                ep11_sign_state_l, usestate, usestate_len,
@@ -9271,7 +9273,7 @@ CK_RV ep11tok_verify(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_Verify(state, state_len,
                           in_data, in_data_len,
                           signature, sig_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9326,7 +9328,7 @@ CK_RV ep11tok_verify_update(STDLL_TokData_t * tokdata, SESSION * session,
                             ctx->context_len / 2, state, state_len)
         rc = dll_m_VerifyUpdate(state, state_len, in_data,
                                 in_data_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9378,7 +9380,7 @@ CK_RV ep11tok_verify_final(STDLL_TokData_t * tokdata, SESSION * session,
                             ctx->context_len / 2, state, state_len)
         rc = dll_m_VerifyFinal(state, state_len, signature,
                                sig_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9509,7 +9511,7 @@ CK_RV ep11tok_decrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_DecryptFinal(state, state_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9568,7 +9570,7 @@ CK_RV ep11tok_decrypt(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_Decrypt(state, state_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9633,7 +9635,7 @@ CK_RV ep11tok_decrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_DecryptUpdate(state, state_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9756,7 +9758,7 @@ CK_RV ep11tok_encrypt_final(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_EncryptFinal(state, state_len,
                                 output_part, p_output_part_len,
                                 target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9813,7 +9815,7 @@ CK_RV ep11tok_encrypt(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_Encrypt(state, state_len, input_data,
                            input_data_len, output_data, p_output_data_len,
                            target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -9876,7 +9878,7 @@ CK_RV ep11tok_encrypt_update(STDLL_TokData_t * tokdata, SESSION * session,
         rc = dll_m_EncryptUpdate(state, state_len,
                                  input_part, input_part_len, output_part,
                                  p_output_part_len, target_info->target);
-    RETRY_UPDATE_BLOB_END(tokdata, target_info,
+    RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                           ctx->context, ctx->context_len / 2,
                           ctx->context + (ctx->context_len / 2),
                           ctx->context_len / 2, state, state_len, rc)
@@ -10084,8 +10086,8 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                         ep11_state + ep11_state_l, usestate_len);
             }
             ep11_state_l = usestate_len;
-        RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blob_len,
-                                   useblob, useblob_len,
+        RETRY_REENC_BLOB_STATE_END(tokdata, session, target_info,
+                                   blob, blob_len, useblob, useblob_len,
                                    ep11_state, ep11_state + ep11_state_l,
                                    ep11_state_l, usestate, usestate_len,
                                    TRUE, rc)
@@ -10153,8 +10155,8 @@ static CK_RV ep11_ende_crypt_init(STDLL_TokData_t * tokdata, SESSION * session,
                         ep11_state + ep11_state_l, usestate_len);
             }
             ep11_state_l = usestate_len;
-        RETRY_REENC_BLOB_STATE_END(tokdata, target_info, blob, blob_len,
-                                   useblob, useblob_len,
+        RETRY_REENC_BLOB_STATE_END(tokdata, session, target_info,
+                                   blob, blob_len, useblob, useblob_len,
                                    ep11_state, ep11_state + ep11_state_l,
                                    ep11_state_l, usestate, usestate_len,
                                    TRUE, rc)
@@ -10641,7 +10643,7 @@ CK_RV ep11tok_unwrap_key(STDLL_TokData_t * tokdata, SESSION * session,
                              new_attrs2, new_attrs2_len,
                              keyblob, &keyblobsize, csum, &cslen,
                              target_info->target);
-    RETRY_REENC_CREATE_KEY_END(tokdata, target_info,
+    RETRY_REENC_CREATE_KEY_END(tokdata, session, target_info,
                                keyblob, keyblobreenc, keyblobsize, rc)
     RETRY_REENC_BLOB2_END(tokdata, target_info, use_wrapping_blob,
                           use_wrapping_blob_len, use_verifyblob,
@@ -14003,7 +14005,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
             rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                          attributes, num_attributes,
                                          target_info->target);
-        RETRY_UPDATE_BLOB_END(tokdata, target_info,
+        RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                               ibm_opaque_attr->pValue,
                               ktype != CKK_AES_XTS ?
                                   ibm_opaque_attr->ulValueLen :
@@ -14035,7 +14037,7 @@ CK_RV token_specific_set_attribute_values(STDLL_TokData_t *tokdata,
                 rc = dll_m_SetAttributeValue(keyblob, keyblobsize,
                                              attributes, num_attributes,
                                              target_info->target);
-            RETRY_UPDATE_BLOB_END(tokdata, target_info,
+            RETRY_UPDATE_BLOB_END(tokdata, session, target_info,
                                   (CK_BYTE *)ibm_opaque_attr->pValue +
                                        (ibm_opaque_attr->ulValueLen / 2),
                                   ibm_opaque_attr->ulValueLen / 2,
