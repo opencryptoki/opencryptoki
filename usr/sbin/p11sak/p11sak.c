@@ -3018,16 +3018,12 @@ static bool secret_attr_applicable(const struct p11sak_keytype *keytype,
 static bool public_attr_applicable(const struct p11sak_keytype *keytype,
                                    const struct p11sak_attr *attr)
 {
-    UNUSED(keytype);
-
     return attr->public && attr_applicable_for_keytype(keytype, attr);
 }
 
 static bool private_attr_applicable(const struct p11sak_keytype *keytype,
                                     const struct p11sak_attr *attr)
 {
-    UNUSED(keytype);
-
     return attr->private && attr_applicable_for_keytype(keytype, attr);
 }
 
