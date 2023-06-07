@@ -187,8 +187,8 @@ struct p11sak_custom_attr_type {
 };
 
 struct p11sak_iterate_compare_data {
-    CK_RV (*compare_key)(CK_OBJECT_HANDLE key1,
-                         CK_OBJECT_HANDLE key2,
+    CK_RV (*compare_obj)(CK_OBJECT_HANDLE obj1,
+                         CK_OBJECT_HANDLE obj2,
                          int *result,
                          void *private);
     void *private;

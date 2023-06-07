@@ -3525,15 +3525,15 @@ static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
 static int iterate_compare(const void *a, const void *b, void *private)
 {
     struct p11sak_iterate_compare_data *data = private;
-    const CK_OBJECT_HANDLE *key1 = a;
-    const CK_OBJECT_HANDLE *key2 = b;
+    const CK_OBJECT_HANDLE *obj1 = a;
+    const CK_OBJECT_HANDLE *obj2 = b;
     int result = 0;
     CK_RV rc;
 
     if (data->rc!= CKR_OK)
         return 0;
 
-    rc = data->compare_key(*key1, *key2, &result, data->private);
+    rc = data->compare_obj(*obj1, *obj2, &result, data->private);
     if (rc != CKR_OK)
         data->rc = rc;
 
@@ -3683,7 +3683,7 @@ done_find:
         goto done;
 
     if (compare_key != NULL && num_matched_keys > 0) {
-        data.compare_key = compare_key;
+        data.compare_obj = compare_key;
         data.private = private;
         data.rc = CKR_OK;
 
