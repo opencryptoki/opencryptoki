@@ -4744,7 +4744,7 @@ static char prompt_user(const char *message, char* allowed_chars)
     return ch;
 }
 
-static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
+static CK_RV handle_obj_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
                                const struct p11sak_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
                                const char* label, void *private)
@@ -4756,7 +4756,6 @@ static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     UNUSED(class);
     UNUSED(keysize);
-    UNUSED(keytype);
 
     if (data->skip_all) {
         data->num_skipped++;
@@ -4764,8 +4763,8 @@ static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (!data->remove_all) {
-        if (asprintf(&msg, "Are you sure you want to remove %s key object \"%s\" [y/n/a/c]? ",
-                     typestr, label) < 0 ||
+        if (asprintf(&msg, "Are you sure you want to remove %s %s object \"%s\" [y/n/a/c]? ",
+                     typestr, keytype->obj_typestr, label) < 0 ||
             msg == NULL) {
             warnx("Failed to allocate memory for a message");
             return CKR_HOST_MEMORY;
@@ -4792,13 +4791,13 @@ static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
     rc = pkcs11_funcs->C_DestroyObject(pkcs11_session, key);
     if (rc != CKR_OK) {
-        warnx("Failed to remove %s key object \"%s\": C_DestroyObject: 0x%lX: %s",
-                typestr, label, rc, p11_get_ckr(rc));
+        warnx("Failed to remove %s %s object \"%s\": C_DestroyObject: 0x%lX: %s",
+               typestr, keytype->obj_typestr, label, rc, p11_get_ckr(rc));
         data->num_failed++;
         return CKR_OK;
     }
 
-    printf("Successfully removed %s key object \"%s\".\n", typestr, label);
+    printf("Successfully removed %s %s object \"%s\".\n", typestr, keytype->obj_typestr, label);
     data->num_removed++;
 
     return CKR_OK;
@@ -4816,7 +4815,7 @@ static CK_RV p11sak_remove_key(void)
     data.remove_all = opt_force;
 
     rc = iterate_key_objects(keytype, opt_label, opt_id, opt_attr, NULL,
-                             handle_key_remove, &data);
+                             handle_obj_remove, &data);
     if (rc != CKR_OK) {
         warnx("Failed to iterate over key objects for key type %s: 0x%lX: %s",
                 keytype != NULL ? keytype->name : "All", rc, p11_get_ckr(rc));
