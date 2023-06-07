@@ -114,9 +114,9 @@ struct p11sak_attr {
                        int indent, bool sensitive);
 };
 
-struct p11sak_keytype {
+struct p11sak_objtype {
     const char *name;
-    CK_KEY_TYPE type;
+    CK_ULONG type; /* CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE */
     const char *ck_name;
     CK_MECHANISM keygen_mech;
     bool is_asymmetric;
@@ -124,48 +124,48 @@ struct p11sak_keytype {
     bool encrypt_decrypt;
     bool wrap_unwrap;
     bool derive;
-    CK_RV (*keygen_prepare)(const struct p11sak_keytype *keytype,
+    CK_RV (*keygen_prepare)(const struct p11sak_objtype *keytype,
                             void **private);
-    void (*keygen_cleanup)(const struct p11sak_keytype *keytype, void *private);
-    CK_RV (*keygen_get_key_size)(const struct p11sak_keytype *keytype,
+    void (*keygen_cleanup)(const struct p11sak_objtype *keytype, void *private);
+    CK_RV (*keygen_get_key_size)(const struct p11sak_objtype *keytype,
                                  void *private, CK_ULONG *keysize);
-    CK_RV (*keygen_add_secret_attrs)(const struct p11sak_keytype *keytype,
+    CK_RV (*keygen_add_secret_attrs)(const struct p11sak_objtype *keytype,
                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                      void *private);
-    CK_RV (*keygen_add_public_attrs)(const struct p11sak_keytype *keytype,
+    CK_RV (*keygen_add_public_attrs)(const struct p11sak_objtype *keytype,
                                      CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                      void *private);
-    CK_RV (*keygen_add_private_attrs)(const struct p11sak_keytype *keytype,
+    CK_RV (*keygen_add_private_attrs)(const struct p11sak_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private);
     CK_ATTRIBUTE_TYPE filter_attr;
     CK_ULONG filter_value;
     CK_ATTRIBUTE_TYPE keysize_attr;
     bool keysize_attr_value_len;
-    CK_ULONG (*key_keysize_adjust)(const struct p11sak_keytype *keytype,
+    CK_ULONG (*key_keysize_adjust)(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize);
     const struct p11sak_attr *secret_attrs;
     const struct p11sak_attr *public_attrs;
     const struct p11sak_attr *private_attrs;
-    CK_RV (*import_check_sym_keysize)(const struct p11sak_keytype *keytype,
+    CK_RV (*import_check_sym_keysize)(const struct p11sak_objtype *keytype,
                                       CK_ULONG keysize);
-    CK_RV (*import_sym_clear)(const struct p11sak_keytype *keytype,
+    CK_RV (*import_sym_clear)(const struct p11sak_objtype *keytype,
                               CK_BYTE *data, CK_ULONG data_len,
                               CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-    CK_RV (*import_asym_pkey)(const struct p11sak_keytype *keytype,
+    CK_RV (*import_asym_pkey)(const struct p11sak_objtype *keytype,
                               EVP_PKEY *pkey, bool private,
                               CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-    CK_RV (*import_asym_pem_data)(const struct p11sak_keytype *keytype,
+    CK_RV (*import_asym_pem_data)(const struct p11sak_objtype *keytype,
                                   unsigned char *data, size_t data_len,
                                   bool private, CK_ATTRIBUTE **attrs,
                                   CK_ULONG *num_attrs);
-    CK_RV (*export_sym_clear)(const struct p11sak_keytype *keytype,
+    CK_RV (*export_sym_clear)(const struct p11sak_objtype *keytype,
                               CK_BYTE **data, CK_ULONG* data_len,
                               CK_OBJECT_HANDLE key, const char *label);
-    CK_RV (*export_asym_pkey)(const struct p11sak_keytype *keytype,
+    CK_RV (*export_asym_pkey)(const struct p11sak_objtype *keytype,
                               EVP_PKEY **pkey, bool private,
                               CK_OBJECT_HANDLE key, const char *label);
-    CK_RV (*export_asym_pem_data)(const struct p11sak_keytype *keytype,
+    CK_RV (*export_asym_pem_data)(const struct p11sak_objtype *keytype,
                                   unsigned char **data, size_t *data_len,
                                   bool private, CK_OBJECT_HANDLE key,
                                   const char *label);
