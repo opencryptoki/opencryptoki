@@ -104,119 +104,119 @@ static struct p11sak_enum_value *opt_asym_kind = NULL;
 static bool opt_spki = false;
 
 static bool opt_slot_is_set(const struct p11sak_arg *arg);
-static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
                                   void *private, CK_ULONG *keysize);
-static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
+static CK_RV generic_add_secret_attrs(const struct p11sak_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private);
-static CK_ULONG generic_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG generic_keysize_adjust(const struct p11sak_objtype *keytype,
                                        CK_ULONG keysize);
-static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV aes_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
+static CK_RV aes_add_secret_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_ULONG aes_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG aes_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_objtype *keytype,
                                        CK_ULONG keysize);
-static CK_ULONG rsa_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG rsa_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_ULONG dh_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG dh_keysize_adjust(const struct p11sak_objtype *keytype,
                                   CK_ULONG keysize);
-static CK_ULONG dsa_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG dsa_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize);
-static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV rsa_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV ec_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV ec_get_key_size(const struct p11sak_objtype *keytype,
                              void *private, CK_ULONG *keysize);
-static CK_RV ec_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ec_add_public_attrs(const struct p11sak_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private);
-static CK_RV dh_prepare(const struct p11sak_keytype *keytype, void **private);
-static void dh_cleanup(const struct p11sak_keytype *keytype, void *private);
-static CK_RV dh_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV dh_prepare(const struct p11sak_objtype *keytype, void **private);
+static void dh_cleanup(const struct p11sak_objtype *keytype, void *private);
+static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
                              void *private, CK_ULONG *keysize);
-static CK_RV dh_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dh_add_public_attrs(const struct p11sak_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private);
-static CK_RV dh_add_private_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dh_add_private_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV dsa_prepare(const struct p11sak_keytype *keytype, void **private);
-static void dsa_cleanup(const struct p11sak_keytype *keytype, void *private);
-static CK_RV dsa_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV dsa_prepare(const struct p11sak_objtype *keytype, void **private);
+static void dsa_cleanup(const struct p11sak_objtype *keytype, void *private);
+static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize);
-static CK_RV dsa_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dsa_add_public_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private);
-static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_objtype *keytype,
                                             CK_ATTRIBUTE **attrs,
                                             CK_ULONG *num_attrs,
                                             void *private);
-static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_objtype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private);
 
 static CK_RV p11sak_import_check_des_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_3des_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_generic_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_aes_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_check_aes_xts_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize);
 static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *keytype,
                                     CK_BYTE *data, CK_ULONG data_len,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_rsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dh_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_dsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
-static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs);
 static CK_RV p11sak_import_dilithium_kyber_pem_data(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         unsigned char *data, size_t data_len,
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs);
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_rsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_dh_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_dsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label);
-static CK_RV p11sak_export_ec_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label);
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         unsigned char **data, size_t *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label);
@@ -553,7 +553,7 @@ static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
     { .name = NULL },
 };
 
-static const struct p11sak_keytype p11sak_des_keytype = {
+static const struct p11sak_objtype p11sak_des_keytype = {
     .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
     .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
     .is_asymmetric = false,
@@ -567,7 +567,7 @@ static const struct p11sak_keytype p11sak_des_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_keytype p11sak_3des_keytype = {
+static const struct p11sak_objtype p11sak_3des_keytype = {
     .name = "3DES",  .type = CKK_DES3, .ck_name = "CKK_DES3",
     .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
     .is_asymmetric = false,
@@ -581,7 +581,7 @@ static const struct p11sak_keytype p11sak_3des_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_keytype p11sak_generic_keytype = {
+static const struct p11sak_objtype p11sak_generic_keytype = {
     .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
     .ck_name = "CKK_GENERIC_SECRET",
     .keygen_mech = { .mechanism = CKM_GENERIC_SECRET_KEY_GEN, },
@@ -598,7 +598,7 @@ static const struct p11sak_keytype p11sak_generic_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_keytype p11sak_aes_keytype = {
+static const struct p11sak_objtype p11sak_aes_keytype = {
     .name = "AES",  .type = CKK_AES, .ck_name = "CKK_AES",
     .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
     .is_asymmetric = false,
@@ -614,7 +614,7 @@ static const struct p11sak_keytype p11sak_aes_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_keytype p11sak_aes_xts_keytype = {
+static const struct p11sak_objtype p11sak_aes_xts_keytype = {
     .name = "AES-XTS",  .type = CKK_AES_XTS, .ck_name = "CKK_AES_XTS",
     .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
     .is_asymmetric = false,
@@ -630,7 +630,7 @@ static const struct p11sak_keytype p11sak_aes_xts_keytype = {
     .export_sym_clear = p11sak_export_sym_clear_des_3des_aes_generic,
 };
 
-static const struct p11sak_keytype p11sak_rsa_keytype = {
+static const struct p11sak_objtype p11sak_rsa_keytype = {
     .name = "RSA",  .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -647,7 +647,7 @@ static const struct p11sak_keytype p11sak_rsa_keytype = {
     .export_asym_pkey = p11sak_export_rsa_pkey,
 };
 
-static const struct p11sak_keytype p11sak_dh_keytype = {
+static const struct p11sak_objtype p11sak_dh_keytype = {
     .name = "DH", .type = CKK_DH, .ck_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -667,7 +667,7 @@ static const struct p11sak_keytype p11sak_dh_keytype = {
     .export_asym_pkey = p11sak_export_dh_pkey,
 };
 
-static const struct p11sak_keytype p11sak_dsa_keytype = {
+static const struct p11sak_objtype p11sak_dsa_keytype = {
     .name = "DSA",  .type = CKK_DSA, .ck_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -686,7 +686,7 @@ static const struct p11sak_keytype p11sak_dsa_keytype = {
     .export_asym_pkey = p11sak_export_dsa_pkey,
 };
 
-static const struct p11sak_keytype p11sak_ec_keytype = {
+static const struct p11sak_objtype p11sak_ec_keytype = {
     .name = "EC",  .type = CKK_EC, .ck_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -702,7 +702,7 @@ static const struct p11sak_keytype p11sak_ec_keytype = {
     .export_asym_pkey = p11sak_export_ec_pkey,
 };
 
-static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
+static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
     .ck_name = "CKK_IBM_PQC_DILITHIUM",
     .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
@@ -720,7 +720,7 @@ static const struct p11sak_keytype p11sak_ibm_dilithium_keytype = {
     .pem_name_public = "IBM-DILITHIUM PUBLIC KEY",
 };
 
-static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
+static const struct p11sak_objtype p11sak_ibm_kyber_keytype = {
     .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
     .ck_name = "CKK_IBM_PQC_KYBER",
     .keygen_mech = { .mechanism = CKM_IBM_KYBER, },
@@ -738,30 +738,30 @@ static const struct p11sak_keytype p11sak_ibm_kyber_keytype = {
     .pem_name_public = "IBM-KYBER PUBLIC KEY",
 };
 
-static const struct p11sak_keytype p11sak_secret_keytype = {
+static const struct p11sak_objtype p11sak_secret_keytype = {
     .name = "Secret",
     .is_asymmetric = false,
     .filter_attr = CKA_CLASS, .filter_value = CKO_SECRET_KEY,
 };
 
-static const struct p11sak_keytype p11sak_public_keytype = {
+static const struct p11sak_objtype p11sak_public_keytype = {
     .name = "Public",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PUBLIC_KEY,
 };
 
-static const struct p11sak_keytype p11sak_private_keytype = {
+static const struct p11sak_objtype p11sak_private_keytype = {
     .name = "Private",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PRIVATE_KEY,
 };
 
-static const struct p11sak_keytype p11sak_all_keytype = {
+static const struct p11sak_objtype p11sak_all_keytype = {
     .name = "All",
     .filter_attr = (CK_ATTRIBUTE_TYPE)-1,
 };
 
-static const struct p11sak_keytype *p11sak_keytypes[] = {
+static const struct p11sak_objtype *p11sak_keytypes[] = {
     &p11sak_des_keytype,
     &p11sak_3des_keytype,
     &p11sak_generic_keytype,
@@ -2224,25 +2224,25 @@ static bool is_rejected_by_policy(CK_RV ret_code, CK_SESSION_HANDLE session)
     return (info.ulDeviceError == CKR_POLICY_VIOLATION);
 }
 
-static CK_RV check_mech_supported(const struct p11sak_keytype *keytype,
+static CK_RV check_mech_supported(const struct p11sak_objtype *objtype,
                                   CK_ULONG keysize)
 {
     CK_MECHANISM_INFO mech_info;
     CK_RV rc;
 
     rc = pkcs11_funcs->C_GetMechanismInfo(opt_slot,
-                                          keytype->keygen_mech.mechanism,
+                                          objtype->keygen_mech.mechanism,
                                           &mech_info);
     if (rc != CKR_OK) {
         warnx("Token in slot %lu does not support mechanism %s", opt_slot,
-              p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism));
+              p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism));
         return rc;
     }
 
-    if ((mech_info.flags & (keytype->is_asymmetric ?
+    if ((mech_info.flags & (objtype->is_asymmetric ?
                                 CKF_GENERATE_KEY_PAIR : CKF_GENERATE)) == 0) {
         warnx("Mechanism %s does not support to generate keys",
-              p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism));
+              p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism));
         return CKR_MECHANISM_INVALID;
     }
 
@@ -2251,7 +2251,7 @@ static CK_RV check_mech_supported(const struct p11sak_keytype *keytype,
         if (keysize < mech_info.ulMinKeySize ||
             keysize > mech_info.ulMaxKeySize) {
             warnx("Mechanism %s does not support to generate keys of size %lu",
-                  p11_get_ckm(&mechtable_funcs, keytype->keygen_mech.mechanism),
+                  p11_get_ckm(&mechtable_funcs, objtype->keygen_mech.mechanism),
                   keysize);
             return CKR_KEY_SIZE_RANGE;
         }
@@ -2288,7 +2288,7 @@ static CK_RV add_attribute(CK_ATTRIBUTE_TYPE type, const void *value,
     return CKR_OK;
 }
 
-static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV generic_get_key_size(const struct p11sak_objtype *keytype,
                                   void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -2299,7 +2299,7 @@ static CK_RV generic_get_key_size(const struct p11sak_keytype *keytype,
     return CKR_OK;
 }
 
-static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
+static CK_RV generic_add_secret_attrs(const struct p11sak_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                       void *private)
 {
@@ -2312,7 +2312,7 @@ static CK_RV generic_add_secret_attrs(const struct p11sak_keytype *keytype,
                          attrs, num_attrs);
 }
 
-static CK_ULONG generic_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG generic_keysize_adjust(const struct p11sak_objtype *keytype,
                                        CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2320,7 +2320,7 @@ static CK_ULONG generic_keysize_adjust(const struct p11sak_keytype *keytype,
     return keysize * 8;
 }
 
-static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV aes_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -2331,7 +2331,7 @@ static CK_RV aes_get_key_size(const struct p11sak_keytype *keytype,
     return CKR_OK;
 }
 
-static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
+static CK_RV aes_add_secret_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -2344,7 +2344,7 @@ static CK_RV aes_add_secret_attrs(const struct p11sak_keytype *keytype,
                          attrs, num_attrs);
 }
 
-static CK_ULONG aes_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG aes_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2352,7 +2352,7 @@ static CK_ULONG aes_keysize_adjust(const struct p11sak_keytype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_objtype *keytype,
                                        CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2360,7 +2360,7 @@ static CK_ULONG aes_xts_keysize_adjust(const struct p11sak_keytype *keytype,
     return (keysize * 8) / 2;
 }
 
-static CK_ULONG rsa_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG rsa_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2368,7 +2368,7 @@ static CK_ULONG rsa_keysize_adjust(const struct p11sak_keytype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG dh_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG dh_keysize_adjust(const struct p11sak_objtype *keytype,
                                   CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2376,7 +2376,7 @@ static CK_ULONG dh_keysize_adjust(const struct p11sak_keytype *keytype,
     return keysize * 8;
 }
 
-static CK_ULONG dsa_keysize_adjust(const struct p11sak_keytype *keytype,
+static CK_ULONG dsa_keysize_adjust(const struct p11sak_objtype *keytype,
                                    CK_ULONG keysize)
 {
     UNUSED(keytype);
@@ -2384,7 +2384,7 @@ static CK_ULONG dsa_keysize_adjust(const struct p11sak_keytype *keytype,
     return keysize * 8;
 }
 
-static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV rsa_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     UNUSED(private);
@@ -2395,7 +2395,7 @@ static CK_RV rsa_get_key_size(const struct p11sak_keytype *keytype,
     return CKR_OK;
 }
 
-static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV rsa_add_public_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -2427,7 +2427,7 @@ static CK_RV rsa_add_public_attrs(const struct p11sak_keytype *keytype,
     return CKR_OK;
 }
 
-static CK_RV ec_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV ec_get_key_size(const struct p11sak_objtype *keytype,
                              void *private, CK_ULONG *keysize)
 {
     const struct curve_info *curve = opt_curve->private.ptr;
@@ -2440,7 +2440,7 @@ static CK_RV ec_get_key_size(const struct p11sak_keytype *keytype,
     return CKR_OK;
 }
 
-static CK_RV ec_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ec_add_public_attrs(const struct p11sak_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private)
 {
@@ -2647,7 +2647,7 @@ done:
     return rc;
 }
 
-static CK_RV dh_prepare(const struct p11sak_keytype *keytype, void **private)
+static CK_RV dh_prepare(const struct p11sak_objtype *keytype, void **private)
 {
     CK_RV rc;
     EVP_PKEY *pkey = NULL;
@@ -2667,7 +2667,7 @@ static CK_RV dh_prepare(const struct p11sak_keytype *keytype, void **private)
     return CKR_OK;
 }
 
-static void dh_cleanup(const struct p11sak_keytype *keytype, void *private)
+static void dh_cleanup(const struct p11sak_objtype *keytype, void *private)
 {
     EVP_PKEY *pkey = private;
 
@@ -2676,7 +2676,7 @@ static void dh_cleanup(const struct p11sak_keytype *keytype, void *private)
     EVP_PKEY_free(pkey);
 }
 
-static CK_RV dh_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV dh_get_key_size(const struct p11sak_objtype *keytype,
                              void *private, CK_ULONG *keysize)
 {
     EVP_PKEY *pkey = private;
@@ -2726,7 +2726,7 @@ done:
     return rc;
 }
 
-static CK_RV dh_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dh_add_public_attrs(const struct p11sak_objtype *keytype,
                                  CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                  void *private)
 {
@@ -2737,7 +2737,7 @@ static CK_RV dh_add_public_attrs(const struct p11sak_keytype *keytype,
     return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, false);
 }
 
-static CK_RV dh_add_private_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dh_add_private_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -2751,7 +2751,7 @@ static CK_RV dh_add_private_attrs(const struct p11sak_keytype *keytype,
                          sizeof(opt_keybits_num), attrs, num_attrs);
 }
 
-static CK_RV dsa_prepare(const struct p11sak_keytype *keytype, void **private)
+static CK_RV dsa_prepare(const struct p11sak_objtype *keytype, void **private)
 {
     CK_RV rc;
     EVP_PKEY *pkey = NULL;
@@ -2767,7 +2767,7 @@ static CK_RV dsa_prepare(const struct p11sak_keytype *keytype, void **private)
     return CKR_OK;
 }
 
-static void dsa_cleanup(const struct p11sak_keytype *keytype, void *private)
+static void dsa_cleanup(const struct p11sak_objtype *keytype, void *private)
 {
     EVP_PKEY *pkey = private;
 
@@ -2776,7 +2776,7 @@ static void dsa_cleanup(const struct p11sak_keytype *keytype, void *private)
     EVP_PKEY_free(pkey);
 }
 
-static CK_RV dsa_get_key_size(const struct p11sak_keytype *keytype,
+static CK_RV dsa_get_key_size(const struct p11sak_objtype *keytype,
                               void *private, CK_ULONG *keysize)
 {
     EVP_PKEY *pkey = private;
@@ -2826,7 +2826,7 @@ done:
     return rc;
 }
 
-static CK_RV dsa_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV dsa_add_public_attrs(const struct p11sak_objtype *keytype,
                                   CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                   void *private)
 {
@@ -2837,7 +2837,7 @@ static CK_RV dsa_add_public_attrs(const struct p11sak_keytype *keytype,
     return dh_dsa_add_public_attrs(attrs, num_attrs, pkey, true);
 }
 
-static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_objtype *keytype,
                                             CK_ATTRIBUTE **attrs,
                                             CK_ULONG *num_attrs,
                                             void *private)
@@ -2851,7 +2851,7 @@ static CK_RV ibm_dilithium_add_public_attrs(const struct p11sak_keytype *keytype
                          attrs, num_attrs);
 }
 
-static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_keytype *keytype,
+static CK_RV ibm_kyber_add_public_attrs(const struct p11sak_objtype *keytype,
                                         CK_ATTRIBUTE **attrs,
                                         CK_ULONG *num_attrs,
                                         void *private)
@@ -2982,7 +2982,7 @@ static const struct p11sak_attr *find_attr_by_letter(char letter)
     return NULL;
 }
 
-static bool attr_applicable_for_keytype(const struct p11sak_keytype *keytype,
+static bool attr_applicable_for_keytype(const struct p11sak_objtype *keytype,
                                         const struct p11sak_attr *attr)
 {
     switch (attr->type) {
@@ -3009,29 +3009,29 @@ static bool attr_applicable_for_keytype(const struct p11sak_keytype *keytype,
     }
 }
 
-static bool secret_attr_applicable(const struct p11sak_keytype *keytype,
+static bool secret_attr_applicable(const struct p11sak_objtype *objtype,
                                    const struct p11sak_attr *attr)
 {
-    return attr->secret && attr_applicable_for_keytype(keytype, attr);
+    return attr->secret && attr_applicable_for_keytype(objtype, attr);
 }
 
-static bool public_attr_applicable(const struct p11sak_keytype *keytype,
+static bool public_attr_applicable(const struct p11sak_objtype *objtype,
                                    const struct p11sak_attr *attr)
 {
-    return attr->public && attr_applicable_for_keytype(keytype, attr);
+    return attr->public && attr_applicable_for_keytype(objtype, attr);
 }
 
-static bool private_attr_applicable(const struct p11sak_keytype *keytype,
+static bool private_attr_applicable(const struct p11sak_objtype *objtype,
                                     const struct p11sak_attr *attr)
 {
-    return attr->private && attr_applicable_for_keytype(keytype, attr);
+    return attr->private && attr_applicable_for_keytype(objtype, attr);
 }
 
-static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
+static CK_RV parse_boolean_attrs(const struct p11sak_objtype *objtype,
                                  const char *attr_string, CK_ATTRIBUTE **attrs,
                                  CK_ULONG *num_attrs, bool check_settable,
                                  bool (*attr_applicable)(
-                                         const struct p11sak_keytype *keytype,
+                                         const struct p11sak_objtype *objtype,
                                          const struct p11sak_attr *attr))
 {
     const struct p11sak_attr *attr;
@@ -3051,8 +3051,8 @@ static CK_RV parse_boolean_attrs(const struct p11sak_keytype *keytype,
 
         /* silently ignore attributes that are not settable or not applicable */
         if ((check_settable && !attr->settable) ||
-            (attr_applicable != NULL && keytype != NULL &&
-             !attr_applicable(keytype, attr)))
+            (attr_applicable != NULL && objtype != NULL &&
+             !attr_applicable(objtype, attr)))
             continue;
 
         val = isupper(attr_string[i]) ? CK_TRUE : CK_FALSE;
@@ -3109,17 +3109,17 @@ done:
     return rc;
 }
 
-static CK_RV add_attributes(const struct p11sak_keytype *keytype,
+static CK_RV add_attributes(const struct p11sak_objtype *objtype,
                             CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                             const char *label, const char *attr_string,
                             const char *id, bool is_sensitive,
                             CK_RV (*add_attrs)(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *objtype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs,
                                     void *private),
                             void *private,
                             bool (*attr_applicable)(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *objtype,
                                     const struct p11sak_attr *attr))
 {
     const CK_BBOOL ck_true = TRUE;
@@ -3130,18 +3130,18 @@ static CK_RV add_attributes(const struct p11sak_keytype *keytype,
     rc = add_attribute(CKA_LABEL, label, strlen(label), attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add %s key attribute CKA_LABEL: 0x%lX: %s",
-              keytype->name, rc, p11_get_ckr(rc));
+              objtype->name, rc, p11_get_ckr(rc));
         return rc;
     }
 
     rc = add_attribute(CKA_TOKEN, &ck_true, sizeof(ck_true), attrs, num_attrs);
     if (rc != CKR_OK) {
         warnx("Failed to add %s key attribute CKA_TOKEN: 0x%lX: %s",
-              keytype->name, rc, p11_get_ckr(rc));
+              objtype->name, rc, p11_get_ckr(rc));
         return rc;
     }
 
-    rc = parse_boolean_attrs(keytype, attr_string, attrs, num_attrs,
+    rc = parse_boolean_attrs(objtype, attr_string, attrs, num_attrs,
                              true, attr_applicable);
     if (rc != CKR_OK)
         return rc;
@@ -3153,10 +3153,10 @@ static CK_RV add_attributes(const struct p11sak_keytype *keytype,
     }
 
     if (add_attrs != NULL) {
-        rc = add_attrs(keytype, attrs, num_attrs, private);
+        rc = add_attrs(objtype, attrs, num_attrs, private);
         if (rc != CKR_OK) {
             warnx("Failed to add %s key attributes: 0x%lX: %s",
-                  keytype->name, rc, p11_get_ckr(rc));
+                  objtype->name, rc, p11_get_ckr(rc));
             return rc;
         }
     }
@@ -3173,7 +3173,7 @@ static CK_RV add_attributes(const struct p11sak_keytype *keytype,
                                attrs, num_attrs);
             if (rc != CKR_OK) {
                 warnx("Failed to add %s key attribute CKA_SENSITIVE: 0x%lX: %s",
-                      keytype->name, rc, p11_get_ckr(rc));
+                      objtype->name, rc, p11_get_ckr(rc));
                 return rc;
             }
         }
@@ -3334,9 +3334,9 @@ done:
     return rc;
 }
 
-static const struct p11sak_keytype *find_keytype(CK_KEY_TYPE ktype)
+static const struct p11sak_objtype *find_keytype(CK_KEY_TYPE ktype)
 {
-    const struct p11sak_keytype **kt;
+    const struct p11sak_objtype **kt;
 
     for (kt = p11sak_keytypes; (*kt)->name != NULL; kt++) {
         if ((*kt)->type == ktype)
@@ -3349,7 +3349,7 @@ static const struct p11sak_keytype *find_keytype(CK_KEY_TYPE ktype)
 static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
                            CK_KEY_TYPE *ktype, CK_ULONG *keysize,
                            char** label, char** typestr,
-                           const struct p11sak_keytype **keytype)
+                           const struct p11sak_objtype **keytype)
 {
     CK_RV rc;
     CK_ULONG i;
@@ -3361,7 +3361,7 @@ static CK_RV get_key_infos(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
         { CKA_KEY_TYPE, &ktype_val, sizeof(ktype_val) },
     };
     const CK_ULONG num_attrs = sizeof(attrs) / sizeof(CK_ATTRIBUTE);
-    const struct p11sak_keytype *keytype_val;
+    const struct p11sak_objtype *keytype_val;
     CK_ULONG keysize_val = 0;
     CK_ATTRIBUTE keysize_attr;
     int rv;
@@ -3525,7 +3525,7 @@ static int iterate_compare(const void *a, const void *b, void *private)
     return result;
 }
 
-static CK_RV iterate_key_objects(const struct p11sak_keytype *keytype,
+static CK_RV iterate_key_objects(const struct p11sak_objtype *keytype,
                                  const char *label_filter,
                                  const char *id_filter,
                                  const char *attr_filter,
@@ -3535,7 +3535,7 @@ static CK_RV iterate_key_objects(const struct p11sak_keytype *keytype,
                                                       void *private),
                                  CK_RV (*handle_key)(CK_OBJECT_HANDLE key,
                                                      CK_OBJECT_CLASS class,
-                                                     const struct p11sak_keytype *keytype,
+                                                     const struct p11sak_objtype *keytype,
                                                      CK_ULONG keysize,
                                                      const char *typestr,
                                                      const char* label,
@@ -3554,7 +3554,7 @@ static CK_RV iterate_key_objects(const struct p11sak_keytype *keytype,
     CK_ULONG keysize = 0;
     char *label = NULL;
     char *typestr = NULL;
-    const struct p11sak_keytype *type;
+    const struct p11sak_objtype *type;
     CK_OBJECT_HANDLE *matched_keys = NULL, *tmp;
     CK_ULONG num_matched_keys = 0;
     CK_ULONG alloc_matched_keys = 0;
@@ -3719,7 +3719,7 @@ done:
 
 static CK_RV p11sak_generate_key(void)
 {
-    const struct p11sak_keytype *keytype;
+    const struct p11sak_objtype *keytype;
     void *private = NULL;
     CK_RV rc = CKR_OK;
     CK_ULONG keysize = 0;
@@ -4105,7 +4105,7 @@ static void print_class_attr(const char *attr, const CK_ATTRIBUTE *val,
 static void print_key_type_attr(const char *attr, const CK_ATTRIBUTE *val,
                                 int indent, bool sensitive)
 {
-    const struct p11sak_keytype *ktype;
+    const struct p11sak_objtype *ktype;
     const char *name = NULL;
 
     if ((val->ulValueLen == CK_UNAVAILABLE_INFORMATION && !sensitive) ||
@@ -4150,7 +4150,7 @@ static void print_oid_attr(const char *attr, const CK_ATTRIBUTE *val,
 static const struct p11sak_attr *find_attribute(CK_ATTRIBUTE_TYPE type)
 {
     const struct p11sak_attr *attr;
-    const struct p11sak_keytype **keytype;
+    const struct p11sak_objtype **keytype;
 
     for (attr = p11sak_bool_attrs; attr->name != NULL; attr++) {
         if (attr->type == type)
@@ -4290,7 +4290,7 @@ static void print_custom_attrs(CK_OBJECT_HANDLE key,
 }
 
 static void print_key_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                            const struct p11sak_keytype *keytype, int indent)
+                            const struct p11sak_objtype *keytype, int indent)
 {
     const struct p11sak_attr *attrs, *attr;
     CK_ATTRIBUTE val;
@@ -4333,7 +4333,7 @@ static void print_key_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 }
 
 static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                                 const struct p11sak_keytype *keytype,
+                                 const struct p11sak_objtype *objtype,
                                  const char *typestr, const char* label,
                                  struct p11sak_list_data *data)
 {
@@ -4354,13 +4354,13 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     for (attr = p11sak_bool_attrs, i = 0; attr->name != NULL; attr++, i++) {
         switch (class) {
         case CKO_SECRET_KEY:
-            applicable = secret_attr_applicable(keytype, attr);
+            applicable = secret_attr_applicable(objtype, attr);
             break;
         case CKO_PUBLIC_KEY:
-            applicable = public_attr_applicable(keytype, attr);
+            applicable = public_attr_applicable(objtype, attr);
             break;
         case CKO_PRIVATE_KEY:
-            applicable = private_attr_applicable(keytype, attr);
+            applicable = private_attr_applicable(objtype, attr);
             break;
         default:
            applicable = false;
@@ -4426,7 +4426,7 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
 }
 
 static CK_RV handle_key_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_keytype *keytype,
+                             const struct p11sak_objtype *keytype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, void *private)
 {
@@ -4633,7 +4633,7 @@ done:
 
 static CK_RV p11sak_list_key(void)
 {
-    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_objtype *keytype = NULL;
     const struct p11sak_attr *attr;
     struct p11sak_list_data data = { 0 };
     unsigned int i;
@@ -4729,7 +4729,7 @@ static char prompt_user(const char *message, char* allowed_chars)
 }
 
 static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                               const struct p11sak_keytype *keytype,
+                               const struct p11sak_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
                                const char* label, void *private)
 {
@@ -4790,7 +4790,7 @@ static CK_RV handle_key_remove(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 
 static CK_RV p11sak_remove_key(void)
 {
-    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_objtype *keytype = NULL;
     struct p11sak_remove_data data = { 0 };
     CK_RV rc;
 
@@ -4817,7 +4817,7 @@ static CK_RV p11sak_remove_key(void)
 }
 
 static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                                 const struct p11sak_keytype *keytype,
+                                 const struct p11sak_objtype *keytype,
                                  CK_ULONG keysize, const char *typestr,
                                  const char* label, void *private)
 {
@@ -4827,7 +4827,7 @@ static CK_RV handle_key_set_attr(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_applicable)(const struct p11sak_keytype *keytype,
+    bool (*attr_applicable)(const struct p11sak_objtype *objtype,
                             const struct p11sak_attr *attr);
 
     UNUSED(keysize);
@@ -4933,7 +4933,7 @@ done:
 
 static CK_RV p11sak_set_key_attr(void)
 {
-    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_objtype *keytype = NULL;
     struct p11sak_set_attr_data data = { 0 };
     CK_RV rc;
 
@@ -4966,7 +4966,7 @@ static CK_RV p11sak_set_key_attr(void)
 }
 
 static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                             const struct p11sak_keytype *keytype,
+                             const struct p11sak_objtype *keytype,
                              CK_ULONG keysize, const char *typestr,
                              const char* label, void *private)
 {
@@ -4977,7 +4977,7 @@ static CK_RV handle_key_copy(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     char *msg = NULL;
     char ch;
     CK_RV rc;
-    bool (*attr_applicable)(const struct p11sak_keytype *keytype,
+    bool (*attr_applicable)(const struct p11sak_objtype *objtype,
                             const struct p11sak_attr *attr);
 
     UNUSED(keysize);
@@ -5077,7 +5077,7 @@ done:
 
 static CK_RV p11sak_copy_key(void)
 {
-    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_objtype *keytype = NULL;
     struct p11sak_copy_data data = { 0 };
     CK_RV rc;
 
@@ -5104,7 +5104,7 @@ static CK_RV p11sak_copy_key(void)
 }
 
 static CK_RV p11sak_import_check_des_keysize(
-                                          const struct p11sak_keytype *keytype,
+                                          const struct p11sak_objtype *keytype,
                                           CK_ULONG keysize)
 {
     if (keysize != 8) {
@@ -5116,7 +5116,7 @@ static CK_RV p11sak_import_check_des_keysize(
 }
 
 static CK_RV p11sak_import_check_3des_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 24) {
@@ -5128,7 +5128,7 @@ static CK_RV p11sak_import_check_3des_keysize(
 }
 
 static CK_RV p11sak_import_check_generic_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize == 0) {
@@ -5141,7 +5141,7 @@ static CK_RV p11sak_import_check_generic_keysize(
 }
 
 static CK_RV p11sak_import_check_aes_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 16 && keysize != 24 && keysize != 32) {
@@ -5154,7 +5154,7 @@ static CK_RV p11sak_import_check_aes_keysize(
 }
 
 static CK_RV p11sak_import_check_aes_xts_keysize(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         CK_ULONG keysize)
 {
     if (keysize != 32 && keysize != 64) {
@@ -5167,7 +5167,7 @@ static CK_RV p11sak_import_check_aes_xts_keysize(
 }
 
 static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *keytype,
                                     CK_BYTE *data, CK_ULONG data_len,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -5176,7 +5176,7 @@ static CK_RV p11sak_import_sym_clear_des_3des_aes_generic(
     return add_attribute(CKA_VALUE, data, data_len, attrs, num_attrs);
 }
 
-static CK_RV p11sak_import_rsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -5296,7 +5296,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_dh_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_dh_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -5373,7 +5373,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_dsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_dsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY *pkey, bool private,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -5459,7 +5459,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_ec_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY *pkey, bool private,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
@@ -5636,7 +5636,7 @@ done:
 }
 
 static CK_RV p11sak_import_dilithium_kyber_pem_data(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         unsigned char *data, size_t data_len,
                                         bool private,
                                         CK_ATTRIBUTE **attrs,
@@ -5689,7 +5689,7 @@ static int p11sak_pem_password_cb(char *buf, int size, int rwflag,
     return len;
 }
 
-static CK_RV p11sak_import_opaque_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_opaque_key(const struct p11sak_objtype *keytype,
                                       CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     CK_BYTE *value;
@@ -5738,7 +5738,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_asym_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_asym_key(const struct p11sak_objtype *keytype,
                                     CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     EVP_PKEY *pkey = NULL;
@@ -5812,7 +5812,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_import_sym_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_import_sym_key(const struct p11sak_objtype *keytype,
                                    CK_ATTRIBUTE **attrs, CK_ULONG *num_attrs)
 {
     CK_BYTE data[MAX_SYM_CLEAR_KEY_SIZE];
@@ -5868,7 +5868,7 @@ static CK_RV p11sak_import_sym_key(const struct p11sak_keytype *keytype,
 
 static CK_RV p11sak_import_key(void)
 {
-    const struct p11sak_keytype *keytype;
+    const struct p11sak_objtype *keytype;
     CK_ATTRIBUTE *attrs = NULL;
     CK_ULONG num_attrs = 0;
     CK_OBJECT_CLASS class;
@@ -5948,7 +5948,7 @@ static bool has_ibm_opaque_attr(CK_OBJECT_HANDLE key)
 }
 
 static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
-                                    const struct p11sak_keytype *keytype,
+                                    const struct p11sak_objtype *keytype,
                                     CK_BYTE **data, CK_ULONG* data_len,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -5971,7 +5971,7 @@ static CK_RV p11sak_export_sym_clear_des_3des_aes_generic(
     return CKR_OK;
 }
 
-static CK_RV p11sak_export_rsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_rsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -6178,7 +6178,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_dh_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_dh_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
 {
@@ -6338,7 +6338,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_dsa_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_dsa_pkey(const struct p11sak_objtype *keytype,
                                     EVP_PKEY **pkey, bool private,
                                     CK_OBJECT_HANDLE key, const char *label)
 {
@@ -6513,7 +6513,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_ec_pkey(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_ec_pkey(const struct p11sak_objtype *keytype,
                                    EVP_PKEY **pkey, bool private,
                                    CK_OBJECT_HANDLE key, const char *label)
 {
@@ -6784,7 +6784,7 @@ done:
 }
 
 static CK_RV p11sak_export_dilithium_kyber_pem_data(
-                                        const struct p11sak_keytype *keytype,
+                                        const struct p11sak_objtype *keytype,
                                         unsigned char **data, size_t *data_len,
                                         bool private, CK_OBJECT_HANDLE key,
                                         const char *label)
@@ -6813,7 +6813,7 @@ static CK_RV p11sak_export_dilithium_kyber_pem_data(
     return CKR_OK;
 }
 
-static CK_RV p11sak_export_spki(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_spki(const struct p11sak_objtype *keytype,
                                 CK_OBJECT_HANDLE key,
                                 const char *typestr, const char* label,
                                 BIO* bio)
@@ -6849,7 +6849,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_opaque_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_opaque_key(const struct p11sak_objtype *keytype,
                                       CK_OBJECT_HANDLE key,
                                       const char *typestr, const char* label,
                                       BIO* bio)
@@ -6881,7 +6881,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_asym_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_asym_key(const struct p11sak_objtype *keytype,
                                     CK_OBJECT_HANDLE key, bool private,
                                     const char *typestr, const char* label,
                                     BIO* bio)
@@ -6951,7 +6951,7 @@ done:
     return rc;
 }
 
-static CK_RV p11sak_export_sym_key(const struct p11sak_keytype *keytype,
+static CK_RV p11sak_export_sym_key(const struct p11sak_objtype *keytype,
                                    CK_OBJECT_HANDLE key,
                                    const char *typestr, const char* label,
                                    BIO* bio)
@@ -6992,7 +6992,7 @@ done:
 }
 
 static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
-                               const struct p11sak_keytype *keytype,
+                               const struct p11sak_objtype *keytype,
                                CK_ULONG keysize, const char *typestr,
                                const char* label, void *private)
 {
@@ -7127,7 +7127,7 @@ done:
 
 static CK_RV p11sak_export_key(void)
 {
-    const struct p11sak_keytype *keytype = NULL;
+    const struct p11sak_objtype *keytype = NULL;
     struct p11sak_export_data data = { 0 };
     CK_RV rc;
 
