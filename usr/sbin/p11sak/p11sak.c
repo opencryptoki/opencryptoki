@@ -4399,6 +4399,7 @@ static CK_RV print_boolean_attrs(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
 }
 
 static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
+                         const struct p11sak_objtype *objtype,
                          const char *typestr, const char* label,
                          struct p11_uri **uri)
 {
@@ -4407,7 +4408,7 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
 
     u = p11_uri_new();
     if (u == NULL) {
-        warnx("Failed to allocate URI for %s key \"%s\"", typestr, label);
+        warnx("Failed to allocate URI for %s %s \"%s\"", typestr, objtype->obj_typestr, label);
         return CKR_HOST_MEMORY;
     }
 
@@ -4427,8 +4428,8 @@ static CK_RV prepare_uri(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS *class,
 
     rc = get_attribute(key, &u->obj_id[0]);
     if (rc != CKR_OK) {
-        warnx("Failed to get CKA_ID for %s key \"%s\": 0x%lX: %s",
-              typestr, label, rc, p11_get_ckr(rc));
+        warnx("Failed to get CKA_ID for %s %s \"%s\": 0x%lX: %s",
+              typestr, objtype->obj_typestr, label, rc, p11_get_ckr(rc));
         if (u->obj_id[0].pValue != NULL)
             free(u->obj_id[0].pValue);
         p11_uri_free(u);
@@ -4461,7 +4462,7 @@ static CK_RV handle_key_list(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     if (opt_long) {
-        rc = prepare_uri(key, &class, typestr, label, &uri);
+        rc = prepare_uri(key, &class, keytype, typestr, label, &uri);
         if (rc != CKR_OK)
             goto done;
 
