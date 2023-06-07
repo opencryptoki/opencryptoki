@@ -554,6 +554,7 @@ static const struct p11sak_attr p11sak_private_ibm_kyber_attrs[] = {
 };
 
 static const struct p11sak_objtype p11sak_des_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DES", .type = CKK_DES, .ck_name = "CKK_DES",
     .keygen_mech = { .mechanism = CKM_DES_KEY_GEN, },
     .is_asymmetric = false,
@@ -568,6 +569,7 @@ static const struct p11sak_objtype p11sak_des_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_3des_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "3DES",  .type = CKK_DES3, .ck_name = "CKK_DES3",
     .keygen_mech = { .mechanism = CKM_DES3_KEY_GEN, },
     .is_asymmetric = false,
@@ -582,6 +584,7 @@ static const struct p11sak_objtype p11sak_3des_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_generic_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "GENERIC",  .type = CKK_GENERIC_SECRET,
     .ck_name = "CKK_GENERIC_SECRET",
     .keygen_mech = { .mechanism = CKM_GENERIC_SECRET_KEY_GEN, },
@@ -599,6 +602,7 @@ static const struct p11sak_objtype p11sak_generic_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_aes_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "AES",  .type = CKK_AES, .ck_name = "CKK_AES",
     .keygen_mech = { .mechanism = CKM_AES_KEY_GEN, },
     .is_asymmetric = false,
@@ -615,6 +619,7 @@ static const struct p11sak_objtype p11sak_aes_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_aes_xts_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "AES-XTS",  .type = CKK_AES_XTS, .ck_name = "CKK_AES_XTS",
     .keygen_mech = { .mechanism = CKM_AES_XTS_KEY_GEN, },
     .is_asymmetric = false,
@@ -631,6 +636,7 @@ static const struct p11sak_objtype p11sak_aes_xts_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_rsa_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "RSA",  .type = CKK_RSA, .ck_name = "CKK_RSA",
     .keygen_mech = { .mechanism = CKM_RSA_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -648,6 +654,7 @@ static const struct p11sak_objtype p11sak_rsa_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_dh_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DH", .type = CKK_DH, .ck_name = "CKK_DH",
     .keygen_mech = { .mechanism = CKM_DH_PKCS_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -668,6 +675,7 @@ static const struct p11sak_objtype p11sak_dh_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_dsa_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "DSA",  .type = CKK_DSA, .ck_name = "CKK_DSA",
     .keygen_mech = { .mechanism = CKM_DSA_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -687,6 +695,7 @@ static const struct p11sak_objtype p11sak_dsa_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_ec_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "EC",  .type = CKK_EC, .ck_name = "CKK_EC",
     .keygen_mech = { .mechanism = CKM_EC_KEY_PAIR_GEN, },
     .is_asymmetric = true,
@@ -703,6 +712,7 @@ static const struct p11sak_objtype p11sak_ec_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Dilithium",  .type = CKK_IBM_PQC_DILITHIUM,
     .ck_name = "CKK_IBM_PQC_DILITHIUM",
     .keygen_mech = { .mechanism = CKM_IBM_DILITHIUM, },
@@ -721,6 +731,7 @@ static const struct p11sak_objtype p11sak_ibm_dilithium_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_ibm_kyber_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "IBM-Kyber",  .type = CKK_IBM_PQC_KYBER,
     .ck_name = "CKK_IBM_PQC_KYBER",
     .keygen_mech = { .mechanism = CKM_IBM_KYBER, },
@@ -739,24 +750,28 @@ static const struct p11sak_objtype p11sak_ibm_kyber_keytype = {
 };
 
 static const struct p11sak_objtype p11sak_secret_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Secret",
     .is_asymmetric = false,
     .filter_attr = CKA_CLASS, .filter_value = CKO_SECRET_KEY,
 };
 
 static const struct p11sak_objtype p11sak_public_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Public",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PUBLIC_KEY,
 };
 
 static const struct p11sak_objtype p11sak_private_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "Private",
     .is_asymmetric = true,
     .filter_attr = CKA_CLASS, .filter_value = CKO_PRIVATE_KEY,
 };
 
 static const struct p11sak_objtype p11sak_all_keytype = {
+    .obj_typestr = "key", .obj_liststr = "Key",
     .name = "All",
     .filter_attr = (CK_ATTRIBUTE_TYPE)-1,
 };

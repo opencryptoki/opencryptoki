@@ -115,6 +115,8 @@ struct p11sak_attr {
 };
 
 struct p11sak_objtype {
+    const char *obj_typestr;
+    const char *obj_liststr;
     const char *name;
     CK_ULONG type; /* CKA_KEY_TYPE or CKA_CERTIFICATE_TYPE */
     const char *ck_name;
