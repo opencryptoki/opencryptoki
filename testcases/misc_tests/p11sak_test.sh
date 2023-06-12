@@ -828,9 +828,9 @@ if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
 		status=1
 	fi
 else
-	echo "* TESTCASE generate-key aes-xst-128 SKIP Generated random AES-XTS 128 key"
+	echo "* TESTCASE generate-key aes-xts-128 SKIP Generated random AES-XTS 128 key"
 	echo "* TESTCASE remove-key aes-xts-128 SKIP Deleted generated AES-XTS 128 key"
-	echo "* TESTCASE generate-key aes-xst-256 SKIP Generated random AES-XTS 256 key"
+	echo "* TESTCASE generate-key aes-xts-256 SKIP Generated random AES-XTS 256 key"
 	echo "* TESTCASE remove-key aes-xts-256 SKIP Deleted generated AES-XTS 256 key"
 	echo "* TESTCASE list-key aes-xts SKIP Listed random aes-xts keys CK_BBOOL attribute"
 	echo "* TESTCASE list-key aes-xts SKIP Listed random aes-xts keys CK_ULONG attribute"
