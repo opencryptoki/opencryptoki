@@ -57,6 +57,9 @@ P11SAK_IBM_KYBER_POST=p11sak-ibm-kyber-post.out
 P11SAK_ALL_PINOPT=p11sak-all-pinopt
 P11SAK_ALL_PINENV=p11sak-all-pinenv
 P11SAK_ALL_PINCON=p11sak-all-pincon
+P11SAK_X509_PRE=p11sak-x509-pre.out
+P11SAK_X509_LONG=p11sak-x509-long.out
+P11SAK_X509_POST=p11sak-x509-post.out
 
 
 echo "** Setting SLOT=30 to the Softtoken unless otherwise set - 'p11sak_test.sh'"
@@ -1338,6 +1341,475 @@ else
 fi
 
 
+echo "** Import the sample x.509 certificates - 'p11sak_test.sh'"
+RC_P11SAK_X509_IMPORT=0
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 123 --label "p11sak-x509-rsa2048crt" --file $DIR/p11sak_rsa2048cert.crt
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 234 --label "p11sak-x509-rsa2048pem" --file $DIR/p11sak_rsa2048cert.pem
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 345 --label "p11sak-x509-rsa4096crt" --file $DIR/p11sak_rsa4096cert.crt
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 456 --label "p11sak-x509-rsa4096pem" --file $DIR/p11sak_rsa4096cert.pem
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 567 --label "p11sak-x509-ecp256crt" --file $DIR/p11sak_ecp256cert.crt
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 678 --label "p11sak-x509-ecp256pem" --file $DIR/p11sak_ecp256cert.pem
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp384crt" --file $DIR/p11sak_ecp384cert.crt
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp384pem" --file $DIR/p11sak_ecp384cert.pem
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 789 --label "p11sak-x509-ecp521crt" --file $DIR/p11sak_ecp521cert.crt
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 89A --label "p11sak-x509-ecp521pem" --file $DIR/p11sak_ecp521cert.pem
+RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa3072crt" --file $DIR/p11sak_dsa3072cert.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa3072pem" --file $DIR/p11sak_dsa3072cert.pem
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id 9AB --label "p11sak-x509-dsa4096crt" --file $DIR/p11sak_dsa4096cert.crt
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+	p11sak import-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --id ABC --label "p11sak-x509-dsa4096pem" --file $DIR/p11sak_dsa4096cert.pem
+	RC_P11SAK_X509_IMPORT=$((RC_P11SAK_X509_IMPORT + $?))
+else
+	echo "Skip importing x.509 certs with DSA key, slot does not support CKM_DSA"
+fi
+
+
+echo "** Now exporting x.509 certificates - 'p11sak_test.sh'"
+RC_P11SAK_X509_EXPORT=0
+# x.509
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --file p11sak_rsa2048cert_exported.crt --der --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --file p11sak_rsa2048cert_exported.pem --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --file p11sak_rsa4096cert_exported.crt --der --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --file p11sak_rsa4096cert_exported.pem --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --file p11sak_ecp256cert_exported.crt --der --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --file p11sak_ecp256cert_exported.pem --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --file p11sak_ecp384cert_exported.crt --der --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --file p11sak_ecp384cert_exported.pem --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --file p11sak_ecp521cert_exported.crt --der --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --file p11sak_ecp521cert_exported.pem --force
+RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --file p11sak_dsa3072cert_exported.crt --der --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --file p11sak_dsa3072cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --file p11sak_dsa4096cert_exported.crt --der --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+	p11sak export-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --file p11sak_dsa4096cert_exported.pem --force
+	RC_P11SAK_X509_EXPORT=$((RC_P11SAK_X509_EXPORT + $?))
+else
+	echo "Skip exporting x.509 certs with DSA key, slot does not support CKM_DSA"
+fi
+
+
+echo "** Now extracting public keys from x.509 certificates - 'p11sak_test.sh'"
+RC_P11SAK_X509_EXTRACT=0
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048crt" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa2048pem" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096crt" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-rsa4096pem" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256crt" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp256pem" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384crt" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp384pem" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521crt" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-ecp521pem" --force
+RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072crt" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa3072pem" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096crt" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+	p11sak extract-cert-pubkey x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-dsa4096pem" --force
+	RC_P11SAK_X509_EXTRACT=$((RC_P11SAK_X509_EXTRACT + $?))
+else
+	echo "Skip extracting pubkeys from x.509 certs with DSA key, slot does not support CKM_DSA"
+fi
+
+
+echo "** Now copying x.509 certificates to new token objects - 'p11sak_test.sh'"
+RC_P11SAK_X509_COPY=0
+p11sak copy-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-label "p11sak-x509-copied" --force
+RC_P11SAK_X509_COPY=$((RC_P11SAK_X509_COPY + $?))
+
+
+echo "** Now updating x.509 certs - 'p11sak_test.sh'"
+RC_P11SAK_X509_UPDATE=0
+p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-attr "YT" --force
+RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
+p11sak set-cert-attr x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --new-id "012345" --force
+RC_P11SAK_X509_UPDATE=$((RC_P11SAK_X509_UPDATE + $?))
+
+
+echo "** Now list x509 certificates and extracted pubkeys and redirect output to pre-files - 'p11sak_test.sh'"
+RC_P11SAK_X509_LIST=0
+p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:a &> $P11SAK_X509_PRE
+RC_P11SAK_X509_LIST=$((RC_P11SAK_X509_LIST + $?))
+p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &>> $P11SAK_X509_PRE
+RC_P11SAK_X509_LIST=$((RC_P11SAK_X509_LIST + $?))
+
+RC_P11SAK_X509_LIST_LONG=0
+p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" --sort l:d,n:a &> $P11SAK_X509_LONG
+RC_P11SAK_X509_LIST_LONG=$((RC_P11SAK_X509_LIST_LONG + $?))
+p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --long --label "p11sak-x509-*" &>> $P11SAK_X509_LONG
+RC_P11SAK_X509_LIST_LONG=$((RC_P11SAK_X509_LIST_LONG + $?))
+
+echo "** Now removing x.509 certificates and extracted public keys - 'p11sak_test.sh'"
+# x.509
+RC_P11SAK_X509_REMOVE=0
+p11sak remove-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
+RC_P11SAK_X509_REMOVE=$((RC_P11SAK_X509_REMOVE + $?))
+p11sak remove-key --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" -f
+RC_P11SAK_X509_REMOVE=$((RC_P11SAK_X509_REMOVE + $?))
+
+
+echo "** Now list certificates and extracted keys and redirect to post-files - 'p11sak_test.sh'"
+# list objects: if remove was successful above, no certs and extracted keys are left
+RC_P11SAK_X509_LIST_POST=0
+p11sak list-cert x509 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" --sort n:d,l:a &> $P11SAK_X509_POST
+RC_P11SAK_X509_LIST_POST=$((RC_P11SAK_X509_LIST_POST + $?))
+p11sak list-key all --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-x509-*" &> $P11SAK_X509_POST
+RC_P11SAK_X509_LIST_POST=$((RC_P11SAK_X509_LIST_POST + $?))
+
+
+echo "** Now checking output files to determine PASS/FAIL of tests - 'p11sak_test.sh'"
+
+# check if exported X509 certificates are equal to original ones
+RC_P11SAK_X509_DIFF=0
+diff $DIR/p11sak_rsa2048cert.crt p11sak_rsa2048cert_exported.crt > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_rsa2048cert.pem p11sak_rsa2048cert_exported.pem > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_rsa4096cert.crt p11sak_rsa4096cert_exported.crt > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_rsa4096cert.pem p11sak_rsa4096cert_exported.pem > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp256cert.crt p11sak_ecp256cert_exported.crt > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp256cert.pem p11sak_ecp256cert_exported.pem > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp384cert.crt p11sak_ecp384cert_exported.crt > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp384cert.pem p11sak_ecp384cert_exported.pem > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp521cert.crt p11sak_ecp521cert_exported.crt > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+diff $DIR/p11sak_ecp521cert.pem p11sak_ecp521cert_exported.pem > /dev/null
+RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	diff $DIR/p11sak_dsa3072cert.crt p11sak_dsa3072cert_exported.crt > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_dsa3072cert.pem p11sak_dsa3072cert_exported.pem > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_dsa4096cert.crt p11sak_dsa4096cert_exported.crt > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+	diff $DIR/p11sak_dsa4096cert.pem p11sak_dsa4096cert_exported.pem > /dev/null
+	RC_P11SAK_X509_DIFF=$((RC_P11SAK_X509_DIFF + $?))
+else
+	echo "Skip comparing exported x.509 certs with original certs, slot does not support CKM_DSA"
+fi
+
+# check X509 certificate listings for completeness
+# copied certs 
+grep -q "p11sak-x509-copied" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE copy-cert x509 PASS Copied x509 certs"
+else
+	echo "* TESTCASE copy-cert x509 FAIL Failed to copy x509 certs"
+	status=1
+fi
+grep -v -q "p11sak-x509-copied" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted copied x509 certs"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete copied x509 certs"
+	status=1
+fi
+# rsa-2048
+grep -q "p11sak-x509-rsa2048crt" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random rsa 2048 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random rsa 2048 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-rsa2048crt" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with rsa 2048 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with rsa 2048 public key"
+	status=1
+fi
+
+grep -q "p11sak-x509-rsa2048pem" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random rsa 2048 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random rsa 2048 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-rsa2048pem" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with rsa 2048 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with rsa 2048 public key"
+	status=1
+fi
+
+# rsa-4096
+grep -q "p11sak-x509-rsa4096crt" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random rsa 4096 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random rsa 4096 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-rsa4096crt" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with rsa 4096 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with rsa 4096 public key"
+	status=1
+fi
+
+grep -q "p11sak-x509-rsa4096pem" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random rsa 4096 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random rsa 4096 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-rsa4096pem" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with rsa 4096 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with rsa 4096 public key"
+	status=1
+fi
+
+# EC-p256
+grep -q "p11sak-x509-ecp256crt" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random EC-p256 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random EC-p256 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp256crt" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with EC-p256 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with EC-p256 public key"
+	status=1
+fi
+
+grep -q "p11sak-x509-ecp256pem" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random EC-p256 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random EC-p256 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp256pem" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with EC-p256 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with EC-p256 public key"
+	status=1
+fi
+
+# EC-p384
+grep -q "p11sak-x509-ecp384crt" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random EC-p384 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random EC-p384 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp384crt" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with EC-p384 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with EC-p384 public key"
+	status=1
+fi
+
+grep -q "p11sak-x509-ecp384pem" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random EC-p384 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random EC-p384 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp384pem" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with EC-p384 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with EC-p384 public key"
+	status=1
+fi
+
+# EC-p521
+grep -q "p11sak-x509-ecp521crt" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random EC-p521 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random EC-p521 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp521crt" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with EC-p521 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with EC-p521 public key"
+	status=1
+fi
+
+grep -q "p11sak-x509-ecp521pem" $P11SAK_X509_PRE
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random EC-p521 key"
+else
+	echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random EC-p521 key"
+	status=1
+fi
+grep -v -q "p11sak-x509-ecp521pem" $P11SAK_X509_POST
+rc=$?
+if [ $rc = 0 ]; then
+	echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with EC-p521 public key"
+else
+	echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with EC-p521 public key"
+	status=1
+fi
+
+# DSA-3072
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	grep -q "p11sak-x509-dsa3072crt" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random DSA-3072 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random DSA-3072 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-dsa3072crt" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with DSA-3072 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with DSA-3072 public key"
+		status=1
+	fi
+	
+	grep -q "p11sak-x509-dsa3072pem" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random DSA-3072 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random DSA-3072 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-dsa3072pem" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with DSA-3072 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with DSA-3072 public key"
+		status=1
+	fi
+else
+	echo "* TESTCASE import-cert x509 SKIP Import binary x509 cert with random DSA-3072 key. Slot does not support DSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported binary x509 cert with DSA-3072 public key. Slot does not support DSA."
+	echo "* TESTCASE import-cert x509 SKIP Import base64-encoded x509 cert with random DSA-3072 key. Slot does not support DSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported base64-encoded x509 cert with DSA-3072 public key. Slot does not support DSA."
+fi
+
+# DSA-4096
+if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_DSA) ]]; then
+	grep -q "p11sak-x509-dsa4096crt" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported binary x509 cert with random DSA-4096 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import binary x509 certs with random DSA-4096 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-dsa4096crt" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported binary x509 cert with DSA-4096 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported binary x509 cert with DSA-4096 public key"
+		status=1
+	fi
+	
+	grep -q "p11sak-x509-dsa4096pem" $P11SAK_X509_PRE
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE import-cert x509 PASS Imported base64-encoded x509 cert with random DSA-4096 key"
+	else
+		echo "* TESTCASE import-cert x509 FAIL Failed to import base64-encoded x509 certs with random DSA-4096 key"
+		status=1
+	fi
+	grep -v -q "p11sak-x509-dsa4096pem" $P11SAK_X509_POST
+	rc=$?
+	if [ $rc = 0 ]; then
+		echo "* TESTCASE remove-cert x509 PASS Deleted imported base64-encoded x509 cert with DSA-4096 public key"
+	else
+		echo "* TESTCASE remove-cert x509 FAIL Failed to delete imported base64-encoded x509 cert with DSA-4096 public key"
+		status=1
+	fi
+else
+	echo "* TESTCASE import-cert x509 SKIP Import binary x509 cert with random DSA-4096 key. Slot does not support DSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported binary x509 cert with DSA-4096 public key. Slot does not support DSA."
+	echo "* TESTCASE import-cert x509 SKIP Import base64-encoded x509 cert with random DSA-4096 key. Slot does not support DSA."
+	echo "* TESTCASE remove-cert x509 SKIP Delete imported base64-encoded x509 cert with DSA-4096 public key. Slot does not support DSA."
+fi
+
+
 # check return codes
 if [ $RC_P11SAK_GENERATE = 0 ]; then
 	echo "* TESTCASE generate-key PASS return code check"
@@ -1402,6 +1874,69 @@ else
 	status=1
 fi
 
+# check return codes from certificate tests
+if [ $RC_P11SAK_X509_IMPORT = 0 ]; then
+	echo "* TESTCASE import-cert PASS return code check"
+else
+	echo "* TESTCASE import-cert FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_LIST = 0 ]; then
+	echo "* TESTCASE list-cert short PASS return code check"
+else
+	echo "* TESTCASE list-cert short FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_LIST_LONG = 0 ]; then
+	echo "* TESTCASE list-cert long PASS return code check"
+else
+	echo "* TESTCASE list-cert long FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_EXPORT = 0 ]; then
+	echo "* TESTCASE export-cert PASS return code check"
+else
+	echo "* TESTCASE export-cert FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_COPY = 0 ]; then
+	echo "* TESTCASE copy-cert PASS return code check"
+else
+	echo "* TESTCASE copy-cert FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_UPDATE = 0 ]; then
+	echo "* TESTCASE set-cert-attr PASS return code check"
+else
+	echo "* TESTCASE set-cert-attr FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_REMOVE = 0 ]; then
+	echo "* TESTCASE remove-cert PASS return code check"
+else
+	echo "* TESTCASE remove-cert FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_EXTRACT = 0 ]; then
+	echo "* TESTCASE extract-cert-pubkey PASS return code check"
+else
+	echo "* TESTCASE extract-cert-pubkey FAIL return code check"
+	status=1
+fi
+
+if [ $RC_P11SAK_X509_DIFF = 0 ]; then
+	echo "* TESTCASE diff exported certs PASS return code check"
+else
+	echo "* TESTCASE diff exported certs FAIL return code check"
+	status=1
+fi
 
 # check token pin handling
 if [ $RC_P11SAK_PINOPT = 0 ]; then
@@ -1476,12 +2011,19 @@ rm -f $P11SAK_IBM_DILITHIUM_POST
 rm -f $P11SAK_IBM_KYBER_PRE
 rm -f $P11SAK_IBM_KYBER_LONG
 rm -f $P11SAK_IBM_KYBER_POST
+rm -f $P11SAK_X509_PRE
+rm -f $P11SAK_X509_LONG
+rm -f $P11SAK_X509_POST
 rm -f $P11SAK_ALL_PINOPT
 rm -f $P11SAK_ALL_PINENV
 rm -f $P11SAK_ALL_PINCON
 rm -f export-aes.key
 rm -f export-*.pem
 rm -f export-*.opaque
+
+echo "** Now remove temporary openssl files from x509 tests - "p11sak_test.sh""
+rm -f p11sak_*cert_exported.crt
+rm -f p11sak_*cert_exported.pem
 
 echo "** Now DONE testing - 'p11sak_test.sh' - rc = $status"
 
