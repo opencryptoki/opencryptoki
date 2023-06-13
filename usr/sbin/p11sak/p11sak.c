@@ -7089,7 +7089,7 @@ static CK_RV handle_key_export(CK_OBJECT_HANDLE key, CK_OBJECT_CLASS class,
     }
 
     bio = BIO_new_file(opt_file,
-                     overwrite || data->num_exported == 0 ? "w" : "a");
+                       overwrite || data->num_exported == 0 ? "w" : "a");
     if (bio == NULL) {
         warnx("Failed to open PEM file '%s'.", opt_file);
         ERR_print_errors_cb(openssl_err_cb, NULL);
