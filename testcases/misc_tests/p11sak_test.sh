@@ -95,8 +95,9 @@ p11sak generate-key aes 256 --slot $SLOT --pin $PKCS11_USER_PIN --label "p11sak-
 RC_P11SAK_GENERATE=$((RC_P11SAK_GENERATE + $?))
 # aes-xts [128 | 256]
 if [[ -n $( pkcsconf -m -c $SLOT | grep CKM_AES_XTS_KEY_GEN) ]]; then
-	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") ]]; then
+	if [[ -n $( pkcsconf -t -c $SLOT | grep "Model: EP11") || -n $( pkcsconf -t -c $SLOT | grep "Model: CCA") ]]; then
 		# EP11 needs CKA_IBM_PROTKEY_EXTRACTABLE=TRUE and CKA_EXTRACTABLE=FALSE for AES-XTS keys
+		# CCA needs CKA_IBM_PROTKEY_EXTRACTABLE=TRUE for AES-XTS keys
 		P11SAK_ATTR="--attr xK"
 	else
 		P11SAK_ATTR=""

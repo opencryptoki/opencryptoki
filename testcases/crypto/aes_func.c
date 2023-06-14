@@ -70,7 +70,8 @@ CK_RV do_EncryptDecryptAES(struct generated_test_suite_info *tsuite)
     }
 
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
-    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+    if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
+        tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
@@ -224,7 +225,8 @@ CK_RV do_EncryptDecryptUpdateAES(struct generated_test_suite_info * tsuite)
     }
 
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
-    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+    if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
+        tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
@@ -510,7 +512,8 @@ CK_RV do_EncryptAES(struct published_test_suite_info * tsuite)
     }
 
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
-    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+    if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
+        tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
@@ -687,7 +690,10 @@ CK_RV do_EncryptUpdateAES(struct published_test_suite_info * tsuite)
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
-
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Multipart Encryption with published test "
@@ -901,7 +907,10 @@ CK_RV do_DecryptAES(struct published_test_suite_info * tsuite)
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
-
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
     for (i = 0; i < tsuite->tvcount; i++) {
 
         testcase_begin("%s Decryption with published test vector %u and pkey=%X.",
@@ -1070,6 +1079,10 @@ CK_RV do_DecryptUpdateAES(struct published_test_suite_info * tsuite)
 
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
     if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+        testcase_skip("Slot supports AES-XTS only for protected keys.\n");
+        goto testcase_cleanup;
+    }
+    if (is_cca_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
@@ -1302,7 +1315,8 @@ CK_RV do_WrapUnwrapAES(struct generated_test_suite_info * tsuite)
     }
 
     /* Skip tests if pkey = false, but the slot doesn't support CKM_AES_XTS */
-    if (is_ep11_token(slot_id) && tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
+    if ((is_ep11_token(slot_id) || is_cca_token(slot_id)) &&
+        tsuite->mech.mechanism == CKM_AES_XTS && pkey == FALSE) {
         testcase_skip("Slot supports AES-XTS only for protected keys.\n");
         goto testcase_cleanup;
     }
